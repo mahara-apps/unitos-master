@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
 import { Route as AppProductionRouteImport } from './routes/_app.production'
@@ -19,10 +20,14 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppIndexRoute = AppIndexRouteImport.update({
-  id: '/_app/',
-  path: '/',
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
 } as any)
 const PortalTokenRoute = PortalTokenRouteImport.update({
   id: '/portal/$token',
@@ -30,16 +35,16 @@ const PortalTokenRoute = PortalTokenRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppProductionRoute = AppProductionRouteImport.update({
-  id: '/_app/production',
+  id: '/production',
   path: '/production',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof AppIndexRoute
   '/login': typeof LoginRoute
   '/production': typeof AppProductionRoute
   '/portal/$token': typeof PortalTokenRoute
-  '/': typeof AppIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -49,6 +54,7 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/_app/production': typeof AppProductionRoute
   '/portal/$token': typeof PortalTokenRoute
@@ -56,17 +62,22 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/login' | '/production' | '/portal/$token' | '/'
+  fullPaths: '/' | '/login' | '/production' | '/portal/$token'
   fileRoutesByTo: FileRoutesByTo
   to: '/login' | '/production' | '/portal/$token' | '/'
-  id: '__root__' | '/login' | '/_app/production' | '/portal/$token' | '/_app/'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/login'
+    | '/_app/production'
+    | '/portal/$token'
+    | '/_app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
-  AppProductionRoute: typeof AppProductionRoute
   PortalTokenRoute: typeof PortalTokenRoute
-  AppIndexRoute: typeof AppIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -78,12 +89,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app/': {
       id: '/_app/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AppRoute
     }
     '/portal/$token': {
       id: '/portal/$token'
@@ -97,16 +115,27 @@ declare module '@tanstack/react-router' {
       path: '/production'
       fullPath: '/production'
       preLoaderRoute: typeof AppProductionRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof AppRoute
     }
   }
 }
 
-const rootRouteChildren: RootRouteChildren = {
-  LoginRoute: LoginRoute,
+interface AppRouteChildren {
+  AppProductionRoute: typeof AppProductionRoute
+  AppIndexRoute: typeof AppIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
   AppProductionRoute: AppProductionRoute,
-  PortalTokenRoute: PortalTokenRoute,
   AppIndexRoute: AppIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
+const rootRouteChildren: RootRouteChildren = {
+  AppRoute: AppRouteWithChildren,
+  LoginRoute: LoginRoute,
+  PortalTokenRoute: PortalTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
