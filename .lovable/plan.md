@@ -1,41 +1,25 @@
 ## Objetivo
-Adicionar navegação persistente (shell com sidebar shadcn) que exponha todas as páginas internas do NexusFlow, mantendo rotas públicas (login e portal do cliente) sem o shell.
+Investigar o 404 relatado em `/production` e validar navegação/rendering em todas as rotas (`/`, `/production`, `/login`, `/portal/demo`).
 
-## Escopo
+## Diagnóstico esperado
+Sintomas prováveis a confirmar em runtime (via Playwright + console):
+1. **`/production` 404** — a rota existe em `routeTree.gen.ts` como `/_app/production`, mas o layout `_app.tsx` pode não estar montando `<Outlet />` corretamente em SSR, ou há conflito porque `_app.production.tsx` renderiza seu próprio `ProductionHeader` sticky dentro do header do shell (`_app.tsx`), gerando dois headers e possivelmente quebrando o match.
+2. **Hydration mismatch** já visível no console (ThemeProvider aplica `class="dark"` no `<html>` no cliente sem SSR match) — não causa 404, mas polui o log e pode disparar re-render.
+3. **`_app.index.tsx`** usa `min-h-screen` dentro do shell que já tem header de 56px → overflow visual.
 
-### 1. Novo layout autenticado
-- Criar `src/routes/_app.tsx` (rota pathless de layout) que envolve o conteúdo em `SidebarProvider` + `AppSidebar` + header com `SidebarTrigger` e `ThemeToggle`, renderizando `<Outlet />`.
-- Mover as rotas internas para dentro do layout:
-  - `src/routes/index.tsx` → `src/routes/_app.index.tsx` (dashboard/home)
-  - `src/routes/production.tsx` → `src/routes/_app.production.tsx`
-- Ajustar as strings de `createFileRoute` para `/_app/`, `/_app/production`.
-- **Não** mover `login.tsx` nem `portal.$token.tsx` — permanecem full-screen sem shell.
+## Passos do plano
 
-### 2. Sidebar (`src/components/app-sidebar.tsx`)
-- `Sidebar collapsible="icon"` com marca "NexusFlow" no topo.
-- Grupo **Workspace**:
-  - Dashboard → `/`
-  - Produção (Kanban) → `/production`
-- Grupo **Cliente**:
-  - Portal (demo) → `/portal/demo`
-- Rodapé: link "Sair" → `/login`.
-- Item ativo via `useRouterState` + `isActive`.
-- Ícones Lucide (LayoutDashboard, KanbanSquare, ExternalLink, LogOut).
-- Visual alinhado ao padrão premium já existente (slate/violeta, bordas sutis, dark-mode nativo via tokens).
+1. **Reproduzir com Playwright** em `/`, `/production`, `/login`, `/portal/demo`, capturando screenshot + console de cada uma para identificar exatamente onde aparece o 404 (rota não casada vs. erro de render vs. NotFoundComponent do root).
 
-### 3. Header do shell
-- Altura ~56px, borda inferior sutil.
-- `SidebarTrigger` à esquerda, breadcrumb simples (nome da página atual) no centro/esquerda, `ThemeToggle` à direita.
+2. **Corrigir hydration do ThemeProvider** — aplicar tema apenas após montagem (`suppressHydrationWarning` no `<html>` do `RootShell` e `mounted` guard no `ThemeProvider`) para eliminar o warning e evitar re-render que pode mascarar erros reais.
 
-### 4. Ajustes complementares
-- Remover `ProductionHeader` duplicado se colidir com o novo header (ou mantê-lo como sub-header do módulo — validar após mover).
-- Garantir que o `routeTree.gen.ts` seja regenerado automaticamente pelo plugin (não editar manualmente).
-- Home (`_app.index.tsx`) recebe cards rápidos linkando para os módulos, para dar um ponto de entrada real.
+3. **Ajustar `_app.production.tsx`** — remover o `ProductionHeader` duplicado (o shell já provê header com título "Produção"), mantendo apenas o `Select` de campanha + botão "Novo Post" numa toolbar interna. Remover `min-h-screen` do container (usa `flex-1` do shell).
 
-## Fora do escopo
-- Autenticação real / guarda de rota (o layout `_app` é apenas visual por enquanto).
-- Redesign das páginas internas.
-- Alterações em Login e Portal do Cliente.
+4. **Ajustar `_app.index.tsx`** — trocar `min-h-screen` por `min-h-[calc(100vh-3.5rem)]` para respeitar o header do shell.
 
-## Resultado esperado
-Ao abrir `/` ou `/production`, o usuário vê a sidebar com todas as páginas internas e consegue navegar entre elas por clique. `/login` e `/portal/demo` continuam sem shell.
+5. **Validar** com Playwright após as correções: cada rota deve renderizar 200, sidebar visível em `/` e `/production`, sem sidebar em `/login` e `/portal/demo`, sem warnings de hydration, navegação entre itens da sidebar funcional.
+
+## Fora de escopo
+- Redesign visual das páginas
+- Autenticação real
+- Alterações no Portal ou Login além de confirmar que continuam full-screen
