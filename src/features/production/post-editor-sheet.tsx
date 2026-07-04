@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { Sparkles, Wand2, ImageIcon, Loader2, Upload } from "lucide-react";
 import {
   Sheet,
@@ -23,7 +24,7 @@ import {
 import { toast } from "sonner";
 import { COLUMNS, type Platform, type Post, type PostStatus } from "./types";
 import { updatePost } from "@/lib/api/posts";
-import { generateCopy, generateImage } from "@/lib/api/ai";
+import { generateCopyFn, generateImageFn } from "@/lib/ai.functions";
 import { PlatformIcon, platformLabel } from "./platform-icon";
 
 interface Props {
@@ -37,12 +38,17 @@ const PLATFORMS: Platform[] = ["instagram", "linkedin", "twitter", "tiktok"];
 export function PostEditorSheet({ post, open, onOpenChange }: Props) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<Post | null>(post);
-  const [genCopy, setGenCopy] = useState(false);
-  const [genImg, setGenImg] = useState(false);
+  const typewriterTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     setDraft(post);
   }, [post]);
+
+  useEffect(() => {
+    return () => {
+      if (typewriterTimer.current) clearInterval(typewriterTimer.current);
+    };
+  }, []);
 
   const save = useMutation({
     mutationFn: updatePost,
@@ -53,30 +59,80 @@ export function PostEditorSheet({ post, open, onOpenChange }: Props) {
     },
   });
 
-  if (!draft) return null;
+  const callGenerateCopy = useServerFn(generateCopyFn);
+  const callGenerateImage = useServerFn(generateImageFn);
 
-  async function handleGenerateCopy() {
-    if (!draft) return;
-    setGenCopy(true);
-    try {
-      const copy = await generateCopy(draft.title || draft.copy);
-      setDraft({ ...draft, copy });
+  const generateCopy = useMutation({
+    mutationFn: (input: { title: string; briefing: string; platform: Platform }) =>
+      callGenerateCopy({ data: input }),
+    onSuccess: (result) => {
+      typewriteInto(result.copy);
       toast.success("Copy gerada com IA");
-    } finally {
-      setGenCopy(false);
-    }
+    },
+    onError: (err) => {
+      toast.error("Falha ao gerar copy", {
+        description: err instanceof Error ? err.message : "Tente novamente em instantes.",
+      });
+    },
+  });
+
+  const generateImage = useMutation({
+    mutationFn: (input: { context: string }) => callGenerateImage({ data: input }),
+    onSuccess: (result) => {
+      setDraft((prev) => (prev ? { ...prev, imageUrl: result.imageUrl } : prev));
+      toast.success("Imagem gerada com IA");
+    },
+    onError: (err) => {
+      toast.error("Falha ao gerar imagem", {
+        description: err instanceof Error ? err.message : "Tente novamente em instantes.",
+      });
+    },
+  });
+
+  function typewriteInto(text: string) {
+    if (typewriterTimer.current) clearInterval(typewriterTimer.current);
+    // Reset the field, then stream characters in for a smooth reveal.
+    setDraft((prev) => (prev ? { ...prev, copy: "" } : prev));
+    let i = 0;
+    const step = Math.max(2, Math.ceil(text.length / 120)); // ~1.5s reveal
+    typewriterTimer.current = setInterval(() => {
+      i = Math.min(text.length, i + step);
+      const slice = text.slice(0, i);
+      setDraft((prev) => (prev ? { ...prev, copy: slice } : prev));
+      if (i >= text.length && typewriterTimer.current) {
+        clearInterval(typewriterTimer.current);
+        typewriterTimer.current = null;
+      }
+    }, 20);
   }
 
-  async function handleGenerateImage() {
+  if (!draft) return null;
+
+  const genCopy = generateCopy.isPending;
+  const genImg = generateImage.isPending;
+
+  function handleGenerateCopy() {
     if (!draft) return;
-    setGenImg(true);
-    try {
-      const url = await generateImage(draft.title);
-      setDraft({ ...draft, imageUrl: url });
-      toast.success("Imagem gerada com IA");
-    } finally {
-      setGenImg(false);
+    const title = draft.title.trim();
+    if (!title) {
+      toast.error("Informe um título antes de gerar a copy");
+      return;
     }
+    generateCopy.mutate({
+      title,
+      briefing: draft.copy.trim().slice(0, 2000),
+      platform: draft.platform,
+    });
+  }
+
+  function handleGenerateImage() {
+    if (!draft) return;
+    const context = (draft.title || draft.copy).trim();
+    if (!context) {
+      toast.error("Informe um título ou copy para dar contexto à imagem");
+      return;
+    }
+    generateImage.mutate({ context: context.slice(0, 1000) });
   }
 
   return (
