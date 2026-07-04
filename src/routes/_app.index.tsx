@@ -7,7 +7,7 @@ export const Route = createFileRoute("/_app/")({
 
 function Index() {
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-6">
+    <div className="relative flex min-h-[calc(100vh-3.5rem)] items-center justify-center overflow-hidden bg-background px-6">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,theme(colors.violet.500/15),transparent_60%),radial-gradient(circle_at_80%_60%,theme(colors.indigo.500/15),transparent_60%)]" />
       <div className="relative z-10 max-w-2xl text-center">
         <div className="mx-auto mb-6 inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/70 px-3 py-1 text-xs text-muted-foreground backdrop-blur">
