@@ -1,0 +1,70 @@
+import type { Campaign, Post } from "./types";
+
+export const MOCK_CAMPAIGNS: Campaign[] = [
+  { id: "c1", name: "Lançamento Q1 — NexusFlow" },
+  { id: "c2", name: "Awareness Institucional" },
+  { id: "c3", name: "Black Friday 2026" },
+];
+
+export const MOCK_POSTS: Post[] = [
+  {
+    id: "p1",
+    title: "Anúncio: novo módulo de IA",
+    copy: "Apresentamos a nova geração de automação criativa dentro do NexusFlow. Produza, revise e aprove em minutos.",
+    platform: "linkedin",
+    status: "idea",
+    assignee: { id: "u1", name: "Ana Prado" },
+    campaignId: "c1",
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "p2",
+    title: "Reels — bastidores do time",
+    copy: "Sequência curta mostrando o time em ação. CTA para inscrição na waitlist.",
+    platform: "instagram",
+    status: "idea",
+    assignee: { id: "u2", name: "Bruno Lima" },
+    campaignId: "c1",
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "p3",
+    title: "Case de cliente — Editora Alfa",
+    copy: "Como a Editora Alfa reduziu em 60% o tempo de produção de conteúdo com o NexusFlow.",
+    platform: "linkedin",
+    status: "in_production",
+    assignee: { id: "u3", name: "Carla Souza" },
+    campaignId: "c1",
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "p4",
+    title: "Carrossel — 5 dicas de copy",
+    copy: "Carrossel educativo para engajamento orgânico.",
+    platform: "instagram",
+    status: "internal_review",
+    assignee: { id: "u1", name: "Ana Prado" },
+    campaignId: "c1",
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "p5",
+    title: "Thread sobre workflow de aprovação",
+    copy: "Thread mostrando o fluxo interno → cliente → publicação.",
+    platform: "twitter",
+    status: "client_review",
+    assignee: { id: "u2", name: "Bruno Lima" },
+    campaignId: "c1",
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "p6",
+    title: "Post institucional — visão 2026",
+    copy: "Comunicado oficial da nova visão de produto para 2026.",
+    platform: "linkedin",
+    status: "approved",
+    assignee: { id: "u3", name: "Carla Souza" },
+    campaignId: "c1",
+    updatedAt: new Date().toISOString(),
+  },
+];
