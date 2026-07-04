@@ -9,75 +9,79 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ProductionRouteImport } from './routes/production'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
+import { Route as AppProductionRouteImport } from './routes/_app.production'
 
-const ProductionRoute = ProductionRouteImport.update({
-  id: '/production',
-  path: '/production',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => AppRoute,
 } as any)
 const PortalTokenRoute = PortalTokenRouteImport.update({
   id: '/portal/$token',
   path: '/portal/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppProductionRoute = AppProductionRouteImport.update({
+  id: '/production',
+  path: '/production',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof AppIndexRoute
   '/login': typeof LoginRoute
-  '/production': typeof ProductionRoute
+  '/production': typeof AppProductionRoute
   '/portal/$token': typeof PortalTokenRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/login': typeof LoginRoute
-  '/production': typeof ProductionRoute
+  '/production': typeof AppProductionRoute
   '/portal/$token': typeof PortalTokenRoute
+  '/': typeof AppIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
+  '/_app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
-  '/production': typeof ProductionRoute
+  '/_app/production': typeof AppProductionRoute
   '/portal/$token': typeof PortalTokenRoute
+  '/_app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths: '/' | '/login' | '/production' | '/portal/$token'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/production' | '/portal/$token'
-  id: '__root__' | '/' | '/login' | '/production' | '/portal/$token'
+  to: '/login' | '/production' | '/portal/$token' | '/'
+  id:
+    | '__root__'
+    | '/_app'
+    | '/login'
+    | '/_app/production'
+    | '/portal/$token'
+    | '/_app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
-  ProductionRoute: typeof ProductionRoute
   PortalTokenRoute: typeof PortalTokenRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/production': {
-      id: '/production'
-      path: '/production'
-      fullPath: '/production'
-      preLoaderRoute: typeof ProductionRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -85,12 +89,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app/': {
+      id: '/_app/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
     }
     '/portal/$token': {
       id: '/portal/$token'
@@ -99,13 +110,31 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/production': {
+      id: '/_app/production'
+      path: '/production'
+      fullPath: '/production'
+      preLoaderRoute: typeof AppProductionRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
+interface AppRouteChildren {
+  AppProductionRoute: typeof AppProductionRoute
+  AppIndexRoute: typeof AppIndexRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppProductionRoute: AppProductionRoute,
+  AppIndexRoute: AppIndexRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
-  ProductionRoute: ProductionRoute,
   PortalTokenRoute: PortalTokenRoute,
 }
 export const routeTree = rootRouteImport

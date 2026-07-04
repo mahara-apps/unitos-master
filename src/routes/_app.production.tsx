@@ -7,7 +7,7 @@ import { KanbanBoard } from "@/features/production/kanban-board";
 import { PostEditorSheet } from "@/features/production/post-editor-sheet";
 import type { Post } from "@/features/production/types";
 
-export const Route = createFileRoute("/production")({
+export const Route = createFileRoute("/_app/production")({
   head: () => ({
     meta: [
       { title: "Produção — NexusFlow" },

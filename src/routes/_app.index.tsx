@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Sparkles, ArrowRight } from "lucide-react";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_app/")({
   component: Index,
 });
 

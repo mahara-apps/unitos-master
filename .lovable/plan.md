@@ -1,36 +1,41 @@
 ## Objetivo
-Criar uma tela de login estática e moderna em `/login`, com UI/UX inspirada em Stripe/Supabase. Sem habilitar Lovable Cloud, sem social login, sem confirmação por email. A integração real com Supabase será feita externamente pelo usuário depois.
+Adicionar navegação persistente (shell com sidebar shadcn) que exponha todas as páginas internas do NexusFlow, mantendo rotas públicas (login e portal do cliente) sem o shell.
 
 ## Escopo
-- Nova rota `/login` (`src/routes/login.tsx`) com `head()` próprio (title/description/OG).
-- Componente `LoginForm` em `src/components/login-form.tsx`.
-- Sem lógica de autenticação real — `onSubmit` valida com Zod e apenas exibe um toast (`sonner`) com os dados. Comentário `// TODO: integrar com Supabase externo` no handler.
-- Rota `/` ganha um link "Entrar" apontando para `/login` (mínimo para navegar).
 
-## Campos e comportamento
-- **Nome** — input texto, obrigatório, 2–80 chars.
-- **Email** — input email, obrigatório, validação de formato.
-- **Senha** — input com toggle de visibilidade (ícone `Eye` / `EyeOff` da lucide) via botão dentro do input.
-- **Lembrar-me** — `Checkbox` shadcn + label.
-- **Esqueci minha senha** — link à direita da label da senha, `to="/login"` como placeholder (não cria página nova).
-- Botão submit "Entrar" ocupando largura total, estado `loading` com spinner.
-- Validação com `react-hook-form` + `zod` + componentes `Form*` do shadcn já existentes.
-- Mensagens de erro inline abaixo de cada campo.
+### 1. Novo layout autenticado
+- Criar `src/routes/_app.tsx` (rota pathless de layout) que envolve o conteúdo em `SidebarProvider` + `AppSidebar` + header com `SidebarTrigger` e `ThemeToggle`, renderizando `<Outlet />`.
+- Mover as rotas internas para dentro do layout:
+  - `src/routes/index.tsx` → `src/routes/_app.index.tsx` (dashboard/home)
+  - `src/routes/production.tsx` → `src/routes/_app.production.tsx`
+- Ajustar as strings de `createFileRoute` para `/_app/`, `/_app/production`.
+- **Não** mover `login.tsx` nem `portal.$token.tsx` — permanecem full-screen sem shell.
 
-## Design (Stripe/Supabase)
-- Layout centralizado, card único com largura ~400px, sombra suave, borda sutil, radius médio.
-- Fundo com gradient sutil usando tokens semânticos (`--background`, `--muted`) — sem cores hardcoded.
-- Tipografia: título "Entrar na sua conta" + subtítulo curto.
-- Espaçamento generoso, inputs com altura confortável (h-11), foco com ring do design system.
-- Rodapé do card: "Não tem conta? Criar conta" (link placeholder para `/login`).
-- Tokens novos em `src/styles.css` se necessário (ex: `--gradient-auth`, `--shadow-auth`) via `@theme inline`. Sem tocar em fontes remotas.
+### 2. Sidebar (`src/components/app-sidebar.tsx`)
+- `Sidebar collapsible="icon"` com marca "NexusFlow" no topo.
+- Grupo **Workspace**:
+  - Dashboard → `/`
+  - Produção (Kanban) → `/production`
+- Grupo **Cliente**:
+  - Portal (demo) → `/portal/demo`
+- Rodapé: link "Sair" → `/login`.
+- Item ativo via `useRouterState` + `isActive`.
+- Ícones Lucide (LayoutDashboard, KanbanSquare, ExternalLink, LogOut).
+- Visual alinhado ao padrão premium já existente (slate/violeta, bordas sutis, dark-mode nativo via tokens).
 
-## Arquivos
-- Criar: `src/routes/login.tsx`, `src/components/login-form.tsx`.
-- Editar: `src/routes/index.tsx` (adicionar link "Entrar"), `src/routes/__root.tsx` (atualizar title/description default do app), possivelmente `src/styles.css` (tokens de auth).
-- Sem novas dependências — `react-hook-form`, `zod`, `sonner`, `lucide-react` e shadcn `Form/Input/Button/Checkbox/Label` já estão no projeto.
+### 3. Header do shell
+- Altura ~56px, borda inferior sutil.
+- `SidebarTrigger` à esquerda, breadcrumb simples (nome da página atual) no centro/esquerda, `ThemeToggle` à direita.
+
+### 4. Ajustes complementares
+- Remover `ProductionHeader` duplicado se colidir com o novo header (ou mantê-lo como sub-header do módulo — validar após mover).
+- Garantir que o `routeTree.gen.ts` seja regenerado automaticamente pelo plugin (não editar manualmente).
+- Home (`_app.index.tsx`) recebe cards rápidos linkando para os módulos, para dar um ponto de entrada real.
 
 ## Fora do escopo
-- Rota `/register` e `/forgot-password` reais.
-- Integração com Supabase (cliente, sessão, RLS) — será feita externamente pelo usuário.
-- Proteção de rotas / layout `_authenticated`.
+- Autenticação real / guarda de rota (o layout `_app` é apenas visual por enquanto).
+- Redesign das páginas internas.
+- Alterações em Login e Portal do Cliente.
+
+## Resultado esperado
+Ao abrir `/` ou `/production`, o usuário vê a sidebar com todas as páginas internas e consegue navegar entre elas por clique. `/login` e `/portal/demo` continuam sem shell.
