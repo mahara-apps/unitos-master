@@ -2,10 +2,18 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchCampaigns, createPost } from "@/lib/api/posts";
-import { ProductionHeader } from "@/features/production/production-header";
 import { KanbanBoard } from "@/features/production/kanban-board";
 import { PostEditorSheet } from "@/features/production/post-editor-sheet";
 import type { Post } from "@/features/production/types";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Plus } from "lucide-react";
 
 export const Route = createFileRoute("/_app/production")({
   head: () => ({
@@ -65,13 +73,27 @@ function ProductionPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      <ProductionHeader
-        campaigns={campaigns}
-        campaignId={campaignId}
-        onCampaignChange={setCampaignId}
-        onNewPost={handleNewPost}
-      />
+    <div className="flex flex-1 flex-col bg-background">
+      <div className="flex items-center justify-between gap-4 border-b border-border/60 px-6 py-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Campanha</span>
+          <Select value={campaignId} onValueChange={setCampaignId}>
+            <SelectTrigger className="w-64">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {campaigns.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <Button onClick={handleNewPost}>
+          <Plus /> Novo Post
+        </Button>
+      </div>
       <main className="flex-1 py-6">
         <KanbanBoard campaignId={campaignId} onOpenPost={handleOpenPost} />
       </main>
