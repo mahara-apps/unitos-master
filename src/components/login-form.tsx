@@ -128,7 +128,7 @@ export function LoginForm() {
                   <div className="flex items-center justify-between">
                     <FormLabel>Senha</FormLabel>
                     <Link
-                      to="/login"
+                      to="/forgot-password"
                       className="text-xs font-medium text-primary hover:underline"
                     >
                       Esqueci minha senha

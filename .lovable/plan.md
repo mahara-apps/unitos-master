@@ -1,25 +1,36 @@
 ## Objetivo
-Investigar o 404 relatado em `/production` e validar navegação/rendering em todas as rotas (`/`, `/production`, `/login`, `/portal/demo`).
+Implementar o fluxo completo de recuperação de senha, seguindo o padrão Supabase (mesmo que o login atual ainda seja mock — a recuperação já pode chamar o Supabase real, pois o cliente está configurado).
 
-## Diagnóstico esperado
-Sintomas prováveis a confirmar em runtime (via Playwright + console):
-1. **`/production` 404** — a rota existe em `routeTree.gen.ts` como `/_app/production`, mas o layout `_app.tsx` pode não estar montando `<Outlet />` corretamente em SSR, ou há conflito porque `_app.production.tsx` renderiza seu próprio `ProductionHeader` sticky dentro do header do shell (`_app.tsx`), gerando dois headers e possivelmente quebrando o match.
-2. **Hydration mismatch** já visível no console (ThemeProvider aplica `class="dark"` no `<html>` no cliente sem SSR match) — não causa 404, mas polui o log e pode disparar re-render.
-3. **`_app.index.tsx`** usa `min-h-screen` dentro do shell que já tem header de 56px → overflow visual.
+## Rotas novas
 
-## Passos do plano
+1. **`/forgot-password`** (`src/routes/forgot-password.tsx`) — full-screen, mesmo visual do login.
+   - Formulário: email (Zod validado).
+   - Chama `supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/reset-password` })`.
+   - Estado de sucesso: mensagem "Se este email existir, você receberá as instruções em instantes" (evita enumeração de contas) + botão voltar para `/login`.
+   - Toast de erro genérico em caso de falha de rede.
 
-1. **Reproduzir com Playwright** em `/`, `/production`, `/login`, `/portal/demo`, capturando screenshot + console de cada uma para identificar exatamente onde aparece o 404 (rota não casada vs. erro de render vs. NotFoundComponent do root).
+2. **`/reset-password`** (`src/routes/reset-password.tsx`) — full-screen, público (fora de `_authenticated`).
+   - Detecta `type=recovery` no `window.location.hash` (Supabase envia via hash). Se ausente, mostra estado "Link inválido ou expirado" com link para `/forgot-password`.
+   - Registra `supabase.auth.onAuthStateChange` para capturar o evento `PASSWORD_RECOVERY` que hidrata a sessão temporária.
+   - Formulário: nova senha + confirmação (Zod: min 8, max 72, campos iguais, toggle mostrar/ocultar reutilizando o padrão do `LoginForm`).
+   - Submit: `supabase.auth.updateUser({ password })`. Em sucesso: toast + `navigate({ to: "/login" })`. Em erro: toast com mensagem do Supabase.
 
-2. **Corrigir hydration do ThemeProvider** — aplicar tema apenas após montagem (`suppressHydrationWarning` no `<html>` do `RootShell` e `mounted` guard no `ThemeProvider`) para eliminar o warning e evitar re-render que pode mascarar erros reais.
+## Ajustes na tela de login
 
-3. **Ajustar `_app.production.tsx`** — remover o `ProductionHeader` duplicado (o shell já provê header com título "Produção"), mantendo apenas o `Select` de campanha + botão "Novo Post" numa toolbar interna. Remover `min-h-screen` do container (usa `flex-1` do shell).
+- Em `src/components/login-form.tsx`, trocar o `Link to="/login"` do "Esqueci minha senha" por `Link to="/forgot-password"`.
 
-4. **Ajustar `_app.index.tsx`** — trocar `min-h-screen` por `min-h-[calc(100vh-3.5rem)]` para respeitar o header do shell.
+## Componente compartilhado
 
-5. **Validar** com Playwright após as correções: cada rota deve renderizar 200, sidebar visível em `/` e `/production`, sem sidebar em `/login` e `/portal/demo`, sem warnings de hydration, navegação entre itens da sidebar funcional.
+Extrair um pequeno `AuthShell` (`src/features/auth/auth-shell.tsx`) opcional para reaproveitar o wrapper visual (fundo radial + card centralizado) entre `/login`, `/forgot-password` e `/reset-password`. Se preferir manter simples nesta primeira entrega, replicar o wrapper inline — decisão de implementação.
+
+## SEO / metadata
+
+Cada nova rota define `head()` com `title`, `description`, `og:title`, `og:description` e `twitter:card` próprios ("Recuperar senha — NexusFlow" / "Definir nova senha — NexusFlow"), sem `og:image` (páginas utilitárias).
 
 ## Fora de escopo
-- Redesign visual das páginas
-- Autenticação real
-- Alterações no Portal ou Login além de confirmar que continuam full-screen
+- Integração real do submit do `/login` com `signInWithPassword` (o login continua mock nesta entrega, conforme está hoje).
+- Templates de e-mail customizados (usa o padrão do Supabase por enquanto; podemos escalar para `scaffold_auth_email_templates` depois se quiser branding próprio).
+- Rota `_authenticated` — só páginas públicas.
+
+## Configuração Supabase (ação do usuário após deploy)
+No painel do Supabase, adicionar `https://<dominio>/reset-password` à lista de **Redirect URLs** em Authentication → URL Configuration para o link do e-mail funcionar em produção. Em preview/local o `window.location.origin` já cobre.
