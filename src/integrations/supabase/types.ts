@@ -14,7 +14,276 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ai_agents: {
+        Row: {
+          active: boolean | null
+          created_at: string
+          id: string
+          is_humanized: boolean | null
+          name: string
+          purpose: string | null
+          system_prompt: string
+          updated_at: string
+          use_time_based_greetings: boolean | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string
+          id?: string
+          is_humanized?: boolean | null
+          name: string
+          purpose?: string | null
+          system_prompt: string
+          updated_at?: string
+          use_time_based_greetings?: boolean | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string
+          id?: string
+          is_humanized?: boolean | null
+          name?: string
+          purpose?: string | null
+          system_prompt?: string
+          updated_at?: string
+          use_time_based_greetings?: boolean | null
+        }
+        Relationships: []
+      }
+      campaigns: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          status: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          status?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          status?: string | null
+        }
+        Relationships: []
+      }
+      conversations: {
+        Row: {
+          api_provider: string | null
+          channel: string | null
+          created_at: string
+          direction: string | null
+          id: string
+          lead_id: string | null
+          message_content: string
+          sentiment: string | null
+        }
+        Insert: {
+          api_provider?: string | null
+          channel?: string | null
+          created_at?: string
+          direction?: string | null
+          id?: string
+          lead_id?: string | null
+          message_content: string
+          sentiment?: string | null
+        }
+        Update: {
+          api_provider?: string | null
+          channel?: string | null
+          created_at?: string
+          direction?: string | null
+          id?: string
+          lead_id?: string | null
+          message_content?: string
+          sentiment?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          assigned_agent_id: string | null
+          company: string | null
+          created_at: string
+          id: string
+          name: string
+          phone_number: string
+          qualification_score: number | null
+          status: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_agent_id?: string | null
+          company?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          phone_number: string
+          qualification_score?: number | null
+          status?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_agent_id?: string | null
+          company?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          phone_number?: string
+          qualification_score?: number | null
+          status?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_assigned_agent_id_fkey"
+            columns: ["assigned_agent_id"]
+            isOneToOne: false
+            referencedRelation: "ai_agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_approvals: {
+        Row: {
+          action: string
+          comment: string | null
+          created_at: string
+          id: string
+          post_id: string | null
+          snapshot_copy: string | null
+          snapshot_image: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          post_id?: string | null
+          snapshot_copy?: string | null
+          snapshot_image?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          post_id?: string | null
+          snapshot_copy?: string | null
+          snapshot_image?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_approvals_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_approvals_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      posts: {
+        Row: {
+          campaign_id: string | null
+          client_approval_token: string | null
+          copy_text: string | null
+          created_at: string
+          id: string
+          image_url: string | null
+          platform: string | null
+          scheduled_for: string | null
+          status: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          client_approval_token?: string | null
+          copy_text?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          platform?: string | null
+          scheduled_for?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string | null
+          client_approval_token?: string | null
+          copy_text?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          platform?: string | null
+          scheduled_for?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "posts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          full_name: string
+          id: string
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name: string
+          id: string
+          role?: string
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          full_name?: string
+          id?: string
+          role?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
