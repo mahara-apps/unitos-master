@@ -35,7 +35,7 @@ const loginSchema = z.object({
     .string()
     .min(8, { message: "Mínimo de 8 caracteres" })
     .max(72, { message: "Máximo de 72 caracteres" }),
-  remember: z.boolean().default(false),
+  remember: z.boolean(),
 });
 
 type LoginValues = z.infer<typeof loginSchema>;
