@@ -595,12 +595,6 @@ export const getDashboardInsights = createServerFn({ method: "POST" })
     const key = process.env.LOVABLE_API_KEY;
     if (!key) return null;
 
-    const summary = data.clientId
-      ? (() => {
-          return { mode: "client" as const, ...(null as never) };
-        })()
-      : null;
-
     const brief = data.clientId
       ? await computeStats(context, data.brandId, data.clientId).then((s) => ({
           mode: "client" as const,
@@ -622,7 +616,6 @@ export const getDashboardInsights = createServerFn({ method: "POST" })
           approvalsQueueSize: a.approvalsQueue.length,
           upcomingCount: a.upcoming.length,
         }));
-    void summary;
 
     try {
       const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
