@@ -299,12 +299,19 @@ Responda SOMENTE com o JSON, sem markdown, sem texto antes ou depois.`,
 export const briefingParseFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z.object({ brandId: z.string().uuid(), texto: z.string().min(20) }).parse(i),
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+        texto: z.string().min(20),
+      })
+      .parse(i),
   )
   .handler(async ({ data, context }) => {
     const out = await runAgent({
       agent: "briefing.parse",
       brandId: data.brandId,
+      clientId: data.clientId,
       userId: context.userId,
       supabase: context.supabase,
       system: P.briefing,
@@ -316,6 +323,7 @@ export const briefingParseFn = createServerFn({ method: "POST" })
       .from("brand_briefings")
       .insert({
         brand_id: data.brandId,
+        client_id: data.clientId,
         raw_text: data.texto,
         data: out,
         completude: out.completude_percentual ?? 0,
@@ -331,12 +339,19 @@ export const briefingParseFn = createServerFn({ method: "POST" })
 export const voiceGenerateFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z.object({ brandId: z.string().uuid(), briefingJson: z.unknown() }).parse(i),
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+        briefingJson: z.unknown(),
+      })
+      .parse(i),
   )
   .handler(async ({ data, context }) => {
     const out = await runAgent({
       agent: "voice.generate",
       brandId: data.brandId,
+      clientId: data.clientId,
       userId: context.userId,
       supabase: context.supabase,
       system: P.voice,
@@ -348,11 +363,17 @@ export const voiceGenerateFn = createServerFn({ method: "POST" })
       .from("brand_voice_cards")
       .update({ is_active: false })
       .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
       .eq("is_active", true);
 
     const { data: row, error } = await context.supabase
       .from("brand_voice_cards")
-      .insert({ brand_id: data.brandId, data: out, created_by: context.userId })
+      .insert({
+        brand_id: data.brandId,
+        client_id: data.clientId,
+        data: out,
+        created_by: context.userId,
+      })
       .select()
       .single();
     if (error) throw error;
@@ -363,12 +384,19 @@ export const voiceGenerateFn = createServerFn({ method: "POST" })
 export const personasGenerateFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z.object({ brandId: z.string().uuid(), briefingJson: z.unknown() }).parse(i),
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+        briefingJson: z.unknown(),
+      })
+      .parse(i),
   )
   .handler(async ({ data, context }) => {
     const out = await runAgent({
       agent: "personas.generate",
       brandId: data.brandId,
+      clientId: data.clientId,
       userId: context.userId,
       supabase: context.supabase,
       system: P.personas,
@@ -380,11 +408,17 @@ export const personasGenerateFn = createServerFn({ method: "POST" })
       .from("brand_personas")
       .update({ is_active: false })
       .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
       .eq("is_active", true);
 
     const { data: row, error } = await context.supabase
       .from("brand_personas")
-      .insert({ brand_id: data.brandId, data: out, created_by: context.userId })
+      .insert({
+        brand_id: data.brandId,
+        client_id: data.clientId,
+        data: out,
+        created_by: context.userId,
+      })
       .select()
       .single();
     if (error) throw error;
@@ -398,6 +432,7 @@ export const cohortsGenerateFn = createServerFn({ method: "POST" })
     z
       .object({
         brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
         briefingJson: z.unknown(),
         personasJson: z.unknown(),
       })
@@ -407,6 +442,7 @@ export const cohortsGenerateFn = createServerFn({ method: "POST" })
     const out = await runAgent({
       agent: "cohorts.generate",
       brandId: data.brandId,
+      clientId: data.clientId,
       userId: context.userId,
       supabase: context.supabase,
       system: P.cohorts,
@@ -418,11 +454,17 @@ export const cohortsGenerateFn = createServerFn({ method: "POST" })
       .from("brand_cohorts")
       .update({ is_active: false })
       .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
       .eq("is_active", true);
 
     const { data: row, error } = await context.supabase
       .from("brand_cohorts")
-      .insert({ brand_id: data.brandId, data: out, created_by: context.userId })
+      .insert({
+        brand_id: data.brandId,
+        client_id: data.clientId,
+        data: out,
+        created_by: context.userId,
+      })
       .select()
       .single();
     if (error) throw error;
@@ -436,6 +478,7 @@ export const swotGenerateFn = createServerFn({ method: "POST" })
     z
       .object({
         brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
         briefingJson: z.unknown(),
         personasJson: z.unknown(),
         cohortsJson: z.unknown(),
@@ -446,6 +489,7 @@ export const swotGenerateFn = createServerFn({ method: "POST" })
     const out = await runAgent({
       agent: "swot.generate",
       brandId: data.brandId,
+      clientId: data.clientId,
       userId: context.userId,
       supabase: context.supabase,
       system: P.swot,
@@ -461,11 +505,17 @@ export const swotGenerateFn = createServerFn({ method: "POST" })
       .from("brand_swot")
       .update({ is_active: false })
       .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
       .eq("is_active", true);
 
     const { data: row, error } = await context.supabase
       .from("brand_swot")
-      .insert({ brand_id: data.brandId, data: out, created_by: context.userId })
+      .insert({
+        brand_id: data.brandId,
+        client_id: data.clientId,
+        data: out,
+        created_by: context.userId,
+      })
       .select()
       .single();
     if (error) throw error;
@@ -479,6 +529,7 @@ export const pautaSuggestFn = createServerFn({ method: "POST" })
     z
       .object({
         brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
         briefingJson: z.unknown(),
         personasJson: z.unknown(),
         cohortsJson: z.unknown(),
@@ -492,6 +543,7 @@ export const pautaSuggestFn = createServerFn({ method: "POST" })
     const out = await runAgent({
       agent: "pauta.suggest",
       brandId: data.brandId,
+      clientId: data.clientId,
       userId: context.userId,
       supabase: context.supabase,
       system: P.pauta,
@@ -510,6 +562,7 @@ export const pautaSuggestFn = createServerFn({ method: "POST" })
       await context.supabase.from("brand_pautas").insert(
         out.pautas.map((p) => ({
           brand_id: data.brandId,
+          client_id: data.clientId,
           titulo: p.titulo,
           pilar: p.pilar,
           cohort_alvo: p.cohort_alvo,
@@ -532,6 +585,7 @@ export const contentGenerateFn = createServerFn({ method: "POST" })
     z
       .object({
         brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
         voiceCardJson: z.unknown(),
         pautaJson: z.unknown(),
         personaOuCohortJson: z.unknown(),
@@ -546,6 +600,7 @@ export const contentGenerateFn = createServerFn({ method: "POST" })
     const out = await runAgent({
       agent: "content.generate",
       brandId: data.brandId,
+      clientId: data.clientId,
       userId: context.userId,
       supabase: context.supabase,
       system: P.content,
@@ -563,6 +618,7 @@ export const contentGenerateFn = createServerFn({ method: "POST" })
       .from("brand_ai_content")
       .insert({
         brand_id: data.brandId,
+        client_id: data.clientId,
         post_id: data.postId ?? null,
         pauta_id: data.pautaId ?? null,
         plataforma: data.plataforma,
@@ -583,6 +639,7 @@ export const competitorExtractFn = createServerFn({ method: "POST" })
     z
       .object({
         brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
         handle: z.string().optional(),
         bioColada: z.string().min(1),
         postsColados: z.string().min(1),
@@ -594,6 +651,7 @@ export const competitorExtractFn = createServerFn({ method: "POST" })
     const out = await runAgent({
       agent: "competitor.extract",
       brandId: data.brandId,
+      clientId: data.clientId,
       userId: context.userId,
       supabase: context.supabase,
       system: P.competitor,
@@ -609,6 +667,7 @@ export const competitorExtractFn = createServerFn({ method: "POST" })
       .from("brand_competitors")
       .insert({
         brand_id: data.brandId,
+        client_id: data.clientId,
         handle: data.handle ?? null,
         bio_colada: data.bioColada,
         posts_colados: data.postsColados,
@@ -630,6 +689,7 @@ export const saveArtifactVersionFn = createServerFn({ method: "POST" })
     z
       .object({
         brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
         entityType: z.enum(["briefing", "voice", "personas", "cohorts", "swot"]),
         entityId: z.string().uuid(),
         data: z.unknown(),
@@ -651,10 +711,12 @@ export const saveArtifactVersionFn = createServerFn({ method: "POST" })
       .from(table)
       .select("data")
       .eq("id", data.entityId)
+      .eq("client_id", data.clientId)
       .single();
     if (prev) {
       await context.supabase.from("brand_ai_versions").insert({
         brand_id: data.brandId,
+        client_id: data.clientId,
         entity_type: data.entityType,
         entity_id: data.entityId,
         data: prev.data,
@@ -665,22 +727,28 @@ export const saveArtifactVersionFn = createServerFn({ method: "POST" })
     const { error } = await context.supabase
       .from(table)
       .update({ data: data.data as never })
-      .eq("id", data.entityId);
+      .eq("id", data.entityId)
+      .eq("client_id", data.clientId);
     if (error) throw error;
     return { ok: true };
   });
 
-// ---------- Loader: contexto atual da marca ----------
+// ---------- Loader: contexto atual do CLIENTE ----------
 
-export const loadBrandContextFn = createServerFn({ method: "POST" })
+export const loadClientContextFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid() }).parse(i))
+  .inputValidator((i: unknown) =>
+    z
+      .object({ brandId: z.string().uuid(), clientId: z.string().uuid() })
+      .parse(i),
+  )
   .handler(async ({ data, context }) => {
     const [briefing, voice, personas, cohorts, swot, usage] = await Promise.all([
       context.supabase
         .from("brand_briefings")
         .select("*")
         .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
@@ -688,24 +756,28 @@ export const loadBrandContextFn = createServerFn({ method: "POST" })
         .from("brand_voice_cards")
         .select("*")
         .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId)
         .eq("is_active", true)
         .maybeSingle(),
       context.supabase
         .from("brand_personas")
         .select("*")
         .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId)
         .eq("is_active", true)
         .maybeSingle(),
       context.supabase
         .from("brand_cohorts")
         .select("*")
         .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId)
         .eq("is_active", true)
         .maybeSingle(),
       context.supabase
         .from("brand_swot")
         .select("*")
         .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId)
         .eq("is_active", true)
         .maybeSingle(),
       context.supabase
