@@ -65,6 +65,281 @@ export type Database = {
           },
         ]
       }
+      brand_ai_content: {
+        Row: {
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          data: Json
+          formato: string | null
+          id: string
+          pauta_id: string | null
+          plataforma: string | null
+          post_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          formato?: string | null
+          id?: string
+          pauta_id?: string | null
+          plataforma?: string | null
+          post_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          formato?: string | null
+          id?: string
+          pauta_id?: string | null
+          plataforma?: string | null
+          post_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_ai_content_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_ai_content_pauta_id_fkey"
+            columns: ["pauta_id"]
+            isOneToOne: false
+            referencedRelation: "brand_pautas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_ai_content_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_ai_usage: {
+        Row: {
+          actor_id: string | null
+          agent: string
+          brand_id: string
+          cost_usd: number
+          created_at: string
+          error_message: string | null
+          id: string
+          input_tokens: number
+          model: string
+          output_tokens: number
+          success: boolean
+        }
+        Insert: {
+          actor_id?: string | null
+          agent: string
+          brand_id: string
+          cost_usd?: number
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          input_tokens?: number
+          model: string
+          output_tokens?: number
+          success?: boolean
+        }
+        Update: {
+          actor_id?: string | null
+          agent?: string
+          brand_id?: string
+          cost_usd?: number
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          input_tokens?: number
+          model?: string
+          output_tokens?: number
+          success?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_ai_usage_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_ai_versions: {
+        Row: {
+          brand_id: string
+          changed_by: string | null
+          created_at: string
+          data: Json
+          entity_id: string
+          entity_type: string
+          id: string
+        }
+        Insert: {
+          brand_id: string
+          changed_by?: string | null
+          created_at?: string
+          data: Json
+          entity_id: string
+          entity_type: string
+          id?: string
+        }
+        Update: {
+          brand_id?: string
+          changed_by?: string | null
+          created_at?: string
+          data?: Json
+          entity_id?: string
+          entity_type?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_ai_versions_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_briefings: {
+        Row: {
+          brand_id: string
+          completude: number
+          created_at: string
+          created_by: string | null
+          data: Json
+          id: string
+          raw_text: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          completude?: number
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          raw_text?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          completude?: number
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          raw_text?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_briefings_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_cohorts: {
+        Row: {
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          data: Json
+          id: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_cohorts_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_competitors: {
+        Row: {
+          bio_colada: string | null
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          handle: string | null
+          id: string
+          pautas_inspiradas: Json
+          posts_colados: string | null
+          snapshot: Json
+          updated_at: string
+        }
+        Insert: {
+          bio_colada?: string | null
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          handle?: string | null
+          id?: string
+          pautas_inspiradas?: Json
+          posts_colados?: string | null
+          snapshot?: Json
+          updated_at?: string
+        }
+        Update: {
+          bio_colada?: string | null
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          handle?: string | null
+          id?: string
+          pautas_inspiradas?: Json
+          posts_colados?: string | null
+          snapshot?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_competitors_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_members: {
         Row: {
           brand_id: string
@@ -90,6 +365,173 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "brand_members_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_pautas: {
+        Row: {
+          brand_id: string
+          cohort_alvo: string | null
+          created_at: string
+          created_by: string | null
+          data: Json
+          formato_recomendado: string | null
+          gancho: string | null
+          id: string
+          pilar: string | null
+          plataforma: string | null
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          cohort_alvo?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          formato_recomendado?: string | null
+          gancho?: string | null
+          id?: string
+          pilar?: string | null
+          plataforma?: string | null
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          cohort_alvo?: string | null
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          formato_recomendado?: string | null
+          gancho?: string | null
+          id?: string
+          pilar?: string | null
+          plataforma?: string | null
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_pautas_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_personas: {
+        Row: {
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          data: Json
+          id: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_personas_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_swot: {
+        Row: {
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          data: Json
+          id: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_swot_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_voice_cards: {
+        Row: {
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          data: Json
+          id: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          data?: Json
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_voice_cards_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
