@@ -54,6 +54,7 @@ function estimateCost(model: string, inTok: number, outTok: number) {
 async function runAgent<T extends z.ZodTypeAny>(opts: {
   agent: AgentName;
   brandId: string;
+  clientId: string;
   userId: string;
   system: string;
   prompt: string;
@@ -72,6 +73,16 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
     .maybeSingle();
   if (memberErr) throw memberErr;
   if (!member) throw new Error("Você não tem acesso a esta marca");
+
+  // Autorização: cliente precisa pertencer à mesma marca.
+  const { data: client, error: clientErr } = await opts.supabase
+    .from("clients")
+    .select("id")
+    .eq("id", opts.clientId)
+    .eq("brand_id", opts.brandId)
+    .maybeSingle();
+  if (clientErr) throw clientErr;
+  if (!client) throw new Error("Cliente inválido para esta marca");
 
   const { model: modelId, structuredOutputs } = AGENT_MODEL[opts.agent];
   const gateway = createLovableAiGatewayProvider(key, undefined, { structuredOutputs });
