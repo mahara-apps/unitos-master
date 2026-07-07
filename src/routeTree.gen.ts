@@ -17,6 +17,7 @@ import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app/index'
 import { Route as AuthenticatedAppKanbanRouteImport } from './routes/_authenticated/app/kanban'
 import { Route as AuthenticatedAppArenaRouteImport } from './routes/_authenticated/app/arena'
+import { Route as AuthenticatedAppAnalyticsRouteImport } from './routes/_authenticated/app/analytics'
 import { Route as AuthenticatedAppAiSettingsRouteImport } from './routes/_authenticated/app/ai-settings'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -58,6 +59,12 @@ const AuthenticatedAppArenaRoute = AuthenticatedAppArenaRouteImport.update({
   path: '/arena',
   getParentRoute: () => AuthenticatedAppRouteRoute,
 } as any)
+const AuthenticatedAppAnalyticsRoute =
+  AuthenticatedAppAnalyticsRouteImport.update({
+    id: '/analytics',
+    path: '/analytics',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
 const AuthenticatedAppAiSettingsRoute =
   AuthenticatedAppAiSettingsRouteImport.update({
     id: '/ai-settings',
@@ -72,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/app': typeof AuthenticatedAppRouteRouteWithChildren
   '/app/ai-settings': typeof AuthenticatedAppAiSettingsRoute
+  '/app/analytics': typeof AuthenticatedAppAnalyticsRoute
   '/app/arena': typeof AuthenticatedAppArenaRoute
   '/app/kanban': typeof AuthenticatedAppKanbanRoute
   '/app/': typeof AuthenticatedAppIndexRoute
@@ -82,6 +90,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/app/ai-settings': typeof AuthenticatedAppAiSettingsRoute
+  '/app/analytics': typeof AuthenticatedAppAnalyticsRoute
   '/app/arena': typeof AuthenticatedAppArenaRoute
   '/app/kanban': typeof AuthenticatedAppKanbanRoute
   '/app': typeof AuthenticatedAppIndexRoute
@@ -94,6 +103,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/app': typeof AuthenticatedAppRouteRouteWithChildren
   '/_authenticated/app/ai-settings': typeof AuthenticatedAppAiSettingsRoute
+  '/_authenticated/app/analytics': typeof AuthenticatedAppAnalyticsRoute
   '/_authenticated/app/arena': typeof AuthenticatedAppArenaRoute
   '/_authenticated/app/kanban': typeof AuthenticatedAppKanbanRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
@@ -107,6 +117,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/app'
     | '/app/ai-settings'
+    | '/app/analytics'
     | '/app/arena'
     | '/app/kanban'
     | '/app/'
@@ -117,6 +128,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/app/ai-settings'
+    | '/app/analytics'
     | '/app/arena'
     | '/app/kanban'
     | '/app'
@@ -128,6 +140,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/_authenticated/app'
     | '/_authenticated/app/ai-settings'
+    | '/_authenticated/app/analytics'
     | '/_authenticated/app/arena'
     | '/_authenticated/app/kanban'
     | '/_authenticated/app/'
@@ -198,6 +211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppArenaRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/_authenticated/app/analytics': {
+      id: '/_authenticated/app/analytics'
+      path: '/analytics'
+      fullPath: '/app/analytics'
+      preLoaderRoute: typeof AuthenticatedAppAnalyticsRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
     '/_authenticated/app/ai-settings': {
       id: '/_authenticated/app/ai-settings'
       path: '/ai-settings'
@@ -210,6 +230,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppAiSettingsRoute: typeof AuthenticatedAppAiSettingsRoute
+  AuthenticatedAppAnalyticsRoute: typeof AuthenticatedAppAnalyticsRoute
   AuthenticatedAppArenaRoute: typeof AuthenticatedAppArenaRoute
   AuthenticatedAppKanbanRoute: typeof AuthenticatedAppKanbanRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
@@ -217,6 +238,7 @@ interface AuthenticatedAppRouteRouteChildren {
 
 const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
   AuthenticatedAppAiSettingsRoute: AuthenticatedAppAiSettingsRoute,
+  AuthenticatedAppAnalyticsRoute: AuthenticatedAppAnalyticsRoute,
   AuthenticatedAppArenaRoute: AuthenticatedAppArenaRoute,
   AuthenticatedAppKanbanRoute: AuthenticatedAppKanbanRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
