@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Users, Bell, LogOut, Sparkles, KanbanSquare, BarChart3, Settings } from "lucide-react";
+import { LayoutDashboard, Users, Bell, LogOut, Sparkles, KanbanSquare, BarChart3, Settings, Bot } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -19,6 +19,7 @@ const items = [
   { title: "Dashboard", url: "/app/dashboard", icon: LayoutDashboard },
   { title: "Produção (Kanban)", url: "/app/kanban", icon: KanbanSquare },
   { title: "Arena de IA", url: "/app/arena", icon: Sparkles },
+  { title: "Agentes de IA", url: "/app/ai-agents", icon: Bot },
   { title: "Clientes", url: "/app/clients", icon: Users },
   { title: "IA & Marca", url: "/app/ai-settings", icon: Settings },
   { title: "Analytics", url: "/app/analytics", icon: BarChart3 },
