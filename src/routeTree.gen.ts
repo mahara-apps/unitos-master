@@ -16,6 +16,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticated/app/route'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app/index'
 import { Route as AuthenticatedAppKanbanRouteImport } from './routes/_authenticated/app/kanban'
+import { Route as AuthenticatedAppArenaRouteImport } from './routes/_authenticated/app/arena'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -51,6 +52,11 @@ const AuthenticatedAppKanbanRoute = AuthenticatedAppKanbanRouteImport.update({
   path: '/kanban',
   getParentRoute: () => AuthenticatedAppRouteRoute,
 } as any)
+const AuthenticatedAppArenaRoute = AuthenticatedAppArenaRouteImport.update({
+  id: '/arena',
+  path: '/arena',
+  getParentRoute: () => AuthenticatedAppRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedRouteRouteWithChildren
@@ -58,6 +64,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/app': typeof AuthenticatedAppRouteRouteWithChildren
+  '/app/arena': typeof AuthenticatedAppArenaRoute
   '/app/kanban': typeof AuthenticatedAppKanbanRoute
   '/app/': typeof AuthenticatedAppIndexRoute
 }
@@ -66,6 +73,7 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/app/arena': typeof AuthenticatedAppArenaRoute
   '/app/kanban': typeof AuthenticatedAppKanbanRoute
   '/app': typeof AuthenticatedAppIndexRoute
 }
@@ -76,6 +84,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/app': typeof AuthenticatedAppRouteRouteWithChildren
+  '/_authenticated/app/arena': typeof AuthenticatedAppArenaRoute
   '/_authenticated/app/kanban': typeof AuthenticatedAppKanbanRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
 }
@@ -87,6 +96,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/app'
+    | '/app/arena'
     | '/app/kanban'
     | '/app/'
   fileRoutesByTo: FileRoutesByTo
@@ -95,6 +105,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/app/arena'
     | '/app/kanban'
     | '/app'
   id:
@@ -104,6 +115,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/_authenticated/app'
+    | '/_authenticated/app/arena'
     | '/_authenticated/app/kanban'
     | '/_authenticated/app/'
   fileRoutesById: FileRoutesById
@@ -166,15 +178,24 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppKanbanRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/_authenticated/app/arena': {
+      id: '/_authenticated/app/arena'
+      path: '/arena'
+      fullPath: '/app/arena'
+      preLoaderRoute: typeof AuthenticatedAppArenaRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
   }
 }
 
 interface AuthenticatedAppRouteRouteChildren {
+  AuthenticatedAppArenaRoute: typeof AuthenticatedAppArenaRoute
   AuthenticatedAppKanbanRoute: typeof AuthenticatedAppKanbanRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
 }
 
 const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
+  AuthenticatedAppArenaRoute: AuthenticatedAppArenaRoute,
   AuthenticatedAppKanbanRoute: AuthenticatedAppKanbanRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
 }
