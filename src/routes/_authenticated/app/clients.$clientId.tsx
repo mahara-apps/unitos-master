@@ -12,7 +12,22 @@ export const Route = createFileRoute("/_authenticated/app/clients/$clientId")({
   component: ClientLayout,
 });
 
-const TABS = [
+type TabDef = {
+  to:
+    | "/app/clients/$clientId"
+    | "/app/clients/$clientId/briefing"
+    | "/app/clients/$clientId/voice"
+    | "/app/clients/$clientId/personas"
+    | "/app/clients/$clientId/cohorts"
+    | "/app/clients/$clientId/swot"
+    | "/app/clients/$clientId/pautas"
+    | "/app/clients/$clientId/content"
+    | "/app/clients/$clientId/competitors";
+  label: string;
+  exact?: boolean;
+};
+
+const TABS: readonly TabDef[] = [
   { to: "/app/clients/$clientId", label: "Overview", exact: true },
   { to: "/app/clients/$clientId/briefing", label: "Briefing" },
   { to: "/app/clients/$clientId/voice", label: "Voice" },
@@ -22,7 +37,7 @@ const TABS = [
   { to: "/app/clients/$clientId/pautas", label: "Pauta" },
   { to: "/app/clients/$clientId/content", label: "Copy" },
   { to: "/app/clients/$clientId/competitors", label: "Concorrentes" },
-] as const;
+];
 
 function ClientLayout() {
   const { clientId } = Route.useParams();
