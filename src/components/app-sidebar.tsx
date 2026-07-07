@@ -1,12 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import {
-  LayoutDashboard,
-  KanbanSquare,
-  ExternalLink,
-  LogOut,
-  Sparkles,
-} from "lucide-react";
-
+import { LayoutDashboard, ListChecks, Calendar, Users, FolderKanban, Bell, LogOut } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -19,63 +12,33 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import { BrandSwitcher, ClientSwitcher } from "./brand-client-switcher";
+import { supabase } from "@/integrations/supabase/client";
 
-const workspace = [
-  { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "Produção", url: "/production", icon: KanbanSquare },
-] as const;
-
-const cliente = [
-  { title: "Portal (demo)", url: "/portal/demo", icon: ExternalLink },
+const items = [
+  { title: "Dashboard", url: "/app/dashboard", icon: LayoutDashboard },
+  { title: "Trabalho", url: "/app/work", icon: ListChecks },
+  { title: "Calendário", url: "/app/calendar", icon: Calendar },
+  { title: "Projetos", url: "/app/projects", icon: FolderKanban },
+  { title: "Clientes", url: "/app/clients", icon: Users },
+  { title: "Notificações", url: "/app/notifications", icon: Bell },
 ] as const;
 
 export function AppSidebar() {
-  const currentPath = useRouterState({
-    select: (s) => s.location.pathname,
-  });
-  const isActive = (path: string) =>
-    path === "/" ? currentPath === "/" : currentPath.startsWith(path);
-
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isActive = (u: string) => pathname === u || pathname.startsWith(u + "/");
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader>
-        <div className="flex items-center gap-2 px-2 py-1.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-violet-500 to-indigo-500 text-white shadow-sm">
-            <Sparkles className="h-4 w-4" />
-          </div>
-          <div className="flex flex-col leading-tight group-data-[collapsible=icon]:hidden">
-            <span className="text-sm font-semibold text-foreground">NexusFlow</span>
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-              Content OS
-            </span>
-          </div>
-        </div>
+      <SidebarHeader className="gap-1">
+        <BrandSwitcher />
+        <ClientSwitcher />
       </SidebarHeader>
-
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Workspace</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {workspace.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-                    <Link to={item.url} className="flex items-center gap-2">
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <SidebarGroup>
-          <SidebarGroupLabel>Cliente</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {cliente.map((item) => (
+              {items.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
                     <Link to={item.url} className="flex items-center gap-2">
@@ -89,15 +52,18 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Sair">
-              <Link to="/login" className="flex items-center gap-2 text-muted-foreground">
-                <LogOut className="h-4 w-4" />
-                <span>Sair</span>
-              </Link>
+            <SidebarMenuButton
+              tooltip="Sair"
+              onClick={async () => {
+                await supabase.auth.signOut();
+                window.location.href = "/login";
+              }}
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Sair</span>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
