@@ -424,7 +424,7 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
       title: "Tarefas atrasadas",
       description: `${counts.tasks_overdue} tarefa(s) com prazo vencido.`,
       count: counts.tasks_overdue,
-      href: "/app/work",
+      href: "/app/kanban",
     });
   }
   const briefingless = clients.filter((c) => !briefings.has(c.id));
@@ -639,7 +639,7 @@ export const getDashboardInsights = createServerFn({ method: "POST" })
         }),
         prompt: `Você é o chefe de operações de uma agência de conteúdo. Analise este resumo do dashboard e responda em português (BR).
 Gere no máximo 3 ações prioritárias, cada uma com um "why" curto (menos de 20 palavras), e no máximo 3 riscos curtos (menos de 12 palavras).
-A headline deve ter no máximo 12 palavras. hrefs válidos: "/app/work", "/app/clients", "/app/calendar" ou null.
+A headline deve ter no máximo 12 palavras. hrefs válidos: "/app/kanban", "/app/clients", "/app/kanban" ou null.
 
 RESUMO:
 ${JSON.stringify(brief, null, 2)}`,

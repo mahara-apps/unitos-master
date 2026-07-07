@@ -13,8 +13,15 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as PortalTokenRouteImport } from './routes/portal.$token'
 import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticated/app/route'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app/index'
+import { Route as AuthenticatedAppNotificationsRouteImport } from './routes/_authenticated/app/notifications'
+import { Route as AuthenticatedAppKanbanRouteImport } from './routes/_authenticated/app/kanban'
+import { Route as AuthenticatedAppClientsRouteImport } from './routes/_authenticated/app/clients'
+import { Route as AuthenticatedAppArenaRouteImport } from './routes/_authenticated/app/arena'
+import { Route as AuthenticatedAppAnalyticsRouteImport } from './routes/_authenticated/app/analytics'
+import { Route as AuthenticatedAppAiSettingsRouteImport } from './routes/_authenticated/app/ai-settings'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -35,6 +42,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PortalTokenRoute = PortalTokenRouteImport.update({
+  id: '/portal/$token',
+  path: '/portal/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedAppRouteRoute = AuthenticatedAppRouteRouteImport.update({
   id: '/app',
   path: '/app',
@@ -45,6 +57,39 @@ const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedAppRouteRoute,
 } as any)
+const AuthenticatedAppNotificationsRoute =
+  AuthenticatedAppNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedAppKanbanRoute = AuthenticatedAppKanbanRouteImport.update({
+  id: '/kanban',
+  path: '/kanban',
+  getParentRoute: () => AuthenticatedAppRouteRoute,
+} as any)
+const AuthenticatedAppClientsRoute = AuthenticatedAppClientsRouteImport.update({
+  id: '/clients',
+  path: '/clients',
+  getParentRoute: () => AuthenticatedAppRouteRoute,
+} as any)
+const AuthenticatedAppArenaRoute = AuthenticatedAppArenaRouteImport.update({
+  id: '/arena',
+  path: '/arena',
+  getParentRoute: () => AuthenticatedAppRouteRoute,
+} as any)
+const AuthenticatedAppAnalyticsRoute =
+  AuthenticatedAppAnalyticsRouteImport.update({
+    id: '/analytics',
+    path: '/analytics',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
+const AuthenticatedAppAiSettingsRoute =
+  AuthenticatedAppAiSettingsRouteImport.update({
+    id: '/ai-settings',
+    path: '/ai-settings',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedRouteRouteWithChildren
@@ -52,6 +97,13 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/app': typeof AuthenticatedAppRouteRouteWithChildren
+  '/portal/$token': typeof PortalTokenRoute
+  '/app/ai-settings': typeof AuthenticatedAppAiSettingsRoute
+  '/app/analytics': typeof AuthenticatedAppAnalyticsRoute
+  '/app/arena': typeof AuthenticatedAppArenaRoute
+  '/app/clients': typeof AuthenticatedAppClientsRoute
+  '/app/kanban': typeof AuthenticatedAppKanbanRoute
+  '/app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/app/': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRoutesByTo {
@@ -59,6 +111,13 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/portal/$token': typeof PortalTokenRoute
+  '/app/ai-settings': typeof AuthenticatedAppAiSettingsRoute
+  '/app/analytics': typeof AuthenticatedAppAnalyticsRoute
+  '/app/arena': typeof AuthenticatedAppArenaRoute
+  '/app/clients': typeof AuthenticatedAppClientsRoute
+  '/app/kanban': typeof AuthenticatedAppKanbanRoute
+  '/app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/app': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRoutesById {
@@ -68,6 +127,13 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/app': typeof AuthenticatedAppRouteRouteWithChildren
+  '/portal/$token': typeof PortalTokenRoute
+  '/_authenticated/app/ai-settings': typeof AuthenticatedAppAiSettingsRoute
+  '/_authenticated/app/analytics': typeof AuthenticatedAppAnalyticsRoute
+  '/_authenticated/app/arena': typeof AuthenticatedAppArenaRoute
+  '/_authenticated/app/clients': typeof AuthenticatedAppClientsRoute
+  '/_authenticated/app/kanban': typeof AuthenticatedAppKanbanRoute
+  '/_authenticated/app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRouteTypes {
@@ -78,9 +144,28 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/app'
+    | '/portal/$token'
+    | '/app/ai-settings'
+    | '/app/analytics'
+    | '/app/arena'
+    | '/app/clients'
+    | '/app/kanban'
+    | '/app/notifications'
     | '/app/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/forgot-password' | '/login' | '/reset-password' | '/app'
+  to:
+    | '/'
+    | '/forgot-password'
+    | '/login'
+    | '/reset-password'
+    | '/portal/$token'
+    | '/app/ai-settings'
+    | '/app/analytics'
+    | '/app/arena'
+    | '/app/clients'
+    | '/app/kanban'
+    | '/app/notifications'
+    | '/app'
   id:
     | '__root__'
     | '/_authenticated'
@@ -88,6 +173,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/_authenticated/app'
+    | '/portal/$token'
+    | '/_authenticated/app/ai-settings'
+    | '/_authenticated/app/analytics'
+    | '/_authenticated/app/arena'
+    | '/_authenticated/app/clients'
+    | '/_authenticated/app/kanban'
+    | '/_authenticated/app/notifications'
     | '/_authenticated/app/'
   fileRoutesById: FileRoutesById
 }
@@ -96,6 +188,7 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  PortalTokenRoute: typeof PortalTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -128,6 +221,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/portal/$token': {
+      id: '/portal/$token'
+      path: '/portal/$token'
+      fullPath: '/portal/$token'
+      preLoaderRoute: typeof PortalTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/app': {
       id: '/_authenticated/app'
       path: '/app'
@@ -142,14 +242,68 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/_authenticated/app/notifications': {
+      id: '/_authenticated/app/notifications'
+      path: '/notifications'
+      fullPath: '/app/notifications'
+      preLoaderRoute: typeof AuthenticatedAppNotificationsRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/app/kanban': {
+      id: '/_authenticated/app/kanban'
+      path: '/kanban'
+      fullPath: '/app/kanban'
+      preLoaderRoute: typeof AuthenticatedAppKanbanRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/app/clients': {
+      id: '/_authenticated/app/clients'
+      path: '/clients'
+      fullPath: '/app/clients'
+      preLoaderRoute: typeof AuthenticatedAppClientsRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/app/arena': {
+      id: '/_authenticated/app/arena'
+      path: '/arena'
+      fullPath: '/app/arena'
+      preLoaderRoute: typeof AuthenticatedAppArenaRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/app/analytics': {
+      id: '/_authenticated/app/analytics'
+      path: '/analytics'
+      fullPath: '/app/analytics'
+      preLoaderRoute: typeof AuthenticatedAppAnalyticsRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
+    '/_authenticated/app/ai-settings': {
+      id: '/_authenticated/app/ai-settings'
+      path: '/ai-settings'
+      fullPath: '/app/ai-settings'
+      preLoaderRoute: typeof AuthenticatedAppAiSettingsRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
   }
 }
 
 interface AuthenticatedAppRouteRouteChildren {
+  AuthenticatedAppAiSettingsRoute: typeof AuthenticatedAppAiSettingsRoute
+  AuthenticatedAppAnalyticsRoute: typeof AuthenticatedAppAnalyticsRoute
+  AuthenticatedAppArenaRoute: typeof AuthenticatedAppArenaRoute
+  AuthenticatedAppClientsRoute: typeof AuthenticatedAppClientsRoute
+  AuthenticatedAppKanbanRoute: typeof AuthenticatedAppKanbanRoute
+  AuthenticatedAppNotificationsRoute: typeof AuthenticatedAppNotificationsRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
 }
 
 const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
+  AuthenticatedAppAiSettingsRoute: AuthenticatedAppAiSettingsRoute,
+  AuthenticatedAppAnalyticsRoute: AuthenticatedAppAnalyticsRoute,
+  AuthenticatedAppArenaRoute: AuthenticatedAppArenaRoute,
+  AuthenticatedAppClientsRoute: AuthenticatedAppClientsRoute,
+  AuthenticatedAppKanbanRoute: AuthenticatedAppKanbanRoute,
+  AuthenticatedAppNotificationsRoute: AuthenticatedAppNotificationsRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
 }
 
@@ -174,6 +328,7 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  PortalTokenRoute: PortalTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

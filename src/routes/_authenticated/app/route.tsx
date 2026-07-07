@@ -9,10 +9,11 @@ import { Button } from "@/components/ui/button";
 
 const titles: Record<string, string> = {
   "/app/dashboard": "Dashboard",
-  "/app/work": "Trabalho",
-  "/app/calendar": "Calendário",
-  "/app/projects": "Projetos",
+  "/app/kanban": "Produção",
+  "/app/arena": "Arena de IA",
   "/app/clients": "Clientes",
+  "/app/ai-settings": "IA & Marca",
+  "/app/analytics": "Analytics",
   "/app/notifications": "Notificações",
 };
 
