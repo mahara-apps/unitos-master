@@ -17,6 +17,7 @@ import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app/index'
 import { Route as AuthenticatedAppKanbanRouteImport } from './routes/_authenticated/app/kanban'
 import { Route as AuthenticatedAppArenaRouteImport } from './routes/_authenticated/app/arena'
+import { Route as AuthenticatedAppAiSettingsRouteImport } from './routes/_authenticated/app/ai-settings'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -57,6 +58,12 @@ const AuthenticatedAppArenaRoute = AuthenticatedAppArenaRouteImport.update({
   path: '/arena',
   getParentRoute: () => AuthenticatedAppRouteRoute,
 } as any)
+const AuthenticatedAppAiSettingsRoute =
+  AuthenticatedAppAiSettingsRouteImport.update({
+    id: '/ai-settings',
+    path: '/ai-settings',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedRouteRouteWithChildren
@@ -64,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/app': typeof AuthenticatedAppRouteRouteWithChildren
+  '/app/ai-settings': typeof AuthenticatedAppAiSettingsRoute
   '/app/arena': typeof AuthenticatedAppArenaRoute
   '/app/kanban': typeof AuthenticatedAppKanbanRoute
   '/app/': typeof AuthenticatedAppIndexRoute
@@ -73,6 +81,7 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/app/ai-settings': typeof AuthenticatedAppAiSettingsRoute
   '/app/arena': typeof AuthenticatedAppArenaRoute
   '/app/kanban': typeof AuthenticatedAppKanbanRoute
   '/app': typeof AuthenticatedAppIndexRoute
@@ -84,6 +93,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/app': typeof AuthenticatedAppRouteRouteWithChildren
+  '/_authenticated/app/ai-settings': typeof AuthenticatedAppAiSettingsRoute
   '/_authenticated/app/arena': typeof AuthenticatedAppArenaRoute
   '/_authenticated/app/kanban': typeof AuthenticatedAppKanbanRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/app'
+    | '/app/ai-settings'
     | '/app/arena'
     | '/app/kanban'
     | '/app/'
@@ -105,6 +116,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/app/ai-settings'
     | '/app/arena'
     | '/app/kanban'
     | '/app'
@@ -115,6 +127,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/_authenticated/app'
+    | '/_authenticated/app/ai-settings'
     | '/_authenticated/app/arena'
     | '/_authenticated/app/kanban'
     | '/_authenticated/app/'
@@ -185,16 +198,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppArenaRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/_authenticated/app/ai-settings': {
+      id: '/_authenticated/app/ai-settings'
+      path: '/ai-settings'
+      fullPath: '/app/ai-settings'
+      preLoaderRoute: typeof AuthenticatedAppAiSettingsRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
   }
 }
 
 interface AuthenticatedAppRouteRouteChildren {
+  AuthenticatedAppAiSettingsRoute: typeof AuthenticatedAppAiSettingsRoute
   AuthenticatedAppArenaRoute: typeof AuthenticatedAppArenaRoute
   AuthenticatedAppKanbanRoute: typeof AuthenticatedAppKanbanRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
 }
 
 const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
+  AuthenticatedAppAiSettingsRoute: AuthenticatedAppAiSettingsRoute,
   AuthenticatedAppArenaRoute: AuthenticatedAppArenaRoute,
   AuthenticatedAppKanbanRoute: AuthenticatedAppKanbanRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
