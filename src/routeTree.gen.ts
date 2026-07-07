@@ -15,6 +15,7 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticated/app/route'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app/index'
+import { Route as AuthenticatedAppNotificationsRouteImport } from './routes/_authenticated/app/notifications'
 import { Route as AuthenticatedAppKanbanRouteImport } from './routes/_authenticated/app/kanban'
 import { Route as AuthenticatedAppClientsRouteImport } from './routes/_authenticated/app/clients'
 import { Route as AuthenticatedAppArenaRouteImport } from './routes/_authenticated/app/arena'
@@ -50,6 +51,12 @@ const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedAppRouteRoute,
 } as any)
+const AuthenticatedAppNotificationsRoute =
+  AuthenticatedAppNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
 const AuthenticatedAppKanbanRoute = AuthenticatedAppKanbanRouteImport.update({
   id: '/kanban',
   path: '/kanban',
@@ -89,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/app/arena': typeof AuthenticatedAppArenaRoute
   '/app/clients': typeof AuthenticatedAppClientsRoute
   '/app/kanban': typeof AuthenticatedAppKanbanRoute
+  '/app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/app/': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRoutesByTo {
@@ -101,6 +109,7 @@ export interface FileRoutesByTo {
   '/app/arena': typeof AuthenticatedAppArenaRoute
   '/app/clients': typeof AuthenticatedAppClientsRoute
   '/app/kanban': typeof AuthenticatedAppKanbanRoute
+  '/app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/app': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRoutesById {
@@ -115,6 +124,7 @@ export interface FileRoutesById {
   '/_authenticated/app/arena': typeof AuthenticatedAppArenaRoute
   '/_authenticated/app/clients': typeof AuthenticatedAppClientsRoute
   '/_authenticated/app/kanban': typeof AuthenticatedAppKanbanRoute
+  '/_authenticated/app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRouteTypes {
@@ -130,6 +140,7 @@ export interface FileRouteTypes {
     | '/app/arena'
     | '/app/clients'
     | '/app/kanban'
+    | '/app/notifications'
     | '/app/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -142,6 +153,7 @@ export interface FileRouteTypes {
     | '/app/arena'
     | '/app/clients'
     | '/app/kanban'
+    | '/app/notifications'
     | '/app'
   id:
     | '__root__'
@@ -155,6 +167,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/arena'
     | '/_authenticated/app/clients'
     | '/_authenticated/app/kanban'
+    | '/_authenticated/app/notifications'
     | '/_authenticated/app/'
   fileRoutesById: FileRoutesById
 }
@@ -209,6 +222,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/_authenticated/app/notifications': {
+      id: '/_authenticated/app/notifications'
+      path: '/notifications'
+      fullPath: '/app/notifications'
+      preLoaderRoute: typeof AuthenticatedAppNotificationsRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
     '/_authenticated/app/kanban': {
       id: '/_authenticated/app/kanban'
       path: '/kanban'
@@ -253,6 +273,7 @@ interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppArenaRoute: typeof AuthenticatedAppArenaRoute
   AuthenticatedAppClientsRoute: typeof AuthenticatedAppClientsRoute
   AuthenticatedAppKanbanRoute: typeof AuthenticatedAppKanbanRoute
+  AuthenticatedAppNotificationsRoute: typeof AuthenticatedAppNotificationsRoute
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
 }
 
@@ -262,6 +283,7 @@ const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
   AuthenticatedAppArenaRoute: AuthenticatedAppArenaRoute,
   AuthenticatedAppClientsRoute: AuthenticatedAppClientsRoute,
   AuthenticatedAppKanbanRoute: AuthenticatedAppKanbanRoute,
+  AuthenticatedAppNotificationsRoute: AuthenticatedAppNotificationsRoute,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
 }
 
