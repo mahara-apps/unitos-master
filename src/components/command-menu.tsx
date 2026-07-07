@@ -15,7 +15,7 @@ import {
 import { useActiveContext } from "@/hooks/use-active-context";
 import { searchWorkspace } from "@/lib/dashboard.functions";
 import { listClients } from "@/lib/workspace.functions";
-import { LayoutDashboard, ListChecks, Calendar, FolderKanban, Users } from "lucide-react";
+import { LayoutDashboard, KanbanSquare, Sparkles, BarChart3, Users, Settings } from "lucide-react";
 
 export function CommandMenu() {
   const [open, setOpen] = useState(false);
@@ -59,10 +59,11 @@ export function CommandMenu() {
         <CommandEmpty>Nada encontrado.</CommandEmpty>
         <CommandGroup heading="Navegação">
           <CommandItem onSelect={() => go("/app/dashboard")}><LayoutDashboard /> Dashboard <CommandShortcut>G D</CommandShortcut></CommandItem>
-          <CommandItem onSelect={() => go("/app/work")}><ListChecks /> Trabalho <CommandShortcut>G W</CommandShortcut></CommandItem>
-          <CommandItem onSelect={() => go("/app/calendar")}><Calendar /> Calendário <CommandShortcut>G C</CommandShortcut></CommandItem>
-          <CommandItem onSelect={() => go("/app/projects")}><FolderKanban /> Projetos</CommandItem>
+          <CommandItem onSelect={() => go("/app/kanban")}><KanbanSquare /> Produção <CommandShortcut>G K</CommandShortcut></CommandItem>
+          <CommandItem onSelect={() => go("/app/arena")}><Sparkles /> Arena de IA <CommandShortcut>G A</CommandShortcut></CommandItem>
           <CommandItem onSelect={() => go("/app/clients")}><Users /> Clientes</CommandItem>
+          <CommandItem onSelect={() => go("/app/ai-settings")}><Settings /> IA & Marca</CommandItem>
+          <CommandItem onSelect={() => go("/app/analytics")}><BarChart3 /> Analytics</CommandItem>
         </CommandGroup>
         {clientsQ.data && clientsQ.data.length > 0 && (
           <>
@@ -92,14 +93,14 @@ export function CommandMenu() {
             {searchQ.data.tasks.length > 0 && (
               <CommandGroup heading="Tarefas">
                 {searchQ.data.tasks.map((t) => (
-                  <CommandItem key={t.id} onSelect={() => go("/app/work")}>{t.title}</CommandItem>
+                  <CommandItem key={t.id} onSelect={() => go("/app/kanban")}>{t.title}</CommandItem>
                 ))}
               </CommandGroup>
             )}
             {searchQ.data.posts.length > 0 && (
               <CommandGroup heading="Posts">
                 {searchQ.data.posts.map((p) => (
-                  <CommandItem key={p.id} onSelect={() => go("/app/calendar")}>{p.title}</CommandItem>
+                  <CommandItem key={p.id} onSelect={() => go("/app/kanban")}>{p.title}</CommandItem>
                 ))}
               </CommandGroup>
             )}
