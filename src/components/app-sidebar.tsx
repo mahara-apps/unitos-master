@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, ListChecks, Calendar, Users, FolderKanban, Bell, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, Bell, LogOut, Sparkles, KanbanSquare, BarChart3, Settings } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -17,10 +17,11 @@ import { supabase } from "@/integrations/supabase/client";
 
 const items = [
   { title: "Dashboard", url: "/app/dashboard", icon: LayoutDashboard },
-  { title: "Trabalho", url: "/app/work", icon: ListChecks },
-  { title: "Calendário", url: "/app/calendar", icon: Calendar },
-  { title: "Projetos", url: "/app/projects", icon: FolderKanban },
+  { title: "Produção (Kanban)", url: "/app/kanban", icon: KanbanSquare },
+  { title: "Arena de IA", url: "/app/arena", icon: Sparkles },
   { title: "Clientes", url: "/app/clients", icon: Users },
+  { title: "IA & Marca", url: "/app/ai-settings", icon: Settings },
+  { title: "Analytics", url: "/app/analytics", icon: BarChart3 },
   { title: "Notificações", url: "/app/notifications", icon: Bell },
 ] as const;
 
