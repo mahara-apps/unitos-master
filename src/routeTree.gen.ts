@@ -19,7 +19,6 @@ import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppNotificationsRouteImport } from './routes/_authenticated/app/notifications'
 import { Route as AuthenticatedAppKanbanRouteImport } from './routes/_authenticated/app/kanban'
 import { Route as AuthenticatedAppClientsRouteImport } from './routes/_authenticated/app/clients'
-import { Route as AuthenticatedAppArenaRouteImport } from './routes/_authenticated/app/arena'
 import { Route as AuthenticatedAppAnalyticsRouteImport } from './routes/_authenticated/app/analytics'
 import { Route as AuthenticatedAppAiSettingsRouteImport } from './routes/_authenticated/app/ai-settings'
 
@@ -73,11 +72,6 @@ const AuthenticatedAppClientsRoute = AuthenticatedAppClientsRouteImport.update({
   path: '/clients',
   getParentRoute: () => AuthenticatedAppRouteRoute,
 } as any)
-const AuthenticatedAppArenaRoute = AuthenticatedAppArenaRouteImport.update({
-  id: '/arena',
-  path: '/arena',
-  getParentRoute: () => AuthenticatedAppRouteRoute,
-} as any)
 const AuthenticatedAppAnalyticsRoute =
   AuthenticatedAppAnalyticsRouteImport.update({
     id: '/analytics',
@@ -100,7 +94,6 @@ export interface FileRoutesByFullPath {
   '/portal/$token': typeof PortalTokenRoute
   '/app/ai-settings': typeof AuthenticatedAppAiSettingsRoute
   '/app/analytics': typeof AuthenticatedAppAnalyticsRoute
-  '/app/arena': typeof AuthenticatedAppArenaRoute
   '/app/clients': typeof AuthenticatedAppClientsRoute
   '/app/kanban': typeof AuthenticatedAppKanbanRoute
   '/app/notifications': typeof AuthenticatedAppNotificationsRoute
@@ -114,7 +107,6 @@ export interface FileRoutesByTo {
   '/portal/$token': typeof PortalTokenRoute
   '/app/ai-settings': typeof AuthenticatedAppAiSettingsRoute
   '/app/analytics': typeof AuthenticatedAppAnalyticsRoute
-  '/app/arena': typeof AuthenticatedAppArenaRoute
   '/app/clients': typeof AuthenticatedAppClientsRoute
   '/app/kanban': typeof AuthenticatedAppKanbanRoute
   '/app/notifications': typeof AuthenticatedAppNotificationsRoute
@@ -130,7 +122,6 @@ export interface FileRoutesById {
   '/portal/$token': typeof PortalTokenRoute
   '/_authenticated/app/ai-settings': typeof AuthenticatedAppAiSettingsRoute
   '/_authenticated/app/analytics': typeof AuthenticatedAppAnalyticsRoute
-  '/_authenticated/app/arena': typeof AuthenticatedAppArenaRoute
   '/_authenticated/app/clients': typeof AuthenticatedAppClientsRoute
   '/_authenticated/app/kanban': typeof AuthenticatedAppKanbanRoute
   '/_authenticated/app/notifications': typeof AuthenticatedAppNotificationsRoute
@@ -147,7 +138,6 @@ export interface FileRouteTypes {
     | '/portal/$token'
     | '/app/ai-settings'
     | '/app/analytics'
-    | '/app/arena'
     | '/app/clients'
     | '/app/kanban'
     | '/app/notifications'
@@ -161,7 +151,6 @@ export interface FileRouteTypes {
     | '/portal/$token'
     | '/app/ai-settings'
     | '/app/analytics'
-    | '/app/arena'
     | '/app/clients'
     | '/app/kanban'
     | '/app/notifications'
@@ -176,7 +165,6 @@ export interface FileRouteTypes {
     | '/portal/$token'
     | '/_authenticated/app/ai-settings'
     | '/_authenticated/app/analytics'
-    | '/_authenticated/app/arena'
     | '/_authenticated/app/clients'
     | '/_authenticated/app/kanban'
     | '/_authenticated/app/notifications'
@@ -263,13 +251,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppClientsRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
-    '/_authenticated/app/arena': {
-      id: '/_authenticated/app/arena'
-      path: '/arena'
-      fullPath: '/app/arena'
-      preLoaderRoute: typeof AuthenticatedAppArenaRouteImport
-      parentRoute: typeof AuthenticatedAppRouteRoute
-    }
     '/_authenticated/app/analytics': {
       id: '/_authenticated/app/analytics'
       path: '/analytics'
@@ -290,7 +271,6 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppAiSettingsRoute: typeof AuthenticatedAppAiSettingsRoute
   AuthenticatedAppAnalyticsRoute: typeof AuthenticatedAppAnalyticsRoute
-  AuthenticatedAppArenaRoute: typeof AuthenticatedAppArenaRoute
   AuthenticatedAppClientsRoute: typeof AuthenticatedAppClientsRoute
   AuthenticatedAppKanbanRoute: typeof AuthenticatedAppKanbanRoute
   AuthenticatedAppNotificationsRoute: typeof AuthenticatedAppNotificationsRoute
@@ -300,7 +280,6 @@ interface AuthenticatedAppRouteRouteChildren {
 const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
   AuthenticatedAppAiSettingsRoute: AuthenticatedAppAiSettingsRoute,
   AuthenticatedAppAnalyticsRoute: AuthenticatedAppAnalyticsRoute,
-  AuthenticatedAppArenaRoute: AuthenticatedAppArenaRoute,
   AuthenticatedAppClientsRoute: AuthenticatedAppClientsRoute,
   AuthenticatedAppKanbanRoute: AuthenticatedAppKanbanRoute,
   AuthenticatedAppNotificationsRoute: AuthenticatedAppNotificationsRoute,
