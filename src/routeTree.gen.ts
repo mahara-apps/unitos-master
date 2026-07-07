@@ -21,6 +21,7 @@ import { Route as AuthenticatedAppKanbanRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAppClientsRouteImport } from './routes/_authenticated/app/clients'
 import { Route as AuthenticatedAppArenaRouteImport } from './routes/_authenticated/app/arena'
 import { Route as AuthenticatedAppAnalyticsRouteImport } from './routes/_authenticated/app/analytics'
+import { Route as AuthenticatedAppAiSettingsRouteImport } from './routes/_authenticated/app/ai-settings'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -83,6 +84,12 @@ const AuthenticatedAppAnalyticsRoute =
     path: '/analytics',
     getParentRoute: () => AuthenticatedAppRouteRoute,
   } as any)
+const AuthenticatedAppAiSettingsRoute =
+  AuthenticatedAppAiSettingsRouteImport.update({
+    id: '/ai-settings',
+    path: '/ai-settings',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedRouteRouteWithChildren
@@ -91,6 +98,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/app': typeof AuthenticatedAppRouteRouteWithChildren
   '/portal/$token': typeof PortalTokenRoute
+  '/app/ai-settings': typeof AuthenticatedAppAiSettingsRoute
   '/app/analytics': typeof AuthenticatedAppAnalyticsRoute
   '/app/arena': typeof AuthenticatedAppArenaRoute
   '/app/clients': typeof AuthenticatedAppClientsRoute
@@ -104,6 +112,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/portal/$token': typeof PortalTokenRoute
+  '/app/ai-settings': typeof AuthenticatedAppAiSettingsRoute
   '/app/analytics': typeof AuthenticatedAppAnalyticsRoute
   '/app/arena': typeof AuthenticatedAppArenaRoute
   '/app/clients': typeof AuthenticatedAppClientsRoute
@@ -119,6 +128,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/app': typeof AuthenticatedAppRouteRouteWithChildren
   '/portal/$token': typeof PortalTokenRoute
+  '/_authenticated/app/ai-settings': typeof AuthenticatedAppAiSettingsRoute
   '/_authenticated/app/analytics': typeof AuthenticatedAppAnalyticsRoute
   '/_authenticated/app/arena': typeof AuthenticatedAppArenaRoute
   '/_authenticated/app/clients': typeof AuthenticatedAppClientsRoute
@@ -135,6 +145,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/app'
     | '/portal/$token'
+    | '/app/ai-settings'
     | '/app/analytics'
     | '/app/arena'
     | '/app/clients'
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/portal/$token'
+    | '/app/ai-settings'
     | '/app/analytics'
     | '/app/arena'
     | '/app/clients'
@@ -162,6 +174,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/_authenticated/app'
     | '/portal/$token'
+    | '/_authenticated/app/ai-settings'
     | '/_authenticated/app/analytics'
     | '/_authenticated/app/arena'
     | '/_authenticated/app/clients'
@@ -264,10 +277,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppAnalyticsRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/_authenticated/app/ai-settings': {
+      id: '/_authenticated/app/ai-settings'
+      path: '/ai-settings'
+      fullPath: '/app/ai-settings'
+      preLoaderRoute: typeof AuthenticatedAppAiSettingsRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
   }
 }
 
 interface AuthenticatedAppRouteRouteChildren {
+  AuthenticatedAppAiSettingsRoute: typeof AuthenticatedAppAiSettingsRoute
   AuthenticatedAppAnalyticsRoute: typeof AuthenticatedAppAnalyticsRoute
   AuthenticatedAppArenaRoute: typeof AuthenticatedAppArenaRoute
   AuthenticatedAppClientsRoute: typeof AuthenticatedAppClientsRoute
@@ -277,6 +298,7 @@ interface AuthenticatedAppRouteRouteChildren {
 }
 
 const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
+  AuthenticatedAppAiSettingsRoute: AuthenticatedAppAiSettingsRoute,
   AuthenticatedAppAnalyticsRoute: AuthenticatedAppAnalyticsRoute,
   AuthenticatedAppArenaRoute: AuthenticatedAppArenaRoute,
   AuthenticatedAppClientsRoute: AuthenticatedAppClientsRoute,
