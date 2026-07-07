@@ -14,181 +14,349 @@ export type Database = {
   }
   public: {
     Tables: {
-      ai_agents: {
+      activity_events: {
         Row: {
-          active: boolean | null
+          actor_id: string | null
+          brand_id: string
+          client_id: string | null
           created_at: string
+          entity_id: string | null
+          entity_type: string
           id: string
-          is_humanized: boolean | null
-          name: string
-          purpose: string | null
-          system_prompt: string
-          updated_at: string
-          use_time_based_greetings: boolean | null
+          payload: Json | null
+          verb: string
         }
         Insert: {
-          active?: boolean | null
+          actor_id?: string | null
+          brand_id: string
+          client_id?: string | null
           created_at?: string
+          entity_id?: string | null
+          entity_type: string
           id?: string
-          is_humanized?: boolean | null
-          name: string
-          purpose?: string | null
-          system_prompt: string
-          updated_at?: string
-          use_time_based_greetings?: boolean | null
+          payload?: Json | null
+          verb: string
         }
         Update: {
-          active?: boolean | null
+          actor_id?: string | null
+          brand_id?: string
+          client_id?: string | null
           created_at?: string
+          entity_id?: string | null
+          entity_type?: string
           id?: string
-          is_humanized?: boolean | null
-          name?: string
-          purpose?: string | null
-          system_prompt?: string
-          updated_at?: string
-          use_time_based_greetings?: boolean | null
-        }
-        Relationships: []
-      }
-      campaigns: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          name: string
-          status: string | null
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          name: string
-          status?: string | null
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          name?: string
-          status?: string | null
-        }
-        Relationships: []
-      }
-      conversations: {
-        Row: {
-          api_provider: string | null
-          channel: string | null
-          created_at: string
-          direction: string | null
-          id: string
-          lead_id: string | null
-          message_content: string
-          sentiment: string | null
-        }
-        Insert: {
-          api_provider?: string | null
-          channel?: string | null
-          created_at?: string
-          direction?: string | null
-          id?: string
-          lead_id?: string | null
-          message_content: string
-          sentiment?: string | null
-        }
-        Update: {
-          api_provider?: string | null
-          channel?: string | null
-          created_at?: string
-          direction?: string | null
-          id?: string
-          lead_id?: string | null
-          message_content?: string
-          sentiment?: string | null
+          payload?: Json | null
+          verb?: string
         }
         Relationships: [
           {
-            foreignKeyName: "conversations_lead_id_fkey"
-            columns: ["lead_id"]
+            foreignKeyName: "activity_events_brand_id_fkey"
+            columns: ["brand_id"]
             isOneToOne: false
-            referencedRelation: "leads"
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
       }
-      leads: {
+      brand_members: {
         Row: {
-          assigned_agent_id: string | null
-          company: string | null
+          brand_id: string
           created_at: string
           id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_members_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brands: {
+        Row: {
+          color: string | null
+          created_at: string
+          created_by: string
+          id: string
+          logo_url: string | null
           name: string
-          phone_number: string
-          qualification_score: number | null
-          status: string | null
+          slug: string
           updated_at: string
         }
         Insert: {
-          assigned_agent_id?: string | null
-          company?: string | null
+          color?: string | null
           created_at?: string
+          created_by: string
           id?: string
+          logo_url?: string | null
           name: string
-          phone_number: string
-          qualification_score?: number | null
-          status?: string | null
+          slug: string
           updated_at?: string
         }
         Update: {
-          assigned_agent_id?: string | null
-          company?: string | null
+          color?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          logo_url?: string | null
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      client_briefings: {
+        Row: {
+          client_id: string
+          created_at: string
+          guidelines: string | null
+          hashtags: string[] | null
+          id: string
+          monthly_volume: number | null
+          personas: Json | null
+          target_audience: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          guidelines?: string | null
+          hashtags?: string[] | null
+          id?: string
+          monthly_volume?: number | null
+          personas?: Json | null
+          target_audience?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          guidelines?: string | null
+          hashtags?: string[] | null
+          id?: string
+          monthly_volume?: number | null
+          personas?: Json | null
+          target_audience?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_briefings_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      clients: {
+        Row: {
+          archived_at: string | null
+          brand_id: string
+          color: string | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          id: string
+          name: string
+          niche: string | null
+          palette: Json | null
+          socials: Json | null
+          tone_of_voice: string | null
+          updated_at: string
+        }
+        Insert: {
+          archived_at?: string | null
+          brand_id: string
+          color?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          niche?: string | null
+          palette?: Json | null
+          socials?: Json | null
+          tone_of_voice?: string | null
+          updated_at?: string
+        }
+        Update: {
+          archived_at?: string | null
+          brand_id?: string
+          color?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
           created_at?: string
           id?: string
           name?: string
-          phone_number?: string
-          qualification_score?: number | null
-          status?: string | null
+          niche?: string | null
+          palette?: Json | null
+          socials?: Json | null
+          tone_of_voice?: string | null
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "leads_assigned_agent_id_fkey"
-            columns: ["assigned_agent_id"]
+            foreignKeyName: "clients_brand_id_fkey"
+            columns: ["brand_id"]
             isOneToOne: false
-            referencedRelation: "ai_agents"
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          body: string | null
+          brand_id: string
+          created_at: string
+          href: string | null
+          id: string
+          kind: Database["public"]["Enums"]["notification_kind"]
+          payload: Json | null
+          read_at: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          brand_id: string
+          created_at?: string
+          href?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["notification_kind"]
+          payload?: Json | null
+          read_at?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          brand_id?: string
+          created_at?: string
+          href?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["notification_kind"]
+          payload?: Json | null
+          read_at?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portal_tokens: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          label: string | null
+          last_seen_at: string | null
+          revoked_at: string | null
+          token: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          label?: string | null
+          last_seen_at?: string | null
+          revoked_at?: string | null
+          token: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          label?: string | null
+          last_seen_at?: string | null
+          revoked_at?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_tokens_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
       }
       post_approvals: {
         Row: {
-          action: string
-          comment: string | null
           created_at: string
+          decided_at: string | null
+          decided_by: string | null
           id: string
-          post_id: string | null
-          snapshot_copy: string | null
-          snapshot_image: string | null
-          user_id: string | null
+          notes: string | null
+          post_id: string
+          status: Database["public"]["Enums"]["approval_status"]
+          updated_at: string
         }
         Insert: {
-          action: string
-          comment?: string | null
           created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
           id?: string
-          post_id?: string | null
-          snapshot_copy?: string | null
-          snapshot_image?: string | null
-          user_id?: string | null
+          notes?: string | null
+          post_id: string
+          status?: Database["public"]["Enums"]["approval_status"]
+          updated_at?: string
         }
         Update: {
-          action?: string
-          comment?: string | null
           created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
           id?: string
-          post_id?: string | null
-          snapshot_copy?: string | null
-          snapshot_image?: string | null
-          user_id?: string | null
+          notes?: string | null
+          post_id?: string
+          status?: Database["public"]["Enums"]["approval_status"]
+          updated_at?: string
         }
         Relationships: [
           {
@@ -198,61 +366,213 @@ export type Database = {
             referencedRelation: "posts"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "post_approvals_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_profiles"
-            referencedColumns: ["id"]
-          },
         ]
       }
       posts: {
         Row: {
-          campaign_id: string | null
-          client_approval_token: string | null
-          copy_text: string | null
+          assignee_id: string | null
+          brand_id: string
+          channels: Database["public"]["Enums"]["post_channel"][]
+          client_id: string
+          copy: string | null
+          cover_url: string | null
           created_at: string
+          created_by: string | null
           id: string
-          image_url: string | null
-          platform: string | null
-          scheduled_for: string | null
-          status: string | null
+          project_id: string | null
+          published_at: string | null
+          scheduled_at: string | null
+          stage: Database["public"]["Enums"]["post_stage"]
           title: string
           updated_at: string
         }
         Insert: {
-          campaign_id?: string | null
-          client_approval_token?: string | null
-          copy_text?: string | null
+          assignee_id?: string | null
+          brand_id: string
+          channels?: Database["public"]["Enums"]["post_channel"][]
+          client_id: string
+          copy?: string | null
+          cover_url?: string | null
           created_at?: string
+          created_by?: string | null
           id?: string
-          image_url?: string | null
-          platform?: string | null
-          scheduled_for?: string | null
-          status?: string | null
+          project_id?: string | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          stage?: Database["public"]["Enums"]["post_stage"]
           title: string
           updated_at?: string
         }
         Update: {
-          campaign_id?: string | null
-          client_approval_token?: string | null
-          copy_text?: string | null
+          assignee_id?: string | null
+          brand_id?: string
+          channels?: Database["public"]["Enums"]["post_channel"][]
+          client_id?: string
+          copy?: string | null
+          cover_url?: string | null
           created_at?: string
+          created_by?: string | null
           id?: string
-          image_url?: string | null
-          platform?: string | null
-          scheduled_for?: string | null
-          status?: string | null
+          project_id?: string | null
+          published_at?: string | null
+          scheduled_at?: string | null
+          stage?: Database["public"]["Enums"]["post_stage"]
           title?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "posts_campaign_id_fkey"
-            columns: ["campaign_id"]
+            foreignKeyName: "posts_brand_id_fkey"
+            columns: ["brand_id"]
             isOneToOne: false
-            referencedRelation: "campaigns"
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          brand_id: string
+          client_id: string | null
+          created_at: string
+          description: string | null
+          due_at: string | null
+          id: string
+          name: string
+          owner_id: string | null
+          progress: number
+          status: Database["public"]["Enums"]["project_status"]
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          name: string
+          owner_id?: string | null
+          progress?: number
+          status?: Database["public"]["Enums"]["project_status"]
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          client_id?: string | null
+          created_at?: string
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          name?: string
+          owner_id?: string | null
+          progress?: number
+          status?: Database["public"]["Enums"]["project_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          assignee_id: string | null
+          brand_id: string
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          done: boolean
+          done_at: string | null
+          due_at: string | null
+          id: string
+          priority: Database["public"]["Enums"]["task_priority"]
+          project_id: string | null
+          status: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assignee_id?: string | null
+          brand_id: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          done?: boolean
+          done_at?: string | null
+          due_at?: string | null
+          id?: string
+          priority?: Database["public"]["Enums"]["task_priority"]
+          project_id?: string | null
+          status?: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assignee_id?: string | null
+          brand_id?: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          done?: boolean
+          done_at?: string | null
+          due_at?: string | null
+          id?: string
+          priority?: Database["public"]["Enums"]["task_priority"]
+          project_id?: string | null
+          status?: Database["public"]["Enums"]["task_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -289,10 +609,47 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_brand_role: {
+        Args: {
+          _brand_id: string
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_brand_member: {
+        Args: { _brand_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      alert_severity: "info" | "warning" | "critical"
+      app_role: "owner" | "manager" | "editor" | "designer" | "client"
+      approval_status: "pending" | "approved" | "changes_requested"
+      notification_kind:
+        | "mention"
+        | "assignment"
+        | "approval_requested"
+        | "approval_decision"
+        | "deadline"
+        | "system"
+      post_channel:
+        | "instagram"
+        | "tiktok"
+        | "linkedin"
+        | "x"
+        | "youtube"
+        | "blog"
+      post_stage:
+        | "idea"
+        | "production"
+        | "review"
+        | "approved"
+        | "scheduled"
+        | "published"
+      project_status: "planning" | "in_progress" | "active" | "paused" | "done"
+      task_priority: "low" | "medium" | "high" | "urgent"
+      task_status: "todo" | "in_progress" | "review" | "done"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -419,6 +776,30 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      alert_severity: ["info", "warning", "critical"],
+      app_role: ["owner", "manager", "editor", "designer", "client"],
+      approval_status: ["pending", "approved", "changes_requested"],
+      notification_kind: [
+        "mention",
+        "assignment",
+        "approval_requested",
+        "approval_decision",
+        "deadline",
+        "system",
+      ],
+      post_channel: ["instagram", "tiktok", "linkedin", "x", "youtube", "blog"],
+      post_stage: [
+        "idea",
+        "production",
+        "review",
+        "approved",
+        "scheduled",
+        "published",
+      ],
+      project_status: ["planning", "in_progress", "active", "paused", "done"],
+      task_priority: ["low", "medium", "high", "urgent"],
+      task_status: ["todo", "in_progress", "review", "done"],
+    },
   },
 } as const
