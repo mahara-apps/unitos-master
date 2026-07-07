@@ -653,7 +653,7 @@ export const saveArtifactVersionFn = createServerFn({ method: "POST" })
 
     const { error } = await context.supabase
       .from(table)
-      .update({ data: data.data })
+      .update({ data: data.data as never })
       .eq("id", data.entityId);
     if (error) throw error;
     return { ok: true };
