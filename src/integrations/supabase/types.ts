@@ -68,6 +68,7 @@ export type Database = {
       brand_ai_content: {
         Row: {
           brand_id: string
+          client_id: string
           created_at: string
           created_by: string | null
           data: Json
@@ -80,6 +81,7 @@ export type Database = {
         }
         Insert: {
           brand_id: string
+          client_id: string
           created_at?: string
           created_by?: string | null
           data?: Json
@@ -92,6 +94,7 @@ export type Database = {
         }
         Update: {
           brand_id?: string
+          client_id?: string
           created_at?: string
           created_by?: string | null
           data?: Json
@@ -108,6 +111,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_ai_content_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
           {
@@ -180,6 +190,7 @@ export type Database = {
         Row: {
           brand_id: string
           changed_by: string | null
+          client_id: string
           created_at: string
           data: Json
           entity_id: string
@@ -189,6 +200,7 @@ export type Database = {
         Insert: {
           brand_id: string
           changed_by?: string | null
+          client_id: string
           created_at?: string
           data: Json
           entity_id: string
@@ -198,6 +210,7 @@ export type Database = {
         Update: {
           brand_id?: string
           changed_by?: string | null
+          client_id?: string
           created_at?: string
           data?: Json
           entity_id?: string
@@ -212,11 +225,19 @@ export type Database = {
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "brand_ai_versions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
         ]
       }
       brand_briefings: {
         Row: {
           brand_id: string
+          client_id: string
           completude: number
           created_at: string
           created_by: string | null
@@ -227,6 +248,7 @@ export type Database = {
         }
         Insert: {
           brand_id: string
+          client_id: string
           completude?: number
           created_at?: string
           created_by?: string | null
@@ -237,6 +259,7 @@ export type Database = {
         }
         Update: {
           brand_id?: string
+          client_id?: string
           completude?: number
           created_at?: string
           created_by?: string | null
@@ -253,11 +276,19 @@ export type Database = {
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "brand_briefings_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
         ]
       }
       brand_cohorts: {
         Row: {
           brand_id: string
+          client_id: string
           created_at: string
           created_by: string | null
           data: Json
@@ -267,6 +298,7 @@ export type Database = {
         }
         Insert: {
           brand_id: string
+          client_id: string
           created_at?: string
           created_by?: string | null
           data?: Json
@@ -276,6 +308,7 @@ export type Database = {
         }
         Update: {
           brand_id?: string
+          client_id?: string
           created_at?: string
           created_by?: string | null
           data?: Json
@@ -291,12 +324,20 @@ export type Database = {
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "brand_cohorts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
         ]
       }
       brand_competitors: {
         Row: {
           bio_colada: string | null
           brand_id: string
+          client_id: string
           created_at: string
           created_by: string | null
           handle: string | null
@@ -309,6 +350,7 @@ export type Database = {
         Insert: {
           bio_colada?: string | null
           brand_id: string
+          client_id: string
           created_at?: string
           created_by?: string | null
           handle?: string | null
@@ -321,6 +363,7 @@ export type Database = {
         Update: {
           bio_colada?: string | null
           brand_id?: string
+          client_id?: string
           created_at?: string
           created_by?: string | null
           handle?: string | null
@@ -336,6 +379,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_competitors_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -375,6 +425,7 @@ export type Database = {
       brand_pautas: {
         Row: {
           brand_id: string
+          client_id: string
           cohort_alvo: string | null
           created_at: string
           created_by: string | null
@@ -389,6 +440,7 @@ export type Database = {
         }
         Insert: {
           brand_id: string
+          client_id: string
           cohort_alvo?: string | null
           created_at?: string
           created_by?: string | null
@@ -403,6 +455,7 @@ export type Database = {
         }
         Update: {
           brand_id?: string
+          client_id?: string
           cohort_alvo?: string | null
           created_at?: string
           created_by?: string | null
@@ -423,11 +476,19 @@ export type Database = {
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "brand_pautas_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
         ]
       }
       brand_personas: {
         Row: {
           brand_id: string
+          client_id: string
           created_at: string
           created_by: string | null
           data: Json
@@ -437,6 +498,7 @@ export type Database = {
         }
         Insert: {
           brand_id: string
+          client_id: string
           created_at?: string
           created_by?: string | null
           data?: Json
@@ -446,6 +508,7 @@ export type Database = {
         }
         Update: {
           brand_id?: string
+          client_id?: string
           created_at?: string
           created_by?: string | null
           data?: Json
@@ -461,11 +524,19 @@ export type Database = {
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "brand_personas_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
         ]
       }
       brand_swot: {
         Row: {
           brand_id: string
+          client_id: string
           created_at: string
           created_by: string | null
           data: Json
@@ -475,6 +546,7 @@ export type Database = {
         }
         Insert: {
           brand_id: string
+          client_id: string
           created_at?: string
           created_by?: string | null
           data?: Json
@@ -484,6 +556,7 @@ export type Database = {
         }
         Update: {
           brand_id?: string
+          client_id?: string
           created_at?: string
           created_by?: string | null
           data?: Json
@@ -499,11 +572,19 @@ export type Database = {
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "brand_swot_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
         ]
       }
       brand_voice_cards: {
         Row: {
           brand_id: string
+          client_id: string
           created_at: string
           created_by: string | null
           data: Json
@@ -513,6 +594,7 @@ export type Database = {
         }
         Insert: {
           brand_id: string
+          client_id: string
           created_at?: string
           created_by?: string | null
           data?: Json
@@ -522,6 +604,7 @@ export type Database = {
         }
         Update: {
           brand_id?: string
+          client_id?: string
           created_at?: string
           created_by?: string | null
           data?: Json
@@ -535,6 +618,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_voice_cards_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]

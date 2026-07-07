@@ -1,17 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, Bot, Sparkles, DollarSign, AlertTriangle } from "lucide-react";
-import { useActiveContext } from "@/hooks/use-active-context";
+import { Loader2, Sparkles, AlertTriangle } from "lucide-react";
 import {
   briefingParseFn,
   voiceGenerateFn,
@@ -21,142 +16,56 @@ import {
   pautaSuggestFn,
   contentGenerateFn,
   competitorExtractFn,
-  loadBrandContextFn,
-  saveArtifactVersionFn,
+  loadClientContextFn,
 } from "@/lib/ai-agents.functions";
 
-export const Route = createFileRoute("/_authenticated/app/ai-agents")({
-  component: AIAgentsPage,
-});
+// ---------- Contexto ----------
 
-type BrandContext = Awaited<ReturnType<typeof loadBrandContextFn>>;
+export type ClientContext = Awaited<ReturnType<typeof loadClientContextFn>>;
 
-function AIAgentsPage() {
-  const { brandId } = useActiveContext();
+export function useClientContext(brandId: string, clientId: string) {
+  const load = useServerFn(loadClientContextFn);
   const qc = useQueryClient();
-  const loadCtx = useServerFn(loadBrandContextFn);
-
-  const ctxQuery = useQuery<BrandContext>({
-    queryKey: ["brand-ai-context", brandId],
-    queryFn: () => loadCtx({ data: { brandId: brandId! } }),
-    enabled: !!brandId,
+  const query = useQuery<ClientContext>({
+    queryKey: ["client-ai-context", brandId, clientId],
+    queryFn: () => load({ data: { brandId, clientId } }),
   });
+  const invalidate = () =>
+    qc.invalidateQueries({ queryKey: ["client-ai-context", brandId, clientId] });
+  return { ctx: query.data, isLoading: query.isLoading, invalidate };
+}
 
-  if (!brandId) {
-    return (
-      <div className="flex h-[calc(100vh-3.5rem)] items-center justify-center bg-zinc-950 p-6">
-        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-8 text-center">
-          <Bot className="mx-auto h-8 w-8 text-muted-foreground" />
-          <p className="mt-3 text-sm text-muted-foreground">
-            Selecione uma marca no menu superior para começar.
-          </p>
-        </div>
-      </div>
-    );
-  }
+// ---------- UI primitives ----------
 
-  const ctx = ctxQuery.data;
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["brand-ai-context", brandId] });
-
+export function AgentCard({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
   return (
-    <ScrollArea className="h-[calc(100vh-3.5rem)] bg-zinc-950">
-      <div className="mx-auto max-w-7xl space-y-6 p-6">
-        <Header ctx={ctx} />
-        <Tabs defaultValue="briefing" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 bg-neutral-900/60 border border-white/10">
-            <TabsTrigger value="briefing">Briefing</TabsTrigger>
-            <TabsTrigger value="voice">Voice</TabsTrigger>
-            <TabsTrigger value="personas">Personas</TabsTrigger>
-            <TabsTrigger value="cohorts">Cohorts</TabsTrigger>
-            <TabsTrigger value="swot">SWOT</TabsTrigger>
-            <TabsTrigger value="pauta">Pauta</TabsTrigger>
-            <TabsTrigger value="content">Copy</TabsTrigger>
-            <TabsTrigger value="competitor">Concorrente</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="briefing" className="mt-4">
-            <BriefingTab brandId={brandId} ctx={ctx} onDone={invalidate} />
-          </TabsContent>
-          <TabsContent value="voice" className="mt-4">
-            <VoiceTab brandId={brandId} ctx={ctx} onDone={invalidate} />
-          </TabsContent>
-          <TabsContent value="personas" className="mt-4">
-            <PersonasTab brandId={brandId} ctx={ctx} onDone={invalidate} />
-          </TabsContent>
-          <TabsContent value="cohorts" className="mt-4">
-            <CohortsTab brandId={brandId} ctx={ctx} onDone={invalidate} />
-          </TabsContent>
-          <TabsContent value="swot" className="mt-4">
-            <SwotTab brandId={brandId} ctx={ctx} onDone={invalidate} />
-          </TabsContent>
-          <TabsContent value="pauta" className="mt-4">
-            <PautaTab brandId={brandId} ctx={ctx} onDone={invalidate} />
-          </TabsContent>
-          <TabsContent value="content" className="mt-4">
-            <ContentTab brandId={brandId} ctx={ctx} onDone={invalidate} />
-          </TabsContent>
-          <TabsContent value="competitor" className="mt-4">
-            <CompetitorTab brandId={brandId} ctx={ctx} onDone={invalidate} />
-          </TabsContent>
-        </Tabs>
+    <div className="rounded-xl border border-white/10 bg-neutral-950/60 p-5">
+      <div className="mb-4">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-cyan-400" />
+          <h2 className="text-lg font-semibold">{title}</h2>
+        </div>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       </div>
-    </ScrollArea>
+      {children}
+    </div>
   );
 }
 
-// ---------- Shell ----------
-
-function Header({ ctx }: { ctx: BrandContext | undefined }) {
-  const cost = ctx?.usage.totalCostUsd ?? 0;
-  return (
-    <header className="flex items-center justify-between">
-      <div>
-        <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          module · agents
-        </div>
-        <h1 className="mt-1 text-2xl font-semibold">Agentes de IA</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          8 agentes especializados: da parseada do briefing à copy final.
-        </p>
-      </div>
-      <div className="flex items-center gap-2">
-        <Badge variant="outline" className="border-cyan-500/30 bg-cyan-500/10 font-mono text-[10px] text-cyan-300">
-          <DollarSign className="mr-1 h-3 w-3" />
-          {cost.toFixed(4)} USD · 30d
-        </Badge>
-        <Badge variant="outline" className="border-white/10 bg-white/5 font-mono text-[10px]">
-          {ctx?.usage.last30d.length ?? 0} chamadas
-        </Badge>
-      </div>
-    </header>
-  );
-}
-
-function JsonBlock({ value }: { value: unknown }) {
+export function JsonBlock({ value }: { value: unknown }) {
   if (value == null) return null;
   return (
     <pre className="mt-3 max-h-96 overflow-auto rounded-lg border border-white/10 bg-black/50 p-3 font-mono text-[11px] leading-relaxed text-cyan-100">
       {JSON.stringify(value, null, 2)}
     </pre>
-  );
-}
-
-function AgentCard({
-  title, description, children,
-}: { title: string; description: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-neutral-950/60 p-5">
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-cyan-400" />
-            <h2 className="text-lg font-semibold">{title}</h2>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
-        </div>
-      </div>
-      {children}
-    </div>
   );
 }
 
@@ -170,8 +79,9 @@ function useAgentMutation<TInput, TOutput>(
   onSuccessLabel: string,
   onDone?: () => void,
 ) {
-  const wrapped = useServerFn(fn as unknown as Parameters<typeof useServerFn>[0]) as unknown as
-    (opts: { data: TInput }) => Promise<TOutput>;
+  const wrapped = useServerFn(fn as unknown as Parameters<typeof useServerFn>[0]) as unknown as (
+    opts: { data: TInput },
+  ) => Promise<TOutput>;
   return useMutation({
     mutationFn: (input: TInput) => wrapped({ data: input }),
     onSuccess: () => {
@@ -182,13 +92,19 @@ function useAgentMutation<TInput, TOutput>(
   });
 }
 
+type TabProps = {
+  brandId: string;
+  clientId: string;
+  ctx: ClientContext | undefined;
+  onDone: () => void;
+};
+
 // ---------- 1. Briefing ----------
 
-function BriefingTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandContext | undefined; onDone: () => void }) {
+export function BriefingTab({ brandId, clientId, ctx, onDone }: TabProps) {
   const [texto, setTexto] = useState("");
   const m = useAgentMutation(briefingParseFn, "Briefing estruturado.", onDone);
   const current = ctx?.briefing;
-
   return (
     <AgentCard
       title="1 · briefing.parse"
@@ -203,7 +119,7 @@ function BriefingTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandCont
       />
       <Button
         disabled={m.isPending || texto.length < 20}
-        onClick={() => m.mutate({ brandId, texto })}
+        onClick={() => m.mutate({ brandId, clientId, texto })}
         className="mt-3 bg-white text-black hover:bg-white/90"
       >
         {m.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
@@ -224,10 +140,9 @@ function BriefingTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandCont
 
 // ---------- 2. Voice ----------
 
-function VoiceTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandContext | undefined; onDone: () => void }) {
+export function VoiceTab({ brandId, clientId, ctx, onDone }: TabProps) {
   const m = useAgentMutation(voiceGenerateFn, "Voice Card gerado.", onDone);
   const current = ctx?.voice;
-
   return (
     <AgentCard
       title="2 · voice.generate"
@@ -237,8 +152,14 @@ function VoiceTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandContext
         disabled={m.isPending || !ctx?.briefing}
         onClick={() => {
           try {
-            m.mutate({ brandId, briefingJson: requireCtx(ctx?.briefing?.data, "Briefing") });
-          } catch (e) { toast.error((e as Error).message); }
+            m.mutate({
+              brandId,
+              clientId,
+              briefingJson: requireCtx(ctx?.briefing?.data, "Briefing"),
+            });
+          } catch (e) {
+            toast.error((e as Error).message);
+          }
         }}
         className="bg-white text-black hover:bg-white/90"
       >
@@ -258,7 +179,7 @@ function VoiceTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandContext
 
 // ---------- 3. Personas ----------
 
-function PersonasTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandContext | undefined; onDone: () => void }) {
+export function PersonasTab({ brandId, clientId, ctx, onDone }: TabProps) {
   const m = useAgentMutation(personasGenerateFn, "Personas geradas.", onDone);
   const current = ctx?.personas;
   return (
@@ -267,8 +188,14 @@ function PersonasTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandCont
         disabled={m.isPending || !ctx?.briefing}
         onClick={() => {
           try {
-            m.mutate({ brandId, briefingJson: requireCtx(ctx?.briefing?.data, "Briefing") });
-          } catch (e) { toast.error((e as Error).message); }
+            m.mutate({
+              brandId,
+              clientId,
+              briefingJson: requireCtx(ctx?.briefing?.data, "Briefing"),
+            });
+          } catch (e) {
+            toast.error((e as Error).message);
+          }
         }}
         className="bg-white text-black hover:bg-white/90"
       >
@@ -283,7 +210,7 @@ function PersonasTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandCont
 
 // ---------- 4. Cohorts ----------
 
-function CohortsTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandContext | undefined; onDone: () => void }) {
+export function CohortsTab({ brandId, clientId, ctx, onDone }: TabProps) {
   const m = useAgentMutation(cohortsGenerateFn, "Cohorts gerados.", onDone);
   const current = ctx?.cohorts;
   return (
@@ -294,10 +221,13 @@ function CohortsTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandConte
           try {
             m.mutate({
               brandId,
+              clientId,
               briefingJson: requireCtx(ctx?.briefing?.data, "Briefing"),
               personasJson: requireCtx(ctx?.personas?.data, "Personas"),
             });
-          } catch (e) { toast.error((e as Error).message); }
+          } catch (e) {
+            toast.error((e as Error).message);
+          }
         }}
         className="bg-white text-black hover:bg-white/90"
       >
@@ -312,7 +242,7 @@ function CohortsTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandConte
 
 // ---------- 5. SWOT ----------
 
-function SwotTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandContext | undefined; onDone: () => void }) {
+export function SwotTab({ brandId, clientId, ctx, onDone }: TabProps) {
   const m = useAgentMutation(swotGenerateFn, "SWOT gerado.", onDone);
   const current = ctx?.swot;
   return (
@@ -323,11 +253,14 @@ function SwotTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandContext 
           try {
             m.mutate({
               brandId,
+              clientId,
               briefingJson: requireCtx(ctx?.briefing?.data, "Briefing"),
               personasJson: requireCtx(ctx?.personas?.data, "Personas"),
               cohortsJson: requireCtx(ctx?.cohorts?.data, "Cohorts"),
             });
-          } catch (e) { toast.error((e as Error).message); }
+          } catch (e) {
+            toast.error((e as Error).message);
+          }
         }}
         className="bg-white text-black hover:bg-white/90"
       >
@@ -340,13 +273,12 @@ function SwotTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandContext 
   );
 }
 
-// ---------- 6. Pauta ----------
+// ---------- 6. Pautas ----------
 
-function PautaTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandContext | undefined; onDone: () => void }) {
+export function PautaTab({ brandId, clientId, ctx, onDone }: TabProps) {
   const [quantidade, setQuantidade] = useState(10);
   const [periodo, setPeriodo] = useState("próxima semana");
   const m = useAgentMutation(pautaSuggestFn, "Pautas geradas e salvas.", onDone);
-
   return (
     <AgentCard title="6 · pauta.suggest" description="Sugestões de pauta distribuídas entre cohorts e formatos.">
       <div className="grid grid-cols-2 gap-3">
@@ -376,6 +308,7 @@ function PautaTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandContext
           try {
             m.mutate({
               brandId,
+              clientId,
               briefingJson: requireCtx(ctx?.briefing?.data, "Briefing"),
               personasJson: requireCtx(ctx?.personas?.data, "Personas"),
               cohortsJson: requireCtx(ctx?.cohorts?.data, "Cohorts"),
@@ -383,7 +316,9 @@ function PautaTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandContext
               quantidade,
               periodo,
             });
-          } catch (e) { toast.error((e as Error).message); }
+          } catch (e) {
+            toast.error((e as Error).message);
+          }
         }}
         className="mt-3 bg-white text-black hover:bg-white/90"
       >
@@ -397,42 +332,40 @@ function PautaTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandContext
 
 // ---------- 7. Content ----------
 
-function ContentTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandContext | undefined; onDone: () => void }) {
+export function ContentTab({ brandId, clientId, ctx, onDone }: TabProps) {
   const [pautaTitulo, setPautaTitulo] = useState("");
   const [gancho, setGancho] = useState("");
   const [plataforma, setPlataforma] = useState("instagram");
   const [formato, setFormato] = useState("carrossel");
   const [personaNome, setPersonaNome] = useState("");
   const m = useAgentMutation(contentGenerateFn, "Copy gerada.", onDone);
-
   return (
     <AgentCard title="7 · content.generate" description="Copy final indistinguível do Voice Card da marca.">
       <div className="grid grid-cols-2 gap-3">
         <div className="col-span-2">
           <Label className="font-mono text-[10px] uppercase text-muted-foreground">Título da pauta</Label>
-          <Input value={pautaTitulo} onChange={(e) => setPautaTitulo(e.target.value)}
-            className="mt-1 border-white/10 bg-white/[0.02]" />
+          <Input value={pautaTitulo} onChange={(e) => setPautaTitulo(e.target.value)} className="mt-1 border-white/10 bg-white/[0.02]" />
         </div>
         <div className="col-span-2">
           <Label className="font-mono text-[10px] uppercase text-muted-foreground">Gancho / ângulo</Label>
-          <Textarea value={gancho} onChange={(e) => setGancho(e.target.value)}
-            className="mt-1 min-h-20 border-white/10 bg-white/[0.02]" />
+          <Textarea value={gancho} onChange={(e) => setGancho(e.target.value)} className="mt-1 min-h-20 border-white/10 bg-white/[0.02]" />
         </div>
         <div>
           <Label className="font-mono text-[10px] uppercase text-muted-foreground">Plataforma</Label>
-          <Input value={plataforma} onChange={(e) => setPlataforma(e.target.value)}
-            className="mt-1 border-white/10 bg-white/[0.02]" />
+          <Input value={plataforma} onChange={(e) => setPlataforma(e.target.value)} className="mt-1 border-white/10 bg-white/[0.02]" />
         </div>
         <div>
           <Label className="font-mono text-[10px] uppercase text-muted-foreground">Formato</Label>
-          <Input value={formato} onChange={(e) => setFormato(e.target.value)}
-            className="mt-1 border-white/10 bg-white/[0.02]" />
+          <Input value={formato} onChange={(e) => setFormato(e.target.value)} className="mt-1 border-white/10 bg-white/[0.02]" />
         </div>
         <div className="col-span-2">
           <Label className="font-mono text-[10px] uppercase text-muted-foreground">Persona alvo (nome)</Label>
-          <Input value={personaNome} onChange={(e) => setPersonaNome(e.target.value)}
+          <Input
+            value={personaNome}
+            onChange={(e) => setPersonaNome(e.target.value)}
             placeholder="ex: Marina, a decisora ocupada"
-            className="mt-1 border-white/10 bg-white/[0.02]" />
+            className="mt-1 border-white/10 bg-white/[0.02]"
+          />
         </div>
       </div>
       <Button
@@ -445,13 +378,16 @@ function ContentTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandConte
             const persona = personas.find((p) => p.nome === personaNome) ?? personas[0] ?? { nome: personaNome };
             m.mutate({
               brandId,
+              clientId,
               voiceCardJson: voiceCard,
               pautaJson: { titulo: pautaTitulo, gancho, plataforma, formato_recomendado: formato },
               personaOuCohortJson: persona,
               plataforma,
               formato,
             });
-          } catch (e) { toast.error((e as Error).message); }
+          } catch (e) {
+            toast.error((e as Error).message);
+          }
         }}
         className="mt-3 bg-white text-black hover:bg-white/90"
       >
@@ -465,30 +401,25 @@ function ContentTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandConte
 
 // ---------- 8. Competitor ----------
 
-function CompetitorTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandContext | undefined; onDone: () => void }) {
+export function CompetitorTab({ brandId, clientId, ctx, onDone }: TabProps) {
   const [handle, setHandle] = useState("");
   const [bio, setBio] = useState("");
   const [posts, setPosts] = useState("");
   const m = useAgentMutation(competitorExtractFn, "Snapshot do concorrente salvo.", onDone);
-
   return (
     <AgentCard title="8 · competitor.extract" description="Estrutura bio + posts colados e gera pautas inspiradas.">
       <div className="space-y-3">
         <div>
           <Label className="font-mono text-[10px] uppercase text-muted-foreground">Handle (opcional)</Label>
-          <Input value={handle} onChange={(e) => setHandle(e.target.value)}
-            placeholder="@concorrente"
-            className="mt-1 border-white/10 bg-white/[0.02] font-mono" />
+          <Input value={handle} onChange={(e) => setHandle(e.target.value)} placeholder="@concorrente" className="mt-1 border-white/10 bg-white/[0.02] font-mono" />
         </div>
         <div>
           <Label className="font-mono text-[10px] uppercase text-muted-foreground">Bio do perfil</Label>
-          <Textarea value={bio} onChange={(e) => setBio(e.target.value)}
-            className="mt-1 min-h-20 border-white/10 bg-white/[0.02]" />
+          <Textarea value={bio} onChange={(e) => setBio(e.target.value)} className="mt-1 min-h-20 border-white/10 bg-white/[0.02]" />
         </div>
         <div>
           <Label className="font-mono text-[10px] uppercase text-muted-foreground">Posts recentes (um por bloco)</Label>
-          <Textarea value={posts} onChange={(e) => setPosts(e.target.value)}
-            className="mt-1 min-h-40 border-white/10 bg-white/[0.02] font-mono text-xs" />
+          <Textarea value={posts} onChange={(e) => setPosts(e.target.value)} className="mt-1 min-h-40 border-white/10 bg-white/[0.02] font-mono text-xs" />
         </div>
       </div>
       <Button
@@ -497,12 +428,15 @@ function CompetitorTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandCo
           try {
             m.mutate({
               brandId,
+              clientId,
               handle: handle || undefined,
               bioColada: bio,
               postsColados: posts,
               briefingJson: requireCtx(ctx?.briefing?.data, "Briefing"),
             });
-          } catch (e) { toast.error((e as Error).message); }
+          } catch (e) {
+            toast.error((e as Error).message);
+          }
         }}
         className="mt-3 bg-white text-black hover:bg-white/90"
       >
@@ -513,7 +447,3 @@ function CompetitorTab({ brandId, ctx, onDone }: { brandId: string; ctx: BrandCo
     </AgentCard>
   );
 }
-
-// Referência preservada para evitar tree-shake do helper de versionamento;
-// ainda não usado em UI, mas exportado como server function pública.
-void saveArtifactVersionFn;
