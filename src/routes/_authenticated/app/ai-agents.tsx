@@ -170,7 +170,8 @@ function useAgentMutation<TInput, TOutput>(
   onSuccessLabel: string,
   onDone?: () => void,
 ) {
-  const wrapped = useServerFn(fn as never) as (opts: { data: TInput }) => Promise<TOutput>;
+  const wrapped = useServerFn(fn as unknown as Parameters<typeof useServerFn>[0]) as unknown as
+    (opts: { data: TInput }) => Promise<TOutput>;
   return useMutation({
     mutationFn: (input: TInput) => wrapped({ data: input }),
     onSuccess: () => {
