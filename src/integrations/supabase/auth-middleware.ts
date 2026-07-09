@@ -10,7 +10,7 @@ function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith('sb_publishable_') || value.startsWith('sb_secret_');
 }
 
-function createSupabaseFetch(supabaseKey: string): typeof fetch {
+function createSupabaseFetch(supabaseKey: string, userToken?: string): typeof fetch {
   return (input, init) => {
     const headers = new Headers(
       typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined,
@@ -26,6 +26,12 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
     }
 
     headers.set('apikey', supabaseKey);
+    // Force the end-user bearer to win over anything supabase-js injected
+    // (e.g. `Authorization: Bearer <apikey>` for anon), so PostgREST RLS
+    // evaluates `auth.uid()` as the signed-in user, not anon.
+    if (userToken) {
+      headers.set('Authorization', `Bearer ${userToken}`);
+    }
     return fetch(input, { ...init, headers });
   };
 }
@@ -76,7 +82,7 @@ export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server
       SUPABASE_PUBLISHABLE_KEY!,
       {
         global: {
-          fetch: createSupabaseFetch(SUPABASE_PUBLISHABLE_KEY!),
+          fetch: createSupabaseFetch(SUPABASE_PUBLISHABLE_KEY!, token),
           headers: {
             Authorization: `Bearer ${token}`,
           },
