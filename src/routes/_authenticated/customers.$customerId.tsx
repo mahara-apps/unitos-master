@@ -1,26 +1,33 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
-import { AlertTriangle, DollarSign, KanbanSquare } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertTriangle, DollarSign, KanbanSquare, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { listClients } from "@/lib/workspace.functions";
 import { loadClientContextFn } from "@/lib/ai-agents.functions";
+import { useClientContext } from "@/components/ai-agents/agent-tabs";
 import {
-  BriefingTab,
-  VoiceTab,
-  PersonasTab,
-  CohortsTab,
-  SwotTab,
-  PautaTab,
-  ContentTab,
-  CompetitorTab,
-  useClientContext,
-} from "@/components/ai-agents/agent-tabs";
+  OverviewTab,
+  StrategyTab,
+  TargetTab,
+  MarketTab,
+  TopicsTab,
+} from "@/components/ai-agents/strategy-panel";
 import { PipelineOnboarding } from "@/components/ai-agents/pipeline-onboarding";
 
 export const Route = createFileRoute("/_authenticated/customers/$customerId")({
@@ -28,14 +35,11 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
 });
 
 const TABS = [
-  { value: "briefing", label: "Briefing" },
-  { value: "voice", label: "Tom de voz" },
-  { value: "personas", label: "Personas" },
-  { value: "cohorts", label: "Cohorts" },
-  { value: "swot", label: "SWOT" },
-  { value: "pauta", label: "Pauta editorial" },
-  { value: "copy", label: "Copy" },
-  { value: "competitors", label: "Concorrentes" },
+  { value: "overview", label: "Overview" },
+  { value: "strategy", label: "Strategy" },
+  { value: "target", label: "Target" },
+  { value: "market", label: "Market" },
+  { value: "topics", label: "Topics" },
 ] as const;
 
 function CustomerDetail() {
@@ -43,6 +47,7 @@ function CustomerDetail() {
   const { brandId, setClientId } = useActiveContext();
   const list = useServerFn(listClients);
   const load = useServerFn(loadClientContextFn);
+  const [regenOpen, setRegenOpen] = useState(false);
 
   const customersQ = useQuery({
     queryKey: ["clients", brandId],
@@ -63,6 +68,8 @@ function CustomerDetail() {
   const cost = ctxQ.data?.usage.totalCostUsd ?? 0;
   const hasBriefing = Boolean(ctxQ.data?.briefing);
   const loadingCtx = ctxQ.isLoading;
+  const [forceOnboarding, setForceOnboarding] = useState(false);
+  const showOnboarding = !hasBriefing || forceOnboarding;
 
   if (!brandId) {
     return (
@@ -104,6 +111,17 @@ function CustomerDetail() {
               <DollarSign className="mr-1 h-3 w-3" />
               {cost.toFixed(4)} USD · 30d
             </Badge>
+            {hasBriefing ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="gap-1.5 text-muted-foreground hover:text-neutral-100"
+                onClick={() => setRegenOpen(true)}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Regenerate Strategy
+              </Button>
+            ) : null}
             <Button asChild size="sm" variant="outline" className="gap-1.5">
               <Link to="/customers/$customerId/pipeline" params={{ customerId }}>
                 <KanbanSquare className="h-3.5 w-3.5" />
@@ -121,17 +139,18 @@ function CustomerDetail() {
           <div className="rounded-xl border border-white/10 bg-neutral-950/60 p-10 text-center text-xs text-muted-foreground">
             Carregando inteligência do cliente…
           </div>
-        ) : !hasBriefing ? (
+        ) : showOnboarding ? (
           <PipelineOnboarding
             brandId={brandId}
             clientId={customerId}
             onDone={() => {
               invalidate();
               ctxQ.refetch();
+              setForceOnboarding(false);
             }}
           />
         ) : (
-          <Tabs defaultValue="briefing" className="space-y-4">
+          <Tabs defaultValue="overview" className="space-y-4">
             <TabsList className="w-full justify-start overflow-x-auto rounded-lg border border-white/10 bg-neutral-900/60 p-1">
               {TABS.map((t) => (
                 <TabsTrigger
@@ -143,32 +162,47 @@ function CustomerDetail() {
                 </TabsTrigger>
               ))}
             </TabsList>
-            <TabsContent value="briefing">
-              <BriefingTab brandId={brandId} clientId={customerId} ctx={ctx} onDone={invalidate} />
+            <TabsContent value="overview">
+              <OverviewTab ctx={ctx} />
             </TabsContent>
-            <TabsContent value="voice">
-              <VoiceTab brandId={brandId} clientId={customerId} ctx={ctx} onDone={invalidate} />
+            <TabsContent value="strategy">
+              <StrategyTab ctx={ctx} />
             </TabsContent>
-            <TabsContent value="personas">
-              <PersonasTab brandId={brandId} clientId={customerId} ctx={ctx} onDone={invalidate} />
+            <TabsContent value="target">
+              <TargetTab ctx={ctx} />
             </TabsContent>
-            <TabsContent value="cohorts">
-              <CohortsTab brandId={brandId} clientId={customerId} ctx={ctx} onDone={invalidate} />
+            <TabsContent value="market">
+              <MarketTab ctx={ctx} />
             </TabsContent>
-            <TabsContent value="swot">
-              <SwotTab brandId={brandId} clientId={customerId} ctx={ctx} onDone={invalidate} />
-            </TabsContent>
-            <TabsContent value="pauta">
-              <PautaTab brandId={brandId} clientId={customerId} ctx={ctx} onDone={invalidate} />
-            </TabsContent>
-            <TabsContent value="copy">
-              <ContentTab brandId={brandId} clientId={customerId} ctx={ctx} onDone={invalidate} />
-            </TabsContent>
-            <TabsContent value="competitors">
-              <CompetitorTab brandId={brandId} clientId={customerId} ctx={ctx} onDone={invalidate} />
+            <TabsContent value="topics">
+              <TopicsTab brandId={brandId} clientId={customerId} />
             </TabsContent>
           </Tabs>
         )}
+
+        <AlertDialog open={regenOpen} onOpenChange={setRegenOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Regenerate strategy?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Isso abre o formulário de onboarding novamente para rodar o pipeline
+                de IA. Os artefatos anteriores permanecem no histórico — os novos
+                se tornam a versão ativa.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setForceOnboarding(true);
+                  setRegenOpen(false);
+                }}
+              >
+                Continuar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </ScrollArea>
   );
