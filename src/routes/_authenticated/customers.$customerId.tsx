@@ -42,6 +42,9 @@ const TABS = [
   { value: "topics", label: "Topics" },
 ] as const;
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUuid = (v: string | null | undefined): v is string => !!v && UUID_RE.test(v);
+
 function CustomerDetail() {
   const { customerId } = Route.useParams();
   const { brandId, setClientId } = useActiveContext();
@@ -52,12 +55,12 @@ function CustomerDetail() {
   const customersQ = useQuery({
     queryKey: ["clients", brandId],
     queryFn: () => list({ data: { brandId: brandId! } }),
-    enabled: !!brandId,
+    enabled: isUuid(brandId),
   });
   const ctxQ = useQuery({
     queryKey: ["client-ai-context", brandId, customerId],
     queryFn: () => load({ data: { brandId: brandId!, clientId: customerId } }),
-    enabled: !!brandId,
+    enabled: isUuid(brandId) && isUuid(customerId),
   });
 
   useEffect(() => {
