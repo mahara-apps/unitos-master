@@ -43,7 +43,7 @@ function CustomersIndexPage() {
     return (
       <div className="mx-auto max-w-6xl p-6">
         <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-6 text-sm text-amber-300">
-          <AlertTriangle className="h-4 w-4" /> Select a workspace from the sidebar to see customers.
+          <AlertTriangle className="h-4 w-4" /> Selecione um workspace no menu lateral para ver os clientes.
         </div>
       </div>
     );
@@ -58,7 +58,7 @@ function CustomersIndexPage() {
     setCreating(true);
     try {
       await create({ data: { brandId, name: name.trim(), niche: niche.trim() || undefined } });
-      toast.success("Customer created.");
+      toast.success("Cliente criado.");
       setName("");
       setNiche("");
       setOpen(false);
@@ -75,37 +75,37 @@ function CustomersIndexPage() {
       <div className="flex items-center justify-between">
         <div>
           <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            module · customers
+            módulo · clientes
           </div>
-          <h1 className="mt-1 text-2xl font-semibold">Customers</h1>
+          <h1 className="mt-1 text-2xl font-semibold">Clientes</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {customersQ.isLoading ? "loading..." : `${customers.length} customer(s) in this workspace`}
+            {customersQ.isLoading ? "carregando..." : `${customers.length} cliente(s) neste workspace`}
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button size="sm" className="gap-1.5">
-              <Plus className="h-3.5 w-3.5" /> New customer
+              <Plus className="h-3.5 w-3.5" /> Novo cliente
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>New customer</DialogTitle>
+              <DialogTitle>Novo cliente</DialogTitle>
             </DialogHeader>
             <div className="space-y-3">
               <div>
-                <Label className="text-xs">Name</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Café Aurora" />
+                <Label className="text-xs">Nome</Label>
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="ex: Café Aurora" />
               </div>
               <div>
-                <Label className="text-xs">Niche (optional)</Label>
-                <Input value={niche} onChange={(e) => setNiche(e.target.value)} placeholder="e.g. F&B" />
+                <Label className="text-xs">Nicho (opcional)</Label>
+                <Input value={niche} onChange={(e) => setNiche(e.target.value)} placeholder="ex: Alimentação" />
               </div>
             </div>
             <DialogFooter>
               <Button onClick={onCreate} disabled={creating || name.trim().length < 2}>
                 {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Create
+                Criar
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -117,7 +117,7 @@ function CustomersIndexPage() {
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search customer…"
+          placeholder="Buscar cliente…"
           className="pl-8 text-xs"
         />
       </div>
@@ -125,7 +125,7 @@ function CustomersIndexPage() {
       {customers.length === 0 && !customersQ.isLoading ? (
         <div className="rounded-xl border border-white/10 bg-neutral-950/60 p-10 text-center">
           <p className="text-sm text-muted-foreground">
-            No customers yet. Create the first one to start running AI agents.
+            Nenhum cliente ainda. Crie o primeiro para começar a rodar os agentes de IA.
           </p>
         </div>
       ) : (
@@ -155,7 +155,7 @@ function CustomersIndexPage() {
               {c.tone_of_voice && (
                 <div className="mt-4 flex items-center justify-between text-[11px]">
                   <span className="text-muted-foreground">
-                    Tone: <span className="text-foreground">{c.tone_of_voice}</span>
+                    Tom de voz: <span className="text-foreground">{c.tone_of_voice}</span>
                   </span>
                   <Badge variant="outline" className="font-mono text-[10px]">
                     {c.id.slice(0, 8)}

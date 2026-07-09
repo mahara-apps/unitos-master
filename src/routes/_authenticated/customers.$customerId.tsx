@@ -29,13 +29,13 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
 
 const TABS = [
   { value: "briefing", label: "Briefing" },
-  { value: "voice", label: "Voice" },
+  { value: "voice", label: "Tom de voz" },
   { value: "personas", label: "Personas" },
   { value: "cohorts", label: "Cohorts" },
   { value: "swot", label: "SWOT" },
-  { value: "pauta", label: "Editorial" },
+  { value: "pauta", label: "Pauta editorial" },
   { value: "copy", label: "Copy" },
-  { value: "competitors", label: "Competitors" },
+  { value: "competitors", label: "Concorrentes" },
 ] as const;
 
 function CustomerDetail() {
@@ -68,7 +68,7 @@ function CustomerDetail() {
     return (
       <div className="p-6">
         <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-6 text-sm text-amber-300">
-          <AlertTriangle className="h-4 w-4" /> Select a workspace from the sidebar.
+          <AlertTriangle className="h-4 w-4" /> Selecione um workspace no menu lateral.
         </div>
       </div>
     );
@@ -89,10 +89,10 @@ function CustomerDetail() {
             </div>
             <div>
               <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                customer · workspace
+                cliente · workspace
               </div>
               <h1 className="mt-0.5 text-2xl font-semibold">
-                {customer?.name ?? (customersQ.isLoading ? "loading…" : "customer not found")}
+                {customer?.name ?? (customersQ.isLoading ? "carregando…" : "cliente não encontrado")}
               </h1>
               <p className="text-xs text-muted-foreground">
                 {customer?.niche ?? "—"} · <span className="font-mono">{customerId.slice(0, 8)}</span>
@@ -115,11 +115,11 @@ function CustomerDetail() {
 
         {customer === undefined && !customersQ.isLoading ? (
           <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-6 text-sm text-red-300">
-            This customer does not belong to the active workspace.
+            Este cliente não pertence ao workspace ativo.
           </div>
         ) : loadingCtx ? (
           <div className="rounded-xl border border-white/10 bg-neutral-950/60 p-10 text-center text-xs text-muted-foreground">
-            Loading customer intelligence…
+            Carregando inteligência do cliente…
           </div>
         ) : !hasBriefing ? (
           <PipelineOnboarding

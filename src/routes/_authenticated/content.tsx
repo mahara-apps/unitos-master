@@ -11,12 +11,12 @@ export const Route = createFileRoute("/_authenticated/content")({
 type Stage = "briefing" | "writing" | "design" | "review" | "approved" | "scheduled";
 
 const stages: { id: Stage; label: string; hint: string }[] = [
-  { id: "briefing", label: "Briefing", hint: "Context & references" },
-  { id: "writing", label: "AI Copy", hint: "Writer + Strategist" },
-  { id: "design", label: "Design", hint: "Art + generated image" },
-  { id: "review", label: "Review", hint: "Compliance & QA" },
-  { id: "approved", label: "Approved", hint: "Ready to publish" },
-  { id: "scheduled", label: "Scheduled", hint: "Publish queue" },
+  { id: "briefing", label: "Briefing", hint: "Contexto e referências" },
+  { id: "writing", label: "Copy IA", hint: "Redator + Estrategista" },
+  { id: "design", label: "Design", hint: "Arte + imagem gerada" },
+  { id: "review", label: "Revisão", hint: "Compliance e QA" },
+  { id: "approved", label: "Aprovado", hint: "Pronto para publicar" },
+  { id: "scheduled", label: "Agendado", hint: "Fila de publicação" },
 ];
 
 type Post = {
@@ -52,11 +52,11 @@ function ContentPage() {
     <div className="flex h-[calc(100vh-3.5rem)] flex-col">
       <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
         <div>
-          <h1 className="text-base font-semibold">Content pipeline</h1>
-          <p className="text-xs text-muted-foreground">Weekly flow · 7 posts in progress · 2 urgent</p>
+          <h1 className="text-base font-semibold">Pipeline de conteúdo</h1>
+          <p className="text-xs text-muted-foreground">Fluxo semanal · 7 posts em produção · 2 urgentes</p>
         </div>
         <Button size="sm" className="gap-2">
-          <Sparkles className="h-3.5 w-3.5" /> New AI post
+          <Sparkles className="h-3.5 w-3.5" /> Novo post com IA
         </Button>
       </div>
       <div className="flex flex-1 gap-3 overflow-x-auto p-4">

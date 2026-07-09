@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId/pipe
   component: CustomerPipeline,
 });
 
-const STAGES = ["Briefing", "Writing", "Design", "Review", "Approved", "Scheduled"] as const;
+const STAGES = ["Briefing", "Redação", "Design", "Revisão", "Aprovado", "Agendado"] as const;
 
 function CustomerPipeline() {
   const { customerId } = Route.useParams();
@@ -30,15 +30,15 @@ function CustomerPipeline() {
         <div className="flex items-center gap-3">
           <Button asChild size="sm" variant="ghost" className="h-8 gap-1.5">
             <Link to="/customers/$customerId" params={{ customerId }}>
-              <ArrowLeft className="h-3.5 w-3.5" /> Back
+              <ArrowLeft className="h-3.5 w-3.5" /> Voltar
             </Link>
           </Button>
           <div>
             <h1 className="text-base font-semibold">
-              {customer?.name ?? "Customer"} · Pipeline
+              {customer?.name ?? "Cliente"} · Pipeline
             </h1>
             <p className="text-xs text-muted-foreground">
-              Scoped view of the production pipeline for this customer.
+              Visão focada do pipeline de produção deste cliente.
             </p>
           </div>
         </div>
@@ -59,7 +59,7 @@ function CustomerPipeline() {
               </Badge>
             </div>
             <div className="flex flex-1 items-center justify-center p-6 text-[11px] text-muted-foreground">
-              No posts in this stage.
+              Nenhum post neste estágio.
             </div>
           </div>
         ))}
