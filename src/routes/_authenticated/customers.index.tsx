@@ -133,7 +133,7 @@ function CustomersIndexPage() {
           {customers.map((c) => (
             <Link
               key={c.id}
-              to="/app/customers/$customerId"
+              to="/customers/$customerId"
               params={{ customerId: c.id }}
               className="group rounded-xl border border-white/10 bg-neutral-950/60 p-5 transition hover:border-primary/40"
             >
