@@ -155,11 +155,15 @@ const BriefingSchema = z.object({
 });
 
 const VoiceCardSchema = z.object({
-  resumo_tom: z.string(),
-  caracteristicas: z.array(z.object({ traco: z.string(), exemplo: z.string() })),
-  frases_exemplo: z.array(z.string()),
-  palavras_evitar: z.array(z.string()),
-  cta_padrao: z.array(z.string()),
+  voice_card: z.object({
+    brand_personality: z.string(),
+    tone_characteristics: z.array(z.string()),
+    vocabulary_rules: z.object({
+      words_to_use: z.array(z.string()),
+      words_to_avoid: z.array(z.string()),
+    }),
+    brand_phrases_examples: z.array(z.string()),
+  }),
 });
 
 const PersonasSchema = z.object({
@@ -179,27 +183,27 @@ const PersonasSchema = z.object({
 const CohortsSchema = z.object({
   cohorts: z.array(
     z.object({
-      nome: z.string(),
-      criterio_identificacao: z.string(),
-      estagio_funil: z.string(),
-      estrategia_conteudo: z.string(),
-      formatos_recomendados: z.array(z.string()),
-      personas_relacionadas: z.array(z.string()),
+      name: z.string(),
+      target_personas: z.array(z.string()),
+      behavioral_traits: z.string(),
+      content_strategy: z.string(),
+      conversion_criteria: z.string(),
     }),
   ),
 });
 
 const SwotSchema = z.object({
-  forcas: z.array(z.string()),
-  fraquezas: z.array(z.string()),
-  oportunidades: z.array(z.string()),
-  ameacas: z.array(z.string()),
-  tabela_competitiva: z.array(
+  swot_analysis: z.object({
+    strengths: z.array(z.string()),
+    weaknesses: z.array(z.string()),
+    opportunities: z.array(z.string()),
+    threats: z.array(z.string()),
+  }),
+  competitive_matrix: z.array(
     z.object({
-      concorrente: z.string(),
-      pontos_fortes: z.array(z.string()),
-      pontos_fracos: z.array(z.string()),
-      diferenciacao_recomendada: z.string(),
+      competitor_name: z.string(),
+      our_advantages: z.string(),
+      vulnerabilities: z.string(),
     }),
   ),
 });
@@ -208,9 +212,9 @@ const PautasSchema = z.object({
   pautas: z.array(
     z.object({
       titulo: z.string(),
-      pilar: z.string(),
+      pilar_type: z.string(),
       cohort_alvo: z.string(),
-      formato_recomendado: z.string(),
+      formato: z.string(),
       plataforma: z.string(),
       gancho: z.string(),
     }),

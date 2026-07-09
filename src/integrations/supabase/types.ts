@@ -430,11 +430,14 @@ export type Database = {
           created_at: string
           created_by: string | null
           data: Json
+          formato: string | null
           formato_recomendado: string | null
           gancho: string | null
           id: string
           pilar: string | null
+          pilar_type: string | null
           plataforma: string | null
+          status: string
           titulo: string
           updated_at: string
         }
@@ -445,11 +448,14 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           data?: Json
+          formato?: string | null
           formato_recomendado?: string | null
           gancho?: string | null
           id?: string
           pilar?: string | null
+          pilar_type?: string | null
           plataforma?: string | null
+          status?: string
           titulo: string
           updated_at?: string
         }
@@ -460,11 +466,14 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           data?: Json
+          formato?: string | null
           formato_recomendado?: string | null
           gancho?: string | null
           id?: string
           pilar?: string | null
+          pilar_type?: string | null
           plataforma?: string | null
+          status?: string
           titulo?: string
           updated_at?: string
         }
