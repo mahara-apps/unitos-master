@@ -1,11 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { Suspense, useEffect, useState } from "react";
 import { AlertTriangle, DollarSign, KanbanSquare, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   AlertDialog,
@@ -19,8 +20,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { listClients } from "@/lib/workspace.functions";
-import { loadClientContextFn } from "@/lib/ai-agents.functions";
-import { useClientContext } from "@/components/ai-agents/agent-tabs";
 import {
   OverviewTab,
   StrategyTab,
@@ -28,7 +27,21 @@ import {
   MarketTab,
   TopicsTab,
 } from "@/components/ai-agents/strategy-panel";
+import {
+  OverviewSkeleton,
+  StrategySkeleton,
+  TargetSkeleton,
+  MarketSkeleton,
+  TopicsSkeleton,
+} from "@/components/ai-agents/tab-skeletons";
 import { PipelineOnboarding } from "@/components/ai-agents/pipeline-onboarding";
+import {
+  CUSTOMER_QUERY_KEYS,
+  customerCoreQuery,
+  customerMarketQuery,
+  customerPautasQuery,
+  customerTargetQuery,
+} from "@/lib/customer-queries";
 
 export const Route = createFileRoute("/_authenticated/customers/$customerId")({
   component: CustomerDetail,
@@ -48,33 +61,12 @@ const isUuid = (v: string | null | undefined): v is string => !!v && UUID_RE.tes
 function CustomerDetail() {
   const { customerId } = Route.useParams();
   const { brandId, setClientId } = useActiveContext();
-  const list = useServerFn(listClients);
-  const load = useServerFn(loadClientContextFn);
-  const [regenOpen, setRegenOpen] = useState(false);
-
-  const customersQ = useQuery({
-    queryKey: ["clients", brandId],
-    queryFn: () => list({ data: { brandId: brandId! } }),
-    enabled: isUuid(brandId),
-  });
-  const ctxQ = useQuery({
-    queryKey: ["client-ai-context", brandId, customerId],
-    queryFn: () => load({ data: { brandId: brandId!, clientId: customerId } }),
-    enabled: isUuid(brandId) && isUuid(customerId),
-  });
 
   useEffect(() => {
     if (customerId) setClientId(customerId);
   }, [customerId, setClientId]);
 
-  const { ctx, invalidate } = useClientContext(brandId ?? "", customerId);
-  const cost = ctxQ.data?.usage.totalCostUsd ?? 0;
-  const hasBriefing = Boolean(ctxQ.data?.briefing);
-  const loadingCtx = ctxQ.isLoading;
-  const [forceOnboarding, setForceOnboarding] = useState(false);
-  const showOnboarding = !hasBriefing || forceOnboarding;
-
-  if (!brandId) {
+  if (!isUuid(brandId)) {
     return (
       <div className="p-6">
         <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-6 text-sm text-amber-300">
@@ -83,8 +75,58 @@ function CustomerDetail() {
       </div>
     );
   }
+  if (!isUuid(customerId)) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/5 p-6 text-sm text-red-300">
+          <AlertTriangle className="h-4 w-4" /> Cliente inválido.
+        </div>
+      </div>
+    );
+  }
+
+  return <CustomerDetailReady brandId={brandId} customerId={customerId} />;
+}
+
+function CustomerDetailReady({ brandId, customerId }: { brandId: string; customerId: string }) {
+  const list = useServerFn(listClients);
+  const qc = useQueryClient();
+  const [regenOpen, setRegenOpen] = useState(false);
+  const [forceOnboarding, setForceOnboarding] = useState(false);
+
+  // Lista de customers do brand ativo — só para nome/cor do header.
+  const customersQ = useQuery({
+    queryKey: ["clients", brandId],
+    queryFn: () => list({ data: { brandId } }),
+    staleTime: 60_000,
+  });
+
+  // Core suspende (rápido: briefing + voice + usage 30d em paralelo).
+  // Decide se mostra onboarding, alimenta o header e o custo.
+  const { data: core } = useSuspenseQuery(customerCoreQuery({ brandId, clientId: customerId }));
+
+  // Prefetch das fatias pesadas em paralelo assim que a rota monta —
+  // elimina waterfall quando o usuário troca de aba.
+  useEffect(() => {
+    qc.prefetchQuery(customerTargetQuery({ brandId, clientId: customerId }));
+    qc.prefetchQuery(customerMarketQuery({ brandId, clientId: customerId }));
+    qc.prefetchQuery(customerPautasQuery({ brandId, clientId: customerId }));
+  }, [qc, brandId, customerId]);
+
+  const cost = core.usage.totalCostUsd;
+  const hasBriefing = Boolean(core.briefing);
+  const showOnboarding = !hasBriefing || forceOnboarding;
 
   const customer = (customersQ.data ?? []).find((c) => c.id === customerId);
+
+  const scope = { brandId, clientId: customerId };
+  const invalidateAll = () => {
+    qc.invalidateQueries({ queryKey: CUSTOMER_QUERY_KEYS.core(scope) });
+    qc.invalidateQueries({ queryKey: CUSTOMER_QUERY_KEYS.target(scope) });
+    qc.invalidateQueries({ queryKey: CUSTOMER_QUERY_KEYS.market(scope) });
+    qc.invalidateQueries({ queryKey: CUSTOMER_QUERY_KEYS.pautas(scope) });
+    qc.invalidateQueries({ queryKey: CUSTOMER_QUERY_KEYS.legacyContext(scope) });
+  };
 
   return (
     <ScrollArea className="h-[calc(100vh-3.5rem)] bg-zinc-950">
@@ -138,17 +180,12 @@ function CustomerDetail() {
           <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-6 text-sm text-red-300">
             Este cliente não pertence ao workspace ativo.
           </div>
-        ) : loadingCtx ? (
-          <div className="rounded-xl border border-white/10 bg-neutral-950/60 p-10 text-center text-xs text-muted-foreground">
-            Carregando inteligência do cliente…
-          </div>
         ) : showOnboarding ? (
           <PipelineOnboarding
             brandId={brandId}
             clientId={customerId}
             onDone={() => {
-              invalidate();
-              ctxQ.refetch();
+              invalidateAll();
               setForceOnboarding(false);
             }}
           />
@@ -166,19 +203,29 @@ function CustomerDetail() {
               ))}
             </TabsList>
             <TabsContent value="overview">
-              <OverviewTab ctx={ctx} />
+              <Suspense fallback={<OverviewSkeleton />}>
+                <OverviewTab brandId={brandId} clientId={customerId} />
+              </Suspense>
             </TabsContent>
             <TabsContent value="strategy">
-              <StrategyTab ctx={ctx} />
+              <Suspense fallback={<StrategySkeleton />}>
+                <StrategyTab brandId={brandId} clientId={customerId} />
+              </Suspense>
             </TabsContent>
             <TabsContent value="target">
-              <TargetTab ctx={ctx} />
+              <Suspense fallback={<TargetSkeleton />}>
+                <TargetTab brandId={brandId} clientId={customerId} />
+              </Suspense>
             </TabsContent>
             <TabsContent value="market">
-              <MarketTab ctx={ctx} />
+              <Suspense fallback={<MarketSkeleton />}>
+                <MarketTab brandId={brandId} clientId={customerId} />
+              </Suspense>
             </TabsContent>
             <TabsContent value="topics">
-              <TopicsTab brandId={brandId} clientId={customerId} />
+              <Suspense fallback={<TopicsSkeleton />}>
+                <TopicsTab brandId={brandId} clientId={customerId} />
+              </Suspense>
             </TabsContent>
           </Tabs>
         )}
