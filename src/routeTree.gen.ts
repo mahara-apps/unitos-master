@@ -22,6 +22,7 @@ import { Route as AuthenticatedAppCustomersRouteImport } from './routes/_authent
 import { Route as AuthenticatedAppContentRouteImport } from './routes/_authenticated/app/content'
 import { Route as AuthenticatedAppArenaRouteImport } from './routes/_authenticated/app/arena'
 import { Route as AuthenticatedAppAnalyticsRouteImport } from './routes/_authenticated/app/analytics'
+import { Route as AuthenticatedAppCustomersIndexRouteImport } from './routes/_authenticated/app/customers.index'
 import { Route as AuthenticatedAppSettingsAiRouteImport } from './routes/_authenticated/app/settings.ai'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -92,6 +93,12 @@ const AuthenticatedAppAnalyticsRoute =
     path: '/analytics',
     getParentRoute: () => AuthenticatedAppRouteRoute,
   } as any)
+const AuthenticatedAppCustomersIndexRoute =
+  AuthenticatedAppCustomersIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAppCustomersRoute,
+  } as any)
 const AuthenticatedAppSettingsAiRoute =
   AuthenticatedAppSettingsAiRouteImport.update({
     id: '/ai',
@@ -109,11 +116,12 @@ export interface FileRoutesByFullPath {
   '/app/analytics': typeof AuthenticatedAppAnalyticsRoute
   '/app/arena': typeof AuthenticatedAppArenaRoute
   '/app/content': typeof AuthenticatedAppContentRoute
-  '/app/customers': typeof AuthenticatedAppCustomersRoute
+  '/app/customers': typeof AuthenticatedAppCustomersRouteWithChildren
   '/app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/app/': typeof AuthenticatedAppIndexRoute
   '/app/settings/ai': typeof AuthenticatedAppSettingsAiRoute
+  '/app/customers/': typeof AuthenticatedAppCustomersIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AuthenticatedRouteRouteWithChildren
@@ -124,11 +132,11 @@ export interface FileRoutesByTo {
   '/app/analytics': typeof AuthenticatedAppAnalyticsRoute
   '/app/arena': typeof AuthenticatedAppArenaRoute
   '/app/content': typeof AuthenticatedAppContentRoute
-  '/app/customers': typeof AuthenticatedAppCustomersRoute
   '/app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/app': typeof AuthenticatedAppIndexRoute
   '/app/settings/ai': typeof AuthenticatedAppSettingsAiRoute
+  '/app/customers': typeof AuthenticatedAppCustomersIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -141,11 +149,12 @@ export interface FileRoutesById {
   '/_authenticated/app/analytics': typeof AuthenticatedAppAnalyticsRoute
   '/_authenticated/app/arena': typeof AuthenticatedAppArenaRoute
   '/_authenticated/app/content': typeof AuthenticatedAppContentRoute
-  '/_authenticated/app/customers': typeof AuthenticatedAppCustomersRoute
+  '/_authenticated/app/customers': typeof AuthenticatedAppCustomersRouteWithChildren
   '/_authenticated/app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
   '/_authenticated/app/settings/ai': typeof AuthenticatedAppSettingsAiRoute
+  '/_authenticated/app/customers/': typeof AuthenticatedAppCustomersIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -164,6 +173,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/'
     | '/app/settings/ai'
+    | '/app/customers/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -174,11 +184,11 @@ export interface FileRouteTypes {
     | '/app/analytics'
     | '/app/arena'
     | '/app/content'
-    | '/app/customers'
     | '/app/notifications'
     | '/app/settings'
     | '/app'
     | '/app/settings/ai'
+    | '/app/customers'
   id:
     | '__root__'
     | '/_authenticated'
@@ -195,6 +205,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/settings'
     | '/_authenticated/app/'
     | '/_authenticated/app/settings/ai'
+    | '/_authenticated/app/customers/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -298,6 +309,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppAnalyticsRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/_authenticated/app/customers/': {
+      id: '/_authenticated/app/customers/'
+      path: '/'
+      fullPath: '/app/customers/'
+      preLoaderRoute: typeof AuthenticatedAppCustomersIndexRouteImport
+      parentRoute: typeof AuthenticatedAppCustomersRoute
+    }
     '/_authenticated/app/settings/ai': {
       id: '/_authenticated/app/settings/ai'
       path: '/ai'
@@ -307,6 +325,20 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AuthenticatedAppCustomersRouteChildren {
+  AuthenticatedAppCustomersIndexRoute: typeof AuthenticatedAppCustomersIndexRoute
+}
+
+const AuthenticatedAppCustomersRouteChildren: AuthenticatedAppCustomersRouteChildren =
+  {
+    AuthenticatedAppCustomersIndexRoute: AuthenticatedAppCustomersIndexRoute,
+  }
+
+const AuthenticatedAppCustomersRouteWithChildren =
+  AuthenticatedAppCustomersRoute._addFileChildren(
+    AuthenticatedAppCustomersRouteChildren,
+  )
 
 interface AuthenticatedAppSettingsRouteChildren {
   AuthenticatedAppSettingsAiRoute: typeof AuthenticatedAppSettingsAiRoute
@@ -326,7 +358,7 @@ interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppAnalyticsRoute: typeof AuthenticatedAppAnalyticsRoute
   AuthenticatedAppArenaRoute: typeof AuthenticatedAppArenaRoute
   AuthenticatedAppContentRoute: typeof AuthenticatedAppContentRoute
-  AuthenticatedAppCustomersRoute: typeof AuthenticatedAppCustomersRoute
+  AuthenticatedAppCustomersRoute: typeof AuthenticatedAppCustomersRouteWithChildren
   AuthenticatedAppNotificationsRoute: typeof AuthenticatedAppNotificationsRoute
   AuthenticatedAppSettingsRoute: typeof AuthenticatedAppSettingsRouteWithChildren
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
@@ -336,7 +368,7 @@ const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
   AuthenticatedAppAnalyticsRoute: AuthenticatedAppAnalyticsRoute,
   AuthenticatedAppArenaRoute: AuthenticatedAppArenaRoute,
   AuthenticatedAppContentRoute: AuthenticatedAppContentRoute,
-  AuthenticatedAppCustomersRoute: AuthenticatedAppCustomersRoute,
+  AuthenticatedAppCustomersRoute: AuthenticatedAppCustomersRouteWithChildren,
   AuthenticatedAppNotificationsRoute: AuthenticatedAppNotificationsRoute,
   AuthenticatedAppSettingsRoute: AuthenticatedAppSettingsRouteWithChildren,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
