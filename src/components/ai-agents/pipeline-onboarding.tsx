@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Loader2, CheckCircle2, Circle, AlertTriangle } from "lucide-react";
+import { Sparkles, Loader2, CheckCircle2, Circle, AlertTriangle, FileText, Target, Users, Layers, BarChart3, Calendar } from "lucide-react";
 import {
   briefingParseFn,
   voiceGenerateFn,
@@ -16,14 +16,22 @@ import {
 type StepKey = "briefing" | "voice" | "personas" | "cohorts" | "swot" | "pauta";
 type StepState = "idle" | "running" | "done" | "error";
 
-const STEPS: { key: StepKey; label: string; hint: string }[] = [
-  { key: "briefing", label: "Parsing briefing", hint: "Structuring raw context into fields" },
-  { key: "voice", label: "Crafting brand voice", hint: "Distilling tone, phrases and CTAs" },
-  { key: "personas", label: "Mapping personas", hint: "3–5 actionable audience profiles" },
-  { key: "cohorts", label: "Building cohorts", hint: "Behavioral segmentation" },
-  { key: "swot", label: "Running SWOT", hint: "Strategic + competitive matrix" },
-  { key: "pauta", label: "Generating editorial plan", hint: "First content calendar" },
+const STEPS: { key: StepKey; label: string; hint: string; Icon: typeof FileText }[] = [
+  { key: "briefing", label: "Estruturando briefing", hint: "Organizando o texto bruto em campos canônicos", Icon: FileText },
+  { key: "voice", label: "Modelando tom de voz", hint: "Destilando estilo, expressões e CTAs da marca", Icon: Target },
+  { key: "personas", label: "Mapeando personas", hint: "3–5 perfis de audiência acionáveis", Icon: Users },
+  { key: "cohorts", label: "Construindo cohorts", hint: "Segmentação comportamental por estágio de funil", Icon: Layers },
+  { key: "swot", label: "Analisando SWOT", hint: "Matriz estratégica + competitiva", Icon: BarChart3 },
+  { key: "pauta", label: "Gerando pauta editorial", hint: "Primeiro calendário de conteúdo", Icon: Calendar },
 ];
+
+const EXAMPLE_BRIEFING = `Marca: Café Aurora — cafeteria de especialidade em Pinheiros, SP.
+Público: profissionais criativos entre 25-40 anos, valorizam origem do grão e ambiente para trabalhar.
+Diferencial: torra própria semanal, método filtrado no balcão, wifi rápido e mesas amplas.
+Objetivo dos próximos 90 dias: crescer base do Instagram de 4k para 10k e aumentar em 30% o ticket médio no delivery.
+Tom: acolhedor, educativo sobre café, sem jargão hipster.
+Concorrência local: Coffee Lab, Suplicy, Isso é Café.
+Ofertas atuais: assinatura mensal de grãos (R$ 89) e combo café + croissant no delivery.`;
 
 export function PipelineOnboarding({
   brandId,
@@ -58,7 +66,7 @@ export function PipelineOnboarding({
 
   const run = async () => {
     if (text.trim().length < 20) {
-      toast.error("Paste a briefing with at least 20 characters.");
+      toast.error("Cole um briefing com pelo menos 20 caracteres.");
       return;
     }
     setRunning(true);
@@ -117,7 +125,7 @@ export function PipelineOnboarding({
       });
       setStep("pauta", "done");
 
-      toast.success("Pipeline complete.");
+      toast.success("Pipeline concluído.");
       onDone();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -137,41 +145,81 @@ export function PipelineOnboarding({
 
   if (!running && Object.values(state).every((s) => s === "idle")) {
     return (
-      <div className="mx-auto max-w-2xl space-y-6">
+      <div className="mx-auto max-w-3xl space-y-6">
         <div className="rounded-2xl border border-white/10 bg-neutral-950/60 p-8">
           <div className="mb-6">
             <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-cyan-300">
-              <Sparkles className="h-3 w-3" /> onboarding · one-click pipeline
+              <Sparkles className="h-3 w-3" /> onboarding · pipeline em 1 clique
             </div>
-            <h2 className="text-2xl font-semibold">Bootstrap this customer with AI</h2>
+            <h2 className="text-2xl font-semibold">Inicialize este cliente com IA</h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Paste anything you have: kickoff notes, discovery call transcript, deck bullets,
-              past posts. Six agents will run in sequence and populate briefing, voice, personas,
-              cohorts, SWOT and the first editorial plan — all scoped to this customer.
+              Cole qualquer material que você já tenha: notas do kickoff, transcrição da call de
+              descoberta, bullets do deck, posts antigos ou site do cliente. Seis agentes vão rodar
+              em sequência e preencher briefing, tom de voz, personas, cohorts, SWOT e a primeira
+              pauta editorial — tudo escopado a este cliente.
             </p>
           </div>
+
+          <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {STEPS.map((s) => (
+              <div
+                key={s.key}
+                className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-2.5 py-2"
+              >
+                <s.Icon className="h-3.5 w-3.5 text-cyan-400" />
+                <span className="truncate text-[11px] text-muted-foreground">{s.label}</span>
+              </div>
+            ))}
+          </div>
+
+          <Label className="mb-1 block font-mono text-[10px] uppercase text-muted-foreground">
+            Briefing bruto
+          </Label>
           <Textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder="Paste the raw briefing here…"
+            placeholder="Cole aqui o briefing do cliente…"
             className="min-h-56 resize-y bg-black/40 font-mono text-xs"
           />
           <div className="mt-4 flex items-center justify-between">
-            <span className="font-mono text-[10px] text-muted-foreground">
-              {text.trim().length} chars · min 20
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[10px] text-muted-foreground">
+                {text.trim().length} caracteres · mínimo 20
+              </span>
+              <button
+                type="button"
+                onClick={() => setText(EXAMPLE_BRIEFING)}
+                className="font-mono text-[10px] uppercase text-cyan-300 underline-offset-4 hover:underline"
+              >
+                usar briefing de exemplo
+              </button>
+            </div>
             <Button
               onClick={run}
               disabled={text.trim().length < 20}
               className="gap-2 bg-gradient-to-r from-cyan-500 to-indigo-500 text-white hover:from-cyan-400 hover:to-indigo-400"
             >
               <Sparkles className="h-4 w-4" />
-              Run AI Pipeline
+              Rodar pipeline de IA
             </Button>
           </div>
         </div>
+
+        <div className="rounded-xl border border-white/5 bg-neutral-950/40 p-4 text-[11px] text-muted-foreground">
+          <div className="mb-2 font-mono uppercase tracking-widest text-cyan-300/80">
+            dicas para um bom briefing
+          </div>
+          <ul className="space-y-1.5 pl-4 [&>li]:list-disc">
+            <li>Descreva a marca em uma frase — segmento, praça e proposta de valor.</li>
+            <li>Diga quem é o público: idade, ocupação, dores e o que valorizam.</li>
+            <li>Liste 2–4 concorrentes ou referências para o SWOT ficar mais afiado.</li>
+            <li>Defina os objetivos dos próximos 30/60/90 dias (métricas quando possível).</li>
+            <li>Inclua ofertas, produtos ou serviços que a IA deve destacar na pauta.</li>
+          </ul>
+        </div>
+
         <p className="text-center text-[11px] text-muted-foreground">
-          Ships six sequential model calls · ~30–90s total · you can edit or regenerate anything after.
+          Executa seis chamadas sequenciais de modelo · ~30–90s no total · tudo pode ser editado ou regerado depois.
         </p>
       </div>
     );
@@ -183,9 +231,9 @@ export function PipelineOnboarding({
         <div className="mb-6 flex items-center justify-between">
           <div>
             <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-              pipeline · running
+              pipeline · em execução
             </div>
-            <h2 className="mt-1 text-xl font-semibold">Bootstrapping customer intelligence…</h2>
+            <h2 className="mt-1 text-xl font-semibold">Inicializando a inteligência do cliente…</h2>
           </div>
           {running && <Loader2 className="h-5 w-5 animate-spin text-cyan-400" />}
         </div>
@@ -239,7 +287,7 @@ export function PipelineOnboarding({
             {errorMsg}
             <div className="mt-2">
               <Button size="sm" variant="outline" onClick={run} disabled={running}>
-                Retry
+                Tentar novamente
               </Button>
             </div>
           </div>
