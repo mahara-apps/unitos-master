@@ -24,6 +24,7 @@ import { Route as AuthenticatedAppArenaRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppAnalyticsRouteImport } from './routes/_authenticated/app/analytics'
 import { Route as AuthenticatedAppCustomersIndexRouteImport } from './routes/_authenticated/app/customers.index'
 import { Route as AuthenticatedAppSettingsAiRouteImport } from './routes/_authenticated/app/settings.ai'
+import { Route as AuthenticatedAppCustomersCustomerIdRouteImport } from './routes/_authenticated/app/customers.$customerId'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -105,6 +106,12 @@ const AuthenticatedAppSettingsAiRoute =
     path: '/ai',
     getParentRoute: () => AuthenticatedAppSettingsRoute,
   } as any)
+const AuthenticatedAppCustomersCustomerIdRoute =
+  AuthenticatedAppCustomersCustomerIdRouteImport.update({
+    id: '/$customerId',
+    path: '/$customerId',
+    getParentRoute: () => AuthenticatedAppCustomersRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedRouteRouteWithChildren
@@ -120,6 +127,7 @@ export interface FileRoutesByFullPath {
   '/app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/app/': typeof AuthenticatedAppIndexRoute
+  '/app/customers/$customerId': typeof AuthenticatedAppCustomersCustomerIdRoute
   '/app/settings/ai': typeof AuthenticatedAppSettingsAiRoute
   '/app/customers/': typeof AuthenticatedAppCustomersIndexRoute
 }
@@ -135,6 +143,7 @@ export interface FileRoutesByTo {
   '/app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/app': typeof AuthenticatedAppIndexRoute
+  '/app/customers/$customerId': typeof AuthenticatedAppCustomersCustomerIdRoute
   '/app/settings/ai': typeof AuthenticatedAppSettingsAiRoute
   '/app/customers': typeof AuthenticatedAppCustomersIndexRoute
 }
@@ -153,6 +162,7 @@ export interface FileRoutesById {
   '/_authenticated/app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
+  '/_authenticated/app/customers/$customerId': typeof AuthenticatedAppCustomersCustomerIdRoute
   '/_authenticated/app/settings/ai': typeof AuthenticatedAppSettingsAiRoute
   '/_authenticated/app/customers/': typeof AuthenticatedAppCustomersIndexRoute
 }
@@ -172,6 +182,7 @@ export interface FileRouteTypes {
     | '/app/notifications'
     | '/app/settings'
     | '/app/'
+    | '/app/customers/$customerId'
     | '/app/settings/ai'
     | '/app/customers/'
   fileRoutesByTo: FileRoutesByTo
@@ -187,6 +198,7 @@ export interface FileRouteTypes {
     | '/app/notifications'
     | '/app/settings'
     | '/app'
+    | '/app/customers/$customerId'
     | '/app/settings/ai'
     | '/app/customers'
   id:
@@ -204,6 +216,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/notifications'
     | '/_authenticated/app/settings'
     | '/_authenticated/app/'
+    | '/_authenticated/app/customers/$customerId'
     | '/_authenticated/app/settings/ai'
     | '/_authenticated/app/customers/'
   fileRoutesById: FileRoutesById
@@ -323,15 +336,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppSettingsAiRouteImport
       parentRoute: typeof AuthenticatedAppSettingsRoute
     }
+    '/_authenticated/app/customers/$customerId': {
+      id: '/_authenticated/app/customers/$customerId'
+      path: '/$customerId'
+      fullPath: '/app/customers/$customerId'
+      preLoaderRoute: typeof AuthenticatedAppCustomersCustomerIdRouteImport
+      parentRoute: typeof AuthenticatedAppCustomersRoute
+    }
   }
 }
 
 interface AuthenticatedAppCustomersRouteChildren {
+  AuthenticatedAppCustomersCustomerIdRoute: typeof AuthenticatedAppCustomersCustomerIdRoute
   AuthenticatedAppCustomersIndexRoute: typeof AuthenticatedAppCustomersIndexRoute
 }
 
 const AuthenticatedAppCustomersRouteChildren: AuthenticatedAppCustomersRouteChildren =
   {
+    AuthenticatedAppCustomersCustomerIdRoute:
+      AuthenticatedAppCustomersCustomerIdRoute,
     AuthenticatedAppCustomersIndexRoute: AuthenticatedAppCustomersIndexRoute,
   }
 
