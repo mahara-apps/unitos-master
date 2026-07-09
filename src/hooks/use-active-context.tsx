@@ -12,14 +12,23 @@ const Ctx = createContext<ActiveContextValue | null>(null);
 const BRAND_KEY = "nx.brand";
 const CLIENT_KEY = "nx.client";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const readUuid = (key: string): string | null => {
+  if (typeof window === "undefined") return null;
+  const v = localStorage.getItem(key);
+  if (v && UUID_RE.test(v)) return v;
+  if (v) localStorage.removeItem(key);
+  return null;
+};
+
 export function ActiveContextProvider({ children }: { children: ReactNode }) {
   const [brandId, setBrandIdState] = useState<string | null>(null);
   const [clientId, setClientIdState] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setBrandIdState(localStorage.getItem(BRAND_KEY));
-    setClientIdState(localStorage.getItem(CLIENT_KEY));
+    setBrandIdState(readUuid(BRAND_KEY));
+    setClientIdState(readUuid(CLIENT_KEY));
   }, []);
 
   const setBrandId = useCallback((id: string | null) => {
