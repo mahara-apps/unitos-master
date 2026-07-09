@@ -94,8 +94,8 @@ function CustomerDetail() {
 
 function HeaderFallback() {
   return (
-    <ScrollArea className="h-[calc(100vh-3.5rem)] bg-zinc-950">
-      <div className="mx-auto max-w-7xl space-y-6 p-6">
+    <ScrollArea className="h-[calc(100vh-3.5rem)] bg-background">
+      <div className="w-full space-y-6 px-6 py-6 md:px-8">
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Skeleton className="h-11 w-11 rounded-lg" />
@@ -164,8 +164,8 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
   };
 
   return (
-    <ScrollArea className="h-[calc(100vh-3.5rem)] bg-zinc-950">
-      <div className="mx-auto max-w-7xl space-y-6 p-6">
+    <ScrollArea className="h-[calc(100vh-3.5rem)] bg-background">
+      <div className="w-full space-y-6 px-6 py-6 md:px-8">
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div
