@@ -23,7 +23,7 @@ import {
 } from "@/components/ai-agents/agent-tabs";
 import { PipelineOnboarding } from "@/components/ai-agents/pipeline-onboarding";
 
-export const Route = createFileRoute("/_authenticated/app/customers/$customerId")({
+export const Route = createFileRoute("/_authenticated/customers/$customerId")({
   component: CustomerDetail,
 });
 

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 
-export const Route = createFileRoute("/_authenticated/app/analytics")({
+export const Route = createFileRoute("/_authenticated/analytics")({
   component: AnalyticsPage,
 });
 

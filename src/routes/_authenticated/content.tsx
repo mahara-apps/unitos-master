@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Calendar, Instagram, Linkedin, MessageCircle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export const Route = createFileRoute("/_authenticated/app/content")({
+export const Route = createFileRoute("/_authenticated/content")({
   component: ContentPage,
 });
 

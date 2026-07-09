@@ -12,7 +12,7 @@ import {
   ShieldAlert, TrendingUp, Zap, DollarSign, Key,
 } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/app/settings/ai")({
+export const Route = createFileRoute("/_authenticated/settings/ai")({
   component: AISettingsPage,
 });
 

@@ -19,7 +19,7 @@ import { Plus, Search, ArrowRight, AlertTriangle, Loader2 } from "lucide-react";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { listClients, createClient } from "@/lib/workspace.functions";
 
-export const Route = createFileRoute("/_authenticated/app/customers/")({
+export const Route = createFileRoute("/_authenticated/customers/")({
   component: CustomersIndexPage,
 });
 

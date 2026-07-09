@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
 import { Bell, CheckCircle2, MessageSquare, AlertTriangle, Sparkles } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/app/notifications")({
+export const Route = createFileRoute("/_authenticated/notifications")({
   component: NotificationsPage,
 });
 

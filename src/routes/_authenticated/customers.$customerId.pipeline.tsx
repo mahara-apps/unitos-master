@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { listClients } from "@/lib/workspace.functions";
 
-export const Route = createFileRoute("/_authenticated/app/customers/$customerId/pipeline")({
+export const Route = createFileRoute("/_authenticated/customers/$customerId/pipeline")({
   component: CustomerPipeline,
 });
 

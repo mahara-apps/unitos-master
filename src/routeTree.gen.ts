@@ -14,18 +14,16 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
-import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticated/app/route'
-import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app/index'
-import { Route as AuthenticatedAppSettingsRouteImport } from './routes/_authenticated/app/settings'
-import { Route as AuthenticatedAppNotificationsRouteImport } from './routes/_authenticated/app/notifications'
-import { Route as AuthenticatedAppCustomersRouteImport } from './routes/_authenticated/app/customers'
-import { Route as AuthenticatedAppContentRouteImport } from './routes/_authenticated/app/content'
-import { Route as AuthenticatedAppArenaRouteImport } from './routes/_authenticated/app/arena'
-import { Route as AuthenticatedAppAnalyticsRouteImport } from './routes/_authenticated/app/analytics'
-import { Route as AuthenticatedAppCustomersIndexRouteImport } from './routes/_authenticated/app/customers.index'
-import { Route as AuthenticatedAppSettingsAiRouteImport } from './routes/_authenticated/app/settings.ai'
-import { Route as AuthenticatedAppCustomersCustomerIdRouteImport } from './routes/_authenticated/app/customers.$customerId'
-import { Route as AuthenticatedAppCustomersCustomerIdPipelineRouteImport } from './routes/_authenticated/app/customers.$customerId.pipeline'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
+import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
+import { Route as AuthenticatedContentRouteImport } from './routes/_authenticated/content'
+import { Route as AuthenticatedArenaRouteImport } from './routes/_authenticated/arena'
+import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
+import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authenticated/customers.index'
+import { Route as AuthenticatedSettingsAiRouteImport } from './routes/_authenticated/settings.ai'
+import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
+import { Route as AuthenticatedCustomersCustomerIdPipelineRouteImport } from './routes/_authenticated/customers.$customerId.pipeline'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -51,73 +49,59 @@ const PortalTokenRoute = PortalTokenRouteImport.update({
   path: '/portal/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedAppRouteRoute = AuthenticatedAppRouteRouteImport.update({
-  id: '/app',
-  path: '/app',
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AuthenticatedAppRouteRoute,
-} as any)
-const AuthenticatedAppSettingsRoute =
-  AuthenticatedAppSettingsRouteImport.update({
-    id: '/settings',
-    path: '/settings',
-    getParentRoute: () => AuthenticatedAppRouteRoute,
-  } as any)
-const AuthenticatedAppNotificationsRoute =
-  AuthenticatedAppNotificationsRouteImport.update({
+const AuthenticatedNotificationsRoute =
+  AuthenticatedNotificationsRouteImport.update({
     id: '/notifications',
     path: '/notifications',
-    getParentRoute: () => AuthenticatedAppRouteRoute,
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedAppCustomersRoute =
-  AuthenticatedAppCustomersRouteImport.update({
-    id: '/customers',
-    path: '/customers',
-    getParentRoute: () => AuthenticatedAppRouteRoute,
-  } as any)
-const AuthenticatedAppContentRoute = AuthenticatedAppContentRouteImport.update({
+const AuthenticatedCustomersRoute = AuthenticatedCustomersRouteImport.update({
+  id: '/customers',
+  path: '/customers',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedContentRoute = AuthenticatedContentRouteImport.update({
   id: '/content',
   path: '/content',
-  getParentRoute: () => AuthenticatedAppRouteRoute,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAppArenaRoute = AuthenticatedAppArenaRouteImport.update({
+const AuthenticatedArenaRoute = AuthenticatedArenaRouteImport.update({
   id: '/arena',
   path: '/arena',
-  getParentRoute: () => AuthenticatedAppRouteRoute,
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAppAnalyticsRoute =
-  AuthenticatedAppAnalyticsRouteImport.update({
-    id: '/analytics',
-    path: '/analytics',
-    getParentRoute: () => AuthenticatedAppRouteRoute,
-  } as any)
-const AuthenticatedAppCustomersIndexRoute =
-  AuthenticatedAppCustomersIndexRouteImport.update({
+const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCustomersIndexRoute =
+  AuthenticatedCustomersIndexRouteImport.update({
     id: '/',
     path: '/',
-    getParentRoute: () => AuthenticatedAppCustomersRoute,
+    getParentRoute: () => AuthenticatedCustomersRoute,
   } as any)
-const AuthenticatedAppSettingsAiRoute =
-  AuthenticatedAppSettingsAiRouteImport.update({
-    id: '/ai',
-    path: '/ai',
-    getParentRoute: () => AuthenticatedAppSettingsRoute,
-  } as any)
-const AuthenticatedAppCustomersCustomerIdRoute =
-  AuthenticatedAppCustomersCustomerIdRouteImport.update({
+const AuthenticatedSettingsAiRoute = AuthenticatedSettingsAiRouteImport.update({
+  id: '/ai',
+  path: '/ai',
+  getParentRoute: () => AuthenticatedSettingsRoute,
+} as any)
+const AuthenticatedCustomersCustomerIdRoute =
+  AuthenticatedCustomersCustomerIdRouteImport.update({
     id: '/$customerId',
     path: '/$customerId',
-    getParentRoute: () => AuthenticatedAppCustomersRoute,
+    getParentRoute: () => AuthenticatedCustomersRoute,
   } as any)
-const AuthenticatedAppCustomersCustomerIdPipelineRoute =
-  AuthenticatedAppCustomersCustomerIdPipelineRouteImport.update({
+const AuthenticatedCustomersCustomerIdPipelineRoute =
+  AuthenticatedCustomersCustomerIdPipelineRouteImport.update({
     id: '/pipeline',
     path: '/pipeline',
-    getParentRoute: () => AuthenticatedAppCustomersCustomerIdRoute,
+    getParentRoute: () => AuthenticatedCustomersCustomerIdRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -125,36 +109,33 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/app': typeof AuthenticatedAppRouteRouteWithChildren
+  '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/arena': typeof AuthenticatedArenaRoute
+  '/content': typeof AuthenticatedContentRoute
+  '/customers': typeof AuthenticatedCustomersRouteWithChildren
+  '/notifications': typeof AuthenticatedNotificationsRoute
+  '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/portal/$token': typeof PortalTokenRoute
-  '/app/analytics': typeof AuthenticatedAppAnalyticsRoute
-  '/app/arena': typeof AuthenticatedAppArenaRoute
-  '/app/content': typeof AuthenticatedAppContentRoute
-  '/app/customers': typeof AuthenticatedAppCustomersRouteWithChildren
-  '/app/notifications': typeof AuthenticatedAppNotificationsRoute
-  '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
-  '/app/': typeof AuthenticatedAppIndexRoute
-  '/app/customers/$customerId': typeof AuthenticatedAppCustomersCustomerIdRouteWithChildren
-  '/app/settings/ai': typeof AuthenticatedAppSettingsAiRoute
-  '/app/customers/': typeof AuthenticatedAppCustomersIndexRoute
-  '/app/customers/$customerId/pipeline': typeof AuthenticatedAppCustomersCustomerIdPipelineRoute
+  '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
+  '/settings/ai': typeof AuthenticatedSettingsAiRoute
+  '/customers/': typeof AuthenticatedCustomersIndexRoute
+  '/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AuthenticatedRouteRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/arena': typeof AuthenticatedArenaRoute
+  '/content': typeof AuthenticatedContentRoute
+  '/notifications': typeof AuthenticatedNotificationsRoute
+  '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/portal/$token': typeof PortalTokenRoute
-  '/app/analytics': typeof AuthenticatedAppAnalyticsRoute
-  '/app/arena': typeof AuthenticatedAppArenaRoute
-  '/app/content': typeof AuthenticatedAppContentRoute
-  '/app/notifications': typeof AuthenticatedAppNotificationsRoute
-  '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
-  '/app': typeof AuthenticatedAppIndexRoute
-  '/app/customers/$customerId': typeof AuthenticatedAppCustomersCustomerIdRouteWithChildren
-  '/app/settings/ai': typeof AuthenticatedAppSettingsAiRoute
-  '/app/customers': typeof AuthenticatedAppCustomersIndexRoute
-  '/app/customers/$customerId/pipeline': typeof AuthenticatedAppCustomersCustomerIdPipelineRoute
+  '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
+  '/settings/ai': typeof AuthenticatedSettingsAiRoute
+  '/customers': typeof AuthenticatedCustomersIndexRoute
+  '/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -162,19 +143,17 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/_authenticated/app': typeof AuthenticatedAppRouteRouteWithChildren
+  '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
+  '/_authenticated/arena': typeof AuthenticatedArenaRoute
+  '/_authenticated/content': typeof AuthenticatedContentRoute
+  '/_authenticated/customers': typeof AuthenticatedCustomersRouteWithChildren
+  '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
+  '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/portal/$token': typeof PortalTokenRoute
-  '/_authenticated/app/analytics': typeof AuthenticatedAppAnalyticsRoute
-  '/_authenticated/app/arena': typeof AuthenticatedAppArenaRoute
-  '/_authenticated/app/content': typeof AuthenticatedAppContentRoute
-  '/_authenticated/app/customers': typeof AuthenticatedAppCustomersRouteWithChildren
-  '/_authenticated/app/notifications': typeof AuthenticatedAppNotificationsRoute
-  '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
-  '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
-  '/_authenticated/app/customers/$customerId': typeof AuthenticatedAppCustomersCustomerIdRouteWithChildren
-  '/_authenticated/app/settings/ai': typeof AuthenticatedAppSettingsAiRoute
-  '/_authenticated/app/customers/': typeof AuthenticatedAppCustomersIndexRoute
-  '/_authenticated/app/customers/$customerId/pipeline': typeof AuthenticatedAppCustomersCustomerIdPipelineRoute
+  '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
+  '/_authenticated/settings/ai': typeof AuthenticatedSettingsAiRoute
+  '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
+  '/_authenticated/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -183,55 +162,50 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/reset-password'
-    | '/app'
+    | '/analytics'
+    | '/arena'
+    | '/content'
+    | '/customers'
+    | '/notifications'
+    | '/settings'
     | '/portal/$token'
-    | '/app/analytics'
-    | '/app/arena'
-    | '/app/content'
-    | '/app/customers'
-    | '/app/notifications'
-    | '/app/settings'
-    | '/app/'
-    | '/app/customers/$customerId'
-    | '/app/settings/ai'
-    | '/app/customers/'
-    | '/app/customers/$customerId/pipeline'
+    | '/customers/$customerId'
+    | '/settings/ai'
+    | '/customers/'
+    | '/customers/$customerId/pipeline'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/analytics'
+    | '/arena'
+    | '/content'
+    | '/notifications'
+    | '/settings'
     | '/portal/$token'
-    | '/app/analytics'
-    | '/app/arena'
-    | '/app/content'
-    | '/app/notifications'
-    | '/app/settings'
-    | '/app'
-    | '/app/customers/$customerId'
-    | '/app/settings/ai'
-    | '/app/customers'
-    | '/app/customers/$customerId/pipeline'
+    | '/customers/$customerId'
+    | '/settings/ai'
+    | '/customers'
+    | '/customers/$customerId/pipeline'
   id:
     | '__root__'
     | '/_authenticated'
     | '/forgot-password'
     | '/login'
     | '/reset-password'
-    | '/_authenticated/app'
+    | '/_authenticated/analytics'
+    | '/_authenticated/arena'
+    | '/_authenticated/content'
+    | '/_authenticated/customers'
+    | '/_authenticated/notifications'
+    | '/_authenticated/settings'
     | '/portal/$token'
-    | '/_authenticated/app/analytics'
-    | '/_authenticated/app/arena'
-    | '/_authenticated/app/content'
-    | '/_authenticated/app/customers'
-    | '/_authenticated/app/notifications'
-    | '/_authenticated/app/settings'
-    | '/_authenticated/app/'
-    | '/_authenticated/app/customers/$customerId'
-    | '/_authenticated/app/settings/ai'
-    | '/_authenticated/app/customers/'
-    | '/_authenticated/app/customers/$customerId/pipeline'
+    | '/_authenticated/customers/$customerId'
+    | '/_authenticated/settings/ai'
+    | '/_authenticated/customers/'
+    | '/_authenticated/customers/$customerId/pipeline'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -279,170 +253,140 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PortalTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/app': {
-      id: '/_authenticated/app'
-      path: '/app'
-      fullPath: '/app'
-      preLoaderRoute: typeof AuthenticatedAppRouteRouteImport
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/app/': {
-      id: '/_authenticated/app/'
-      path: '/'
-      fullPath: '/app/'
-      preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
-      parentRoute: typeof AuthenticatedAppRouteRoute
-    }
-    '/_authenticated/app/settings': {
-      id: '/_authenticated/app/settings'
-      path: '/settings'
-      fullPath: '/app/settings'
-      preLoaderRoute: typeof AuthenticatedAppSettingsRouteImport
-      parentRoute: typeof AuthenticatedAppRouteRoute
-    }
-    '/_authenticated/app/notifications': {
-      id: '/_authenticated/app/notifications'
+    '/_authenticated/notifications': {
+      id: '/_authenticated/notifications'
       path: '/notifications'
-      fullPath: '/app/notifications'
-      preLoaderRoute: typeof AuthenticatedAppNotificationsRouteImport
-      parentRoute: typeof AuthenticatedAppRouteRoute
+      fullPath: '/notifications'
+      preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/app/customers': {
-      id: '/_authenticated/app/customers'
+    '/_authenticated/customers': {
+      id: '/_authenticated/customers'
       path: '/customers'
-      fullPath: '/app/customers'
-      preLoaderRoute: typeof AuthenticatedAppCustomersRouteImport
-      parentRoute: typeof AuthenticatedAppRouteRoute
+      fullPath: '/customers'
+      preLoaderRoute: typeof AuthenticatedCustomersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/app/content': {
-      id: '/_authenticated/app/content'
+    '/_authenticated/content': {
+      id: '/_authenticated/content'
       path: '/content'
-      fullPath: '/app/content'
-      preLoaderRoute: typeof AuthenticatedAppContentRouteImport
-      parentRoute: typeof AuthenticatedAppRouteRoute
+      fullPath: '/content'
+      preLoaderRoute: typeof AuthenticatedContentRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/app/arena': {
-      id: '/_authenticated/app/arena'
+    '/_authenticated/arena': {
+      id: '/_authenticated/arena'
       path: '/arena'
-      fullPath: '/app/arena'
-      preLoaderRoute: typeof AuthenticatedAppArenaRouteImport
-      parentRoute: typeof AuthenticatedAppRouteRoute
+      fullPath: '/arena'
+      preLoaderRoute: typeof AuthenticatedArenaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/app/analytics': {
-      id: '/_authenticated/app/analytics'
+    '/_authenticated/analytics': {
+      id: '/_authenticated/analytics'
       path: '/analytics'
-      fullPath: '/app/analytics'
-      preLoaderRoute: typeof AuthenticatedAppAnalyticsRouteImport
-      parentRoute: typeof AuthenticatedAppRouteRoute
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AuthenticatedAnalyticsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/app/customers/': {
-      id: '/_authenticated/app/customers/'
+    '/_authenticated/customers/': {
+      id: '/_authenticated/customers/'
       path: '/'
-      fullPath: '/app/customers/'
-      preLoaderRoute: typeof AuthenticatedAppCustomersIndexRouteImport
-      parentRoute: typeof AuthenticatedAppCustomersRoute
+      fullPath: '/customers/'
+      preLoaderRoute: typeof AuthenticatedCustomersIndexRouteImport
+      parentRoute: typeof AuthenticatedCustomersRoute
     }
-    '/_authenticated/app/settings/ai': {
-      id: '/_authenticated/app/settings/ai'
+    '/_authenticated/settings/ai': {
+      id: '/_authenticated/settings/ai'
       path: '/ai'
-      fullPath: '/app/settings/ai'
-      preLoaderRoute: typeof AuthenticatedAppSettingsAiRouteImport
-      parentRoute: typeof AuthenticatedAppSettingsRoute
+      fullPath: '/settings/ai'
+      preLoaderRoute: typeof AuthenticatedSettingsAiRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
     }
-    '/_authenticated/app/customers/$customerId': {
-      id: '/_authenticated/app/customers/$customerId'
+    '/_authenticated/customers/$customerId': {
+      id: '/_authenticated/customers/$customerId'
       path: '/$customerId'
-      fullPath: '/app/customers/$customerId'
-      preLoaderRoute: typeof AuthenticatedAppCustomersCustomerIdRouteImport
-      parentRoute: typeof AuthenticatedAppCustomersRoute
+      fullPath: '/customers/$customerId'
+      preLoaderRoute: typeof AuthenticatedCustomersCustomerIdRouteImport
+      parentRoute: typeof AuthenticatedCustomersRoute
     }
-    '/_authenticated/app/customers/$customerId/pipeline': {
-      id: '/_authenticated/app/customers/$customerId/pipeline'
+    '/_authenticated/customers/$customerId/pipeline': {
+      id: '/_authenticated/customers/$customerId/pipeline'
       path: '/pipeline'
-      fullPath: '/app/customers/$customerId/pipeline'
-      preLoaderRoute: typeof AuthenticatedAppCustomersCustomerIdPipelineRouteImport
-      parentRoute: typeof AuthenticatedAppCustomersCustomerIdRoute
+      fullPath: '/customers/$customerId/pipeline'
+      preLoaderRoute: typeof AuthenticatedCustomersCustomerIdPipelineRouteImport
+      parentRoute: typeof AuthenticatedCustomersCustomerIdRoute
     }
   }
 }
 
-interface AuthenticatedAppCustomersCustomerIdRouteChildren {
-  AuthenticatedAppCustomersCustomerIdPipelineRoute: typeof AuthenticatedAppCustomersCustomerIdPipelineRoute
+interface AuthenticatedCustomersCustomerIdRouteChildren {
+  AuthenticatedCustomersCustomerIdPipelineRoute: typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
 
-const AuthenticatedAppCustomersCustomerIdRouteChildren: AuthenticatedAppCustomersCustomerIdRouteChildren =
+const AuthenticatedCustomersCustomerIdRouteChildren: AuthenticatedCustomersCustomerIdRouteChildren =
   {
-    AuthenticatedAppCustomersCustomerIdPipelineRoute:
-      AuthenticatedAppCustomersCustomerIdPipelineRoute,
+    AuthenticatedCustomersCustomerIdPipelineRoute:
+      AuthenticatedCustomersCustomerIdPipelineRoute,
   }
 
-const AuthenticatedAppCustomersCustomerIdRouteWithChildren =
-  AuthenticatedAppCustomersCustomerIdRoute._addFileChildren(
-    AuthenticatedAppCustomersCustomerIdRouteChildren,
+const AuthenticatedCustomersCustomerIdRouteWithChildren =
+  AuthenticatedCustomersCustomerIdRoute._addFileChildren(
+    AuthenticatedCustomersCustomerIdRouteChildren,
   )
 
-interface AuthenticatedAppCustomersRouteChildren {
-  AuthenticatedAppCustomersCustomerIdRoute: typeof AuthenticatedAppCustomersCustomerIdRouteWithChildren
-  AuthenticatedAppCustomersIndexRoute: typeof AuthenticatedAppCustomersIndexRoute
+interface AuthenticatedCustomersRouteChildren {
+  AuthenticatedCustomersCustomerIdRoute: typeof AuthenticatedCustomersCustomerIdRouteWithChildren
+  AuthenticatedCustomersIndexRoute: typeof AuthenticatedCustomersIndexRoute
 }
 
-const AuthenticatedAppCustomersRouteChildren: AuthenticatedAppCustomersRouteChildren =
+const AuthenticatedCustomersRouteChildren: AuthenticatedCustomersRouteChildren =
   {
-    AuthenticatedAppCustomersCustomerIdRoute:
-      AuthenticatedAppCustomersCustomerIdRouteWithChildren,
-    AuthenticatedAppCustomersIndexRoute: AuthenticatedAppCustomersIndexRoute,
+    AuthenticatedCustomersCustomerIdRoute:
+      AuthenticatedCustomersCustomerIdRouteWithChildren,
+    AuthenticatedCustomersIndexRoute: AuthenticatedCustomersIndexRoute,
   }
 
-const AuthenticatedAppCustomersRouteWithChildren =
-  AuthenticatedAppCustomersRoute._addFileChildren(
-    AuthenticatedAppCustomersRouteChildren,
+const AuthenticatedCustomersRouteWithChildren =
+  AuthenticatedCustomersRoute._addFileChildren(
+    AuthenticatedCustomersRouteChildren,
   )
 
-interface AuthenticatedAppSettingsRouteChildren {
-  AuthenticatedAppSettingsAiRoute: typeof AuthenticatedAppSettingsAiRoute
+interface AuthenticatedSettingsRouteChildren {
+  AuthenticatedSettingsAiRoute: typeof AuthenticatedSettingsAiRoute
 }
 
-const AuthenticatedAppSettingsRouteChildren: AuthenticatedAppSettingsRouteChildren =
-  {
-    AuthenticatedAppSettingsAiRoute: AuthenticatedAppSettingsAiRoute,
-  }
-
-const AuthenticatedAppSettingsRouteWithChildren =
-  AuthenticatedAppSettingsRoute._addFileChildren(
-    AuthenticatedAppSettingsRouteChildren,
-  )
-
-interface AuthenticatedAppRouteRouteChildren {
-  AuthenticatedAppAnalyticsRoute: typeof AuthenticatedAppAnalyticsRoute
-  AuthenticatedAppArenaRoute: typeof AuthenticatedAppArenaRoute
-  AuthenticatedAppContentRoute: typeof AuthenticatedAppContentRoute
-  AuthenticatedAppCustomersRoute: typeof AuthenticatedAppCustomersRouteWithChildren
-  AuthenticatedAppNotificationsRoute: typeof AuthenticatedAppNotificationsRoute
-  AuthenticatedAppSettingsRoute: typeof AuthenticatedAppSettingsRouteWithChildren
-  AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
+const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
+  AuthenticatedSettingsAiRoute: AuthenticatedSettingsAiRoute,
 }
 
-const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
-  AuthenticatedAppAnalyticsRoute: AuthenticatedAppAnalyticsRoute,
-  AuthenticatedAppArenaRoute: AuthenticatedAppArenaRoute,
-  AuthenticatedAppContentRoute: AuthenticatedAppContentRoute,
-  AuthenticatedAppCustomersRoute: AuthenticatedAppCustomersRouteWithChildren,
-  AuthenticatedAppNotificationsRoute: AuthenticatedAppNotificationsRoute,
-  AuthenticatedAppSettingsRoute: AuthenticatedAppSettingsRouteWithChildren,
-  AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
-}
-
-const AuthenticatedAppRouteRouteWithChildren =
-  AuthenticatedAppRouteRoute._addFileChildren(
-    AuthenticatedAppRouteRouteChildren,
+const AuthenticatedSettingsRouteWithChildren =
+  AuthenticatedSettingsRoute._addFileChildren(
+    AuthenticatedSettingsRouteChildren,
   )
 
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedAppRouteRoute: typeof AuthenticatedAppRouteRouteWithChildren
+  AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
+  AuthenticatedArenaRoute: typeof AuthenticatedArenaRoute
+  AuthenticatedContentRoute: typeof AuthenticatedContentRoute
+  AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRouteWithChildren
+  AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
+  AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedAppRouteRoute: AuthenticatedAppRouteRouteWithChildren,
+  AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
+  AuthenticatedArenaRoute: AuthenticatedArenaRoute,
+  AuthenticatedContentRoute: AuthenticatedContentRoute,
+  AuthenticatedCustomersRoute: AuthenticatedCustomersRouteWithChildren,
+  AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
+  AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
 }
 
 const AuthenticatedRouteRouteWithChildren =

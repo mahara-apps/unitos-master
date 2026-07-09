@@ -13,7 +13,7 @@ import {
   MessageCircle, Wand2, Cpu, DollarSign, ImageIcon, Layers, Check,
 } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/app/arena")({
+export const Route = createFileRoute("/_authenticated/arena")({
   component: ArenaPage,
 });
 
