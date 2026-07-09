@@ -54,9 +54,9 @@ export function CommandMenu() {
 
   return (
     <CommandDialog open={open} onOpenChange={setOpen}>
-      <CommandInput placeholder="Buscar clientes, projetos, tarefas, posts…" value={q} onValueChange={setQ} />
+      <CommandInput placeholder="Search customers, projects, tasks, posts…" value={q} onValueChange={setQ} />
       <CommandList>
-        <CommandEmpty>Nada encontrado.</CommandEmpty>
+        <CommandEmpty>Nothing found.</CommandEmpty>
         <CommandGroup heading="Navegação">
           <CommandItem onSelect={() => go("/app/dashboard")}><LayoutDashboard /> Dashboard <CommandShortcut>G D</CommandShortcut></CommandItem>
           <CommandItem onSelect={() => go("/app/kanban")}><KanbanSquare /> Produção <CommandShortcut>G K</CommandShortcut></CommandItem>
