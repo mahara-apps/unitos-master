@@ -15,7 +15,7 @@ import {
 import { useActiveContext } from "@/hooks/use-active-context";
 import { searchWorkspace } from "@/lib/dashboard.functions";
 import { listClients } from "@/lib/workspace.functions";
-import { LayoutDashboard, KanbanSquare, Sparkles, BarChart3, Users, Settings } from "lucide-react";
+import { LayoutDashboard, KanbanSquare, BarChart3, Users, Settings } from "lucide-react";
 
 export function CommandMenu() {
   const [open, setOpen] = useState(false);
