@@ -35,9 +35,10 @@ export const createBrand = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => CreateBrandInput.parse(input))
   .handler(async ({ data, context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const slugBase = data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     const slug = `${slugBase}-${Math.random().toString(36).slice(2, 6)}`;
-    const { data: brand, error } = await context.supabase
+    const { data: brand, error } = await supabaseAdmin
       .from("brands")
       .insert({
         name: data.name,
