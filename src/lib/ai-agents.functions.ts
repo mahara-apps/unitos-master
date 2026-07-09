@@ -850,6 +850,89 @@ export const loadClientContextFn = createServerFn({ method: "POST" })
     };
   });
 
+// ---------- Loaders fatiados (streaming por aba) ----------
+//
+// Divisão intencional: `core` traz apenas o essencial para renderizar o
+// header + decidir se mostra onboarding (rápido). `target` e `market` são
+// pesados e ficam por trás de Suspense em cada aba. Cada fatia usa
+// `Promise.all` internamente para eliminar waterfall no Supabase.
+
+const clientScopeInput = z.object({
+  brandId: z.string().uuid(),
+  clientId: z.string().uuid(),
+});
+
+export const loadCustomerCoreFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => clientScopeInput.parse(i))
+  .handler(async ({ data, context }) => {
+    const [briefing, voice, usage] = await Promise.all([
+      context.supabase
+        .from("brand_briefings")
+        .select("*")
+        .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      context.supabase
+        .from("brand_voice_cards")
+        .select("*")
+        .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId)
+        .eq("is_active", true)
+        .maybeSingle(),
+      context.supabase
+        .from("brand_ai_usage")
+        .select("cost_usd,created_at,agent,model,input_tokens,output_tokens,success")
+        .eq("brand_id", data.brandId)
+        .gte("created_at", new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString()),
+    ]);
+    const totalCost = (usage.data ?? []).reduce((s, r) => s + Number(r.cost_usd ?? 0), 0);
+    return {
+      briefing: briefing.data,
+      voice: voice.data,
+      usage: { last30d: usage.data ?? [], totalCostUsd: totalCost },
+    };
+  });
+
+export const loadCustomerTargetFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => clientScopeInput.parse(i))
+  .handler(async ({ data, context }) => {
+    const [personas, cohorts] = await Promise.all([
+      context.supabase
+        .from("brand_personas")
+        .select("*")
+        .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId)
+        .eq("is_active", true)
+        .maybeSingle(),
+      context.supabase
+        .from("brand_cohorts")
+        .select("*")
+        .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId)
+        .eq("is_active", true)
+        .maybeSingle(),
+    ]);
+    return { personas: personas.data, cohorts: cohorts.data };
+  });
+
+export const loadCustomerMarketFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => clientScopeInput.parse(i))
+  .handler(async ({ data, context }) => {
+    const { data: swot } = await context.supabase
+      .from("brand_swot")
+      .select("*")
+      .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
+      .eq("is_active", true)
+      .maybeSingle();
+    return { swot };
+  });
+
 // ---------- Unified pipeline (one-click onboarding) ----------
 //
 // Runs briefing.parse → voice → personas → cohorts → swot → pauta sequentially,
