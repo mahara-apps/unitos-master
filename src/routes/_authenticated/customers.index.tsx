@@ -71,7 +71,7 @@ function CustomersIndexPage() {
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-6">
+    <div className="w-full space-y-6 px-6 py-6 md:px-8">
       <div className="flex items-center justify-between">
         <div>
           <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -123,19 +123,19 @@ function CustomersIndexPage() {
       </div>
 
       {customers.length === 0 && !customersQ.isLoading ? (
-        <div className="rounded-xl border border-white/10 bg-neutral-950/60 p-10 text-center">
+        <div className="rounded-xl border border-border bg-card p-10 text-center">
           <p className="text-sm text-muted-foreground">
             Nenhum cliente ainda. Crie o primeiro para começar a rodar os agentes de IA.
           </p>
         </div>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {customers.map((c) => (
             <Link
               key={c.id}
               to="/customers/$customerId"
               params={{ customerId: c.id }}
-              className="group rounded-xl border border-white/10 bg-neutral-950/60 p-5 transition hover:border-primary/40"
+              className="group rounded-xl border border-border bg-card p-5 transition hover:border-primary/40 hover:shadow-sm"
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
@@ -146,7 +146,7 @@ function CustomersIndexPage() {
                     {c.name.slice(0, 2).toUpperCase()}
                   </div>
                   <div>
-                    <div className="text-sm font-semibold">{c.name}</div>
+                    <div className="text-sm font-semibold text-foreground">{c.name}</div>
                     <div className="text-[11px] text-muted-foreground">{c.niche ?? "—"}</div>
                   </div>
                 </div>

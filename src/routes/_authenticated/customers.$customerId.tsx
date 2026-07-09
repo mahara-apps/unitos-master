@@ -94,8 +94,8 @@ function CustomerDetail() {
 
 function HeaderFallback() {
   return (
-    <ScrollArea className="h-[calc(100vh-3.5rem)] bg-zinc-950">
-      <div className="mx-auto max-w-7xl space-y-6 p-6">
+    <ScrollArea className="h-[calc(100vh-3.5rem)] bg-background">
+      <div className="w-full space-y-6 px-6 py-6 md:px-8">
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Skeleton className="h-11 w-11 rounded-lg" />
@@ -110,7 +110,7 @@ function HeaderFallback() {
             <Skeleton className="h-8 w-24 rounded-md" />
           </div>
         </header>
-        <div className="rounded-lg border border-white/10 bg-neutral-900/60 p-1">
+        <div className="rounded-lg border border-border bg-card p-1">
           <div className="flex gap-2 p-1">
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-7 w-20 rounded-md" />
@@ -164,8 +164,8 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
   };
 
   return (
-    <ScrollArea className="h-[calc(100vh-3.5rem)] bg-zinc-950">
-      <div className="mx-auto max-w-7xl space-y-6 p-6">
+    <ScrollArea className="h-[calc(100vh-3.5rem)] bg-background">
+      <div className="w-full space-y-6 px-6 py-6 md:px-8">
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div
@@ -212,7 +212,7 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
         </header>
 
         {customer === undefined && !customersQ.isLoading ? (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-6 text-sm text-red-300">
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-sm text-destructive">
             Este cliente não pertence ao workspace ativo.
           </div>
         ) : showOnboarding ? (
@@ -226,12 +226,12 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
           />
         ) : (
           <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList className="w-full justify-start overflow-x-auto rounded-lg border border-white/10 bg-neutral-900/60 p-1">
+            <TabsList className="w-full justify-start overflow-x-auto rounded-lg border border-border bg-card p-1">
               {TABS.map((t) => (
                 <TabsTrigger
                   key={t.value}
                   value={t.value}
-                  className="text-xs data-[state=active]:bg-white/10"
+                  className="text-xs data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
                 >
                   {t.label}
                 </TabsTrigger>
