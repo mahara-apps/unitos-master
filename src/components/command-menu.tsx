@@ -57,20 +57,20 @@ export function CommandMenu() {
       <CommandInput placeholder="Search customers, projects, tasks, posts…" value={q} onValueChange={setQ} />
       <CommandList>
         <CommandEmpty>Nothing found.</CommandEmpty>
-        <CommandGroup heading="Navegação">
+        <CommandGroup heading="Navigate">
           <CommandItem onSelect={() => go("/app/dashboard")}><LayoutDashboard /> Dashboard <CommandShortcut>G D</CommandShortcut></CommandItem>
-          <CommandItem onSelect={() => go("/app/kanban")}><KanbanSquare /> Produção <CommandShortcut>G K</CommandShortcut></CommandItem>
-          <CommandItem onSelect={() => go("/app/arena")}><Sparkles /> Arena de IA <CommandShortcut>G A</CommandShortcut></CommandItem>
-          <CommandItem onSelect={() => go("/app/clients")}><Users /> Clientes</CommandItem>
-          <CommandItem onSelect={() => go("/app/ai-settings")}><Settings /> IA & Marca</CommandItem>
+          <CommandItem onSelect={() => go("/app/content")}><KanbanSquare /> Content <CommandShortcut>G C</CommandShortcut></CommandItem>
+          <CommandItem onSelect={() => go("/app/arena")}><Sparkles /> AI Arena <CommandShortcut>G A</CommandShortcut></CommandItem>
+          <CommandItem onSelect={() => go("/app/customers")}><Users /> Customers</CommandItem>
+          <CommandItem onSelect={() => go("/app/settings/ai")}><Settings /> AI Settings</CommandItem>
           <CommandItem onSelect={() => go("/app/analytics")}><BarChart3 /> Analytics</CommandItem>
         </CommandGroup>
         {clientsQ.data && clientsQ.data.length > 0 && (
           <>
             <CommandSeparator />
-            <CommandGroup heading="Trocar cliente ativo">
+            <CommandGroup heading="Switch customer">
               <CommandItem onSelect={() => { setClientId(null); setOpen(false); }}>
-                Toda a agência
+                Whole agency
               </CommandItem>
               {clientsQ.data.map((c) => (
                 <CommandItem key={c.id} onSelect={() => { setClientId(c.id); setOpen(false); }}>
@@ -84,23 +84,23 @@ export function CommandMenu() {
           <>
             <CommandSeparator />
             {searchQ.data.clients.length > 0 && (
-              <CommandGroup heading="Clientes">
+              <CommandGroup heading="Customers">
                 {searchQ.data.clients.map((c) => (
                   <CommandItem key={c.id} onSelect={() => { setClientId(c.id); go("/app/dashboard"); }}>{c.name}</CommandItem>
                 ))}
               </CommandGroup>
             )}
             {searchQ.data.tasks.length > 0 && (
-              <CommandGroup heading="Tarefas">
+              <CommandGroup heading="Tasks">
                 {searchQ.data.tasks.map((t) => (
-                  <CommandItem key={t.id} onSelect={() => go("/app/kanban")}>{t.title}</CommandItem>
+                  <CommandItem key={t.id} onSelect={() => go("/app/content")}>{t.title}</CommandItem>
                 ))}
               </CommandGroup>
             )}
             {searchQ.data.posts.length > 0 && (
               <CommandGroup heading="Posts">
                 {searchQ.data.posts.map((p) => (
-                  <CommandItem key={p.id} onSelect={() => go("/app/kanban")}>{p.title}</CommandItem>
+                  <CommandItem key={p.id} onSelect={() => go("/app/content")}>{p.title}</CommandItem>
                 ))}
               </CommandGroup>
             )}
