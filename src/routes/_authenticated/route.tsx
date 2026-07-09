@@ -9,12 +9,12 @@ import { Command } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const titles: Record<string, string> = {
-  "/dashboard": "Dashboard",
-  "/content": "Content",
-  "/customers": "Customers",
-  "/settings/ai": "AI Settings",
-  "/analytics": "Analytics",
-  "/notifications": "Notifications",
+  "/dashboard": "Painel",
+  "/content": "Conteúdo",
+  "/customers": "Clientes",
+  "/settings/ai": "Configurações de IA",
+  "/analytics": "Análises",
+  "/notifications": "Notificações",
 };
 
 export const Route = createFileRoute("/_authenticated")({
