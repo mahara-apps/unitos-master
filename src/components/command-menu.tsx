@@ -58,12 +58,12 @@ export function CommandMenu() {
       <CommandList>
         <CommandEmpty>Nothing found.</CommandEmpty>
         <CommandGroup heading="Navigate">
-          <CommandItem onSelect={() => go("/app/dashboard")}><LayoutDashboard /> Dashboard <CommandShortcut>G D</CommandShortcut></CommandItem>
-          <CommandItem onSelect={() => go("/app/content")}><KanbanSquare /> Content <CommandShortcut>G C</CommandShortcut></CommandItem>
-          <CommandItem onSelect={() => go("/app/arena")}><Sparkles /> AI Arena <CommandShortcut>G A</CommandShortcut></CommandItem>
-          <CommandItem onSelect={() => go("/app/customers")}><Users /> Customers</CommandItem>
-          <CommandItem onSelect={() => go("/app/settings/ai")}><Settings /> AI Settings</CommandItem>
-          <CommandItem onSelect={() => go("/app/analytics")}><BarChart3 /> Analytics</CommandItem>
+          <CommandItem onSelect={() => go("/dashboard")}><LayoutDashboard /> Dashboard <CommandShortcut>G D</CommandShortcut></CommandItem>
+          <CommandItem onSelect={() => go("/content")}><KanbanSquare /> Content <CommandShortcut>G C</CommandShortcut></CommandItem>
+          <CommandItem onSelect={() => go("/arena")}><Sparkles /> AI Arena <CommandShortcut>G A</CommandShortcut></CommandItem>
+          <CommandItem onSelect={() => go("/customers")}><Users /> Customers</CommandItem>
+          <CommandItem onSelect={() => go("/settings/ai")}><Settings /> AI Settings</CommandItem>
+          <CommandItem onSelect={() => go("/analytics")}><BarChart3 /> Analytics</CommandItem>
         </CommandGroup>
         {clientsQ.data && clientsQ.data.length > 0 && (
           <>
@@ -86,21 +86,21 @@ export function CommandMenu() {
             {searchQ.data.clients.length > 0 && (
               <CommandGroup heading="Customers">
                 {searchQ.data.clients.map((c) => (
-                  <CommandItem key={c.id} onSelect={() => { setClientId(c.id); go("/app/dashboard"); }}>{c.name}</CommandItem>
+                  <CommandItem key={c.id} onSelect={() => { setClientId(c.id); go("/dashboard"); }}>{c.name}</CommandItem>
                 ))}
               </CommandGroup>
             )}
             {searchQ.data.tasks.length > 0 && (
               <CommandGroup heading="Tasks">
                 {searchQ.data.tasks.map((t) => (
-                  <CommandItem key={t.id} onSelect={() => go("/app/content")}>{t.title}</CommandItem>
+                  <CommandItem key={t.id} onSelect={() => go("/content")}>{t.title}</CommandItem>
                 ))}
               </CommandGroup>
             )}
             {searchQ.data.posts.length > 0 && (
               <CommandGroup heading="Posts">
                 {searchQ.data.posts.map((p) => (
-                  <CommandItem key={p.id} onSelect={() => go("/app/content")}>{p.title}</CommandItem>
+                  <CommandItem key={p.id} onSelect={() => go("/content")}>{p.title}</CommandItem>
                 ))}
               </CommandGroup>
             )}

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { listClients } from "@/lib/workspace.functions";
 
-export const Route = createFileRoute("/_authenticated/app/customers/$customerId/pipeline")({
+export const Route = createFileRoute("/_authenticated/customers/$customerId/pipeline")({
   component: CustomerPipeline,
 });
 
@@ -29,7 +29,7 @@ function CustomerPipeline() {
       <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
         <div className="flex items-center gap-3">
           <Button asChild size="sm" variant="ghost" className="h-8 gap-1.5">
-            <Link to="/app/customers/$customerId" params={{ customerId }}>
+            <Link to="/customers/$customerId" params={{ customerId }}>
               <ArrowLeft className="h-3.5 w-3.5" /> Back
             </Link>
           </Button>

@@ -60,7 +60,7 @@ export function LoginForm() {
       return;
     }
     toast.success("Bem-vindo de volta");
-    navigate({ to: "/app/dashboard" });
+    navigate({ to: "/dashboard" });
   }
 
   async function onSignUp(values: SignUpValues) {
@@ -79,7 +79,7 @@ export function LoginForm() {
       return;
     }
     toast.success("Conta criada", { description: "Você já pode acessar o painel." });
-    navigate({ to: "/app/dashboard" });
+    navigate({ to: "/dashboard" });
   }
 
   return (

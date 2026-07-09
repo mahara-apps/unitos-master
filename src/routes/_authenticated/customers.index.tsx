@@ -19,7 +19,7 @@ import { Plus, Search, ArrowRight, AlertTriangle, Loader2 } from "lucide-react";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { listClients, createClient } from "@/lib/workspace.functions";
 
-export const Route = createFileRoute("/_authenticated/app/customers/")({
+export const Route = createFileRoute("/_authenticated/customers/")({
   component: CustomersIndexPage,
 });
 
@@ -133,7 +133,7 @@ function CustomersIndexPage() {
           {customers.map((c) => (
             <Link
               key={c.id}
-              to="/app/customers/$customerId"
+              to="/customers/$customerId"
               params={{ customerId: c.id }}
               className="group rounded-xl border border-white/10 bg-neutral-950/60 p-5 transition hover:border-primary/40"
             >
