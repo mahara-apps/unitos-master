@@ -105,7 +105,7 @@ function CustomerDetail() {
               {cost.toFixed(4)} USD · 30d
             </Badge>
             <Button asChild size="sm" variant="outline" className="gap-1.5">
-              <Link to="/app/customers/$customerId/pipeline" params={{ customerId }}>
+              <Link to="/customers/$customerId/pipeline" params={{ customerId }}>
                 <KanbanSquare className="h-3.5 w-3.5" />
                 Pipeline
               </Link>
