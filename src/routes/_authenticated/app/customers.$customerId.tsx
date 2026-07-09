@@ -21,6 +21,7 @@ import {
   CompetitorTab,
   useClientContext,
 } from "@/components/ai-agents/agent-tabs";
+import { PipelineOnboarding } from "@/components/ai-agents/pipeline-onboarding";
 
 export const Route = createFileRoute("/_authenticated/app/customers/$customerId")({
   component: CustomerDetail,
@@ -60,6 +61,8 @@ function CustomerDetail() {
 
   const { ctx, invalidate } = useClientContext(brandId ?? "", customerId);
   const cost = ctxQ.data?.usage.totalCostUsd ?? 0;
+  const hasBriefing = Boolean(ctxQ.data?.briefing);
+  const loadingCtx = ctxQ.isLoading;
 
   if (!brandId) {
     return (
@@ -114,6 +117,19 @@ function CustomerDetail() {
           <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-6 text-sm text-red-300">
             This customer does not belong to the active workspace.
           </div>
+        ) : loadingCtx ? (
+          <div className="rounded-xl border border-white/10 bg-neutral-950/60 p-10 text-center text-xs text-muted-foreground">
+            Loading customer intelligence…
+          </div>
+        ) : !hasBriefing ? (
+          <PipelineOnboarding
+            brandId={brandId}
+            clientId={customerId}
+            onDone={() => {
+              invalidate();
+              ctxQ.refetch();
+            }}
+          />
         ) : (
           <Tabs defaultValue="briefing" className="space-y-4">
             <TabsList className="w-full justify-start overflow-x-auto rounded-lg border border-white/10 bg-neutral-900/60 p-1">
