@@ -110,7 +110,7 @@ function HeaderFallback() {
             <Skeleton className="h-8 w-24 rounded-md" />
           </div>
         </header>
-        <div className="rounded-lg border border-white/10 bg-neutral-900/60 p-1">
+        <div className="rounded-lg border border-border bg-card p-1">
           <div className="flex gap-2 p-1">
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-7 w-20 rounded-md" />
@@ -212,7 +212,7 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
         </header>
 
         {customer === undefined && !customersQ.isLoading ? (
-          <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-6 text-sm text-red-300">
+          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-sm text-destructive">
             Este cliente não pertence ao workspace ativo.
           </div>
         ) : showOnboarding ? (
@@ -226,12 +226,12 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
           />
         ) : (
           <Tabs defaultValue="overview" className="space-y-4">
-            <TabsList className="w-full justify-start overflow-x-auto rounded-lg border border-white/10 bg-neutral-900/60 p-1">
+            <TabsList className="w-full justify-start overflow-x-auto rounded-lg border border-border bg-card p-1">
               {TABS.map((t) => (
                 <TabsTrigger
                   key={t.value}
                   value={t.value}
-                  className="text-xs data-[state=active]:bg-white/10"
+                  className="text-xs data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
                 >
                   {t.label}
                 </TabsTrigger>
