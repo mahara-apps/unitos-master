@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/button";
 const titles: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/content": "Content",
-  "/arena": "AI Arena",
   "/customers": "Customers",
   "/settings/ai": "AI Settings",
   "/analytics": "Analytics",

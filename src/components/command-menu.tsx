@@ -15,7 +15,7 @@ import {
 import { useActiveContext } from "@/hooks/use-active-context";
 import { searchWorkspace } from "@/lib/dashboard.functions";
 import { listClients } from "@/lib/workspace.functions";
-import { LayoutDashboard, KanbanSquare, Sparkles, BarChart3, Users, Settings } from "lucide-react";
+import { LayoutDashboard, KanbanSquare, BarChart3, Users, Settings } from "lucide-react";
 
 export function CommandMenu() {
   const [open, setOpen] = useState(false);
@@ -60,7 +60,6 @@ export function CommandMenu() {
         <CommandGroup heading="Navigate">
           <CommandItem onSelect={() => go("/dashboard")}><LayoutDashboard /> Dashboard <CommandShortcut>G D</CommandShortcut></CommandItem>
           <CommandItem onSelect={() => go("/content")}><KanbanSquare /> Content <CommandShortcut>G C</CommandShortcut></CommandItem>
-          <CommandItem onSelect={() => go("/arena")}><Sparkles /> AI Arena <CommandShortcut>G A</CommandShortcut></CommandItem>
           <CommandItem onSelect={() => go("/customers")}><Users /> Customers</CommandItem>
           <CommandItem onSelect={() => go("/settings/ai")}><Settings /> AI Settings</CommandItem>
           <CommandItem onSelect={() => go("/analytics")}><BarChart3 /> Analytics</CommandItem>
