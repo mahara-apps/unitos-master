@@ -19,11 +19,11 @@ import { Plus, Search, ArrowRight, AlertTriangle, Loader2 } from "lucide-react";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { listClients, createClient } from "@/lib/workspace.functions";
 
-export const Route = createFileRoute("/_authenticated/app/clients/")({
-  component: ClientsIndexPage,
+export const Route = createFileRoute("/_authenticated/app/customers/")({
+  component: CustomersIndexPage,
 });
 
-function ClientsIndexPage() {
+function CustomersIndexPage() {
   const { brandId } = useActiveContext();
   const list = useServerFn(listClients);
   const create = useServerFn(createClient);
@@ -33,7 +33,7 @@ function ClientsIndexPage() {
   const [niche, setNiche] = useState("");
   const [creating, setCreating] = useState(false);
 
-  const clientsQ = useQuery({
+  const customersQ = useQuery({
     queryKey: ["clients", brandId],
     queryFn: () => list({ data: { brandId: brandId! } }),
     enabled: !!brandId,
@@ -43,13 +43,13 @@ function ClientsIndexPage() {
     return (
       <div className="mx-auto max-w-6xl p-6">
         <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-6 text-sm text-amber-300">
-          <AlertTriangle className="h-4 w-4" /> Selecione uma marca no menu lateral para ver os clientes.
+          <AlertTriangle className="h-4 w-4" /> Select a workspace from the sidebar to see customers.
         </div>
       </div>
     );
   }
 
-  const clients = (clientsQ.data ?? []).filter((c) =>
+  const customers = (customersQ.data ?? []).filter((c) =>
     c.name.toLowerCase().includes(q.toLowerCase()),
   );
 
@@ -58,11 +58,11 @@ function ClientsIndexPage() {
     setCreating(true);
     try {
       await create({ data: { brandId, name: name.trim(), niche: niche.trim() || undefined } });
-      toast.success("Cliente criado.");
+      toast.success("Customer created.");
       setName("");
       setNiche("");
       setOpen(false);
-      clientsQ.refetch();
+      customersQ.refetch();
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -75,37 +75,37 @@ function ClientsIndexPage() {
       <div className="flex items-center justify-between">
         <div>
           <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            module · clients
+            module · customers
           </div>
-          <h1 className="mt-1 text-2xl font-semibold">Clientes</h1>
+          <h1 className="mt-1 text-2xl font-semibold">Customers</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {clientsQ.isLoading ? "carregando..." : `${clients.length} cliente(s) nesta marca`}
+            {customersQ.isLoading ? "loading..." : `${customers.length} customer(s) in this workspace`}
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button size="sm" className="gap-1.5">
-              <Plus className="h-3.5 w-3.5" /> Novo cliente
+              <Plus className="h-3.5 w-3.5" /> New customer
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Novo cliente</DialogTitle>
+              <DialogTitle>New customer</DialogTitle>
             </DialogHeader>
             <div className="space-y-3">
               <div>
-                <Label className="text-xs">Nome</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Café Aurora" />
+                <Label className="text-xs">Name</Label>
+                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Café Aurora" />
               </div>
               <div>
-                <Label className="text-xs">Nicho (opcional)</Label>
-                <Input value={niche} onChange={(e) => setNiche(e.target.value)} placeholder="Ex: F&B" />
+                <Label className="text-xs">Niche (optional)</Label>
+                <Input value={niche} onChange={(e) => setNiche(e.target.value)} placeholder="e.g. F&B" />
               </div>
             </div>
             <DialogFooter>
               <Button onClick={onCreate} disabled={creating || name.trim().length < 2}>
                 {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Criar
+                Create
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -117,24 +117,24 @@ function ClientsIndexPage() {
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Buscar cliente…"
+          placeholder="Search customer…"
           className="pl-8 text-xs"
         />
       </div>
 
-      {clients.length === 0 && !clientsQ.isLoading ? (
+      {customers.length === 0 && !customersQ.isLoading ? (
         <div className="rounded-xl border border-white/10 bg-neutral-950/60 p-10 text-center">
           <p className="text-sm text-muted-foreground">
-            Nenhum cliente cadastrado ainda. Crie o primeiro para começar a rodar os agentes de IA.
+            No customers yet. Create the first one to start running AI agents.
           </p>
         </div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {clients.map((c) => (
+          {customers.map((c) => (
             <Link
               key={c.id}
-              to="/app/clients/$clientId"
-              params={{ clientId: c.id }}
+              to="/app/customers/$customerId"
+              params={{ customerId: c.id }}
               className="group rounded-xl border border-white/10 bg-neutral-950/60 p-5 transition hover:border-primary/40"
             >
               <div className="flex items-start justify-between">
@@ -155,7 +155,7 @@ function ClientsIndexPage() {
               {c.tone_of_voice && (
                 <div className="mt-4 flex items-center justify-between text-[11px]">
                   <span className="text-muted-foreground">
-                    Tom: <span className="text-foreground">{c.tone_of_voice}</span>
+                    Tone: <span className="text-foreground">{c.tone_of_voice}</span>
                   </span>
                   <Badge variant="outline" className="font-mono text-[10px]">
                     {c.id.slice(0, 8)}

@@ -4,19 +4,19 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Calendar, Instagram, Linkedin, MessageCircle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export const Route = createFileRoute("/_authenticated/app/kanban")({
-  component: KanbanPage,
+export const Route = createFileRoute("/_authenticated/app/content")({
+  component: ContentPage,
 });
 
 type Stage = "briefing" | "writing" | "design" | "review" | "approved" | "scheduled";
 
 const stages: { id: Stage; label: string; hint: string }[] = [
-  { id: "briefing", label: "Briefing", hint: "Contexto & referências" },
-  { id: "writing", label: "Copy IA", hint: "Redator + Estrategista" },
-  { id: "design", label: "Design", hint: "Arte + imagem gerada" },
-  { id: "review", label: "Revisão", hint: "Compliance & QA" },
-  { id: "approved", label: "Aprovado", hint: "Pronto para publicar" },
-  { id: "scheduled", label: "Agendado", hint: "Fila de publicação" },
+  { id: "briefing", label: "Briefing", hint: "Context & references" },
+  { id: "writing", label: "AI Copy", hint: "Writer + Strategist" },
+  { id: "design", label: "Design", hint: "Art + generated image" },
+  { id: "review", label: "Review", hint: "Compliance & QA" },
+  { id: "approved", label: "Approved", hint: "Ready to publish" },
+  { id: "scheduled", label: "Scheduled", hint: "Publish queue" },
 ];
 
 type Post = {
@@ -32,13 +32,13 @@ type Post = {
 };
 
 const posts: Post[] = [
-  { id: "p1", title: "Lançamento coleção outono — carrossel", client: "Nova Studio", color: "#f97316", stage: "briefing", channel: "instagram", due: "12/07", assignee: "AM", aiScore: 0 },
-  { id: "p2", title: "Case cliente: ROI 3.4x em 90 dias", client: "Ativa B2B", color: "#3b82f6", stage: "writing", channel: "linkedin", due: "10/07", assignee: "LR", aiScore: 62 },
-  { id: "p3", title: "Reels: 3 erros no funil de vendas", client: "Ativa B2B", color: "#3b82f6", stage: "writing", channel: "tiktok", due: "11/07", assignee: "IA", aiScore: 78 },
-  { id: "p4", title: "Post educativo — LGPD para clínicas", client: "Vitta Saúde", color: "#10b981", stage: "design", channel: "instagram", due: "13/07", assignee: "DP", aiScore: 84 },
-  { id: "p5", title: "Anúncio de vaga sênior", client: "Nova Studio", color: "#f97316", stage: "review", channel: "linkedin", due: "09/07", assignee: "AM", aiScore: 91 },
-  { id: "p6", title: "Depoimento cliente — video legendado", client: "Vitta Saúde", color: "#10b981", stage: "approved", channel: "instagram", due: "08/07", assignee: "DP", aiScore: 96 },
-  { id: "p7", title: "Série 'bastidores' — episódio 04", client: "Nova Studio", color: "#f97316", stage: "scheduled", channel: "instagram", due: "07/07", assignee: "AM", aiScore: 98 },
+  { id: "p1", title: "Fall collection launch — carousel", client: "Nova Studio", color: "#f97316", stage: "briefing", channel: "instagram", due: "07/12", assignee: "AM", aiScore: 0 },
+  { id: "p2", title: "Client case: 3.4x ROI in 90 days", client: "Ativa B2B", color: "#3b82f6", stage: "writing", channel: "linkedin", due: "07/10", assignee: "LR", aiScore: 62 },
+  { id: "p3", title: "Reels: 3 funnel mistakes", client: "Ativa B2B", color: "#3b82f6", stage: "writing", channel: "tiktok", due: "07/11", assignee: "AI", aiScore: 78 },
+  { id: "p4", title: "Educational post — LGPD for clinics", client: "Vitta Saúde", color: "#10b981", stage: "design", channel: "instagram", due: "07/13", assignee: "DP", aiScore: 84 },
+  { id: "p5", title: "Senior role announcement", client: "Nova Studio", color: "#f97316", stage: "review", channel: "linkedin", due: "07/09", assignee: "AM", aiScore: 91 },
+  { id: "p6", title: "Client testimonial — captioned video", client: "Vitta Saúde", color: "#10b981", stage: "approved", channel: "instagram", due: "07/08", assignee: "DP", aiScore: 96 },
+  { id: "p7", title: "'Behind the scenes' series — ep. 04", client: "Nova Studio", color: "#f97316", stage: "scheduled", channel: "instagram", due: "07/07", assignee: "AM", aiScore: 98 },
 ];
 
 const channelIcon = {
@@ -47,16 +47,16 @@ const channelIcon = {
   tiktok: MessageCircle,
 };
 
-function KanbanPage() {
+function ContentPage() {
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col">
       <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
         <div>
-          <h1 className="text-base font-semibold">Produção de conteúdo</h1>
-          <p className="text-xs text-muted-foreground">Fluxo semanal · 7 posts em andamento · 2 pendências urgentes</p>
+          <h1 className="text-base font-semibold">Content pipeline</h1>
+          <p className="text-xs text-muted-foreground">Weekly flow · 7 posts in progress · 2 urgent</p>
         </div>
         <Button size="sm" className="gap-2">
-          <Sparkles className="h-3.5 w-3.5" /> Novo post com IA
+          <Sparkles className="h-3.5 w-3.5" /> New AI post
         </Button>
       </div>
       <div className="flex flex-1 gap-3 overflow-x-auto p-4">

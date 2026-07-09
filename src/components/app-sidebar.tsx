@@ -17,12 +17,12 @@ import { supabase } from "@/integrations/supabase/client";
 
 const items = [
   { title: "Dashboard", url: "/app/dashboard", icon: LayoutDashboard },
-  { title: "Produção (Kanban)", url: "/app/kanban", icon: KanbanSquare },
-  { title: "Arena de IA", url: "/app/arena", icon: Sparkles },
-  { title: "Clientes", url: "/app/clients", icon: Users },
-  { title: "IA & Marca", url: "/app/ai-settings", icon: Settings },
+  { title: "Content", url: "/app/content", icon: KanbanSquare },
+  { title: "AI Arena", url: "/app/arena", icon: Sparkles },
+  { title: "Customers", url: "/app/customers", icon: Users },
   { title: "Analytics", url: "/app/analytics", icon: BarChart3 },
-  { title: "Notificações", url: "/app/notifications", icon: Bell },
+  { title: "Notifications", url: "/app/notifications", icon: Bell },
+  { title: "Settings", url: "/app/settings/ai", icon: Settings },
 ] as const;
 
 export function AppSidebar() {

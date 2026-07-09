@@ -9,12 +9,12 @@ import { Button } from "@/components/ui/button";
 
 const titles: Record<string, string> = {
   "/app/dashboard": "Dashboard",
-  "/app/kanban": "Produção",
-  "/app/arena": "Arena de IA",
-  "/app/clients": "Clientes",
-  "/app/ai-settings": "IA & Marca",
+  "/app/content": "Content",
+  "/app/arena": "AI Arena",
+  "/app/customers": "Customers",
+  "/app/settings/ai": "AI Settings",
   "/app/analytics": "Analytics",
-  "/app/notifications": "Notificações",
+  "/app/notifications": "Notifications",
 };
 
 export const Route = createFileRoute("/_authenticated/app")({
