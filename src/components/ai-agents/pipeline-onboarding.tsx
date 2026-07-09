@@ -226,7 +226,7 @@ export function PipelineOnboarding({
                   <div className="mt-0.5 text-[11px] text-muted-foreground">{s.hint}</div>
                   {st === "running" && (
                     <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/5">
-                      <div className="h-full w-1/3 animate-[shimmer_1.5s_infinite] bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
+                      <div className="h-full w-full animate-pulse bg-gradient-to-r from-transparent via-cyan-400 to-transparent" />
                     </div>
                   )}
                 </div>
