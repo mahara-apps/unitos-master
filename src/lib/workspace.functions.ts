@@ -35,21 +35,21 @@ export const createBrand = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => CreateBrandInput.parse(input))
   .handler(async ({ data, context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const id = crypto.randomUUID();
     const slugBase = data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     const slug = `${slugBase}-${Math.random().toString(36).slice(2, 6)}`;
-    const { data: brand, error } = await supabaseAdmin
+    const color = data.color ?? "#8b5cf6";
+    const { error } = await context.supabase
       .from("brands")
       .insert({
+        id,
         name: data.name,
         slug,
-        color: data.color ?? "#8b5cf6",
+        color,
         created_by: context.userId,
-      })
-      .select()
-      .single();
+      });
     if (error) throw error;
-    return brand;
+    return { id, name: data.name, slug, color, created_by: context.userId };
   });
 
 export const listClients = createServerFn({ method: "GET" })
