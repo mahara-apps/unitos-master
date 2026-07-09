@@ -155,11 +155,15 @@ const BriefingSchema = z.object({
 });
 
 const VoiceCardSchema = z.object({
-  resumo_tom: z.string(),
-  caracteristicas: z.array(z.object({ traco: z.string(), exemplo: z.string() })),
-  frases_exemplo: z.array(z.string()),
-  palavras_evitar: z.array(z.string()),
-  cta_padrao: z.array(z.string()),
+  voice_card: z.object({
+    brand_personality: z.string(),
+    tone_characteristics: z.array(z.string()),
+    vocabulary_rules: z.object({
+      words_to_use: z.array(z.string()),
+      words_to_avoid: z.array(z.string()),
+    }),
+    brand_phrases_examples: z.array(z.string()),
+  }),
 });
 
 const PersonasSchema = z.object({
@@ -179,27 +183,27 @@ const PersonasSchema = z.object({
 const CohortsSchema = z.object({
   cohorts: z.array(
     z.object({
-      nome: z.string(),
-      criterio_identificacao: z.string(),
-      estagio_funil: z.string(),
-      estrategia_conteudo: z.string(),
-      formatos_recomendados: z.array(z.string()),
-      personas_relacionadas: z.array(z.string()),
+      name: z.string(),
+      target_personas: z.array(z.string()),
+      behavioral_traits: z.string(),
+      content_strategy: z.string(),
+      conversion_criteria: z.string(),
     }),
   ),
 });
 
 const SwotSchema = z.object({
-  forcas: z.array(z.string()),
-  fraquezas: z.array(z.string()),
-  oportunidades: z.array(z.string()),
-  ameacas: z.array(z.string()),
-  tabela_competitiva: z.array(
+  swot_analysis: z.object({
+    strengths: z.array(z.string()),
+    weaknesses: z.array(z.string()),
+    opportunities: z.array(z.string()),
+    threats: z.array(z.string()),
+  }),
+  competitive_matrix: z.array(
     z.object({
-      concorrente: z.string(),
-      pontos_fortes: z.array(z.string()),
-      pontos_fracos: z.array(z.string()),
-      diferenciacao_recomendada: z.string(),
+      competitor_name: z.string(),
+      our_advantages: z.string(),
+      vulnerabilities: z.string(),
     }),
   ),
 });
@@ -208,9 +212,9 @@ const PautasSchema = z.object({
   pautas: z.array(
     z.object({
       titulo: z.string(),
-      pilar: z.string(),
+      pilar_type: z.string(),
       cohort_alvo: z.string(),
-      formato_recomendado: z.string(),
+      formato: z.string(),
       plataforma: z.string(),
       gancho: z.string(),
     }),
@@ -250,11 +254,21 @@ Regras:
 - "completude_percentual" reflete quantos dos campos vieram preenchidos com confiança (0-100).
 - Responda SOMENTE com o JSON, sem markdown, sem comentário, sem texto antes ou depois.`,
 
-  voice: `Você é um redator sênior especialista em brand voice. A partir do briefing estruturado abaixo, crie um "Voice Card": um guia de voz canônico, curto e prático, que qualquer redator júnior da agência conseguiria seguir sem precisar perguntar nada ao estrategista sênior.
+  voice: `Você é um redator sênior especialista em brand voice. A partir do briefing estruturado abaixo, crie um "Voice Card" retornando EXATAMENTE este JSON:
 
-O Voice Card precisa ser específico o suficiente para eliminar ambiguidade. Evite adjetivos vagos tipo "tom amigável e profissional" sem exemplos concretos — cada característica de tom deve vir acompanhada de uma frase de exemplo real que poderia aparecer em um post desse cliente. Inclua entre 10 e 15 frases-exemplo e entre 2 e 4 modelos de CTA.
+{
+  "voice_card": {
+    "brand_personality": "1-2 frases descrevendo a personalidade da marca",
+    "tone_characteristics": ["array de 4-6 traços de tom específicos"],
+    "vocabulary_rules": {
+      "words_to_use": ["array de 6-10 palavras/expressões preferidas da marca"],
+      "words_to_avoid": ["array de 6-10 palavras a evitar"]
+    },
+    "brand_phrases_examples": ["array de 8-12 frases de exemplo que poderiam aparecer em posts desta marca"]
+  }
+}
 
-Responda SOMENTE com o JSON, sem markdown, sem texto antes ou depois.`,
+Seja específico ao negócio do cliente — nada de adjetivos vagos. Responda SOMENTE com o JSON, sem markdown, sem texto antes ou depois.`,
 
   personas: `Você é um estrategista de marketing sênior. A partir do briefing estruturado abaixo, gere de 3 a 5 personas de público-alvo para este cliente. Cada persona deve ser acionável para produção de conteúdo — ou seja, alguém da equipe de conteúdo precisa conseguir olhar para a persona e saber que tipo de post, gancho e linguagem usar para ela.
 
@@ -262,21 +276,58 @@ Não gere personas genéricas ou intercambiáveis entre clientes diferentes. Anc
 
 Responda SOMENTE com o JSON, sem markdown, sem texto antes ou depois.`,
 
-  cohorts: `Você é um estrategista de marketing sênior especializado em segmentação comportamental. A partir do briefing e das personas abaixo, gere cohorts comportamentais — cortes de público baseados em comportamento e estágio de relacionamento com a marca (não em dados demográficos), com critérios claros de identificação e uma estratégia de conteúdo específica para cada cohort.
+  cohorts: `Você é um estrategista de marketing sênior especializado em segmentação comportamental. A partir do briefing e das personas abaixo, gere 3 a 5 cohorts comportamentais retornando EXATAMENTE este JSON:
 
-Cada cohort precisa ser diferente o suficiente das outras para justificar uma abordagem de conteúdo distinta. Evite cohorts redundantes.
+{
+  "cohorts": [
+    {
+      "name": "nome curto e memorável do cohort",
+      "target_personas": ["array com nomes das personas conectadas a este cohort"],
+      "behavioral_traits": "descrição curta dos comportamentos que caracterizam este cohort",
+      "content_strategy": "estratégia editorial recomendada para este cohort",
+      "conversion_criteria": "sinal ou ação que indica que o cohort avançou/converteu"
+    }
+  ]
+}
 
-Responda SOMENTE com o JSON, sem markdown, sem texto antes ou depois.`,
+Cada cohort precisa ser distinto dos demais. Responda SOMENTE com o JSON, sem markdown.`,
 
-  swot: `Você é um estrategista de marketing sênior. A partir do briefing, personas e cohorts abaixo, gere uma Matriz SWOT (Forças, Fraquezas, Oportunidades, Ameaças) para este cliente, e uma tabela comparativa simples contra os concorrentes mencionados.
+  swot: `Você é um estrategista de marketing sênior. A partir do briefing, personas e cohorts abaixo, gere a Matriz SWOT e uma tabela competitiva retornando EXATAMENTE este JSON:
 
-Cada item da SWOT deve ser específico ao negócio deste cliente — evite itens genéricos que serviriam para qualquer empresa do setor. Se não houver concorrentes mencionados no briefing, retorne a tabela comparativa como array vazio.
+{
+  "swot_analysis": {
+    "strengths": ["3-5 forças específicas do cliente"],
+    "weaknesses": ["3-5 fraquezas específicas"],
+    "opportunities": ["3-5 oportunidades de mercado"],
+    "threats": ["3-5 ameaças externas"]
+  },
+  "competitive_matrix": [
+    {
+      "competitor_name": "nome do concorrente",
+      "our_advantages": "onde este cliente vence este concorrente (frase curta)",
+      "vulnerabilities": "onde este cliente perde para este concorrente (frase curta)"
+    }
+  ]
+}
 
-Responda SOMENTE com o JSON, sem markdown, sem texto antes ou depois.`,
+Se não houver concorrentes mencionados, retorne competitive_matrix como array vazio. Responda SOMENTE com o JSON, sem markdown.`,
 
-  pauta: `Você é um estrategista de conteúdo. A partir da estratégia deste cliente (briefing, personas, cohorts, SWOT), gere sugestões de pauta para o período informado, distribuindo entre os cohorts e formatos recomendados. Diversifique pilares de conteúdo — não repita o mesmo ângulo em pautas consecutivas.
+  pauta: `Você é um estrategista de conteúdo. A partir da estratégia deste cliente (briefing, personas, cohorts, SWOT), gere sugestões de pauta retornando EXATAMENTE este JSON:
 
-Responda SOMENTE com o JSON, sem markdown, sem texto antes ou depois.`,
+{
+  "pautas": [
+    {
+      "titulo": "título curto e específico da pauta",
+      "gancho": "gancho de abertura (1 frase forte)",
+      "plataforma": "instagram | tiktok | linkedin | youtube | blog",
+      "formato": "reels | carrossel | post estático | artigo | short | live",
+      "cohort_alvo": "nome do cohort alvo (deve bater com um cohort existente)",
+      "pilar_type": "Authority | Connection | Education | Conversion | Entertainment"
+    }
+  ]
+}
+
+Diversifique pilares e cohorts entre as pautas. Responda SOMENTE com o JSON, sem markdown.`,
 
   content: `Você é um redator de conteúdo para redes sociais escrevendo EXATAMENTE no tom de voz descrito no Voice Card abaixo. Sua prioridade #1 é soar como esta marca especificamente — não como um redator genérico de agência.
 
@@ -564,9 +615,9 @@ export const pautaSuggestFn = createServerFn({ method: "POST" })
           brand_id: data.brandId,
           client_id: data.clientId,
           titulo: p.titulo,
-          pilar: p.pilar,
+          pilar: p.pilar_type, pilar_type: p.pilar_type, status: "backlog",
           cohort_alvo: p.cohort_alvo,
-          formato_recomendado: p.formato_recomendado,
+          formato_recomendado: p.formato, formato: p.formato,
           plataforma: p.plataforma,
           gancho: p.gancho,
           data: p,
@@ -954,9 +1005,9 @@ export const runCustomerPipelineFn = createServerFn({ method: "POST" })
           brand_id: data.brandId,
           client_id: data.clientId,
           titulo: p.titulo,
-          pilar: p.pilar,
+          pilar: p.pilar_type, pilar_type: p.pilar_type, status: "backlog",
           cohort_alvo: p.cohort_alvo,
-          formato_recomendado: p.formato_recomendado,
+          formato_recomendado: p.formato, formato: p.formato,
           plataforma: p.plataforma,
           gancho: p.gancho,
           data: p,
@@ -966,4 +1017,81 @@ export const runCustomerPipelineFn = createServerFn({ method: "POST" })
     }
 
     return { briefing, voice, personas, cohorts, swot, pautas };
+  });
+
+// ---------- Topics → Content Pipeline ----------
+//
+// Copies a pauta (topic idea) into the global posts board at stage "idea".
+// Also marks the source pauta as sent so it isn't queued twice.
+export const sendPautaToContentFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+        pautaId: z.string().uuid(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: pauta, error: pErr } = await context.supabase
+      .from("brand_pautas")
+      .select("*")
+      .eq("id", data.pautaId)
+      .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
+      .single();
+    if (pErr) throw pErr;
+
+    const platformMap: Record<string, string> = {
+      instagram: "instagram",
+      tiktok: "tiktok",
+      linkedin: "linkedin",
+      x: "x",
+      twitter: "x",
+      youtube: "youtube",
+      blog: "blog",
+    };
+    const raw = (pauta.plataforma ?? "").toLowerCase().trim();
+    const channel = platformMap[raw] ?? "instagram";
+
+    const { data: post, error: postErr } = await context.supabase
+      .from("posts")
+      .insert({
+        brand_id: data.brandId,
+        client_id: data.clientId,
+        title: pauta.titulo,
+        copy: pauta.gancho,
+        stage: "idea",
+        channels: [channel as never],
+        created_by: context.userId,
+      })
+      .select()
+      .single();
+    if (postErr) throw postErr;
+
+    await context.supabase
+      .from("brand_pautas")
+      .update({ status: "sent_to_content" })
+      .eq("id", data.pautaId);
+
+    return { post };
+  });
+
+// ---------- Loader: pautas backlog do cliente ----------
+export const listCustomerPautasFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ brandId: z.string().uuid(), clientId: z.string().uuid() }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("brand_pautas")
+      .select("*")
+      .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return rows ?? [];
   });
