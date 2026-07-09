@@ -17,6 +17,7 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
 import { Route as AuthenticatedContentRouteImport } from './routes/_authenticated/content'
 import { Route as AuthenticatedArenaRouteImport } from './routes/_authenticated/arena'
@@ -66,6 +67,11 @@ const AuthenticatedNotificationsRoute =
     path: '/notifications',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedCustomersRoute = AuthenticatedCustomersRouteImport.update({
   id: '/customers',
   path: '/customers',
@@ -119,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/arena': typeof AuthenticatedArenaRoute
   '/content': typeof AuthenticatedContentRoute
   '/customers': typeof AuthenticatedCustomersRouteWithChildren
+  '/dashboard': typeof AuthenticatedDashboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/portal/$token': typeof PortalTokenRoute
@@ -134,6 +141,7 @@ export interface FileRoutesByTo {
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/arena': typeof AuthenticatedArenaRoute
   '/content': typeof AuthenticatedContentRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/portal/$token': typeof PortalTokenRoute
@@ -153,6 +161,7 @@ export interface FileRoutesById {
   '/_authenticated/arena': typeof AuthenticatedArenaRoute
   '/_authenticated/content': typeof AuthenticatedContentRoute
   '/_authenticated/customers': typeof AuthenticatedCustomersRouteWithChildren
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/portal/$token': typeof PortalTokenRoute
@@ -173,6 +182,7 @@ export interface FileRouteTypes {
     | '/arena'
     | '/content'
     | '/customers'
+    | '/dashboard'
     | '/notifications'
     | '/settings'
     | '/portal/$token'
@@ -188,6 +198,7 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/arena'
     | '/content'
+    | '/dashboard'
     | '/notifications'
     | '/settings'
     | '/portal/$token'
@@ -206,6 +217,7 @@ export interface FileRouteTypes {
     | '/_authenticated/arena'
     | '/_authenticated/content'
     | '/_authenticated/customers'
+    | '/_authenticated/dashboard'
     | '/_authenticated/notifications'
     | '/_authenticated/settings'
     | '/portal/$token'
@@ -280,6 +292,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof AuthenticatedNotificationsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/customers': {
@@ -391,6 +410,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedArenaRoute: typeof AuthenticatedArenaRoute
   AuthenticatedContentRoute: typeof AuthenticatedContentRoute
   AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRouteWithChildren
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -401,6 +421,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedArenaRoute: AuthenticatedArenaRoute,
   AuthenticatedContentRoute: AuthenticatedContentRoute,
   AuthenticatedCustomersRoute: AuthenticatedCustomersRouteWithChildren,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,

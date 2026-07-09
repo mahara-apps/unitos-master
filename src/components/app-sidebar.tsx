@@ -16,13 +16,13 @@ import { BrandSwitcher, ClientSwitcher } from "./brand-client-switcher";
 import { supabase } from "@/integrations/supabase/client";
 
 const items = [
-  { title: "Dashboard", url: "/app/dashboard", icon: LayoutDashboard },
-  { title: "Content", url: "/app/content", icon: KanbanSquare },
-  { title: "AI Arena", url: "/app/arena", icon: Sparkles },
-  { title: "Customers", url: "/app/customers", icon: Users },
-  { title: "Analytics", url: "/app/analytics", icon: BarChart3 },
-  { title: "Notifications", url: "/app/notifications", icon: Bell },
-  { title: "Settings", url: "/app/settings/ai", icon: Settings },
+  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+  { title: "Content", url: "/content", icon: KanbanSquare },
+  { title: "AI Arena", url: "/arena", icon: Sparkles },
+  { title: "Customers", url: "/customers", icon: Users },
+  { title: "Analytics", url: "/analytics", icon: BarChart3 },
+  { title: "Notifications", url: "/notifications", icon: Bell },
+  { title: "Settings", url: "/settings/ai", icon: Settings },
 ] as const;
 
 export function AppSidebar() {
