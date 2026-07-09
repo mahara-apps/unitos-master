@@ -1,16 +1,20 @@
 import { useServerFn } from "@tanstack/react-start";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Send, Users, Layers, Target, TrendingUp, ShieldAlert, Zap, Sparkles, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  listCustomerPautasFn,
   sendPautaToContentFn,
-  type loadClientContextFn,
 } from "@/lib/ai-agents.functions";
+import {
+  customerCoreQuery,
+  customerTargetQuery,
+  customerMarketQuery,
+  customerPautasQuery,
+} from "@/lib/customer-queries";
 
-type Ctx = Awaited<ReturnType<typeof loadClientContextFn>>;
+type Scope = { brandId: string; clientId: string };
 
 // ---------- helpers ----------
 
@@ -58,15 +62,20 @@ function Chip({ children, tone = "neutral" }: { children: React.ReactNode; tone?
 
 // ---------- OVERVIEW ----------
 
-export function OverviewTab({ ctx }: { ctx: Ctx | undefined }) {
-  const briefing = (ctx?.briefing?.data ?? {}) as Record<string, unknown>;
-  const voice = (ctx?.voice?.data as { voice_card?: { brand_personality?: string; tone_characteristics?: string[] } } | null)?.voice_card;
-  const personas = (ctx?.personas?.data as { personas?: unknown[] } | null)?.personas ?? [];
-  const cohorts = (ctx?.cohorts?.data as { cohorts?: unknown[] } | null)?.cohorts ?? [];
-  const swot = (ctx?.swot?.data as { swot_analysis?: Record<string, string[]> } | null)?.swot_analysis;
+export function OverviewTab({ brandId, clientId }: Scope) {
+  // Suspende paralelamente nas três fatias — TanStack Query dispara em paralelo.
+  const { data: core } = useSuspenseQuery(customerCoreQuery({ brandId, clientId }));
+  const { data: target } = useSuspenseQuery(customerTargetQuery({ brandId, clientId }));
+  const { data: market } = useSuspenseQuery(customerMarketQuery({ brandId, clientId }));
+
+  const briefing = (core.briefing?.data ?? {}) as Record<string, unknown>;
+  const voice = (core.voice?.data as { voice_card?: { brand_personality?: string; tone_characteristics?: string[] } } | null)?.voice_card;
+  const personas = (target.personas?.data as { personas?: unknown[] } | null)?.personas ?? [];
+  const cohorts = (target.cohorts?.data as { cohorts?: unknown[] } | null)?.cohorts ?? [];
+  const swot = (market.swot?.data as { swot_analysis?: Record<string, string[]> } | null)?.swot_analysis;
 
   const kpis = [
-    { label: "Completude briefing", value: `${ctx?.briefing?.completude ?? 0}%` },
+    { label: "Completude briefing", value: `${core.briefing?.completude ?? 0}%` },
     { label: "Personas", value: personas.length },
     { label: "Cohorts", value: cohorts.length },
     { label: "Forças (SWOT)", value: swot?.strengths?.length ?? 0 },
@@ -121,9 +130,10 @@ export function OverviewTab({ ctx }: { ctx: Ctx | undefined }) {
 
 // ---------- STRATEGY ----------
 
-export function StrategyTab({ ctx }: { ctx: Ctx | undefined }) {
-  const briefing = (ctx?.briefing?.data ?? {}) as Record<string, unknown>;
-  const voice = (ctx?.voice?.data as { voice_card?: { brand_personality?: string; tone_characteristics?: string[]; vocabulary_rules?: { words_to_use?: string[]; words_to_avoid?: string[] }; brand_phrases_examples?: string[] } } | null)?.voice_card;
+export function StrategyTab({ brandId, clientId }: Scope) {
+  const { data: core } = useSuspenseQuery(customerCoreQuery({ brandId, clientId }));
+  const briefing = (core.briefing?.data ?? {}) as Record<string, unknown>;
+  const voice = (core.voice?.data as { voice_card?: { brand_personality?: string; tone_characteristics?: string[]; vocabulary_rules?: { words_to_use?: string[]; words_to_avoid?: string[] }; brand_phrases_examples?: string[] } } | null)?.voice_card;
 
   const rows: Array<[string, unknown]> = [
     ["Público-alvo", briefing.publico_alvo],
@@ -222,9 +232,10 @@ export function StrategyTab({ ctx }: { ctx: Ctx | undefined }) {
 type Persona = { nome: string; descricao: string; dores?: string[]; desejos?: string[]; canais_preferidos?: string[]; gatilhos_de_decisao?: string[]; objecoes_comuns?: string[] };
 type Cohort = { name: string; target_personas?: string[]; behavioral_traits?: string; content_strategy?: string; conversion_criteria?: string };
 
-export function TargetTab({ ctx }: { ctx: Ctx | undefined }) {
-  const personas = ((ctx?.personas?.data as { personas?: Persona[] } | null)?.personas ?? []) as Persona[];
-  const cohorts = ((ctx?.cohorts?.data as { cohorts?: Cohort[] } | null)?.cohorts ?? []) as Cohort[];
+export function TargetTab({ brandId, clientId }: Scope) {
+  const { data: target } = useSuspenseQuery(customerTargetQuery({ brandId, clientId }));
+  const personas = ((target.personas?.data as { personas?: Persona[] } | null)?.personas ?? []) as Persona[];
+  const cohorts = ((target.cohorts?.data as { cohorts?: Cohort[] } | null)?.cohorts ?? []) as Cohort[];
 
   return (
     <div className="space-y-6">
@@ -314,8 +325,9 @@ export function TargetTab({ ctx }: { ctx: Ctx | undefined }) {
 
 // ---------- MARKET ----------
 
-export function MarketTab({ ctx }: { ctx: Ctx | undefined }) {
-  const swot = (ctx?.swot?.data as {
+export function MarketTab({ brandId, clientId }: Scope) {
+  const { data: market } = useSuspenseQuery(customerMarketQuery({ brandId, clientId }));
+  const swot = (market.swot?.data as {
     swot_analysis?: { strengths?: string[]; weaknesses?: string[]; opportunities?: string[]; threats?: string[] };
     competitive_matrix?: Array<{ competitor_name: string; our_advantages: string; vulnerabilities: string }>;
   } | null);
@@ -384,14 +396,10 @@ export function MarketTab({ ctx }: { ctx: Ctx | undefined }) {
 // ---------- TOPICS ----------
 
 export function TopicsTab({ brandId, clientId }: { brandId: string; clientId: string }) {
-  const list = useServerFn(listCustomerPautasFn);
   const send = useServerFn(sendPautaToContentFn);
   const qc = useQueryClient();
 
-  const pautasQ = useQuery({
-    queryKey: ["customer-pautas", brandId, clientId],
-    queryFn: () => list({ data: { brandId, clientId } }),
-  });
+  const pautasQ = useSuspenseQuery(customerPautasQuery({ brandId, clientId }));
 
   const sendMut = useMutation({
     mutationFn: (pautaId: string) => send({ data: { brandId, clientId, pautaId } }),
@@ -403,11 +411,8 @@ export function TopicsTab({ brandId, clientId }: { brandId: string; clientId: st
     onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao enviar"),
   });
 
-  const rows = pautasQ.data ?? [];
+  const rows = pautasQ.data;
 
-  if (pautasQ.isLoading) {
-    return <div className="rounded-xl border border-white/10 bg-neutral-950/60 p-6 text-center text-xs text-muted-foreground">Carregando backlog…</div>;
-  }
   if (!rows.length) {
     return <EmptyHint text="Nenhuma pauta gerada ainda. Rode o pipeline para popular o backlog." />;
   }
