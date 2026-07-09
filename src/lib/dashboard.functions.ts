@@ -424,7 +424,7 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
       title: "Tarefas atrasadas",
       description: `${counts.tasks_overdue} tarefa(s) com prazo vencido.`,
       count: counts.tasks_overdue,
-      href: "/app/kanban",
+      href: "/app/content",
     });
   }
   const briefingless = clients.filter((c) => !briefings.has(c.id));
@@ -435,7 +435,7 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
       title: "Clientes sem briefing",
       description: `${briefingless.length} cliente(s) precisam de briefing.`,
       count: briefingless.length,
-      href: "/app/clients",
+      href: "/app/customers",
     });
   }
   const noScheduleClients = clients.filter(
@@ -451,7 +451,7 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
       title: "Sem publicações agendadas",
       description: `${noScheduleClients.length} cliente(s) sem posts futuros.`,
       count: noScheduleClients.length,
-      href: "/app/clients",
+      href: "/app/customers",
     });
   }
   if (counts.approvals_pending > 0) {
@@ -461,7 +461,7 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
       title: "Aprovações pendentes",
       description: `${counts.approvals_pending} publicação(ões) aguardando aprovação.`,
       count: counts.approvals_pending,
-      href: "/app/clients",
+      href: "/app/customers",
     });
   }
 
@@ -639,7 +639,7 @@ export const getDashboardInsights = createServerFn({ method: "POST" })
         }),
         prompt: `Você é o chefe de operações de uma agência de conteúdo. Analise este resumo do dashboard e responda em português (BR).
 Gere no máximo 3 ações prioritárias, cada uma com um "why" curto (menos de 20 palavras), e no máximo 3 riscos curtos (menos de 12 palavras).
-A headline deve ter no máximo 12 palavras. hrefs válidos: "/app/kanban", "/app/clients", "/app/kanban" ou null.
+A headline deve ter no máximo 12 palavras. hrefs válidos: "/app/content", "/app/customers", "/app/content" ou null.
 
 RESUMO:
 ${JSON.stringify(brief, null, 2)}`,
