@@ -1018,3 +1018,80 @@ export const runCustomerPipelineFn = createServerFn({ method: "POST" })
 
     return { briefing, voice, personas, cohorts, swot, pautas };
   });
+
+// ---------- Topics → Content Pipeline ----------
+//
+// Copies a pauta (topic idea) into the global posts board at stage "idea".
+// Also marks the source pauta as sent so it isn't queued twice.
+export const sendPautaToContentFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+        pautaId: z.string().uuid(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: pauta, error: pErr } = await context.supabase
+      .from("brand_pautas")
+      .select("*")
+      .eq("id", data.pautaId)
+      .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
+      .single();
+    if (pErr) throw pErr;
+
+    const platformMap: Record<string, string> = {
+      instagram: "instagram",
+      tiktok: "tiktok",
+      linkedin: "linkedin",
+      x: "x",
+      twitter: "x",
+      youtube: "youtube",
+      blog: "blog",
+    };
+    const raw = (pauta.plataforma ?? "").toLowerCase().trim();
+    const channel = platformMap[raw] ?? "instagram";
+
+    const { data: post, error: postErr } = await context.supabase
+      .from("posts")
+      .insert({
+        brand_id: data.brandId,
+        client_id: data.clientId,
+        title: pauta.titulo,
+        copy: pauta.gancho,
+        stage: "idea",
+        channels: [channel as never],
+        created_by: context.userId,
+      })
+      .select()
+      .single();
+    if (postErr) throw postErr;
+
+    await context.supabase
+      .from("brand_pautas")
+      .update({ status: "sent_to_content" })
+      .eq("id", data.pautaId);
+
+    return { post };
+  });
+
+// ---------- Loader: pautas backlog do cliente ----------
+export const listCustomerPautasFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ brandId: z.string().uuid(), clientId: z.string().uuid() }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("brand_pautas")
+      .select("*")
+      .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return rows ?? [];
+  });
