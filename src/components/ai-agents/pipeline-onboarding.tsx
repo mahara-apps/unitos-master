@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Sparkles, Loader2, CheckCircle2, Circle, AlertTriangle, FileText, Target, Users, Layers, BarChart3, Calendar } from "lucide-react";
 import {
   briefingParseFn,
