@@ -16,6 +16,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
 import { Route as AuthenticatedAppRouteRouteImport } from './routes/_authenticated/app/route'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app/index'
+import { Route as AuthenticatedAppSettingsRouteImport } from './routes/_authenticated/app/settings'
 import { Route as AuthenticatedAppNotificationsRouteImport } from './routes/_authenticated/app/notifications'
 import { Route as AuthenticatedAppContentRouteImport } from './routes/_authenticated/app/content'
 import { Route as AuthenticatedAppArenaRouteImport } from './routes/_authenticated/app/arena'
@@ -56,6 +57,12 @@ const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedAppRouteRoute,
 } as any)
+const AuthenticatedAppSettingsRoute =
+  AuthenticatedAppSettingsRouteImport.update({
+    id: '/settings',
+    path: '/settings',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
 const AuthenticatedAppNotificationsRoute =
   AuthenticatedAppNotificationsRouteImport.update({
     id: '/notifications',
@@ -80,9 +87,9 @@ const AuthenticatedAppAnalyticsRoute =
   } as any)
 const AuthenticatedAppSettingsAiRoute =
   AuthenticatedAppSettingsAiRouteImport.update({
-    id: '/settings/ai',
-    path: '/settings/ai',
-    getParentRoute: () => AuthenticatedAppRouteRoute,
+    id: '/ai',
+    path: '/ai',
+    getParentRoute: () => AuthenticatedAppSettingsRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -96,6 +103,7 @@ export interface FileRoutesByFullPath {
   '/app/arena': typeof AuthenticatedAppArenaRoute
   '/app/content': typeof AuthenticatedAppContentRoute
   '/app/notifications': typeof AuthenticatedAppNotificationsRoute
+  '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/app/': typeof AuthenticatedAppIndexRoute
   '/app/settings/ai': typeof AuthenticatedAppSettingsAiRoute
 }
@@ -109,6 +117,7 @@ export interface FileRoutesByTo {
   '/app/arena': typeof AuthenticatedAppArenaRoute
   '/app/content': typeof AuthenticatedAppContentRoute
   '/app/notifications': typeof AuthenticatedAppNotificationsRoute
+  '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/app': typeof AuthenticatedAppIndexRoute
   '/app/settings/ai': typeof AuthenticatedAppSettingsAiRoute
 }
@@ -124,6 +133,7 @@ export interface FileRoutesById {
   '/_authenticated/app/arena': typeof AuthenticatedAppArenaRoute
   '/_authenticated/app/content': typeof AuthenticatedAppContentRoute
   '/_authenticated/app/notifications': typeof AuthenticatedAppNotificationsRoute
+  '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
   '/_authenticated/app/settings/ai': typeof AuthenticatedAppSettingsAiRoute
 }
@@ -140,6 +150,7 @@ export interface FileRouteTypes {
     | '/app/arena'
     | '/app/content'
     | '/app/notifications'
+    | '/app/settings'
     | '/app/'
     | '/app/settings/ai'
   fileRoutesByTo: FileRoutesByTo
@@ -153,6 +164,7 @@ export interface FileRouteTypes {
     | '/app/arena'
     | '/app/content'
     | '/app/notifications'
+    | '/app/settings'
     | '/app'
     | '/app/settings/ai'
   id:
@@ -167,6 +179,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/arena'
     | '/_authenticated/app/content'
     | '/_authenticated/app/notifications'
+    | '/_authenticated/app/settings'
     | '/_authenticated/app/'
     | '/_authenticated/app/settings/ai'
   fileRoutesById: FileRoutesById
@@ -230,6 +243,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/_authenticated/app/settings': {
+      id: '/_authenticated/app/settings'
+      path: '/settings'
+      fullPath: '/app/settings'
+      preLoaderRoute: typeof AuthenticatedAppSettingsRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
     '/_authenticated/app/notifications': {
       id: '/_authenticated/app/notifications'
       path: '/notifications'
@@ -260,21 +280,35 @@ declare module '@tanstack/react-router' {
     }
     '/_authenticated/app/settings/ai': {
       id: '/_authenticated/app/settings/ai'
-      path: '/settings/ai'
+      path: '/ai'
       fullPath: '/app/settings/ai'
       preLoaderRoute: typeof AuthenticatedAppSettingsAiRouteImport
-      parentRoute: typeof AuthenticatedAppRouteRoute
+      parentRoute: typeof AuthenticatedAppSettingsRoute
     }
   }
 }
+
+interface AuthenticatedAppSettingsRouteChildren {
+  AuthenticatedAppSettingsAiRoute: typeof AuthenticatedAppSettingsAiRoute
+}
+
+const AuthenticatedAppSettingsRouteChildren: AuthenticatedAppSettingsRouteChildren =
+  {
+    AuthenticatedAppSettingsAiRoute: AuthenticatedAppSettingsAiRoute,
+  }
+
+const AuthenticatedAppSettingsRouteWithChildren =
+  AuthenticatedAppSettingsRoute._addFileChildren(
+    AuthenticatedAppSettingsRouteChildren,
+  )
 
 interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppAnalyticsRoute: typeof AuthenticatedAppAnalyticsRoute
   AuthenticatedAppArenaRoute: typeof AuthenticatedAppArenaRoute
   AuthenticatedAppContentRoute: typeof AuthenticatedAppContentRoute
   AuthenticatedAppNotificationsRoute: typeof AuthenticatedAppNotificationsRoute
+  AuthenticatedAppSettingsRoute: typeof AuthenticatedAppSettingsRouteWithChildren
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
-  AuthenticatedAppSettingsAiRoute: typeof AuthenticatedAppSettingsAiRoute
 }
 
 const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
@@ -282,8 +316,8 @@ const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
   AuthenticatedAppArenaRoute: AuthenticatedAppArenaRoute,
   AuthenticatedAppContentRoute: AuthenticatedAppContentRoute,
   AuthenticatedAppNotificationsRoute: AuthenticatedAppNotificationsRoute,
+  AuthenticatedAppSettingsRoute: AuthenticatedAppSettingsRouteWithChildren,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
-  AuthenticatedAppSettingsAiRoute: AuthenticatedAppSettingsAiRoute,
 }
 
 const AuthenticatedAppRouteRouteWithChildren =
