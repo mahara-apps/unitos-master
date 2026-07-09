@@ -25,6 +25,7 @@ import { Route as AuthenticatedAppAnalyticsRouteImport } from './routes/_authent
 import { Route as AuthenticatedAppCustomersIndexRouteImport } from './routes/_authenticated/app/customers.index'
 import { Route as AuthenticatedAppSettingsAiRouteImport } from './routes/_authenticated/app/settings.ai'
 import { Route as AuthenticatedAppCustomersCustomerIdRouteImport } from './routes/_authenticated/app/customers.$customerId'
+import { Route as AuthenticatedAppCustomersCustomerIdPipelineRouteImport } from './routes/_authenticated/app/customers.$customerId.pipeline'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -112,6 +113,12 @@ const AuthenticatedAppCustomersCustomerIdRoute =
     path: '/$customerId',
     getParentRoute: () => AuthenticatedAppCustomersRoute,
   } as any)
+const AuthenticatedAppCustomersCustomerIdPipelineRoute =
+  AuthenticatedAppCustomersCustomerIdPipelineRouteImport.update({
+    id: '/pipeline',
+    path: '/pipeline',
+    getParentRoute: () => AuthenticatedAppCustomersCustomerIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedRouteRouteWithChildren
@@ -127,9 +134,10 @@ export interface FileRoutesByFullPath {
   '/app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/app/': typeof AuthenticatedAppIndexRoute
-  '/app/customers/$customerId': typeof AuthenticatedAppCustomersCustomerIdRoute
+  '/app/customers/$customerId': typeof AuthenticatedAppCustomersCustomerIdRouteWithChildren
   '/app/settings/ai': typeof AuthenticatedAppSettingsAiRoute
   '/app/customers/': typeof AuthenticatedAppCustomersIndexRoute
+  '/app/customers/$customerId/pipeline': typeof AuthenticatedAppCustomersCustomerIdPipelineRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AuthenticatedRouteRouteWithChildren
@@ -143,9 +151,10 @@ export interface FileRoutesByTo {
   '/app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/app': typeof AuthenticatedAppIndexRoute
-  '/app/customers/$customerId': typeof AuthenticatedAppCustomersCustomerIdRoute
+  '/app/customers/$customerId': typeof AuthenticatedAppCustomersCustomerIdRouteWithChildren
   '/app/settings/ai': typeof AuthenticatedAppSettingsAiRoute
   '/app/customers': typeof AuthenticatedAppCustomersIndexRoute
+  '/app/customers/$customerId/pipeline': typeof AuthenticatedAppCustomersCustomerIdPipelineRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -162,9 +171,10 @@ export interface FileRoutesById {
   '/_authenticated/app/notifications': typeof AuthenticatedAppNotificationsRoute
   '/_authenticated/app/settings': typeof AuthenticatedAppSettingsRouteWithChildren
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
-  '/_authenticated/app/customers/$customerId': typeof AuthenticatedAppCustomersCustomerIdRoute
+  '/_authenticated/app/customers/$customerId': typeof AuthenticatedAppCustomersCustomerIdRouteWithChildren
   '/_authenticated/app/settings/ai': typeof AuthenticatedAppSettingsAiRoute
   '/_authenticated/app/customers/': typeof AuthenticatedAppCustomersIndexRoute
+  '/_authenticated/app/customers/$customerId/pipeline': typeof AuthenticatedAppCustomersCustomerIdPipelineRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -185,6 +195,7 @@ export interface FileRouteTypes {
     | '/app/customers/$customerId'
     | '/app/settings/ai'
     | '/app/customers/'
+    | '/app/customers/$customerId/pipeline'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -201,6 +212,7 @@ export interface FileRouteTypes {
     | '/app/customers/$customerId'
     | '/app/settings/ai'
     | '/app/customers'
+    | '/app/customers/$customerId/pipeline'
   id:
     | '__root__'
     | '/_authenticated'
@@ -219,6 +231,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/customers/$customerId'
     | '/_authenticated/app/settings/ai'
     | '/_authenticated/app/customers/'
+    | '/_authenticated/app/customers/$customerId/pipeline'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -343,18 +356,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppCustomersCustomerIdRouteImport
       parentRoute: typeof AuthenticatedAppCustomersRoute
     }
+    '/_authenticated/app/customers/$customerId/pipeline': {
+      id: '/_authenticated/app/customers/$customerId/pipeline'
+      path: '/pipeline'
+      fullPath: '/app/customers/$customerId/pipeline'
+      preLoaderRoute: typeof AuthenticatedAppCustomersCustomerIdPipelineRouteImport
+      parentRoute: typeof AuthenticatedAppCustomersCustomerIdRoute
+    }
   }
 }
 
+interface AuthenticatedAppCustomersCustomerIdRouteChildren {
+  AuthenticatedAppCustomersCustomerIdPipelineRoute: typeof AuthenticatedAppCustomersCustomerIdPipelineRoute
+}
+
+const AuthenticatedAppCustomersCustomerIdRouteChildren: AuthenticatedAppCustomersCustomerIdRouteChildren =
+  {
+    AuthenticatedAppCustomersCustomerIdPipelineRoute:
+      AuthenticatedAppCustomersCustomerIdPipelineRoute,
+  }
+
+const AuthenticatedAppCustomersCustomerIdRouteWithChildren =
+  AuthenticatedAppCustomersCustomerIdRoute._addFileChildren(
+    AuthenticatedAppCustomersCustomerIdRouteChildren,
+  )
+
 interface AuthenticatedAppCustomersRouteChildren {
-  AuthenticatedAppCustomersCustomerIdRoute: typeof AuthenticatedAppCustomersCustomerIdRoute
+  AuthenticatedAppCustomersCustomerIdRoute: typeof AuthenticatedAppCustomersCustomerIdRouteWithChildren
   AuthenticatedAppCustomersIndexRoute: typeof AuthenticatedAppCustomersIndexRoute
 }
 
 const AuthenticatedAppCustomersRouteChildren: AuthenticatedAppCustomersRouteChildren =
   {
     AuthenticatedAppCustomersCustomerIdRoute:
-      AuthenticatedAppCustomersCustomerIdRoute,
+      AuthenticatedAppCustomersCustomerIdRouteWithChildren,
     AuthenticatedAppCustomersIndexRoute: AuthenticatedAppCustomersIndexRoute,
   }
 
