@@ -85,7 +85,42 @@ function CustomerDetail() {
     );
   }
 
-  return <CustomerDetailReady brandId={brandId} customerId={customerId} />;
+  return (
+    <Suspense fallback={<HeaderFallback />}>
+      <CustomerDetailReady brandId={brandId} customerId={customerId} />
+    </Suspense>
+  );
+}
+
+function HeaderFallback() {
+  return (
+    <ScrollArea className="h-[calc(100vh-3.5rem)] bg-zinc-950">
+      <div className="mx-auto max-w-7xl space-y-6 p-6">
+        <header className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-11 w-11 rounded-lg" />
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-32" />
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-3 w-40" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-6 w-32 rounded-md" />
+            <Skeleton className="h-8 w-24 rounded-md" />
+          </div>
+        </header>
+        <div className="rounded-lg border border-white/10 bg-neutral-900/60 p-1">
+          <div className="flex gap-2 p-1">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-7 w-20 rounded-md" />
+            ))}
+          </div>
+        </div>
+        <OverviewSkeleton />
+      </div>
+    </ScrollArea>
+  );
 }
 
 function CustomerDetailReady({ brandId, customerId }: { brandId: string; customerId: string }) {
