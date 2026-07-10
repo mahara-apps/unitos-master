@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
-import { Bell, CheckCircle2, MessageSquare, AlertTriangle, Sparkles } from "lucide-react";
+import { CheckCircle2, MessageSquare, AlertTriangle, Sparkles } from "lucide-react";
+import { usePageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/notifications")({
   component: NotificationsPage,
@@ -14,13 +15,17 @@ const items = [
 ];
 
 function NotificationsPage() {
+  usePageHeader({
+    title: "Notificações",
+    subtitle: "4 novas · últimas 24h",
+    actions: (
+      <Badge variant="outline" className="text-[10px]">
+        4 novas
+      </Badge>
+    ),
+  });
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-6">
-      <div className="flex items-center gap-2">
-        <Bell className="h-4 w-4 text-primary" />
-        <h1 className="text-lg font-semibold">Notificações</h1>
-        <Badge variant="outline" className="text-[10px]">4 novas</Badge>
-      </div>
       <div className="divide-y divide-border/60 rounded-xl border border-border/60 bg-card/30">
         {items.map((it, i) => (
           <div key={i} className="flex items-start gap-3 px-4 py-3 hover:bg-background/40">
