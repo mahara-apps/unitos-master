@@ -428,6 +428,7 @@ function CustomersIndexPage() {
         open={formOpen}
         onOpenChange={(v) => { setFormOpen(v); if (!v) setEditing(null); }}
         initial={editing}
+        teamMembers={teamMembers}
         submitting={createMut.isPending || updateMut.isPending}
         onSubmit={(values) => {
           if (editing) updateMut.mutate({ clientId: editing.id, values });
@@ -487,11 +488,12 @@ function CardActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
 }
 
 function CustomerFormDialog({
-  open, onOpenChange, initial, submitting, onSubmit,
+  open, onOpenChange, initial, teamMembers, submitting, onSubmit,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   initial: ClientRow | null;
+  teamMembers: Array<{ user_id: string; full_name: string | null }>;
   submitting: boolean;
   onSubmit: (values: CustomerFormValues) => void;
 }) {
@@ -503,9 +505,12 @@ function CustomerFormDialog({
     tone_of_voice: initial?.tone_of_voice ?? "",
     contact_name: initial?.contact_name ?? "",
     contact_email: initial?.contact_email ?? "",
+    is_active: initial?.is_active ?? true,
+    owner_user_id: initial?.owner_user_id ?? null,
     socials: {
       instagram: socials.instagram ?? "",
       tiktok: socials.tiktok ?? "",
+      youtube: socials.youtube ?? "",
       linkedin: socials.linkedin ?? "",
       notes: socials.notes ?? "",
     },
@@ -596,6 +601,40 @@ function CustomerFormDialog({
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Responsável interno</Label>
+              <Select
+                value={values.owner_user_id ?? "__none"}
+                onValueChange={(v) => set("owner_user_id", v === "__none" ? null : v)}
+              >
+                <SelectTrigger className="mt-1 h-9 text-xs">
+                  <SelectValue placeholder="Selecionar usuário…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">Sem responsável</SelectItem>
+                  {teamMembers.map((m) => (
+                    <SelectItem key={m.user_id} value={m.user_id}>
+                      {m.full_name ?? m.user_id.slice(0, 8)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Status</Label>
+              <div className="mt-1 flex h-9 items-center justify-between rounded-md border border-border bg-background px-3">
+                <span className="text-xs text-muted-foreground">
+                  {values.is_active ? "Cliente ativo" : "Cliente inativo"}
+                </span>
+                <Switch
+                  checked={values.is_active}
+                  onCheckedChange={(v) => set("is_active", v)}
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label className="text-xs">Redes sociais</Label>
             <div className="space-y-1.5">
@@ -606,6 +645,10 @@ function CustomerFormDialog({
               <div className="relative">
                 <Music2 className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input className="pl-8" value={values.socials.tiktok ?? ""} onChange={(e) => setSocial("tiktok", e.target.value)} placeholder="@tiktok" />
+              </div>
+              <div className="relative">
+                <Youtube className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input className="pl-8" value={values.socials.youtube ?? ""} onChange={(e) => setSocial("youtube", e.target.value)} placeholder="youtube.com/@canal" />
               </div>
               <div className="relative">
                 <Linkedin className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
