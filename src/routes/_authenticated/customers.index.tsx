@@ -215,26 +215,11 @@ function CustomersIndexPage() {
   ) as ClientRow[];
 
   return (
-    <div className="w-full space-y-6 px-6 py-6 md:px-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            módulo · clientes
-          </div>
-          <h1 className="mt-1 text-2xl font-semibold">Clientes</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {customersQ.isLoading ? "carregando..." : `${customers.length} cliente(s) neste workspace`}
-          </p>
-        </div>
-        <Button
-          size="sm"
-          onClick={openCreate}
-          className="gap-1.5 bg-indigo-600 text-white hover:bg-indigo-500 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
-        >
-          <Plus className="h-3.5 w-3.5" /> Novo cliente
-        </Button>
-      </div>
-
+    <CustomersHeaderAndBody
+      openCreate={openCreate}
+      count={customers.length}
+      loading={customersQ.isLoading}
+    >
       <div className="flex items-center justify-between gap-3">
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
