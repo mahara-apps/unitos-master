@@ -80,8 +80,7 @@ export function AppSidebar() {
 }
 
 function UserProfileMenu() {
-  const { state } = useSidebar();
-  const collapsed = state === "collapsed";
+  useSidebar();
   const [user, setUser] = useState<{ email?: string; name?: string } | null>(null);
 
   useEffect(() => {
