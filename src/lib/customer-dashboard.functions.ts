@@ -16,7 +16,7 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
     const since14d = new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString();
     const since30d = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
 
-    const [client, portalTokens, activity, posts, tasks, usage, approvals] = await Promise.all([
+    const [client, portalTokens, activity, posts, tasks, usage] = await Promise.all([
       context.supabase
         .from("clients")
         .select("id,name,niche,color,socials,contact_name,contact_email,tone_of_voice,is_active,created_at,updated_at")
@@ -50,12 +50,15 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
         .eq("brand_id", data.brandId)
         .gte("created_at", since30d)
         .order("created_at", { ascending: true }),
-      context.supabase
-        .from("post_approvals")
-        .select("id,status,post_id,created_at,posts!inner(client_id,brand_id)")
-        .eq("posts.client_id", data.clientId)
-        .eq("posts.brand_id", data.brandId),
     ]);
+
+    const postIds = (posts.data ?? []).map((p) => p.id as string);
+    const { data: approvalData } = postIds.length
+      ? await context.supabase
+          .from("post_approvals")
+          .select("id,status,post_id,created_at")
+          .in("post_id", postIds)
+      : { data: [] as Array<{ status: string }> };
 
     // Bucket AI cost per-day (last 14d) for sparkline
     const days: string[] = Array.from({ length: 14 }, (_, i) => {
@@ -83,7 +86,7 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
       if (s in stageCounts) stageCounts[s] += 1;
     }
 
-    const approvalRows = (approvals.data ?? []) as Array<{ status: string }>;
+    const approvalRows = (approvalData ?? []) as Array<{ status: string }>;
     const pendingApprovals = approvalRows.filter((a) => a.status === "pending").length;
     const decidedApprovals = approvalRows.length - pendingApprovals;
 
