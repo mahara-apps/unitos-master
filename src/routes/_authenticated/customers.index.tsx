@@ -130,14 +130,37 @@ function CustomersIndexPage() {
         </Dialog>
       </div>
 
-      <div className="relative max-w-sm">
-        <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Buscar cliente…"
-          className="pl-8 text-xs"
-        />
+      <div className="flex items-center justify-between gap-3">
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar cliente…"
+            className="pl-8 text-xs"
+          />
+        </div>
+        <ToggleGroup
+          type="single"
+          value={viewMode}
+          onValueChange={(v) => v && setViewMode(v as "grid" | "list")}
+          className="rounded-md border border-border bg-card p-0.5"
+        >
+          <ToggleGroupItem
+            value="grid"
+            aria-label="Grid view"
+            className="h-7 w-7 rounded-sm data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="list"
+            aria-label="List view"
+            className="h-7 w-7 rounded-sm data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
+          >
+            <List className="h-3.5 w-3.5" />
+          </ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
       {customers.length === 0 && !customersQ.isLoading ? (
