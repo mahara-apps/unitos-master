@@ -350,20 +350,20 @@ function CustomersIndexPage() {
         </div>
       ) : (
         <div className="w-full overflow-hidden rounded-xl border border-border bg-card">
-          <div className="hidden grid-cols-[minmax(0,2.2fr)_100px_180px_minmax(0,1fr)_200px_50px] items-center gap-4 border-b border-zinc-100 px-5 py-2.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground dark:border-zinc-800/50 md:grid">
+          <div className="hidden grid-cols-[minmax(0,2.2fr)_100px_180px_160px_minmax(0,1fr)_70px] items-center gap-4 border-b border-zinc-100 px-5 py-2.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground dark:border-zinc-800/50 md:grid">
             <span>Cliente</span>
             <span>Status</span>
             <span>Estratégia</span>
-            <span>Tom / tags</span>
+            <span>Responsável</span>
             <span className="text-right">Última atividade</span>
-            <span />
+            <span className="text-right">Ações</span>
           </div>
           {customers.map((c) => {
             const meta = getCustomerMeta(c);
             return (
               <div
                 key={c.id}
-                className="group grid grid-cols-1 items-center gap-3 border-b border-zinc-100 px-5 py-3.5 transition-all last:border-b-0 hover:bg-zinc-50/50 dark:border-zinc-800/50 dark:hover:bg-zinc-900/40 md:grid-cols-[minmax(0,2.2fr)_100px_180px_minmax(0,1fr)_200px_50px] md:gap-4"
+                className="group grid grid-cols-1 items-center gap-3 border-b border-zinc-100 px-5 py-3.5 transition-all last:border-b-0 hover:bg-zinc-50/50 dark:border-zinc-800/50 dark:hover:bg-zinc-900/40 md:grid-cols-[minmax(0,2.2fr)_100px_180px_160px_minmax(0,1fr)_70px] md:gap-4"
               >
                 <Link to="/customers/$customerId" params={{ customerId: c.id }} className="flex min-w-0 items-center gap-3">
                   <div
@@ -396,23 +396,14 @@ function CustomersIndexPage() {
                     </span>
                   )}
                 </div>
-                <div className="flex min-w-0 flex-wrap items-center gap-1">
-                  {c.tone_of_voice ? (
-                    <span className="truncate rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                      {c.tone_of_voice}
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-muted-foreground">—</span>
-                  )}
-                </div>
-                <div className="flex items-center justify-end gap-3 text-[11px] text-muted-foreground">
-                  <span>Updated {timeAgo(meta.updated)}</span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-muted text-[8px] font-semibold text-foreground">
-                      {meta.managerInitials}
-                    </span>
-                    <span className="truncate max-w-[7rem]">{meta.manager ?? "Unassigned"}</span>
+                <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-muted text-[8px] font-semibold text-foreground">
+                    {meta.managerInitials}
                   </span>
+                  <span className="truncate">{meta.manager ?? "Unassigned"}</span>
+                </div>
+                <div className="flex items-center justify-end text-[11px] text-muted-foreground">
+                  <span>Updated {timeAgo(meta.updated)}</span>
                 </div>
                 <div className="flex justify-end">
                   <CardActions onEdit={() => openEdit(c)} onDelete={() => setToDelete(c)} />
