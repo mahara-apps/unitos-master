@@ -3,12 +3,25 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { differenceInCalendarDays, subDays } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { Users, ListChecks, CalendarClock, ShieldCheck, TrendingUp, TrendingDown } from "lucide-react";
+import {
+  Users,
+  ListChecks,
+  CalendarClock,
+  ShieldCheck,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  Info,
+  ShieldAlert,
+  FileText,
+  CheckCircle2,
+} from "lucide-react";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
   getAgencyDashboard,
   getDashboardStats,
   type AgencyDashboard,
+  type AgencyAlert,
 } from "@/lib/dashboard.functions";
 import { Sparkline } from "@/components/dashboard/sparkline";
 import { HealthBar } from "@/components/dashboard/health-bar";
@@ -39,8 +52,8 @@ function DashboardPage() {
 
   usePageHeader(
     {
-      title: "Painel",
-      subtitle: clientId ? "Modo cliente" : "Visão geral da agência",
+      title: "Agency Command Center",
+      subtitle: clientId ? "Account view" : "Operational telemetry across every active account",
       actions: <DateRangePicker value={range} onChange={setRange} />,
     },
     [range, clientId],
@@ -60,8 +73,10 @@ function DashboardPage() {
 
   if (!brandId) {
     return (
-      <div className="p-8 text-sm text-muted-foreground">
-        Selecione uma workspace no menu lateral para carregar o painel.
+      <div className="w-full px-6 py-10 md:px-8">
+        <div className="rounded-2xl border border-border/60 bg-card px-6 py-8 text-sm text-muted-foreground">
+          Select a workspace from the sidebar to load the command center.
+        </div>
       </div>
     );
   }
@@ -77,21 +92,8 @@ function DashboardPage() {
     );
   }
 
-  const data: AgencyDashboard | undefined = clientId
-    ? client.data
-      ? {
-          counts: client.data.counts,
-          sparkline: client.data.sparkline,
-          alerts: [],
-          healths: [],
-          approvalsQueue: [],
-          upcoming: [],
-          heatmap: Array.from({ length: 60 }, () => 0),
-        }
-      : undefined
-    : agency.data;
-
-  const isLoading = clientId ? client.isLoading : agency.isLoading;
+  const data: AgencyDashboard | undefined = agency.data;
+  const isLoading = agency.isLoading;
   const c = data?.counts;
   const spark = data?.sparkline ?? [];
   const heatmap = (data?.heatmap ?? []).slice(-days);
@@ -110,12 +112,12 @@ function DashboardPage() {
     : 100;
 
   return (
-    <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+    <div className="w-full space-y-6 px-6 py-6 md:px-8">
       {/* KPI ROW */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           icon={<Users className="h-3.5 w-3.5" />}
-          label="Clientes ativos"
+          label="Active accounts"
           value={isLoading ? "…" : (c?.clients ?? 0)}
           spark={spark}
           trendDelta={deltaFromSpark(spark)}
@@ -123,15 +125,15 @@ function DashboardPage() {
         />
         <MetricCard
           icon={<ListChecks className="h-3.5 w-3.5" />}
-          label="Tarefas abertas"
+          label="Open tasks"
           value={isLoading ? "…" : (c?.tasks_open ?? 0)}
-          hint={`${c?.tasks_overdue ?? 0} atrasadas · ${c?.tasks_done_7d ?? 0} concluídas 7d`}
+          hint={`${c?.tasks_overdue ?? 0} overdue · ${c?.tasks_done_7d ?? 0} shipped 7d`}
           spark={spark}
           accent="var(--color-severity-warning, oklch(0.72 0.16 65))"
           footer={
             <div className="mt-3 space-y-1">
               <div className="flex justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
-                <span>Conclusão 7d</span>
+                <span>Completion 7d</span>
                 <span className="text-foreground/80">{doneRatio}%</span>
               </div>
               <HealthBar score={doneRatio} />
@@ -140,15 +142,15 @@ function DashboardPage() {
         />
         <MetricCard
           icon={<ShieldCheck className="h-3.5 w-3.5" />}
-          label="Aprovações pendentes"
+          label="Pending approvals"
           value={isLoading ? "…" : (c?.approvals_pending ?? 0)}
-          hint={`${c?.posts_total ?? 0} peças no pipeline`}
+          hint={`${c?.posts_total ?? 0} assets in pipeline`}
           spark={spark}
           accent="var(--color-severity-info, oklch(0.7 0.14 240))"
           footer={
             <div className="mt-3 space-y-1">
               <div className="flex justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
-                <span>Fluxo aprovado</span>
+                <span>Approved flow</span>
                 <span className="text-foreground/80">{approvalRatio}%</span>
               </div>
               <HealthBar score={approvalRatio} />
@@ -157,9 +159,9 @@ function DashboardPage() {
         />
         <MetricCard
           icon={<CalendarClock className="h-3.5 w-3.5" />}
-          label="Projetos ativos"
+          label="Active projects"
           value={isLoading ? "…" : (c?.projects_active ?? 0)}
-          hint="Em execução no ciclo atual"
+          hint="Running in the current cycle"
           spark={spark}
           accent="oklch(0.78 0.16 155)"
         />
@@ -172,10 +174,10 @@ function DashboardPage() {
           <header className="relative flex items-center justify-between gap-3 border-b border-border/50 px-5 py-4">
             <div>
               <h2 className="text-sm font-semibold tracking-tight text-foreground">
-                Ritmo editorial
+                Editorial engine rhythm
               </h2>
               <p className="text-xs text-muted-foreground">
-                Frequência de publicações agregadas nos últimos {days} dias.
+                Aggregated publishing cadence across all accounts · last {days} days
               </p>
             </div>
             <HeatmapLegend />
@@ -188,34 +190,42 @@ function DashboardPage() {
             )}
           </div>
           <div className="relative grid grid-cols-3 gap-4 border-t border-border/50 px-5 py-3 text-xs">
-            <FootStat label="Total no período" value={heatmap.reduce((a, b) => a + b, 0)} />
-            <FootStat label="Pico diário" value={Math.max(0, ...heatmap)} />
+            <FootStat label="Total in range" value={heatmap.reduce((a, b) => a + b, 0)} />
+            <FootStat label="Daily peak" value={Math.max(0, ...heatmap)} />
             <FootStat
-              label="Média/dia"
+              label="Avg / day"
               value={heatmap.length ? (heatmap.reduce((a, b) => a + b, 0) / heatmap.length).toFixed(1) : 0}
             />
           </div>
         </section>
 
-        <InsightsPanel brandId={brandId} clientId={clientId} />
+        <div className="grid gap-4">
+          <AlertList alerts={data?.alerts ?? []} loading={isLoading} />
+          <ApprovalsList items={data?.approvalsQueue ?? []} loading={isLoading} />
+        </div>
       </div>
 
-      {/* HEALTH + ALERTS (agency mode only) */}
-      {!clientId && data && (data.healths.length > 0 || data.alerts.length > 0) && (
+      {/* HEALTH + INSIGHTS */}
+      {data && data.healths.length > 0 && (
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
           <section className="rounded-2xl border border-border/60 bg-card">
             <header className="flex items-center justify-between border-b border-border/50 px-5 py-4">
               <div>
-                <h2 className="text-sm font-semibold tracking-tight">Saúde dos clientes</h2>
-                <p className="text-xs text-muted-foreground">Score composto: entregas, aprovações, briefing e agenda.</p>
+                <h2 className="text-sm font-semibold tracking-tight">Account health</h2>
+                <p className="text-xs text-muted-foreground">
+                  Composite score: delivery, approvals, briefing and schedule.
+                </p>
               </div>
               <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                {data.healths.length} contas
+                {data.healths.length} accounts
               </span>
             </header>
             <ul className="divide-y divide-border/40">
               {data.healths.slice(0, 6).map((h) => (
-                <li key={h.id} className="grid grid-cols-[1fr_100px_60px] items-center gap-4 px-5 py-3 text-sm">
+                <li
+                  key={h.id}
+                  className="grid grid-cols-[1fr_100px_60px] items-center gap-4 px-5 py-3 text-sm"
+                >
                   <div className="flex min-w-0 items-center gap-3">
                     <span
                       className="h-2.5 w-2.5 shrink-0 rounded-full"
@@ -224,7 +234,7 @@ function DashboardPage() {
                     <div className="min-w-0">
                       <div className="truncate font-medium text-foreground">{h.name}</div>
                       <div className="truncate text-[11px] text-muted-foreground">
-                        {h.openTasks} tarefas · {h.overdueTasks} atrasadas · {h.approvalsPending} p/ aprovar
+                        {h.openTasks} tasks · {h.overdueTasks} overdue · {h.approvalsPending} to review
                       </div>
                     </div>
                   </div>
@@ -237,37 +247,195 @@ function DashboardPage() {
             </ul>
           </section>
 
-          <section className="rounded-2xl border border-border/60 bg-card">
-            <header className="border-b border-border/50 px-5 py-4">
-              <h2 className="text-sm font-semibold tracking-tight">Fila de aprovações</h2>
-              <p className="text-xs text-muted-foreground">Peças aguardando validação.</p>
-            </header>
-            {data.approvalsQueue.length === 0 ? (
-              <div className="px-5 py-8 text-center text-xs text-muted-foreground">
-                Nada pendente. Fluxo em dia.
-              </div>
-            ) : (
-              <ul className="divide-y divide-border/40">
-                {data.approvalsQueue.slice(0, 6).map((a) => (
-                  <li key={a.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
-                    <div className="min-w-0">
-                      <div className="truncate font-medium">{a.title}</div>
-                      <div className="truncate text-[11px] text-muted-foreground">
-                        {a.client_name}
-                      </div>
-                    </div>
-                    <span className="shrink-0 font-mono text-[10px] uppercase text-muted-foreground">
-                      {timeAgo(a.waiting_since)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          <InsightsPanel brandId={brandId} clientId={clientId} />
         </div>
       )}
+
+      {/* NOTIFICATION STREAM */}
+      <ActivityStream items={data?.upcoming ?? []} loading={isLoading} />
     </div>
   );
+}
+
+function AlertList({ alerts, loading }: { alerts: AgencyAlert[]; loading: boolean }) {
+  return (
+    <section className="rounded-2xl border border-border/60 bg-card">
+      <header className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight">Alerts</h2>
+          <p className="text-[11px] text-muted-foreground">Signals that need attention.</p>
+        </div>
+        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          {alerts.length}
+        </span>
+      </header>
+      {loading ? (
+        <div className="space-y-2 px-5 py-4">
+          <div className="h-8 w-full animate-pulse rounded-md bg-muted/40" />
+          <div className="h-8 w-full animate-pulse rounded-md bg-muted/40" />
+        </div>
+      ) : alerts.length === 0 ? (
+        <div className="flex items-center gap-2 px-5 py-6 text-xs text-muted-foreground">
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+          All clear. No active alerts.
+        </div>
+      ) : (
+        <ul className="divide-y divide-border/40">
+          {alerts.slice(0, 5).map((a) => {
+            const tone =
+              a.severity === "critical"
+                ? "text-rose-500"
+                : a.severity === "warning"
+                ? "text-amber-500"
+                : "text-sky-500";
+            const Icon =
+              a.severity === "critical" ? ShieldAlert : a.severity === "warning" ? AlertTriangle : Info;
+            return (
+              <li key={a.id} className="flex items-start gap-3 px-5 py-3">
+                <Icon className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", tone)} />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate text-sm font-medium text-foreground">{a.title}</span>
+                    <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
+                      {a.count}
+                    </span>
+                  </div>
+                  <p className="truncate text-[11px] text-muted-foreground">{a.description}</p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function ApprovalsList({
+  items,
+  loading,
+}: {
+  items: AgencyDashboard["approvalsQueue"];
+  loading: boolean;
+}) {
+  return (
+    <section className="rounded-2xl border border-border/60 bg-card">
+      <header className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight">Pending approvals</h2>
+          <p className="text-[11px] text-muted-foreground">Assets waiting for validation.</p>
+        </div>
+        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          {items.length}
+        </span>
+      </header>
+      {loading ? (
+        <div className="space-y-2 px-5 py-4">
+          <div className="h-8 w-full animate-pulse rounded-md bg-muted/40" />
+          <div className="h-8 w-full animate-pulse rounded-md bg-muted/40" />
+        </div>
+      ) : items.length === 0 ? (
+        <div className="flex items-center gap-2 px-5 py-6 text-xs text-muted-foreground">
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+          Nothing pending. Flow is on track.
+        </div>
+      ) : (
+        <ul className="divide-y divide-border/40">
+          {items.slice(0, 5).map((a) => (
+            <li key={a.id} className="flex items-center justify-between gap-3 px-5 py-3 text-sm">
+              <div className="min-w-0">
+                <div className="truncate font-medium text-foreground">{a.title}</div>
+                <div className="truncate text-[11px] text-muted-foreground">{a.client_name}</div>
+              </div>
+              <span className="shrink-0 font-mono text-[10px] uppercase text-muted-foreground">
+                {timeAgo(a.waiting_since)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function ActivityStream({
+  items,
+  loading,
+}: {
+  items: AgencyDashboard["upcoming"];
+  loading: boolean;
+}) {
+  return (
+    <section className="rounded-2xl border border-border/60 bg-card">
+      <header className="flex items-center justify-between border-b border-border/50 px-5 py-4">
+        <div>
+          <h2 className="text-sm font-semibold tracking-tight">Activity stream</h2>
+          <p className="text-[11px] text-muted-foreground">
+            Upcoming deliverables and scheduled releases across the agency.
+          </p>
+        </div>
+        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          {items.length}
+        </span>
+      </header>
+      {loading ? (
+        <div className="space-y-2 px-5 py-5">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-7 w-full animate-pulse rounded-md bg-muted/40" />
+          ))}
+        </div>
+      ) : items.length === 0 ? (
+        <div className="px-5 py-8 text-center text-xs text-muted-foreground">
+          No activity scheduled in the current window.
+        </div>
+      ) : (
+        <ul className="divide-y divide-border/40">
+          {items.slice(0, 10).map((n) => {
+            const isPost = n.kind === "post";
+            return (
+              <li
+                key={`${n.kind}-${n.id}`}
+                className="flex items-center gap-4 px-5 py-3 text-sm"
+              >
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 shrink-0 rounded-full",
+                    isPost ? "bg-sky-500" : "bg-amber-500",
+                  )}
+                />
+                <span className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                  {isPost ? <FileText className="h-3 w-3" /> : <ListChecks className="h-3 w-3" />}
+                  {isPost ? "Post" : "Task"}
+                </span>
+                <span className="min-w-0 flex-1 truncate font-medium text-foreground">
+                  {n.title}
+                </span>
+                <span className="hidden shrink-0 truncate text-[11px] text-muted-foreground sm:inline">
+                  {n.client_name ?? "—"}
+                </span>
+                <span className="shrink-0 font-mono text-[10px] uppercase tabular-nums text-muted-foreground">
+                  {formatWhen(n.when)}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function formatWhen(iso: string): string {
+  const d = new Date(iso);
+  const diff = d.getTime() - Date.now();
+  const abs = Math.abs(diff);
+  const h = Math.round(abs / 3_600_000);
+  const suffix = diff >= 0 ? "" : " ago";
+  const prefix = diff >= 0 ? "in " : "";
+  if (h < 1) return "now";
+  if (h < 24) return `${prefix}${h}h${suffix}`;
+  const days = Math.round(h / 24);
+  return `${prefix}${days}d${suffix}`;
 }
 
 function MetricCard({
