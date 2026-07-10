@@ -142,8 +142,8 @@ export function OverviewTab({ brandId, clientId }: Scope) {
 
   const briefing = (core.briefing?.data ?? {}) as Record<string, unknown>;
   const voice = (core.voice?.data as { voice_card?: { brand_personality?: string; tone_characteristics?: string[] } } | null)?.voice_card;
-  const personas = (target.personas?.data as { personas?: unknown[] } | null)?.personas ?? [];
-  const cohorts = (target.cohorts?.data as { cohorts?: unknown[] } | null)?.cohorts ?? [];
+  const personas = normalizePersonas(target.personas?.data);
+  const cohorts = normalizeCohorts(target.cohorts?.data);
   const swot = (market.swot?.data as { swot_analysis?: Record<string, string[]> } | null)?.swot_analysis;
 
   const kpis = [
@@ -301,13 +301,10 @@ export function StrategyTab({ brandId, clientId }: Scope) {
 
 // ---------- TARGET ----------
 
-type Persona = { nome: string; descricao: string; dores?: string[]; desejos?: string[]; canais_preferidos?: string[]; gatilhos_de_decisao?: string[]; objecoes_comuns?: string[] };
-type Cohort = { name: string; target_personas?: string[]; behavioral_traits?: string; content_strategy?: string; conversion_criteria?: string };
-
 export function TargetTab({ brandId, clientId }: Scope) {
   const { data: target } = useSuspenseQuery(customerTargetQuery({ brandId, clientId }));
-  const personas = ((target.personas?.data as { personas?: Persona[] } | null)?.personas ?? []) as Persona[];
-  const cohorts = ((target.cohorts?.data as { cohorts?: Cohort[] } | null)?.cohorts ?? []) as Cohort[];
+  const personas = normalizePersonas(target.personas?.data);
+  const cohorts = normalizeCohorts(target.cohorts?.data);
 
   return (
     <div className="space-y-6">
