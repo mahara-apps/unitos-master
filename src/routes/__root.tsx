@@ -79,20 +79,24 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Login — Acesse sua conta" },
+      { title: "Nexus - Gerenciador de Conteudos Digitais para Agências de M" },
       {
         name: "description",
-        content: "Tela de acesso segura com email e senha.",
+        content: "Blank Canvas is a web application for creating and managing projects from a clean slate.",
       },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Login — Acesse sua conta" },
+      { property: "og:title", content: "Nexus - Gerenciador de Conteudos Digitais para Agências de M" },
       {
         property: "og:description",
-        content: "Tela de acesso segura com email e senha.",
+        content: "Blank Canvas is a web application for creating and managing projects from a clean slate.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "Nexus - Gerenciador de Conteudos Digitais para Agências de M" },
+      { name: "twitter:description", content: "Blank Canvas is a web application for creating and managing projects from a clean slate." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f22a6e82-d5a9-4c97-a512-307a1e5b42c3/id-preview-8bedd8c4--3dfcbab1-0116-4c76-9aab-8a9d2e458514.lovable.app-1783646366397.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/f22a6e82-d5a9-4c97-a512-307a1e5b42c3/id-preview-8bedd8c4--3dfcbab1-0116-4c76-9aab-8a9d2e458514.lovable.app-1783646366397.png" },
     ],
     links: [
       {
