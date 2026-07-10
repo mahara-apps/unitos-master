@@ -20,9 +20,12 @@ const titles: Record<string, string> = {
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) throw redirect({ to: "/login" });
-    return { user: data.user };
+    // Use getSession (local, ~instant) instead of getUser (network round-trip)
+    // to keep sidebar navigations snappy. Server functions still re-validate
+    // the bearer token via requireSupabaseAuth.
+    const { data, error } = await supabase.auth.getSession();
+    if (error || !data.session?.user) throw redirect({ to: "/login" });
+    return { user: data.session.user };
   },
   component: AppShell,
 });
