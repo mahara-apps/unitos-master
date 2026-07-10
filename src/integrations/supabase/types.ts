@@ -390,6 +390,47 @@ export type Database = {
           },
         ]
       }
+      brand_connections: {
+        Row: {
+          brand_id: string
+          channels: Json
+          created_at: string
+          image_provider: string
+          monthly_budget_usd: number
+          providers: Json
+          text_provider: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          channels?: Json
+          created_at?: string
+          image_provider?: string
+          monthly_budget_usd?: number
+          providers?: Json
+          text_provider?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          channels?: Json
+          created_at?: string
+          image_provider?: string
+          monthly_budget_usd?: number
+          providers?: Json
+          text_provider?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_connections_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_invites: {
         Row: {
           accepted_at: string | null

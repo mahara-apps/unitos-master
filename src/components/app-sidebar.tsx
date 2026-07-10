@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, Users, Bell, LogOut, KanbanSquare, BarChart3, Settings, UserPlus } from "lucide-react";
+import { LayoutDashboard, Users, Bell, LogOut, KanbanSquare, BarChart3, Plug, UserPlus } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -22,7 +22,7 @@ const items = [
   { title: "Análises", url: "/analytics", icon: BarChart3 },
   { title: "Notificações", url: "/notifications", icon: Bell },
   { title: "Equipe", url: "/settings/team", icon: UserPlus },
-  { title: "Configurações", url: "/settings/ai", icon: Settings },
+  { title: "Connections", url: "/connections", icon: Plug },
 ] as const;
 
 export function AppSidebar() {
