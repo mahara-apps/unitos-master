@@ -58,12 +58,20 @@ export const listClients = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { data: clients, error } = await context.supabase
       .from("clients")
-      .select("id, name, niche, color, contact_name, contact_email, contact_phone, tone_of_voice, palette, socials")
+      .select("id, name, niche, color, contact_name, contact_email, contact_phone, tone_of_voice, palette, socials, created_at, updated_at")
       .eq("brand_id", data.brandId)
       .is("archived_at", null)
       .order("name");
     if (error) throw error;
-    return clients ?? [];
+    const list = clients ?? [];
+    if (list.length === 0) return [];
+    const { data: briefings } = await context.supabase
+      .from("brand_briefings")
+      .select("client_id")
+      .eq("brand_id", data.brandId)
+      .in("client_id", list.map((c) => c.id));
+    const withBriefing = new Set((briefings ?? []).map((b) => b.client_id));
+    return list.map((c) => ({ ...c, has_briefing: withBriefing.has(c.id) }));
   });
 
 const CreateClientInput = z.object({
