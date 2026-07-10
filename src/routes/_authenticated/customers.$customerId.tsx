@@ -27,6 +27,7 @@ import {
   MarketTab,
   TopicsTab,
 } from "@/components/ai-agents/strategy-panel";
+import { CustomerDashboard } from "@/components/customer/customer-dashboard";
 import {
   OverviewSkeleton,
   StrategySkeleton,
@@ -238,9 +239,11 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
               ))}
             </TabsList>
             <TabsContent value="overview">
-              <Suspense fallback={<OverviewSkeleton />}>
-                <OverviewTab brandId={brandId} clientId={customerId} />
-              </Suspense>
+              <CustomerDashboard
+                brandId={brandId}
+                clientId={customerId}
+                onRegenerate={() => setRegenOpen(true)}
+              />
             </TabsContent>
             <TabsContent value="strategy">
               <Suspense fallback={<StrategySkeleton />}>
