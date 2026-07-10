@@ -283,30 +283,33 @@ function CustomersIndexPage() {
                 key={c.id}
                 className="group relative flex flex-col rounded-xl border border-border bg-card p-5 transition-all duration-200 hover:border-zinc-700 dark:hover:border-zinc-300 hover:shadow-md"
               >
-                <div className="absolute right-2 top-2 opacity-0 transition group-hover:opacity-100">
-                  <CardActions onEdit={() => openEdit(c)} onDelete={() => setToDelete(c)} />
-                </div>
                 <Link
                   to="/customers/$customerId"
                   params={{ customerId: c.id }}
                   className="flex flex-col"
                 >
-                <div className="flex items-start gap-3">
-                  <div
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
-                    style={{ background: c.color ?? "#6366f1" }}
-                  >
-                    {c.name.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 pr-8">
-                      <div className="truncate text-sm font-medium text-foreground">{c.name}</div>
-                      <ArrowRight className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                      <div
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
+                        style={{ background: c.color ?? "#6366f1" }}
+                      >
+                        {c.name.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className="truncate text-sm font-medium text-foreground">{c.name}</div>
+                          <ArrowRight className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
+                        </div>
+                        <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                          {c.niche ?? "Sem nicho"}
+                        </div>
+                      </div>
                     </div>
-                    <div className="mt-0.5 flex items-center gap-2">
-                      <span className="truncate text-xs text-muted-foreground">
-                        {c.niche ?? "Sem nicho"}
-                      </span>
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="opacity-0 transition group-hover:opacity-100">
+                        <CardActions onEdit={() => openEdit(c)} onDelete={() => setToDelete(c)} />
+                      </div>
                       <Badge
                         variant="outline"
                         className={`h-4 rounded-full px-1.5 text-[9px] font-normal uppercase tracking-wider ${c.is_active === false ? "border-zinc-300 text-muted-foreground dark:border-zinc-700" : "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"}`}
@@ -315,34 +318,33 @@ function CustomersIndexPage() {
                       </Badge>
                     </div>
                   </div>
-                </div>
 
-                <div className="mt-4 flex flex-wrap items-center gap-1.5">
-                  {meta.hasStrategy ? (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                      ✨ Strategy Active
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
-                      ⚡ Ready for Bootstrap
-                    </span>
-                  )}
-                  {c.tone_of_voice && (
-                    <span className="rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                      {c.tone_of_voice}
-                    </span>
-                  )}
-                </div>
+                  <div className="mt-4 flex flex-wrap items-center gap-1.5">
+                    {meta.hasStrategy ? (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                        ✨ Strategy Active
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                        ⚡ Ready for Bootstrap
+                      </span>
+                    )}
+                    {c.tone_of_voice && (
+                      <span className="rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                        {c.tone_of_voice}
+                      </span>
+                    )}
+                  </div>
 
-                <div className="mt-4 flex items-center justify-between border-t border-zinc-100 pt-3 text-[11px] text-muted-foreground dark:border-zinc-800/50">
-                  <span>Updated {timeAgo(meta.updated)}</span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-muted text-[8px] font-semibold text-foreground">
-                      {meta.managerInitials}
+                  <div className="mt-4 flex items-center justify-between border-t border-zinc-100 pt-3 text-[11px] text-muted-foreground dark:border-zinc-800/50">
+                    <span>Updated {timeAgo(meta.updated)}</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-muted text-[8px] font-semibold text-foreground">
+                        {meta.managerInitials}
+                      </span>
+                      <span className="truncate max-w-[9rem]">{meta.manager ?? "Unassigned"}</span>
                     </span>
-                    <span className="truncate max-w-[9rem]">{meta.manager ?? "Unassigned"}</span>
-                  </span>
-                </div>
+                  </div>
                 </Link>
               </div>
             );
