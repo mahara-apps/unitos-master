@@ -16,6 +16,78 @@ import {
 
 type Scope = { brandId: string; clientId: string };
 
+// ---------- normalizers (tolerate `{__raw: "..."}` payloads from AI) ----------
+
+function tryParseJson(input: string): unknown {
+  // Strip markdown fences
+  let s = input.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+  try { return JSON.parse(s); } catch { /* try repair */ }
+  // Remove trailing junk after last balanced brace/bracket
+  const lastCurly = s.lastIndexOf("}");
+  const lastSquare = s.lastIndexOf("]");
+  const end = Math.max(lastCurly, lastSquare);
+  if (end > 0) {
+    try { return JSON.parse(s.slice(0, end + 1)); } catch { /* noop */ }
+  }
+  return null;
+}
+
+function extractRaw<T = unknown>(data: unknown): T | null {
+  if (!data || typeof data !== "object") return null;
+  const d = data as Record<string, unknown>;
+  if (typeof d.__raw === "string") {
+    const parsed = tryParseJson(d.__raw);
+    return (parsed as T) ?? null;
+  }
+  return data as T;
+}
+
+type RawPersona = Record<string, unknown>;
+type NormalizedPersona = { nome: string; descricao: string; dores: string[]; canais_preferidos: string[] };
+
+function normalizePersonas(data: unknown): NormalizedPersona[] {
+  const parsed = extractRaw<unknown>(data);
+  if (!parsed) return [];
+  const arr: RawPersona[] = Array.isArray(parsed)
+    ? (parsed as RawPersona[])
+    : Array.isArray((parsed as { personas?: unknown }).personas)
+      ? ((parsed as { personas: RawPersona[] }).personas)
+      : [];
+  return arr.map((p) => {
+    const dorPrincipal = p.dor_principal as string | undefined;
+    const dores = Array.isArray(p.dores) ? (p.dores as string[]) : dorPrincipal ? [dorPrincipal] : [];
+    return {
+      nome: (p.nome as string) ?? (p.name as string) ?? "Persona",
+      descricao: (p.perfil as string) ?? (p.descricao as string) ?? (p.description as string) ?? "",
+      dores,
+      canais_preferidos: Array.isArray(p.canais_preferidos)
+        ? (p.canais_preferidos as string[])
+        : Array.isArray(p.ganchos_sugeridos)
+          ? []
+          : [],
+    };
+  });
+}
+
+type NormalizedCohort = { name: string; target_personas: string[]; behavioral_traits: string; content_strategy: string; conversion_criteria: string };
+
+function normalizeCohorts(data: unknown): NormalizedCohort[] {
+  const parsed = extractRaw<unknown>(data);
+  if (!parsed) return [];
+  const arr: Record<string, unknown>[] = Array.isArray(parsed)
+    ? (parsed as Record<string, unknown>[])
+    : Array.isArray((parsed as { cohorts?: unknown }).cohorts)
+      ? ((parsed as { cohorts: Record<string, unknown>[] }).cohorts)
+      : [];
+  return arr.map((c) => ({
+    name: (c.name as string) ?? "Cohort",
+    target_personas: Array.isArray(c.target_personas) ? (c.target_personas as string[]) : [],
+    behavioral_traits: (c.behavioral_traits as string) ?? "",
+    content_strategy: (c.content_strategy as string) ?? "",
+    conversion_criteria: (c.conversion_criteria as string) ?? "",
+  }));
+}
+
 // ---------- helpers ----------
 
 function SectionCard({
@@ -70,8 +142,8 @@ export function OverviewTab({ brandId, clientId }: Scope) {
 
   const briefing = (core.briefing?.data ?? {}) as Record<string, unknown>;
   const voice = (core.voice?.data as { voice_card?: { brand_personality?: string; tone_characteristics?: string[] } } | null)?.voice_card;
-  const personas = (target.personas?.data as { personas?: unknown[] } | null)?.personas ?? [];
-  const cohorts = (target.cohorts?.data as { cohorts?: unknown[] } | null)?.cohorts ?? [];
+  const personas = normalizePersonas(target.personas?.data);
+  const cohorts = normalizeCohorts(target.cohorts?.data);
   const swot = (market.swot?.data as { swot_analysis?: Record<string, string[]> } | null)?.swot_analysis;
 
   const kpis = [
@@ -229,13 +301,10 @@ export function StrategyTab({ brandId, clientId }: Scope) {
 
 // ---------- TARGET ----------
 
-type Persona = { nome: string; descricao: string; dores?: string[]; desejos?: string[]; canais_preferidos?: string[]; gatilhos_de_decisao?: string[]; objecoes_comuns?: string[] };
-type Cohort = { name: string; target_personas?: string[]; behavioral_traits?: string; content_strategy?: string; conversion_criteria?: string };
-
 export function TargetTab({ brandId, clientId }: Scope) {
   const { data: target } = useSuspenseQuery(customerTargetQuery({ brandId, clientId }));
-  const personas = ((target.personas?.data as { personas?: Persona[] } | null)?.personas ?? []) as Persona[];
-  const cohorts = ((target.cohorts?.data as { cohorts?: Cohort[] } | null)?.cohorts ?? []) as Cohort[];
+  const personas = normalizePersonas(target.personas?.data);
+  const cohorts = normalizeCohorts(target.cohorts?.data);
 
   return (
     <div className="space-y-6">
