@@ -52,8 +52,8 @@ function DashboardPage() {
 
   usePageHeader(
     {
-      title: "Agency Command Center",
-      subtitle: clientId ? "Account view" : "Operational telemetry across every active account",
+      title: "Central de comando da agência",
+      subtitle: clientId ? "Visão da conta" : "Telemetria operacional de todas as contas ativas",
       actions: <DateRangePicker value={range} onChange={setRange} />,
     },
     [range, clientId],
@@ -75,7 +75,7 @@ function DashboardPage() {
     return (
       <div className="w-full px-6 py-10 md:px-8">
         <div className="rounded-2xl border border-border/60 bg-card px-6 py-8 text-sm text-muted-foreground">
-          Select a workspace from the sidebar to load the command center.
+          Selecione uma workspace na barra lateral para carregar a central de comando.
         </div>
       </div>
     );
@@ -117,7 +117,7 @@ function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           icon={<Users className="h-3.5 w-3.5" />}
-          label="Active accounts"
+          label="Contas ativas"
           value={isLoading ? "…" : (c?.clients ?? 0)}
           spark={spark}
           trendDelta={deltaFromSpark(spark)}
@@ -125,15 +125,15 @@ function DashboardPage() {
         />
         <MetricCard
           icon={<ListChecks className="h-3.5 w-3.5" />}
-          label="Open tasks"
+          label="Tarefas abertas"
           value={isLoading ? "…" : (c?.tasks_open ?? 0)}
-          hint={`${c?.tasks_overdue ?? 0} overdue · ${c?.tasks_done_7d ?? 0} shipped 7d`}
+          hint={`${c?.tasks_overdue ?? 0} atrasadas · ${c?.tasks_done_7d ?? 0} concluídas 7d`}
           spark={spark}
           accent="var(--color-severity-warning, oklch(0.72 0.16 65))"
           footer={
             <div className="mt-3 space-y-1">
               <div className="flex justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
-                <span>Completion 7d</span>
+                <span>Conclusão 7d</span>
                 <span className="text-foreground/80">{doneRatio}%</span>
               </div>
               <HealthBar score={doneRatio} />
@@ -142,15 +142,15 @@ function DashboardPage() {
         />
         <MetricCard
           icon={<ShieldCheck className="h-3.5 w-3.5" />}
-          label="Pending approvals"
+          label="Aprovações pendentes"
           value={isLoading ? "…" : (c?.approvals_pending ?? 0)}
-          hint={`${c?.posts_total ?? 0} assets in pipeline`}
+          hint={`${c?.posts_total ?? 0} peças no pipeline`}
           spark={spark}
           accent="var(--color-severity-info, oklch(0.7 0.14 240))"
           footer={
             <div className="mt-3 space-y-1">
               <div className="flex justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
-                <span>Approved flow</span>
+                <span>Fluxo aprovado</span>
                 <span className="text-foreground/80">{approvalRatio}%</span>
               </div>
               <HealthBar score={approvalRatio} />
@@ -159,9 +159,9 @@ function DashboardPage() {
         />
         <MetricCard
           icon={<CalendarClock className="h-3.5 w-3.5" />}
-          label="Active projects"
+          label="Projetos ativos"
           value={isLoading ? "…" : (c?.projects_active ?? 0)}
-          hint="Running in the current cycle"
+          hint="Em execução no ciclo atual"
           spark={spark}
           accent="oklch(0.78 0.16 155)"
         />
@@ -174,10 +174,10 @@ function DashboardPage() {
           <header className="relative flex items-center justify-between gap-3 border-b border-border/50 px-5 py-4">
             <div>
               <h2 className="text-sm font-semibold tracking-tight text-foreground">
-                Editorial engine rhythm
+                Ritmo editorial
               </h2>
               <p className="text-xs text-muted-foreground">
-                Aggregated publishing cadence across all accounts · last {days} days
+                Cadência de publicações agregada entre todas as contas · últimos {days} dias
               </p>
             </div>
             <HeatmapLegend />
@@ -190,10 +190,10 @@ function DashboardPage() {
             )}
           </div>
           <div className="relative grid grid-cols-3 gap-4 border-t border-border/50 px-5 py-3 text-xs">
-            <FootStat label="Total in range" value={heatmap.reduce((a, b) => a + b, 0)} />
-            <FootStat label="Daily peak" value={Math.max(0, ...heatmap)} />
+            <FootStat label="Total no período" value={heatmap.reduce((a, b) => a + b, 0)} />
+            <FootStat label="Pico diário" value={Math.max(0, ...heatmap)} />
             <FootStat
-              label="Avg / day"
+              label="Média / dia"
               value={heatmap.length ? (heatmap.reduce((a, b) => a + b, 0) / heatmap.length).toFixed(1) : 0}
             />
           </div>
@@ -211,13 +211,13 @@ function DashboardPage() {
           <section className="rounded-2xl border border-border/60 bg-card">
             <header className="flex items-center justify-between border-b border-border/50 px-5 py-4">
               <div>
-                <h2 className="text-sm font-semibold tracking-tight">Account health</h2>
+                <h2 className="text-sm font-semibold tracking-tight">Saúde das contas</h2>
                 <p className="text-xs text-muted-foreground">
-                  Composite score: delivery, approvals, briefing and schedule.
+                  Score composto: entregas, aprovações, briefing e agenda.
                 </p>
               </div>
               <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                {data.healths.length} accounts
+                {data.healths.length} contas
               </span>
             </header>
             <ul className="divide-y divide-border/40">
@@ -234,7 +234,7 @@ function DashboardPage() {
                     <div className="min-w-0">
                       <div className="truncate font-medium text-foreground">{h.name}</div>
                       <div className="truncate text-[11px] text-muted-foreground">
-                        {h.openTasks} tasks · {h.overdueTasks} overdue · {h.approvalsPending} to review
+                        {h.openTasks} tarefas · {h.overdueTasks} atrasadas · {h.approvalsPending} p/ aprovar
                       </div>
                     </div>
                   </div>
@@ -262,8 +262,8 @@ function AlertList({ alerts, loading }: { alerts: AgencyAlert[]; loading: boolea
     <section className="rounded-2xl border border-border/60 bg-card">
       <header className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
         <div>
-          <h2 className="text-sm font-semibold tracking-tight">Alerts</h2>
-          <p className="text-[11px] text-muted-foreground">Signals that need attention.</p>
+          <h2 className="text-sm font-semibold tracking-tight">Alertas</h2>
+          <p className="text-[11px] text-muted-foreground">Sinais que exigem atenção.</p>
         </div>
         <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
           {alerts.length}
@@ -277,7 +277,7 @@ function AlertList({ alerts, loading }: { alerts: AgencyAlert[]; loading: boolea
       ) : alerts.length === 0 ? (
         <div className="flex items-center gap-2 px-5 py-6 text-xs text-muted-foreground">
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-          All clear. No active alerts.
+          Tudo certo. Nenhum alerta ativo.
         </div>
       ) : (
         <ul className="divide-y divide-border/40">
@@ -322,8 +322,8 @@ function ApprovalsList({
     <section className="rounded-2xl border border-border/60 bg-card">
       <header className="flex items-center justify-between border-b border-border/50 px-5 py-3.5">
         <div>
-          <h2 className="text-sm font-semibold tracking-tight">Pending approvals</h2>
-          <p className="text-[11px] text-muted-foreground">Assets waiting for validation.</p>
+          <h2 className="text-sm font-semibold tracking-tight">Aprovações pendentes</h2>
+          <p className="text-[11px] text-muted-foreground">Peças aguardando validação.</p>
         </div>
         <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
           {items.length}
@@ -337,7 +337,7 @@ function ApprovalsList({
       ) : items.length === 0 ? (
         <div className="flex items-center gap-2 px-5 py-6 text-xs text-muted-foreground">
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-          Nothing pending. Flow is on track.
+          Nada pendente. Fluxo em dia.
         </div>
       ) : (
         <ul className="divide-y divide-border/40">
@@ -369,9 +369,9 @@ function ActivityStream({
     <section className="rounded-2xl border border-border/60 bg-card">
       <header className="flex items-center justify-between border-b border-border/50 px-5 py-4">
         <div>
-          <h2 className="text-sm font-semibold tracking-tight">Activity stream</h2>
+          <h2 className="text-sm font-semibold tracking-tight">Fluxo de atividades</h2>
           <p className="text-[11px] text-muted-foreground">
-            Upcoming deliverables and scheduled releases across the agency.
+            Próximas entregas e publicações agendadas de toda a agência.
           </p>
         </div>
         <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -386,7 +386,7 @@ function ActivityStream({
         </div>
       ) : items.length === 0 ? (
         <div className="px-5 py-8 text-center text-xs text-muted-foreground">
-          No activity scheduled in the current window.
+          Nenhuma atividade agendada nesta janela.
         </div>
       ) : (
         <ul className="divide-y divide-border/40">
@@ -405,7 +405,7 @@ function ActivityStream({
                 />
                 <span className="flex items-center gap-2 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
                   {isPost ? <FileText className="h-3 w-3" /> : <ListChecks className="h-3 w-3" />}
-                  {isPost ? "Post" : "Task"}
+                  {isPost ? "Post" : "Tarefa"}
                 </span>
                 <span className="min-w-0 flex-1 truncate font-medium text-foreground">
                   {n.title}
@@ -430,9 +430,9 @@ function formatWhen(iso: string): string {
   const diff = d.getTime() - Date.now();
   const abs = Math.abs(diff);
   const h = Math.round(abs / 3_600_000);
-  const suffix = diff >= 0 ? "" : " ago";
-  const prefix = diff >= 0 ? "in " : "";
-  if (h < 1) return "now";
+  const suffix = diff >= 0 ? "" : " atrás";
+  const prefix = diff >= 0 ? "em " : "";
+  if (h < 1) return "agora";
   if (h < 24) return `${prefix}${h}h${suffix}`;
   const days = Math.round(h / 24);
   return `${prefix}${days}d${suffix}`;
