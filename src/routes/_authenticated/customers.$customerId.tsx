@@ -21,7 +21,6 @@ import {
 import { useActiveContext } from "@/hooks/use-active-context";
 import { listClients } from "@/lib/workspace.functions";
 import {
-  OverviewTab,
   StrategyTab,
   TargetTab,
   MarketTab,
@@ -29,7 +28,6 @@ import {
 } from "@/components/ai-agents/strategy-panel";
 import { CustomerDashboard } from "@/components/customer/customer-dashboard";
 import {
-  OverviewSkeleton,
   StrategySkeleton,
   TargetSkeleton,
   MarketSkeleton,
