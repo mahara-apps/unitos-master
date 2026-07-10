@@ -309,9 +309,9 @@ function CustomersIndexPage() {
                       </span>
                       <Badge
                         variant="outline"
-                        className="h-4 rounded-full border-zinc-200 px-1.5 text-[9px] font-normal uppercase tracking-wider text-muted-foreground dark:border-zinc-800"
+                        className={`h-4 rounded-full px-1.5 text-[9px] font-normal uppercase tracking-wider ${c.is_active === false ? "border-zinc-300 text-muted-foreground dark:border-zinc-700" : "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"}`}
                       >
-                        Active
+                        {c.is_active === false ? "Inativo" : "Ativo"}
                       </Badge>
                     </div>
                   </div>
@@ -380,9 +380,9 @@ function CustomersIndexPage() {
                 <div>
                   <Badge
                     variant="outline"
-                    className="h-4 rounded-full border-zinc-200 px-1.5 text-[9px] font-normal uppercase tracking-wider text-muted-foreground dark:border-zinc-800"
+                    className={`h-4 rounded-full px-1.5 text-[9px] font-normal uppercase tracking-wider ${c.is_active === false ? "border-zinc-300 text-muted-foreground dark:border-zinc-700" : "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"}`}
                   >
-                    Active
+                    {c.is_active === false ? "Inativo" : "Ativo"}
                   </Badge>
                 </div>
                 <div>
