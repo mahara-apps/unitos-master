@@ -47,11 +47,11 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
 });
 
 const TABS = [
-  { value: "overview", label: "Overview" },
-  { value: "strategy", label: "Strategy" },
-  { value: "target", label: "Target" },
-  { value: "market", label: "Market" },
-  { value: "topics", label: "Topics" },
+  { value: "overview", label: "Visão geral" },
+  { value: "strategy", label: "Estratégia" },
+  { value: "target", label: "Público" },
+  { value: "market", label: "Mercado" },
+  { value: "topics", label: "Tópicos" },
 ] as const;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
