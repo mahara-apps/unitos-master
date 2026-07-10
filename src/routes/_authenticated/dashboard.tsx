@@ -17,6 +17,7 @@ import { InsightsPanel } from "@/components/dashboard/insights-panel";
 import { DateRangePicker } from "@/components/dashboard/date-range-picker";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { cn } from "@/lib/utils";
+import { CustomerDashboard } from "@/components/customer/customer-dashboard";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
@@ -61,6 +62,17 @@ function DashboardPage() {
     return (
       <div className="p-8 text-sm text-muted-foreground">
         Selecione uma workspace no menu lateral para carregar o painel.
+      </div>
+    );
+  }
+
+  // When an account is selected globally, the dashboard becomes the
+  // customer-scoped control center (same view as the Overview tab in
+  // /customers/$customerId).
+  if (clientId) {
+    return (
+      <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
+        <CustomerDashboard brandId={brandId} clientId={clientId} />
       </div>
     );
   }
