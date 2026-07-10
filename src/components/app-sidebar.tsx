@@ -25,7 +25,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { BrandSwitcher, ClientSwitcher } from "./brand-client-switcher";
+import { ContextSwitcher } from "./brand-client-switcher";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -46,8 +46,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="gap-1">
-        <BrandSwitcher />
-        <ClientSwitcher />
+        <ContextSwitcher />
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
