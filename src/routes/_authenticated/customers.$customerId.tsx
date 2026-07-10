@@ -116,7 +116,7 @@ function HeaderFallback() {
             ))}
           </div>
         </div>
-        <OverviewSkeleton />
+        <Skeleton className="h-72 w-full rounded-xl" />
       </div>
     </ScrollArea>
   );
