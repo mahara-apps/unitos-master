@@ -21,14 +21,13 @@ import {
 import { useActiveContext } from "@/hooks/use-active-context";
 import { listClients } from "@/lib/workspace.functions";
 import {
-  OverviewTab,
   StrategyTab,
   TargetTab,
   MarketTab,
   TopicsTab,
 } from "@/components/ai-agents/strategy-panel";
+import { CustomerDashboard } from "@/components/customer/customer-dashboard";
 import {
-  OverviewSkeleton,
   StrategySkeleton,
   TargetSkeleton,
   MarketSkeleton,
@@ -117,7 +116,7 @@ function HeaderFallback() {
             ))}
           </div>
         </div>
-        <OverviewSkeleton />
+        <Skeleton className="h-72 w-full rounded-xl" />
       </div>
     </ScrollArea>
   );
@@ -238,9 +237,11 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
               ))}
             </TabsList>
             <TabsContent value="overview">
-              <Suspense fallback={<OverviewSkeleton />}>
-                <OverviewTab brandId={brandId} clientId={customerId} />
-              </Suspense>
+              <CustomerDashboard
+                brandId={brandId}
+                clientId={customerId}
+                onRegenerate={() => setRegenOpen(true)}
+              />
             </TabsContent>
             <TabsContent value="strategy">
               <Suspense fallback={<StrategySkeleton />}>
