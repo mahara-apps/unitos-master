@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Calendar, Instagram, Linkedin, MessageCircle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { usePageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/content")({
   component: ContentPage,
@@ -48,17 +49,17 @@ const channelIcon = {
 };
 
 function ContentPage() {
+  usePageHeader({
+    title: "Pipeline de conteúdo",
+    subtitle: "Fluxo semanal · 7 posts em produção · 2 urgentes",
+    actions: (
+      <Button size="sm" className="gap-2">
+        <Sparkles className="h-3.5 w-3.5" /> Novo post com IA
+      </Button>
+    ),
+  });
   return (
     <div className="flex h-[calc(100vh-3.5rem)] flex-col">
-      <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
-        <div>
-          <h1 className="text-base font-semibold">Pipeline de conteúdo</h1>
-          <p className="text-xs text-muted-foreground">Fluxo semanal · 7 posts em produção · 2 urgentes</p>
-        </div>
-        <Button size="sm" className="gap-2">
-          <Sparkles className="h-3.5 w-3.5" /> Novo post com IA
-        </Button>
-      </div>
       <div className="flex flex-1 gap-3 overflow-x-auto p-4">
         {stages.map((s) => {
           const items = posts.filter((p) => p.stage === s.id);
