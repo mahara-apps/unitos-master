@@ -329,11 +329,6 @@ function CustomersIndexPage() {
                         ⚡ Ready for Bootstrap
                       </span>
                     )}
-                    {c.tone_of_voice && (
-                      <span className="rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                        {c.tone_of_voice}
-                      </span>
-                    )}
                   </div>
 
                   <div className="mt-4 flex items-center justify-between border-t border-zinc-100 pt-3 text-[11px] text-muted-foreground dark:border-zinc-800/50">
