@@ -217,10 +217,11 @@ function CustomersIndexPage() {
 
   return (
     <div className="w-full space-y-6 px-6 py-6 md:px-8">
-      <PageHeaderRegister
-        loading={customersQ.isLoading}
-        count={customers.length}
-        openCreate={openCreate}
+      <HeaderRegister
+        subtitle={
+          customersQ.isLoading ? "carregando…" : `${customers.length} cliente(s) neste workspace`
+        }
+        onCreate={openCreate}
       />
       <div className="flex items-center justify-between gap-3">
         <div className="relative w-full max-w-sm">
