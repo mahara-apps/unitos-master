@@ -15,9 +15,10 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Plus, Search, ArrowRight, AlertTriangle, Loader2 } from "lucide-react";
+import { Plus, Search, ArrowRight, AlertTriangle, Loader2, LayoutGrid, List } from "lucide-react";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { listClients, createClient } from "@/lib/workspace.functions";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 export const Route = createFileRoute("/_authenticated/customers/")({
   component: CustomersIndexPage,
@@ -48,6 +49,7 @@ function CustomersIndexPage() {
   const [name, setName] = useState("");
   const [niche, setNiche] = useState("");
   const [creating, setCreating] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
 
   const customersQ = useQuery({
     queryKey: ["clients", brandId],
