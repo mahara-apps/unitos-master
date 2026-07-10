@@ -15,6 +15,7 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
+import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -22,6 +23,7 @@ import { Route as AuthenticatedCustomersRouteImport } from './routes/_authentica
 import { Route as AuthenticatedContentRouteImport } from './routes/_authenticated/content'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authenticated/customers.index'
+import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsAiRouteImport } from './routes/_authenticated/settings.ai'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 import { Route as AuthenticatedCustomersCustomerIdPipelineRouteImport } from './routes/_authenticated/customers.$customerId.pipeline'
@@ -53,6 +55,11 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
 const PortalTokenRoute = PortalTokenRouteImport.update({
   id: '/portal/$token',
   path: '/portal/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
@@ -92,6 +99,12 @@ const AuthenticatedCustomersIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedCustomersRoute,
   } as any)
+const AuthenticatedSettingsTeamRoute =
+  AuthenticatedSettingsTeamRouteImport.update({
+    id: '/team',
+    path: '/team',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsAiRoute = AuthenticatedSettingsAiRouteImport.update({
   id: '/ai',
   path: '/ai',
@@ -121,9 +134,11 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
+  '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
+  '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/customers/': typeof AuthenticatedCustomersIndexRoute
   '/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
@@ -136,10 +151,12 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
+  '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
   '/': typeof AuthenticatedIndexRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
+  '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/customers': typeof AuthenticatedCustomersIndexRoute
   '/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
@@ -155,10 +172,12 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
+  '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/_authenticated/settings/ai': typeof AuthenticatedSettingsAiRoute
+  '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
   '/_authenticated/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
@@ -175,9 +194,11 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/notifications'
     | '/settings'
+    | '/invite/$token'
     | '/portal/$token'
     | '/customers/$customerId'
     | '/settings/ai'
+    | '/settings/team'
     | '/customers/'
     | '/customers/$customerId/pipeline'
   fileRoutesByTo: FileRoutesByTo
@@ -190,10 +211,12 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/notifications'
     | '/settings'
+    | '/invite/$token'
     | '/portal/$token'
     | '/'
     | '/customers/$customerId'
     | '/settings/ai'
+    | '/settings/team'
     | '/customers'
     | '/customers/$customerId/pipeline'
   id:
@@ -208,10 +231,12 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/notifications'
     | '/_authenticated/settings'
+    | '/invite/$token'
     | '/portal/$token'
     | '/_authenticated/'
     | '/_authenticated/customers/$customerId'
     | '/_authenticated/settings/ai'
+    | '/_authenticated/settings/team'
     | '/_authenticated/customers/'
     | '/_authenticated/customers/$customerId/pipeline'
   fileRoutesById: FileRoutesById
@@ -221,6 +246,7 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  InviteTokenRoute: typeof InviteTokenRoute
   PortalTokenRoute: typeof PortalTokenRoute
 }
 
@@ -266,6 +292,13 @@ declare module '@tanstack/react-router' {
       path: '/portal/$token'
       fullPath: '/portal/$token'
       preLoaderRoute: typeof PortalTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/settings': {
@@ -316,6 +349,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/customers/'
       preLoaderRoute: typeof AuthenticatedCustomersIndexRouteImport
       parentRoute: typeof AuthenticatedCustomersRoute
+    }
+    '/_authenticated/settings/team': {
+      id: '/_authenticated/settings/team'
+      path: '/team'
+      fullPath: '/settings/team'
+      preLoaderRoute: typeof AuthenticatedSettingsTeamRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/settings/ai': {
       id: '/_authenticated/settings/ai'
@@ -375,10 +415,12 @@ const AuthenticatedCustomersRouteWithChildren =
 
 interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsAiRoute: typeof AuthenticatedSettingsAiRoute
+  AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
 }
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsAiRoute: AuthenticatedSettingsAiRoute,
+  AuthenticatedSettingsTeamRoute: AuthenticatedSettingsTeamRoute,
 }
 
 const AuthenticatedSettingsRouteWithChildren =
@@ -414,6 +456,7 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  InviteTokenRoute: InviteTokenRoute,
   PortalTokenRoute: PortalTokenRoute,
 }
 export const routeTree = rootRouteImport
