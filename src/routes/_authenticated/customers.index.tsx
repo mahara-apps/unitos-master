@@ -23,6 +23,22 @@ export const Route = createFileRoute("/_authenticated/customers/")({
   component: CustomersIndexPage,
 });
 
+function timeAgo(iso?: string | null) {
+  if (!iso) return "—";
+  const diff = Date.now() - new Date(iso).getTime();
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return "just now";
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `${d}d ago`;
+  const mo = Math.floor(d / 30);
+  if (mo < 12) return `${mo}mo ago`;
+  return `${Math.floor(mo / 12)}y ago`;
+}
+
 function CustomersIndexPage() {
   const { brandId } = useActiveContext();
   const list = useServerFn(listClients);
@@ -129,41 +145,84 @@ function CustomersIndexPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {customers.map((c) => (
-            <Link
-              key={c.id}
-              to="/customers/$customerId"
-              params={{ customerId: c.id }}
-              className="group rounded-xl border border-border bg-card p-5 transition hover:border-primary/40 hover:shadow-sm"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
+        <div className="grid w-full grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {customers.map((c) => {
+            const hasStrategy = (c as { has_briefing?: boolean }).has_briefing;
+            const updated = (c as { updated_at?: string; created_at?: string }).updated_at
+              ?? (c as { created_at?: string }).created_at;
+            const manager = c.contact_name?.trim();
+            const managerInitials = (manager ?? "—")
+              .split(/\s+/)
+              .map((p) => p[0])
+              .filter(Boolean)
+              .slice(0, 2)
+              .join("")
+              .toUpperCase() || "·";
+            return (
+              <Link
+                key={c.id}
+                to="/customers/$customerId"
+                params={{ customerId: c.id }}
+                className="group flex flex-col rounded-xl border border-border bg-card p-5 transition-all duration-200 cursor-pointer hover:border-zinc-700 dark:hover:border-zinc-300 hover:shadow-md"
+              >
+                {/* TOP */}
+                <div className="flex items-start gap-3">
                   <div
-                    className="flex h-10 w-10 items-center justify-center rounded-lg text-sm font-bold text-white"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
                     style={{ background: c.color ?? "#6366f1" }}
                   >
                     {c.name.slice(0, 2).toUpperCase()}
                   </div>
-                  <div>
-                    <div className="text-sm font-semibold text-foreground">{c.name}</div>
-                    <div className="text-[11px] text-muted-foreground">{c.niche ?? "—"}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <div className="truncate text-sm font-medium text-foreground">{c.name}</div>
+                      <ArrowRight className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-2">
+                      <span className="truncate text-xs text-muted-foreground">
+                        {c.niche ?? "Sem nicho"}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="h-4 rounded-full border-zinc-200 px-1.5 text-[9px] font-normal uppercase tracking-wider text-muted-foreground dark:border-zinc-800"
+                      >
+                        Active
+                      </Badge>
+                    </div>
                   </div>
                 </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
-              </div>
-              {c.tone_of_voice && (
-                <div className="mt-4 flex items-center justify-between text-[11px]">
-                  <span className="text-muted-foreground">
-                    Tom de voz: <span className="text-foreground">{c.tone_of_voice}</span>
-                  </span>
-                  <Badge variant="outline" className="font-mono text-[10px]">
-                    {c.id.slice(0, 8)}
-                  </Badge>
+
+                {/* MIDDLE */}
+                <div className="mt-4 flex flex-wrap items-center gap-1.5">
+                  {hasStrategy ? (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                      ✨ Strategy Active
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                      ⚡ Ready for Bootstrap
+                    </span>
+                  )}
+                  {c.tone_of_voice && (
+                    <span className="rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                      {c.tone_of_voice}
+                    </span>
+                  )}
                 </div>
-              )}
-            </Link>
-          ))}
+
+                {/* BOTTOM */}
+                <div className="mt-4 flex items-center justify-between border-t border-zinc-100 pt-3 text-[11px] text-muted-foreground dark:border-zinc-800/50">
+                  <span>Updated {timeAgo(updated)}</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-muted text-[8px] font-semibold text-foreground">
+                      {managerInitials}
+                    </span>
+                    <span className="truncate max-w-[9rem]">{manager ?? "Unassigned"}</span>
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>
