@@ -96,10 +96,15 @@ function ConnectionsPage() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["connections", brandId] });
 
+  type UpdateInput = {
+    brandId: string;
+    monthlyBudgetUsd?: number;
+    textProvider?: ProviderId;
+    imageProvider?: ProviderId;
+  };
   const updateFn = useServerFn(updateConnectionsSettings);
   const updateMut = useMutation({
-    mutationFn: (input: Parameters<typeof updateConnectionsSettings>[0]["data"]) =>
-      updateFn({ data: input }),
+    mutationFn: (input: UpdateInput) => updateFn({ data: input }),
     onSuccess: () => {
       invalidate();
       toast.success("Configurações atualizadas");
