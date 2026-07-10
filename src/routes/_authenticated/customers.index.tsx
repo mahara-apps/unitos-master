@@ -319,32 +319,32 @@ function CustomersIndexPage() {
                     </div>
                   </div>
 
-                <div className="mt-4 flex flex-wrap items-center gap-1.5">
-                  {meta.hasStrategy ? (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                      ✨ Strategy Active
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
-                      ⚡ Ready for Bootstrap
-                    </span>
-                  )}
-                  {c.tone_of_voice && (
-                    <span className="rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground">
-                      {c.tone_of_voice}
-                    </span>
-                  )}
-                </div>
+                  <div className="mt-4 flex flex-wrap items-center gap-1.5">
+                    {meta.hasStrategy ? (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                        ✨ Strategy Active
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-600 dark:text-amber-400">
+                        ⚡ Ready for Bootstrap
+                      </span>
+                    )}
+                    {c.tone_of_voice && (
+                      <span className="rounded-md px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                        {c.tone_of_voice}
+                      </span>
+                    )}
+                  </div>
 
-                <div className="mt-4 flex items-center justify-between border-t border-zinc-100 pt-3 text-[11px] text-muted-foreground dark:border-zinc-800/50">
-                  <span>Updated {timeAgo(meta.updated)}</span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-muted text-[8px] font-semibold text-foreground">
-                      {meta.managerInitials}
+                  <div className="mt-4 flex items-center justify-between border-t border-zinc-100 pt-3 text-[11px] text-muted-foreground dark:border-zinc-800/50">
+                    <span>Updated {timeAgo(meta.updated)}</span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-muted text-[8px] font-semibold text-foreground">
+                        {meta.managerInitials}
+                      </span>
+                      <span className="truncate max-w-[9rem]">{meta.manager ?? "Unassigned"}</span>
                     </span>
-                    <span className="truncate max-w-[9rem]">{meta.manager ?? "Unassigned"}</span>
-                  </span>
-                </div>
+                  </div>
                 </Link>
               </div>
             );
