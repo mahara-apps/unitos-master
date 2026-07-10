@@ -79,6 +79,18 @@ const CreateClientInput = z.object({
   name: z.string().trim().min(2).max(120),
   niche: z.string().max(120).optional(),
   color: z.string().optional(),
+  tone_of_voice: z.string().max(120).optional(),
+  contact_name: z.string().max(120).optional(),
+  contact_email: z.string().email().max(200).optional().or(z.literal("")),
+  socials: z
+    .object({
+      instagram: z.string().max(120).optional(),
+      tiktok: z.string().max(120).optional(),
+      linkedin: z.string().max(200).optional(),
+      notes: z.string().max(2000).optional(),
+    })
+    .partial()
+    .optional(),
 });
 
 export const createClient = createServerFn({ method: "POST" })
@@ -92,11 +104,71 @@ export const createClient = createServerFn({ method: "POST" })
         name: data.name,
         niche: data.niche ?? null,
         color: data.color ?? "#6366f1",
+        tone_of_voice: data.tone_of_voice ?? null,
+        contact_name: data.contact_name ?? null,
+        contact_email: data.contact_email ? data.contact_email : null,
+        socials: (data.socials ?? null) as never,
       })
       .select()
       .single();
     if (error) throw error;
     return client;
+  });
+
+const UpdateClientInput = z.object({
+  brandId: z.string().uuid(),
+  clientId: z.string().uuid(),
+  patch: z.object({
+    name: z.string().trim().min(2).max(120).optional(),
+    niche: z.string().max(120).nullable().optional(),
+    color: z.string().nullable().optional(),
+    tone_of_voice: z.string().max(120).nullable().optional(),
+    contact_name: z.string().max(120).nullable().optional(),
+    contact_email: z.string().email().max(200).nullable().optional().or(z.literal("")),
+    socials: z
+      .object({
+        instagram: z.string().max(120).optional(),
+        tiktok: z.string().max(120).optional(),
+        linkedin: z.string().max(200).optional(),
+        notes: z.string().max(2000).optional(),
+      })
+      .partial()
+      .nullable()
+      .optional(),
+  }),
+});
+
+export const updateClient = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => UpdateClientInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const patch = { ...data.patch } as Record<string, unknown>;
+    if (patch.contact_email === "") patch.contact_email = null;
+    const { error } = await context.supabase
+      .from("clients")
+      .update(patch as never)
+      .eq("id", data.clientId)
+      .eq("brand_id", data.brandId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+const DeleteClientInput = z.object({
+  brandId: z.string().uuid(),
+  clientId: z.string().uuid(),
+});
+
+export const deleteClient = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => DeleteClientInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("clients")
+      .delete()
+      .eq("id", data.clientId)
+      .eq("brand_id", data.brandId);
+    if (error) throw error;
+    return { ok: true };
   });
 
 const SeedInput = z.object({ brandId: z.string().uuid() });
