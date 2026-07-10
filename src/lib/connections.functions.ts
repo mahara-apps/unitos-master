@@ -88,10 +88,12 @@ export const updateConnectionsSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => UpsertInput.parse(input))
   .handler(async ({ data, context }) => {
-    const patch: Record<string, unknown> = { brand_id: data.brandId };
-    if (data.monthlyBudgetUsd !== undefined) patch.monthly_budget_usd = data.monthlyBudgetUsd;
-    if (data.textProvider) patch.text_provider = data.textProvider;
-    if (data.imageProvider) patch.image_provider = data.imageProvider;
+    const patch = {
+      brand_id: data.brandId,
+      ...(data.monthlyBudgetUsd !== undefined ? { monthly_budget_usd: data.monthlyBudgetUsd } : {}),
+      ...(data.textProvider ? { text_provider: data.textProvider } : {}),
+      ...(data.imageProvider ? { image_provider: data.imageProvider } : {}),
+    };
     const { error } = await context.supabase
       .from("brand_connections")
       .upsert(patch, { onConflict: "brand_id" });
