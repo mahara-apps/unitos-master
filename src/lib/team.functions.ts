@@ -35,15 +35,6 @@ export const listBrandTeam = createServerFn({ method: "GET" })
         .in("id", userIds);
       profiles = (profs ?? []) as typeof profiles;
     }
-    // Emails via admin (auth.users) — safe: caller must be brand member (RLS-scoped read above).
-    let emails: Record<string, string | null> = {};
-    if (userIds.length > 0) {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      for (const uid of userIds) {
-        const { data: u } = await supabaseAdmin.auth.admin.getUserById(uid);
-        emails[uid] = u.user?.email ?? null;
-      }
-    }
     return {
       members: members.map((m) => {
         const p = profiles.find((x) => x.id === m.user_id);
@@ -53,7 +44,7 @@ export const listBrandTeam = createServerFn({ method: "GET" })
           permissions: normalizePermissions(m.permissions),
           created_at: m.created_at,
           full_name: p?.full_name ?? null,
-          email: emails[m.user_id] ?? null,
+          email: null as string | null,
           avatar_url: p?.avatar_url ?? null,
         };
       }),
@@ -146,37 +137,7 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
 
     const results: Array<{ email: string; status: "invited" | "linked" | "already_member" | "error"; link?: string; error?: string; emailSent?: boolean }> = [];
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
     for (const email of data.emails) {
-      // Look up existing auth user by email via admin
-      const { data: usersList } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
-      const existingUser = usersList?.users.find((u) => (u.email ?? "").toLowerCase() === email);
-      if (existingUser) {
-        const { data: existingMember } = await supabase
-          .from("brand_members")
-          .select("user_id")
-          .eq("brand_id", data.brandId)
-          .eq("user_id", existingUser.id)
-          .maybeSingle();
-        if (existingMember) {
-          results.push({ email, status: "already_member" });
-          continue;
-        }
-        const { error: linkErr } = await supabase.from("brand_members").insert({
-          brand_id: data.brandId,
-          user_id: existingUser.id,
-          role: data.role,
-          permissions: data.permissions,
-        });
-        if (linkErr) {
-          results.push({ email, status: "error", error: linkErr.message });
-          continue;
-        }
-        results.push({ email, status: "linked" });
-        continue;
-      }
-
       const token = randomToken();
       const { error: inviteErr } = await supabase.from("brand_invites").insert({
         brand_id: data.brandId,
