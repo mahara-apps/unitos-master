@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { getDashboardStats } from "@/lib/dashboard.functions";
 import { KpiCard } from "@/components/dashboard/kpi-card";
+import { usePageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
@@ -10,6 +11,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function DashboardPage() {
   const { brandId, clientId } = useActiveContext();
+  usePageHeader({ title: "Painel", subtitle: "Visão geral da operação" });
   const { data, isLoading } = useQuery({
     queryKey: ["dashboard", brandId, clientId],
     enabled: !!brandId,
@@ -27,10 +29,6 @@ function DashboardPage() {
   const c = data?.counts;
   return (
     <div className="space-y-6 p-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Visão geral da operação.</p>
-      </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label="Clientes" value={isLoading ? "…" : (c?.clients ?? 0)} spark={data?.sparkline} />
         <KpiCard label="Projetos ativos" value={isLoading ? "…" : (c?.projects_active ?? 0)} />

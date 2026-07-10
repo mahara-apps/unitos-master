@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
+import { usePageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/analytics")({
   component: AnalyticsPage,
@@ -22,13 +23,12 @@ const weeks = [3, 5, 4, 8, 6, 9, 12, 10, 14, 11, 16, 18];
 const max = Math.max(...weeks);
 
 function AnalyticsPage() {
+  usePageHeader({
+    title: "Análises",
+    subtitle: "Últimos 30 dias · comparado com período anterior",
+  });
   return (
     <div className="mx-auto max-w-6xl space-y-6 p-6">
-      <header>
-        <h1 className="text-lg font-semibold">Analytics da agência</h1>
-        <p className="text-xs text-muted-foreground">Últimos 30 dias · comparado com período anterior</p>
-      </header>
-
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {kpis.map((k) => (
           <div key={k.label} className="rounded-xl border border-border/60 bg-card/30 p-4">

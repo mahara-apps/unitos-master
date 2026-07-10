@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
+import { usePageHeader } from "@/hooks/use-page-header";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -216,25 +217,12 @@ function CustomersIndexPage() {
 
   return (
     <div className="w-full space-y-6 px-6 py-6 md:px-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            módulo · clientes
-          </div>
-          <h1 className="mt-1 text-2xl font-semibold">Clientes</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {customersQ.isLoading ? "carregando..." : `${customers.length} cliente(s) neste workspace`}
-          </p>
-        </div>
-        <Button
-          size="sm"
-          onClick={openCreate}
-          className="gap-1.5 bg-indigo-600 text-white hover:bg-indigo-500 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
-        >
-          <Plus className="h-3.5 w-3.5" /> Novo cliente
-        </Button>
-      </div>
-
+      <HeaderRegister
+        subtitle={
+          customersQ.isLoading ? "carregando…" : `${customers.length} cliente(s) neste workspace`
+        }
+        onCreate={openCreate}
+      />
       <div className="flex items-center justify-between gap-3">
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -447,6 +435,26 @@ function CustomersIndexPage() {
       </AlertDialog>
     </div>
   );
+}
+
+function HeaderRegister({ subtitle, onCreate }: { subtitle: string; onCreate: () => void }) {
+  usePageHeader(
+    {
+      title: "Clientes",
+      subtitle,
+      actions: (
+        <Button
+          size="sm"
+          onClick={onCreate}
+          className="gap-1.5 bg-indigo-600 text-white hover:bg-indigo-500 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+        >
+          <Plus className="h-3.5 w-3.5" /> Novo cliente
+        </Button>
+      ),
+    },
+    [subtitle, onCreate],
+  );
+  return null;
 }
 
 function CardActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {

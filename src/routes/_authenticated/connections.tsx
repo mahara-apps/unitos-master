@@ -49,10 +49,29 @@ import {
   upsertChannel,
   type ConnectionsSettings,
 } from "@/lib/connections.functions";
+import { usePageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/connections")({
   component: ConnectionsPage,
 });
+
+function ConnectionsHeaderRegister() {
+  usePageHeader({
+    title: "Conexões",
+    subtitle:
+      "Chaves de IA, canais sociais e comunicações do workspace · cifradas com AES-256-GCM",
+    actions: (
+      <Badge
+        variant="outline"
+        className="border-emerald-500/30 bg-emerald-500/10 font-mono text-[10px] text-emerald-700 dark:text-emerald-300"
+      >
+        <span className="mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+        SYSTEM · OPERATIONAL
+      </Badge>
+    ),
+  });
+  return null;
+}
 
 type ProviderId = "openai" | "anthropic" | "gemini";
 type ChannelId = "meta" | "linkedin" | "tiktok" | "resend";
@@ -123,27 +142,7 @@ function ConnectionsPage() {
   return (
     <ScrollArea className="h-[calc(100vh-3.5rem)]">
       <div className="w-full space-y-8 p-6 lg:p-8">
-        {/* Header */}
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-              module · connections
-            </div>
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight">Conexões</h1>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              Um único lugar para governar todas as chaves de IA, canais sociais e comunicações do workspace.
-              Chaves são armazenadas cifradas (AES-256-GCM).
-            </p>
-          </div>
-          <Badge
-            variant="outline"
-            className="border-emerald-500/30 bg-emerald-500/10 font-mono text-[10px] text-emerald-700 dark:text-emerald-300"
-          >
-            <span className="mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-            SYSTEM · OPERATIONAL
-          </Badge>
-        </header>
-
+        <ConnectionsHeaderRegister />
         {/* Telemetry topbar */}
         <UsageBar
           data={data}
