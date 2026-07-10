@@ -288,8 +288,8 @@ function CustomersIndexPage() {
                   params={{ customerId: c.id }}
                   className="flex flex-col"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <div className="relative flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 flex-1 items-start gap-3 pr-16">
                       <div
                         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
                         style={{ background: c.color ?? "#6366f1" }}
@@ -306,13 +306,13 @@ function CustomersIndexPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <div className="opacity-0 transition group-hover:opacity-100">
+                    <div className="absolute right-0 top-0">
+                      <div className="absolute right-0 top-0 opacity-0 transition group-hover:opacity-100">
                         <CardActions onEdit={() => openEdit(c)} onDelete={() => setToDelete(c)} />
                       </div>
                       <Badge
                         variant="outline"
-                        className={`h-4 rounded-full px-1.5 text-[9px] font-normal uppercase tracking-wider ${c.is_active === false ? "border-zinc-300 text-muted-foreground dark:border-zinc-700" : "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"}`}
+                        className={`h-4 rounded-full px-1.5 text-[9px] font-normal uppercase tracking-wider transition group-hover:opacity-0 ${c.is_active === false ? "border-zinc-300 text-muted-foreground dark:border-zinc-700" : "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"}`}
                       >
                         {c.is_active === false ? "Inativo" : "Ativo"}
                       </Badge>
