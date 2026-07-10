@@ -9,6 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -24,13 +28,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Plus, Search, ArrowRight, AlertTriangle, Loader2, LayoutGrid, List,
-  Pencil, Trash2, MoreHorizontal, Instagram, Music2, Linkedin,
+  Pencil, Trash2, MoreHorizontal, Instagram, Music2, Linkedin, Youtube,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { listClients, createClient, updateClient, deleteClient } from "@/lib/workspace.functions";
+import { listBrandTeam } from "@/lib/team.functions";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 export const Route = createFileRoute("/_authenticated/customers/")({
@@ -53,9 +58,12 @@ const CustomerFormSchema = z.object({
     (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
     "E-mail inválido",
   ),
+  is_active: z.boolean(),
+  owner_user_id: z.string().uuid().nullable(),
   socials: z.object({
     instagram: z.string().max(120).optional(),
     tiktok: z.string().max(120).optional(),
+    youtube: z.string().max(200).optional(),
     linkedin: z.string().max(200).optional(),
     notes: z.string().max(2000).optional(),
   }),
@@ -74,6 +82,8 @@ type ClientRow = {
   tone_of_voice: string | null;
   palette: unknown;
   socials: unknown;
+  is_active?: boolean;
+  owner_user_id?: string | null;
   created_at: string;
   updated_at: string;
   has_briefing?: boolean;
@@ -102,6 +112,7 @@ function CustomersIndexPage() {
   const create = useServerFn(createClient);
   const update = useServerFn(updateClient);
   const remove = useServerFn(deleteClient);
+  const teamFn = useServerFn(listBrandTeam);
   const [q, setQ] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [formOpen, setFormOpen] = useState(false);
@@ -114,6 +125,16 @@ function CustomersIndexPage() {
     enabled: !!brandId,
   });
 
+  const teamQ = useQuery({
+    queryKey: ["team", brandId],
+    queryFn: () => teamFn({ data: { brandId: brandId! } }),
+    enabled: !!brandId,
+  });
+  const teamMembers = (teamQ.data?.members ?? []) as Array<{
+    user_id: string;
+    full_name: string | null;
+  }>;
+
   const createMut = useMutation({
     mutationFn: (values: CustomerFormValues) =>
       create({
@@ -125,6 +146,8 @@ function CustomersIndexPage() {
           tone_of_voice: values.tone_of_voice || undefined,
           contact_name: values.contact_name || undefined,
           contact_email: values.contact_email || undefined,
+          is_active: values.is_active,
+          owner_user_id: values.owner_user_id,
           socials: values.socials,
         },
       }),
@@ -149,6 +172,8 @@ function CustomersIndexPage() {
             tone_of_voice: args.values.tone_of_voice || null,
             contact_name: args.values.contact_name || null,
             contact_email: args.values.contact_email || null,
+            is_active: args.values.is_active,
+            owner_user_id: args.values.owner_user_id,
             socials: args.values.socials,
           },
         },
@@ -284,9 +309,9 @@ function CustomersIndexPage() {
                       </span>
                       <Badge
                         variant="outline"
-                        className="h-4 rounded-full border-zinc-200 px-1.5 text-[9px] font-normal uppercase tracking-wider text-muted-foreground dark:border-zinc-800"
+                        className={`h-4 rounded-full px-1.5 text-[9px] font-normal uppercase tracking-wider ${c.is_active === false ? "border-zinc-300 text-muted-foreground dark:border-zinc-700" : "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"}`}
                       >
-                        Active
+                        {c.is_active === false ? "Inativo" : "Ativo"}
                       </Badge>
                     </div>
                   </div>
@@ -355,9 +380,9 @@ function CustomersIndexPage() {
                 <div>
                   <Badge
                     variant="outline"
-                    className="h-4 rounded-full border-zinc-200 px-1.5 text-[9px] font-normal uppercase tracking-wider text-muted-foreground dark:border-zinc-800"
+                    className={`h-4 rounded-full px-1.5 text-[9px] font-normal uppercase tracking-wider ${c.is_active === false ? "border-zinc-300 text-muted-foreground dark:border-zinc-700" : "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"}`}
                   >
-                    Active
+                    {c.is_active === false ? "Inativo" : "Ativo"}
                   </Badge>
                 </div>
                 <div>
@@ -403,6 +428,7 @@ function CustomersIndexPage() {
         open={formOpen}
         onOpenChange={(v) => { setFormOpen(v); if (!v) setEditing(null); }}
         initial={editing}
+        teamMembers={teamMembers}
         submitting={createMut.isPending || updateMut.isPending}
         onSubmit={(values) => {
           if (editing) updateMut.mutate({ clientId: editing.id, values });
@@ -462,11 +488,12 @@ function CardActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () =>
 }
 
 function CustomerFormDialog({
-  open, onOpenChange, initial, submitting, onSubmit,
+  open, onOpenChange, initial, teamMembers, submitting, onSubmit,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   initial: ClientRow | null;
+  teamMembers: Array<{ user_id: string; full_name: string | null }>;
   submitting: boolean;
   onSubmit: (values: CustomerFormValues) => void;
 }) {
@@ -478,9 +505,12 @@ function CustomerFormDialog({
     tone_of_voice: initial?.tone_of_voice ?? "",
     contact_name: initial?.contact_name ?? "",
     contact_email: initial?.contact_email ?? "",
+    is_active: initial?.is_active ?? true,
+    owner_user_id: initial?.owner_user_id ?? null,
     socials: {
       instagram: socials.instagram ?? "",
       tiktok: socials.tiktok ?? "",
+      youtube: socials.youtube ?? "",
       linkedin: socials.linkedin ?? "",
       notes: socials.notes ?? "",
     },
@@ -571,6 +601,40 @@ function CustomerFormDialog({
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs">Responsável interno</Label>
+              <Select
+                value={values.owner_user_id ?? "__none"}
+                onValueChange={(v) => set("owner_user_id", v === "__none" ? null : v)}
+              >
+                <SelectTrigger className="mt-1 h-9 text-xs">
+                  <SelectValue placeholder="Selecionar usuário…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none">Sem responsável</SelectItem>
+                  {teamMembers.map((m) => (
+                    <SelectItem key={m.user_id} value={m.user_id}>
+                      {m.full_name ?? m.user_id.slice(0, 8)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-xs">Status</Label>
+              <div className="mt-1 flex h-9 items-center justify-between rounded-md border border-border bg-background px-3">
+                <span className="text-xs text-muted-foreground">
+                  {values.is_active ? "Cliente ativo" : "Cliente inativo"}
+                </span>
+                <Switch
+                  checked={values.is_active}
+                  onCheckedChange={(v) => set("is_active", v)}
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label className="text-xs">Redes sociais</Label>
             <div className="space-y-1.5">
@@ -581,6 +645,10 @@ function CustomerFormDialog({
               <div className="relative">
                 <Music2 className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input className="pl-8" value={values.socials.tiktok ?? ""} onChange={(e) => setSocial("tiktok", e.target.value)} placeholder="@tiktok" />
+              </div>
+              <div className="relative">
+                <Youtube className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input className="pl-8" value={values.socials.youtube ?? ""} onChange={(e) => setSocial("youtube", e.target.value)} placeholder="youtube.com/@canal" />
               </div>
               <div className="relative">
                 <Linkedin className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
