@@ -9,6 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -24,13 +28,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Plus, Search, ArrowRight, AlertTriangle, Loader2, LayoutGrid, List,
-  Pencil, Trash2, MoreHorizontal, Instagram, Music2, Linkedin,
+  Pencil, Trash2, MoreHorizontal, Instagram, Music2, Linkedin, Youtube,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { listClients, createClient, updateClient, deleteClient } from "@/lib/workspace.functions";
+import { listBrandTeam } from "@/lib/team.functions";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 export const Route = createFileRoute("/_authenticated/customers/")({
@@ -53,9 +58,12 @@ const CustomerFormSchema = z.object({
     (v) => !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
     "E-mail inválido",
   ),
+  is_active: z.boolean(),
+  owner_user_id: z.string().uuid().nullable(),
   socials: z.object({
     instagram: z.string().max(120).optional(),
     tiktok: z.string().max(120).optional(),
+    youtube: z.string().max(200).optional(),
     linkedin: z.string().max(200).optional(),
     notes: z.string().max(2000).optional(),
   }),
@@ -74,6 +82,8 @@ type ClientRow = {
   tone_of_voice: string | null;
   palette: unknown;
   socials: unknown;
+  is_active?: boolean;
+  owner_user_id?: string | null;
   created_at: string;
   updated_at: string;
   has_briefing?: boolean;
@@ -102,6 +112,7 @@ function CustomersIndexPage() {
   const create = useServerFn(createClient);
   const update = useServerFn(updateClient);
   const remove = useServerFn(deleteClient);
+  const teamFn = useServerFn(listBrandTeam);
   const [q, setQ] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [formOpen, setFormOpen] = useState(false);
@@ -114,6 +125,16 @@ function CustomersIndexPage() {
     enabled: !!brandId,
   });
 
+  const teamQ = useQuery({
+    queryKey: ["team", brandId],
+    queryFn: () => teamFn({ data: { brandId: brandId! } }),
+    enabled: !!brandId,
+  });
+  const teamMembers = (teamQ.data?.members ?? []) as Array<{
+    user_id: string;
+    full_name: string | null;
+  }>;
+
   const createMut = useMutation({
     mutationFn: (values: CustomerFormValues) =>
       create({
@@ -125,6 +146,8 @@ function CustomersIndexPage() {
           tone_of_voice: values.tone_of_voice || undefined,
           contact_name: values.contact_name || undefined,
           contact_email: values.contact_email || undefined,
+          is_active: values.is_active,
+          owner_user_id: values.owner_user_id,
           socials: values.socials,
         },
       }),
@@ -149,6 +172,8 @@ function CustomersIndexPage() {
             tone_of_voice: args.values.tone_of_voice || null,
             contact_name: args.values.contact_name || null,
             contact_email: args.values.contact_email || null,
+            is_active: args.values.is_active,
+            owner_user_id: args.values.owner_user_id,
             socials: args.values.socials,
           },
         },
