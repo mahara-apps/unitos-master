@@ -27,6 +27,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, UserPlus, Copy, X, Loader2 } from "lucide-react";
+import { usePageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/settings/team")({
   component: TeamSettingsPage,
@@ -49,6 +50,20 @@ function TeamSettingsPage() {
 
   const [open, setOpen] = useState(false);
 
+  usePageHeader(
+    {
+      title: "Equipe",
+      subtitle: "Membros, permissões e convites da marca",
+      actions: brandId ? (
+        <Button size="sm" onClick={() => setOpen(true)}>
+          <UserPlus className="h-4 w-4 mr-2" />
+          Convidar
+        </Button>
+      ) : undefined,
+    },
+    [brandId],
+  );
+
   if (!brandId) {
     return (
       <div className="mx-auto max-w-3xl px-6 md:px-8 py-10">
@@ -59,20 +74,15 @@ function TeamSettingsPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-6 md:px-8 py-8 space-y-8">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Equipe</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Gerencie membros, permissões granulares e convites da marca.
-          </p>
-        </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm"><UserPlus className="h-4 w-4 mr-2" />Convidar</Button>
-          </DialogTrigger>
-          <InviteDialog brandId={brandId} onDone={() => { setOpen(false); qc.invalidateQueries({ queryKey: ["brand-team", brandId] }); }} />
-        </Dialog>
-      </div>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <InviteDialog
+          brandId={brandId}
+          onDone={() => {
+            setOpen(false);
+            qc.invalidateQueries({ queryKey: ["brand-team", brandId] });
+          }}
+        />
+      </Dialog>
 
       <section className="rounded-xl border border-border bg-card">
         <header className="grid grid-cols-[minmax(0,1fr)_140px_1fr_60px] items-center gap-4 px-4 py-3 border-b border-border text-[11px] uppercase tracking-wider text-muted-foreground font-mono">
