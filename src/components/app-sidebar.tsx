@@ -37,7 +37,7 @@ const items = [
   { title: "Análises", url: "/analytics", icon: BarChart3 },
   { title: "Notificações", url: "/notifications", icon: Bell },
   { title: "Equipe", url: "/settings/team", icon: UserPlus },
-  { title: "Connections", url: "/connections", icon: Plug },
+  { title: "Conexões", url: "/connections", icon: Plug },
 ] as const;
 
 export function AppSidebar() {
