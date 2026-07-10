@@ -85,7 +85,7 @@ export function ContextSwitcher() {
               </div>
               <div className="flex flex-col text-left leading-tight min-w-0 group-data-[collapsible=icon]:hidden">
                 <span className="truncate text-sm font-semibold">
-                  {activeBrand?.name ?? "No workspace"}
+                  {activeBrand?.name ?? "Sem workspace"}
                 </span>
                 <span className="flex items-center gap-1 truncate text-[11px] text-muted-foreground">
                   {activeClient ? (
@@ -97,7 +97,7 @@ export function ContextSwitcher() {
                       <span className="truncate">{activeClient.name}</span>
                     </>
                   ) : (
-                    <span className="truncate">All accounts</span>
+                    <span className="truncate">Todas as contas</span>
                   )}
                 </span>
               </div>
@@ -107,9 +107,9 @@ export function ContextSwitcher() {
         </PopoverTrigger>
         <PopoverContent align="start" sideOffset={8} className="w-72 p-0">
           <Command>
-            <CommandInput placeholder="Search account..." className="h-9" />
+            <CommandInput placeholder="Buscar conta..." className="h-9" />
             <CommandList className="max-h-80">
-              <CommandEmpty>No results.</CommandEmpty>
+              <CommandEmpty>Nenhum resultado.</CommandEmpty>
               <CommandGroup heading={
                 <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
                   <Building2 className="h-3 w-3" /> Workspaces
@@ -141,13 +141,13 @@ export function ContextSwitcher() {
                   className="text-muted-foreground"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  <span>Create workspace</span>
+                  <span>Criar workspace</span>
                 </CommandItem>
               </CommandGroup>
               <CommandSeparator />
               <CommandGroup heading={
                 <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                  <Users className="h-3 w-3" /> Accounts
+                  <Users className="h-3 w-3" /> Contas
                 </span>
               }>
                 <CommandItem
@@ -158,12 +158,12 @@ export function ContextSwitcher() {
                   }}
                 >
                   <div className="h-3 w-3 rounded-full border border-dashed border-muted-foreground" />
-                  <span className="flex-1">All accounts</span>
+                  <span className="flex-1">Todas as contas</span>
                   {!clientId && <Check className="h-3.5 w-3.5" />}
                 </CommandItem>
                 {clientsQ.data?.length === 0 && (
                   <div className="px-2 py-3 text-center text-xs text-muted-foreground">
-                    No accounts yet.
+                    Nenhuma conta cadastrada.
                   </div>
                 )}
                 {clientsQ.data?.map((c) => (
@@ -192,19 +192,19 @@ export function ContextSwitcher() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New workspace</DialogTitle>
+            <DialogTitle>Nova workspace</DialogTitle>
             <DialogDescription>
-              A workspace is the container for your agency. You can create as many as you need.
+              A workspace é o contêiner da sua agência. Você pode criar quantas precisar.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label>Name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="My Agency" />
+            <Label>Nome</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Minha agência" />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
             <Button onClick={() => createMut.mutate(name)} disabled={name.trim().length < 2 || createMut.isPending}>
-              Create and seed sample
+              Criar com dados de exemplo
             </Button>
           </DialogFooter>
         </DialogContent>

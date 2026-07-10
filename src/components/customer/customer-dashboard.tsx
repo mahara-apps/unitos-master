@@ -52,12 +52,12 @@ type Props = {
 };
 
 const STAGES = [
-  { key: "idea", label: "Idea" },
-  { key: "production", label: "Production" },
-  { key: "review", label: "Review" },
-  { key: "approved", label: "Approved" },
-  { key: "scheduled", label: "Scheduled" },
-  { key: "published", label: "Published" },
+  { key: "idea", label: "Ideia" },
+  { key: "production", label: "Produção" },
+  { key: "review", label: "Revisão" },
+  { key: "approved", label: "Aprovado" },
+  { key: "scheduled", label: "Agendado" },
+  { key: "published", label: "Publicado" },
 ] as const;
 
 const STAGE_ACCENT: Record<(typeof STAGES)[number]["key"], string> = {
@@ -120,7 +120,7 @@ function DashboardReady({
       <div className="flex flex-wrap items-end justify-between gap-3 rounded-xl border border-border/60 bg-card/60 px-4 py-3">
         <div className="min-w-0">
           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            Active dashboard
+            Painel da conta
           </div>
           <div className="mt-0.5 flex items-center gap-2">
             <h2 className="truncate text-lg font-semibold tracking-tight">{client?.name ?? "—"}</h2>
@@ -136,7 +136,7 @@ function DashboardReady({
           {onRegenerate ? (
             <Button size="sm" variant="ghost" onClick={onRegenerate} className="gap-1.5 text-muted-foreground hover:text-foreground">
               <RefreshCw className="h-3.5 w-3.5" />
-              Regenerate strategy
+              Regerar estratégia
             </Button>
           ) : null}
         </div>
@@ -146,16 +146,16 @@ function DashboardReady({
       <div className="grid gap-4 md:grid-cols-3">
         <MetricCard
           icon={DollarSign}
-          label="AI resource spent"
+          label="Consumo de IA"
           value={`$${m.costTotal30d.toFixed(4)}`}
-          hint={`$${m.costTotal14d.toFixed(4)} in last 14d`}
+          hint={`$${m.costTotal14d.toFixed(4)} nos últimos 14d`}
           right={<Sparkline data={m.costSpark} className="h-8 w-24 text-cyan-500" />}
         />
         <MetricCard
           icon={ShieldCheck}
-          label="Pending approvals"
+          label="Aprovações pendentes"
           value={m.pendingApprovals}
-          hint={`${m.decidedApprovals}/${m.totalApprovals || 0} resolved`}
+          hint={`${m.decidedApprovals}/${m.totalApprovals || 0} resolvidas`}
           right={
             <div className="w-24">
               <HealthBar score={approvalPct} />
@@ -165,9 +165,9 @@ function DashboardReady({
         />
         <MetricCard
           icon={CalendarClock}
-          label="Scheduled releases"
+          label="Publicações agendadas"
           value={m.scheduled}
-          hint={`${m.published} already published`}
+          hint={`${m.published} já publicadas`}
           right={
             <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 font-mono text-[10px] text-emerald-500 dark:text-emerald-300">
               LIVE
@@ -181,14 +181,14 @@ function DashboardReady({
         <div className="mb-3 flex items-center justify-between">
           <div>
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              Production pipeline
+              Pipeline de produção
             </div>
             <div className="mt-0.5 text-sm font-medium">
-              {data.pipeline.total} posts across 6 stages
+              {data.pipeline.total} posts em 6 estágios
             </div>
           </div>
           <Badge variant="outline" className="font-mono text-[10px]">
-            Live · Kanban sync
+            Ao vivo · Sync do Kanban
           </Badge>
         </div>
         <PipelineFunnel counts={data.pipeline.stages} total={data.pipeline.total} />
@@ -321,15 +321,15 @@ function AccountPropertiesCard({
     <div className="rounded-xl border border-border/60 bg-card">
       <div className="border-b border-border/60 px-4 py-3">
         <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-          Account properties
+          Propriedades da conta
         </div>
-        <div className="mt-0.5 text-sm font-medium">Identity, channels & public access</div>
+        <div className="mt-0.5 text-sm font-medium">Identidade, canais e acesso público</div>
       </div>
       <div className="space-y-4 p-4">
         {(contactName || contactEmail) && (
           <div className="grid gap-1.5">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              Primary contact
+              Contato principal
             </div>
             <div className="text-sm">
               {contactName ?? "—"}{" "}
@@ -342,7 +342,7 @@ function AccountPropertiesCard({
 
         <div className="grid gap-1.5">
           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            Linked social handles
+            Redes sociais vinculadas
           </div>
           <div className="grid gap-1">
             {SOCIAL_META.map((s) => {
@@ -370,7 +370,7 @@ function AccountPropertiesCard({
             })}
             {SOCIAL_META.every((s) => !socials?.[s.key]) && (
               <div className="rounded-md border border-dashed border-border/60 p-3 text-center text-xs text-muted-foreground">
-                No social handles linked yet.
+                Nenhuma rede social vinculada.
               </div>
             )}
           </div>
@@ -379,15 +379,15 @@ function AccountPropertiesCard({
         <div className="grid gap-2">
           <div className="flex items-center justify-between">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              Public portal links
+              Links públicos do portal
             </div>
             <Badge variant="outline" className="font-mono text-[10px]">
-              {activeTokens} active
+              {activeTokens} ativos
             </Badge>
           </div>
           {tokens.length === 0 ? (
             <div className="rounded-md border border-dashed border-border/60 p-3 text-center text-xs text-muted-foreground">
-              Generate a portal link to share with the client.
+              Gere um link do portal para compartilhar com o cliente.
             </div>
           ) : (
             <div className="grid gap-1.5">
@@ -416,7 +416,7 @@ function PortalTokenRow({
   const revoke = useMutation({
     mutationFn: () => revokeFn({ data: { id: token.id } }),
     onSuccess: () => {
-      toast.success("Portal link revoked");
+      toast.success("Link do portal revogado");
       qc.invalidateQueries({ queryKey: ["customer-dashboard", brandId, clientId] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -430,7 +430,7 @@ function PortalTokenRow({
       <div className="flex min-w-0 items-center gap-2">
         <Link2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <div className="min-w-0">
-          <div className="truncate text-sm font-medium">{token.label ?? "Public link"}</div>
+          <div className="truncate text-sm font-medium">{token.label ?? "Link público"}</div>
           <div className="truncate font-mono text-[10px] text-muted-foreground">/portal/{token.token.slice(0, 12)}…</div>
         </div>
       </div>
@@ -445,7 +445,7 @@ function PortalTokenRow({
                 : "border-zinc-500/40 bg-zinc-500/10 text-[10px] text-zinc-500 dark:text-zinc-300"
           }
         >
-          {status}
+          {status === "active" ? "ativo" : status === "expired" ? "expirado" : "revogado"}
         </Badge>
         <Button
           size="sm"
@@ -453,11 +453,11 @@ function PortalTokenRow({
           className="h-7 gap-1 px-2 text-[11px]"
           onClick={async () => {
             await navigator.clipboard.writeText(url);
-            toast.success("Link copied");
+            toast.success("Link copiado");
           }}
           disabled={isRevoked}
         >
-          <Copy className="h-3 w-3" /> Copy
+          <Copy className="h-3 w-3" /> Copiar
         </Button>
         {!isRevoked && (
           <Button
@@ -466,7 +466,7 @@ function PortalTokenRow({
             className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
             onClick={() => revoke.mutate()}
             disabled={revoke.isPending}
-            aria-label="Revoke"
+          aria-label="Revogar"
           >
             <Trash2 className="h-3 w-3" />
           </Button>
@@ -483,14 +483,14 @@ function ActivityFeedCard({ activity }: { activity: CustomerDashboardData["activ
     <div className="rounded-xl border border-border/60 bg-card">
       <div className="border-b border-border/60 px-4 py-3">
         <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-          Audit trail
+          Trilha de auditoria
         </div>
-        <div className="mt-0.5 text-sm font-medium">Recent activity ({activity.length})</div>
+        <div className="mt-0.5 text-sm font-medium">Atividade recente ({activity.length})</div>
       </div>
       <div className="max-h-[420px] overflow-y-auto p-2">
         {activity.length === 0 ? (
           <div className="p-6 text-center text-xs text-muted-foreground">
-            No activity events for this customer yet.
+            Nenhum evento de atividade para esta conta ainda.
           </div>
         ) : (
           <ol className="relative ml-3 border-l border-border/60">
@@ -543,7 +543,7 @@ function activityDescriptor(ev: CustomerDashboardData["activity"][number]): {
   if (ev.entity_type === "post") {
     if (ev.verb === "stage_changed") {
       return {
-        title: `Post moved to ${payload.to as string}`,
+        title: `Post movido para ${payload.to as string}`,
         subtitle: title,
         icon: Activity,
         dot: "bg-indigo-500",
@@ -554,13 +554,13 @@ function activityDescriptor(ev: CustomerDashboardData["activity"][number]): {
   if (ev.entity_type === "task") {
     if (ev.verb === "status_changed") {
       return {
-        title: `Task ${payload.to as string}`,
+        title: `Tarefa ${payload.to as string}`,
         subtitle: title,
         icon: CheckCircle2,
         dot: "bg-emerald-500",
       };
     }
-    return { title: `Task ${ev.verb}`, subtitle: title, icon: Clock, dot: "bg-amber-500" };
+    return { title: `Tarefa ${ev.verb}`, subtitle: title, icon: Clock, dot: "bg-amber-500" };
   }
   return {
     title: `${ev.entity_type} ${ev.verb}`,
@@ -574,7 +574,7 @@ function activityDescriptor(ev: CustomerDashboardData["activity"][number]): {
 
 function PortalLinkDialog({ clientId, brandId }: { clientId: string; brandId: string }) {
   const [open, setOpen] = useState(false);
-  const [label, setLabel] = useState("Public link");
+  const [label, setLabel] = useState("Link público");
   const [expiresInDays, setExpiresInDays] = useState<string>("");
   const qc = useQueryClient();
   const createFn = useServerFn(createPortalTokenFn);
@@ -583,7 +583,7 @@ function PortalLinkDialog({ clientId, brandId }: { clientId: string; brandId: st
       createFn({
         data: {
           clientId,
-          label: label.trim() || "Public link",
+          label: label.trim() || "Link público",
           expiresInDays: expiresInDays ? Number(expiresInDays) : null,
         },
       }),
@@ -591,14 +591,14 @@ function PortalLinkDialog({ clientId, brandId }: { clientId: string; brandId: st
       if (row?.token) {
         try {
           await navigator.clipboard.writeText(`${window.location.origin}/portal/${row.token}`);
-          toast.success("Portal link created & copied");
+          toast.success("Link do portal criado e copiado");
         } catch {
-          toast.success("Portal link created");
+          toast.success("Link do portal criado");
         }
       }
       qc.invalidateQueries({ queryKey: ["customer-dashboard", brandId, clientId] });
       setOpen(false);
-      setLabel("Public link");
+      setLabel("Link público");
       setExpiresInDays("");
     },
     onError: (e: Error) => toast.error(e.message),
@@ -608,28 +608,28 @@ function PortalLinkDialog({ clientId, brandId }: { clientId: string; brandId: st
       <DialogTrigger asChild>
         <Button size="sm" className="gap-1.5">
           <Plus className="h-3.5 w-3.5" />
-          Generate portal link
+          Gerar link do portal
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Generate portal link</DialogTitle>
+          <DialogTitle>Gerar link do portal</DialogTitle>
           <DialogDescription>
-            Anyone with this link can access the read-only client portal for this customer.
+            Qualquer pessoa com este link poderá acessar o portal somente leitura deste cliente.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-2">
           <div className="grid gap-1.5">
-            <Label htmlFor="portal-label">Label</Label>
+            <Label htmlFor="portal-label">Rótulo</Label>
             <Input
               id="portal-label"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="e.g. Client review — October"
+              placeholder="ex.: Revisão do cliente — outubro"
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="portal-expires">Expires in (days)</Label>
+            <Label htmlFor="portal-expires">Expira em (dias)</Label>
             <Input
               id="portal-expires"
               type="number"
@@ -637,14 +637,14 @@ function PortalLinkDialog({ clientId, brandId }: { clientId: string; brandId: st
               max={365}
               value={expiresInDays}
               onChange={(e) => setExpiresInDays(e.target.value)}
-              placeholder="Leave empty for no expiration"
+              placeholder="Deixe vazio para não expirar"
             />
           </div>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
           <Button onClick={() => create.mutate()} disabled={create.isPending}>
-            {create.isPending ? "Creating…" : "Create link"}
+            {create.isPending ? "Criando…" : "Criar link"}
           </Button>
         </DialogFooter>
       </DialogContent>
