@@ -27,13 +27,22 @@ export const listBrandTeam = createServerFn({ method: "GET" })
     if (invitesRes.error) throw invitesRes.error;
     const members = membersRes.data ?? [];
     const userIds = members.map((m) => m.user_id);
-    let profiles: Array<{ id: string; full_name: string | null; email: string | null; avatar_url: string | null }> = [];
+    let profiles: Array<{ id: string; full_name: string | null; avatar_url: string | null }> = [];
     if (userIds.length > 0) {
       const { data: profs } = await supabase
         .from("user_profiles")
-        .select("id, full_name, email, avatar_url")
+        .select("id, full_name, avatar_url")
         .in("id", userIds);
-      profiles = profs ?? [];
+      profiles = (profs ?? []) as typeof profiles;
+    }
+    // Emails via admin (auth.users) — safe: caller must be brand member (RLS-scoped read above).
+    let emails: Record<string, string | null> = {};
+    if (userIds.length > 0) {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      for (const uid of userIds) {
+        const { data: u } = await supabaseAdmin.auth.admin.getUserById(uid);
+        emails[uid] = u.user?.email ?? null;
+      }
     }
     return {
       members: members.map((m) => {
@@ -44,7 +53,7 @@ export const listBrandTeam = createServerFn({ method: "GET" })
           permissions: normalizePermissions(m.permissions),
           created_at: m.created_at,
           full_name: p?.full_name ?? null,
-          email: p?.email ?? null,
+          email: emails[m.user_id] ?? null,
           avatar_url: p?.avatar_url ?? null,
         };
       }),
@@ -131,31 +140,32 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
 
     const { data: brand } = await supabase.from("brands").select("name").eq("id", data.brandId).single();
     const { data: inviterProfile } = await supabase
-      .from("user_profiles").select("full_name, email").eq("id", userId).maybeSingle();
-    const inviterName = inviterProfile?.full_name || inviterProfile?.email || "Alguém do time";
+      .from("user_profiles").select("full_name").eq("id", userId).maybeSingle();
+    const inviterName = inviterProfile?.full_name || "Alguém do time";
     const brandName = brand?.name || "sua marca";
 
     const results: Array<{ email: string; status: "invited" | "linked" | "already_member" | "error"; link?: string; error?: string; emailSent?: boolean }> = [];
 
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
     for (const email of data.emails) {
-      // If user with this email is already a member, skip
-      const { data: existingProfile } = await supabase
-        .from("user_profiles").select("id").eq("email", email).maybeSingle();
-      if (existingProfile) {
+      // Look up existing auth user by email via admin
+      const { data: usersList } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
+      const existingUser = usersList?.users.find((u) => (u.email ?? "").toLowerCase() === email);
+      if (existingUser) {
         const { data: existingMember } = await supabase
           .from("brand_members")
           .select("user_id")
           .eq("brand_id", data.brandId)
-          .eq("user_id", existingProfile.id)
+          .eq("user_id", existingUser.id)
           .maybeSingle();
         if (existingMember) {
           results.push({ email, status: "already_member" });
           continue;
         }
-        // Link immediately with the requested role/permissions
         const { error: linkErr } = await supabase.from("brand_members").insert({
           brand_id: data.brandId,
-          user_id: existingProfile.id,
+          user_id: existingUser.id,
           role: data.role,
           permissions: data.permissions,
         });
@@ -200,7 +210,7 @@ export const updateBrandMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => UpdateMemberInput.parse(input))
   .handler(async ({ data, context }) => {
-    const patch: Record<string, unknown> = {};
+    const patch: { role?: (typeof ROLES)[number]; permissions?: PermissionId[] } = {};
     if (data.role) patch.role = data.role;
     if (data.permissions) patch.permissions = data.permissions;
     const { error } = await context.supabase
