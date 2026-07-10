@@ -55,6 +55,24 @@ export const Route = createFileRoute("/_authenticated/connections")({
   component: ConnectionsPage,
 });
 
+function ConnectionsHeaderRegister() {
+  usePageHeader({
+    title: "Conexões",
+    subtitle:
+      "Chaves de IA, canais sociais e comunicações do workspace · cifradas com AES-256-GCM",
+    actions: (
+      <Badge
+        variant="outline"
+        className="border-emerald-500/30 bg-emerald-500/10 font-mono text-[10px] text-emerald-700 dark:text-emerald-300"
+      >
+        <span className="mr-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+        SYSTEM · OPERATIONAL
+      </Badge>
+    ),
+  });
+  return null;
+}
+
 type ProviderId = "openai" | "anthropic" | "gemini";
 type ChannelId = "meta" | "linkedin" | "tiktok" | "resend";
 
