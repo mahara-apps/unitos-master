@@ -437,6 +437,26 @@ function CustomersIndexPage() {
   );
 }
 
+function HeaderRegister({ subtitle, onCreate }: { subtitle: string; onCreate: () => void }) {
+  usePageHeader(
+    {
+      title: "Clientes",
+      subtitle,
+      actions: (
+        <Button
+          size="sm"
+          onClick={onCreate}
+          className="gap-1.5 bg-indigo-600 text-white hover:bg-indigo-500 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+        >
+          <Plus className="h-3.5 w-3.5" /> Novo cliente
+        </Button>
+      ),
+    },
+    [subtitle, onCreate],
+  );
+  return null;
+}
+
 function CardActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
   return (
     <DropdownMenu>
