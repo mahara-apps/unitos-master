@@ -350,9 +350,8 @@ function CustomersIndexPage() {
         </div>
       ) : (
         <div className="w-full overflow-hidden rounded-xl border border-border bg-card">
-          <div className="hidden grid-cols-[minmax(0,2.2fr)_100px_180px_160px_minmax(0,1fr)_70px] items-center gap-4 border-b border-zinc-100 px-5 py-2.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground dark:border-zinc-800/50 md:grid">
+          <div className="hidden grid-cols-[minmax(0,2.2fr)_180px_160px_minmax(0,1fr)_70px] items-center gap-4 border-b border-zinc-100 px-5 py-2.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground dark:border-zinc-800/50 md:grid">
             <span>Cliente</span>
-            <span>Status</span>
             <span>Estratégia</span>
             <span>Responsável</span>
             <span className="text-right">Última atividade</span>
@@ -363,7 +362,7 @@ function CustomersIndexPage() {
             return (
               <div
                 key={c.id}
-                className="group grid grid-cols-1 items-center gap-3 border-b border-zinc-100 px-5 py-3.5 transition-all last:border-b-0 hover:bg-zinc-50/50 dark:border-zinc-800/50 dark:hover:bg-zinc-900/40 md:grid-cols-[minmax(0,2.2fr)_100px_180px_160px_minmax(0,1fr)_70px] md:gap-4"
+                className="group grid grid-cols-1 items-center gap-3 border-b border-zinc-100 px-5 py-3.5 transition-all last:border-b-0 hover:bg-zinc-50/50 dark:border-zinc-800/50 dark:hover:bg-zinc-900/40 md:grid-cols-[minmax(0,2.2fr)_180px_160px_minmax(0,1fr)_70px] md:gap-4"
               >
                 <Link to="/customers/$customerId" params={{ customerId: c.id }} className="flex min-w-0 items-center gap-3">
                   <div
