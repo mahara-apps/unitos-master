@@ -390,11 +390,65 @@ export type Database = {
           },
         ]
       }
+      brand_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          brand_id: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          permissions: Json
+          role: Database["public"]["Enums"]["app_role"]
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          brand_id: string
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          permissions?: Json
+          role?: Database["public"]["Enums"]["app_role"]
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          brand_id?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          permissions?: Json
+          role?: Database["public"]["Enums"]["app_role"]
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_invites_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_members: {
         Row: {
           brand_id: string
           created_at: string
           id: string
+          permissions: Json
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
@@ -402,6 +456,7 @@ export type Database = {
           brand_id: string
           created_at?: string
           id?: string
+          permissions?: Json
           role?: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
@@ -409,6 +464,7 @@ export type Database = {
           brand_id?: string
           created_at?: string
           id?: string
+          permissions?: Json
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
@@ -1150,6 +1206,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_brand_invite: { Args: { _token: string }; Returns: string }
       has_brand_role: {
         Args: {
           _brand_id: string
