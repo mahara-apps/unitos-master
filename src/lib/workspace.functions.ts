@@ -58,7 +58,7 @@ export const listClients = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { data: clients, error } = await context.supabase
       .from("clients")
-      .select("id, name, niche, color, contact_name, contact_email, contact_phone, tone_of_voice, palette, socials, created_at, updated_at")
+      .select("id, name, niche, color, contact_name, contact_email, contact_phone, tone_of_voice, palette, socials, is_active, owner_user_id, created_at, updated_at")
       .eq("brand_id", data.brandId)
       .is("archived_at", null)
       .order("name");
@@ -82,10 +82,13 @@ const CreateClientInput = z.object({
   tone_of_voice: z.string().max(120).optional(),
   contact_name: z.string().max(120).optional(),
   contact_email: z.string().email().max(200).optional().or(z.literal("")),
+  is_active: z.boolean().optional(),
+  owner_user_id: z.string().uuid().nullable().optional(),
   socials: z
     .object({
       instagram: z.string().max(120).optional(),
       tiktok: z.string().max(120).optional(),
+      youtube: z.string().max(200).optional(),
       linkedin: z.string().max(200).optional(),
       notes: z.string().max(2000).optional(),
     })
@@ -107,6 +110,8 @@ export const createClient = createServerFn({ method: "POST" })
         tone_of_voice: data.tone_of_voice ?? null,
         contact_name: data.contact_name ?? null,
         contact_email: data.contact_email ? data.contact_email : null,
+        is_active: data.is_active ?? true,
+        owner_user_id: data.owner_user_id ?? null,
         socials: (data.socials ?? null) as never,
       })
       .select()
@@ -125,10 +130,13 @@ const UpdateClientInput = z.object({
     tone_of_voice: z.string().max(120).nullable().optional(),
     contact_name: z.string().max(120).nullable().optional(),
     contact_email: z.string().email().max(200).nullable().optional().or(z.literal("")),
+    is_active: z.boolean().optional(),
+    owner_user_id: z.string().uuid().nullable().optional(),
     socials: z
       .object({
         instagram: z.string().max(120).optional(),
         tiktok: z.string().max(120).optional(),
+        youtube: z.string().max(200).optional(),
         linkedin: z.string().max(200).optional(),
         notes: z.string().max(2000).optional(),
       })

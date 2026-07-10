@@ -784,8 +784,10 @@ export type Database = {
           contact_phone: string | null
           created_at: string
           id: string
+          is_active: boolean
           name: string
           niche: string | null
+          owner_user_id: string | null
           palette: Json | null
           socials: Json | null
           tone_of_voice: string | null
@@ -800,8 +802,10 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           id?: string
+          is_active?: boolean
           name: string
           niche?: string | null
+          owner_user_id?: string | null
           palette?: Json | null
           socials?: Json | null
           tone_of_voice?: string | null
@@ -816,8 +820,10 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           id?: string
+          is_active?: boolean
           name?: string
           niche?: string | null
+          owner_user_id?: string | null
           palette?: Json | null
           socials?: Json | null
           tone_of_voice?: string | null
