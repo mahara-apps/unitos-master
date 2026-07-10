@@ -350,9 +350,8 @@ function CustomersIndexPage() {
         </div>
       ) : (
         <div className="w-full overflow-hidden rounded-xl border border-border bg-card">
-          <div className="hidden grid-cols-[minmax(0,2.2fr)_100px_180px_160px_minmax(0,1fr)_70px] items-center gap-4 border-b border-zinc-100 px-5 py-2.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground dark:border-zinc-800/50 md:grid">
+          <div className="hidden grid-cols-[minmax(0,2.2fr)_180px_160px_minmax(0,1fr)_70px] items-center gap-4 border-b border-zinc-100 px-5 py-2.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground dark:border-zinc-800/50 md:grid">
             <span>Cliente</span>
-            <span>Status</span>
             <span>Estratégia</span>
             <span>Responsável</span>
             <span className="text-right">Última atividade</span>
@@ -363,28 +362,28 @@ function CustomersIndexPage() {
             return (
               <div
                 key={c.id}
-                className="group grid grid-cols-1 items-center gap-3 border-b border-zinc-100 px-5 py-3.5 transition-all last:border-b-0 hover:bg-zinc-50/50 dark:border-zinc-800/50 dark:hover:bg-zinc-900/40 md:grid-cols-[minmax(0,2.2fr)_100px_180px_160px_minmax(0,1fr)_70px] md:gap-4"
+                className="group grid grid-cols-1 items-center gap-3 border-b border-zinc-100 px-5 py-3.5 transition-all last:border-b-0 hover:bg-zinc-50/50 dark:border-zinc-800/50 dark:hover:bg-zinc-900/40 md:grid-cols-[minmax(0,2.2fr)_180px_160px_minmax(0,1fr)_70px] md:gap-4"
               >
-                <Link to="/customers/$customerId" params={{ customerId: c.id }} className="flex min-w-0 items-center gap-3">
-                  <div
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[11px] font-bold text-white"
-                    style={{ background: c.color ?? "#6366f1" }}
-                  >
-                    {c.name.slice(0, 2).toUpperCase()}
+                <Link to="/customers/$customerId" params={{ customerId: c.id }} className="flex min-w-0 items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[11px] font-bold text-white"
+                      style={{ background: c.color ?? "#6366f1" }}
+                    >
+                      {c.name.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-foreground">{c.name}</div>
+                      <div className="truncate text-[11px] text-muted-foreground">{c.niche ?? "Sem nicho"}</div>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium text-foreground">{c.name}</div>
-                    <div className="truncate text-[11px] text-muted-foreground">{c.niche ?? "Sem nicho"}</div>
-                  </div>
-                </Link>
-                <div>
                   <Badge
                     variant="outline"
-                    className={`h-4 rounded-full px-1.5 text-[9px] font-normal uppercase tracking-wider ${c.is_active === false ? "border-zinc-300 text-muted-foreground dark:border-zinc-700" : "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"}`}
+                    className={`h-4 shrink-0 rounded-full px-1.5 text-[9px] font-normal uppercase tracking-wider ${c.is_active === false ? "border-zinc-300 text-muted-foreground dark:border-zinc-700" : "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"}`}
                   >
                     {c.is_active === false ? "Inativo" : "Ativo"}
                   </Badge>
-                </div>
+                </Link>
                 <div>
                   {meta.hasStrategy ? (
                     <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
