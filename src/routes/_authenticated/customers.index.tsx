@@ -215,11 +215,12 @@ function CustomersIndexPage() {
   ) as ClientRow[];
 
   return (
-    <CustomersHeaderAndBody
-      openCreate={openCreate}
-      count={customers.length}
-      loading={customersQ.isLoading}
-    >
+    <div className="w-full space-y-6 px-6 py-6 md:px-8">
+      <PageHeaderRegister
+        loading={customersQ.isLoading}
+        count={customers.length}
+        openCreate={openCreate}
+      />
       <div className="flex items-center justify-between gap-3">
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
