@@ -95,9 +95,9 @@ function SiriOrb() {
 
 function greetingFor(date: Date): string {
   const h = date.getHours();
-  if (h < 12) return "Good morning";
-  if (h < 18) return "Good afternoon";
-  return "Good evening";
+  if (h < 12) return "Bom dia";
+  if (h < 18) return "Boa tarde";
+  return "Boa noite";
 }
 
 function isSameLocalDay(iso: string, ref: Date): boolean {
