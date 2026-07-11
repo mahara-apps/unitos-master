@@ -114,6 +114,11 @@ type Props = {
   data?: AgencyDashboard;
 };
 
+// Module-level guard so internal route changes don't re-open the modal,
+// but a full page reload (session refresh) does — matching the spec
+// "first login or session refresh of the day".
+const shownFor = new Set<string>();
+
 export function WelcomeModal({ brandId, data }: Props) {
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState<string | null>(null);
@@ -139,14 +144,14 @@ export function WelcomeModal({ brandId, data }: Props) {
   React.useEffect(() => {
     if (!userId || !brandId) return;
     const today = new Date().toISOString().slice(0, 10);
-    const key = `nf-welcome:${userId}:${brandId}:${today}`;
-    try {
-      if (sessionStorage.getItem(key)) return;
-      sessionStorage.setItem(key, "1");
-      setOpen(true);
-    } catch {
-      setOpen(true);
-    }
+    const key = `${userId}:${brandId}:${today}`;
+    // Force-open via ?welcome=1 for manual testing.
+    const force =
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("welcome") === "1";
+    if (!force && shownFor.has(key)) return;
+    shownFor.add(key);
+    setOpen(true);
   }, [userId, brandId]);
 
   const now = new Date();
