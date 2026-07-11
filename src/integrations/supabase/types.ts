@@ -880,6 +880,104 @@ export type Database = {
           },
         ]
       }
+      content_pipeline_stages: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          is_terminal: boolean
+          key: string
+          label: string
+          pipeline_id: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_terminal?: boolean
+          key: string
+          label: string
+          pipeline_id: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_terminal?: boolean
+          key?: string
+          label?: string
+          pipeline_id?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_pipeline_stages_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "content_pipelines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_pipelines: {
+        Row: {
+          brand_id: string
+          client_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_default: boolean
+          name: string
+          position: number
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_default?: boolean
+          name: string
+          position?: number
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          position?: number
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_pipelines_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_pipelines_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
@@ -1023,10 +1121,13 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          pipeline_id: string | null
+          position: number
           project_id: string | null
           published_at: string | null
           scheduled_at: string | null
           stage: Database["public"]["Enums"]["post_stage"]
+          stage_id: string | null
           title: string
           updated_at: string
         }
@@ -1040,10 +1141,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          pipeline_id?: string | null
+          position?: number
           project_id?: string | null
           published_at?: string | null
           scheduled_at?: string | null
           stage?: Database["public"]["Enums"]["post_stage"]
+          stage_id?: string | null
           title: string
           updated_at?: string
         }
@@ -1057,10 +1161,13 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          pipeline_id?: string | null
+          position?: number
           project_id?: string | null
           published_at?: string | null
           scheduled_at?: string | null
           stage?: Database["public"]["Enums"]["post_stage"]
+          stage_id?: string | null
           title?: string
           updated_at?: string
         }
@@ -1080,10 +1187,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "posts_pipeline_id_fkey"
+            columns: ["pipeline_id"]
+            isOneToOne: false
+            referencedRelation: "content_pipelines"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "posts_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "content_pipeline_stages"
             referencedColumns: ["id"]
           },
         ]
