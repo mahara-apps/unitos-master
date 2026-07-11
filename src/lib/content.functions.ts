@@ -483,7 +483,7 @@ export const deletePostFn = createServerFn({ method: "POST" })
 export type PostTimelineEvent = {
   id: string;
   verb: string;
-  payload: unknown;
+  payload: string | null;
   created_at: string;
   actor_id: string | null;
 };
@@ -511,6 +511,12 @@ export const getPostDetailFn = createServerFn({ method: "POST" })
     if (error) throw error;
     return {
       post: post as BoardPost,
-      timeline: (events ?? []) as PostTimelineEvent[],
+      timeline: (events ?? []).map((e) => ({
+        id: e.id,
+        verb: e.verb,
+        payload: e.payload == null ? null : JSON.stringify(e.payload),
+        created_at: e.created_at,
+        actor_id: e.actor_id,
+      })) as PostTimelineEvent[],
     };
   });
