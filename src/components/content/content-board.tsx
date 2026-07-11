@@ -177,7 +177,7 @@ export function ContentBoard({ board, boardQueryKey, onOpenPost }: Props) {
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActiveId(null)}
     >
-      <div className="flex min-h-0 flex-1 gap-5 overflow-x-auto overflow-y-hidden pb-4">
+      <div className="flex min-h-0 flex-1 gap-5 overflow-x-auto overflow-y-hidden p-[5px] pb-[calc(1rem+5px)]">
         {board.stages.map((stage) => (
           <Column
             key={stage.id}
