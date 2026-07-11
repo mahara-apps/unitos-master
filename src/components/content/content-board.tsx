@@ -249,7 +249,7 @@ function Column({
   const [newTitle, setNewTitle] = useState("");
 
   return (
-    <div className="flex w-72 shrink-0 flex-col">
+    <div className="flex h-full w-72 shrink-0 flex-col">
       <div className="mb-2 flex items-center justify-between px-1">
         <div className="flex min-w-0 items-center gap-2">
           <Popover>
@@ -344,7 +344,7 @@ function Column({
 
       <div
         ref={setNodeRef}
-        className={`flex min-h-40 flex-1 flex-col gap-2 rounded-lg border p-2 transition ${
+        className={`flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-lg border p-2 transition ${
           isOver ? "border-primary/60 bg-primary/5" : "border-border/60 bg-muted/30"
         }`}
       >
