@@ -12,6 +12,87 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import type { AgencyDashboard } from "@/lib/dashboard.functions";
 
+function SiriOrb() {
+  return (
+    <div
+      className="relative mx-auto h-32 w-32 select-none"
+      style={{ animation: "orb-breathe 4s ease-in-out infinite" }}
+      aria-hidden
+    >
+      {/* Ambient outer halo */}
+      <div
+        className="absolute inset-[-18%] rounded-full opacity-70 blur-2xl"
+        style={{
+          background:
+            "radial-gradient(circle at 50% 50%, rgba(139,92,246,0.55), rgba(236,72,153,0.25) 55%, transparent 75%)",
+        }}
+      />
+
+      {/* Blending color layers */}
+      <div
+        className="absolute inset-0 overflow-hidden rounded-full"
+        style={{ mixBlendMode: "screen", filter: "blur(14px)" }}
+      >
+        <div
+          className="absolute inset-[-10%] rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle at 30% 35%, rgba(236,72,153,0.95), transparent 60%)",
+            animation: "orb-drift-a 7s ease-in-out infinite",
+          }}
+        />
+        <div
+          className="absolute inset-[-10%] rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle at 70% 40%, rgba(34,211,238,0.9), transparent 60%)",
+            animation: "orb-drift-b 9s ease-in-out infinite",
+          }}
+        />
+        <div
+          className="absolute inset-[-10%] rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle at 55% 70%, rgba(139,92,246,0.95), transparent 62%)",
+            animation: "orb-drift-c 11s ease-in-out infinite",
+          }}
+        />
+        <div
+          className="absolute inset-[-10%] rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle at 40% 60%, rgba(99,102,241,0.85), transparent 60%)",
+            animation: "orb-drift-d 13s ease-in-out infinite",
+          }}
+        />
+        <div
+          className="absolute inset-[-10%] rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle at 65% 30%, rgba(244,114,182,0.7), transparent 60%)",
+            animation: "orb-drift-a 15s ease-in-out infinite reverse",
+          }}
+        />
+      </div>
+
+      {/* Glass rim */}
+      <div
+        className="absolute inset-0 rounded-full"
+        style={{
+          boxShadow:
+            "inset 0 0 24px rgba(255,255,255,0.18), inset 0 0 1px rgba(255,255,255,0.6)",
+        }}
+      />
+
+      {/* Bright inner core */}
+      <div
+        className="absolute left-1/2 top-1/2 h-4 w-6 rounded-full bg-white/90 blur-md"
+        style={{ animation: "orb-core-pulse 3.2s ease-in-out infinite" }}
+      />
+    </div>
+  );
+}
+
 function greetingFor(date: Date): string {
   const h = date.getHours();
   if (h < 12) return "Good morning";
@@ -87,16 +168,19 @@ export function WelcomeModal({ brandId, data }: Props) {
         style={{ boxShadow: "0 0 0 1px rgba(255,255,255,0.08), 0 30px 80px -20px rgba(0,0,0,0.5)" }}
       >
         <div className="pointer-events-none absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+        <div className="pt-2">
+          <SiriOrb />
+        </div>
         <DialogHeader className="space-y-2">
-          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             <Sparkles className="h-3 w-3" />
             NexusFlow Intelligence
           </div>
-          <DialogTitle className="text-2xl font-semibold tracking-tight">
+          <DialogTitle className="text-center text-2xl font-semibold tracking-tight">
             {greeting}
             {firstName ? `, ${firstName}` : ""}.
           </DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
+          <DialogDescription className="text-center text-sm text-muted-foreground">
             Here is a quick read of your day across the agency.
           </DialogDescription>
         </DialogHeader>
