@@ -428,11 +428,7 @@ function PostCard({
   return (
     <button
       type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onOpen(post.id);
-      }}
-      onPointerDown={(e) => e.stopPropagation()}
+      onClick={() => onOpen(post.id)}
       className={`w-full rounded-md border bg-card p-3 text-left shadow-sm transition hover:border-primary/50 hover:shadow-md ${
         isOverlay ? "cursor-grabbing shadow-lg" : ""
       }`}
