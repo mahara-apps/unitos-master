@@ -177,7 +177,7 @@ export function ContentBoard({ board, boardQueryKey, onOpenPost }: Props) {
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActiveId(null)}
     >
-      <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto overflow-y-hidden pb-4">
+      <div className="flex min-h-0 flex-1 gap-5 overflow-x-auto overflow-y-hidden pb-4">
         {board.stages.map((stage) => (
           <Column
             key={stage.id}
@@ -200,7 +200,7 @@ export function ContentBoard({ board, boardQueryKey, onOpenPost }: Props) {
         ))}
         <button
           type="button"
-          className="flex h-fit min-w-64 items-center justify-center gap-2 rounded-lg border border-dashed border-border/60 bg-transparent px-3 py-3 text-sm text-muted-foreground transition hover:border-border hover:bg-muted/40"
+          className="flex h-full min-w-[300px] shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 bg-transparent px-3 py-3 text-sm text-muted-foreground transition hover:border-border hover:bg-muted/40"
           onClick={() => addStage.mutate()}
           disabled={addStage.isPending}
         >
@@ -249,9 +249,14 @@ function Column({
   const [newTitle, setNewTitle] = useState("");
 
   return (
-    <div className="flex h-full w-72 shrink-0 flex-col">
-      <div className="mb-2 flex items-center justify-between px-1">
-        <div className="flex min-w-0 items-center gap-2">
+    <div
+      ref={setNodeRef}
+      className={`flex h-full w-[300px] shrink-0 flex-col rounded-xl border bg-muted/30 p-4 transition ${
+        isOver ? "border-primary/60 bg-primary/5" : "border-border/60"
+      }`}
+    >
+      <div className="mb-3 flex items-center justify-between gap-2 border-b border-border/40 pb-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <Popover>
             <PopoverTrigger asChild>
               <button
@@ -277,7 +282,7 @@ function Column({
             </PopoverContent>
           </Popover>
           {editing ? (
-            <div className="flex items-center gap-1">
+            <div className="flex min-w-0 flex-1 items-center gap-1">
               <Input
                 autoFocus
                 value={label}
@@ -294,7 +299,7 @@ function Column({
               <Button
                 size="icon"
                 variant="ghost"
-                className="h-7 w-7"
+                className="h-7 w-7 shrink-0"
                 onClick={() => {
                   onRename(label.trim() || stage.label);
                   setEditing(false);
@@ -306,19 +311,19 @@ function Column({
           ) : (
             <button
               type="button"
-              className="truncate text-sm font-medium hover:underline"
+              className="truncate text-sm font-medium tracking-tight hover:underline"
               onClick={() => setEditing(true)}
             >
               {stage.label}
             </button>
           )}
-          <Badge variant="secondary" className="h-5 px-1.5 text-xs font-normal">
+          <Badge variant="secondary" className="h-5 shrink-0 px-1.5 text-xs font-normal">
             {posts.length}
           </Badge>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="ghost" className="h-7 w-7">
+            <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 opacity-60 hover:opacity-100">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -342,18 +347,13 @@ function Column({
         </DropdownMenu>
       </div>
 
-      <div
-        ref={setNodeRef}
-        className={`flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto rounded-lg border p-2 transition ${
-          isOver ? "border-primary/60 bg-primary/5" : "border-border/60 bg-muted/30"
-        }`}
-      >
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto -mx-1 px-1">
         {posts.map((p) => (
           <DraggablePostCard key={p.id} post={p} onOpen={onOpenPost} />
         ))}
 
         {creating ? (
-          <div className="rounded-md border bg-card p-2">
+          <div className="rounded-lg border border-border/70 bg-card p-2">
             <Input
               autoFocus
               placeholder="Título do post"
@@ -388,16 +388,18 @@ function Column({
               </Button>
             </div>
           </div>
-        ) : (
-          <button
-            type="button"
-            onClick={onStartCreate}
-            className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted"
-          >
-            <Plus className="h-3.5 w-3.5" /> Novo post
-          </button>
-        )}
+        ) : null}
       </div>
+
+      {!creating ? (
+        <button
+          type="button"
+          onClick={onStartCreate}
+          className="mt-3 flex items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-2 text-xs font-medium text-muted-foreground opacity-70 transition hover:border-border/60 hover:bg-background/60 hover:opacity-100"
+        >
+          <Plus className="h-3.5 w-3.5" /> Novo post
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -429,7 +431,7 @@ function PostCard({
     <button
       type="button"
       onClick={() => onOpen(post.id)}
-      className={`w-full rounded-md border bg-card p-3 text-left shadow-sm transition hover:border-primary/50 hover:shadow-md ${
+      className={`w-full rounded-lg border border-border/70 bg-card p-3 text-left shadow-[0_1px_0_0_rgba(0,0,0,0.02)] transition hover:border-primary/50 hover:shadow-md ${
         isOverlay ? "cursor-grabbing shadow-lg" : ""
       }`}
     >
