@@ -11,6 +11,7 @@ import {
   UserPlus,
   User as UserIcon,
   ChevronsUpDown,
+  Route as RouteIcon,
 } from "lucide-react";
 import {
   Sidebar,
@@ -40,6 +41,10 @@ const items = [
   { title: "Conexões", url: "/connections", icon: Plug },
 ] as const;
 
+const clinicalItems = [
+  { title: "Jornada", url: "/pipelines", icon: RouteIcon },
+] as const;
+
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (u: string) => pathname === u || pathname.startsWith(u + "/");
@@ -54,6 +59,23 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
+                <SidebarMenuItem key={item.url}>
+                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
+                    <Link to={item.url} className="flex items-center gap-2">
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Clínico</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {clinicalItems.map((item) => (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
                     <Link to={item.url} className="flex items-center gap-2">
