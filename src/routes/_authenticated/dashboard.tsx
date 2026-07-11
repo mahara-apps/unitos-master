@@ -31,6 +31,7 @@ import { DateRangePicker } from "@/components/dashboard/date-range-picker";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { cn } from "@/lib/utils";
 import { CustomerDashboard } from "@/components/customer/customer-dashboard";
+import { WelcomeModal } from "@/components/dashboard/welcome-modal";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
@@ -113,6 +114,7 @@ function DashboardPage() {
 
   return (
     <div className="w-full space-y-6 px-6 py-6 md:px-8">
+      <WelcomeModal brandId={brandId} data={data} />
       {/* KPI ROW */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
