@@ -483,7 +483,7 @@ export const deletePostFn = createServerFn({ method: "POST" })
 export type PostTimelineEvent = {
   id: string;
   verb: string;
-  payload: Record<string, unknown>;
+  payload: unknown;
   created_at: string;
   actor_id: string | null;
 };
