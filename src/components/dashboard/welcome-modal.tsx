@@ -174,14 +174,14 @@ export function WelcomeModal({ brandId, data }: Props) {
         <DialogHeader className="space-y-2">
           <div className="flex items-center justify-center gap-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             <Sparkles className="h-3 w-3" />
-            NexusFlow Intelligence
+            Inteligência NexusFlow
           </div>
           <DialogTitle className="text-center text-2xl font-semibold tracking-tight">
             {greeting}
             {firstName ? `, ${firstName}` : ""}.
           </DialogTitle>
           <DialogDescription className="text-center text-sm text-muted-foreground">
-            Here is a quick read of your day across the agency.
+            Um panorama rápido do seu dia na agência.
           </DialogDescription>
         </DialogHeader>
 
@@ -190,24 +190,24 @@ export function WelcomeModal({ brandId, data }: Props) {
             icon={<CalendarClock className="h-3.5 w-3.5" />}
             text={
               releasesToday > 0
-                ? `${releasesToday} content release${releasesToday === 1 ? "" : "s"} scheduled for today.`
-                : "No content releases scheduled for today — a good window to move things forward."
+                ? `${releasesToday} ${releasesToday === 1 ? "publicação agendada" : "publicações agendadas"} para hoje.`
+                : "Nenhuma publicação agendada para hoje — boa janela para avançar entregas."
             }
           />
           <SummaryRow
             icon={<AlertCircle className="h-3.5 w-3.5" />}
             text={
               approvalsPending > 0
-                ? `${approvalsPending} approval${approvalsPending === 1 ? "" : "s"} still pending client feedback.`
-                : "All approvals cleared — the pipeline is flowing."
+                ? `${approvalsPending} ${approvalsPending === 1 ? "aprovação pendente" : "aprovações pendentes"} de feedback do cliente.`
+                : "Todas as aprovações em dia — o pipeline está fluindo."
             }
           />
           <SummaryRow
             icon={<Sparkles className="h-3.5 w-3.5" />}
             text={
               readyClient
-                ? `${readyClient}'s strategy is ready to be initiated.`
-                : "Bring a customer on board to unlock strategic pipelines."
+                ? `A estratégia de ${readyClient} está pronta para ser iniciada.`
+                : "Cadastre um cliente para desbloquear os pipelines estratégicos."
             }
           />
         </ul>
@@ -217,7 +217,7 @@ export function WelcomeModal({ brandId, data }: Props) {
             onClick={() => setOpen(false)}
             className="w-full rounded-full bg-foreground text-background hover:bg-foreground/90"
           >
-            Let&apos;s work
+            Vamos ao trabalho
           </Button>
         </DialogFooter>
       </DialogContent>
