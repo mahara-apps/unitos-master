@@ -643,7 +643,7 @@ export const pautaSuggestFn = createServerFn({ method: "POST" })
         `SWOT: ${JSON.stringify(data.swotJson)}`,
         `Quantidade de pautas desejadas: ${data.quantidade}`,
         `Período: ${data.periodo}`,
-      ].join("\n"),
+      ].join("\n") + (await readCompetitorContext(context.supabase, data.brandId, data.clientId)),
       schema: PautasSchema,
     });
 
