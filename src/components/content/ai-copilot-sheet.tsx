@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Instagram, Linkedin, Music2, Sparkles, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { ContextSourceBadge } from "@/components/ai-agents/context-source-badge";
 
 type ContentType = "reel" | "carousel" | "image" | "short_copy";
 type Channel = "instagram" | "tiktok" | "linkedin";
@@ -127,6 +128,11 @@ export function AiCopilotSheet({
           <SheetDescription className="text-xs">
             Draft channel-ready content grounded in this account's brand voice.
           </SheetDescription>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <ContextSourceBadge source="persona" />
+            <ContextSourceBadge source="competitors" />
+            <ContextSourceBadge source="knowledge" />
+          </div>
         </SheetHeader>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">

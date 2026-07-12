@@ -13,6 +13,7 @@ import {
   customerMarketQuery,
   customerPautasQuery,
 } from "@/lib/customer-queries";
+import { ContextSourceBadge } from "./context-source-badge";
 
 type Scope = { brandId: string; clientId: string };
 
@@ -166,6 +167,9 @@ export function OverviewTab({ brandId, clientId }: Scope) {
 
       <div className="grid gap-4 md:grid-cols-2">
         <SectionCard title="Brand personality" icon={Sparkles}>
+          <div className="mb-3">
+            <ContextSourceBadge source="persona" />
+          </div>
           {voice?.brand_personality ? (
             <p className="text-sm leading-relaxed text-neutral-200">{voice.brand_personality}</p>
           ) : (
@@ -181,6 +185,9 @@ export function OverviewTab({ brandId, clientId }: Scope) {
         </SectionCard>
 
         <SectionCard title="Público-alvo" icon={Target}>
+          <div className="mb-3">
+            <ContextSourceBadge source="persona" />
+          </div>
           <p className="text-sm text-neutral-200">
             {(briefing.publico_alvo as string | null) ?? <span className="text-muted-foreground">—</span>}
           </p>
@@ -219,6 +226,9 @@ export function StrategyTab({ brandId, clientId }: Scope) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <SectionCard title="Briefing estruturado" icon={Target}>
+        <div className="mb-3">
+          <ContextSourceBadge source="persona" />
+        </div>
         <dl className="space-y-3">
           {rows.map(([label, value]) => (
             <div key={label}>
@@ -244,6 +254,9 @@ export function StrategyTab({ brandId, clientId }: Scope) {
       </SectionCard>
 
       <SectionCard title="Voice Card" icon={Sparkles}>
+        <div className="mb-3">
+          <ContextSourceBadge source="persona" />
+        </div>
         {voice ? (
           <div className="space-y-4">
             <div>
@@ -309,9 +322,12 @@ export function TargetTab({ brandId, clientId }: Scope) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-neutral-200">
-          <Users className="h-4 w-4 text-cyan-400" /> Personas
-        </h3>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-neutral-200">
+            <Users className="h-4 w-4 text-cyan-400" /> Personas
+          </h3>
+          <ContextSourceBadge source="persona" />
+        </div>
         {personas.length ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {personas.map((p, i) => (
@@ -352,9 +368,12 @@ export function TargetTab({ brandId, clientId }: Scope) {
       </div>
 
       <div>
-        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-neutral-200">
-          <Layers className="h-4 w-4 text-cyan-400" /> Cohorts comportamentais
-        </h3>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-neutral-200">
+            <Layers className="h-4 w-4 text-cyan-400" /> Cohorts comportamentais
+          </h3>
+          <ContextSourceBadge source="persona" />
+        </div>
         {cohorts.length ? (
           <div className="space-y-2">
             {cohorts.map((c, i) => (
@@ -412,6 +431,9 @@ export function MarketTab({ brandId, clientId }: Scope) {
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <ContextSourceBadge source="competitors" />
+      </div>
       <div className="grid gap-3 md:grid-cols-2">
         {quadrants.map((q) => (
           <div key={q.key} className={`rounded-xl border p-5 ${q.tone}`}>
@@ -433,6 +455,9 @@ export function MarketTab({ brandId, clientId }: Scope) {
       </div>
 
       <SectionCard title="Competitive matrix" icon={ShieldAlert}>
+        <div className="mb-3">
+          <ContextSourceBadge source="competitors" />
+        </div>
         {matrix.length ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
@@ -488,6 +513,10 @@ export function TopicsTab({ brandId, clientId }: { brandId: string; clientId: st
 
   return (
     <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2 pb-1">
+        <ContextSourceBadge source="full" />
+        <ContextSourceBadge source="knowledge" />
+      </div>
       {rows.map((p) => {
         const sent = p.status === "sent_to_content";
         return (
