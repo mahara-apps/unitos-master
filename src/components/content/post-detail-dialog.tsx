@@ -36,7 +36,7 @@ type Props = {
 export function PostDetailDialog({ postId, onClose, boardQueryKey }: Props) {
   return (
     <Dialog open={!!postId} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         {postId ? (
           <PostDetailBody postId={postId} onClose={onClose} boardQueryKey={boardQueryKey} />
         ) : null}
@@ -58,6 +58,9 @@ function PostDetailBody({
   const getDetail = useServerFn(getPostDetailFn);
   const updatePost = useServerFn(updatePostFn);
   const deletePost = useServerFn(deletePostFn);
+  const uploadRef = useServerFn(uploadPostReferenceMediaFn);
+  const removeRef = useServerFn(removePostReferenceMediaFn);
+  const signRefs = useServerFn(signPostReferenceMediaFn);
 
   const { data } = useSuspenseQuery({
     queryKey: ["post-detail", postId],
@@ -69,12 +72,29 @@ function PostDetailBody({
   const [scheduledAt, setScheduledAt] = useState<string>(
     data.post.scheduled_at ? data.post.scheduled_at.slice(0, 16) : "",
   );
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [approving, setApproving] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setTitle(data.post.title);
     setCopy(data.post.copy ?? "");
     setScheduledAt(data.post.scheduled_at ? data.post.scheduled_at.slice(0, 16) : "");
   }, [data.post.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const refs = Array.isArray(data.post.reference_media) ? data.post.reference_media : [];
+  const reviewStatus = data.post.review_status ?? "pending";
+  const aiPhase = data.post.ai_phase ?? null;
+
+  useEffect(() => {
+    const paths = refs.map((r) => r.path).filter(Boolean);
+    if (paths.length === 0) return;
+    let cancelled = false;
+    signRefs({ data: { paths } }).then((res) => {
+      if (!cancelled) setSignedUrls(res.urls);
+    });
+    return () => { cancelled = true; };
+  }, [refs.map((r) => r.path).join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = useMutation({
     mutationFn: () =>
@@ -106,10 +126,80 @@ function PostDetailBody({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const upload = useMutation({
+    mutationFn: async (file: File) => {
+      const buf = await file.arrayBuffer();
+      let binary = "";
+      const bytes = new Uint8Array(buf);
+      for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+      const base64 = btoa(binary);
+      return uploadRef({
+        data: { postId, filename: file.name, contentType: file.type || "application/octet-stream", base64 },
+      });
+    },
+    onSuccess: () => {
+      toast.success("Mídia anexada");
+      qc.invalidateQueries({ queryKey: ["post-detail", postId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const removeMedia = useMutation({
+    mutationFn: (path: string) => removeRef({ data: { postId, path } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["post-detail", postId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  async function handleApproveAndGenerate() {
+    setApproving(true);
+    try {
+      await updatePost({
+        data: { postId, patch: { review_status: "approved", title: title.trim(), copy: copy.trim() || null } },
+      });
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) throw new Error("Sessão expirada");
+      const res = await fetch("/api/jobs/post-phase2", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ postId }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      toast.success("Fase 2 iniciada em segundo plano");
+      qc.invalidateQueries({ queryKey: boardQueryKey });
+      qc.invalidateQueries({ queryKey: ["post-detail", postId] });
+      qc.invalidateQueries({ queryKey: ["ai-jobs", "active"] });
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao aprovar");
+    } finally {
+      setApproving(false);
+    }
+  }
+
   return (
     <>
       <DialogHeader>
-        <DialogTitle className="text-base font-medium">Detalhes do post</DialogTitle>
+        <DialogTitle className="flex items-center gap-2 text-base font-medium">
+          Detalhes do post
+          {reviewStatus === "pending" && aiPhase === "idea" ? (
+            <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400">
+              Aguardando aprovação
+            </Badge>
+          ) : null}
+          {aiPhase === "copy_running" ? (
+            <Badge variant="outline" className="border-indigo-500/40 text-indigo-600 dark:text-indigo-400">
+              <Loader2 className="mr-1 h-3 w-3 animate-spin" /> Gerando copy
+            </Badge>
+          ) : null}
+          {aiPhase === "copy_ready" ? (
+            <Badge variant="outline" className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
+              Copy + Design prontos
+            </Badge>
+          ) : null}
+        </DialogTitle>
         <DialogDescription>Edite copy, agendamento e responsáveis.</DialogDescription>
       </DialogHeader>
       <div className="space-y-4">
@@ -126,6 +216,71 @@ function PostDetailBody({
             onChange={(e) => setCopy(e.target.value)}
             placeholder="Escreva o texto do post…"
           />
+        </div>
+        {data.post.design_brief ? (
+          <div className="space-y-1.5">
+            <Label className="flex items-center gap-1.5"><FileText className="h-3.5 w-3.5" /> Briefing visual</Label>
+            <div className="rounded-md border bg-muted/40 p-3 text-sm whitespace-pre-wrap">
+              {data.post.design_brief}
+            </div>
+          </div>
+        ) : null}
+        <div className="space-y-1.5">
+          <Label className="flex items-center gap-1.5">
+            <ImageIcon className="h-3.5 w-3.5" /> Mídias de referência
+            <span className="text-xs font-normal text-muted-foreground">(feeds, stories, moodboard)</span>
+          </Label>
+          <div className="rounded-md border p-2">
+            {refs.length === 0 ? (
+              <p className="px-1 py-2 text-xs text-muted-foreground">
+                Anexe imagens que a IA usará como referência visual na Fase 2.
+              </p>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {refs.map((r) => {
+                  const url = signedUrls[r.path];
+                  const isImg = (r.type ?? "").startsWith("image/");
+                  return (
+                    <div key={r.path} className="group relative aspect-square overflow-hidden rounded-md border bg-muted">
+                      {isImg && url ? (
+                        <img src={url} alt={r.name ?? r.path} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full flex-col items-center justify-center p-1 text-center">
+                          <FileText className="h-6 w-6 text-muted-foreground" />
+                          <span className="mt-1 line-clamp-2 text-[10px] text-muted-foreground">{r.name}</span>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        className="absolute right-1 top-1 rounded-full bg-background/90 p-1 opacity-0 shadow transition group-hover:opacity-100"
+                        onClick={() => removeMedia.mutate(r.path)}
+                        title="Remover"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div className="mt-2 flex justify-end">
+              <input
+                ref={fileInput}
+                type="file"
+                className="hidden"
+                accept="image/*,application/pdf"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) upload.mutate(f);
+                  e.target.value = "";
+                }}
+              />
+              <Button variant="outline" size="sm" onClick={() => fileInput.current?.click()} disabled={upload.isPending}>
+                {upload.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                Anexar
+              </Button>
+            </div>
+          </div>
         </div>
         <div className="space-y-1.5">
           <Label htmlFor="pd-sched">Agendado para</Label>
@@ -154,10 +309,16 @@ function PostDetailBody({
           <Button variant="outline" onClick={onClose}>
             Fechar
           </Button>
-          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+          <Button variant="secondary" onClick={() => save.mutate()} disabled={save.isPending}>
             {save.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-            Salvar alterações
+            Salvar
           </Button>
+          {reviewStatus === "pending" && aiPhase === "idea" ? (
+            <Button onClick={handleApproveAndGenerate} disabled={approving}>
+              {approving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              Aprovar & gerar copy
+            </Button>
+          ) : null}
         </div>
       </DialogFooter>
     </>
