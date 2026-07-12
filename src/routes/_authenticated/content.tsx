@@ -32,6 +32,7 @@ import {
 import { ContentBoard } from "@/components/content/content-board";
 import { PostDetailDialog } from "@/components/content/post-detail-dialog";
 import { AiCopilotSheet } from "@/components/content/ai-copilot-sheet";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/content")({
   component: ContentPage,
@@ -197,10 +198,26 @@ function BoardView({
     () => ["content-board", brandId, clientId, pipelineId] as const,
     [brandId, clientId, pipelineId],
   );
+  const qc = useQueryClient();
   const { data } = useSuspenseQuery({
     queryKey,
     queryFn: () => loadBoard({ data: { brandId, clientId, pipelineId } }),
   });
+  useEffect(() => {
+    const channel = supabase
+      .channel(`posts:${pipelineId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "posts", filter: `pipeline_id=eq.${pipelineId}` },
+        () => {
+          qc.invalidateQueries({ queryKey });
+        },
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [pipelineId, qc, queryKey]);
   return <ContentBoard board={data} boardQueryKey={queryKey} onOpenPost={onOpenPost} />;
 }
 
