@@ -61,6 +61,12 @@ export type BoardPost = {
   updated_at: string;
   brand_id: string;
   client_id: string;
+  review_status?: string | null;
+  reference_media?: Array<{ path: string; name?: string; type?: string; size?: number }> | null;
+  design_brief?: string | null;
+  ai_phase?: string | null;
+  approved_at?: string | null;
+  approved_by?: string | null;
 };
 
 export type Board = {
@@ -460,13 +466,33 @@ export const updatePostFn = createServerFn({ method: "POST" })
             channels: z
               .array(z.enum(["instagram", "tiktok", "linkedin", "x", "youtube", "blog"]))
               .optional(),
+            reference_media: z
+              .array(
+                z.object({
+                  path: z.string(),
+                  name: z.string().optional(),
+                  type: z.string().optional(),
+                  size: z.number().optional(),
+                }),
+              )
+              .optional(),
+            design_brief: z.string().max(8000).nullable().optional(),
+            review_status: z.enum(["pending", "approved", "rejected"]).optional(),
           })
           .strict(),
       })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("posts").update(data.patch).eq("id", data.postId);
+    const patch: Record<string, unknown> = { ...data.patch };
+    if (patch.review_status === "approved") {
+      patch.approved_at = new Date().toISOString();
+      patch.approved_by = context.userId;
+    }
+    const { error } = await context.supabase
+      .from("posts")
+      .update(patch as never)
+      .eq("id", data.postId);
     if (error) throw error;
     return { ok: true };
   });
@@ -496,7 +522,7 @@ export const getPostDetailFn = createServerFn({ method: "POST" })
       context.supabase
         .from("posts")
         .select(
-          "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id",
+          "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,reference_media,design_brief,ai_phase,approved_at,approved_by",
         )
         .eq("id", data.postId)
         .single(),
@@ -519,4 +545,95 @@ export const getPostDetailFn = createServerFn({ method: "POST" })
         actor_id: e.actor_id,
       })) as PostTimelineEvent[],
     };
+  });
+
+// ---------- Reference media (Phase-2 uploads) ----------
+
+export const uploadPostReferenceMediaFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        postId: z.string().uuid(),
+        filename: z.string().min(1).max(200),
+        contentType: z.string().max(120),
+        base64: z.string().min(1),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: post, error: pe } = await context.supabase
+      .from("posts")
+      .select("id, brand_id, client_id, reference_media")
+      .eq("id", data.postId)
+      .single();
+    if (pe || !post) throw pe ?? new Error("Post not found");
+
+    const bin = Uint8Array.from(atob(data.base64), (c) => c.charCodeAt(0));
+    if (bin.byteLength > 15 * 1024 * 1024) throw new Error("file_too_large");
+    const safeName = data.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `${post.brand_id}/${post.client_id}/posts/${post.id}/${Date.now()}-${safeName}`;
+    const { error: ue } = await context.supabase.storage
+      .from("brand-assets")
+      .upload(path, bin, { contentType: data.contentType, upsert: false });
+    if (ue) throw ue;
+
+    const entry = { path, name: data.filename, type: data.contentType, size: bin.byteLength };
+    const current = Array.isArray(post.reference_media)
+      ? (post.reference_media as Array<Record<string, unknown>>)
+      : [];
+    const next = [...current, entry];
+    const { error: upErr } = await context.supabase
+      .from("posts")
+      .update({ reference_media: next } as never)
+      .eq("id", data.postId);
+    if (upErr) throw upErr;
+
+    const { data: signed } = await context.supabase.storage
+      .from("brand-assets")
+      .createSignedUrl(path, 60 * 60 * 24 * 7);
+    return { path, url: signed?.signedUrl ?? null, entry };
+  });
+
+export const removePostReferenceMediaFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ postId: z.string().uuid(), path: z.string().min(1) }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: post, error: pe } = await context.supabase
+      .from("posts")
+      .select("id, reference_media")
+      .eq("id", data.postId)
+      .single();
+    if (pe || !post) throw pe ?? new Error("Post not found");
+
+    await context.supabase.storage.from("brand-assets").remove([data.path]);
+    const current = Array.isArray(post.reference_media)
+      ? (post.reference_media as Array<Record<string, unknown>>)
+      : [];
+    const next = current.filter((r) => r?.path !== data.path);
+    const { error } = await context.supabase
+      .from("posts")
+      .update({ reference_media: next } as never)
+      .eq("id", data.postId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const signPostReferenceMediaFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ paths: z.array(z.string()).max(20) }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    if (data.paths.length === 0) return { urls: {} as Record<string, string> };
+    const { data: signed } = await context.supabase.storage
+      .from("brand-assets")
+      .createSignedUrls(data.paths, 60 * 60);
+    const urls: Record<string, string> = {};
+    (signed ?? []).forEach((s) => {
+      if (s.path && s.signedUrl) urls[s.path] = s.signedUrl;
+    });
+    return { urls };
   });
