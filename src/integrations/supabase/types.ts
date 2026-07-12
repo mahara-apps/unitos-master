@@ -824,17 +824,74 @@ export type Database = {
           },
         ]
       }
+      client_documents: {
+        Row: {
+          brand_id: string
+          client_id: string
+          created_at: string
+          id: string
+          mime_type: string | null
+          name: string
+          size_bytes: number | null
+          storage_path: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          brand_id: string
+          client_id: string
+          created_at?: string
+          id?: string
+          mime_type?: string | null
+          name: string
+          size_bytes?: number | null
+          storage_path: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          brand_id?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          mime_type?: string | null
+          name?: string
+          size_bytes?: number | null
+          storage_path?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_documents_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_documents_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           archived_at: string | null
+          brand_hub: Json
           brand_id: string
           color: string | null
           contact_email: string | null
           contact_name: string | null
           contact_phone: string | null
           created_at: string
+          favicon_url: string | null
           id: string
           is_active: boolean
+          logo_secondary_url: string | null
           logo_url: string | null
           name: string
           niche: string | null
@@ -846,14 +903,17 @@ export type Database = {
         }
         Insert: {
           archived_at?: string | null
+          brand_hub?: Json
           brand_id: string
           color?: string | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
+          favicon_url?: string | null
           id?: string
           is_active?: boolean
+          logo_secondary_url?: string | null
           logo_url?: string | null
           name: string
           niche?: string | null
@@ -865,14 +925,17 @@ export type Database = {
         }
         Update: {
           archived_at?: string | null
+          brand_hub?: Json
           brand_id?: string
           color?: string | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
           created_at?: string
+          favicon_url?: string | null
           id?: string
           is_active?: boolean
+          logo_secondary_url?: string | null
           logo_url?: string | null
           name?: string
           niche?: string | null
