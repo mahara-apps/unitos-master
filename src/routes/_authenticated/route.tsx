@@ -10,6 +10,9 @@ import { Command } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationsBell } from "@/components/notifications/notifications-drawer";
 import { MandatoryPasswordReset } from "@/components/auth/mandatory-password-reset";
+import { AiJobsProvider } from "@/components/ai-jobs/ai-jobs-provider";
+import { AiJobsIndicator } from "@/components/ai-jobs/ai-jobs-indicator";
+import { AiJobsDock } from "@/components/ai-jobs/ai-jobs-dock";
 
 const fallbackTitles: Record<string, string> = {
   "/dashboard": "Painel",
@@ -38,6 +41,7 @@ function AppShell() {
   return (
     <ActiveContextProvider>
       <PageHeaderProvider>
+        <AiJobsProvider>
         <SidebarProvider>
           <div className="flex min-h-screen w-full bg-background">
             <AppSidebar />
@@ -50,7 +54,9 @@ function AppShell() {
           </div>
           <CommandMenu />
           <MandatoryPasswordReset />
+          <AiJobsDock />
         </SidebarProvider>
+        </AiJobsProvider>
       </PageHeaderProvider>
     </ActiveContextProvider>
   );
@@ -85,6 +91,7 @@ function ShellHeader() {
           <Command className="h-3 w-3" /> Buscar
           <kbd className="ml-2 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
         </Button>
+        <AiJobsIndicator />
         <NotificationsBell />
         <ThemeToggle />
       </div>
