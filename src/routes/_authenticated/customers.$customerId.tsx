@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useEffect, useState } from "react";
-import { AlertTriangle, DollarSign, KanbanSquare, RefreshCw } from "lucide-react";
+import { AlertTriangle, ClipboardList, DollarSign, KanbanSquare, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -207,6 +207,12 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
               <Link to="/customers/$customerId/pipeline" params={{ customerId }}>
                 <KanbanSquare className="h-3.5 w-3.5" />
                 Pipeline
+              </Link>
+            </Button>
+            <Button asChild size="sm" variant="outline" className="gap-1.5">
+              <Link to="/customers/$customerId/briefing" params={{ customerId }}>
+                <ClipboardList className="h-3.5 w-3.5" />
+                Briefing
               </Link>
             </Button>
           </div>

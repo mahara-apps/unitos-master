@@ -42,6 +42,7 @@ import { Route as AuthenticatedSettingsBriefingRouteImport } from './routes/_aut
 import { Route as AuthenticatedSettingsAiRouteImport } from './routes/_authenticated/settings.ai'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 import { Route as AuthenticatedCustomersCustomerIdPipelineRouteImport } from './routes/_authenticated/customers.$customerId.pipeline'
+import { Route as AuthenticatedCustomersCustomerIdBriefingRouteImport } from './routes/_authenticated/customers.$customerId.briefing'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -214,6 +215,12 @@ const AuthenticatedCustomersCustomerIdPipelineRoute =
     path: '/pipeline',
     getParentRoute: () => AuthenticatedCustomersCustomerIdRoute,
   } as any)
+const AuthenticatedCustomersCustomerIdBriefingRoute =
+  AuthenticatedCustomersCustomerIdBriefingRouteImport.update({
+    id: '/briefing',
+    path: '/briefing',
+    getParentRoute: () => AuthenticatedCustomersCustomerIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -247,6 +254,7 @@ export interface FileRoutesByFullPath {
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/customers/': typeof AuthenticatedCustomersIndexRoute
+  '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
 export interface FileRoutesByTo {
@@ -280,6 +288,7 @@ export interface FileRoutesByTo {
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/customers': typeof AuthenticatedCustomersIndexRoute
+  '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
 export interface FileRoutesById {
@@ -316,6 +325,7 @@ export interface FileRoutesById {
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
+  '/_authenticated/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/_authenticated/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
 export interface FileRouteTypes {
@@ -352,6 +362,7 @@ export interface FileRouteTypes {
     | '/api/jobs/post-phase2'
     | '/p/briefing/$token'
     | '/customers/'
+    | '/customers/$customerId/briefing'
     | '/customers/$customerId/pipeline'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -385,6 +396,7 @@ export interface FileRouteTypes {
     | '/api/jobs/post-phase2'
     | '/p/briefing/$token'
     | '/customers'
+    | '/customers/$customerId/briefing'
     | '/customers/$customerId/pipeline'
   id:
     | '__root__'
@@ -420,6 +432,7 @@ export interface FileRouteTypes {
     | '/api/jobs/post-phase2'
     | '/p/briefing/$token'
     | '/_authenticated/customers/'
+    | '/_authenticated/customers/$customerId/briefing'
     | '/_authenticated/customers/$customerId/pipeline'
   fileRoutesById: FileRoutesById
 }
@@ -669,15 +682,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersCustomerIdPipelineRouteImport
       parentRoute: typeof AuthenticatedCustomersCustomerIdRoute
     }
+    '/_authenticated/customers/$customerId/briefing': {
+      id: '/_authenticated/customers/$customerId/briefing'
+      path: '/briefing'
+      fullPath: '/customers/$customerId/briefing'
+      preLoaderRoute: typeof AuthenticatedCustomersCustomerIdBriefingRouteImport
+      parentRoute: typeof AuthenticatedCustomersCustomerIdRoute
+    }
   }
 }
 
 interface AuthenticatedCustomersCustomerIdRouteChildren {
+  AuthenticatedCustomersCustomerIdBriefingRoute: typeof AuthenticatedCustomersCustomerIdBriefingRoute
   AuthenticatedCustomersCustomerIdPipelineRoute: typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
 
 const AuthenticatedCustomersCustomerIdRouteChildren: AuthenticatedCustomersCustomerIdRouteChildren =
   {
+    AuthenticatedCustomersCustomerIdBriefingRoute:
+      AuthenticatedCustomersCustomerIdBriefingRoute,
     AuthenticatedCustomersCustomerIdPipelineRoute:
       AuthenticatedCustomersCustomerIdPipelineRoute,
   }
