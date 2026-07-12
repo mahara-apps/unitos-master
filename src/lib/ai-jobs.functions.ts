@@ -4,6 +4,14 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 export type AiJobStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";
 
+export type AiJobResult = {
+  title?: string;
+  content?: string;
+  hashtags?: string[];
+  postId?: string | null;
+  injected?: boolean;
+};
+
 export type AiJobRow = {
   id: string;
   brand_id: string;
@@ -17,7 +25,7 @@ export type AiJobRow = {
   step_label: string | null;
   error: string | null;
   target_route: string | null;
-  result: Record<string, unknown> | null;
+  result: AiJobResult | null;
   created_at: string;
   updated_at: string;
   started_at: string | null;
