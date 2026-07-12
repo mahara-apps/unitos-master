@@ -298,15 +298,15 @@ function AccountPropertiesCard({
     <div className="rounded-xl border border-border/60 bg-card">
       <div className="border-b border-border/60 px-4 py-3">
         <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-          Propriedades da conta
+          Account properties
         </div>
-        <div className="mt-0.5 text-sm font-medium">Identidade, canais e acesso público</div>
+        <div className="mt-0.5 text-sm font-medium">Identity and linked channels</div>
       </div>
       <div className="space-y-4 p-4">
         {(contactName || contactEmail) && (
           <div className="grid gap-1.5">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              Contato principal
+              Primary contact
             </div>
             <div className="text-sm">
               {contactName ?? "—"}{" "}
@@ -319,7 +319,7 @@ function AccountPropertiesCard({
 
         <div className="grid gap-1.5">
           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            Redes sociais vinculadas
+            Linked social channels
           </div>
           <div className="grid gap-1">
             {SOCIAL_META.map((s) => {
@@ -347,7 +347,7 @@ function AccountPropertiesCard({
             })}
             {SOCIAL_META.every((s) => !socials?.[s.key]) && (
               <div className="rounded-md border border-dashed border-border/60 p-3 text-center text-xs text-muted-foreground">
-                Nenhuma rede social vinculada.
+                No social channels linked yet.
               </div>
             )}
           </div>
