@@ -9,6 +9,7 @@ import {
   updateBrandMember,
   removeBrandMember,
   revokeBrandInvite,
+  revokePortalTokenFromTeam,
 } from "@/lib/team.functions";
 import { PERMISSION_GROUPS, type PermissionId } from "@/lib/permissions";
 import { useActiveContext } from "@/hooks/use-active-context";
@@ -26,7 +27,11 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, UserPlus, Copy, X, Loader2 } from "lucide-react";
+import { MoreHorizontal, UserPlus, Copy, X, Loader2, CalendarIcon, Link2, ShieldOff } from "lucide-react";
+import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { usePageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/settings/team")({
@@ -118,6 +123,24 @@ function TeamSettingsPage() {
           )}
         </div>
       </section>
+
+      <section className="space-y-3">
+        <div className="flex items-baseline justify-between">
+          <h2 className="text-sm font-medium">Acessos do portal do cliente</h2>
+          <span className="text-xs text-muted-foreground">Links white-label de portal por conta</span>
+        </div>
+        <div className="rounded-xl border border-border bg-card">
+          {(data?.portalTokens ?? []).length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">Nenhum link de portal ativo.</div>
+          ) : (
+            <ul>
+              {data!.portalTokens.map((t) => (
+                <PortalTokenRow key={t.id} brandId={brandId} token={t} />
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
@@ -186,7 +209,10 @@ function MemberRow({ brandId, member }: {
 
 function InviteRow({ brandId, invite }: {
   brandId: string;
-  invite: { id: string; email: string; role: string; token: string; expires_at: string; permissions: PermissionId[] };
+  invite: {
+    id: string; email: string; role: string; token: string; expires_at: string;
+    permissions: PermissionId[]; revoked_at?: string | null; temp_password_sent?: boolean;
+  };
 }) {
   const qc = useQueryClient();
   const revoke = useServerFn(revokeBrandInvite);
@@ -195,18 +221,70 @@ function InviteRow({ brandId, invite }: {
     mutationFn: () => revoke({ data: { brandId, inviteId: invite.id } }),
     onSuccess: () => { toast.success("Convite revogado"); qc.invalidateQueries({ queryKey: ["brand-team", brandId] }); },
   });
+  const isExpired = new Date(invite.expires_at).getTime() < Date.now();
+  const isRevoked = Boolean(invite.revoked_at);
   return (
     <li className="flex items-center justify-between gap-4 px-4 py-3 border-b border-border last:border-b-0">
       <div className="min-w-0">
-        <div className="text-sm font-medium truncate">{invite.email}</div>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-sm font-medium truncate">{invite.email}</span>
+          {isRevoked && <Badge variant="destructive" className="text-[10px]">Revogado</Badge>}
+          {!isRevoked && isExpired && <Badge variant="outline" className="text-[10px]">Expirado</Badge>}
+          {invite.temp_password_sent && !isRevoked && (
+            <Badge variant="secondary" className="text-[10px]">Senha temporária enviada</Badge>
+          )}
+        </div>
         <div className="text-xs text-muted-foreground">Papel: <span className="capitalize">{invite.role}</span> · Expira em {new Date(invite.expires_at).toLocaleDateString()}</div>
       </div>
       <div className="flex items-center gap-2">
-        <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(link); toast.success("Link copiado"); }}>
+        <Button size="sm" variant="outline" disabled={isRevoked} onClick={() => { navigator.clipboard.writeText(link); toast.success("Link copiado"); }}>
           <Copy className="h-3.5 w-3.5 mr-1.5" />Copiar link
         </Button>
-        <Button size="icon" variant="ghost" onClick={() => revokeMut.mutate()} disabled={revokeMut.isPending}>
+        <Button size="icon" variant="ghost" onClick={() => revokeMut.mutate()} disabled={revokeMut.isPending || isRevoked} title="Revogar convite">
           <X className="h-4 w-4" />
+        </Button>
+      </div>
+    </li>
+  );
+}
+
+function PortalTokenRow({ brandId, token }: {
+  brandId: string;
+  token: {
+    id: string; token: string; label: string | null; client_name: string;
+    expires_at: string | null; revoked_at: string | null; created_at: string;
+  };
+}) {
+  const qc = useQueryClient();
+  const revoke = useServerFn(revokePortalTokenFromTeam);
+  const link = typeof window !== "undefined" ? `${window.location.origin}/portal/${token.token}` : "";
+  const isRevoked = Boolean(token.revoked_at);
+  const isExpired = token.expires_at ? new Date(token.expires_at).getTime() < Date.now() : false;
+  const revokeMut = useMutation({
+    mutationFn: () => revoke({ data: { brandId, tokenId: token.id } }),
+    onSuccess: () => { toast.success("Acesso revogado"); qc.invalidateQueries({ queryKey: ["brand-team", brandId] }); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  return (
+    <li className="flex items-center justify-between gap-4 px-4 py-3 border-b border-border last:border-b-0">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <Link2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <span className="text-sm font-medium truncate">{token.label || "Portal do cliente"}</span>
+          <span className="text-xs text-muted-foreground truncate">· {token.client_name}</span>
+          {isRevoked && <Badge variant="destructive" className="text-[10px]">Revogado</Badge>}
+          {!isRevoked && isExpired && <Badge variant="outline" className="text-[10px]">Expirado</Badge>}
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {token.expires_at ? `Expira em ${new Date(token.expires_at).toLocaleDateString()}` : "Sem expiração"}
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" disabled={isRevoked} onClick={() => { navigator.clipboard.writeText(link); toast.success("Link copiado"); }}>
+          <Copy className="h-3.5 w-3.5 mr-1.5" />Copiar link
+        </Button>
+        <Button size="icon" variant="ghost" onClick={() => revokeMut.mutate()} disabled={revokeMut.isPending || isRevoked} title="Revogar acesso">
+          <ShieldOff className="h-4 w-4" />
         </Button>
       </div>
     </li>
@@ -324,6 +402,9 @@ function InviteDialog({ brandId, onDone }: { brandId: string; onDone: () => void
   const [role, setRole] = useState<"owner"|"manager"|"editor"|"designer"|"client">("editor");
   const [perms, setPerms] = useState<PermissionId[]>([]);
   const [busy, setBusy] = useState(false);
+  const [expiresAt, setExpiresAt] = useState<Date | undefined>(() => {
+    const d = new Date(); d.setDate(d.getDate() + 7); return d;
+  });
 
   const addEmail = (raw: string) => {
     const e = raw.trim().toLowerCase();
@@ -340,7 +421,12 @@ function InviteDialog({ brandId, onDone }: { brandId: string; onDone: () => void
     if (unique.length === 0) { toast.error("Adicione ao menos um e-mail válido"); return; }
     setBusy(true);
     try {
-      const { results } = await invite({ data: { brandId, emails: unique, role, permissions: perms } });
+      const { results } = await invite({
+        data: {
+          brandId, emails: unique, role, permissions: perms,
+          expiresAt: expiresAt ? expiresAt.toISOString() : undefined,
+        },
+      });
       const linked = results.filter(r => r.status === "linked").length;
       const invited = results.filter(r => r.status === "invited").length;
       const already = results.filter(r => r.status === "already_member").length;
@@ -396,6 +482,30 @@ function InviteDialog({ brandId, onDone }: { brandId: string; onDone: () => void
               <option key={r} value={r}>{r}</option>
             ))}
           </select>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Expira em</Label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-9", !expiresAt && "text-muted-foreground")}>
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {expiresAt ? format(expiresAt, "dd/MM/yyyy") : "Selecionar data"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={expiresAt}
+                onSelect={setExpiresAt}
+                disabled={(d) => d.getTime() < Date.now() - 24*60*60*1000}
+                initialFocus
+                className={cn("p-3 pointer-events-auto")}
+              />
+            </PopoverContent>
+          </Popover>
+          <p className="text-[11px] text-muted-foreground">
+            Após esta data o convite não poderá mais ser aceito. Padrão: 7 dias.
+          </p>
         </div>
         <div>
           <Label className="text-xs mb-1.5 block">Permissões</Label>

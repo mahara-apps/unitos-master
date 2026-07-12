@@ -9,6 +9,7 @@ import { CommandMenu } from "@/components/command-menu";
 import { Command } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationsBell } from "@/components/notifications/notifications-drawer";
+import { MandatoryPasswordReset } from "@/components/auth/mandatory-password-reset";
 
 const fallbackTitles: Record<string, string> = {
   "/dashboard": "Painel",
@@ -48,6 +49,7 @@ function AppShell() {
             </div>
           </div>
           <CommandMenu />
+          <MandatoryPasswordReset />
         </SidebarProvider>
       </PageHeaderProvider>
     </ActiveContextProvider>
