@@ -594,17 +594,52 @@ const ACCENTS: Record<string, string> = {
   rose: "bg-rose-500",
   emerald: "bg-emerald-500",
   fuchsia: "bg-fuchsia-500",
+  blue: "bg-blue-500",
+  purple: "bg-purple-500",
+  orange: "bg-orange-500",
+  red: "bg-red-500",
+  green: "bg-green-500",
+  pink: "bg-pink-500",
 };
 
 function MetricTile({
   label,
   value,
   accent,
+  tone = "neutral",
+  delta,
 }: {
   label: string;
   value: number | string;
   accent: keyof typeof ACCENTS;
+  tone?: "positive" | "risk" | "neutral";
+  delta?: { pct: number; direction: "up" | "down"; period?: string } | null;
 }) {
+  const period = delta?.period ?? "vs período anterior";
+  let trend: React.ReactNode;
+  if (!delta) {
+    trend = (
+      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/70">
+        <Minus className="h-3 w-3" />
+        <span className="tabular-nums">—</span>
+        <span>{period}</span>
+      </span>
+    );
+  } else {
+    const up = delta.direction === "up";
+    // For "positive" tone, up is good (emerald). For "risk", up is bad (crimson).
+    const good = tone === "risk" ? !up : up;
+    const color = good ? "text-emerald-500" : "text-rose-500";
+    const Arrow = up ? ArrowUpRight : ArrowDownRight;
+    trend = (
+      <span className={cn("inline-flex items-center gap-1 text-[11px] font-medium", color)}>
+        <Arrow className="h-3 w-3" />
+        <span className="tabular-nums">{delta.pct}%</span>
+        <span className="text-muted-foreground font-normal">{period}</span>
+      </span>
+    );
+  }
+
   return (
     <div className="relative overflow-hidden rounded-xl border border-border/60 bg-card p-4">
       <span className={cn("absolute inset-x-0 top-0 h-0.5", ACCENTS[accent])} />
@@ -612,6 +647,7 @@ function MetricTile({
         {label}
       </div>
       <div className="mt-2 text-2xl font-semibold tabular-nums tracking-tight">{value}</div>
+      <div className="mt-1.5">{trend}</div>
     </div>
   );
 }
