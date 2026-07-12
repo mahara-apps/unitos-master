@@ -13,6 +13,7 @@ import {
   customerMarketQuery,
   customerPautasQuery,
 } from "@/lib/customer-queries";
+import { ContextSourceBadge } from "./context-source-badge";
 
 type Scope = { brandId: string; clientId: string };
 
@@ -166,6 +167,9 @@ export function OverviewTab({ brandId, clientId }: Scope) {
 
       <div className="grid gap-4 md:grid-cols-2">
         <SectionCard title="Brand personality" icon={Sparkles}>
+          <div className="mb-3">
+            <ContextSourceBadge source="persona" />
+          </div>
           {voice?.brand_personality ? (
             <p className="text-sm leading-relaxed text-neutral-200">{voice.brand_personality}</p>
           ) : (
@@ -181,6 +185,9 @@ export function OverviewTab({ brandId, clientId }: Scope) {
         </SectionCard>
 
         <SectionCard title="Público-alvo" icon={Target}>
+          <div className="mb-3">
+            <ContextSourceBadge source="persona" />
+          </div>
           <p className="text-sm text-neutral-200">
             {(briefing.publico_alvo as string | null) ?? <span className="text-muted-foreground">—</span>}
           </p>
