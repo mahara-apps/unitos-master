@@ -466,13 +466,30 @@ export const updatePostFn = createServerFn({ method: "POST" })
             channels: z
               .array(z.enum(["instagram", "tiktok", "linkedin", "x", "youtube", "blog"]))
               .optional(),
+            reference_media: z
+              .array(
+                z.object({
+                  path: z.string(),
+                  name: z.string().optional(),
+                  type: z.string().optional(),
+                  size: z.number().optional(),
+                }),
+              )
+              .optional(),
+            design_brief: z.string().max(8000).nullable().optional(),
+            review_status: z.enum(["pending", "approved", "rejected"]).optional(),
           })
           .strict(),
       })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("posts").update(data.patch).eq("id", data.postId);
+    const patch = data.patch as Record<string, unknown>;
+    if (patch.review_status === "approved") {
+      patch.approved_at = new Date().toISOString();
+      patch.approved_by = context.userId;
+    }
+    const { error } = await context.supabase.from("posts").update(patch).eq("id", data.postId);
     if (error) throw error;
     return { ok: true };
   });
