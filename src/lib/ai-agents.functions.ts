@@ -109,7 +109,11 @@ export async function buildBrandContextBlueprint(
     brand_hub?: Record<string, unknown> | null;
   };
   const hub = (row.brand_hub ?? {}) as Record<string, unknown>;
-  const documents = (docs ?? []) as Array<{ name: string; mime_type: string; size_bytes: number }>;
+  const documents = ((docs ?? []) as unknown) as Array<{
+    name: string;
+    mime_type: string;
+    size_bytes: number;
+  }>;
 
   const arr = (v: unknown): string[] =>
     Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && !!x.trim()) : [];
