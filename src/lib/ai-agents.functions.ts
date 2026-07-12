@@ -1089,7 +1089,7 @@ export const runCustomerPipelineFn = createServerFn({ method: "POST" })
         `Briefing:\n${JSON.stringify(briefing, null, 2)}`,
         `Personas:\n${JSON.stringify(personas, null, 2)}`,
         `Cohorts:\n${JSON.stringify(cohorts, null, 2)}`,
-      ].join("\n\n"),
+      ].join("\n\n") + (await readCompetitorContext(context.supabase, data.brandId, data.clientId)),
       schema: SwotSchema,
     });
     await context.supabase
@@ -1117,7 +1117,7 @@ export const runCustomerPipelineFn = createServerFn({ method: "POST" })
         `SWOT: ${JSON.stringify(swot)}`,
         `Quantidade: ${data.pautasQuantidade}`,
         `Período: ${data.pautasPeriodo}`,
-      ].join("\n"),
+      ].join("\n") + (await readCompetitorContext(context.supabase, data.brandId, data.clientId)),
       schema: PautasSchema,
     });
     if (Array.isArray(pautas.pautas) && pautas.pautas.length) {
