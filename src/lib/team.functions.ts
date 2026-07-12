@@ -233,8 +233,8 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
             // Force password change on first login
             await supabaseAdmin
               .from("user_profiles")
-              // @ts-expect-error - column exists in DB; types not yet regenerated
-              .update({ requires_password_change: true })
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              .update({ requires_password_change: true } as any)
               .eq("id", created.user.id);
             provisioned = true;
           }
