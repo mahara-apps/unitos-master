@@ -32,6 +32,7 @@ export type BrandHubData = {
     facebook?: number;
   };
   goals?: string;
+  tone_text?: string;
 };
 
 export type BrandHubCompetitor = {
