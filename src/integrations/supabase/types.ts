@@ -442,7 +442,10 @@ export type Database = {
           id: string
           invited_by: string
           permissions: Json
+          revoked_at: string | null
+          revoked_by: string | null
           role: Database["public"]["Enums"]["app_role"]
+          temp_password_sent: boolean
           token: string
           updated_at: string
         }
@@ -456,7 +459,10 @@ export type Database = {
           id?: string
           invited_by: string
           permissions?: Json
+          revoked_at?: string | null
+          revoked_by?: string | null
           role?: Database["public"]["Enums"]["app_role"]
+          temp_password_sent?: boolean
           token: string
           updated_at?: string
         }
@@ -470,7 +476,10 @@ export type Database = {
           id?: string
           invited_by?: string
           permissions?: Json
+          revoked_at?: string | null
+          revoked_by?: string | null
           role?: Database["public"]["Enums"]["app_role"]
+          temp_password_sent?: boolean
           token?: string
           updated_at?: string
         }
@@ -1348,6 +1357,7 @@ export type Database = {
           created_at: string
           full_name: string
           id: string
+          requires_password_change: boolean
           role: string
           updated_at: string
         }
@@ -1356,6 +1366,7 @@ export type Database = {
           created_at?: string
           full_name: string
           id: string
+          requires_password_change?: boolean
           role?: string
           updated_at?: string
         }
@@ -1364,6 +1375,7 @@ export type Database = {
           created_at?: string
           full_name?: string
           id?: string
+          requires_password_change?: boolean
           role?: string
           updated_at?: string
         }
