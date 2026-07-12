@@ -132,7 +132,6 @@ function DashboardReady({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <PortalLinkDialog clientId={clientId} brandId={brandId} />
           {onRegenerate ? (
             <Button size="sm" variant="ghost" onClick={onRegenerate} className="gap-1.5 text-muted-foreground hover:text-foreground">
               <RefreshCw className="h-3.5 w-3.5" />
@@ -198,8 +197,6 @@ function DashboardReady({
       <div className="grid gap-4 lg:grid-cols-2">
         <AccountPropertiesCard
           socials={socials}
-          tokens={data.portalTokens}
-          activeTokens={activeTokens}
           contactEmail={client?.contact_email ?? null}
           contactName={client?.contact_name ?? null}
           brandId={brandId}
@@ -302,16 +299,12 @@ const SOCIAL_META: Array<{
 
 function AccountPropertiesCard({
   socials,
-  tokens,
-  activeTokens,
   contactEmail,
   contactName,
   brandId,
   clientId,
 }: {
   socials: Record<string, string | undefined>;
-  tokens: CustomerDashboardData["portalTokens"];
-  activeTokens: number;
   contactEmail: string | null;
   contactName: string | null;
   brandId: string;
@@ -376,27 +369,6 @@ function AccountPropertiesCard({
           </div>
         </div>
 
-        <div className="grid gap-2">
-          <div className="flex items-center justify-between">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              Links públicos do portal
-            </div>
-            <Badge variant="outline" className="font-mono text-[10px]">
-              {activeTokens} ativos
-            </Badge>
-          </div>
-          {tokens.length === 0 ? (
-            <div className="rounded-md border border-dashed border-border/60 p-3 text-center text-xs text-muted-foreground">
-              Gere um link do portal para compartilhar com o cliente.
-            </div>
-          ) : (
-            <div className="grid gap-1.5">
-              {tokens.slice(0, 5).map((t) => (
-                <PortalTokenRow key={t.id} token={t} brandId={brandId} clientId={clientId} />
-              ))}
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
