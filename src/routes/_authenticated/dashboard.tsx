@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Copy,
+  Edit3,
   ExternalLink,
   FolderKanban,
   Instagram,
@@ -33,11 +34,21 @@ import {
   loadCustomerDashboardFn,
   createPortalTokenFn,
 } from "@/lib/customer-dashboard.functions";
+import { updateClient } from "@/lib/workspace.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { WelcomeModal } from "@/components/dashboard/welcome-modal";
@@ -170,6 +181,7 @@ function DashboardContent({ brandId, clientId }: { brandId: string; clientId: st
         <SectionHeading title="Cliente em foco" />
         <div className="mt-3 grid gap-4 lg:grid-cols-2">
           <ClientIdentityCard
+            brandId={brandId}
             client={customer.data?.client ?? null}
             loading={!!clientId && customer.isLoading}
           />
@@ -296,7 +308,16 @@ type ClientRow = {
   socials?: unknown;
 } | null;
 
-function ClientIdentityCard({ client, loading }: { client: ClientRow; loading: boolean }) {
+function ClientIdentityCard({
+  brandId,
+  client,
+  loading,
+}: {
+  brandId: string;
+  client: ClientRow;
+  loading: boolean;
+}) {
+  const [editOpen, setEditOpen] = React.useState(false);
   if (loading) {
     return <div className="h-64 animate-pulse rounded-xl border border-border/60 bg-card" />;
   }
@@ -332,13 +353,24 @@ function ClientIdentityCard({ client, loading }: { client: ClientRow; loading: b
           <div className="truncate text-base font-semibold tracking-tight">{client.name}</div>
           <div className="text-xs text-muted-foreground">{client.niche ?? "Sem nicho definido"}</div>
         </div>
-        <Link
-          to="/customers/$customerId"
-          params={{ customerId: client.id }}
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          Abrir conta →
-        </Link>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => setEditOpen(true)}
+          >
+            <Edit3 className="h-3 w-3" />
+            Editar perfil
+          </Button>
+          <Link
+            to="/customers/$customerId"
+            params={{ customerId: client.id }}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            Abrir conta →
+          </Link>
+        </div>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -378,6 +410,12 @@ function ClientIdentityCard({ client, loading }: { client: ClientRow; loading: b
           </div>
         </div>
       </div>
+      <EditClientProfileDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        brandId={brandId}
+        client={client}
+      />
     </div>
   );
 }
@@ -389,6 +427,138 @@ function extractPalette(client: NonNullable<ClientRow>): string[] {
   const out = palette.filter((s) => typeof s === "string" && /^#|rgb|hsl|oklch|oklab/i.test(s));
   if (client.color) out.unshift(client.color);
   return Array.from(new Set(out)).slice(0, 8);
+}
+
+function EditClientProfileDialog({
+  open,
+  onOpenChange,
+  brandId,
+  client,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  brandId: string;
+  client: NonNullable<ClientRow>;
+}) {
+  const qc = useQueryClient();
+  const update = useServerFn(updateClient);
+  const socials =
+    (client.socials && typeof client.socials === "object"
+      ? (client.socials as Record<string, string | undefined>)
+      : {}) ?? {};
+
+  const [form, setForm] = React.useState({
+    contact_name: client.contact_name ?? "",
+    contact_email: client.contact_email ?? "",
+    phone: socials.phone ?? "",
+    instagram: socials.instagram ?? "",
+    tiktok: socials.tiktok ?? "",
+    linkedin: socials.linkedin ?? "",
+    youtube: socials.youtube ?? "",
+  });
+
+  React.useEffect(() => {
+    if (!open) return;
+    setForm({
+      contact_name: client.contact_name ?? "",
+      contact_email: client.contact_email ?? "",
+      phone: socials.phone ?? "",
+      instagram: socials.instagram ?? "",
+      tiktok: socials.tiktok ?? "",
+      linkedin: socials.linkedin ?? "",
+      youtube: socials.youtube ?? "",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, client.id]);
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      const nextSocials = {
+        ...socials,
+        phone: form.phone.trim() || undefined,
+        instagram: form.instagram.trim() || undefined,
+        tiktok: form.tiktok.trim() || undefined,
+        linkedin: form.linkedin.trim() || undefined,
+        youtube: form.youtube.trim() || undefined,
+      };
+      return update({
+        data: {
+          brandId,
+          clientId: client.id,
+          patch: {
+            contact_name: form.contact_name.trim() || null,
+            contact_email: form.contact_email.trim() || null,
+            socials: nextSocials,
+          },
+        },
+      });
+    },
+    onSuccess: () => {
+      toast.success("Profile updated successfully");
+      qc.invalidateQueries({ queryKey: ["customer-dashboard"] });
+      qc.invalidateQueries({ queryKey: ["customer-core", brandId, client.id] });
+      qc.invalidateQueries({ queryKey: ["clients", brandId] });
+      onOpenChange(false);
+    },
+    onError: (e) => toast.error((e as Error).message ?? "Falha ao salvar perfil"),
+  });
+
+  const field = (key: keyof typeof form) => ({
+    value: form[key],
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+      setForm((f) => ({ ...f, [key]: e.target.value })),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Edit Account Profile</DialogTitle>
+          <DialogDescription>
+            Atualize contato e redes desta conta. As mudanças refletem no dashboard e no Brand Hub.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3 py-2 sm:grid-cols-2">
+          <div className="sm:col-span-1">
+            <Label className="text-xs">Contato</Label>
+            <Input placeholder="Nome do contato" {...field("contact_name")} />
+          </div>
+          <div className="sm:col-span-1">
+            <Label className="text-xs">E-mail</Label>
+            <Input type="email" placeholder="contato@empresa.com" {...field("contact_email")} />
+          </div>
+          <div className="sm:col-span-2">
+            <Label className="text-xs">Telefone</Label>
+            <Input placeholder="+55 11 90000-0000" {...field("phone")} />
+          </div>
+          <div>
+            <Label className="text-xs">Instagram</Label>
+            <Input placeholder="@handle" {...field("instagram")} />
+          </div>
+          <div>
+            <Label className="text-xs">TikTok</Label>
+            <Input placeholder="@handle" {...field("tiktok")} />
+          </div>
+          <div>
+            <Label className="text-xs">LinkedIn</Label>
+            <Input placeholder="empresa" {...field("linkedin")} />
+          </div>
+          <div>
+            <Label className="text-xs">YouTube</Label>
+            <Input placeholder="@canal" {...field("youtube")} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={mut.isPending}>
+            Cancelar
+          </Button>
+          <Button onClick={() => mut.mutate()} disabled={mut.isPending}>
+            {mut.isPending ? "Salvando…" : "Salvar alterações"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
