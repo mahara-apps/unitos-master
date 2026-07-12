@@ -132,6 +132,7 @@ const HubPatch = Scope.extend({
         })
         .optional(),
       goals: z.string().max(3000).optional(),
+      tone_text: z.string().max(2000).optional(),
     })
     .partial(),
 });
