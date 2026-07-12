@@ -11,6 +11,7 @@ import {
   User as UserIcon,
   ChevronsUpDown,
   Sparkles,
+  Link2,
 } from "lucide-react";
 import {
   Sidebar,
@@ -37,6 +38,7 @@ const items = [
   { title: "Análises", url: "/analytics", icon: BarChart3 },
   { title: "Notificações", url: "/notifications", icon: Bell },
   { title: "Equipe", url: "/settings/team", icon: UserPlus },
+  { title: "Briefings", url: "/settings/briefing", icon: Link2 },
   { title: "Conexões", url: "/connections", icon: Plug },
 ] as const;
 

@@ -855,6 +855,66 @@ export type Database = {
         }
         Relationships: []
       }
+      client_briefing_tokens: {
+        Row: {
+          brand_id: string
+          client_id: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          label: string | null
+          revoked_at: string | null
+          submission: Json | null
+          submitted_at: string | null
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          label?: string | null
+          revoked_at?: string | null
+          submission?: Json | null
+          submitted_at?: string | null
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          label?: string | null
+          revoked_at?: string | null
+          submission?: Json | null
+          submitted_at?: string | null
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_briefing_tokens_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_briefing_tokens_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_briefings: {
         Row: {
           client_id: string

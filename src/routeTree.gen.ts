@@ -25,10 +25,12 @@ import { Route as AuthenticatedConnectionsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAiRouteImport } from './routes/_authenticated/ai'
 import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authenticated/customers.index'
+import { Route as PBriefingTokenRouteImport } from './routes/p.briefing.$token'
 import { Route as ApiJobsPostPhase2RouteImport } from './routes/api/jobs/post-phase2'
 import { Route as ApiJobsCustomerPipelineRouteImport } from './routes/api/jobs/customer-pipeline'
 import { Route as ApiJobsCopilotRouteImport } from './routes/api/jobs/copilot'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
+import { Route as AuthenticatedSettingsBriefingRouteImport } from './routes/_authenticated/settings.briefing'
 import { Route as AuthenticatedSettingsAiRouteImport } from './routes/_authenticated/settings.ai'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 import { Route as AuthenticatedCustomersCustomerIdPipelineRouteImport } from './routes/_authenticated/customers.$customerId.pipeline'
@@ -115,6 +117,11 @@ const AuthenticatedCustomersIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedCustomersRoute,
   } as any)
+const PBriefingTokenRoute = PBriefingTokenRouteImport.update({
+  id: '/p/briefing/$token',
+  path: '/p/briefing/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiJobsPostPhase2Route = ApiJobsPostPhase2RouteImport.update({
   id: '/api/jobs/post-phase2',
   path: '/api/jobs/post-phase2',
@@ -134,6 +141,12 @@ const AuthenticatedSettingsTeamRoute =
   AuthenticatedSettingsTeamRouteImport.update({
     id: '/team',
     path: '/team',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsBriefingRoute =
+  AuthenticatedSettingsBriefingRouteImport.update({
+    id: '/briefing',
+    path: '/briefing',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
 const AuthenticatedSettingsAiRoute = AuthenticatedSettingsAiRouteImport.update({
@@ -171,10 +184,12 @@ export interface FileRoutesByFullPath {
   '/portal/$token': typeof PortalTokenRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
+  '/settings/briefing': typeof AuthenticatedSettingsBriefingRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
+  '/p/briefing/$token': typeof PBriefingTokenRoute
   '/customers/': typeof AuthenticatedCustomersIndexRoute
   '/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
@@ -194,10 +209,12 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedIndexRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
+  '/settings/briefing': typeof AuthenticatedSettingsBriefingRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
+  '/p/briefing/$token': typeof PBriefingTokenRoute
   '/customers': typeof AuthenticatedCustomersIndexRoute
   '/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
@@ -220,10 +237,12 @@ export interface FileRoutesById {
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/_authenticated/settings/ai': typeof AuthenticatedSettingsAiRoute
+  '/_authenticated/settings/briefing': typeof AuthenticatedSettingsBriefingRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
+  '/p/briefing/$token': typeof PBriefingTokenRoute
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
   '/_authenticated/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
@@ -246,10 +265,12 @@ export interface FileRouteTypes {
     | '/portal/$token'
     | '/customers/$customerId'
     | '/settings/ai'
+    | '/settings/briefing'
     | '/settings/team'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
     | '/api/jobs/post-phase2'
+    | '/p/briefing/$token'
     | '/customers/'
     | '/customers/$customerId/pipeline'
   fileRoutesByTo: FileRoutesByTo
@@ -269,10 +290,12 @@ export interface FileRouteTypes {
     | '/'
     | '/customers/$customerId'
     | '/settings/ai'
+    | '/settings/briefing'
     | '/settings/team'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
     | '/api/jobs/post-phase2'
+    | '/p/briefing/$token'
     | '/customers'
     | '/customers/$customerId/pipeline'
   id:
@@ -294,10 +317,12 @@ export interface FileRouteTypes {
     | '/_authenticated/'
     | '/_authenticated/customers/$customerId'
     | '/_authenticated/settings/ai'
+    | '/_authenticated/settings/briefing'
     | '/_authenticated/settings/team'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
     | '/api/jobs/post-phase2'
+    | '/p/briefing/$token'
     | '/_authenticated/customers/'
     | '/_authenticated/customers/$customerId/pipeline'
   fileRoutesById: FileRoutesById
@@ -312,6 +337,7 @@ export interface RootRouteChildren {
   ApiJobsCopilotRoute: typeof ApiJobsCopilotRoute
   ApiJobsCustomerPipelineRoute: typeof ApiJobsCustomerPipelineRoute
   ApiJobsPostPhase2Route: typeof ApiJobsPostPhase2Route
+  PBriefingTokenRoute: typeof PBriefingTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -428,6 +454,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersIndexRouteImport
       parentRoute: typeof AuthenticatedCustomersRoute
     }
+    '/p/briefing/$token': {
+      id: '/p/briefing/$token'
+      path: '/p/briefing/$token'
+      fullPath: '/p/briefing/$token'
+      preLoaderRoute: typeof PBriefingTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/jobs/post-phase2': {
       id: '/api/jobs/post-phase2'
       path: '/api/jobs/post-phase2'
@@ -454,6 +487,13 @@ declare module '@tanstack/react-router' {
       path: '/team'
       fullPath: '/settings/team'
       preLoaderRoute: typeof AuthenticatedSettingsTeamRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/briefing': {
+      id: '/_authenticated/settings/briefing'
+      path: '/briefing'
+      fullPath: '/settings/briefing'
+      preLoaderRoute: typeof AuthenticatedSettingsBriefingRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/settings/ai': {
@@ -514,11 +554,13 @@ const AuthenticatedCustomersRouteWithChildren =
 
 interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsAiRoute: typeof AuthenticatedSettingsAiRoute
+  AuthenticatedSettingsBriefingRoute: typeof AuthenticatedSettingsBriefingRoute
   AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
 }
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsAiRoute: AuthenticatedSettingsAiRoute,
+  AuthenticatedSettingsBriefingRoute: AuthenticatedSettingsBriefingRoute,
   AuthenticatedSettingsTeamRoute: AuthenticatedSettingsTeamRoute,
 }
 
@@ -564,6 +606,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiJobsCopilotRoute: ApiJobsCopilotRoute,
   ApiJobsCustomerPipelineRoute: ApiJobsCustomerPipelineRoute,
   ApiJobsPostPhase2Route: ApiJobsPostPhase2Route,
+  PBriefingTokenRoute: PBriefingTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
