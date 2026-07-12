@@ -1,48 +1,31 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import {
   Activity,
   CalendarClock,
   CheckCircle2,
   Clock,
-  Copy,
   DollarSign,
   ExternalLink,
   Instagram,
-  Link2,
   Linkedin,
   Music2,
-  Plus,
   RefreshCw,
   ShieldCheck,
   Sparkles,
-  Trash2,
   Youtube,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Sparkline } from "@/components/dashboard/sparkline";
 import { HealthBar } from "@/components/dashboard/health-bar";
 import { OverviewSkeleton } from "@/components/ai-agents/tab-skeletons";
 import { isValidScope } from "@/lib/customer-queries";
 import {
-  createPortalTokenFn,
   loadCustomerDashboardFn,
-  revokePortalTokenFn,
   type CustomerDashboardData,
 } from "@/lib/customer-dashboard.functions";
 import { useEffect } from "react";
@@ -113,7 +96,6 @@ function DashboardReady({
   const client = data.client;
   const m = data.metrics;
   const approvalPct = m.totalApprovals ? Math.round((m.decidedApprovals / m.totalApprovals) * 100) : 0;
-  const activeTokens = data.portalTokens.filter((t) => !t.revoked_at).length;
   const socials = (client?.socials ?? {}) as Record<string, string | undefined>;
 
   return (
