@@ -250,7 +250,7 @@ type ClientRow = {
   contact_name?: string | null;
   contact_email?: string | null;
   tone_of_voice?: string | null;
-  socials?: Record<string, string | undefined> | null;
+  socials?: unknown;
 } | null;
 
 function ClientIdentityCard({ client, loading }: { client: ClientRow; loading: boolean }) {
@@ -264,7 +264,10 @@ function ClientIdentityCard({ client, loading }: { client: ClientRow; loading: b
       </div>
     );
   }
-  const socials = (client.socials ?? {}) as Record<string, string | undefined>;
+  const socials =
+    (client.socials && typeof client.socials === "object"
+      ? (client.socials as Record<string, string | undefined>)
+      : {}) ?? {};
   const palette = extractPalette(client);
   const initials = client.name
     .split(/\s+/)
