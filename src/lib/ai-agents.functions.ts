@@ -803,7 +803,7 @@ export const swotGenerateFn = createServerFn({ method: "POST" })
         `Briefing estruturado:\n${JSON.stringify(data.briefingJson, null, 2)}`,
         `Personas:\n${JSON.stringify(data.personasJson, null, 2)}`,
         `Cohorts:\n${JSON.stringify(data.cohortsJson, null, 2)}`,
-      ].join("\n\n") + (await readCompetitorContext(context.supabase, data.brandId, data.clientId)),
+      ].join("\n\n"),
       schema: SwotSchema,
     });
 
@@ -860,7 +860,7 @@ export const pautaSuggestFn = createServerFn({ method: "POST" })
         `SWOT: ${JSON.stringify(data.swotJson)}`,
         `Quantidade de pautas desejadas: ${data.quantidade}`,
         `Período: ${data.periodo}`,
-      ].join("\n") + (await readCompetitorContext(context.supabase, data.brandId, data.clientId)),
+      ].join("\n"),
       schema: PautasSchema,
     });
 
@@ -916,7 +916,7 @@ export const contentGenerateFn = createServerFn({ method: "POST" })
         `Persona/cohort alvo:\n${JSON.stringify(data.personaOuCohortJson, null, 2)}`,
         `Plataforma: ${data.plataforma}`,
         `Formato: ${data.formato}`,
-      ].join("\n\n") + (await readCompetitorContext(context.supabase, data.brandId, data.clientId)),
+      ].join("\n\n"),
       schema: ContentSchema,
     });
 
@@ -1306,7 +1306,7 @@ export const runCustomerPipelineFn = createServerFn({ method: "POST" })
         `Briefing:\n${JSON.stringify(briefing, null, 2)}`,
         `Personas:\n${JSON.stringify(personas, null, 2)}`,
         `Cohorts:\n${JSON.stringify(cohorts, null, 2)}`,
-      ].join("\n\n") + (await readCompetitorContext(context.supabase, data.brandId, data.clientId)),
+      ].join("\n\n"),
       schema: SwotSchema,
     });
     await context.supabase
@@ -1334,7 +1334,7 @@ export const runCustomerPipelineFn = createServerFn({ method: "POST" })
         `SWOT: ${JSON.stringify(swot)}`,
         `Quantidade: ${data.pautasQuantidade}`,
         `Período: ${data.pautasPeriodo}`,
-      ].join("\n") + (await readCompetitorContext(context.supabase, data.brandId, data.clientId)),
+      ].join("\n"),
       schema: PautasSchema,
     });
     if (Array.isArray(pautas.pautas) && pautas.pautas.length) {
