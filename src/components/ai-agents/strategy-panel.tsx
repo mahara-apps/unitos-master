@@ -431,6 +431,9 @@ export function MarketTab({ brandId, clientId }: Scope) {
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <ContextSourceBadge source="competitors" />
+      </div>
       <div className="grid gap-3 md:grid-cols-2">
         {quadrants.map((q) => (
           <div key={q.key} className={`rounded-xl border p-5 ${q.tone}`}>
@@ -452,6 +455,9 @@ export function MarketTab({ brandId, clientId }: Scope) {
       </div>
 
       <SectionCard title="Competitive matrix" icon={ShieldAlert}>
+        <div className="mb-3">
+          <ContextSourceBadge source="competitors" />
+        </div>
         {matrix.length ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
