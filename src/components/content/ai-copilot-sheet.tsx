@@ -1,7 +1,5 @@
 import { useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
+import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Sheet,
@@ -13,13 +11,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Input } from "@/components/ui/input";
-import { SiriOrb } from "@/components/ui/siri-orb";
-import { Instagram, Linkedin, Music2, Sparkles, RefreshCw, CheckCircle2, Wand2 } from "lucide-react";
+import { Instagram, Linkedin, Music2, Sparkles, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { generateContentDraft, injectDraftIntoPipeline, type GenerateDraftResult } from "@/lib/copilot.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 type ContentType = "reel" | "carousel" | "image" | "short_copy";
 type Channel = "instagram" | "tiktok" | "linkedin";
@@ -44,7 +40,7 @@ export function AiCopilotSheet({
   clientId,
   clientToneOfVoice,
   pipelineId,
-  invalidateKeys,
+  invalidateKeys: _invalidateKeys,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -54,61 +50,54 @@ export function AiCopilotSheet({
   pipelineId: string | null;
   invalidateKeys: Array<readonly unknown[]>;
 }) {
-  const qc = useQueryClient();
-  const generate = useServerFn(generateContentDraft);
-  const inject = useServerFn(injectDraftIntoPipeline);
-
   const [briefing, setBriefing] = useState("");
   const [channels, setChannels] = useState<Channel[]>(["instagram"]);
   const [contentType, setContentType] = useState<ContentType>("carousel");
   const [tone, setTone] = useState<string>("");
-  const [draft, setDraft] = useState<GenerateDraftResult | null>(null);
 
-  const generateMut = useMutation({
+  const enqueueMut = useMutation({
     mutationFn: async () => {
       if (!brandId || !clientId) throw new Error("Select an account first.");
-      return generate({
-        data: {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) throw new Error("Session expired. Please sign in again.");
+      const res = await fetch("/api/jobs/copilot", {
+        method: "POST",
+        keepalive: true,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
           brandId,
           clientId,
+          pipelineId,
           briefing: briefing.trim(),
           channels,
           contentType,
           tone: tone.trim() || undefined,
-        },
+          autoInject: Boolean(pipelineId),
+        }),
       });
-    },
-    onSuccess: (data) => setDraft(data),
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const injectMut = useMutation({
-    mutationFn: async () => {
-      if (!brandId || !clientId || !pipelineId || !draft) throw new Error("Missing context.");
-      return inject({
-        data: {
-          brandId,
-          clientId,
-          pipelineId,
-          title: draft.title,
-          copy: draft.hashtags.length
-            ? `${draft.content}\n\n${draft.hashtags.map((h) => `#${h}`).join(" ")}`
-            : draft.content,
-          channels,
-        },
-      });
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg || `Request failed with ${res.status}`);
+      }
+      return (await res.json()) as { jobId: string };
     },
     onSuccess: () => {
-      toast.success("Draft injected into the pipeline");
-      invalidateKeys.forEach((k) => qc.invalidateQueries({ queryKey: k as unknown[] }));
-      setDraft(null);
+      toast.success("Gerando em segundo plano", {
+        description: pipelineId
+          ? "Você pode fechar isto — o rascunho aparecerá no pipeline ao concluir."
+          : "Acompanhe o progresso pelo indicador no topo da tela.",
+      });
       setBriefing("");
       onOpenChange(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const canGenerate = Boolean(brandId && clientId && briefing.trim().length >= 4 && channels.length && !generateMut.isPending);
+  const canGenerate = Boolean(brandId && clientId && briefing.trim().length >= 4 && channels.length && !enqueueMut.isPending);
   const missingContext = !brandId || !clientId;
 
   const toneOptions = useMemo(
@@ -224,74 +213,23 @@ export function AiCopilotSheet({
                 </div>
               </section>
 
-              {generateMut.isPending ? (
-                <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-border bg-muted/20 py-10">
-                  <SiriOrb size={72} />
-                  <div className="text-sm font-medium">AI agent is writing copy...</div>
-                  <div className="text-[11px] text-muted-foreground">
-                    Reasoning over brand context, channel, and tone
-                  </div>
-                </div>
-              ) : draft ? (
-                <section className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-mono">
-                      Generated Draft
-                    </Label>
-                    <Badge variant="secondary" className="text-[10px]">Preview</Badge>
-                  </div>
-                  <div className="rounded-xl border border-border bg-card overflow-hidden">
-                    <div className="border-b border-border px-4 py-2.5 text-sm font-medium truncate">
-                      {draft.title}
-                    </div>
-                    <div className="prose prose-sm dark:prose-invert max-w-none px-4 py-4 text-sm leading-relaxed">
-                      <ReactMarkdown>{draft.content}</ReactMarkdown>
-                    </div>
-                    {draft.hashtags.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 border-t border-border bg-muted/20 px-4 py-2.5">
-                        {draft.hashtags.map((h) => (
-                          <span key={h} className="text-[11px] text-muted-foreground">#{h}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </section>
-              ) : null}
+              <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 p-4 text-[11px] text-muted-foreground">
+                A geração roda em segundo plano. Você pode fechar este painel e continuar
+                navegando — enviaremos uma notificação quando o rascunho estiver pronto.
+              </div>
             </>
           )}
         </div>
 
         <footer className="border-t border-border/60 bg-background/80 px-6 py-4 backdrop-blur">
-          {draft && !generateMut.isPending ? (
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => generateMut.mutate()}
-                disabled={generateMut.isPending || injectMut.isPending}
-              >
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Regenerate
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={() => injectMut.mutate()}
-                disabled={injectMut.isPending || !pipelineId}
-              >
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-                Approve &amp; Inject
-              </Button>
-            </div>
-          ) : (
-            <Button
-              className="w-full"
-              disabled={!canGenerate}
-              onClick={() => generateMut.mutate()}
-            >
-              <Sparkles className="mr-2 h-4 w-4" />
-              {generateMut.isPending ? "Generating..." : "Generate Content"}
-            </Button>
-          )}
+          <Button
+            className="w-full"
+            disabled={!canGenerate}
+            onClick={() => enqueueMut.mutate()}
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            {enqueueMut.isPending ? "Iniciando..." : "Gerar em segundo plano"}
+          </Button>
         </footer>
       </SheetContent>
     </Sheet>
