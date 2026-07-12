@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Copy,
+  Edit3,
   ExternalLink,
   FolderKanban,
   Instagram,
@@ -33,11 +34,21 @@ import {
   loadCustomerDashboardFn,
   createPortalTokenFn,
 } from "@/lib/customer-dashboard.functions";
+import { updateClient } from "@/lib/workspace.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { WelcomeModal } from "@/components/dashboard/welcome-modal";
