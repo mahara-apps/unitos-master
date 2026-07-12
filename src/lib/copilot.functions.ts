@@ -45,7 +45,7 @@ export const generateContentDraft = createServerFn({ method: "POST" })
         .maybeSingle(),
       context.supabase
         .from("brand_voice_cards")
-        .select("payload")
+        .select("data")
         .eq("client_id", data.clientId)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -56,8 +56,7 @@ export const generateContentDraft = createServerFn({ method: "POST" })
       client?.name && `Account: ${client.name}`,
       client?.niche && `Niche: ${client.niche}`,
       (data.tone || client?.tone_of_voice) && `Tone of voice: ${data.tone || client?.tone_of_voice}`,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      voice?.payload && `Voice card: ${JSON.stringify((voice as any).payload).slice(0, 800)}`,
+      voice?.data && `Voice card: ${JSON.stringify(voice.data).slice(0, 800)}`,
     ]
       .filter(Boolean)
       .join("\n");
