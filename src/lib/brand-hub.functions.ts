@@ -36,8 +36,7 @@ export const getBrandHub = createServerFn({ method: "GET" })
     const { data: row, error } = await context.supabase
       .from("clients")
       .select(
-        // @ts-expect-error new columns not yet in generated types
-        "id, name, niche, color, logo_url, logo_secondary_url, favicon_url, tone_of_voice, brand_hub",
+        "id, name, niche, color, logo_url, logo_secondary_url, favicon_url, tone_of_voice, brand_hub" as never,
       )
       .eq("id", data.clientId)
       .eq("brand_id", data.brandId)
@@ -75,8 +74,7 @@ export const updateBrandHub = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: current } = await context.supabase
       .from("clients")
-      // @ts-expect-error new column
-      .select("brand_hub")
+      .select("brand_hub" as never)
       .eq("id", data.clientId)
       .eq("brand_id", data.brandId)
       .maybeSingle();
