@@ -1,17 +1,26 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Copy, ImageIcon, Loader2, Plus, Trash2, Upload } from "lucide-react";
+import { Copy, ImageIcon, Loader2, Palette as PaletteIcon, Plus, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   uploadBrandAsset,
   updateBrandHub,
   updateBrandVisuals,
   type BrandHubClient,
 } from "@/lib/brand-hub.functions";
+import { extractDominantColors } from "@/lib/extract-colors";
 
 type AssetKind = "logo" | "logo_secondary" | "favicon";
 const ASSETS: Array<{ kind: AssetKind; label: string; hint: string }> = [
@@ -35,6 +44,7 @@ function AssetSlot({
   hint,
   currentUrl,
   onChange,
+  onExtracted,
 }: {
   brandId: string;
   clientId: string;
@@ -43,6 +53,7 @@ function AssetSlot({
   hint: string;
   currentUrl: string | null;
   onChange: () => void;
+  onExtracted?: (colors: string[]) => void;
 }) {
   const upload = useServerFn(uploadBrandAsset);
   const clear = useServerFn(updateBrandVisuals);
@@ -63,6 +74,16 @@ function AssetSlot({
       });
       toast.success(`${label} uploaded`);
       onChange();
+      // Auto color extraction for logo variants
+      if (onExtracted && (kind === "logo" || kind === "logo_secondary")) {
+        try {
+          const dataUrl = `data:${file.type || "image/png"};base64,${base64}`;
+          const colors = await extractDominantColors(dataUrl, 6);
+          if (colors.length) onExtracted(colors.map((c) => c.hex));
+        } catch {
+          // silent — extraction is best-effort
+        }
+      }
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Upload failed");
     } finally {
@@ -177,6 +198,8 @@ export function VisualIdentityTab({
       { label: "Accent", hex: "#f59e0b" },
     ],
   );
+  const [extracted, setExtracted] = useState<string[] | null>(null);
+  const [picked, setPicked] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (client.brand_hub.palette) setPalette(client.brand_hub.palette);
@@ -196,6 +219,30 @@ export function VisualIdentityTab({
     logo: client.logo_url,
     logo_secondary: client.logo_secondary_url,
     favicon: client.favicon_url,
+  };
+
+  const handleExtracted = (colors: string[]) => {
+    const existing = new Set(palette.map((p) => p.hex.toLowerCase()));
+    const fresh = colors.filter((c) => !existing.has(c.toLowerCase()));
+    if (!fresh.length) {
+      toast.info("Nenhuma cor nova detectada na logo");
+      return;
+    }
+    setExtracted(fresh);
+    setPicked(Object.fromEntries(fresh.map((c) => [c, true])));
+  };
+
+  const confirmAddExtracted = () => {
+    if (!extracted) return;
+    const additions = extracted
+      .filter((hex) => picked[hex])
+      .map((hex, i) => ({ label: `Extracted ${palette.length + i + 1}`, hex }));
+    if (additions.length) {
+      setPalette((p) => [...p, ...additions]);
+      toast.success(`${additions.length} cor(es) adicionada(s) — clique em Save palette`);
+    }
+    setExtracted(null);
+    setPicked({});
   };
 
   return (
@@ -218,6 +265,7 @@ export function VisualIdentityTab({
               hint={a.hint}
               currentUrl={currentByKind[a.kind]}
               onChange={onSaved}
+              onExtracted={handleExtracted}
             />
           ))}
         </div>
@@ -295,6 +343,49 @@ export function VisualIdentityTab({
           </Button>
         </div>
       </section>
+
+      <Dialog open={!!extracted} onOpenChange={(o) => !o && setExtracted(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <PaletteIcon className="h-4 w-4" /> Cores detectadas na logo
+            </DialogTitle>
+            <DialogDescription>
+              Extraímos as cores dominantes da logo. Selecione quais adicionar ao Brand Color Palette.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-3 gap-3 py-2">
+            {(extracted ?? []).map((hex) => {
+              const on = !!picked[hex];
+              return (
+                <button
+                  key={hex}
+                  type="button"
+                  onClick={() => setPicked((p) => ({ ...p, [hex]: !p[hex] }))}
+                  className={
+                    "group flex flex-col items-center gap-1.5 rounded-lg border p-2 text-[11px] transition " +
+                    (on ? "border-primary ring-2 ring-primary/30" : "border-border opacity-60 hover:opacity-100")
+                  }
+                >
+                  <span
+                    className="h-12 w-full rounded-md border border-border"
+                    style={{ background: hex }}
+                  />
+                  <span className="font-mono uppercase">{hex}</span>
+                </button>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setExtracted(null)}>
+              Não, obrigado
+            </Button>
+            <Button onClick={confirmAddExtracted} className="gap-2">
+              <Plus className="h-3.5 w-3.5" /> Adicionar à paleta
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
