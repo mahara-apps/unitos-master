@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
   LayoutDashboard,
-  Users,
   Bell,
   LogOut,
   KanbanSquare,
@@ -34,7 +33,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 const items = [
   { title: "Painel", url: "/dashboard", icon: LayoutDashboard },
   { title: "Conteúdo", url: "/content", icon: KanbanSquare },
-  { title: "Clientes", url: "/customers", icon: Users },
   { title: "Brand AI", url: "/ai", icon: Sparkles },
   { title: "Análises", url: "/analytics", icon: BarChart3 },
   { title: "Notificações", url: "/notifications", icon: Bell },

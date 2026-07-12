@@ -58,7 +58,7 @@ export const listClients = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { data: clients, error } = await context.supabase
       .from("clients")
-      .select("id, name, niche, color, contact_name, contact_email, contact_phone, tone_of_voice, palette, socials, is_active, owner_user_id, created_at, updated_at")
+      .select("id, name, niche, color, logo_url, contact_name, contact_email, contact_phone, tone_of_voice, palette, socials, is_active, owner_user_id, created_at, updated_at")
       .eq("brand_id", data.brandId)
       .is("archived_at", null)
       .order("name");
@@ -79,6 +79,7 @@ const CreateClientInput = z.object({
   name: z.string().trim().min(2).max(120),
   niche: z.string().max(120).optional(),
   color: z.string().optional(),
+  logo_url: z.string().url().max(500).optional().or(z.literal("")),
   tone_of_voice: z.string().max(120).optional(),
   contact_name: z.string().max(120).optional(),
   contact_email: z.string().email().max(200).optional().or(z.literal("")),
@@ -107,6 +108,7 @@ export const createClient = createServerFn({ method: "POST" })
         name: data.name,
         niche: data.niche ?? null,
         color: data.color ?? "#6366f1",
+        logo_url: data.logo_url ? data.logo_url : null,
         tone_of_voice: data.tone_of_voice ?? null,
         contact_name: data.contact_name ?? null,
         contact_email: data.contact_email ? data.contact_email : null,
