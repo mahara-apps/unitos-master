@@ -1265,6 +1265,9 @@ export type Database = {
       }
       posts: {
         Row: {
+          ai_phase: string
+          approved_at: string | null
+          approved_by: string | null
           assignee_id: string | null
           brand_id: string
           channels: Database["public"]["Enums"]["post_channel"][]
@@ -1273,11 +1276,14 @@ export type Database = {
           cover_url: string | null
           created_at: string
           created_by: string | null
+          design_brief: string | null
           id: string
           pipeline_id: string | null
           position: number
           project_id: string | null
           published_at: string | null
+          reference_media: Json
+          review_status: string
           scheduled_at: string | null
           stage: Database["public"]["Enums"]["post_stage"]
           stage_id: string | null
@@ -1285,6 +1291,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_phase?: string
+          approved_at?: string | null
+          approved_by?: string | null
           assignee_id?: string | null
           brand_id: string
           channels?: Database["public"]["Enums"]["post_channel"][]
@@ -1293,11 +1302,14 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           created_by?: string | null
+          design_brief?: string | null
           id?: string
           pipeline_id?: string | null
           position?: number
           project_id?: string | null
           published_at?: string | null
+          reference_media?: Json
+          review_status?: string
           scheduled_at?: string | null
           stage?: Database["public"]["Enums"]["post_stage"]
           stage_id?: string | null
@@ -1305,6 +1317,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_phase?: string
+          approved_at?: string | null
+          approved_by?: string | null
           assignee_id?: string | null
           brand_id?: string
           channels?: Database["public"]["Enums"]["post_channel"][]
@@ -1313,11 +1328,14 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           created_by?: string | null
+          design_brief?: string | null
           id?: string
           pipeline_id?: string | null
           position?: number
           project_id?: string | null
           published_at?: string | null
+          reference_media?: Json
+          review_status?: string
           scheduled_at?: string | null
           stage?: Database["public"]["Enums"]["post_stage"]
           stage_id?: string | null
