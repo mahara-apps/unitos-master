@@ -25,6 +25,7 @@ import { Route as AuthenticatedConnectionsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAiRouteImport } from './routes/_authenticated/ai'
 import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authenticated/customers.index'
+import { Route as ApiJobsCopilotRouteImport } from './routes/api/jobs/copilot'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsAiRouteImport } from './routes/_authenticated/settings.ai'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
@@ -112,6 +113,11 @@ const AuthenticatedCustomersIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedCustomersRoute,
   } as any)
+const ApiJobsCopilotRoute = ApiJobsCopilotRouteImport.update({
+  id: '/api/jobs/copilot',
+  path: '/api/jobs/copilot',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedSettingsTeamRoute =
   AuthenticatedSettingsTeamRouteImport.update({
     id: '/team',
@@ -154,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/customers/': typeof AuthenticatedCustomersIndexRoute
   '/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
@@ -174,6 +181,7 @@ export interface FileRoutesByTo {
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/customers': typeof AuthenticatedCustomersIndexRoute
   '/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
@@ -197,6 +205,7 @@ export interface FileRoutesById {
   '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/_authenticated/settings/ai': typeof AuthenticatedSettingsAiRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
   '/_authenticated/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
@@ -220,6 +229,7 @@ export interface FileRouteTypes {
     | '/customers/$customerId'
     | '/settings/ai'
     | '/settings/team'
+    | '/api/jobs/copilot'
     | '/customers/'
     | '/customers/$customerId/pipeline'
   fileRoutesByTo: FileRoutesByTo
@@ -240,6 +250,7 @@ export interface FileRouteTypes {
     | '/customers/$customerId'
     | '/settings/ai'
     | '/settings/team'
+    | '/api/jobs/copilot'
     | '/customers'
     | '/customers/$customerId/pipeline'
   id:
@@ -262,6 +273,7 @@ export interface FileRouteTypes {
     | '/_authenticated/customers/$customerId'
     | '/_authenticated/settings/ai'
     | '/_authenticated/settings/team'
+    | '/api/jobs/copilot'
     | '/_authenticated/customers/'
     | '/_authenticated/customers/$customerId/pipeline'
   fileRoutesById: FileRoutesById
@@ -273,6 +285,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   InviteTokenRoute: typeof InviteTokenRoute
   PortalTokenRoute: typeof PortalTokenRoute
+  ApiJobsCopilotRoute: typeof ApiJobsCopilotRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -389,6 +402,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersIndexRouteImport
       parentRoute: typeof AuthenticatedCustomersRoute
     }
+    '/api/jobs/copilot': {
+      id: '/api/jobs/copilot'
+      path: '/api/jobs/copilot'
+      fullPath: '/api/jobs/copilot'
+      preLoaderRoute: typeof ApiJobsCopilotRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/settings/team': {
       id: '/_authenticated/settings/team'
       path: '/team'
@@ -501,6 +521,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   InviteTokenRoute: InviteTokenRoute,
   PortalTokenRoute: PortalTokenRoute,
+  ApiJobsCopilotRoute: ApiJobsCopilotRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

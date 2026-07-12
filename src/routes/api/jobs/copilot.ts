@@ -44,7 +44,7 @@ async function runCopilotJob(params: {
   const { jobId, token, userId, input } = params;
   const supabase = buildUserClient(token);
 
-  const patch = (fields: Record<string, unknown>) =>
+  const patch = (fields: Partial<Database["public"]["Tables"]["ai_jobs"]["Update"]>) =>
     supabase.from("ai_jobs").update(fields).eq("id", jobId);
 
   try {
@@ -198,7 +198,7 @@ export const Route = createFileRoute("/api/jobs/copilot")({
             subtitle: `${input.contentType} · ${input.channels.join(", ")}`,
             status: "queued",
             progress: 0,
-            input: input as unknown as Record<string, unknown>,
+            input: input as unknown as Database["public"]["Tables"]["ai_jobs"]["Insert"]["input"],
           })
           .select("id")
           .single();
