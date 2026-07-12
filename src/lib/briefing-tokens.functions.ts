@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
+
 export type BriefingTokenRow = {
   id: string;
   brand_id: string;
@@ -11,7 +13,7 @@ export type BriefingTokenRow = {
   expires_at: string | null;
   revoked_at: string | null;
   submitted_at: string | null;
-  submission: unknown;
+  submission: Json | null;
   created_at: string;
 };
 
