@@ -2,11 +2,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BrainCircuit, Palette, FileText } from "lucide-react";
+import { BrainCircuit, Palette, FileText, TrendingUp } from "lucide-react";
 import { getBrandHub } from "@/lib/brand-hub.functions";
 import { BriefingTab } from "./briefing-tab";
 import { VisualIdentityTab } from "./visual-identity-tab";
 import { DocumentsTab } from "./documents-tab";
+import { CompetitorsTab } from "./competitors-tab";
 
 export function BrandHub({ brandId, clientId }: { brandId: string; clientId: string }) {
   const qc = useQueryClient();
@@ -32,6 +33,9 @@ export function BrandHub({ brandId, clientId }: { brandId: string; clientId: str
         <TabsTrigger value="visual" className="gap-1.5 text-xs">
           <Palette className="h-3.5 w-3.5" /> Visual Identity
         </TabsTrigger>
+        <TabsTrigger value="competitors" className="gap-1.5 text-xs">
+          <TrendingUp className="h-3.5 w-3.5" /> Competitors
+        </TabsTrigger>
         <TabsTrigger value="docs" className="gap-1.5 text-xs">
           <FileText className="h-3.5 w-3.5" /> Knowledge Base
         </TabsTrigger>
@@ -50,6 +54,13 @@ export function BrandHub({ brandId, clientId }: { brandId: string; clientId: str
           clientId={clientId}
           client={hubQ.data}
           onSaved={invalidate}
+        />
+      </TabsContent>
+      <TabsContent value="competitors">
+        <CompetitorsTab
+          brandId={brandId}
+          clientId={clientId}
+          competitors={hubQ.data.brand_hub.competitors ?? []}
         />
       </TabsContent>
       <TabsContent value="docs">

@@ -10,6 +10,28 @@ export type BrandHubData = {
   demographics?: string;
   tone_tags?: string[];
   palette?: Array<{ label: string; hex: string }>;
+  competitors?: BrandHubCompetitor[];
+};
+
+export type BrandHubCompetitor = {
+  id: string;
+  handle: string;
+  platform: "instagram" | "tiktok" | "youtube" | "linkedin" | "x";
+  notes?: string;
+  added_at: string;
+  last_scraped_at?: string;
+  last_metrics?: BrandHubCompetitorMetrics | null;
+  last_error?: string | null;
+};
+
+export type BrandHubCompetitorMetrics = {
+  followers?: number;
+  posts_count?: number;
+  avg_likes?: number;
+  avg_comments?: number;
+  engagement_rate?: number;
+  top_posts?: Array<{ url?: string; caption?: string; likes?: number; comments?: number }>;
+  recurring_hooks?: string[];
 };
 
 const Scope = z.object({
@@ -87,6 +109,170 @@ export const updateBrandHub = createServerFn({ method: "POST" })
       .eq("brand_id", data.brandId);
     if (error) throw error;
     return { ok: true, brand_hub: next };
+  });
+
+/* -------------------- Competitor benchmarking -------------------- */
+
+const HANDLE_RE = /^@?[A-Za-z0-9._-]{2,40}$/;
+
+async function readHub(
+  supabase: import("@supabase/supabase-js").SupabaseClient,
+  brandId: string,
+  clientId: string,
+): Promise<BrandHubData> {
+  const { data, error } = await supabase
+    .from("clients")
+    .select("brand_hub" as never)
+    .eq("id", clientId)
+    .eq("brand_id", brandId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("client_not_found");
+  return ((data as { brand_hub?: BrandHubData }).brand_hub ?? {}) as BrandHubData;
+}
+
+async function writeHub(
+  supabase: import("@supabase/supabase-js").SupabaseClient,
+  brandId: string,
+  clientId: string,
+  next: BrandHubData,
+) {
+  const { error } = await supabase
+    .from("clients")
+    .update({ brand_hub: next } as never)
+    .eq("id", clientId)
+    .eq("brand_id", brandId);
+  if (error) throw error;
+}
+
+export const addCompetitor = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    Scope.extend({
+      handle: z.string().trim().min(2).max(40).regex(HANDLE_RE, "invalid_handle"),
+      platform: z.enum(["instagram", "tiktok", "youtube", "linkedin", "x"]).default("instagram"),
+      notes: z.string().max(500).optional(),
+    }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const hub = await readHub(context.supabase, data.brandId, data.clientId);
+    const list = [...(hub.competitors ?? [])];
+    const clean = data.handle.replace(/^@/, "").toLowerCase();
+    if (list.some((c) => c.handle.toLowerCase() === clean && c.platform === data.platform)) {
+      throw new Error("competitor_already_registered");
+    }
+    if (list.length >= 30) throw new Error("competitor_limit_reached");
+    const entry: BrandHubCompetitor = {
+      id: crypto.randomUUID(),
+      handle: clean,
+      platform: data.platform,
+      notes: data.notes,
+      added_at: new Date().toISOString(),
+      last_metrics: null,
+    };
+    list.push(entry);
+    await writeHub(context.supabase, data.brandId, data.clientId, { ...hub, competitors: list });
+    return { ok: true, competitor: entry };
+  });
+
+export const removeCompetitor = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => Scope.extend({ competitorId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const hub = await readHub(context.supabase, data.brandId, data.clientId);
+    const list = (hub.competitors ?? []).filter((c) => c.id !== data.competitorId);
+    await writeHub(context.supabase, data.brandId, data.clientId, { ...hub, competitors: list });
+    return { ok: true };
+  });
+
+/**
+ * Scrapes a competitor via Apify (Instagram profile scraper).
+ * Requires APIFY_TOKEN to be configured. If missing, returns a soft error
+ * stored on the competitor so the UI surfaces the setup gap without failing.
+ * Runs the actor synchronously with a short timeout — fine because the caller
+ * enqueues it in the background job dock.
+ */
+export const scrapeCompetitor = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => Scope.extend({ competitorId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const hub = await readHub(context.supabase, data.brandId, data.clientId);
+    const list = [...(hub.competitors ?? [])];
+    const idx = list.findIndex((c) => c.id === data.competitorId);
+    if (idx < 0) throw new Error("competitor_not_found");
+    const target = list[idx];
+
+    const token = process.env.APIFY_TOKEN;
+    const nowIso = new Date().toISOString();
+
+    if (!token) {
+      list[idx] = {
+        ...target,
+        last_scraped_at: nowIso,
+        last_error: "APIFY_TOKEN not configured — add it in project secrets to enable live scraping.",
+      };
+      await writeHub(context.supabase, data.brandId, data.clientId, { ...hub, competitors: list });
+      return { ok: false, reason: "no_token" as const, competitor: list[idx] };
+    }
+
+    // Instagram profile actor (public). We keep the actor id in one place so it
+    // can be swapped without touching the UI. For other platforms we currently
+    // no-op — future work.
+    const actorId = "apify~instagram-profile-scraper";
+    let metrics: BrandHubCompetitorMetrics | null = null;
+    let errorMsg: string | null = null;
+
+    try {
+      if (target.platform !== "instagram") {
+        throw new Error(`scraping_not_supported_for_${target.platform}`);
+      }
+      const runRes = await fetch(
+        `https://api.apify.com/v2/acts/${actorId}/run-sync-get-dataset-items?token=${token}&timeout=90`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ usernames: [target.handle], resultsLimit: 12 }),
+        },
+      );
+      if (!runRes.ok) throw new Error(`Apify error [${runRes.status}]: ${await runRes.text()}`);
+      const items = (await runRes.json()) as Array<Record<string, unknown>>;
+      const profile = items[0] ?? {};
+      const latestPosts = (profile.latestPosts as Array<Record<string, unknown>> | undefined) ?? [];
+      const likes = latestPosts.map((p) => Number(p.likesCount ?? 0));
+      const comments = latestPosts.map((p) => Number(p.commentsCount ?? 0));
+      const avg = (arr: number[]) => (arr.length ? arr.reduce((s, x) => s + x, 0) / arr.length : 0);
+      const followers = Number(profile.followersCount ?? 0);
+      const avgLikes = avg(likes);
+      const avgComments = avg(comments);
+      metrics = {
+        followers,
+        posts_count: Number(profile.postsCount ?? latestPosts.length),
+        avg_likes: Math.round(avgLikes),
+        avg_comments: Math.round(avgComments),
+        engagement_rate: followers > 0 ? Number(((avgLikes + avgComments) / followers).toFixed(4)) : 0,
+        top_posts: latestPosts.slice(0, 5).map((p) => ({
+          url: String(p.url ?? ""),
+          caption: String(p.caption ?? "").slice(0, 280),
+          likes: Number(p.likesCount ?? 0),
+          comments: Number(p.commentsCount ?? 0),
+        })),
+        recurring_hooks: latestPosts
+          .map((p) => String(p.caption ?? "").split(/[.\n!?]/)[0]?.trim())
+          .filter((s): s is string => Boolean(s && s.length > 5 && s.length < 140))
+          .slice(0, 6),
+      };
+    } catch (e) {
+      errorMsg = e instanceof Error ? e.message : String(e);
+    }
+
+    list[idx] = {
+      ...target,
+      last_scraped_at: nowIso,
+      last_metrics: metrics,
+      last_error: errorMsg,
+    };
+    await writeHub(context.supabase, data.brandId, data.clientId, { ...hub, competitors: list });
+    return { ok: !errorMsg, competitor: list[idx] };
   });
 
 const VisualsPatch = Scope.extend({
