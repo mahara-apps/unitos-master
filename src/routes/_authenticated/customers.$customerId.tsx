@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useEffect, useState } from "react";
@@ -19,6 +19,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useActiveContext } from "@/hooks/use-active-context";
+import { useAccessRole } from "@/hooks/use-access-role";
+import { FALLBACK_ROUTE } from "@/lib/permissions";
+import { toast } from "sonner";
 import { listClients } from "@/lib/workspace.functions";
 import {
   StrategyTab,
@@ -64,10 +67,20 @@ const isUuid = (v: string | null | undefined): v is string => !!v && UUID_RE.tes
 function CustomerDetail() {
   const { customerId } = Route.useParams();
   const { brandId, setClientId } = useActiveContext();
+  const { role, allowedClientIds, isReady } = useAccessRole();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (customerId) setClientId(customerId);
   }, [customerId, setClientId]);
+
+  useEffect(() => {
+    if (!isReady || !allowedClientIds) return;
+    if (!allowedClientIds.has(customerId)) {
+      toast.error("Acesso negado", { description: "Você não é responsável por este cliente." });
+      navigate({ to: FALLBACK_ROUTE[role], replace: true });
+    }
+  }, [isReady, allowedClientIds, customerId, role, navigate]);
 
   if (!isUuid(brandId)) {
     return (

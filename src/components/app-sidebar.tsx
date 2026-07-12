@@ -39,6 +39,8 @@ import { ContextSwitcher } from "./brand-client-switcher";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useAccessRole } from "@/hooks/use-access-role";
+import { canAccessSidebarUrl } from "@/lib/permissions";
 
 type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string }> };
 
@@ -80,13 +82,17 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (u: string) => pathname === u || pathname.startsWith(u + "/");
+  const { role } = useAccessRole();
+  const visibleGroups = groups
+    .map((g) => ({ ...g, items: g.items.filter((i) => canAccessSidebarUrl(role, i.url)) }))
+    .filter((g) => g.items.length > 0);
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="gap-1">
         <ContextSwitcher />
       </SidebarHeader>
       <SidebarContent>
-        {groups.map((g) => (
+        {visibleGroups.map((g) => (
           <SidebarGroup key={g.label}>
             <SidebarGroupLabel>{g.label}</SidebarGroupLabel>
             <SidebarGroupContent>

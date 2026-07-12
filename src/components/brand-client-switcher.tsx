@@ -37,10 +37,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { CustomerAvatar } from "@/components/customer/customer-avatar";
+import { useAccessRole } from "@/hooks/use-access-role";
 
 export function ContextSwitcher() {
   const { brandId, clientId, setBrandId, setClientId } = useActiveContext();
   const qc = useQueryClient();
+  const { role, allowedClientIds } = useAccessRole();
+  const isAdmin = role === "admin";
   const list = useServerFn(listMyBrands);
   const create = useServerFn(createBrand);
   const seed = useServerFn(seedDemoData);
@@ -103,7 +106,16 @@ export function ContextSwitcher() {
   }, [brandId, brandsQ.data, setBrandId]);
 
   const activeBrand = brandsQ.data?.find((b) => b.id === brandId) ?? null;
-  const activeClient = clientsQ.data?.find((c) => c.id === clientId) ?? null;
+  const visibleClients = (clientsQ.data ?? []).filter(
+    (c) => !allowedClientIds || allowedClientIds.has(c.id),
+  );
+  const activeClient = visibleClients.find((c) => c.id === clientId) ?? null;
+
+  // Se o usuário tem um clientId ativo fora do seu escopo, limpa a seleção.
+  useEffect(() => {
+    if (!clientId || !allowedClientIds) return;
+    if (!allowedClientIds.has(clientId)) setClientId(null);
+  }, [clientId, allowedClientIds, setClientId]);
 
   return (
     <>
@@ -198,12 +210,12 @@ export function ContextSwitcher() {
                   <span className="flex-1">All customers</span>
                   {!clientId && <Check className="h-3.5 w-3.5" />}
                 </CommandItem>
-                {clientsQ.data?.length === 0 && (
+                {visibleClients.length === 0 && (
                   <div className="px-2 py-3 text-center text-xs text-muted-foreground">
-                    No customers yet.
+                    {isAdmin ? "No customers yet." : "Nenhum cliente atribuído a você."}
                   </div>
                 )}
-                {clientsQ.data?.map((c) => (
+                {visibleClients.map((c) => (
                   <CommandItem
                     key={c.id}
                     value={`account ${c.name}`}
@@ -222,7 +234,7 @@ export function ContextSwitcher() {
                     {c.id === clientId && <Check className="h-3.5 w-3.5" />}
                   </CommandItem>
                 ))}
-                {brandId && (
+                {brandId && isAdmin && (
                   <CommandItem
                     value="create customer"
                     onSelect={() => {

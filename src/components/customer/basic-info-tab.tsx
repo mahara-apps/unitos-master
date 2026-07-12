@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { listClients, listMyBrands, updateClient } from "@/lib/workspace.functions";
-
-const EDIT_ROLES = new Set(["owner", "manager", "admin"]);
+import { canEditBasicInfo, resolveAccessRole } from "@/lib/permissions";
 
 export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId: string }) {
   const qc = useQueryClient();
@@ -25,8 +24,9 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
   const brandsQ = useQuery({ queryKey: ["brands"], queryFn: () => listBrandsFn(), staleTime: 60_000 });
 
   const client = (clientsQ.data ?? []).find((c) => c.id === clientId);
-  const role = brandsQ.data?.find((b) => b.id === brandId)?.role ?? "editor";
-  const canEdit = EDIT_ROLES.has(role);
+  const brandRole = brandsQ.data?.find((b) => b.id === brandId)?.role ?? null;
+  const accessRole = resolveAccessRole(brandRole);
+  const canEdit = canEditBasicInfo(accessRole);
 
   const socials = (client?.socials && typeof client.socials === "object"
     ? (client.socials as Record<string, string | undefined>)
@@ -114,8 +114,8 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
 
       {!canEdit ? (
         <div className="rounded-md border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-200">
-          Apenas usuários com papel <strong>owner</strong> ou <strong>manager</strong> da marca podem editar estes campos.
-          Seu papel atual: <strong>{role}</strong>.
+          Apenas administradores da agência (owner/manager) podem editar estes campos.
+          Seu papel atual: <strong>{brandRole ?? "—"}</strong> ({accessRole}).
         </div>
       ) : null}
 
