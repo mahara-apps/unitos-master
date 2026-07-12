@@ -65,6 +65,84 @@ export type Database = {
           },
         ]
       }
+      ai_jobs: {
+        Row: {
+          brand_id: string
+          client_id: string | null
+          created_at: string
+          error: string | null
+          finished_at: string | null
+          id: string
+          input: Json
+          kind: string
+          progress: number
+          result: Json | null
+          started_at: string | null
+          status: string
+          step_label: string | null
+          subtitle: string | null
+          target_route: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brand_id: string
+          client_id?: string | null
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          input?: Json
+          kind: string
+          progress?: number
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          step_label?: string | null
+          subtitle?: string | null
+          target_route?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brand_id?: string
+          client_id?: string | null
+          created_at?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          input?: Json
+          kind?: string
+          progress?: number
+          result?: Json | null
+          started_at?: string | null
+          status?: string
+          step_label?: string | null
+          subtitle?: string | null
+          target_route?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_jobs_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_jobs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_ai_content: {
         Row: {
           brand_id: string
