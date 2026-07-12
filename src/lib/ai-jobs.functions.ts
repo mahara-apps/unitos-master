@@ -17,7 +17,7 @@ export type AiJobRow = {
   step_label: string | null;
   error: string | null;
   target_route: string | null;
-  result: unknown;
+  result: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
   started_at: string | null;
@@ -34,7 +34,7 @@ export const listMyAiJobs = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(25);
     if (error) throw error;
-    return (data ?? []) as AiJobRow[];
+    return (data ?? []) as unknown as AiJobRow[];
   });
 
 export const dismissAiJob = createServerFn({ method: "POST" })
