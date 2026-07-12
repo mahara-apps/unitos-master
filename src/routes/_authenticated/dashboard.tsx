@@ -181,6 +181,7 @@ function DashboardContent({ brandId, clientId }: { brandId: string; clientId: st
         <SectionHeading title="Cliente em foco" />
         <div className="mt-3 grid gap-4 lg:grid-cols-2">
           <ClientIdentityCard
+            brandId={brandId}
             client={customer.data?.client ?? null}
             loading={!!clientId && customer.isLoading}
           />
