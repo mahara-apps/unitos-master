@@ -408,6 +408,12 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
     ).length,
     posts_total: posts.length,
     approvals_pending: posts.filter((p) => p.stage === "review").length,
+    posts_approved_30d: posts.filter(
+      (p) =>
+        p.stage === "approved" &&
+        p.updated_at &&
+        new Date(p.updated_at).getTime() > now - 30 * 86_400_000,
+    ).length,
   };
 
   const sparkline = Array.from({ length: 14 }, (_, i) => {
