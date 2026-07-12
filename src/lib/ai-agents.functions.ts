@@ -51,6 +51,44 @@ function estimateCost(model: string, inTok: number, outTok: number) {
   return (inTok * p.input + outTok * p.output) / 1_000_000;
 }
 
+/**
+ * Reads competitor benchmarking data registered in `clients.brand_hub.competitors`
+ * and returns a compact, prompt-friendly summary. Empty string when nothing
+ * useful is registered — callers concat it directly without conditionals.
+ */
+async function readCompetitorContext(
+  supabase: import("@supabase/supabase-js").SupabaseClient,
+  brandId: string,
+  clientId: string,
+): Promise<string> {
+  const { data } = await supabase
+    .from("clients")
+    .select("brand_hub" as never)
+    .eq("id", clientId)
+    .eq("brand_id", brandId)
+    .maybeSingle();
+  const hub = (data as { brand_hub?: Record<string, unknown> } | null)?.brand_hub;
+  const list = (hub?.competitors as Array<Record<string, unknown>> | undefined) ?? [];
+  if (!list.length) return "";
+  const summary = list.slice(0, 15).map((c) => {
+    const m = (c.last_metrics ?? {}) as Record<string, unknown>;
+    const engagement =
+      typeof m.engagement_rate === "number" ? `${(m.engagement_rate * 100).toFixed(2)}%` : "n/a";
+    const hooks = Array.isArray(m.recurring_hooks) ? (m.recurring_hooks as string[]).slice(0, 3) : [];
+    return {
+      handle: `@${String(c.handle ?? "")}`,
+      platform: c.platform ?? "instagram",
+      notes: c.notes ?? null,
+      followers: m.followers ?? null,
+      avg_likes: m.avg_likes ?? null,
+      avg_comments: m.avg_comments ?? null,
+      engagement_rate: engagement,
+      recurring_hooks: hooks,
+    };
+  });
+  return `\n\nRegistered competitors benchmark (from Brand Hub — use these real engagement patterns to inform strategy and copy):\n${JSON.stringify(summary, null, 2)}`;
+}
+
 async function runAgent<T extends z.ZodTypeAny>(opts: {
   agent: AgentName;
   brandId: string;
