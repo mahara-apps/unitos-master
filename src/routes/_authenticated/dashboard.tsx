@@ -408,21 +408,6 @@ function extractPalette(client: NonNullable<ClientRow>): string[] {
   return Array.from(new Set(out)).slice(0, 8);
 }
 
-function EditClientProfileDialog({
-  open,
-  onOpenChange,
-  brandId,
-  client,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  brandId: string;
-  client: NonNullable<ClientRow>;
-}) {
-  void open; void onOpenChange; void brandId; void client;
-  return null;
-}
-
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
