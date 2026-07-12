@@ -61,6 +61,12 @@ export type BoardPost = {
   updated_at: string;
   brand_id: string;
   client_id: string;
+  review_status?: string | null;
+  reference_media?: Array<{ path: string; name?: string; type?: string; size?: number }> | null;
+  design_brief?: string | null;
+  ai_phase?: string | null;
+  approved_at?: string | null;
+  approved_by?: string | null;
 };
 
 export type Board = {
