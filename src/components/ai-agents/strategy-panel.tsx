@@ -226,6 +226,9 @@ export function StrategyTab({ brandId, clientId }: Scope) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <SectionCard title="Briefing estruturado" icon={Target}>
+        <div className="mb-3">
+          <ContextSourceBadge source="persona" />
+        </div>
         <dl className="space-y-3">
           {rows.map(([label, value]) => (
             <div key={label}>
@@ -251,6 +254,9 @@ export function StrategyTab({ brandId, clientId }: Scope) {
       </SectionCard>
 
       <SectionCard title="Voice Card" icon={Sparkles}>
+        <div className="mb-3">
+          <ContextSourceBadge source="persona" />
+        </div>
         {voice ? (
           <div className="space-y-4">
             <div>
