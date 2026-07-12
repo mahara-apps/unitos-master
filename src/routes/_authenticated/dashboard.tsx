@@ -23,6 +23,9 @@ import {
   UserPlus,
   Youtube,
   CalendarIcon,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
 } from "lucide-react";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { getDashboardStats } from "@/lib/dashboard.functions";
@@ -181,20 +184,42 @@ function DashboardContent({ brandId, clientId }: { brandId: string; clientId: st
       <section>
         <SectionHeading title="Métricas" />
         <div className="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
-          {clientId ? (
-            <MetricTile
-              label="Orçamento IA (30d)"
-              value={`$${(customer.data?.metrics.costTotal30d ?? 0).toFixed(2)}`}
-              accent="sky"
-            />
-          ) : (
-            <MetricTile label="Clientes" value={stats.data?.counts.clients ?? 0} accent="sky" />
-          )}
-          <MetricTile label="Projetos ativos" value={stats.data?.counts.projects_active ?? 0} accent="indigo" />
-          <MetricTile label="Tarefas abertas" value={stats.data?.counts.tasks_open ?? 0} accent="amber" />
-          <MetricTile label="Tarefas atrasadas" value={stats.data?.counts.tasks_overdue ?? 0} accent="rose" />
-          <MetricTile label="Concluídas (7d)" value={stats.data?.counts.tasks_done_7d ?? 0} accent="emerald" />
-          <MetricTile label="Publicações" value={stats.data?.counts.posts_total ?? 0} accent="fuchsia" />
+          <MetricTile
+            label="Posts aprovados (30d)"
+            value={stats.data?.postsByStage?.approved ?? 0}
+            accent="blue"
+            tone="positive"
+          />
+          <MetricTile
+            label="Projetos ativos"
+            value={stats.data?.counts.projects_active ?? 0}
+            accent="purple"
+            tone="positive"
+          />
+          <MetricTile
+            label="Tarefas abertas"
+            value={stats.data?.counts.tasks_open ?? 0}
+            accent="orange"
+            tone="neutral"
+          />
+          <MetricTile
+            label="Tarefas atrasadas"
+            value={stats.data?.counts.tasks_overdue ?? 0}
+            accent="red"
+            tone="risk"
+          />
+          <MetricTile
+            label="Concluídas (7d)"
+            value={stats.data?.counts.tasks_done_7d ?? 0}
+            accent="green"
+            tone="positive"
+          />
+          <MetricTile
+            label="Publicações"
+            value={stats.data?.counts.posts_total ?? 0}
+            accent="pink"
+            tone="positive"
+          />
         </div>
       </section>
 
@@ -569,17 +594,52 @@ const ACCENTS: Record<string, string> = {
   rose: "bg-rose-500",
   emerald: "bg-emerald-500",
   fuchsia: "bg-fuchsia-500",
+  blue: "bg-blue-500",
+  purple: "bg-purple-500",
+  orange: "bg-orange-500",
+  red: "bg-red-500",
+  green: "bg-green-500",
+  pink: "bg-pink-500",
 };
 
 function MetricTile({
   label,
   value,
   accent,
+  tone = "neutral",
+  delta,
 }: {
   label: string;
   value: number | string;
   accent: keyof typeof ACCENTS;
+  tone?: "positive" | "risk" | "neutral";
+  delta?: { pct: number; direction: "up" | "down"; period?: string } | null;
 }) {
+  const period = delta?.period ?? "vs período anterior";
+  let trend: React.ReactNode;
+  if (!delta) {
+    trend = (
+      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground/70">
+        <Minus className="h-3 w-3" />
+        <span className="tabular-nums">—</span>
+        <span>{period}</span>
+      </span>
+    );
+  } else {
+    const up = delta.direction === "up";
+    // For "positive" tone, up is good (emerald). For "risk", up is bad (crimson).
+    const good = tone === "risk" ? !up : up;
+    const color = good ? "text-emerald-500" : "text-rose-500";
+    const Arrow = up ? ArrowUpRight : ArrowDownRight;
+    trend = (
+      <span className={cn("inline-flex items-center gap-1 text-[11px] font-medium", color)}>
+        <Arrow className="h-3 w-3" />
+        <span className="tabular-nums">{delta.pct}%</span>
+        <span className="text-muted-foreground font-normal">{period}</span>
+      </span>
+    );
+  }
+
   return (
     <div className="relative overflow-hidden rounded-xl border border-border/60 bg-card p-4">
       <span className={cn("absolute inset-x-0 top-0 h-0.5", ACCENTS[accent])} />
@@ -587,6 +647,7 @@ function MetricTile({
         {label}
       </div>
       <div className="mt-2 text-2xl font-semibold tabular-nums tracking-tight">{value}</div>
+      <div className="mt-1.5">{trend}</div>
     </div>
   );
 }
