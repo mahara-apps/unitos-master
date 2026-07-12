@@ -1,48 +1,31 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
 import {
   Activity,
   CalendarClock,
   CheckCircle2,
   Clock,
-  Copy,
   DollarSign,
   ExternalLink,
   Instagram,
-  Link2,
   Linkedin,
   Music2,
-  Plus,
   RefreshCw,
   ShieldCheck,
   Sparkles,
-  Trash2,
   Youtube,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Sparkline } from "@/components/dashboard/sparkline";
 import { HealthBar } from "@/components/dashboard/health-bar";
 import { OverviewSkeleton } from "@/components/ai-agents/tab-skeletons";
 import { isValidScope } from "@/lib/customer-queries";
 import {
-  createPortalTokenFn,
   loadCustomerDashboardFn,
-  revokePortalTokenFn,
   type CustomerDashboardData,
 } from "@/lib/customer-dashboard.functions";
 import { useEffect } from "react";
@@ -113,7 +96,6 @@ function DashboardReady({
   const client = data.client;
   const m = data.metrics;
   const approvalPct = m.totalApprovals ? Math.round((m.decidedApprovals / m.totalApprovals) * 100) : 0;
-  const activeTokens = data.portalTokens.filter((t) => !t.revoked_at).length;
   const socials = (client?.socials ?? {}) as Record<string, string | undefined>;
 
   return (
@@ -316,15 +298,15 @@ function AccountPropertiesCard({
     <div className="rounded-xl border border-border/60 bg-card">
       <div className="border-b border-border/60 px-4 py-3">
         <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-          Propriedades da conta
+          Account properties
         </div>
-        <div className="mt-0.5 text-sm font-medium">Identidade, canais e acesso público</div>
+        <div className="mt-0.5 text-sm font-medium">Identity and linked channels</div>
       </div>
       <div className="space-y-4 p-4">
         {(contactName || contactEmail) && (
           <div className="grid gap-1.5">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              Contato principal
+              Primary contact
             </div>
             <div className="text-sm">
               {contactName ?? "—"}{" "}
@@ -337,7 +319,7 @@ function AccountPropertiesCard({
 
         <div className="grid gap-1.5">
           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            Redes sociais vinculadas
+            Linked social channels
           </div>
           <div className="grid gap-1">
             {SOCIAL_META.map((s) => {
@@ -365,86 +347,12 @@ function AccountPropertiesCard({
             })}
             {SOCIAL_META.every((s) => !socials?.[s.key]) && (
               <div className="rounded-md border border-dashed border-border/60 p-3 text-center text-xs text-muted-foreground">
-                Nenhuma rede social vinculada.
+                No social channels linked yet.
               </div>
             )}
           </div>
         </div>
 
-      </div>
-    </div>
-  );
-}
-
-function PortalTokenRow({
-  token,
-  brandId,
-  clientId,
-}: {
-  token: CustomerDashboardData["portalTokens"][number];
-  brandId: string;
-  clientId: string;
-}) {
-  const qc = useQueryClient();
-  const revokeFn = useServerFn(revokePortalTokenFn);
-  const revoke = useMutation({
-    mutationFn: () => revokeFn({ data: { id: token.id } }),
-    onSuccess: () => {
-      toast.success("Link do portal revogado");
-      qc.invalidateQueries({ queryKey: ["customer-dashboard", brandId, clientId] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  const url = typeof window !== "undefined" ? `${window.location.origin}/portal/${token.token}` : `/portal/${token.token}`;
-  const isRevoked = Boolean(token.revoked_at);
-  const isExpired = token.expires_at ? new Date(token.expires_at) < new Date() : false;
-  const status = isRevoked ? "revoked" : isExpired ? "expired" : "active";
-  return (
-    <div className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background/40 px-2.5 py-2">
-      <div className="flex min-w-0 items-center gap-2">
-        <Link2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <div className="min-w-0">
-          <div className="truncate text-sm font-medium">{token.label ?? "Link público"}</div>
-          <div className="truncate font-mono text-[10px] text-muted-foreground">/portal/{token.token.slice(0, 12)}…</div>
-        </div>
-      </div>
-      <div className="flex items-center gap-1">
-        <Badge
-          variant="outline"
-          className={
-            status === "active"
-              ? "border-emerald-500/40 bg-emerald-500/10 text-[10px] text-emerald-500 dark:text-emerald-300"
-              : status === "expired"
-                ? "border-amber-500/40 bg-amber-500/10 text-[10px] text-amber-500 dark:text-amber-300"
-                : "border-zinc-500/40 bg-zinc-500/10 text-[10px] text-zinc-500 dark:text-zinc-300"
-          }
-        >
-          {status === "active" ? "ativo" : status === "expired" ? "expirado" : "revogado"}
-        </Badge>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-7 gap-1 px-2 text-[11px]"
-          onClick={async () => {
-            await navigator.clipboard.writeText(url);
-            toast.success("Link copiado");
-          }}
-          disabled={isRevoked}
-        >
-          <Copy className="h-3 w-3" /> Copiar
-        </Button>
-        {!isRevoked && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
-            onClick={() => revoke.mutate()}
-            disabled={revoke.isPending}
-          aria-label="Revogar"
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
-        )}
       </div>
     </div>
   );
@@ -542,86 +450,4 @@ function activityDescriptor(ev: CustomerDashboardData["activity"][number]): {
     icon: Activity,
     dot: "bg-zinc-400 dark:bg-zinc-500",
   };
-}
-
-// ---------- Portal link creation dialog ----------
-
-function PortalLinkDialog({ clientId, brandId }: { clientId: string; brandId: string }) {
-  const [open, setOpen] = useState(false);
-  const [label, setLabel] = useState("Link público");
-  const [expiresInDays, setExpiresInDays] = useState<string>("");
-  const qc = useQueryClient();
-  const createFn = useServerFn(createPortalTokenFn);
-  const create = useMutation({
-    mutationFn: () =>
-      createFn({
-        data: {
-          clientId,
-          label: label.trim() || "Link público",
-          expiresInDays: expiresInDays ? Number(expiresInDays) : null,
-        },
-      }),
-    onSuccess: async (row) => {
-      if (row?.token) {
-        try {
-          await navigator.clipboard.writeText(`${window.location.origin}/portal/${row.token}`);
-          toast.success("Link do portal criado e copiado");
-        } catch {
-          toast.success("Link do portal criado");
-        }
-      }
-      qc.invalidateQueries({ queryKey: ["customer-dashboard", brandId, clientId] });
-      setOpen(false);
-      setLabel("Link público");
-      setExpiresInDays("");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="gap-1.5">
-          <Plus className="h-3.5 w-3.5" />
-          Gerar link do portal
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Gerar link do portal</DialogTitle>
-          <DialogDescription>
-            Qualquer pessoa com este link poderá acessar o portal somente leitura deste cliente.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3 py-2">
-          <div className="grid gap-1.5">
-            <Label htmlFor="portal-label">Rótulo</Label>
-            <Input
-              id="portal-label"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder="ex.: Revisão do cliente — outubro"
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="portal-expires">Expira em (dias)</Label>
-            <Input
-              id="portal-expires"
-              type="number"
-              min={1}
-              max={365}
-              value={expiresInDays}
-              onChange={(e) => setExpiresInDays(e.target.value)}
-              placeholder="Deixe vazio para não expirar"
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
-          <Button onClick={() => create.mutate()} disabled={create.isPending}>
-            {create.isPending ? "Criando…" : "Criar link"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
 }
