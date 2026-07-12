@@ -11,7 +11,7 @@ export type BriefingTokenRow = {
   expires_at: string | null;
   revoked_at: string | null;
   submitted_at: string | null;
-  submission: Record<string, unknown> | null;
+  submission: unknown;
   created_at: string;
 };
 
