@@ -186,7 +186,7 @@ function DashboardContent({ brandId, clientId }: { brandId: string; clientId: st
         <div className="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
           <MetricTile
             label="Posts aprovados (30d)"
-            value={stats.data?.postsByStage?.approved ?? 0}
+            value={stats.data?.counts.posts_approved_30d ?? 0}
             accent="blue"
             tone="positive"
           />
