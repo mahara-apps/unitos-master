@@ -31,7 +31,7 @@ import {
 } from "@/components/ai-agents/strategy-panel";
 import { CustomerDashboard } from "@/components/customer/customer-dashboard";
 import { BasicInfoTab } from "@/components/customer/basic-info-tab";
-import { BrandHub } from "@/components/brand-hub/brand-hub";
+import { BriefingWorkspace } from "@/components/brand-hub/briefing-workspace";
 import {
   StrategySkeleton,
   TargetSkeleton,
@@ -58,7 +58,7 @@ const TABS = [
   { value: "target", label: "Público" },
   { value: "market", label: "Mercado" },
   { value: "topics", label: "Tópicos" },
-  { value: "brand-hub", label: "Brand Hub" },
+  { value: "briefing", label: "Briefing" },
 ] as const;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -224,12 +224,6 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
                 Pipeline
               </Link>
             </Button>
-            <Button asChild size="sm" variant="outline" className="gap-1.5">
-              <Link to="/customers/$customerId/briefing" params={{ customerId }}>
-                <ClipboardList className="h-3.5 w-3.5" />
-                Briefing
-              </Link>
-            </Button>
           </div>
         </header>
 
@@ -289,8 +283,8 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
                 <TopicsTab brandId={brandId} clientId={customerId} />
               </Suspense>
             </TabsContent>
-            <TabsContent value="brand-hub">
-              <BrandHub brandId={brandId} clientId={customerId} />
+            <TabsContent value="briefing">
+              <BriefingWorkspace brandId={brandId} clientId={customerId} embedded />
             </TabsContent>
           </Tabs>
         )}
