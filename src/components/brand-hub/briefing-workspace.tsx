@@ -164,9 +164,11 @@ async function fileToBase64(file: File): Promise<string> {
 export function BriefingWorkspace({
   brandId,
   clientId,
+  embedded = false,
 }: {
   brandId: string;
   clientId: string;
+  embedded?: boolean;
 }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -244,11 +246,14 @@ export function BriefingWorkspace({
 
   const client = hubQ.data;
 
-  return (
-    <ScrollArea className="h-[calc(100vh-3.5rem)] bg-background">
-      <div className="mx-auto w-full max-w-6xl space-y-6 px-6 py-6 md:px-8 pb-24">
-        {/* Header row */}
-        <header className="flex items-start justify-between gap-4">
+  const saveButtonClass =
+    "gap-1.5 bg-rose-600 text-white hover:bg-rose-700 border-rose-600";
+
+  const body = (
+    <>
+      <div className={embedded ? "space-y-6 pb-24" : "mx-auto w-full max-w-6xl space-y-6 px-6 py-6 md:px-8 pb-24"}>
+        {!embedded && (
+          <header className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
             <Button
               size="sm"
@@ -278,7 +283,7 @@ export function BriefingWorkspace({
             </Button>
             <Button
               size="sm"
-              className="gap-1.5"
+              className={saveButtonClass}
               onClick={() => save.mutate()}
               disabled={save.isPending}
             >
@@ -290,7 +295,8 @@ export function BriefingWorkspace({
               Salvar briefing
             </Button>
           </div>
-        </header>
+          </header>
+        )}
 
         {/* Completion banner */}
         <Alert className="border-rose-500/30 bg-rose-500/5">
@@ -350,13 +356,13 @@ export function BriefingWorkspace({
 
       {/* Sticky footer */}
       <div className="sticky bottom-0 left-0 right-0 z-10 border-t border-border/60 bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3 md:px-8">
+        <div className={embedded ? "flex items-center justify-between gap-4 px-1 py-3" : "mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3 md:px-8"}>
           <p className="text-xs text-muted-foreground">
             As alterações são salvas apenas quando você clica em <b>Salvar briefing</b>.
           </p>
           <Button
             size="sm"
-            className="gap-1.5"
+            className={saveButtonClass}
             onClick={() => save.mutate()}
             disabled={save.isPending}
           >
@@ -369,8 +375,11 @@ export function BriefingWorkspace({
           </Button>
         </div>
       </div>
-    </ScrollArea>
+    </>
   );
+
+  if (embedded) return <div className="relative">{body}</div>;
+  return <ScrollArea className="h-[calc(100vh-3.5rem)] bg-background">{body}</ScrollArea>;
 }
 
 /* --------------------------------- Tabs ----------------------------------- */
