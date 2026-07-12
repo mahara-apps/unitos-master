@@ -58,7 +58,7 @@ export const listClients = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { data: clients, error } = await context.supabase
       .from("clients")
-      .select("id, name, niche, color, contact_name, contact_email, contact_phone, tone_of_voice, palette, socials, is_active, owner_user_id, created_at, updated_at")
+      .select("id, name, niche, color, logo_url, contact_name, contact_email, contact_phone, tone_of_voice, palette, socials, is_active, owner_user_id, created_at, updated_at")
       .eq("brand_id", data.brandId)
       .is("archived_at", null)
       .order("name");
