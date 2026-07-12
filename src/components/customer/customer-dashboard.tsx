@@ -35,7 +35,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkline } from "@/components/dashboard/sparkline";
 import { HealthBar } from "@/components/dashboard/health-bar";
 import { OverviewSkeleton } from "@/components/ai-agents/tab-skeletons";
