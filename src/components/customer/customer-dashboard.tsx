@@ -35,15 +35,17 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkline } from "@/components/dashboard/sparkline";
 import { HealthBar } from "@/components/dashboard/health-bar";
+import { OverviewSkeleton } from "@/components/ai-agents/tab-skeletons";
+import { isValidScope } from "@/lib/customer-queries";
 import {
   createPortalTokenFn,
   loadCustomerDashboardFn,
   revokePortalTokenFn,
   type CustomerDashboardData,
 } from "@/lib/customer-dashboard.functions";
+import { useEffect } from "react";
 
 type Props = {
   brandId: string;
@@ -71,30 +73,30 @@ const STAGE_ACCENT: Record<(typeof STAGES)[number]["key"], string> = {
 
 export function CustomerDashboard({ brandId, clientId, onRegenerate }: Props) {
   const loadFn = useServerFn(loadCustomerDashboardFn);
+  const scopeValid = isValidScope({ brandId, clientId });
+
   const q = useQuery({
     queryKey: ["customer-dashboard", brandId, clientId],
     queryFn: () => loadFn({ data: { brandId, clientId } }),
     staleTime: 20_000,
+    enabled: scopeValid,
+    retry: (failureCount, err) => {
+      const msg = (err as Error)?.message ?? "";
+      // Não retentar erros de RLS / não autorizado.
+      if (/row-level security|permission denied|unauthorized|forbidden/i.test(msg)) return false;
+      return failureCount < 2;
+    },
   });
 
-  if (q.isLoading || !q.data) return <DashboardSkeleton />;
-  return <DashboardReady data={q.data} clientId={clientId} brandId={brandId} onRegenerate={onRegenerate} />;
-}
+  useEffect(() => {
+    if (q.error) {
+      const msg = (q.error as Error).message ?? "Falha ao carregar dados da conta";
+      toast.error("Não foi possível carregar o painel", { description: msg });
+    }
+  }, [q.error]);
 
-function DashboardSkeleton() {
-  return (
-    <div className="space-y-5">
-      <Skeleton className="h-12 w-full" />
-      <div className="grid gap-4 md:grid-cols-3">
-        {[0, 1, 2].map((i) => <Skeleton key={i} className="h-28 rounded-xl" />)}
-      </div>
-      <Skeleton className="h-24 rounded-xl" />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Skeleton className="h-72 rounded-xl" />
-        <Skeleton className="h-72 rounded-xl" />
-      </div>
-    </div>
-  );
+  if (!scopeValid || q.isLoading || !q.data) return <OverviewSkeleton />;
+  return <DashboardReady data={q.data} clientId={clientId} brandId={brandId} onRegenerate={onRegenerate} />;
 }
 
 function DashboardReady({
