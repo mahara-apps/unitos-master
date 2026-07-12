@@ -322,9 +322,12 @@ export function TargetTab({ brandId, clientId }: Scope) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-neutral-200">
-          <Users className="h-4 w-4 text-cyan-400" /> Personas
-        </h3>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-neutral-200">
+            <Users className="h-4 w-4 text-cyan-400" /> Personas
+          </h3>
+          <ContextSourceBadge source="persona" />
+        </div>
         {personas.length ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {personas.map((p, i) => (
@@ -365,9 +368,12 @@ export function TargetTab({ brandId, clientId }: Scope) {
       </div>
 
       <div>
-        <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-neutral-200">
-          <Layers className="h-4 w-4 text-cyan-400" /> Cohorts comportamentais
-        </h3>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-neutral-200">
+            <Layers className="h-4 w-4 text-cyan-400" /> Cohorts comportamentais
+          </h3>
+          <ContextSourceBadge source="persona" />
+        </div>
         {cohorts.length ? (
           <div className="space-y-2">
             {cohorts.map((c, i) => (
