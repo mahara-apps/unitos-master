@@ -52,41 +52,235 @@ function estimateCost(model: string, inTok: number, outTok: number) {
 }
 
 /**
- * Reads competitor benchmarking data registered in `clients.brand_hub.competitors`
- * and returns a compact, prompt-friendly summary. Empty string when nothing
- * useful is registered — callers concat it directly without conditionals.
+ * BRAND CONTEXT BLUEPRINT — unified corporate strategic memory
+ *
+ * Aggregates in a single pass everything the AI generation layer needs to
+ * ground ideas, roadmaps and copies in the client's real strategy:
+ *   1. [Client identity] — name, niche, tone, color, palette
+ *   2. [Briefing & Tone]  — brand_hub description, audience, pain points,
+ *                           tone tags, mission, positioning, differentials,
+ *                           objections, hashtags, do/don'ts
+ *   3. [Competitors]      — registered competitor handles + engagement
+ *                           metrics (position-differentiation signals)
+ *   4. [Knowledge Base]   — private files metadata (filename catalog for
+ *                           retrieval-ready future step)
+ *
+ * Returns a markdown blueprint ready to be prepended to any agent prompt,
+ * plus counts for audit logging. Empty sections are skipped.
  */
-async function readCompetitorContext(
+export async function buildBrandContextBlueprint(
   supabase: import("@supabase/supabase-js").SupabaseClient,
   brandId: string,
   clientId: string,
-): Promise<string> {
-  const { data } = await supabase
-    .from("clients")
-    .select("brand_hub" as never)
-    .eq("id", clientId)
-    .eq("brand_id", brandId)
-    .maybeSingle();
-  const hub = (data as { brand_hub?: Record<string, unknown> } | null)?.brand_hub;
-  const list = (hub?.competitors as Array<Record<string, unknown>> | undefined) ?? [];
-  if (!list.length) return "";
-  const summary = list.slice(0, 15).map((c) => {
-    const m = (c.last_metrics ?? {}) as Record<string, unknown>;
-    const engagement =
-      typeof m.engagement_rate === "number" ? `${(m.engagement_rate * 100).toFixed(2)}%` : "n/a";
-    const hooks = Array.isArray(m.recurring_hooks) ? (m.recurring_hooks as string[]).slice(0, 3) : [];
-    return {
-      handle: `@${String(c.handle ?? "")}`,
-      platform: c.platform ?? "instagram",
-      notes: c.notes ?? null,
-      followers: m.followers ?? null,
-      avg_likes: m.avg_likes ?? null,
-      avg_comments: m.avg_comments ?? null,
-      engagement_rate: engagement,
-      recurring_hooks: hooks,
-    };
-  });
-  return `\n\nRegistered competitors benchmark (from Brand Hub — use these real engagement patterns to inform strategy and copy):\n${JSON.stringify(summary, null, 2)}`;
+): Promise<{
+  blueprint: string;
+  counts: {
+    tone_tags: number;
+    pain_points: number;
+    competitors: number;
+    documents: number;
+    hashtags: number;
+  };
+}> {
+  const [{ data: client }, { data: docs }] = await Promise.all([
+    supabase
+      .from("clients")
+      .select(
+        "name, niche, color, tone_of_voice, socials, brand_hub" as never,
+      )
+      .eq("id", clientId)
+      .eq("brand_id", brandId)
+      .maybeSingle(),
+    supabase
+      .from("client_documents")
+      .select("name, mime_type, size_bytes, created_at" as never)
+      .eq("brand_id", brandId)
+      .eq("client_id", clientId)
+      .order("created_at", { ascending: false })
+      .limit(30),
+  ]);
+
+  const row = (client ?? {}) as {
+    name?: string;
+    niche?: string | null;
+    color?: string | null;
+    tone_of_voice?: string | null;
+    socials?: Record<string, unknown> | null;
+    brand_hub?: Record<string, unknown> | null;
+  };
+  const hub = (row.brand_hub ?? {}) as Record<string, unknown>;
+  const documents = ((docs ?? []) as unknown) as Array<{
+    name: string;
+    mime_type: string;
+    size_bytes: number;
+  }>;
+
+  const arr = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && !!x.trim()) : [];
+  const str = (v: unknown): string | null =>
+    typeof v === "string" && v.trim() ? v.trim() : null;
+
+  const toneTags = arr(hub.tone_tags);
+  const painPoints = (str(hub.pain_points) ?? "")
+    .split(/\n+|•|;/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const hashtags = arr(hub.hashtags);
+  const competitors = Array.isArray(hub.competitors)
+    ? (hub.competitors as Array<Record<string, unknown>>)
+    : [];
+  const palette = Array.isArray(hub.palette)
+    ? (hub.palette as Array<{ label: string; hex: string }>)
+    : [];
+
+  const sections: string[] = [];
+
+  sections.push(
+    `# BRAND STRATEGIC CONTEXT — ${row.name ?? "cliente"}\n` +
+      `> This blueprint is the single source of truth for tone, audience and strategy. ` +
+      `Every idea, roadmap or copy you produce MUST reflect these constraints and ` +
+      `avoid generic outputs.`,
+  );
+
+  const identity: Array<[string, string | null | undefined]> = [
+    ["Name", row.name ?? null],
+    ["Niche", row.niche ?? null],
+    ["Brand color", row.color ?? null],
+    ["Default tone", row.tone_of_voice ?? null],
+  ];
+  const identityLines = identity
+    .filter(([, v]) => v)
+    .map(([k, v]) => `- ${k}: ${v}`);
+  if (identityLines.length) sections.push(`## Client identity\n${identityLines.join("\n")}`);
+  if (palette.length) {
+    sections.push(
+      `## Visual palette\n${palette
+        .slice(0, 12)
+        .map((p) => `- ${p.label}: ${p.hex}`)
+        .join("\n")}`,
+    );
+  }
+
+  const briefingLines: string[] = [];
+  const push = (label: string, v: string | null) => {
+    if (v) briefingLines.push(`**${label}:** ${v}`);
+  };
+  push("Core description", str(hub.description));
+  push("Mission", str(hub.mission));
+  push("Positioning", str(hub.positioning));
+  push("Values", str(hub.values));
+  push("Target audience", str(hub.audience));
+  push("Demographics", str(hub.demographics));
+  push("Offer / product", str(hub.offer));
+  push("Price range", str(hub.price_range));
+  push("Differentials", str(hub.differentials));
+  push("Common objections", str(hub.objections));
+  push("Customer journey", str(hub.journey));
+  push("Desires", str(hub.desires));
+  push("Goals", str(hub.goals));
+  push("Tone (freeform)", str(hub.tone_text));
+  if (toneTags.length) briefingLines.push(`**Tone tags:** ${toneTags.join(", ")}`);
+  if (painPoints.length) {
+    briefingLines.push(
+      `**Pain points:**\n${painPoints.slice(0, 12).map((p) => `  - ${p}`).join("\n")}`,
+    );
+  }
+  if (hashtags.length)
+    briefingLines.push(`**Approved hashtags:** ${hashtags.slice(0, 20).join(" ")}`);
+  const doDont = (hub.do_dont ?? {}) as { do?: string; dont?: string };
+  if (doDont.do) briefingLines.push(`**Do:** ${doDont.do}`);
+  if (doDont.dont) briefingLines.push(`**Don't:** ${doDont.dont}`);
+  if (briefingLines.length)
+    sections.push(`## [Briefing & Tone]\n${briefingLines.join("\n")}`);
+
+  if (competitors.length) {
+    const summary = competitors.slice(0, 15).map((c) => {
+      const m = (c.last_metrics ?? {}) as Record<string, unknown>;
+      const engagement =
+        typeof m.engagement_rate === "number"
+          ? `${(m.engagement_rate * 100).toFixed(2)}%`
+          : "n/a";
+      const hooks = Array.isArray(m.recurring_hooks)
+        ? (m.recurring_hooks as string[]).slice(0, 3)
+        : [];
+      return {
+        handle: `@${String(c.handle ?? "")}`,
+        platform: c.platform ?? "instagram",
+        notes: c.notes ?? null,
+        followers: m.followers ?? null,
+        avg_likes: m.avg_likes ?? null,
+        avg_comments: m.avg_comments ?? null,
+        engagement_rate: engagement,
+        recurring_hooks: hooks,
+      };
+    });
+    sections.push(
+      `## [Competitor Benchmarking]\n` +
+        `Use these real handles and engagement patterns to run position ` +
+        `differentiation. Do NOT copy their voice — extract structural patterns ` +
+        `(hooks, formats, cadence) and propose differentiated angles for our client.\n` +
+        `\n\`\`\`json\n${JSON.stringify(summary, null, 2)}\n\`\`\``,
+    );
+  }
+
+  if (documents.length) {
+    sections.push(
+      `## [Knowledge Base]\n` +
+        `Private documents uploaded for this client (filenames catalog — content ` +
+        `retrieval will augment this section in a future step). Assume these ` +
+        `assets contain proprietary product/brand knowledge and prefer aligned ` +
+        `references over invented ones.\n` +
+        documents
+          .slice(0, 20)
+          .map(
+            (d) =>
+              `- ${d.name} (${d.mime_type || "file"}, ${Math.round((d.size_bytes ?? 0) / 1024)} KB)`,
+          )
+          .join("\n"),
+    );
+  }
+
+  const blueprint = sections.join("\n\n");
+
+  return {
+    blueprint,
+    counts: {
+      tone_tags: toneTags.length,
+      pain_points: painPoints.length,
+      competitors: competitors.length,
+      documents: documents.length,
+      hashtags: hashtags.length,
+    },
+  };
+}
+
+/**
+ * Emits an audit event on `activity_events` after a successful blueprint
+ * assembly so the ops team can see, per client, which agents ran on top of
+ * which slice of the corporate memory. Best-effort — swallowed on failure to
+ * never block AI generation.
+ */
+async function logContextAssembled(
+  supabase: import("@supabase/supabase-js").SupabaseClient,
+  brandId: string,
+  clientId: string,
+  userId: string,
+  agent: AgentName,
+  counts: Record<string, number>,
+) {
+  try {
+    await supabase.from("activity_events").insert({
+      brand_id: brandId,
+      client_id: clientId,
+      actor_id: userId,
+      entity_type: "ai_context",
+      entity_id: clientId,
+      verb: "assembled",
+      payload: { agent, ...counts },
+    });
+  } catch {
+    // silent — audit is non-critical
+  }
 }
 
 async function runAgent<T extends z.ZodTypeAny>(opts: {
@@ -98,6 +292,8 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
   prompt: string;
   schema: T;
   supabase: import("@supabase/supabase-js").SupabaseClient;
+  /** Skip the brand-context blueprint (e.g. briefing.parse consumes raw text). */
+  skipBrandContext?: boolean;
 }): Promise<z.infer<T>> {
   const key = process.env.LOVABLE_API_KEY;
   if (!key) throw new Error("LOVABLE_API_KEY não configurada");
@@ -122,6 +318,31 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
   if (clientErr) throw clientErr;
   if (!client) throw new Error("Cliente inválido para esta marca");
 
+  // ---- Brand Context Blueprint injection ----
+  let brandBlueprint = "";
+  if (!opts.skipBrandContext) {
+    const { blueprint, counts } = await buildBrandContextBlueprint(
+      opts.supabase,
+      opts.brandId,
+      opts.clientId,
+    );
+    if (blueprint) {
+      brandBlueprint = blueprint;
+      await logContextAssembled(
+        opts.supabase,
+        opts.brandId,
+        opts.clientId,
+        opts.userId,
+        opts.agent,
+        counts,
+      );
+    }
+  }
+
+  const finalSystem = brandBlueprint
+    ? `${brandBlueprint}\n\n---\n\n${opts.system}`
+    : opts.system;
+
   const { model: modelId, structuredOutputs } = AGENT_MODEL[opts.agent];
   const gateway = createLovableAiGatewayProvider(key, undefined, { structuredOutputs });
   const model = gateway(modelId);
@@ -135,7 +356,7 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
   try {
     const res = await generateText({
       model,
-      system: opts.system,
+      system: finalSystem,
       prompt: opts.prompt,
       output: Output.object({ schema: opts.schema }),
     });
@@ -586,7 +807,7 @@ export const swotGenerateFn = createServerFn({ method: "POST" })
         `Briefing estruturado:\n${JSON.stringify(data.briefingJson, null, 2)}`,
         `Personas:\n${JSON.stringify(data.personasJson, null, 2)}`,
         `Cohorts:\n${JSON.stringify(data.cohortsJson, null, 2)}`,
-      ].join("\n\n") + (await readCompetitorContext(context.supabase, data.brandId, data.clientId)),
+      ].join("\n\n"),
       schema: SwotSchema,
     });
 
@@ -643,7 +864,7 @@ export const pautaSuggestFn = createServerFn({ method: "POST" })
         `SWOT: ${JSON.stringify(data.swotJson)}`,
         `Quantidade de pautas desejadas: ${data.quantidade}`,
         `Período: ${data.periodo}`,
-      ].join("\n") + (await readCompetitorContext(context.supabase, data.brandId, data.clientId)),
+      ].join("\n"),
       schema: PautasSchema,
     });
 
@@ -699,7 +920,7 @@ export const contentGenerateFn = createServerFn({ method: "POST" })
         `Persona/cohort alvo:\n${JSON.stringify(data.personaOuCohortJson, null, 2)}`,
         `Plataforma: ${data.plataforma}`,
         `Formato: ${data.formato}`,
-      ].join("\n\n") + (await readCompetitorContext(context.supabase, data.brandId, data.clientId)),
+      ].join("\n\n"),
       schema: ContentSchema,
     });
 
@@ -1089,7 +1310,7 @@ export const runCustomerPipelineFn = createServerFn({ method: "POST" })
         `Briefing:\n${JSON.stringify(briefing, null, 2)}`,
         `Personas:\n${JSON.stringify(personas, null, 2)}`,
         `Cohorts:\n${JSON.stringify(cohorts, null, 2)}`,
-      ].join("\n\n") + (await readCompetitorContext(context.supabase, data.brandId, data.clientId)),
+      ].join("\n\n"),
       schema: SwotSchema,
     });
     await context.supabase
@@ -1117,7 +1338,7 @@ export const runCustomerPipelineFn = createServerFn({ method: "POST" })
         `SWOT: ${JSON.stringify(swot)}`,
         `Quantidade: ${data.pautasQuantidade}`,
         `Período: ${data.pautasPeriodo}`,
-      ].join("\n") + (await readCompetitorContext(context.supabase, data.brandId, data.clientId)),
+      ].join("\n"),
       schema: PautasSchema,
     });
     if (Array.isArray(pautas.pautas) && pautas.pautas.length) {
