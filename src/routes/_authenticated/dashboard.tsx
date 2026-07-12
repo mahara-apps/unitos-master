@@ -308,7 +308,16 @@ type ClientRow = {
   socials?: unknown;
 } | null;
 
-function ClientIdentityCard({ client, loading }: { client: ClientRow; loading: boolean }) {
+function ClientIdentityCard({
+  brandId,
+  client,
+  loading,
+}: {
+  brandId: string;
+  client: ClientRow;
+  loading: boolean;
+}) {
+  const [editOpen, setEditOpen] = React.useState(false);
   if (loading) {
     return <div className="h-64 animate-pulse rounded-xl border border-border/60 bg-card" />;
   }
@@ -344,13 +353,24 @@ function ClientIdentityCard({ client, loading }: { client: ClientRow; loading: b
           <div className="truncate text-base font-semibold tracking-tight">{client.name}</div>
           <div className="text-xs text-muted-foreground">{client.niche ?? "Sem nicho definido"}</div>
         </div>
-        <Link
-          to="/customers/$customerId"
-          params={{ customerId: client.id }}
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
-          Abrir conta →
-        </Link>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => setEditOpen(true)}
+          >
+            <Edit3 className="h-3 w-3" />
+            Editar perfil
+          </Button>
+          <Link
+            to="/customers/$customerId"
+            params={{ customerId: client.id }}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            Abrir conta →
+          </Link>
+        </div>
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -390,6 +410,12 @@ function ClientIdentityCard({ client, loading }: { client: ClientRow; loading: b
           </div>
         </div>
       </div>
+      <EditClientProfileDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        brandId={brandId}
+        client={client}
+      />
     </div>
   );
 }
