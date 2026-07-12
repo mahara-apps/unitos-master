@@ -8,6 +8,7 @@ import { PageHeaderProvider, usePageHeaderState } from "@/hooks/use-page-header"
 import { CommandMenu } from "@/components/command-menu";
 import { Command } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { NotificationsBell } from "@/components/notifications/notifications-drawer";
 
 const fallbackTitles: Record<string, string> = {
   "/dashboard": "Painel",
@@ -82,6 +83,7 @@ function ShellHeader() {
           <Command className="h-3 w-3" /> Buscar
           <kbd className="ml-2 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
         </Button>
+        <NotificationsBell />
         <ThemeToggle />
       </div>
     </header>
