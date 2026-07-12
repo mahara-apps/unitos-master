@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Copy,
+  DollarSign,
   ExternalLink,
   FolderKanban,
   Instagram,
@@ -19,6 +20,7 @@ import {
   Music2,
   Phone,
   Plus,
+  Settings2,
   Sparkles,
   UserPlus,
   Youtube,
@@ -142,13 +144,24 @@ function DashboardContent({ brandId, clientId }: { brandId: string; clientId: st
             hint="Agrupe entregas"
             tint="from-emerald-500/25 via-emerald-500/10 to-transparent"
           />
-          <QuickAction
-            to="/customers"
-            icon={<UserPlus className="h-4 w-4" />}
-            title="Novo cliente"
-            hint="Cadastre marcas"
-            tint="from-fuchsia-500/25 via-fuchsia-500/10 to-transparent"
-          />
+          {clientId ? (
+            <QuickAction
+              to="/customers/$customerId/briefing"
+              params={{ customerId: clientId }}
+              icon={<Sparkles className="h-4 w-4" />}
+              title="Novo briefing"
+              hint="Atualize a estratégia"
+              tint="from-fuchsia-500/25 via-fuchsia-500/10 to-transparent"
+            />
+          ) : (
+            <QuickAction
+              to="/customers"
+              icon={<UserPlus className="h-4 w-4" />}
+              title="Novo cliente"
+              hint="Cadastre marcas"
+              tint="from-fuchsia-500/25 via-fuchsia-500/10 to-transparent"
+            />
+          )}
         </div>
       </section>
 
@@ -171,7 +184,15 @@ function DashboardContent({ brandId, clientId }: { brandId: string; clientId: st
       <section>
         <SectionHeading title="Métricas" />
         <div className="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
-          <MetricTile label="Clientes" value={stats.data?.counts.clients ?? 0} accent="sky" />
+          {clientId ? (
+            <MetricTile
+              label="Orçamento IA (30d)"
+              value={`$${(customer.data?.metrics.costTotal30d ?? 0).toFixed(2)}`}
+              accent="sky"
+            />
+          ) : (
+            <MetricTile label="Clientes" value={stats.data?.counts.clients ?? 0} accent="sky" />
+          )}
           <MetricTile label="Projetos ativos" value={stats.data?.counts.projects_active ?? 0} accent="indigo" />
           <MetricTile label="Tarefas abertas" value={stats.data?.counts.tasks_open ?? 0} accent="amber" />
           <MetricTile label="Tarefas atrasadas" value={stats.data?.counts.tasks_overdue ?? 0} accent="rose" />
