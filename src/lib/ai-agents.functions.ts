@@ -699,7 +699,7 @@ export const contentGenerateFn = createServerFn({ method: "POST" })
         `Persona/cohort alvo:\n${JSON.stringify(data.personaOuCohortJson, null, 2)}`,
         `Plataforma: ${data.plataforma}`,
         `Formato: ${data.formato}`,
-      ].join("\n\n"),
+      ].join("\n\n") + (await readCompetitorContext(context.supabase, data.brandId, data.clientId)),
       schema: ContentSchema,
     });
 
