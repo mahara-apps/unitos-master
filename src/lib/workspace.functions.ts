@@ -140,6 +140,7 @@ const UpdateClientInput = z.object({
         tiktok: z.string().max(120).optional(),
         youtube: z.string().max(200).optional(),
         linkedin: z.string().max(200).optional(),
+        phone: z.string().max(40).optional(),
         notes: z.string().max(2000).optional(),
       })
       .partial()
