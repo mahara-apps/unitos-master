@@ -27,6 +27,7 @@ import {
   TopicsTab,
 } from "@/components/ai-agents/strategy-panel";
 import { CustomerDashboard } from "@/components/customer/customer-dashboard";
+import { BrandHub } from "@/components/brand-hub/brand-hub";
 import {
   StrategySkeleton,
   TargetSkeleton,
@@ -52,6 +53,7 @@ const TABS = [
   { value: "target", label: "Público" },
   { value: "market", label: "Mercado" },
   { value: "topics", label: "Tópicos" },
+  { value: "brand-hub", label: "Brand Hub" },
 ] as const;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -262,6 +264,9 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
               <Suspense fallback={<TopicsSkeleton />}>
                 <TopicsTab brandId={brandId} clientId={customerId} />
               </Suspense>
+            </TabsContent>
+            <TabsContent value="brand-hub">
+              <BrandHub brandId={brandId} clientId={customerId} />
             </TabsContent>
           </Tabs>
         )}
