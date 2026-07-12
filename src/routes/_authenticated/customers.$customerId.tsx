@@ -27,6 +27,7 @@ import {
   TopicsTab,
 } from "@/components/ai-agents/strategy-panel";
 import { CustomerDashboard } from "@/components/customer/customer-dashboard";
+import { BasicInfoTab } from "@/components/customer/basic-info-tab";
 import { BrandHub } from "@/components/brand-hub/brand-hub";
 import {
   StrategySkeleton,
@@ -49,6 +50,7 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
 
 const TABS = [
   { value: "overview", label: "Visão geral" },
+  { value: "basic", label: "Dados básicos" },
   { value: "strategy", label: "Estratégia" },
   { value: "target", label: "Público" },
   { value: "market", label: "Mercado" },
@@ -250,6 +252,9 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
                 clientId={customerId}
                 onRegenerate={() => setRegenOpen(true)}
               />
+            </TabsContent>
+            <TabsContent value="basic">
+              <BasicInfoTab brandId={brandId} clientId={customerId} />
             </TabsContent>
             <TabsContent value="strategy">
               <Suspense fallback={<StrategySkeleton />}>
