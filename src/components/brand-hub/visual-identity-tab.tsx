@@ -240,7 +240,7 @@ export function VisualIdentityTab({
             <Plus className="h-3.5 w-3.5" /> Add color
           </Button>
         </header>
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {palette.map((c, i) => (
             <div key={i} className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
               <button
