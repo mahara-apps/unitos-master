@@ -11,6 +11,28 @@ export type BrandHubData = {
   tone_tags?: string[];
   palette?: Array<{ label: string; hex: string }>;
   competitors?: BrandHubCompetitor[];
+  // --- Briefing Workspace (extended, all optional) ---
+  mission?: string;
+  positioning?: string;
+  values?: string;
+  offer?: string;
+  price_range?: string;
+  differentials?: string;
+  objections?: string;
+  journey?: string;
+  desires?: string;
+  inspirations?: string[];
+  hashtags?: string[];
+  do_dont?: { do?: string; dont?: string };
+  volumetry?: {
+    instagram?: number;
+    tiktok?: number;
+    linkedin?: number;
+    youtube?: number;
+    facebook?: number;
+  };
+  goals?: string;
+  tone_text?: string;
 };
 
 export type BrandHubCompetitor = {
@@ -86,6 +108,31 @@ const HubPatch = Scope.extend({
         )
         .max(24)
         .optional(),
+      mission: z.string().max(2000).optional(),
+      positioning: z.string().max(2000).optional(),
+      values: z.string().max(2000).optional(),
+      offer: z.string().max(3000).optional(),
+      price_range: z.string().max(500).optional(),
+      differentials: z.string().max(3000).optional(),
+      objections: z.string().max(3000).optional(),
+      journey: z.string().max(3000).optional(),
+      desires: z.string().max(2000).optional(),
+      inspirations: z.array(z.string().max(400)).max(30).optional(),
+      hashtags: z.array(z.string().max(80)).max(60).optional(),
+      do_dont: z
+        .object({ do: z.string().max(2000).optional(), dont: z.string().max(2000).optional() })
+        .optional(),
+      volumetry: z
+        .object({
+          instagram: z.number().int().min(0).max(50).optional(),
+          tiktok: z.number().int().min(0).max(50).optional(),
+          linkedin: z.number().int().min(0).max(50).optional(),
+          youtube: z.number().int().min(0).max(50).optional(),
+          facebook: z.number().int().min(0).max(50).optional(),
+        })
+        .optional(),
+      goals: z.string().max(3000).optional(),
+      tone_text: z.string().max(2000).optional(),
     })
     .partial(),
 });
