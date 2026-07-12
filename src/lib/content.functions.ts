@@ -484,12 +484,15 @@ export const updatePostFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
-    const patch = data.patch as Record<string, unknown>;
+    const patch: Record<string, unknown> = { ...data.patch };
     if (patch.review_status === "approved") {
       patch.approved_at = new Date().toISOString();
       patch.approved_by = context.userId;
     }
-    const { error } = await context.supabase.from("posts").update(patch).eq("id", data.postId);
+    const { error } = await context.supabase
+      .from("posts")
+      .update(patch as never)
+      .eq("id", data.postId);
     if (error) throw error;
     return { ok: true };
   });
