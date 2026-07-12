@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, Sparkles, Upload, X, ImageIcon, FileText } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,7 +17,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { getPostDetailFn, updatePostFn, deletePostFn } from "@/lib/content.functions";
+import {
+  getPostDetailFn,
+  updatePostFn,
+  deletePostFn,
+  uploadPostReferenceMediaFn,
+  removePostReferenceMediaFn,
+  signPostReferenceMediaFn,
+} from "@/lib/content.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 type Props = {
   postId: string | null;
