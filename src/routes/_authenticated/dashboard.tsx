@@ -184,20 +184,42 @@ function DashboardContent({ brandId, clientId }: { brandId: string; clientId: st
       <section>
         <SectionHeading title="Métricas" />
         <div className="mt-3 grid gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
-          {clientId ? (
-            <MetricTile
-              label="Orçamento IA (30d)"
-              value={`$${(customer.data?.metrics.costTotal30d ?? 0).toFixed(2)}`}
-              accent="sky"
-            />
-          ) : (
-            <MetricTile label="Clientes" value={stats.data?.counts.clients ?? 0} accent="sky" />
-          )}
-          <MetricTile label="Projetos ativos" value={stats.data?.counts.projects_active ?? 0} accent="indigo" />
-          <MetricTile label="Tarefas abertas" value={stats.data?.counts.tasks_open ?? 0} accent="amber" />
-          <MetricTile label="Tarefas atrasadas" value={stats.data?.counts.tasks_overdue ?? 0} accent="rose" />
-          <MetricTile label="Concluídas (7d)" value={stats.data?.counts.tasks_done_7d ?? 0} accent="emerald" />
-          <MetricTile label="Publicações" value={stats.data?.counts.posts_total ?? 0} accent="fuchsia" />
+          <MetricTile
+            label="Posts aprovados (30d)"
+            value={stats.data?.postsByStage?.approved ?? 0}
+            accent="blue"
+            tone="positive"
+          />
+          <MetricTile
+            label="Projetos ativos"
+            value={stats.data?.counts.projects_active ?? 0}
+            accent="purple"
+            tone="positive"
+          />
+          <MetricTile
+            label="Tarefas abertas"
+            value={stats.data?.counts.tasks_open ?? 0}
+            accent="orange"
+            tone="neutral"
+          />
+          <MetricTile
+            label="Tarefas atrasadas"
+            value={stats.data?.counts.tasks_overdue ?? 0}
+            accent="red"
+            tone="risk"
+          />
+          <MetricTile
+            label="Concluídas (7d)"
+            value={stats.data?.counts.tasks_done_7d ?? 0}
+            accent="green"
+            tone="positive"
+          />
+          <MetricTile
+            label="Publicações"
+            value={stats.data?.counts.posts_total ?? 0}
+            accent="pink"
+            tone="positive"
+          />
         </div>
       </section>
 
