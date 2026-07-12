@@ -16,14 +16,22 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as AuthenticatedWorkRouteImport } from './routes/_authenticated/work'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
+import { Route as AuthenticatedReferralsRouteImport } from './routes/_authenticated/referrals'
+import { Route as AuthenticatedProjectsRouteImport } from './routes/_authenticated/projects'
+import { Route as AuthenticatedPipelinesRouteImport } from './routes/_authenticated/pipelines'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
 import { Route as AuthenticatedContentRouteImport } from './routes/_authenticated/content'
 import { Route as AuthenticatedConnectionsRouteImport } from './routes/_authenticated/connections'
+import { Route as AuthenticatedChangelogRouteImport } from './routes/_authenticated/changelog'
+import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAiRouteImport } from './routes/_authenticated/ai'
+import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
 import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authenticated/customers.index'
 import { Route as PBriefingTokenRouteImport } from './routes/p.briefing.$token'
 import { Route as ApiJobsPostPhase2RouteImport } from './routes/api/jobs/post-phase2'
@@ -69,9 +77,34 @@ const InviteTokenRoute = InviteTokenRouteImport.update({
   path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedWorkRoute = AuthenticatedWorkRouteImport.update({
+  id: '/work',
+  path: '/work',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedReferralsRoute = AuthenticatedReferralsRouteImport.update({
+  id: '/referrals',
+  path: '/referrals',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedProjectsRoute = AuthenticatedProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedPipelinesRoute = AuthenticatedPipelinesRouteImport.update({
+  id: '/pipelines',
+  path: '/pipelines',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedNotificationsRoute =
@@ -101,6 +134,16 @@ const AuthenticatedConnectionsRoute =
     path: '/connections',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedChangelogRoute = AuthenticatedChangelogRouteImport.update({
+  id: '/changelog',
+  path: '/changelog',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
@@ -109,6 +152,11 @@ const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
 const AuthenticatedAiRoute = AuthenticatedAiRouteImport.update({
   id: '/ai',
   path: '/ai',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedCustomersIndexRoute =
@@ -172,14 +220,22 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/agents': typeof AuthenticatedAgentsRoute
   '/ai': typeof AuthenticatedAiRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/calendar': typeof AuthenticatedCalendarRoute
+  '/changelog': typeof AuthenticatedChangelogRoute
   '/connections': typeof AuthenticatedConnectionsRoute
   '/content': typeof AuthenticatedContentRoute
   '/customers': typeof AuthenticatedCustomersRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
+  '/pipelines': typeof AuthenticatedPipelinesRoute
+  '/projects': typeof AuthenticatedProjectsRoute
+  '/referrals': typeof AuthenticatedReferralsRoute
+  '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
+  '/work': typeof AuthenticatedWorkRoute
   '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
@@ -197,13 +253,21 @@ export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/agents': typeof AuthenticatedAgentsRoute
   '/ai': typeof AuthenticatedAiRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/calendar': typeof AuthenticatedCalendarRoute
+  '/changelog': typeof AuthenticatedChangelogRoute
   '/connections': typeof AuthenticatedConnectionsRoute
   '/content': typeof AuthenticatedContentRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
+  '/pipelines': typeof AuthenticatedPipelinesRoute
+  '/projects': typeof AuthenticatedProjectsRoute
+  '/referrals': typeof AuthenticatedReferralsRoute
+  '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
+  '/work': typeof AuthenticatedWorkRoute
   '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
   '/': typeof AuthenticatedIndexRoute
@@ -224,14 +288,22 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/_authenticated/agents': typeof AuthenticatedAgentsRoute
   '/_authenticated/ai': typeof AuthenticatedAiRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
+  '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
+  '/_authenticated/changelog': typeof AuthenticatedChangelogRoute
   '/_authenticated/connections': typeof AuthenticatedConnectionsRoute
   '/_authenticated/content': typeof AuthenticatedContentRoute
   '/_authenticated/customers': typeof AuthenticatedCustomersRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
+  '/_authenticated/pipelines': typeof AuthenticatedPipelinesRoute
+  '/_authenticated/projects': typeof AuthenticatedProjectsRoute
+  '/_authenticated/referrals': typeof AuthenticatedReferralsRoute
+  '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
+  '/_authenticated/work': typeof AuthenticatedWorkRoute
   '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -253,14 +325,22 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/agents'
     | '/ai'
     | '/analytics'
+    | '/calendar'
+    | '/changelog'
     | '/connections'
     | '/content'
     | '/customers'
     | '/dashboard'
     | '/notifications'
+    | '/pipelines'
+    | '/projects'
+    | '/referrals'
+    | '/reports'
     | '/settings'
+    | '/work'
     | '/invite/$token'
     | '/portal/$token'
     | '/customers/$customerId'
@@ -278,13 +358,21 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/agents'
     | '/ai'
     | '/analytics'
+    | '/calendar'
+    | '/changelog'
     | '/connections'
     | '/content'
     | '/dashboard'
     | '/notifications'
+    | '/pipelines'
+    | '/projects'
+    | '/referrals'
+    | '/reports'
     | '/settings'
+    | '/work'
     | '/invite/$token'
     | '/portal/$token'
     | '/'
@@ -304,14 +392,22 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/_authenticated/agents'
     | '/_authenticated/ai'
     | '/_authenticated/analytics'
+    | '/_authenticated/calendar'
+    | '/_authenticated/changelog'
     | '/_authenticated/connections'
     | '/_authenticated/content'
     | '/_authenticated/customers'
     | '/_authenticated/dashboard'
     | '/_authenticated/notifications'
+    | '/_authenticated/pipelines'
+    | '/_authenticated/projects'
+    | '/_authenticated/referrals'
+    | '/_authenticated/reports'
     | '/_authenticated/settings'
+    | '/_authenticated/work'
     | '/invite/$token'
     | '/portal/$token'
     | '/_authenticated/'
@@ -391,11 +487,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/work': {
+      id: '/_authenticated/work'
+      path: '/work'
+      fullPath: '/work'
+      preLoaderRoute: typeof AuthenticatedWorkRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/reports': {
+      id: '/_authenticated/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof AuthenticatedReportsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/referrals': {
+      id: '/_authenticated/referrals'
+      path: '/referrals'
+      fullPath: '/referrals'
+      preLoaderRoute: typeof AuthenticatedReferralsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/projects': {
+      id: '/_authenticated/projects'
+      path: '/projects'
+      fullPath: '/projects'
+      preLoaderRoute: typeof AuthenticatedProjectsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/pipelines': {
+      id: '/_authenticated/pipelines'
+      path: '/pipelines'
+      fullPath: '/pipelines'
+      preLoaderRoute: typeof AuthenticatedPipelinesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/notifications': {
@@ -433,6 +564,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConnectionsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/changelog': {
+      id: '/_authenticated/changelog'
+      path: '/changelog'
+      fullPath: '/changelog'
+      preLoaderRoute: typeof AuthenticatedChangelogRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/calendar': {
+      id: '/_authenticated/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof AuthenticatedCalendarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/analytics': {
       id: '/_authenticated/analytics'
       path: '/analytics'
@@ -445,6 +590,13 @@ declare module '@tanstack/react-router' {
       path: '/ai'
       fullPath: '/ai'
       preLoaderRoute: typeof AuthenticatedAiRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/agents': {
+      id: '/_authenticated/agents'
+      path: '/agents'
+      fullPath: '/agents'
+      preLoaderRoute: typeof AuthenticatedAgentsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/customers/': {
@@ -570,26 +722,42 @@ const AuthenticatedSettingsRouteWithChildren =
   )
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
   AuthenticatedAiRoute: typeof AuthenticatedAiRoute
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
+  AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
+  AuthenticatedChangelogRoute: typeof AuthenticatedChangelogRoute
   AuthenticatedConnectionsRoute: typeof AuthenticatedConnectionsRoute
   AuthenticatedContentRoute: typeof AuthenticatedContentRoute
   AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
+  AuthenticatedPipelinesRoute: typeof AuthenticatedPipelinesRoute
+  AuthenticatedProjectsRoute: typeof AuthenticatedProjectsRoute
+  AuthenticatedReferralsRoute: typeof AuthenticatedReferralsRoute
+  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
+  AuthenticatedWorkRoute: typeof AuthenticatedWorkRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
   AuthenticatedAiRoute: AuthenticatedAiRoute,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
+  AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
+  AuthenticatedChangelogRoute: AuthenticatedChangelogRoute,
   AuthenticatedConnectionsRoute: AuthenticatedConnectionsRoute,
   AuthenticatedContentRoute: AuthenticatedContentRoute,
   AuthenticatedCustomersRoute: AuthenticatedCustomersRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
+  AuthenticatedPipelinesRoute: AuthenticatedPipelinesRoute,
+  AuthenticatedProjectsRoute: AuthenticatedProjectsRoute,
+  AuthenticatedReferralsRoute: AuthenticatedReferralsRoute,
+  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
+  AuthenticatedWorkRoute: AuthenticatedWorkRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 

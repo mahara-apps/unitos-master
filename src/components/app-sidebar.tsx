@@ -12,6 +12,15 @@ import {
   ChevronsUpDown,
   Sparkles,
   Link2,
+  ListChecks,
+  CalendarDays,
+  FolderKanban,
+  FileBarChart,
+  Workflow,
+  Bot,
+  Gift,
+  Megaphone,
+  Settings as SettingsIcon,
 } from "lucide-react";
 import {
   Sidebar,
@@ -31,16 +40,42 @@ import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-const items = [
-  { title: "Painel", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Conteúdo", url: "/content", icon: KanbanSquare },
-  { title: "Brand AI", url: "/ai", icon: Sparkles },
-  { title: "Análises", url: "/analytics", icon: BarChart3 },
-  { title: "Notificações", url: "/notifications", icon: Bell },
-  { title: "Equipe", url: "/settings/team", icon: UserPlus },
-  { title: "Briefings", url: "/settings/briefing", icon: Link2 },
-  { title: "Conexões", url: "/connections", icon: Plug },
-] as const;
+type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string }> };
+
+const groups: Array<{ label: string; items: NavItem[] }> = [
+  {
+    label: "Operação",
+    items: [
+      { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
+      { title: "Trabalho", url: "/work", icon: ListChecks },
+      { title: "Calendário", url: "/calendar", icon: CalendarDays },
+      { title: "Projetos", url: "/projects", icon: FolderKanban },
+    ],
+  },
+  {
+    label: "Inteligência",
+    items: [
+      { title: "Analytics", url: "/analytics", icon: BarChart3 },
+      { title: "Relatórios", url: "/reports", icon: FileBarChart },
+    ],
+  },
+  {
+    label: "Sistema",
+    items: [
+      { title: "Integrações", url: "/connections", icon: Plug },
+      { title: "IA", url: "/ai", icon: Sparkles },
+      { title: "Agentes IA", url: "/agents", icon: Bot },
+      { title: "Pipelines", url: "/pipelines", icon: Workflow },
+      { title: "Conteúdo", url: "/content", icon: KanbanSquare },
+      { title: "Briefings", url: "/settings/briefing", icon: Link2 },
+      { title: "Equipe", url: "/settings/team", icon: UserPlus },
+      { title: "Notificações", url: "/notifications", icon: Bell },
+      { title: "Indique e ganhe", url: "/referrals", icon: Gift },
+      { title: "Novidades", url: "/changelog", icon: Megaphone },
+      { title: "Configurações", url: "/settings", icon: SettingsIcon },
+    ],
+  },
+];
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -51,23 +86,25 @@ export function AppSidebar() {
         <ContextSwitcher />
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {items.map((item) => (
-                <SidebarMenuItem key={item.url}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-                    <Link to={item.url} className="flex items-center gap-2">
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {groups.map((g) => (
+          <SidebarGroup key={g.label}>
+            <SidebarGroupLabel>{g.label}</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {g.items.map((item) => (
+                  <SidebarMenuItem key={item.url}>
+                    <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
+                      <Link to={item.url} className="flex items-center gap-2">
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
