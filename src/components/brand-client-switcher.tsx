@@ -83,8 +83,7 @@ export function ContextSwitcher() {
           brandId: brandId!,
           name: customerName.trim(),
           niche: customerNiche.trim() || undefined,
-          // logo_url is persisted via the customers page form; the switcher
-          // captures it here through the socials.notes field only if provided.
+          logo_url: customerLogo.trim() || undefined,
         },
       }),
     onSuccess: async (c: { id: string }) => {
