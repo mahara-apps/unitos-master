@@ -586,7 +586,7 @@ export const swotGenerateFn = createServerFn({ method: "POST" })
         `Briefing estruturado:\n${JSON.stringify(data.briefingJson, null, 2)}`,
         `Personas:\n${JSON.stringify(data.personasJson, null, 2)}`,
         `Cohorts:\n${JSON.stringify(data.cohortsJson, null, 2)}`,
-      ].join("\n\n"),
+      ].join("\n\n") + (await readCompetitorContext(context.supabase, data.brandId, data.clientId)),
       schema: SwotSchema,
     });
 
