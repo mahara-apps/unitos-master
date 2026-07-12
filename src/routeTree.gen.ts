@@ -25,6 +25,7 @@ import { Route as AuthenticatedConnectionsRouteImport } from './routes/_authenti
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAiRouteImport } from './routes/_authenticated/ai'
 import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authenticated/customers.index'
+import { Route as ApiJobsCustomerPipelineRouteImport } from './routes/api/jobs/customer-pipeline'
 import { Route as ApiJobsCopilotRouteImport } from './routes/api/jobs/copilot'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsAiRouteImport } from './routes/_authenticated/settings.ai'
@@ -113,6 +114,11 @@ const AuthenticatedCustomersIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedCustomersRoute,
   } as any)
+const ApiJobsCustomerPipelineRoute = ApiJobsCustomerPipelineRouteImport.update({
+  id: '/api/jobs/customer-pipeline',
+  path: '/api/jobs/customer-pipeline',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiJobsCopilotRoute = ApiJobsCopilotRouteImport.update({
   id: '/api/jobs/copilot',
   path: '/api/jobs/copilot',
@@ -161,6 +167,7 @@ export interface FileRoutesByFullPath {
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
+  '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
   '/customers/': typeof AuthenticatedCustomersIndexRoute
   '/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
@@ -182,6 +189,7 @@ export interface FileRoutesByTo {
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
+  '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
   '/customers': typeof AuthenticatedCustomersIndexRoute
   '/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
@@ -206,6 +214,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/ai': typeof AuthenticatedSettingsAiRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
+  '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
   '/_authenticated/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
@@ -230,6 +239,7 @@ export interface FileRouteTypes {
     | '/settings/ai'
     | '/settings/team'
     | '/api/jobs/copilot'
+    | '/api/jobs/customer-pipeline'
     | '/customers/'
     | '/customers/$customerId/pipeline'
   fileRoutesByTo: FileRoutesByTo
@@ -251,6 +261,7 @@ export interface FileRouteTypes {
     | '/settings/ai'
     | '/settings/team'
     | '/api/jobs/copilot'
+    | '/api/jobs/customer-pipeline'
     | '/customers'
     | '/customers/$customerId/pipeline'
   id:
@@ -274,6 +285,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/ai'
     | '/_authenticated/settings/team'
     | '/api/jobs/copilot'
+    | '/api/jobs/customer-pipeline'
     | '/_authenticated/customers/'
     | '/_authenticated/customers/$customerId/pipeline'
   fileRoutesById: FileRoutesById
@@ -286,6 +298,7 @@ export interface RootRouteChildren {
   InviteTokenRoute: typeof InviteTokenRoute
   PortalTokenRoute: typeof PortalTokenRoute
   ApiJobsCopilotRoute: typeof ApiJobsCopilotRoute
+  ApiJobsCustomerPipelineRoute: typeof ApiJobsCustomerPipelineRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -401,6 +414,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/customers/'
       preLoaderRoute: typeof AuthenticatedCustomersIndexRouteImport
       parentRoute: typeof AuthenticatedCustomersRoute
+    }
+    '/api/jobs/customer-pipeline': {
+      id: '/api/jobs/customer-pipeline'
+      path: '/api/jobs/customer-pipeline'
+      fullPath: '/api/jobs/customer-pipeline'
+      preLoaderRoute: typeof ApiJobsCustomerPipelineRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/jobs/copilot': {
       id: '/api/jobs/copilot'
@@ -522,6 +542,7 @@ const rootRouteChildren: RootRouteChildren = {
   InviteTokenRoute: InviteTokenRoute,
   PortalTokenRoute: PortalTokenRoute,
   ApiJobsCopilotRoute: ApiJobsCopilotRoute,
+  ApiJobsCustomerPipelineRoute: ApiJobsCustomerPipelineRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
