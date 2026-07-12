@@ -513,6 +513,10 @@ export function TopicsTab({ brandId, clientId }: { brandId: string; clientId: st
 
   return (
     <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2 pb-1">
+        <ContextSourceBadge source="full" />
+        <ContextSourceBadge source="knowledge" />
+      </div>
       {rows.map((p) => {
         const sent = p.status === "sent_to_content";
         return (
