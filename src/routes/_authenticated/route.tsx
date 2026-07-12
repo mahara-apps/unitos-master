@@ -27,12 +27,19 @@ const fallbackTitles: Record<string, string> = {
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async () => {
-    // Use getSession (local, ~instant) instead of getUser (network round-trip)
-    // to keep sidebar navigations snappy. Server functions still re-validate
-    // the bearer token via requireSupabaseAuth.
-    const { data, error } = await supabase.auth.getSession();
-    if (error || !data.session?.user) throw redirect({ to: "/login" });
-    return { user: data.session.user };
+    // Fast path: local session for snappy navigation.
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session?.user) throw redirect({ to: "/login" });
+
+    // Revalidate the token with Supabase Auth so a stale/rotated session
+    // (e.g. leftover in localStorage from another project) can't slip past
+    // and trigger "Unauthorized: Invalid token" on every server function.
+    const { data: userData, error } = await supabase.auth.getUser();
+    if (error || !userData.user) {
+      await supabase.auth.signOut().catch(() => {});
+      throw redirect({ to: "/login" });
+    }
+    return { user: userData.user };
   },
   component: AppShell,
 });
