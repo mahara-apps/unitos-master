@@ -146,8 +146,7 @@ function DashboardContent({ brandId, clientId }: { brandId: string; clientId: st
           />
           {clientId ? (
             <QuickAction
-              to="/customers/$customerId/briefing"
-              params={{ customerId: clientId }}
+              to={`/customers/${clientId}/briefing`}
               icon={<Sparkles className="h-4 w-4" />}
               title="Novo briefing"
               hint="Atualize a estratégia"
