@@ -23,6 +23,9 @@ import {
   UserPlus,
   Youtube,
   CalendarIcon,
+  ArrowUpRight,
+  ArrowDownRight,
+  Minus,
 } from "lucide-react";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { getDashboardStats } from "@/lib/dashboard.functions";
