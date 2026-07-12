@@ -10,6 +10,28 @@ export type BrandHubData = {
   demographics?: string;
   tone_tags?: string[];
   palette?: Array<{ label: string; hex: string }>;
+  competitors?: BrandHubCompetitor[];
+};
+
+export type BrandHubCompetitor = {
+  id: string;
+  handle: string;
+  platform: "instagram" | "tiktok" | "youtube" | "linkedin" | "x";
+  notes?: string;
+  added_at: string;
+  last_scraped_at?: string;
+  last_metrics?: BrandHubCompetitorMetrics | null;
+  last_error?: string | null;
+};
+
+export type BrandHubCompetitorMetrics = {
+  followers?: number;
+  posts_count?: number;
+  avg_likes?: number;
+  avg_comments?: number;
+  engagement_rate?: number;
+  top_posts?: Array<{ url?: string; caption?: string; likes?: number; comments?: number }>;
+  recurring_hooks?: string[];
 };
 
 const Scope = z.object({
