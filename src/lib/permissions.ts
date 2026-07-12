@@ -62,3 +62,52 @@ export function normalizePermissions(input: unknown): PermissionId[] {
   const valid = new Set<PermissionId>(ALL_PERMISSION_IDS);
   return input.filter((v): v is PermissionId => typeof v === "string" && valid.has(v as PermissionId));
 }
+
+/* ------------------------------------------------------------------ */
+/* Access-Role Matrix (agency-wide RBAC)                              */
+/* ------------------------------------------------------------------ */
+
+/** Nível de acesso efetivo — derivado do papel do usuário na brand. */
+export type AccessRole = "admin" | "user";
+
+/**
+ * Mapeia o papel bruto (brand_members.role: owner|manager|editor|designer|client)
+ * para o nível de acesso global usado pela UI/rotas.
+ * - owner/manager → admin (acesso irrestrito)
+ * - demais       → user  (colaborador escopado)
+ */
+export function resolveAccessRole(brandRole: string | null | undefined): AccessRole {
+  const r = (brandRole ?? "").toLowerCase();
+  return r === "owner" || r === "manager" || r === "admin" ? "admin" : "user";
+}
+
+export const isAdminRole = (role: AccessRole | null | undefined) => role === "admin";
+
+/** URLs permitidas na sidebar por nível de acesso. */
+export const SIDEBAR_ALLOWED_URLS: Record<AccessRole, ReadonlySet<string>> = {
+  admin: new Set([
+    "/dashboard", "/work", "/calendar", "/projects",
+    "/analytics", "/reports",
+    "/connections", "/ai", "/agents",
+    "/pipelines", "/content", "/settings/briefing",
+    "/settings/team", "/notifications", "/referrals",
+    "/changelog", "/settings",
+  ]),
+  user: new Set([
+    "/dashboard", "/work", "/calendar", "/projects",
+    "/pipelines", "/content", "/settings/briefing",
+    "/notifications",
+  ]),
+};
+
+export const canAccessSidebarUrl = (role: AccessRole, url: string) =>
+  SIDEBAR_ALLOWED_URLS[role].has(url);
+
+/** Dados básicos do cliente — apenas admin edita. */
+export const canEditBasicInfo = (role: AccessRole) => role === "admin";
+
+/** Rota de fallback quando o usuário tenta acessar um cliente/rota fora do escopo. */
+export const FALLBACK_ROUTE: Record<AccessRole, string> = {
+  admin: "/dashboard",
+  user: "/dashboard",
+};
