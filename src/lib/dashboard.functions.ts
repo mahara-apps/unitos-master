@@ -46,6 +46,7 @@ export type DashboardStats = {
     tasks_done_7d: number;
     posts_total: number;
     approvals_pending: number;
+    posts_approved_30d: number;
   };
   tasksByStatus: Record<string, number>;
   postsByStage: Record<string, number>;
@@ -94,6 +95,7 @@ async function computeStats(
     activityRes,
     tasksStatusRes,
     postsStageRes,
+    postsApproved30dRes,
   ] = await Promise.all([
     ignore(
       supabase
@@ -197,6 +199,16 @@ async function computeStats(
       ),
     ),
     ignore(scope(supabase.from("posts").select("stage").eq("brand_id", brandId))),
+    ignore(
+      scope(
+        supabase
+          .from("posts")
+          .select("id", { count: "exact", head: true })
+          .eq("brand_id", brandId)
+          .eq("stage", "approved")
+          .gte("updated_at", sinceIso(30)),
+      ),
+    ),
   ]);
 
   const activityAll = (activityRes?.data ?? []) as ActivityEvent[];
@@ -233,6 +245,7 @@ async function computeStats(
       tasks_done_7d: tasksDone7dRes?.count ?? 0,
       posts_total: postsRes?.count ?? 0,
       approvals_pending: approvalsRes?.count ?? 0,
+      posts_approved_30d: postsApproved30dRes?.count ?? 0,
     },
     tasksByStatus,
     postsByStage,
