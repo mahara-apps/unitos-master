@@ -11,6 +11,7 @@ import {
   User as UserIcon,
   ChevronsUpDown,
   Sparkles,
+  Link2,
 } from "lucide-react";
 import {
   Sidebar,
