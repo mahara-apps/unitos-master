@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { waitUntil } from "@/lib/wait-until.server";
 import { createClient } from "@supabase/supabase-js";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
@@ -29,8 +30,8 @@ function buildUserClient(token: string) {
   });
 }
 
-const STRATEGIC_MODEL = "google/gemini-3.1-pro-preview";
-const OPERATIONAL_MODEL = "openai/gpt-5.4-mini";
+const STRATEGIC_MODEL = "google/gemini-2.5-pro";
+const OPERATIONAL_MODEL = "google/gemini-2.5-flash";
 
 const BriefingSchema = z.object({
   publico_alvo: z.string().nullable(),
@@ -436,7 +437,7 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
           return new Response(jobErr?.message ?? "Failed to enqueue", { status: 500 });
         }
 
-        void runPhase1({ jobId: job.id, token, userId, input });
+        waitUntil(runPhase1({ jobId: job.id, token, userId, input }));
 
         return new Response(JSON.stringify({ jobId: job.id }), {
           status: 202,

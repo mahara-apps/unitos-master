@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { waitUntil } from "@/lib/wait-until.server";
 import { createClient } from "@supabase/supabase-js";
 import { generateText } from "ai";
 import { z } from "zod";
@@ -206,7 +207,7 @@ export const Route = createFileRoute("/api/jobs/copilot")({
 
         // Run in background — do NOT await. Cloudflare Workers keep the handler
         // alive until the promise settles even after the response is sent.
-        void runCopilotJob({ jobId: job.id, token, userId, input });
+        waitUntil(runCopilotJob({ jobId: job.id, token, userId, input }));
 
         return new Response(JSON.stringify({ jobId: job.id }), {
           status: 202,
