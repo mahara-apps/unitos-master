@@ -167,7 +167,7 @@ async function runOrchestrator(params: {
           .maybeSingle(),
         supabase
           .from("brand_competitors")
-          .select("handle, platform, last_metrics")
+          .select("handle")
           .eq("brand_id", input.brandId)
           .eq("client_id", input.clientId)
           .limit(6),
@@ -184,7 +184,7 @@ async function runOrchestrator(params: {
       ? JSON.stringify(voiceRow.data).slice(0, 2500)
       : (clientRow?.tone_of_voice ?? "(sem voice card)");
     const competitorsStr = (competitorsRow ?? [])
-      .map((c) => `- @${c.handle} (${c.platform})`)
+      .map((c) => `- @${c.handle}`)
       .join("\n") || "(nenhum concorrente cadastrado)";
     const visualIdentity = palette.length
       ? palette.map((p) => `- ${p.label}: ${p.hex}`).join("\n")
