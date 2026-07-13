@@ -29,8 +29,8 @@ function buildUserClient(token: string) {
   });
 }
 
-const STRATEGIC_MODEL = "google/gemini-3.1-pro-preview";
-const OPERATIONAL_MODEL = "openai/gpt-5.4-mini";
+const STRATEGIC_MODEL = "google/gemini-2.5-pro";
+const OPERATIONAL_MODEL = "google/gemini-2.5-flash";
 
 const BriefingSchema = z.object({
   publico_alvo: z.string().nullable(),

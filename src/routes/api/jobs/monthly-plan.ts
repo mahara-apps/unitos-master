@@ -24,8 +24,8 @@ const BodySchema = z.object({
   periodo: z.string().default("próximo mês"),
 });
 
-const STRATEGIC_MODEL = "google/gemini-3.1-pro-preview";
-const OPERATIONAL_MODEL = "openai/gpt-5.4-mini";
+const STRATEGIC_MODEL = "google/gemini-2.5-pro";
+const OPERATIONAL_MODEL = "google/gemini-2.5-flash";
 
 const PlannerSchema = z.object({
   concepts: z.array(
