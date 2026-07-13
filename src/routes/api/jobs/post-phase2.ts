@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { waitUntil } from "@/lib/wait-until.server";
 import { createClient } from "@supabase/supabase-js";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
@@ -216,7 +217,7 @@ export const Route = createFileRoute("/api/jobs/post-phase2")({
           .single();
         if (jobErr || !job) return new Response(jobErr?.message ?? "Failed to enqueue", { status: 500 });
 
-        void runPhase2({ jobId: job.id, token, userId, postId: parsed.data.postId });
+        waitUntil(runPhase2({ jobId: job.id, token, userId, postId: parsed.data.postId }));
 
         return new Response(JSON.stringify({ jobId: job.id }), {
           status: 202,

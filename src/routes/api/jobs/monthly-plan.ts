@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { waitUntil } from "@/lib/wait-until.server";
 import { createClient } from "@supabase/supabase-js";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
@@ -400,7 +401,7 @@ export const Route = createFileRoute("/api/jobs/monthly-plan")({
           return new Response(jobErr?.message ?? "Failed to enqueue", { status: 500 });
         }
 
-        void runOrchestrator({ jobId: job.id, token, userId, input });
+        waitUntil(runOrchestrator({ jobId: job.id, token, userId, input }));
 
         return new Response(JSON.stringify({ jobId: job.id }), {
           status: 202,
