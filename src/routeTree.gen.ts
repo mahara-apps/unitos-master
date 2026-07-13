@@ -42,6 +42,7 @@ import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authent
 import { Route as AuthenticatedSettingsBriefingRouteImport } from './routes/_authenticated/settings.briefing'
 import { Route as AuthenticatedSettingsAiRouteImport } from './routes/_authenticated/settings.ai'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
+import { Route as ApiPublicJobsReapRouteImport } from './routes/api/public/jobs.reap'
 import { Route as AuthenticatedCustomersCustomerIdPipelineRouteImport } from './routes/_authenticated/customers.$customerId.pipeline'
 import { Route as AuthenticatedCustomersCustomerIdBriefingRouteImport } from './routes/_authenticated/customers.$customerId.briefing'
 
@@ -215,6 +216,11 @@ const AuthenticatedCustomersCustomerIdRoute =
     path: '/$customerId',
     getParentRoute: () => AuthenticatedCustomersRoute,
   } as any)
+const ApiPublicJobsReapRoute = ApiPublicJobsReapRouteImport.update({
+  id: '/api/public/jobs/reap',
+  path: '/api/public/jobs/reap',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedCustomersCustomerIdPipelineRoute =
   AuthenticatedCustomersCustomerIdPipelineRouteImport.update({
     id: '/pipeline',
@@ -263,6 +269,7 @@ export interface FileRoutesByFullPath {
   '/customers/': typeof AuthenticatedCustomersIndexRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
+  '/api/public/jobs/reap': typeof ApiPublicJobsReapRoute
 }
 export interface FileRoutesByTo {
   '/forgot-password': typeof ForgotPasswordRoute
@@ -298,6 +305,7 @@ export interface FileRoutesByTo {
   '/customers': typeof AuthenticatedCustomersIndexRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
+  '/api/public/jobs/reap': typeof ApiPublicJobsReapRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -336,6 +344,7 @@ export interface FileRoutesById {
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
   '/_authenticated/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/_authenticated/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
+  '/api/public/jobs/reap': typeof ApiPublicJobsReapRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -374,6 +383,7 @@ export interface FileRouteTypes {
     | '/customers/'
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/pipeline'
+    | '/api/public/jobs/reap'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/forgot-password'
@@ -409,6 +419,7 @@ export interface FileRouteTypes {
     | '/customers'
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/pipeline'
+    | '/api/public/jobs/reap'
   id:
     | '__root__'
     | '/_authenticated'
@@ -446,6 +457,7 @@ export interface FileRouteTypes {
     | '/_authenticated/customers/'
     | '/_authenticated/customers/$customerId/briefing'
     | '/_authenticated/customers/$customerId/pipeline'
+    | '/api/public/jobs/reap'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -460,6 +472,7 @@ export interface RootRouteChildren {
   ApiJobsMonthlyPlanRoute: typeof ApiJobsMonthlyPlanRoute
   ApiJobsPostPhase2Route: typeof ApiJobsPostPhase2Route
   PBriefingTokenRoute: typeof PBriefingTokenRoute
+  ApiPublicJobsReapRoute: typeof ApiPublicJobsReapRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -695,6 +708,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersCustomerIdRouteImport
       parentRoute: typeof AuthenticatedCustomersRoute
     }
+    '/api/public/jobs/reap': {
+      id: '/api/public/jobs/reap'
+      path: '/api/public/jobs/reap'
+      fullPath: '/api/public/jobs/reap'
+      preLoaderRoute: typeof ApiPublicJobsReapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/customers/$customerId/pipeline': {
       id: '/_authenticated/customers/$customerId/pipeline'
       path: '/pipeline'
@@ -819,6 +839,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiJobsMonthlyPlanRoute: ApiJobsMonthlyPlanRoute,
   ApiJobsPostPhase2Route: ApiJobsPostPhase2Route,
   PBriefingTokenRoute: PBriefingTokenRoute,
+  ApiPublicJobsReapRoute: ApiPublicJobsReapRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
