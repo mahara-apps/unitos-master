@@ -48,8 +48,6 @@ import {
 } from "@/components/ui/dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { WelcomeModal } from "@/components/dashboard/welcome-modal";
-
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
 });
@@ -109,8 +107,6 @@ function DashboardContent({ brandId, clientId }: { brandId: string; clientId: st
 
   return (
     <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      <WelcomeModal brandId={brandId} data={undefined} />
-
       {/* Header */}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
