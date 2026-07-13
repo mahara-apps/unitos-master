@@ -65,6 +65,33 @@ export type Database = {
           },
         ]
       }
+      agent_prompts: {
+        Row: {
+          agent_id: string
+          agent_name: string
+          created_at: string
+          required_fields: Json
+          system_prompt: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          agent_name: string
+          created_at?: string
+          required_fields?: Json
+          system_prompt: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          agent_name?: string
+          created_at?: string
+          required_fields?: Json
+          system_prompt?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_jobs: {
         Row: {
           brand_id: string
