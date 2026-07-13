@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Sparkline } from "@/components/dashboard/sparkline";
 import { HealthBar } from "@/components/dashboard/health-bar";
 import { OverviewSkeleton } from "@/components/ai-agents/tab-skeletons";
+import { MonthlyPlanDialog } from "@/components/customer/monthly-plan-dialog";
 import { isValidScope } from "@/lib/customer-queries";
 import {
   loadCustomerDashboardFn,
@@ -116,6 +117,7 @@ function DashboardReady({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <MonthlyPlanDialog brandId={brandId} clientId={clientId} />
           {onRegenerate ? (
             <Button size="sm" variant="ghost" onClick={onRegenerate} className="gap-1.5 text-muted-foreground hover:text-foreground">
               <RefreshCw className="h-3.5 w-3.5" />
