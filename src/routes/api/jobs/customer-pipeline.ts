@@ -381,7 +381,7 @@ async function runPhase1(params: {
 
     // Strategy is done. Notify the user so they can review before generating ideas.
     const reviewRoute = `/customers/${input.clientId}/briefing`;
-    await supabase.from("notifications").insert({
+    const { error: notifErr } = await supabase.from("notifications").insert({
       user_id: userId,
       brand_id: input.brandId,
       kind: "system",
@@ -390,6 +390,7 @@ async function runPhase1(params: {
       href: reviewRoute,
       payload: { event: "strategy_ready", client_id: input.clientId },
     });
+    if (notifErr) console.warn("[notifications] insert failed", notifErr);
 
     await patch({
       status: "succeeded",

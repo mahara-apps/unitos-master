@@ -383,18 +383,24 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
       throw error;
     }
   } finally {
-    // Log de uso (best-effort; não bloqueia resposta se falhar)
-    void opts.supabase.from("brand_ai_usage").insert({
-      brand_id: opts.brandId,
-      agent: opts.agent,
-      model: modelId,
-      input_tokens: inTok,
-      output_tokens: outTok,
-      cost_usd: estimateCost(modelId, inTok, outTok),
-      success,
-      error_message: errMsg,
-      actor_id: opts.userId,
-    });
+    // Log de uso (best-effort; não bloqueia resposta se falhar,
+    // mas erros são logados para não engolir falhas silenciosas de RLS/schema).
+    try {
+      const { error: usageErr } = await opts.supabase.from("brand_ai_usage").insert({
+        brand_id: opts.brandId,
+        agent: opts.agent,
+        model: modelId,
+        input_tokens: inTok,
+        output_tokens: outTok,
+        cost_usd: estimateCost(modelId, inTok, outTok),
+        success,
+        error_message: errMsg,
+        actor_id: opts.userId,
+      });
+      if (usageErr) console.warn("[brand_ai_usage] insert failed", usageErr);
+    } catch (e) {
+      console.warn("[brand_ai_usage] insert threw", e);
+    }
   }
 
   return output as z.infer<T>;

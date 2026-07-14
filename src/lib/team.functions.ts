@@ -233,8 +233,7 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
             // Force password change on first login
             await supabaseAdmin
               .from("user_profiles")
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              .update({ requires_password_change: true } as any)
+              .update({ requires_password_change: true })
               .eq("id", created.user.id);
             provisioned = true;
           }
@@ -243,7 +242,7 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
         console.error("[invite provision] failed", e);
       }
 
-      const insertPayload: Record<string, unknown> = {
+      const insertPayload = {
         brand_id: data.brandId,
         email,
         role: data.role,
@@ -251,12 +250,11 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
         token,
         invited_by: userId,
         temp_password_sent: provisioned,
+        ...(data.expiresAt ? { expires_at: data.expiresAt } : {}),
       };
-      if (data.expiresAt) insertPayload.expires_at = data.expiresAt;
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: inviteErr } = await supabase.from("brand_invites").insert(insertPayload as any);
+      const { error: inviteErr } = await supabase.from("brand_invites").insert(insertPayload);
       if (inviteErr) {
+        console.error("[brand_invites] insert failed", { email, error: inviteErr });
         results.push({ email, status: "error", error: inviteErr.message });
         continue;
       }
@@ -326,8 +324,7 @@ export const revokeBrandInvite = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
       .from("brand_invites")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .update({ revoked_at: new Date().toISOString(), revoked_by: context.userId } as any)
+      .update({ revoked_at: new Date().toISOString(), revoked_by: context.userId })
       .eq("id", data.inviteId)
       .eq("brand_id", data.brandId)
       .is("accepted_at", null);

@@ -222,7 +222,7 @@ async function runIdeas(params: {
       injected = rows.length;
     }
 
-    await supabase.from("notifications").insert({
+    const { error: notifErr } = await supabase.from("notifications").insert({
       user_id: userId,
       brand_id: input.brandId,
       kind: "system",
@@ -231,6 +231,7 @@ async function runIdeas(params: {
       href: "/content",
       payload: { event: "ideas_ready", client_id: input.clientId, count: injected },
     });
+    if (notifErr) console.warn("[notifications] insert failed", notifErr);
 
     await patch({
       status: "succeeded",
