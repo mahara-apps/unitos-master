@@ -324,10 +324,37 @@ async function runOrchestrator(params: {
         .order("position", { ascending: false })
         .limit(1);
       let nextPos = ((maxRow?.[0]?.position ?? -1) as number) + 1024;
-      const rows = results.map((r) => {
+      // Distribuição no calendário: dias úteis (seg–sex) a partir do 1º dia
+      // do próximo mês, atravessando `input.meses` meses. Horários escalonados
+      // 10:00 / 14:00 / 17:00 (UTC-3 armazenado como UTC).
+      const totalMeses = Math.max(1, input.meses ?? 1);
+      const start = new Date();
+      start.setUTCDate(1);
+      start.setUTCMonth(start.getUTCMonth() + 1);
+      start.setUTCHours(13, 0, 0, 0); // 10:00 BRT (UTC-3)
+      const businessDays: Date[] = [];
+      const cursor = new Date(start);
+      for (let m = 0; m < totalMeses; m++) {
+        const monthEnd = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 0));
+        while (cursor <= monthEnd) {
+          const dow = cursor.getUTCDay();
+          if (dow !== 0 && dow !== 6) businessDays.push(new Date(cursor));
+          cursor.setUTCDate(cursor.getUTCDate() + 1);
+        }
+      }
+      const slotHours = [13, 17, 20]; // 10h/14h/17h BRT
+      const scheduleFor = (index: number): string => {
+        if (!businessDays.length) return new Date().toISOString();
+        const perDay = Math.max(1, Math.ceil(results.length / businessDays.length));
+        const dayIdx = Math.min(businessDays.length - 1, Math.floor(index / perDay));
+        const slotIdx = index % perDay;
+        const d = new Date(businessDays[dayIdx]);
+        d.setUTCHours(slotHours[slotIdx % slotHours.length], 0, 0, 0);
+        return d.toISOString();
+      };
+      const rows = results.map((r, idx) => {
         const channel = normalizeChannel(r.concept.plataforma ?? "");
         const captionMd = r.copy.caption ?? "";
-        const briefBlock = r.brief ? `\n\n---\n\n### Design brief\n${r.brief}` : "";
         const tagsBlock = r.copy.hashtags?.length
           ? `\n\n${r.copy.hashtags.map((t) => `#${t.replace(/^#/, "")}`).join(" ")}`
           : "";
@@ -337,13 +364,14 @@ async function runOrchestrator(params: {
           pipeline_id: pipelineId!,
           stage_id: ideaStageId!,
           title: (r.copy.titulo || r.concept.titulo).slice(0, 160),
-          copy: `${captionMd}${tagsBlock}${briefBlock}`,
+          copy: `${captionMd}${tagsBlock}`,
           channels: [channel],
           stage: "idea" as const,
           position: nextPos,
           created_by: userId,
           review_status: "pending",
           ai_phase: "idea",
+          scheduled_at: scheduleFor(idx),
         };
         nextPos += 1024;
         return row;
@@ -361,7 +389,7 @@ async function runOrchestrator(params: {
       target_route: "/content",
       result: {
         title: `${injected} peças geradas no pipeline`,
-        content: `Planejador + Copywriter + Direção de arte concluídos para "${input.periodo}".`,
+        content: `Planejador + Copywriter concluídos para "${input.periodo}". Peças distribuídas no calendário.`,
         injected: injected > 0,
       } as never,
     });
