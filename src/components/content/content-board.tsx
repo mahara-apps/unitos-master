@@ -539,7 +539,10 @@ function PostCard({
           </div>
           <div className="flex items-center gap-1.5">
             {scheduled ? (
-              <span className="inline-flex items-center gap-0.5 tabular-nums" title="Agendado para">
+              <span
+                className="inline-flex items-center gap-0.5 tabular-nums"
+                title={`Agendado para ${scheduled.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`}
+              >
                 <CalendarDays className="h-3 w-3" />
                 {scheduled.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
               </span>
