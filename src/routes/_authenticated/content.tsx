@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Plus, Settings2, Sparkles } from "lucide-react";
+import { Loader2, Plus, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -31,10 +31,15 @@ import {
 } from "@/lib/content.functions";
 import { ContentBoard } from "@/components/content/content-board";
 import { PostDetailDialog } from "@/components/content/post-detail-dialog";
-import { AiCopilotSheet } from "@/components/content/ai-copilot-sheet";
 import { ColumnConfigDialog } from "@/components/content/column-config-dialog";
 import { NewPostDialog } from "@/components/content/new-post-dialog";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/_authenticated/content")({
   component: ContentPage,
@@ -84,7 +89,6 @@ function ContentReady({ brandId, clientId }: { brandId: string; clientId: string
   const [activePipelineId, setActivePipelineId] = useState<string | null>(null);
   const [openNewPipeline, setOpenNewPipeline] = useState(false);
   const [openPostId, setOpenPostId] = useState<string | null>(null);
-  const [openCopilot, setOpenCopilot] = useState(false);
   const [openColumnConfig, setOpenColumnConfig] = useState(false);
   const [newTaskStageId, setNewTaskStageId] = useState<string | null>(null);
   const [openNewTask, setOpenNewTask] = useState(false);
@@ -113,21 +117,23 @@ function ContentReady({ brandId, clientId }: { brandId: string; clientId: string
               ))}
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" onClick={() => setOpenNewPipeline(true)}>
-            <Plus className="mr-1.5 h-4 w-4" /> Novo pipeline
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setOpenColumnConfig(true)}>
-            <Settings2 className="mr-1.5 h-4 w-4" /> Colunas
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" aria-label="Configurações do pipeline">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setOpenNewPipeline(true)}>
+                <Plus className="mr-2 h-4 w-4" /> Novo pipeline
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setOpenColumnConfig(true)}>
+                <Settings className="mr-2 h-4 w-4" /> Colunas
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button size="sm" onClick={() => { setNewTaskStageId(null); setOpenNewTask(true); }}>
             <Plus className="mr-1.5 h-4 w-4" /> Nova tarefa
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => setOpenCopilot(true)}
-            className="bg-gradient-to-r from-violet-600 via-fuchsia-500 to-pink-500 text-white hover:opacity-95 border-0 shadow-[0_0_0_1px_rgba(255,255,255,0.08)]"
-          >
-            <Sparkles className="mr-1.5 h-4 w-4" /> Generate with AI
           </Button>
         </div>
       ),
@@ -180,20 +186,6 @@ function ContentReady({ brandId, clientId }: { brandId: string; clientId: string
           />
         </Suspense>
       ) : null}
-
-      <AiCopilotSheet
-        open={openCopilot}
-        onOpenChange={setOpenCopilot}
-        brandId={brandId}
-        clientId={clientId}
-        pipelineId={effectivePipelineId}
-        invalidateKeys={
-          effectivePipelineId
-            ? [["content-board", brandId, clientId, effectivePipelineId] as const,
-               ["content-pipelines", brandId, clientId] as const]
-            : [["content-pipelines", brandId, clientId] as const]
-        }
-      />
 
       {effectivePipelineId ? (
         <Suspense fallback={null}>
