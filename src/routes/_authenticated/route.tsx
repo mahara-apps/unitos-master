@@ -1,4 +1,5 @@
-import { createFileRoute, Outlet, redirect, useRouterState } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -31,25 +32,50 @@ const fallbackTitles: Record<string, string> = {
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
-  beforeLoad: async () => {
-    // Fast path: local session for snappy navigation.
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData.session?.user) throw redirect({ to: "/login" });
-
-    // Revalidate the token with Supabase Auth so a stale/rotated session
-    // (e.g. leftover in localStorage from another project) can't slip past
-    // and trigger "Unauthorized: Invalid token" on every server function.
-    const { data: userData, error } = await supabase.auth.getUser();
-    if (error || !userData.user) {
-      await supabase.auth.signOut().catch(() => {});
-      throw redirect({ to: "/login" });
-    }
-    return { user: userData.user };
-  },
   component: AppShell,
 });
 
 function AppShell() {
+  const navigate = useNavigate();
+  const [status, setStatus] = useState<"checking" | "authenticated">("checking");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function validateSession() {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session?.user) {
+        if (!cancelled) navigate({ to: "/login", replace: true });
+        return;
+      }
+
+      const { data: userData, error } = await supabase.auth.getUser();
+      if (error || !userData.user) {
+        await supabase.auth.signOut().catch(() => {});
+        if (!cancelled) navigate({ to: "/login", replace: true });
+        return;
+      }
+
+      if (!cancelled) setStatus("authenticated");
+    }
+
+    validateSession();
+    return () => {
+      cancelled = true;
+    };
+  }, [navigate]);
+
+  if (status === "checking") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="text-center">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary" />
+          <p className="mt-4 text-sm text-muted-foreground">Carregando NexusFlow...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <ActiveContextProvider>
       <PageHeaderProvider>
