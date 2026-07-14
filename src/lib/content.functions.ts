@@ -68,6 +68,14 @@ export type BoardPost = {
   approved_at?: string | null;
   approved_by?: string | null;
   rework_notes?: string | null;
+  priority?: string | null;
+  format?: string | null;
+  tags?: string[] | null;
+  visible_in_portal?: boolean | null;
+  internal_briefing?: string | null;
+  client_briefing?: string | null;
+  script?: unknown;
+  references?: unknown;
 };
 
 export type Board = {
