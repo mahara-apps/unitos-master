@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { usePageHeader } from "@/hooks/use-page-header";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
@@ -51,24 +52,23 @@ function AISettingsPage() {
   const pct = Math.round((used / budget) * 100);
   const warn = pct >= 80;
 
+  usePageHeader(
+    {
+      title: "Governança de IA",
+      subtitle: "BYO Keys, memória longa (RAG) e disjuntor financeiro.",
+      actions: (
+        <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 font-mono text-[10px] text-emerald-300">
+          <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          SYSTEM · OPERATIONAL
+        </Badge>
+      ),
+    },
+    [],
+  );
+
   return (
     <ScrollArea className="h-[calc(100vh-3.5rem)] bg-zinc-950">
       <div className="mx-auto max-w-7xl space-y-8 p-6">
-        {/* Header */}
-        <header className="flex items-center justify-between">
-          <div>
-            <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">module · governance</div>
-            <h1 className="mt-1 text-2xl font-semibold">Governança de IA</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              BYO Keys, memória longa (RAG) e disjuntor financeiro.
-            </p>
-          </div>
-          <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 font-mono text-[10px] text-emerald-300 glow-good">
-            <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            SYSTEM · OPERATIONAL
-          </Badge>
-        </header>
-
         {/* Providers */}
         <section>
           <SectionHeader icon={<Key className="h-3.5 w-3.5" />} title="conectores · api" hint="Round-robin com fallback automático" />
