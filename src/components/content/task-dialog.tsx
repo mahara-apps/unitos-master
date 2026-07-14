@@ -773,7 +773,7 @@ function TaskLayout({
         </div>
 
         <Tabs defaultValue="copy" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList variant="grid" className="grid w-full grid-cols-4">
             <TabsTrigger value="copy">Legenda</TabsTrigger>
             <TabsTrigger value="internal">Briefing interno</TabsTrigger>
             <TabsTrigger value="client">Briefing cliente</TabsTrigger>
