@@ -1,4 +1,5 @@
-import { createFileRoute, Outlet, redirect, useRouterState } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -12,6 +13,7 @@ import { NotificationsBell } from "@/components/notifications/notifications-draw
 import { MandatoryPasswordReset } from "@/components/auth/mandatory-password-reset";
 import { AiJobsProvider } from "@/components/ai-jobs/ai-jobs-provider";
 import { AiJobsIndicator } from "@/components/ai-jobs/ai-jobs-indicator";
+import { LoginForm } from "@/components/login-form";
 
 const fallbackTitles: Record<string, string> = {
   "/dashboard": "Painel",
@@ -30,26 +32,61 @@ const fallbackTitles: Record<string, string> = {
 };
 
 export const Route = createFileRoute("/_authenticated")({
-  ssr: false,
-  beforeLoad: async () => {
-    // Fast path: local session for snappy navigation.
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (!sessionData.session?.user) throw redirect({ to: "/login" });
-
-    // Revalidate the token with Supabase Auth so a stale/rotated session
-    // (e.g. leftover in localStorage from another project) can't slip past
-    // and trigger "Unauthorized: Invalid token" on every server function.
-    const { data: userData, error } = await supabase.auth.getUser();
-    if (error || !userData.user) {
-      await supabase.auth.signOut().catch(() => {});
-      throw redirect({ to: "/login" });
-    }
-    return { user: userData.user };
-  },
   component: AppShell,
 });
 
 function AppShell() {
+  const [status, setStatus] = useState<"checking" | "authenticated" | "unauthenticated">("checking");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function validateSession() {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session?.user) {
+        if (!cancelled) setStatus("unauthenticated");
+        return;
+      }
+
+      const { data: userData, error } = await supabase.auth.getUser();
+      if (error || !userData.user) {
+        await supabase.auth.signOut().catch(() => {});
+        if (!cancelled) setStatus("unauthenticated");
+        return;
+      }
+
+      if (!cancelled) setStatus("authenticated");
+    }
+
+    validateSession();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (status === "checking") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className="text-center">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary" />
+          <p className="mt-4 text-sm text-muted-foreground">Carregando NexusFlow...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return (
+      <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-12">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,var(--color-muted)_0%,transparent_60%)]"
+        />
+        <LoginForm />
+      </main>
+    );
+  }
+
   return (
     <ActiveContextProvider>
       <PageHeaderProvider>
