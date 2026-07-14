@@ -16,7 +16,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Check, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
-import { Paperclip, ImageIcon, CalendarDays, CalendarPlus, UserCircle2, Sparkles } from "lucide-react";
+import { Paperclip, ImageIcon, CalendarDays, UserCircle2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -507,7 +507,6 @@ function PostCard({
     .replace(/\s+/g, " ")
     .trim();
   const scheduled = post.scheduled_at ? new Date(post.scheduled_at) : null;
-  const created = post.created_at ? new Date(post.created_at) : null;
   const tags = Array.isArray(post.tags) ? post.tags.filter(Boolean) : [];
   return (
     <button
