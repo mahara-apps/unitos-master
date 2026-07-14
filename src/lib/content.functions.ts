@@ -853,3 +853,134 @@ export const reorderStagesFn = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// ---------- AI Reference Image Generation ----------
+
+export const generatePostReferenceImageFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        postId: z.string().uuid(),
+        extraPrompt: z.string().max(500).optional(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const key = process.env.LOVABLE_API_KEY;
+    if (!key) throw new Error("LOVABLE_API_KEY não configurada");
+
+    const { data: post, error } = await context.supabase
+      .from("posts")
+      .select("id, brand_id, client_id, title, copy, format, reference_media")
+      .eq("id", data.postId)
+      .single();
+    if (error || !post) throw error ?? new Error("post_not_found");
+
+    // Parse copy sections (### GANCHO / HEADLINE / COPY / CTA)
+    const raw = (post.copy as string | null) ?? "";
+    const pick = (label: string) => {
+      const re = new RegExp(`###\\s+${label}\\s*\\n([\\s\\S]*?)(?=\\n###\\s+|$)`, "i");
+      const m = raw.match(re);
+      return m?.[1]?.trim() ?? "";
+    };
+    const hook = pick("GANCHO");
+    const headline = pick("HEADLINE");
+    const body = pick("COPY");
+
+    const prompt = [
+      `Gere uma imagem de referência visual (moodboard) para um post de rede social.`,
+      `Formato: ${post.format ?? "feed"}. Título: ${post.title}.`,
+      hook ? `Hook: ${hook}` : "",
+      headline ? `Headline: ${headline}` : "",
+      body ? `Mensagem: ${body.slice(0, 400)}` : "",
+      data.extraPrompt ? `Direção adicional: ${data.extraPrompt}` : "",
+      `Estilo: fotográfico/editorial, iluminação premium, composição limpa, pronto para social media.`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Lovable-API-Key": key,
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image-preview",
+        messages: [{ role: "user", content: prompt }],
+        modalities: ["image", "text"],
+      }),
+    });
+    if (!resp.ok) {
+      const t = await resp.text();
+      throw new Error(`ai_image_failed: ${resp.status} ${t.slice(0, 200)}`);
+    }
+    const json = (await resp.json()) as {
+      choices?: Array<{
+        message?: {
+          images?: Array<{ image_url?: { url?: string } }>;
+          content?: unknown;
+        };
+      }>;
+    };
+    // Extract data URL from message.images[].image_url.url or content parts
+    let dataUrl: string | null = null;
+    const msg = json.choices?.[0]?.message;
+    const imgs = msg?.images;
+    if (imgs && imgs.length > 0) dataUrl = imgs[0]?.image_url?.url ?? null;
+    if (!dataUrl && Array.isArray(msg?.content)) {
+      for (const part of msg!.content as Array<Record<string, unknown>>) {
+        if (part?.type === "image_url") {
+          const u = (part.image_url as { url?: string } | undefined)?.url;
+          if (u) {
+            dataUrl = u;
+            break;
+          }
+        }
+      }
+    }
+    if (!dataUrl || !dataUrl.startsWith("data:")) {
+      throw new Error("ai_image_empty: modelo não retornou imagem");
+    }
+    const [meta, b64] = dataUrl.split(",", 2);
+    const mimeMatch = /data:([^;]+);base64/i.exec(meta);
+    const contentType = mimeMatch?.[1] ?? "image/png";
+    const ext = contentType.split("/")[1] ?? "png";
+    const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+
+    const filename = `ai-${Date.now()}.${ext}`;
+    const path = `${post.brand_id}/${post.client_id}/posts/${post.id}/${filename}`;
+    const { error: ue } = await context.supabase.storage
+      .from("brand-assets")
+      .upload(path, bin, { contentType, upsert: false });
+    if (ue) throw ue;
+
+    const entry = {
+      path,
+      name: filename,
+      type: contentType,
+      size: bin.byteLength,
+      source: "ai" as const,
+    };
+    const current = Array.isArray(post.reference_media)
+      ? (post.reference_media as Array<Record<string, unknown>>)
+      : [];
+    const next = [...current, entry];
+    const { error: upErr } = await context.supabase
+      .from("posts")
+      .update({ reference_media: next } as never)
+      .eq("id", data.postId);
+    if (upErr) throw upErr;
+
+    // Log activity event
+    await context.supabase.from("activity_events").insert({
+      entity_type: "post",
+      entity_id: data.postId,
+      verb: "media_generated",
+      actor_id: context.userId,
+      payload: { filename } as never,
+    } as never);
+
+    return { ok: true, path };
+  });
+
