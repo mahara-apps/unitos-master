@@ -74,6 +74,38 @@ import {
 } from "@/lib/approval.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { CHANNELS, CHANNEL_STYLES, FORMATS, FORMAT_STYLES, PRIORITY_STYLES } from "./stage-colors";
+import {
+  listPlacementsFn,
+  savePlacementsFn,
+  PLACEMENT_FORMATS,
+  validatePlacementSet,
+  type PlacementFormat,
+} from "@/lib/placements.functions";
+
+// UI helpers to bridge display strings ("Feed"/"Story"/"Reels"/"Carrossel")
+// used elsewhere in this component with the DB enum used by placements.
+const FORMAT_TO_ENUM: Record<string, PlacementFormat> = {
+  Feed: "feed",
+  feed: "feed",
+  Story: "stories",
+  Stories: "stories",
+  stories: "stories",
+  Reels: "reels",
+  reels: "reels",
+  Carrossel: "carrossel",
+  Carousel: "carrossel",
+  carrossel: "carrossel",
+};
+const ENUM_TO_LABEL: Record<PlacementFormat, string> = {
+  feed: "Feed",
+  stories: "Stories",
+  reels: "Reels",
+  carrossel: "Carrossel",
+};
+function toEnum(f: string | null | undefined): PlacementFormat {
+  if (!f) return "feed";
+  return FORMAT_TO_ENUM[f] ?? "feed";
+}
 
 type Priority = "low" | "medium" | "high" | "urgent";
 
