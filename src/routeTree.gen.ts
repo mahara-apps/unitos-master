@@ -17,16 +17,13 @@ import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ApprovalTokenRouteImport } from './routes/approval.$token'
-import { Route as AuthenticatedWorkRouteImport } from './routes/_authenticated/work'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
-import { Route as AuthenticatedProjectsRouteImport } from './routes/_authenticated/projects'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
 import { Route as AuthenticatedContentRouteImport } from './routes/_authenticated/content'
 import { Route as AuthenticatedConnectionsRouteImport } from './routes/_authenticated/connections'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
-import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
 import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authenticated/customers.index'
 import { Route as PBriefingTokenRouteImport } from './routes/p.briefing.$token'
@@ -40,7 +37,6 @@ import { Route as AuthenticatedSettingsAiRouteImport } from './routes/_authentic
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 import { Route as ApiPublicJobsReapRouteImport } from './routes/api/public/jobs.reap'
 import { Route as ApiPublicApprovalTokenRouteImport } from './routes/api/public/approval.$token'
-import { Route as AuthenticatedCustomersCustomerIdPipelineRouteImport } from './routes/_authenticated/customers.$customerId.pipeline'
 import { Route as AuthenticatedCustomersCustomerIdBriefingRouteImport } from './routes/_authenticated/customers.$customerId.briefing'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -82,19 +78,9 @@ const ApprovalTokenRoute = ApprovalTokenRouteImport.update({
   path: '/approval/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedWorkRoute = AuthenticatedWorkRouteImport.update({
-  id: '/work',
-  path: '/work',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedProjectsRoute = AuthenticatedProjectsRouteImport.update({
-  id: '/projects',
-  path: '/projects',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedNotificationsRoute =
@@ -127,11 +113,6 @@ const AuthenticatedConnectionsRoute =
 const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
-  id: '/analytics',
-  path: '/analytics',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
@@ -202,12 +183,6 @@ const ApiPublicApprovalTokenRoute = ApiPublicApprovalTokenRouteImport.update({
   path: '/api/public/approval/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedCustomersCustomerIdPipelineRoute =
-  AuthenticatedCustomersCustomerIdPipelineRouteImport.update({
-    id: '/pipeline',
-    path: '/pipeline',
-    getParentRoute: () => AuthenticatedCustomersCustomerIdRoute,
-  } as any)
 const AuthenticatedCustomersCustomerIdBriefingRoute =
   AuthenticatedCustomersCustomerIdBriefingRouteImport.update({
     id: '/briefing',
@@ -221,16 +196,13 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/agents': typeof AuthenticatedAgentsRoute
-  '/analytics': typeof AuthenticatedAnalyticsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/connections': typeof AuthenticatedConnectionsRoute
   '/content': typeof AuthenticatedContentRoute
   '/customers': typeof AuthenticatedCustomersRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
-  '/projects': typeof AuthenticatedProjectsRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
-  '/work': typeof AuthenticatedWorkRoute
   '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
@@ -245,7 +217,6 @@ export interface FileRoutesByFullPath {
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/customers/': typeof AuthenticatedCustomersIndexRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
-  '/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/jobs/reap': typeof ApiPublicJobsReapRoute
 }
@@ -254,15 +225,12 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/agents': typeof AuthenticatedAgentsRoute
-  '/analytics': typeof AuthenticatedAnalyticsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/connections': typeof AuthenticatedConnectionsRoute
   '/content': typeof AuthenticatedContentRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
-  '/projects': typeof AuthenticatedProjectsRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
-  '/work': typeof AuthenticatedWorkRoute
   '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
@@ -278,7 +246,6 @@ export interface FileRoutesByTo {
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/customers': typeof AuthenticatedCustomersIndexRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
-  '/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/jobs/reap': typeof ApiPublicJobsReapRoute
 }
@@ -289,16 +256,13 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/agents': typeof AuthenticatedAgentsRoute
-  '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/connections': typeof AuthenticatedConnectionsRoute
   '/_authenticated/content': typeof AuthenticatedContentRoute
   '/_authenticated/customers': typeof AuthenticatedCustomersRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
-  '/_authenticated/projects': typeof AuthenticatedProjectsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
-  '/_authenticated/work': typeof AuthenticatedWorkRoute
   '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
@@ -314,7 +278,6 @@ export interface FileRoutesById {
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
   '/_authenticated/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
-  '/_authenticated/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/jobs/reap': typeof ApiPublicJobsReapRoute
 }
@@ -326,16 +289,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/agents'
-    | '/analytics'
     | '/calendar'
     | '/connections'
     | '/content'
     | '/customers'
     | '/dashboard'
     | '/notifications'
-    | '/projects'
     | '/settings'
-    | '/work'
     | '/approval/$token'
     | '/invite/$token'
     | '/portal/$token'
@@ -350,7 +310,6 @@ export interface FileRouteTypes {
     | '/p/briefing/$token'
     | '/customers/'
     | '/customers/$customerId/briefing'
-    | '/customers/$customerId/pipeline'
     | '/api/public/approval/$token'
     | '/api/public/jobs/reap'
   fileRoutesByTo: FileRoutesByTo
@@ -359,15 +318,12 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/agents'
-    | '/analytics'
     | '/calendar'
     | '/connections'
     | '/content'
     | '/dashboard'
     | '/notifications'
-    | '/projects'
     | '/settings'
-    | '/work'
     | '/approval/$token'
     | '/invite/$token'
     | '/portal/$token'
@@ -383,7 +339,6 @@ export interface FileRouteTypes {
     | '/p/briefing/$token'
     | '/customers'
     | '/customers/$customerId/briefing'
-    | '/customers/$customerId/pipeline'
     | '/api/public/approval/$token'
     | '/api/public/jobs/reap'
   id:
@@ -393,16 +348,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/_authenticated/agents'
-    | '/_authenticated/analytics'
     | '/_authenticated/calendar'
     | '/_authenticated/connections'
     | '/_authenticated/content'
     | '/_authenticated/customers'
     | '/_authenticated/dashboard'
     | '/_authenticated/notifications'
-    | '/_authenticated/projects'
     | '/_authenticated/settings'
-    | '/_authenticated/work'
     | '/approval/$token'
     | '/invite/$token'
     | '/portal/$token'
@@ -418,7 +370,6 @@ export interface FileRouteTypes {
     | '/p/briefing/$token'
     | '/_authenticated/customers/'
     | '/_authenticated/customers/$customerId/briefing'
-    | '/_authenticated/customers/$customerId/pipeline'
     | '/api/public/approval/$token'
     | '/api/public/jobs/reap'
   fileRoutesById: FileRoutesById
@@ -499,25 +450,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApprovalTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/work': {
-      id: '/_authenticated/work'
-      path: '/work'
-      fullPath: '/work'
-      preLoaderRoute: typeof AuthenticatedWorkRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/settings': {
       id: '/_authenticated/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/projects': {
-      id: '/_authenticated/projects'
-      path: '/projects'
-      fullPath: '/projects'
-      preLoaderRoute: typeof AuthenticatedProjectsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/notifications': {
@@ -560,13 +497,6 @@ declare module '@tanstack/react-router' {
       path: '/calendar'
       fullPath: '/calendar'
       preLoaderRoute: typeof AuthenticatedCalendarRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/analytics': {
-      id: '/_authenticated/analytics'
-      path: '/analytics'
-      fullPath: '/analytics'
-      preLoaderRoute: typeof AuthenticatedAnalyticsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/agents': {
@@ -660,13 +590,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicApprovalTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/customers/$customerId/pipeline': {
-      id: '/_authenticated/customers/$customerId/pipeline'
-      path: '/pipeline'
-      fullPath: '/customers/$customerId/pipeline'
-      preLoaderRoute: typeof AuthenticatedCustomersCustomerIdPipelineRouteImport
-      parentRoute: typeof AuthenticatedCustomersCustomerIdRoute
-    }
     '/_authenticated/customers/$customerId/briefing': {
       id: '/_authenticated/customers/$customerId/briefing'
       path: '/briefing'
@@ -679,15 +602,12 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedCustomersCustomerIdRouteChildren {
   AuthenticatedCustomersCustomerIdBriefingRoute: typeof AuthenticatedCustomersCustomerIdBriefingRoute
-  AuthenticatedCustomersCustomerIdPipelineRoute: typeof AuthenticatedCustomersCustomerIdPipelineRoute
 }
 
 const AuthenticatedCustomersCustomerIdRouteChildren: AuthenticatedCustomersCustomerIdRouteChildren =
   {
     AuthenticatedCustomersCustomerIdBriefingRoute:
       AuthenticatedCustomersCustomerIdBriefingRoute,
-    AuthenticatedCustomersCustomerIdPipelineRoute:
-      AuthenticatedCustomersCustomerIdPipelineRoute,
   }
 
 const AuthenticatedCustomersCustomerIdRouteWithChildren =
@@ -729,31 +649,25 @@ const AuthenticatedSettingsRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
-  AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedConnectionsRoute: typeof AuthenticatedConnectionsRoute
   AuthenticatedContentRoute: typeof AuthenticatedContentRoute
   AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
-  AuthenticatedProjectsRoute: typeof AuthenticatedProjectsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
-  AuthenticatedWorkRoute: typeof AuthenticatedWorkRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
-  AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedConnectionsRoute: AuthenticatedConnectionsRoute,
   AuthenticatedContentRoute: AuthenticatedContentRoute,
   AuthenticatedCustomersRoute: AuthenticatedCustomersRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
-  AuthenticatedProjectsRoute: AuthenticatedProjectsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
-  AuthenticatedWorkRoute: AuthenticatedWorkRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
 }
 

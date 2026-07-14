@@ -119,7 +119,7 @@ function DashboardContent({ brandId, clientId }: { brandId: string; clientId: st
         <SectionHeading title="Ações rápidas" />
         <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <QuickAction
-            to="/work"
+            to="/content"
             icon={<ClipboardList className="h-4 w-4" />}
             title="Nova tarefa"
             hint="Atribua à equipe"
@@ -133,10 +133,10 @@ function DashboardContent({ brandId, clientId }: { brandId: string; clientId: st
             tint="from-amber-500/25 via-amber-500/10 to-transparent"
           />
           <QuickAction
-            to="/projects"
+            to="/content"
             icon={<FolderKanban className="h-4 w-4" />}
-            title="Novo projeto"
-            hint="Agrupe entregas"
+            title="Painel de produção"
+            hint="Kanban de conteúdo"
             tint="from-emerald-500/25 via-emerald-500/10 to-transparent"
           />
           {clientId ? (
@@ -668,7 +668,7 @@ function MyTasksCard({
     <div className="rounded-xl border border-border/60 bg-card">
       <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
         <div className="text-sm font-medium">Minhas tarefas em aberto</div>
-        <Link to="/work" className="text-xs text-muted-foreground hover:text-foreground">
+        <Link to="/content" className="text-xs text-muted-foreground hover:text-foreground">
           Ver todas →
         </Link>
       </div>
