@@ -30,7 +30,7 @@ const BodySchema = z.object({
   startFrom: z.enum(["current-remaining", "next-month"]).optional(),
 });
 
-const STRATEGIC_MODEL = "google/gemini-2.5-pro";
+const STRATEGIC_MODEL = "google/gemini-2.5-flash";
 const OPERATIONAL_MODEL = "google/gemini-2.5-flash";
 
 const PlannerSchema = z.object({
@@ -245,48 +245,20 @@ async function runOrchestrator(params: {
       }
     }
 
-    // 4) Copywriter por conceito (paralelo) — apenas texto (headline + legenda)
-    await patch({
-      progress: 45,
-      step_label: `Copywriter — escrevendo ${concepts.length} headlines`,
-    });
-
-    const persona0 = personasRow?.data
-      ? JSON.stringify(personasRow.data).slice(0, 1800)
-      : "(persona não informada)";
-    const hashtagsStr = hashtags.slice(0, 20).join(" ") || "(nenhuma hashtag oficial)";
-
-    const results = await Promise.all(
-      concepts.map(async (concept) => {
-        const conceptStr = JSON.stringify(concept);
-        try {
-          const copySys = fillTemplate(copyPrompt, {
-            TONE: voiceStr,
-            PERSONA: persona0,
-            HASHTAGS: hashtagsStr,
-            CONCEPT: conceptStr,
-          });
-          const copy = await runStructured({
-            system: copySys,
-            prompt: `Gere a legenda para o conceito.`,
-            schema: CopySchema,
-            strategic: false,
-          });
-          return { concept, copy };
-        } catch (err) {
-          return {
-            concept,
-            copy: {
-              titulo: concept.titulo,
-              caption: concept.gancho,
-              hook: concept.gancho,
-              hashtags: [] as string[],
-            },
-            error: err instanceof Error ? err.message : String(err),
-          };
-        }
-      }),
-    );
+    // 4) Modo rápido: pular copywriter, injetar apenas as ideias (título + gancho).
+    //    A legenda completa pode ser gerada sob demanda pelo Co-pilot de conteúdo.
+    void copyPrompt;
+    void voiceStr;
+    const hashtagsStr = hashtags.slice(0, 20).join(" ");
+    const results = concepts.map((concept) => ({
+      concept,
+      copy: {
+        titulo: concept.titulo,
+        caption: `${concept.gancho}\n\nObjetivo: ${concept.objetivo}\nCTA: ${concept.cta}`,
+        hook: concept.gancho,
+        hashtags: hashtagsStr ? hashtagsStr.split(/\s+/).filter(Boolean).slice(0, 8) : [],
+      },
+    }));
 
     // 5) Resolve pipeline + inject posts
     await patch({ progress: 85, step_label: "Injetando peças no pipeline" });
