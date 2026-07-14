@@ -550,6 +550,8 @@ export const updatePostFn = createServerFn({ method: "POST" })
             client_briefing: z.string().max(8000).nullable().optional(),
             script: z.array(z.any()).nullable().optional(),
             references: z.array(z.any()).nullable().optional(),
+            remind_at: z.string().nullable().optional(),
+            stage_id: z.string().uuid().nullable().optional(),
           })
           .strict(),
       })
