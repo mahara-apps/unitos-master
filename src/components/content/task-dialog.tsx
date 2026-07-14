@@ -84,6 +84,7 @@ import {
 } from "@/lib/placements.functions";
 import { listProjects } from "@/lib/projects.functions";
 import { FolderKanban } from "lucide-react";
+import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 
 // UI helpers to bridge display strings ("Feed"/"Story"/"Reels"/"Carrossel")
 // used elsewhere in this component with the DB enum used by placements.
@@ -143,7 +144,7 @@ export function TaskDialog(props: TaskDialogProps) {
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-0 border-l bg-background p-0 sm:max-w-[640px]"
+        className="flex w-full flex-col gap-0 border-l border-border/60 bg-background p-0 sm:max-w-[640px]"
       >
         {props.mode === "edit" ? (
           <Suspense fallback={<LoadingBody />}>
@@ -226,7 +227,7 @@ function AssigneeSelect({
       value={value ?? "none"}
       onValueChange={(v) => onChange(v === "none" ? null : v)}
     >
-      <SelectTrigger className={cn("h-8 w-full min-w-0 gap-1 text-xs", className)}>
+      <SelectTrigger className={cn("h-9 w-full min-w-0 gap-1 text-xs", className)}>
         <SelectValue placeholder="Sem responsável" />
       </SelectTrigger>
       <SelectContent>
@@ -241,7 +242,7 @@ function AssigneeSelect({
         {list.map((m) => (
           <SelectItem key={m.id} value={m.id}>
             <span className="inline-flex items-center gap-2">
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[9px] font-medium text-white">
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground">
                 {initials(m.name)}
               </span>
               {m.name}
@@ -281,7 +282,7 @@ function ProjectSelect({
       value={value ?? "none"}
       onValueChange={(v) => onChange(v === "none" ? null : v)}
     >
-      <SelectTrigger className={cn("h-8 w-full min-w-0 gap-1 text-xs", className)}>
+      <SelectTrigger className={cn("h-9 w-full min-w-0 gap-1 text-xs", className)}>
         <FolderKanban className="mr-1 h-3.5 w-3.5 text-muted-foreground" />
         <SelectValue placeholder="Sem projeto" />
       </SelectTrigger>
@@ -376,7 +377,7 @@ function CreateBody({
 
   return (
     <>
-      <div className="sticky top-0 z-10 space-y-3 border-b bg-background px-6 pb-3 pt-4">
+      <div className="sticky top-0 z-10 space-y-3 border-b border-border/60 bg-background/95 px-6 pb-3 pt-4 backdrop-blur">
         <div>
           <h2 className="text-base font-semibold tracking-tight">Nova tarefa</h2>
           <p className="text-xs text-muted-foreground">
@@ -385,7 +386,7 @@ function CreateBody({
         </div>
         <div className="grid grid-cols-3 items-center gap-2">
           <Select value={state.stageId} onValueChange={(v) => setState((p) => ({ ...p, stageId: v }))}>
-            <SelectTrigger className="h-8 w-full min-w-0 gap-1 text-xs">
+            <SelectTrigger className="h-9 w-full min-w-0 gap-1 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -417,11 +418,12 @@ function CreateBody({
           mode="create"
         />
       </div>
-      <div className="sticky bottom-0 flex justify-end gap-2 border-t bg-background px-6 py-3">
-        <Button variant="ghost" onClick={() => onOpenChange(false)}>
+      <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border/60 bg-background/95 px-6 py-3 backdrop-blur">
+        <Button variant="ghost" className="h-9" onClick={() => onOpenChange(false)}>
           Cancelar
         </Button>
         <Button
+          className="h-9"
           onClick={() => create.mutate()}
           disabled={!state.title.trim() || !state.stageId || create.isPending}
         >
@@ -752,7 +754,7 @@ function EditBody({
 
   return (
     <>
-      <div className="sticky top-0 z-10 space-y-3 border-b bg-background px-6 pb-3 pt-4">
+      <div className="sticky top-0 z-10 space-y-3 border-b border-border/60 bg-background/95 px-6 pb-3 pt-4 backdrop-blur">
         <div className="flex items-start gap-3 pr-8">
           <div className="min-w-0 flex-1">
             <Input
@@ -763,17 +765,17 @@ function EditBody({
             />
             <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
               {reviewStatus === "pending" && aiPhase === "idea" ? (
-                <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400">
+                <Badge variant="outline" className="rounded-md border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400">
                   Aguardando aprovação
                 </Badge>
               ) : null}
               {aiPhase === "copy_running" ? (
-                <Badge variant="outline" className="border-indigo-500/40 text-indigo-600 dark:text-indigo-400">
+                <Badge variant="outline" className="rounded-md border-indigo-500/40 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
                   <Loader2 className="mr-1 h-3 w-3 animate-spin" /> Gerando copy
                 </Badge>
               ) : null}
               {aiPhase === "copy_ready" ? (
-                <Badge variant="outline" className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
+                <Badge variant="outline" className="rounded-md border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                   Copy + Design prontos
                 </Badge>
               ) : null}
@@ -782,7 +784,7 @@ function EditBody({
         </div>
         <div className="grid grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.25fr)] items-center gap-2">
           <Select value={state.stageId} onValueChange={(v) => setState((p) => ({ ...p, stageId: v }))}>
-            <SelectTrigger className="h-8 w-full min-w-0 gap-1 text-xs">
+            <SelectTrigger className="h-9 w-full min-w-0 gap-1 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -806,17 +808,17 @@ function EditBody({
           />
           <div className="flex items-center justify-end">
             {reviewStatus === "pending" && aiPhase === "idea" ? (
-              <Button size="sm" onClick={handleApproveAndGenerate} disabled={approving} className="h-8 w-full">
+              <Button size="sm" onClick={handleApproveAndGenerate} disabled={approving} className="h-9 w-full">
                 {approving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
                 Aprovar & gerar
               </Button>
             ) : reviewStatus !== "approved" ? (
-              <Button size="sm" onClick={() => approveOnly.mutate()} disabled={approveOnly.isPending} className="h-8 w-full">
+              <Button size="sm" onClick={() => approveOnly.mutate()} disabled={approveOnly.isPending} className="h-9 w-full">
                 {approveOnly.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />}
                 Aprovar
               </Button>
             ) : (
-              <Badge variant="outline" className="w-full justify-center border-emerald-500/40 py-1.5 text-emerald-600 dark:text-emerald-400">
+              <Badge variant="outline" className="h-9 w-full justify-center rounded-md border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                 <CheckCircle2 className="mr-1 h-3 w-3" /> Aprovado
               </Badge>
             )}
@@ -849,9 +851,9 @@ function EditBody({
               (feeds, stories, moodboard)
             </span>
           </Label>
-          <div className="rounded-md border p-2">
+          <DashboardPanelSurface className="p-3">
             {refs.length === 0 ? (
-              <p className="px-1 py-2 text-xs text-muted-foreground">
+              <p className="rounded-lg border border-dashed border-border/60 bg-card/40 px-3 py-4 text-xs text-muted-foreground">
                 Anexe imagens ou vídeos. Ao inserir 2 ou mais, o post vira
                 automaticamente um Carrossel.
               </p>
@@ -905,7 +907,7 @@ function EditBody({
                 </Button>
               </div>
             </div>
-          </div>
+          </DashboardPanelSurface>
         </div>
 
         {post.design_brief ? (
@@ -913,9 +915,9 @@ function EditBody({
             <Label className="flex items-center gap-1.5">
               <FileText className="h-3.5 w-3.5" /> Briefing visual (IA)
             </Label>
-            <div className="rounded-md border bg-muted/40 p-3 text-sm whitespace-pre-wrap">
+            <DashboardPanelSurface className="bg-background/60 p-3 text-sm whitespace-pre-wrap">
               {post.design_brief}
-            </div>
+            </DashboardPanelSurface>
           </div>
         ) : null}
 
@@ -926,7 +928,7 @@ function EditBody({
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-2 border-t bg-background px-6 py-3">
+      <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 bg-background/95 px-6 py-3 backdrop-blur">
         <Button
           variant="ghost"
           size="sm"
@@ -951,7 +953,7 @@ function EditBody({
             {rework.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="mr-1.5 h-3.5 w-3.5" />}
             Refazer
           </Button>
-          <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>
+          <Button size="sm" className="h-9" onClick={() => save.mutate()} disabled={save.isPending}>
             {save.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
             Salvar
           </Button>
