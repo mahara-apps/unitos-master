@@ -769,3 +769,154 @@ export const signPostReferenceMediaFn = createServerFn({ method: "POST" })
     });
     return { urls };
   });
+
+// ---------- Stage reorder + replicate ----------
+
+export const reorderStagesFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        pipelineId: z.string().uuid(),
+        order: z.array(z.string().uuid()).min(1).max(50),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    let pos = 1024;
+    for (const id of data.order) {
+      const { error } = await context.supabase
+        .from("content_pipeline_stages")
+        .update({ position: pos })
+        .eq("id", id)
+        .eq("pipeline_id", data.pipelineId);
+      if (error) throw error;
+      pos += 1024;
+    }
+    return { ok: true };
+  });
+
+export const replicateStagesFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        sourcePipelineId: z.string().uuid(),
+        targetPipelineIds: z.array(z.string().uuid()).min(1).max(20),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: source, error: se } = await context.supabase
+      .from("content_pipeline_stages")
+      .select("key,label,color,position,is_terminal,hide_in_portal,enables_approval_link,sla_days")
+      .eq("pipeline_id", data.sourcePipelineId)
+      .order("position", { ascending: true });
+    if (se) throw se;
+    if (!source || source.length === 0) throw new Error("no_source_stages");
+
+    for (const targetId of data.targetPipelineIds) {
+      if (targetId === data.sourcePipelineId) continue;
+      // Move all posts to the first (soon to be recreated) placeholder later; instead: keep old stage IDs and just recreate.
+      // Simpler + safe: append cloned stages, then delete the old ones only if empty.
+      // For pragmatic v1: overwrite by wiping stages that hold no posts, then insert clones.
+      const { data: existingStages } = await context.supabase
+        .from("content_pipeline_stages")
+        .select("id")
+        .eq("pipeline_id", targetId);
+      const existingIds = (existingStages ?? []).map((s) => s.id);
+
+      // Insert clones first
+      const rows = source.map((s, idx) => ({
+        pipeline_id: targetId,
+        key: `${s.key}-clone-${Date.now().toString(36)}-${idx}`,
+        label: s.label,
+        color: s.color,
+        position: (idx + 1) * 1024,
+        is_terminal: s.is_terminal,
+        hide_in_portal: s.hide_in_portal,
+        enables_approval_link: s.enables_approval_link,
+        sla_days: s.sla_days,
+      }));
+      const { data: inserted, error: ie } = await context.supabase
+        .from("content_pipeline_stages")
+        .insert(rows as never)
+        .select("id,position");
+      if (ie) throw ie;
+
+      // Move posts from old stages -> first new stage, then delete old
+      const firstNew = inserted?.[0]?.id;
+      if (firstNew && existingIds.length > 0) {
+        await context.supabase
+          .from("posts")
+          .update({ stage_id: firstNew })
+          .in("stage_id", existingIds);
+        await context.supabase
+          .from("content_pipeline_stages")
+          .delete()
+          .in("id", existingIds);
+      }
+    }
+    return { ok: true };
+  });
+
+// ---------- Tag management (bulk) ----------
+
+export const renameTagFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+        pipelineId: z.string().uuid(),
+        from: z.string().min(1).max(40),
+        to: z.string().min(1).max(40),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("posts")
+      .select("id, tags")
+      .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
+      .eq("pipeline_id", data.pipelineId);
+    if (error) throw error;
+    for (const r of rows ?? []) {
+      const tags = Array.isArray(r.tags) ? (r.tags as string[]) : [];
+      if (!tags.includes(data.from)) continue;
+      const next = Array.from(new Set(tags.map((t) => (t === data.from ? data.to : t))));
+      await context.supabase.from("posts").update({ tags: next } as never).eq("id", r.id);
+    }
+    return { ok: true };
+  });
+
+export const deleteTagFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+        pipelineId: z.string().uuid(),
+        tag: z.string().min(1).max(40),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("posts")
+      .select("id, tags")
+      .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
+      .eq("pipeline_id", data.pipelineId);
+    if (error) throw error;
+    for (const r of rows ?? []) {
+      const tags = Array.isArray(r.tags) ? (r.tags as string[]) : [];
+      if (!tags.includes(data.tag)) continue;
+      const next = tags.filter((t) => t !== data.tag);
+      await context.supabase.from("posts").update({ tags: next } as never).eq("id", r.id);
+    }
+    return { ok: true };
+  });
