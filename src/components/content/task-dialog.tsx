@@ -81,6 +81,8 @@ import {
   validatePlacementSet,
   type PlacementFormat,
 } from "@/lib/placements.functions";
+import { listProjects } from "@/lib/projects.functions";
+import { FolderKanban } from "lucide-react";
 
 // UI helpers to bridge display strings ("Feed"/"Story"/"Reels"/"Carrossel")
 // used elsewhere in this component with the DB enum used by placements.
@@ -123,6 +125,7 @@ type CreateProps = CommonProps & {
   mode: "create";
   defaultStageId?: string;
   defaultScheduledAt?: string; // ISO string; pre-fills scheduled date/time
+  defaultProjectId?: string | null;
   postId?: never;
 };
 
@@ -249,6 +252,54 @@ function AssigneeSelect({
 
 // ----------------- Create -----------------
 
+function ProjectSelect({
+  brandId,
+  clientId,
+  value,
+  onChange,
+}: {
+  brandId: string;
+  clientId: string;
+  value: string | null;
+  onChange: (id: string | null) => void;
+}) {
+  const fetchProjects = useServerFn(listProjects);
+  const { data } = useQuery({
+    queryKey: ["projects", brandId, clientId, "picker"],
+    queryFn: () => fetchProjects({ data: { brandId, clientId } }),
+    staleTime: 60_000,
+    enabled: !!brandId && !!clientId,
+  });
+  const projects = (data?.projects ?? []) as Array<{ id: string; name: string; color: string | null; status: string }>;
+  return (
+    <Select
+      value={value ?? "none"}
+      onValueChange={(v) => onChange(v === "none" ? null : v)}
+    >
+      <SelectTrigger className="h-8 w-auto min-w-[160px] gap-1 text-xs">
+        <FolderKanban className="mr-1 h-3.5 w-3.5 text-muted-foreground" />
+        <SelectValue placeholder="Sem projeto" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="none">Sem projeto</SelectItem>
+        {projects
+          .filter((p) => p.status !== "archived")
+          .map((p) => (
+            <SelectItem key={p.id} value={p.id}>
+              <span className="inline-flex items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ background: p.color ?? "#8b5cf6" }}
+                />
+                {p.name}
+              </span>
+            </SelectItem>
+          ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function CreateBody({
   onOpenChange,
   brandId,
@@ -257,6 +308,7 @@ function CreateBody({
   stages,
   defaultStageId,
   defaultScheduledAt,
+  defaultProjectId,
   invalidateKey,
 }: CreateProps) {
   const qc = useQueryClient();
@@ -265,15 +317,17 @@ function CreateBody({
   const [state, setState] = useState(() => {
     const s = emptyState(defaultStageId ?? stages[0]?.id ?? "");
     if (defaultScheduledAt) s.scheduledAt = toLocalInputValue(defaultScheduledAt);
+    if (defaultProjectId) s.projectId = defaultProjectId;
     return s;
   });
 
   useEffect(() => {
     const s = emptyState(defaultStageId ?? stages[0]?.id ?? "");
     if (defaultScheduledAt) s.scheduledAt = toLocalInputValue(defaultScheduledAt);
+    if (defaultProjectId) s.projectId = defaultProjectId;
     setState(s);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultStageId, stages.length, defaultScheduledAt]);
+  }, [defaultStageId, stages.length, defaultScheduledAt, defaultProjectId]);
 
   const create = useMutation({
     mutationFn: async () =>
@@ -302,11 +356,14 @@ function CreateBody({
           tags: state.tags.length ? state.tags : undefined,
           visible_in_portal: state.visibleInPortal,
           assignees: state.assigneeId ? [state.assigneeId] : undefined,
+          project_id: state.projectId ?? null,
         },
       }),
     onSuccess: () => {
       toast.success("Tarefa criada");
       qc.invalidateQueries({ queryKey: invalidateKey });
+      qc.invalidateQueries({ queryKey: ["projects", brandId] });
+      if (state.projectId) qc.invalidateQueries({ queryKey: ["project", brandId, state.projectId] });
       onOpenChange(false);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -338,6 +395,12 @@ function CreateBody({
             brandId={brandId}
             value={state.assigneeId}
             onChange={(id) => setState((p) => ({ ...p, assigneeId: id }))}
+          />
+          <ProjectSelect
+            brandId={brandId}
+            clientId={clientId}
+            value={state.projectId}
+            onChange={(id) => setState((p) => ({ ...p, projectId: id }))}
           />
         </div>
       </div>
@@ -483,6 +546,7 @@ function EditBody({
               : null,
             stage_id: state.stageId || null,
             assignee_id: state.assigneeId,
+            project_id: state.projectId,
           },
         },
       });
@@ -511,6 +575,8 @@ function EditBody({
       qc.invalidateQueries({ queryKey: invalidateKey });
       qc.invalidateQueries({ queryKey: ["post-detail", postId] });
       qc.invalidateQueries({ queryKey: ["post-placements", postId] });
+      qc.invalidateQueries({ queryKey: ["projects", brandId] });
+      if (state.projectId) qc.invalidateQueries({ queryKey: ["project", brandId, state.projectId] });
       onOpenChange(false);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -727,6 +793,12 @@ function EditBody({
             value={state.assigneeId}
             onChange={(id) => setState((p) => ({ ...p, assigneeId: id }))}
           />
+          <ProjectSelect
+            brandId={brandId}
+            clientId={clientId}
+            value={state.projectId}
+            onChange={(id) => setState((p) => ({ ...p, projectId: id }))}
+          />
           <div className="ml-auto flex items-center gap-1.5">
             <QuickApprovalLinkButton postId={postId} />
             {reviewStatus === "pending" && aiPhase === "idea" ? (
@@ -902,6 +974,7 @@ type TaskState = {
   priority: Priority | "none";
   tags: string[];
   visibleInPortal: boolean;
+  projectId: string | null;
 };
 
 function emptyState(stageId: string): TaskState {
@@ -920,6 +993,7 @@ function emptyState(stageId: string): TaskState {
     priority: "none",
     tags: [],
     visibleInPortal: false,
+    projectId: null,
   };
 }
 
@@ -957,6 +1031,7 @@ function stateFromPost(post: BoardPost, stages: PipelineStage[]): TaskState {
       : "none"),
     tags: (post.tags ?? []) as string[],
     visibleInPortal: !!post.visible_in_portal,
+    projectId: (post.project_id ?? null) as string | null,
   };
 }
 

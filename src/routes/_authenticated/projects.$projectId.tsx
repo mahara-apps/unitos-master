@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -82,8 +82,13 @@ function fmtDate(iso?: string | null) {
 
 function ProjectDetailPage() {
   const { projectId } = Route.useParams();
-  const { brandId } = useActiveContext();
+  const { brandId, setClientId: setActiveClientId } = useActiveContext();
   const navigate = useNavigate();
+  function goCreateItem() {
+    if (project?.client_id) setActiveClientId(project.client_id);
+    navigate({ to: "/content", search: { project: projectId, new: true } });
+  }
+
   const qc = useQueryClient();
 
   const get = useServerFn(getProject);
@@ -378,19 +383,21 @@ function ProjectDetailPage() {
       <div className="rounded-xl border border-border bg-card p-5">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold">Itens do Projeto ({posts.length})</h3>
-          <Button size="sm" asChild>
-            <Link to="/content">
-              <Plus className="mr-2 h-4 w-4" /> Novo item
-            </Link>
+          <Button size="sm" onClick={goCreateItem}>
+            <Plus className="mr-2 h-4 w-4" /> Novo item
           </Button>
         </div>
         {posts.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
             <FileText className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">Nenhum item vinculado a este projeto.</p>
-            <Link to="/content" className="text-sm font-medium text-primary hover:underline">
+            <button
+              type="button"
+              onClick={goCreateItem}
+              className="text-sm font-medium text-primary hover:underline"
+            >
               Criar novo item
-            </Link>
+            </button>
           </div>
         ) : (
           <div className="divide-y divide-border">

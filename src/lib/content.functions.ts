@@ -594,6 +594,7 @@ export const updatePostFn = createServerFn({ method: "POST" })
             references: z.array(z.any()).nullable().optional(),
             remind_at: z.string().nullable().optional(),
             stage_id: z.string().uuid().nullable().optional(),
+            project_id: z.string().uuid().nullable().optional(),
           })
           .strict(),
       })
