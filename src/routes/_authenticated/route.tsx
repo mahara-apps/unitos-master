@@ -26,6 +26,8 @@ const fallbackTitles: Record<string, string> = {
   "/connections": "Conexões",
   "/settings/team": "Equipe",
   "/settings/ai": "Governança de IA",
+  "/settings/logs": "Logs do sistema",
+  "/settings/profile": "Perfil",
   "/settings": "Configurações",
   "/analytics": "Análises",
   "/notifications": "Notificações",
