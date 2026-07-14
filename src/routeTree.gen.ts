@@ -19,19 +19,14 @@ import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ApprovalTokenRouteImport } from './routes/approval.$token'
 import { Route as AuthenticatedWorkRouteImport } from './routes/_authenticated/work'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
-import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
-import { Route as AuthenticatedReferralsRouteImport } from './routes/_authenticated/referrals'
 import { Route as AuthenticatedProjectsRouteImport } from './routes/_authenticated/projects'
-import { Route as AuthenticatedPipelinesRouteImport } from './routes/_authenticated/pipelines'
 import { Route as AuthenticatedNotificationsRouteImport } from './routes/_authenticated/notifications'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
 import { Route as AuthenticatedContentRouteImport } from './routes/_authenticated/content'
 import { Route as AuthenticatedConnectionsRouteImport } from './routes/_authenticated/connections'
-import { Route as AuthenticatedChangelogRouteImport } from './routes/_authenticated/changelog'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
-import { Route as AuthenticatedAiRouteImport } from './routes/_authenticated/ai'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
 import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authenticated/customers.index'
 import { Route as PBriefingTokenRouteImport } from './routes/p.briefing.$token'
@@ -40,7 +35,6 @@ import { Route as ApiJobsMonthlyPlanRouteImport } from './routes/api/jobs/monthl
 import { Route as ApiJobsCustomerPipelineRouteImport } from './routes/api/jobs/customer-pipeline'
 import { Route as ApiJobsCopilotRouteImport } from './routes/api/jobs/copilot'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
-import { Route as AuthenticatedSettingsBriefingRouteImport } from './routes/_authenticated/settings.briefing'
 import { Route as AuthenticatedSettingsAiRouteImport } from './routes/_authenticated/settings.ai'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 import { Route as ApiPublicJobsReapRouteImport } from './routes/api/public/jobs.reap'
@@ -97,24 +91,9 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedReportsRoute = AuthenticatedReportsRouteImport.update({
-  id: '/reports',
-  path: '/reports',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedReferralsRoute = AuthenticatedReferralsRouteImport.update({
-  id: '/referrals',
-  path: '/referrals',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedProjectsRoute = AuthenticatedProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedPipelinesRoute = AuthenticatedPipelinesRouteImport.update({
-  id: '/pipelines',
-  path: '/pipelines',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedNotificationsRoute =
@@ -144,11 +123,6 @@ const AuthenticatedConnectionsRoute =
     path: '/connections',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedChangelogRoute = AuthenticatedChangelogRouteImport.update({
-  id: '/changelog',
-  path: '/changelog',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
@@ -157,11 +131,6 @@ const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
 const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedAiRoute = AuthenticatedAiRouteImport.update({
-  id: '/ai',
-  path: '/ai',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
@@ -206,12 +175,6 @@ const AuthenticatedSettingsTeamRoute =
     path: '/team',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
-const AuthenticatedSettingsBriefingRoute =
-  AuthenticatedSettingsBriefingRouteImport.update({
-    id: '/briefing',
-    path: '/briefing',
-    getParentRoute: () => AuthenticatedSettingsRoute,
-  } as any)
 const AuthenticatedSettingsAiRoute = AuthenticatedSettingsAiRouteImport.update({
   id: '/ai',
   path: '/ai',
@@ -252,19 +215,14 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/agents': typeof AuthenticatedAgentsRoute
-  '/ai': typeof AuthenticatedAiRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
-  '/changelog': typeof AuthenticatedChangelogRoute
   '/connections': typeof AuthenticatedConnectionsRoute
   '/content': typeof AuthenticatedContentRoute
   '/customers': typeof AuthenticatedCustomersRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
-  '/pipelines': typeof AuthenticatedPipelinesRoute
   '/projects': typeof AuthenticatedProjectsRoute
-  '/referrals': typeof AuthenticatedReferralsRoute
-  '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/work': typeof AuthenticatedWorkRoute
   '/approval/$token': typeof ApprovalTokenRoute
@@ -272,7 +230,6 @@ export interface FileRoutesByFullPath {
   '/portal/$token': typeof PortalTokenRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
-  '/settings/briefing': typeof AuthenticatedSettingsBriefingRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
@@ -290,18 +247,13 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/agents': typeof AuthenticatedAgentsRoute
-  '/ai': typeof AuthenticatedAiRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/calendar': typeof AuthenticatedCalendarRoute
-  '/changelog': typeof AuthenticatedChangelogRoute
   '/connections': typeof AuthenticatedConnectionsRoute
   '/content': typeof AuthenticatedContentRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
-  '/pipelines': typeof AuthenticatedPipelinesRoute
   '/projects': typeof AuthenticatedProjectsRoute
-  '/referrals': typeof AuthenticatedReferralsRoute
-  '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/work': typeof AuthenticatedWorkRoute
   '/approval/$token': typeof ApprovalTokenRoute
@@ -310,7 +262,6 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedIndexRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
-  '/settings/briefing': typeof AuthenticatedSettingsBriefingRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
@@ -330,19 +281,14 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/agents': typeof AuthenticatedAgentsRoute
-  '/_authenticated/ai': typeof AuthenticatedAiRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
-  '/_authenticated/changelog': typeof AuthenticatedChangelogRoute
   '/_authenticated/connections': typeof AuthenticatedConnectionsRoute
   '/_authenticated/content': typeof AuthenticatedContentRoute
   '/_authenticated/customers': typeof AuthenticatedCustomersRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
-  '/_authenticated/pipelines': typeof AuthenticatedPipelinesRoute
   '/_authenticated/projects': typeof AuthenticatedProjectsRoute
-  '/_authenticated/referrals': typeof AuthenticatedReferralsRoute
-  '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/work': typeof AuthenticatedWorkRoute
   '/approval/$token': typeof ApprovalTokenRoute
@@ -351,7 +297,6 @@ export interface FileRoutesById {
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/_authenticated/settings/ai': typeof AuthenticatedSettingsAiRoute
-  '/_authenticated/settings/briefing': typeof AuthenticatedSettingsBriefingRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
@@ -372,19 +317,14 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/agents'
-    | '/ai'
     | '/analytics'
     | '/calendar'
-    | '/changelog'
     | '/connections'
     | '/content'
     | '/customers'
     | '/dashboard'
     | '/notifications'
-    | '/pipelines'
     | '/projects'
-    | '/referrals'
-    | '/reports'
     | '/settings'
     | '/work'
     | '/approval/$token'
@@ -392,7 +332,6 @@ export interface FileRouteTypes {
     | '/portal/$token'
     | '/customers/$customerId'
     | '/settings/ai'
-    | '/settings/briefing'
     | '/settings/team'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
@@ -410,18 +349,13 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/agents'
-    | '/ai'
     | '/analytics'
     | '/calendar'
-    | '/changelog'
     | '/connections'
     | '/content'
     | '/dashboard'
     | '/notifications'
-    | '/pipelines'
     | '/projects'
-    | '/referrals'
-    | '/reports'
     | '/settings'
     | '/work'
     | '/approval/$token'
@@ -430,7 +364,6 @@ export interface FileRouteTypes {
     | '/'
     | '/customers/$customerId'
     | '/settings/ai'
-    | '/settings/briefing'
     | '/settings/team'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
@@ -449,19 +382,14 @@ export interface FileRouteTypes {
     | '/login'
     | '/reset-password'
     | '/_authenticated/agents'
-    | '/_authenticated/ai'
     | '/_authenticated/analytics'
     | '/_authenticated/calendar'
-    | '/_authenticated/changelog'
     | '/_authenticated/connections'
     | '/_authenticated/content'
     | '/_authenticated/customers'
     | '/_authenticated/dashboard'
     | '/_authenticated/notifications'
-    | '/_authenticated/pipelines'
     | '/_authenticated/projects'
-    | '/_authenticated/referrals'
-    | '/_authenticated/reports'
     | '/_authenticated/settings'
     | '/_authenticated/work'
     | '/approval/$token'
@@ -470,7 +398,6 @@ export interface FileRouteTypes {
     | '/_authenticated/'
     | '/_authenticated/customers/$customerId'
     | '/_authenticated/settings/ai'
-    | '/_authenticated/settings/briefing'
     | '/_authenticated/settings/team'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
@@ -573,32 +500,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/reports': {
-      id: '/_authenticated/reports'
-      path: '/reports'
-      fullPath: '/reports'
-      preLoaderRoute: typeof AuthenticatedReportsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/referrals': {
-      id: '/_authenticated/referrals'
-      path: '/referrals'
-      fullPath: '/referrals'
-      preLoaderRoute: typeof AuthenticatedReferralsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/projects': {
       id: '/_authenticated/projects'
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof AuthenticatedProjectsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/pipelines': {
-      id: '/_authenticated/pipelines'
-      path: '/pipelines'
-      fullPath: '/pipelines'
-      preLoaderRoute: typeof AuthenticatedPipelinesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/notifications': {
@@ -636,13 +542,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedConnectionsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/changelog': {
-      id: '/_authenticated/changelog'
-      path: '/changelog'
-      fullPath: '/changelog'
-      preLoaderRoute: typeof AuthenticatedChangelogRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/_authenticated/calendar': {
       id: '/_authenticated/calendar'
       path: '/calendar'
@@ -655,13 +554,6 @@ declare module '@tanstack/react-router' {
       path: '/analytics'
       fullPath: '/analytics'
       preLoaderRoute: typeof AuthenticatedAnalyticsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/ai': {
-      id: '/_authenticated/ai'
-      path: '/ai'
-      fullPath: '/ai'
-      preLoaderRoute: typeof AuthenticatedAiRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/agents': {
@@ -718,13 +610,6 @@ declare module '@tanstack/react-router' {
       path: '/team'
       fullPath: '/settings/team'
       preLoaderRoute: typeof AuthenticatedSettingsTeamRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
-    }
-    '/_authenticated/settings/briefing': {
-      id: '/_authenticated/settings/briefing'
-      path: '/briefing'
-      fullPath: '/settings/briefing'
-      preLoaderRoute: typeof AuthenticatedSettingsBriefingRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/settings/ai': {
@@ -809,13 +694,11 @@ const AuthenticatedCustomersRouteWithChildren =
 
 interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsAiRoute: typeof AuthenticatedSettingsAiRoute
-  AuthenticatedSettingsBriefingRoute: typeof AuthenticatedSettingsBriefingRoute
   AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
 }
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsAiRoute: AuthenticatedSettingsAiRoute,
-  AuthenticatedSettingsBriefingRoute: AuthenticatedSettingsBriefingRoute,
   AuthenticatedSettingsTeamRoute: AuthenticatedSettingsTeamRoute,
 }
 
@@ -826,19 +709,14 @@ const AuthenticatedSettingsRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
-  AuthenticatedAiRoute: typeof AuthenticatedAiRoute
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
-  AuthenticatedChangelogRoute: typeof AuthenticatedChangelogRoute
   AuthenticatedConnectionsRoute: typeof AuthenticatedConnectionsRoute
   AuthenticatedContentRoute: typeof AuthenticatedContentRoute
   AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
-  AuthenticatedPipelinesRoute: typeof AuthenticatedPipelinesRoute
   AuthenticatedProjectsRoute: typeof AuthenticatedProjectsRoute
-  AuthenticatedReferralsRoute: typeof AuthenticatedReferralsRoute
-  AuthenticatedReportsRoute: typeof AuthenticatedReportsRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
   AuthenticatedWorkRoute: typeof AuthenticatedWorkRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -846,19 +724,14 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
-  AuthenticatedAiRoute: AuthenticatedAiRoute,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
-  AuthenticatedChangelogRoute: AuthenticatedChangelogRoute,
   AuthenticatedConnectionsRoute: AuthenticatedConnectionsRoute,
   AuthenticatedContentRoute: AuthenticatedContentRoute,
   AuthenticatedCustomersRoute: AuthenticatedCustomersRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
-  AuthenticatedPipelinesRoute: AuthenticatedPipelinesRoute,
   AuthenticatedProjectsRoute: AuthenticatedProjectsRoute,
-  AuthenticatedReferralsRoute: AuthenticatedReferralsRoute,
-  AuthenticatedReportsRoute: AuthenticatedReportsRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
   AuthenticatedWorkRoute: AuthenticatedWorkRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
