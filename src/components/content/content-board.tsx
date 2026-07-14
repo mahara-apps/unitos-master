@@ -44,7 +44,7 @@ import {
   type PipelineStage,
   type StageColor,
 } from "@/lib/content.functions";
-import { STAGE_GRADIENT, PRIORITY_STYLES, PRIORITY_LABEL } from "./stage-colors";
+import { STAGE_GRADIENT, PRIORITY_STYLES, PRIORITY_LABEL, FORMAT_STYLE } from "./stage-colors";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Clock, Settings2 } from "lucide-react";
 
@@ -490,12 +490,12 @@ function PostCard({
         {(priority || post.format) ? (
           <div className="mb-1 flex flex-wrap items-center gap-1">
             {post.format ? (
-              <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${FORMAT_STYLE}`}>
                 {post.format}
               </span>
             ) : null}
             {priority ? (
-              <span className={`rounded-sm border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${PRIORITY_STYLES[priority] ?? ""}`}>
+              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${PRIORITY_STYLES[priority] ?? ""}`}>
                 {PRIORITY_LABEL[priority] ?? priority}
               </span>
             ) : null}
