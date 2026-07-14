@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
 import { buildBrandContextBlueprint } from "@/lib/ai-agents.functions";
+import { buildSlotScheduler, extractBestHoursFromChannels } from "@/lib/scheduling";
 
 // One-Click Monthly Plan Orchestrator
 // -----------------------------------------------------------------------------
