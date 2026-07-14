@@ -1,66 +1,80 @@
+# Painel de Produção Unificado — Kanban + Calendário + Cérebro de Agentes
 
-## Diagnóstico
+## Diagnóstico do que já existe
 
-Auditei os quatro orquestradores (`monthly-plan`, `customer-pipeline`, `post-phase2`, `copilot`) e a tabela `ai_jobs`. Existem **dois defeitos estruturais** que explicam por que a geração "roda" por horas e nunca conclui — na prática ela nem chega a começar de verdade.
+- **Kanban** (`/content`): funcional, com 6 estágios, drag-and-drop, criação de posts, edição em drawer, aprovação (`review_status = approved`). Faltam ações explícitas de **refazer** e **excluir** no cartão, e o botão de aprovar dispara Fase 2 do pipeline mas não sinaliza claramente o estado.
+- **Calendário** (`/calendar`): apenas placeholder "Em breve".
+- **Agentes IA** (`/agents`): apenas placeholder. Já existem 9 prompts em `agent_prompts` e o orquestrador `monthly-plan` gera pauta, mas não há tela para visualizar/executar/monitorar os agentes nem para gerar pauta conforme volume mensal do cliente.
+- **Volume mensal**: campo `brand_hub.volumetria` já existe no briefing, mas o Planner não recebe explicitamente "gerar N posts".
+- **Posts** têm `scheduled_at` e `published_at` no schema — base pronta para o calendário.
 
-### 1. IDs de modelo inválidos (falha imediata na chamada ao Gateway)
-Os jobs usam:
-- `google/gemini-3.1-pro-preview` — não existe no catálogo do Lovable AI Gateway
-- `openai/gpt-5.4-mini` — não existe no catálogo
+## O que vou construir
 
-Toda chamada `generateText(...)` devolve **400 do Gateway** ("unknown model"). O `runStructured` propaga o erro, o `catch` marca o job como `failed` — mas como o Worker já foi encerrado (ver defeito 2), o UPDATE nunca chega ao banco e o job fica preso em `queued` / `running` para sempre.
+### 1. Kanban de produção — reforço de ações
+Adicionar ao `PostCard` e ao `PostDetailDialog`:
+- **Aprovar** (já existe, tornar botão primário visível no cartão em hover).
+- **Refazer**: reseta `review_status → 'rework'`, move card de volta ao estágio "Em revisão" e dispara nova execução do Copywriter+Art Director (Fase 2) com feedback opcional em campo de texto.
+- **Excluir**: soft-delete com confirmação.
+- Badge de status (`pending` / `approved` / `rework` / `published`) no canto do card.
 
-### 2. Execução background sem `waitUntil` (Cloudflare Worker morre após o 202)
-Todos os handlers fazem:
-```ts
-void runOrchestrator({ ... });
-return new Response(..., { status: 202 });
-```
-No runtime Cloudflare Workers (workerd), assim que o handler retorna a resposta, o **isolate é terminado**. Qualquer Promise pendente é abortada silenciosamente. Não há Node.js "event loop" que continue rodando em segundo plano. Resultado: o `ai_jobs` fica com `status='queued'` ou `progress=5` indefinidamente.
+### 2. Calendário editorial (`/calendar`)
+Nova tela substituindo o placeholder:
+- Visão **mês / semana / lista** (react-day-picker + grid custom).
+- Fetch de posts com `scheduled_at` no intervalo visível, agrupados por dia.
+- Filtros: cliente (usa switcher global), canal (Instagram/LinkedIn/etc.), status.
+- Cada evento mostra: capa, título, canal, badge de status.
+- Clique → abre o mesmo `PostDetailDialog` do Kanban (aprovar/refazer/excluir/editar `scheduled_at`).
+- Arrastar evento entre dias → atualiza `scheduled_at` (mutation otimista).
+- Botão "+ Agendar post" abre criação rápida no dia selecionado.
 
-O caminho correto no Workers é `ctx.waitUntil(promise)` para estender a vida do isolate, **ou** um worker de fila (pg_cron + endpoint `/api/public/jobs/tick`) que polla `ai_jobs` e processa rows pendentes — que também é o padrão recomendado no knowledge de "long-running AI".
+### 3. Cérebro de Agentes (`/agents`)
+Nova tela consolidando o vault de `agent_prompts`:
+- **Grid de agentes** (9 já cadastrados): card por agente com nome, descrição, modelo, últimas execuções (do `ai_jobs`).
+- Cada card: ver prompt (read-only), ver histórico de runs, botão "Executar" para agentes standalone (Cérebro de Marca, Analista de Instagram, etc.) com seletor de cliente.
+- **Painel "Sugerir pauta mensal"** no topo:
+  - Seletor de cliente (ou usa contexto global).
+  - Lê `brand_hub.volumetria` (posts/mês) — editável inline.
+  - Distribui em canais conforme `brand_hub.canais`.
+  - Botão **"✨ Gerar N posts do mês"** dispara `monthly-plan` já existente, agora passando `postsCount` explícito para o Planner (hoje é implícito).
+  - Após execução: pauta aparece com propostas de `scheduled_at` sugeridas (distribuição uniforme no mês) → usuário aprova em lote e cards entram no Kanban + Calendário.
 
-### 3. Efeitos colaterais confirmados
-- `SELECT * FROM ai_jobs` está vazia agora, mas o orb da UI ainda mostra o job da sessão anterior via realtime/cache local — daí a sensação de "gerando há 2 horas".
-- O `copilot.ts` já usa `google/gemini-2.5-flash` (modelo válido) — por isso o copiloto às vezes funciona, enquanto o Plano do Mês nunca.
+### 4. Ajustes de backend
+- **Migration**: adicionar valor `'rework'` ao enum/coluna `review_status` (se ainda não existir) + coluna `deleted_at` para soft delete em `posts`.
+- **Server fn** `reworkPost` em `content.functions.ts`: seta status, move de estágio, enfileira novo job Fase 2.
+- **Server fn** `softDeletePost` (filtrar `deleted_at IS NULL` nos SELECTs existentes).
+- **Server fn** `listScheduledPosts({ from, to, clientId? })` para o calendário.
+- **Server fn** `runAgent({ agentId, clientId, input })` genérica que resolve prompt do vault + Brand Blueprint + roda via gateway.
+- **Orquestrador** `monthly-plan`: aceitar `postsCount` e `distributionHint` (canais/frequência) no payload; distribuir `scheduled_at` sugeridos ao inserir posts.
 
----
+### 5. Navegação (sidebar)
+- Manter grupo **Operação**: Dashboard, Produção (Kanban), **Calendário** (ativo), Projetos, Tarefas.
+- Manter grupo **Inteligência**: **Agentes IA** (ativo), Analytics, Relatórios.
 
-## Plano de correção
+## Detalhes técnicos
 
-### Passo 1 — Trocar todos os IDs de modelo para catalog-válidos
-Em `src/routes/api/jobs/monthly-plan.ts`, `customer-pipeline.ts`, `post-phase2.ts` e `src/lib/ai-agents.functions.ts`:
-- `STRATEGIC_MODEL = "google/gemini-2.5-pro"`
-- `OPERATIONAL_MODEL = "google/gemini-2.5-flash"` (mais barato e rápido que gpt-5-mini para copy/brief)
+**Arquivos criados**
+- `src/routes/_authenticated/calendar.tsx` — layout + tabs mês/semana/lista.
+- `src/components/calendar/editorial-calendar.tsx` — grid + DnD.
+- `src/components/calendar/day-cell.tsx` + `post-event-chip.tsx`.
+- `src/routes/_authenticated/agents.tsx` — grid + painel de pauta mensal.
+- `src/components/ai-agents/agent-card.tsx`, `agent-run-history.tsx`, `monthly-plan-generator.tsx`.
+- `src/lib/calendar.functions.ts`, `src/lib/agents.functions.ts`.
+- `supabase/migrations/*_posts_rework_and_softdelete.sql`.
 
-> Se preferir OpenAI no operacional, uso `openai/gpt-5-mini` (esse existe). Me confirme.
+**Arquivos editados**
+- `src/components/content/content-board.tsx` — botões Aprovar/Refazer/Excluir no card + badge de status.
+- `src/components/content/post-detail-dialog.tsx` — ação Refazer com campo de feedback + Excluir.
+- `src/lib/content.functions.ts` — filtro `deleted_at IS NULL`, novas mutations `reworkPost`, `softDeletePost`, `updateScheduledAt`.
+- `src/routes/api/jobs/monthly-plan.ts` — aceitar `postsCount` + gerar `scheduled_at`.
+- `src/components/app-sidebar.tsx` — apenas garantir ícones/rótulos dos itens já existentes.
 
-### Passo 2 — Executar em background de verdade (`waitUntil`)
-Refatorar cada handler para obter o `executionCtx` do Cloudflare via helper do TanStack Start (`getEvent()` → `context.cloudflare.ctx.waitUntil(...)`) e envolver o `runOrchestrator/runPhase1/runPhase2/runCopilotJob` com:
-```ts
-ctx.waitUntil(runOrchestrator({...}))
-```
-Fallback quando `ctx` não existir (dev local): manter `void` para não quebrar o preview.
+**Dependências**: nenhuma nova (usa `@dnd-kit`, `date-fns`, `react-day-picker`, shadcn já presentes).
 
-### Passo 3 — Watchdog / retomada
-Adicionar um endpoint público `/api/public/jobs/reap` que:
-- marca como `failed` qualquer `ai_jobs` com `status IN ('queued','running')` e `updated_at < now() - interval '5 min'`
-- registra `error: 'timeout ou worker interrompido'`
+**Segurança/RLS**: novas fns usam `requireSupabaseAuth` + `is_brand_member`; soft-delete e rework respeitam escopo por `client_id`.
 
-Isso destrava a UI instantaneamente e serve de rede de segurança. Recomendo agendar via pg_cron a cada 2 min (posso subir a migration).
+## Fora do escopo (fica para próxima iteração)
+- Publicação real em redes sociais (integração Meta/LinkedIn API).
+- Notificações push por evento de calendário.
+- Aprovação externa via portal do cliente (portal já foi removido conforme decisão anterior).
 
-### Passo 4 — Vault de agentes (`agent_prompts`)
-Estou aguardando o **MD com os agentes** que você mencionou. Quando enviar, faço a migration para popular `agent_prompts` (upsert por `agent_id`) com os system prompts finais e ajusto os `agent_id` esperados pelo orquestrador (`planner_strategic`, `copywriter_senior`, `art_director_social`, e os que vierem novos no MD).
-
-### Passo 5 — Validação
-- Limpar jobs zumbis: `UPDATE ai_jobs SET status='failed', error='reset manual' WHERE status IN ('queued','running')`.
-- Disparar "✨ Gerar Plano do Mês" em um cliente com briefing preenchido e observar `ai_jobs` progredir de `queued → running → succeeded` em ~10-30s.
-- Conferir logs do server function (`server-function-logs`) para garantir zero 400 do Gateway.
-
----
-
-## Perguntas antes de eu implementar
-
-1. Pode **colar o MD dos agentes** agora? Sem ele o Passo 4 fica pendente (o resto eu já implemento).
-2. Modelo operacional preferido: `google/gemini-2.5-flash` (default) ou `openai/gpt-5-mini`?
-3. Autorizo criar o cron de reaper (Passo 3) via `pg_cron`?
+Posso implementar? Se sim, sigo pela ordem: migration → backend fns → calendário → ações do kanban → tela de agentes.
