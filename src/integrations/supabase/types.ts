@@ -1499,7 +1499,7 @@ export type Database = {
           internal_briefing: string | null
           pipeline_id: string | null
           position: number
-          priority: string
+          priority: string | null
           project_id: string | null
           published_at: string | null
           recurrence: Json | null
@@ -1538,7 +1538,7 @@ export type Database = {
           internal_briefing?: string | null
           pipeline_id?: string | null
           position?: number
-          priority?: string
+          priority?: string | null
           project_id?: string | null
           published_at?: string | null
           recurrence?: Json | null
@@ -1577,7 +1577,7 @@ export type Database = {
           internal_briefing?: string | null
           pipeline_id?: string | null
           position?: number
-          priority?: string
+          priority?: string | null
           project_id?: string | null
           published_at?: string | null
           recurrence?: Json | null
