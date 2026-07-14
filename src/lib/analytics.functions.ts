@@ -118,8 +118,9 @@ export const getAnalytics = createServerFn({ method: "POST" })
     if (data.tags.length) postsQ = postsQ.overlaps("tags", data.tags);
     if (data.channels.length) postsQ = postsQ.overlaps("channels", data.channels as never);
 
-    const { data: posts = [], error: postsErr } = await postsQ;
+    const { data: postsData, error: postsErr } = await postsQ;
     if (postsErr) throw postsErr;
+    const posts = postsData ?? [];
 
     // -------- Tasks ---------
     let tasksQ = supabase
@@ -131,8 +132,9 @@ export const getAnalytics = createServerFn({ method: "POST" })
     if (data.client_ids.length) tasksQ = tasksQ.in("client_id", data.client_ids);
     if (data.assignee_ids.length) tasksQ = tasksQ.in("assignee_id", data.assignee_ids);
     if (data.project_ids.length) tasksQ = tasksQ.in("project_id", data.project_ids);
-    const { data: tasks = [], error: tasksErr } = await tasksQ;
+    const { data: tasksData, error: tasksErr } = await tasksQ;
     if (tasksErr) throw tasksErr;
+    const tasks = tasksData ?? [];
 
     // -------- Approvals (pending) ---------
     const postIds = posts.map((p) => p.id);
@@ -149,23 +151,26 @@ export const getAnalytics = createServerFn({ method: "POST" })
     );
 
     // -------- Clients meta ---------
-    const { data: clients = [] } = await supabase
+    const { data: clientsData } = await supabase
       .from("clients")
       .select("id,name,color")
       .eq("brand_id", brand_id);
+    const clients = clientsData ?? [];
 
     // -------- Team ---------
-    const { data: teamRows = [] } = await supabase
+    const { data: teamRowsData } = await supabase
       .from("brand_members")
       .select("user_id,role")
       .eq("brand_id", brand_id);
+    const teamRows = teamRowsData ?? [];
     const userIds = teamRows.map((m) => m.user_id);
-    const { data: profiles = [] } = userIds.length
+    const profilesRes = userIds.length
       ? await supabase
           .from("user_profiles")
           .select("id,full_name,avatar_url")
           .in("id", userIds)
       : { data: [] as Array<{ id: string; full_name: string; avatar_url: string | null }> };
+    const profiles = profilesRes.data ?? [];
     const profileMap = new Map(profiles.map((p) => [p.id, p]));
 
     // -------- Production tab ---------
@@ -192,7 +197,7 @@ export const getAnalytics = createServerFn({ method: "POST" })
       }
       const pub = toDate(p.published_at);
       const sched = toDate(p.scheduled_at);
-      if (p.stage === "publicado" || pub) {
+      if (p.stage === "published" || pub) {
         published += 1;
         if (pub) {
           const k = isoDate(pub);
