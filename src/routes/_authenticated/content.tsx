@@ -443,15 +443,6 @@ function RenamePipelineDialog({
   );
 }
 
-function EmptyStateDuplicate({ title, description }: { title: string; description: string }) {
-  return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center rounded-lg border border-dashed border-border/60 p-10 text-center">
-      <h2 className="text-lg font-medium">{title}</h2>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>
-    </div>
-  );
-}
-
 function BoardSkeleton() {
   return (
     <div className="flex gap-3">
