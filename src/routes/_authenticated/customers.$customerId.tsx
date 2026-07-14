@@ -68,18 +68,20 @@ function CustomerDetail() {
 
   if (!isUuid(brandId)) {
     return (
-      <div className="p-6">
-        <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-6 text-sm text-amber-300">
-          <AlertTriangle className="h-4 w-4" /> Selecione um workspace no menu lateral.
+      <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 text-sm text-muted-foreground">
+          <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-500" />
+          Selecione um workspace no menu lateral.
         </div>
       </div>
     );
   }
   if (!isUuid(customerId)) {
     return (
-      <div className="p-6">
-        <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/5 p-6 text-sm text-red-300">
-          <AlertTriangle className="h-4 w-4" /> Cliente inválido.
+      <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <AlertTriangle className="mt-0.5 h-4 w-4" />
+          Cliente inválido.
         </div>
       </div>
     );
@@ -95,7 +97,7 @@ function CustomerDetail() {
 function HeaderFallback() {
   return (
     <ScrollArea className="h-[calc(100vh-3.5rem)] bg-background">
-      <div className="w-full space-y-6 px-6 py-6 md:px-8">
+      <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Skeleton className="h-11 w-11 rounded-lg" />
@@ -107,13 +109,13 @@ function HeaderFallback() {
           </div>
           <div className="flex items-center gap-2">
             <Skeleton className="h-6 w-32 rounded-md" />
-            <Skeleton className="h-8 w-24 rounded-md" />
+            <Skeleton className="h-9 w-24 rounded-md" />
           </div>
         </header>
-        <div className="rounded-lg border border-border bg-card p-1">
+        <div className="rounded-lg border border-border/60 bg-card p-1">
           <div className="flex gap-2 p-1">
             {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-7 w-20 rounded-md" />
+              <Skeleton key={i} className="h-8 w-20 rounded-md" />
             ))}
           </div>
         </div>
@@ -180,9 +182,9 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
 
   return (
     <ScrollArea className="h-[calc(100vh-3.5rem)] bg-background">
-      <div className="w-full space-y-6 px-6 py-6 md:px-8">
+      <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         {customer === undefined && !customersQ.isLoading ? (
-          <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-sm text-destructive">
+          <div className="rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
             Este cliente não pertence ao workspace ativo.
           </div>
         ) : (

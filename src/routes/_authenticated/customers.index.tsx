@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Plus, Search, ArrowRight, AlertTriangle, Loader2, LayoutGrid, List,
-  Pencil, Trash2, MoreHorizontal, Instagram, Music2, Linkedin, Youtube,
+  Pencil, Trash2, MoreHorizontal, Instagram, Music2, Linkedin, Youtube, Users,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -38,6 +38,7 @@ import { useActiveContext } from "@/hooks/use-active-context";
 import { listClients, createClient, updateClient, deleteClient } from "@/lib/workspace.functions";
 import { listBrandTeam } from "@/lib/team.functions";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { PanelEmptyState } from "@/components/ui/panel-empty";
 
 export const Route = createFileRoute("/_authenticated/customers/")({
   component: CustomersIndexPage,
@@ -203,9 +204,10 @@ function CustomersIndexPage() {
 
   if (!brandId) {
     return (
-      <div className="mx-auto max-w-6xl p-6">
-        <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-6 text-sm text-amber-300">
-          <AlertTriangle className="h-4 w-4" /> Selecione um workspace no menu lateral para ver os clientes.
+      <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 text-sm text-muted-foreground">
+          <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-500" />
+          Selecione um workspace no menu lateral para ver os clientes.
         </div>
       </div>
     );
@@ -216,7 +218,7 @@ function CustomersIndexPage() {
   ) as ClientRow[];
 
   return (
-    <div className="w-full space-y-6 px-6 py-6 md:px-8">
+    <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       <HeaderRegister
         subtitle={
           customersQ.isLoading ? "carregando…" : `${customers.length} cliente(s) neste workspace`
@@ -230,26 +232,26 @@ function CustomersIndexPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar cliente…"
-            className="pl-8 text-xs"
+            className="h-9 pl-8 text-xs"
           />
         </div>
         <ToggleGroup
           type="single"
           value={viewMode}
           onValueChange={(v) => v && setViewMode(v as "grid" | "list")}
-          className="rounded-md border border-border bg-card p-0.5"
+          className="h-9 rounded-md border border-border/60 bg-card p-0.5"
         >
           <ToggleGroupItem
             value="grid"
             aria-label="Grid view"
-            className="h-7 w-7 rounded-sm data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
+            className="h-8 w-8 rounded-sm data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
           >
             <LayoutGrid className="h-3.5 w-3.5" />
           </ToggleGroupItem>
           <ToggleGroupItem
             value="list"
             aria-label="List view"
-            className="h-7 w-7 rounded-sm data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
+            className="h-8 w-8 rounded-sm data-[state=on]:bg-accent data-[state=on]:text-accent-foreground"
           >
             <List className="h-3.5 w-3.5" />
           </ToggleGroupItem>
@@ -257,10 +259,11 @@ function CustomersIndexPage() {
       </div>
 
       {customers.length === 0 && !customersQ.isLoading ? (
-        <div className="rounded-xl border border-border bg-card p-10 text-center">
-          <p className="text-sm text-muted-foreground">
-            Nenhum cliente ainda. Crie o primeiro para começar a rodar os agentes de IA.
-          </p>
+        <div className="rounded-xl border border-border/60 bg-card">
+          <PanelEmptyState
+            icon={<Users className="h-4 w-4" />}
+            text="Nenhum cliente ainda. Crie o primeiro para começar a rodar os agentes de IA."
+          />
         </div>
       ) : viewMode === "grid" ? (
         <div className="grid w-full grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -269,7 +272,7 @@ function CustomersIndexPage() {
             return (
               <div
                 key={c.id}
-                className="group relative flex flex-col rounded-xl border border-border bg-card p-5 transition-all duration-200 hover:border-zinc-700 dark:hover:border-zinc-300 hover:shadow-md"
+                className="group relative flex flex-col rounded-xl border border-border/60 bg-card p-5 transition-all duration-200 hover:border-border hover:shadow-sm"
               >
                 <Link
                   to="/customers/$customerId"
@@ -319,7 +322,7 @@ function CustomersIndexPage() {
                     )}
                   </div>
 
-                  <div className="mt-4 flex items-center justify-between border-t border-zinc-100 pt-3 text-[11px] text-muted-foreground dark:border-zinc-800/50">
+                  <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3 text-[11px] text-muted-foreground">
                     <span>Updated {timeAgo(meta.updated)}</span>
                     <span className="flex items-center gap-1.5">
                       <span className="flex h-4 w-4 items-center justify-center rounded-full bg-muted text-[8px] font-semibold text-foreground">
@@ -334,8 +337,8 @@ function CustomersIndexPage() {
           })}
         </div>
       ) : (
-        <div className="w-full overflow-hidden rounded-xl border border-border bg-card">
-          <div className="hidden grid-cols-[minmax(0,2.2fr)_100px_180px_160px_minmax(0,1fr)_70px] items-center gap-4 border-b border-zinc-100 px-5 py-2.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground dark:border-zinc-800/50 md:grid">
+        <div className="w-full overflow-hidden rounded-xl border border-border/60 bg-card">
+          <div className="hidden grid-cols-[minmax(0,2.2fr)_100px_180px_160px_minmax(0,1fr)_70px] items-center gap-4 border-b border-border/60 px-5 py-2.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground md:grid">
             <span>Cliente</span>
             <span>Status</span>
             <span>Estratégia</span>
@@ -348,7 +351,7 @@ function CustomersIndexPage() {
             return (
               <div
                 key={c.id}
-                className="group grid grid-cols-1 items-center gap-3 border-b border-zinc-100 px-5 py-3.5 transition-all last:border-b-0 hover:bg-zinc-50/50 dark:border-zinc-800/50 dark:hover:bg-zinc-900/40 md:grid-cols-[minmax(0,2.2fr)_100px_180px_160px_minmax(0,1fr)_70px] md:gap-4"
+                className="group grid grid-cols-1 items-center gap-3 border-b border-border/60 px-5 py-3.5 transition-all last:border-b-0 hover:bg-accent/40 md:grid-cols-[minmax(0,2.2fr)_100px_180px_160px_minmax(0,1fr)_70px] md:gap-4"
               >
                 <Link to="/customers/$customerId" params={{ customerId: c.id }} className="flex min-w-0 items-center gap-3">
                   <div
@@ -446,7 +449,7 @@ function HeaderRegister({ subtitle, onCreate }: { subtitle: string; onCreate: ()
         <Button
           size="sm"
           onClick={onCreate}
-          className="gap-1.5 bg-indigo-600 text-white hover:bg-indigo-500 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+          className="h-9 gap-1.5"
         >
           <Plus className="h-3.5 w-3.5" /> Novo cliente
         </Button>
@@ -668,7 +671,6 @@ function CustomerFormDialog({
           <Button
             onClick={submit}
             disabled={submitting}
-            className="bg-indigo-600 text-white hover:bg-indigo-500 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Salvar
