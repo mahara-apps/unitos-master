@@ -19,7 +19,7 @@ const fallbackTitles: Record<string, string> = {
   "/dashboard": "Painel",
   "/content": "Conteúdo",
   "/calendar": "Calendário",
-  "/work": "Tarefas",
+  "/tasks": "Tarefas",
   "/projects": "Projetos",
   "/customers": "Clientes",
   "/agents": "Cérebro de Agentes",
