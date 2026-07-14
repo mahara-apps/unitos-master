@@ -760,6 +760,12 @@ function EditBody({
 
         <div className="mt-6 space-y-5">
           <Separator />
+        <PlacementsPanel
+          primaryFormat={toEnum(state.format)}
+          extras={extras}
+          onChange={setExtras}
+        />
+        <Separator />
         <div className="space-y-1.5">
           <Label className="flex items-center gap-1.5">
             <ImageIcon className="h-3.5 w-3.5" /> Mídias de referência
