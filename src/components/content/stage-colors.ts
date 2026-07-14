@@ -67,4 +67,24 @@ export const CHANNELS: Array<{ id: string; label: string; icon: LucideIcon }> = 
   { id: "graphic", label: "Material Gráfico", icon: ImageIcon },
 ];
 
+// Per-channel badge styles (border + bg + text). Instagram uses gradient bg.
+export const CHANNEL_STYLES: Record<string, string> = {
+  instagram:
+    "border-transparent bg-gradient-to-r from-[#F58529] via-[#DD2A7B] to-[#515BD4] text-white",
+  tiktok:
+    "border-zinc-900/30 bg-zinc-900/10 text-zinc-900 dark:border-zinc-100/20 dark:bg-zinc-100/10 dark:text-zinc-100",
+  youtube:
+    "border-red-600/30 bg-red-600/10 text-red-600 dark:text-red-400",
+  linkedin:
+    "border-[#0A66C2]/30 bg-[#0A66C2]/10 text-[#0A66C2] dark:text-sky-300",
+  x: "border-zinc-900/30 bg-zinc-900/10 text-zinc-900 dark:border-zinc-100/20 dark:bg-zinc-100/10 dark:text-zinc-100",
+  facebook:
+    "border-[#1877F2]/30 bg-[#1877F2]/10 text-[#1877F2] dark:text-blue-300",
+  threads:
+    "border-zinc-900/30 bg-zinc-900/10 text-zinc-900 dark:border-zinc-100/20 dark:bg-zinc-100/10 dark:text-zinc-100",
+  blog: "border-green-600/30 bg-green-600/10 text-green-700 dark:text-green-300",
+  graphic:
+    "border-violet-600/30 bg-violet-600/10 text-violet-700 dark:text-violet-300",
+};
+
 export const FORMATS = ["Feed", "Reels", "Story", "Carrossel"] as const;

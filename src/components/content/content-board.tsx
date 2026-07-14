@@ -44,7 +44,7 @@ import {
   type PipelineStage,
   type StageColor,
 } from "@/lib/content.functions";
-import { STAGE_GRADIENT, PRIORITY_STYLES, PRIORITY_LABEL, FORMAT_STYLE, CHANNELS } from "./stage-colors";
+import { STAGE_GRADIENT, PRIORITY_STYLES, PRIORITY_LABEL, FORMAT_STYLE, CHANNELS, CHANNEL_STYLES } from "./stage-colors";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Clock, Settings2 } from "lucide-react";
 
@@ -498,7 +498,7 @@ function PostCard({
               return (
                 <span
                   key={c.id}
-                  className="inline-flex items-center gap-0.5 rounded-full border border-border/60 bg-muted/40 px-1.5 py-0 text-[8px] font-semibold uppercase tracking-wider text-foreground/80"
+                  className={`inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0 text-[8px] font-semibold uppercase tracking-wider ${CHANNEL_STYLES[c.id] ?? "border-border/60 bg-muted/40 text-foreground/80"}`}
                 >
                   <Icon className="h-2.5 w-2.5" />
                   {c.label}
