@@ -194,9 +194,7 @@ async function runOrchestrator(params: {
     const competitorsStr = (competitorsRow ?? [])
       .map((c) => `- @${c.handle}`)
       .join("\n") || "(nenhum concorrente cadastrado)";
-    const visualIdentity = palette.length
-      ? palette.map((p) => `- ${p.label}: ${p.hex}`).join("\n")
-      : (clientRow?.color ?? "—");
+    // (identidade visual removida — pipeline é apenas texto)
 
     // 3) Planner
     await patch({ progress: 20, step_label: "Planejador estratégico — gerando conceitos" });
@@ -433,7 +431,7 @@ export const Route = createFileRoute("/api/jobs/monthly-plan")({
             user_id: userId,
             kind: "monthly_plan",
             title: "✨ Plano do Mês",
-            subtitle: `Planejador → Copywriter → Direção de arte · ${input.quantidade} peças`,
+            subtitle: `Planejador → Copywriter · ${input.quantidade} peças`,
             status: "queued",
             progress: 0,
             input: input as unknown as Database["public"]["Tables"]["ai_jobs"]["Insert"]["input"],
