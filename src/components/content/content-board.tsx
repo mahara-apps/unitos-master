@@ -512,7 +512,7 @@ function PostCard({
     <button
       type="button"
       onClick={() => onOpen(post.id)}
-      className={`group w-full overflow-hidden rounded-xl border border-border/70 bg-card text-left shadow-[0_1px_0_0_rgba(0,0,0,0.02)] transition hover:border-primary/50 hover:shadow-md ${
+      className={`group w-full overflow-hidden rounded-xl border border-border/70 bg-card text-left shadow-[0_1px_0_0_rgba(0,0,0,0.02)] transition hover:border-primary/50 hover:shadow-sm ${
         isOverlay ? "cursor-grabbing shadow-lg" : ""
       }`}
     >
