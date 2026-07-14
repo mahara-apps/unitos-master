@@ -1,9 +1,8 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useEffect, useState } from "react";
-import { AlertTriangle, DollarSign, KanbanSquare, RefreshCw } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -163,7 +162,6 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
     qc.prefetchQuery(customerPautasQuery({ brandId, clientId: customerId }));
   }, [qc, brandId, customerId]);
 
-  const cost = core.usage.totalCostUsd;
   const hasBriefing = Boolean(core.briefing);
   const showOnboarding = !hasBriefing || forceOnboarding;
 
