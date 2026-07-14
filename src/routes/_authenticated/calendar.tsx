@@ -38,6 +38,7 @@ function addMonths(d: Date, n: number) {
 function CalendarPage() {
   const { brandId, clientId } = useActiveContext();
   const [cursor, setCursor] = useState(() => startOfMonth(new Date()));
+  const [formatFilter, setFormatFilter] = useState<string | null>(null);
   const list = useServerFn(listScheduledPostsFn);
   const qc = useQueryClient();
   const [openPost, setOpenPost] = useState<CalendarPost | null>(null);
@@ -65,17 +66,23 @@ function CalendarPage() {
       list({ data: { brandId: brandId!, clientId: clientId ?? null, from, to } }),
   });
 
+  const volumetry = useMemo(() => computeVolumetry(q.data ?? []), [q.data]);
+
+  const filteredPosts = useMemo(() => {
+    const all = q.data ?? [];
+    if (!formatFilter) return all;
+    return all.filter((p) => classifyFormat(p.format) === formatFilter);
+  }, [q.data, formatFilter]);
+
   const byDay = useMemo(() => {
     const map = new Map<string, CalendarPost[]>();
-    (q.data ?? []).forEach((p) => {
+    filteredPosts.forEach((p) => {
       const k = new Date(p.scheduled_at).toISOString().slice(0, 10);
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(p);
     });
     return map;
-  }, [q.data]);
-
-  const volumetry = useMemo(() => computeVolumetry(q.data ?? []), [q.data]);
+  }, [filteredPosts]);
 
   const grid = useMemo(() => buildMonthGrid(cursor), [cursor]);
   const monthLabel = cursor.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
@@ -124,20 +131,35 @@ function CalendarPage() {
       {/* Volumetria */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {volumetry.map((v) => (
-          <div
+          <button
+            type="button"
             key={v.key}
-            className="group relative overflow-hidden rounded-xl border bg-card p-4 transition-colors hover:border-foreground/20"
+            onClick={() => setFormatFilter((cur) => (cur === v.key ? null : v.key))}
+            aria-pressed={formatFilter === v.key}
+            className={cn(
+              "group relative overflow-hidden rounded-xl border bg-card p-4 text-left transition-all hover:border-foreground/20 hover:-translate-y-px",
+              formatFilter === v.key
+                ? "border-foreground/40 ring-2 ring-foreground/10 shadow-sm"
+                : formatFilter
+                ? "opacity-60"
+                : "",
+            )}
           >
             <div className={cn("absolute inset-x-0 top-0 h-0.5", v.bar)} />
-            <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              <span className={cn("h-2 w-2 rounded-full", v.dot)} />
-              {v.label}
+            <div className="flex items-center justify-between gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <span className="flex items-center gap-2">
+                <span className={cn("h-2 w-2 rounded-full", v.dot)} />
+                {v.label}
+              </span>
+              {formatFilter === v.key ? (
+                <span className="text-[9px] font-semibold text-foreground/70">FILTRO ATIVO</span>
+              ) : null}
             </div>
             <div className="mt-2 flex items-baseline gap-1.5">
               <span className="text-2xl font-semibold tabular-nums tracking-tight">{v.count}</span>
               <span className="text-xs text-muted-foreground">no mês</span>
             </div>
-          </div>
+          </button>
         ))}
       </section>
 
@@ -201,18 +223,33 @@ function CalendarPage() {
       <section>
         <h2 className="mb-2 flex items-center gap-2 text-sm font-medium">
           <CalendarDays className="h-4 w-4" /> Próximas publicações
+          {formatFilter ? (
+            <Badge variant="secondary" className="ml-1 text-[10px] capitalize">
+              {formatFilter}
+              <button
+                type="button"
+                onClick={() => setFormatFilter(null)}
+                className="ml-1 opacity-70 hover:opacity-100"
+                aria-label="Limpar filtro"
+              >
+                ×
+              </button>
+            </Badge>
+          ) : null}
         </h2>
         {q.isLoading ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
           </div>
-        ) : (q.data ?? []).length === 0 ? (
+        ) : filteredPosts.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Nenhum post agendado neste mês. Gere um plano em <Link to="/content" className="underline">Produção</Link>.
+            {formatFilter
+              ? `Nenhum post do formato "${formatFilter}" neste mês.`
+              : <>Nenhum post agendado neste mês. Gere um plano em <Link to="/content" className="underline">Produção</Link>.</>}
           </p>
         ) : (
           <ul className="divide-y rounded-md border">
-            {(q.data ?? []).slice(0, 8).map((p) => (
+            {filteredPosts.slice(0, 8).map((p) => (
               <li key={p.id}>
                 <button
                   type="button"
