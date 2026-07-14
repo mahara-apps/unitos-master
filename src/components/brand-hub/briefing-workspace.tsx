@@ -9,12 +9,23 @@ import {
   Loader2,
   Plus,
   Save,
+  Sparkles,
   Trash2,
   Upload,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +45,7 @@ import {
   type BrandHubData,
 } from "@/lib/brand-hub.functions";
 import { computeBriefingCompletion, briefingProgressLabel } from "@/lib/briefing-progress";
+import { supabase } from "@/integrations/supabase/client";
 
 /* ----------------------------- Types / helpers ----------------------------- */
 
