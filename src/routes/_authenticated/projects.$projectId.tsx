@@ -491,7 +491,7 @@ function ProjectDetailPage() {
 
 function KpiCard(props: { icon: React.ReactNode; label: string; value: number; tone: string }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <div className="rounded-xl border border-border/60 bg-card p-4">
       <div className={`mb-1 flex items-center gap-2 ${props.tone}`}>{props.icon}</div>
       <div className="text-2xl font-semibold">{props.value}</div>
       <div className="text-[11px] text-muted-foreground">{props.label}</div>
