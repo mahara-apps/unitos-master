@@ -38,6 +38,7 @@ type Props = {
   brandId: string;
   clientId: string;
   onRegenerate?: () => void;
+  onOpenBriefing?: () => void;
 };
 
 const STAGES = [
@@ -58,7 +59,7 @@ const STAGE_ACCENT: Record<(typeof STAGES)[number]["key"], string> = {
   published: "bg-emerald-500",
 };
 
-export function CustomerDashboard({ brandId, clientId, onRegenerate }: Props) {
+export function CustomerDashboard({ brandId, clientId, onRegenerate, onOpenBriefing }: Props) {
   const loadFn = useServerFn(loadCustomerDashboardFn);
   const scopeValid = isValidScope({ brandId, clientId });
 
@@ -83,7 +84,15 @@ export function CustomerDashboard({ brandId, clientId, onRegenerate }: Props) {
   }, [q.error]);
 
   if (!scopeValid || q.isLoading || !q.data) return <OverviewSkeleton />;
-  return <DashboardReady data={q.data} clientId={clientId} brandId={brandId} onRegenerate={onRegenerate} />;
+  return (
+    <DashboardReady
+      data={q.data}
+      clientId={clientId}
+      brandId={brandId}
+      onRegenerate={onRegenerate}
+      onOpenBriefing={onOpenBriefing}
+    />
+  );
 }
 
 function DashboardReady({
@@ -91,11 +100,13 @@ function DashboardReady({
   clientId,
   brandId,
   onRegenerate,
+  onOpenBriefing,
 }: {
   data: NonNullable<CustomerDashboardData>;
   clientId: string;
   brandId: string;
   onRegenerate?: () => void;
+  onOpenBriefing?: () => void;
 }) {
   const client = data.client;
   const m = data.metrics;
@@ -167,12 +178,7 @@ function DashboardReady({
             size="sm"
             variant="outline"
             className="border-amber-500/40 text-amber-600 hover:text-amber-600 dark:text-amber-300"
-            onClick={() => {
-              const trigger = document.querySelector<HTMLButtonElement>(
-                '[role="tab"][value="briefing"]',
-              );
-              trigger?.click();
-            }}
+            onClick={() => onOpenBriefing?.()}
           >
             Abrir Briefing
           </Button>
