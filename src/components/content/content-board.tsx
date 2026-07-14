@@ -251,7 +251,7 @@ export function ContentBoard({ board, boardQueryKey, onOpenPost, onConfigureColu
         ))}
         <button
           type="button"
-          className="flex h-full min-w-[300px] shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 bg-transparent px-3 py-3 text-sm text-muted-foreground transition hover:border-border hover:bg-muted/40"
+          className="flex h-full min-w-[300px] shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 bg-transparent px-3 py-3 text-xs font-medium text-muted-foreground transition hover:border-border hover:bg-card"
           onClick={() => addStage.mutate()}
           disabled={addStage.isPending}
         >
@@ -306,7 +306,7 @@ function Column({
   return (
     <div
       ref={setNodeRef}
-      className={`relative flex h-full w-[300px] shrink-0 flex-col overflow-hidden rounded-xl border bg-muted/30 px-5 pt-5 pb-4 transition ${
+      className={`relative flex h-full w-[300px] shrink-0 flex-col overflow-hidden rounded-xl border bg-card px-5 pt-5 pb-4 transition ${
         isOver ? "border-primary/60 bg-primary/5" : "border-border/60"
       }`}
     >
@@ -512,7 +512,7 @@ function PostCard({
     <button
       type="button"
       onClick={() => onOpen(post.id)}
-      className={`group w-full overflow-hidden rounded-xl border border-border/70 bg-card text-left shadow-[0_1px_0_0_rgba(0,0,0,0.02)] transition hover:border-primary/50 hover:shadow-md ${
+      className={`group w-full overflow-hidden rounded-xl border border-border/70 bg-card text-left shadow-[0_1px_0_0_rgba(0,0,0,0.02)] transition hover:border-primary/50 hover:shadow-sm ${
         isOverlay ? "cursor-grabbing shadow-lg" : ""
       }`}
     >
