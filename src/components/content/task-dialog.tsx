@@ -2002,10 +2002,10 @@ function PlacementsPanel({
   });
 
   return (
-    <div className="space-y-2">
+    <DashboardPanelSurface className="space-y-3 p-4">
       <div className="flex items-center justify-between">
         <div>
-          <Label className="flex items-center gap-1.5">
+          <Label className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
             <Sparkles className="h-3.5 w-3.5" /> Multi-publicação
           </Label>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -2023,7 +2023,7 @@ function PlacementsPanel({
               ])
             }
           >
-            <SelectTrigger className="h-8 w-[180px] text-xs">
+            <SelectTrigger className="h-9 w-[180px] text-xs">
               <SelectValue placeholder="+ Adicionar formato" />
             </SelectTrigger>
             <SelectContent>
@@ -2037,8 +2037,8 @@ function PlacementsPanel({
         ) : null}
       </div>
 
-      <div className="space-y-2 rounded-md border p-2">
-        <div className="flex items-center justify-between gap-3 rounded bg-muted/40 px-2 py-1.5 text-xs">
+      <div className="space-y-2 rounded-lg border border-border/60 bg-background/60 p-2">
+        <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 bg-card px-2 py-1.5 text-xs">
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="h-5">
               {ENUM_TO_LABEL[primaryFormat]}
@@ -2051,7 +2051,7 @@ function PlacementsPanel({
         </div>
 
         {extras.length === 0 ? (
-          <p className="px-1 py-1 text-xs text-muted-foreground">
+          <p className="rounded-md border border-dashed border-border/60 bg-card/40 px-3 py-3 text-xs text-muted-foreground">
             Nenhum formato adicional. Combinações válidas: Feed+Stories,
             Reels+Stories, Carrossel+Stories.
           </p>
@@ -2059,7 +2059,7 @@ function PlacementsPanel({
           extras.map((p, idx) => (
             <div
               key={`${p.format}-${idx}`}
-              className="flex items-center gap-2 rounded border px-2 py-1.5"
+              className="flex items-center gap-2 rounded-md border border-border/60 bg-card px-2 py-1.5"
             >
               <Badge variant="outline" className="h-5">
                 {ENUM_TO_LABEL[p.format]}
@@ -2072,12 +2072,12 @@ function PlacementsPanel({
                   next[idx] = { ...p, scheduled_at: e.target.value };
                   onChange(next);
                 }}
-                className="h-7 flex-1 text-xs"
+                className="h-8 flex-1 text-xs"
               />
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
                 onClick={() =>
                   onChange(extras.filter((_, i) => i !== idx))
                 }
@@ -2088,6 +2088,6 @@ function PlacementsPanel({
           ))
         )}
       </div>
-    </div>
+    </DashboardPanelSurface>
   );
 }
