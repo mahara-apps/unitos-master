@@ -157,12 +157,20 @@ function normalizeConcept(c: unknown): {
   return {
     titulo: titulo || gancho,
     pilar: pick("pilar", "pillar", "categoria", "tema"),
-    formato: pick("formato", "format", "tipo") || "Feed",
+    formato: normalizeFormatKind(pick("formato", "format", "tipo")),
     plataforma: pick("plataforma", "canal", "platform", "channel") || "instagram",
     gancho: gancho || titulo,
     objetivo: pick("objetivo", "goal", "objective"),
     cta: pick("cta", "call_to_action", "acao"),
   };
+}
+
+function normalizeFormatKind(raw: string | null | undefined): "Feed" | "Reels" | "Story" | "Carrossel" {
+  const s = (raw ?? "").toString().trim().toLowerCase();
+  if (s.startsWith("reel")) return "Reels";
+  if (s.startsWith("stor")) return "Story";
+  if (s.startsWith("carr") || s.startsWith("carou")) return "Carrossel";
+  return "Feed";
 }
 
 function fillTemplate(template: string, vars: Record<string, string>): string {
