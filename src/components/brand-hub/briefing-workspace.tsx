@@ -9,12 +9,23 @@ import {
   Loader2,
   Plus,
   Save,
+  Sparkles,
   Trash2,
   Upload,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +45,7 @@ import {
   type BrandHubData,
 } from "@/lib/brand-hub.functions";
 import { computeBriefingCompletion, briefingProgressLabel } from "@/lib/briefing-progress";
+import { supabase } from "@/integrations/supabase/client";
 
 /* ----------------------------- Types / helpers ----------------------------- */
 
@@ -163,10 +175,12 @@ export function BriefingWorkspace({
   brandId,
   clientId,
   embedded = false,
+  onStrategyGenerated,
 }: {
   brandId: string;
   clientId: string;
   embedded?: boolean;
+  onStrategyGenerated?: () => void;
 }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -184,6 +198,83 @@ export function BriefingWorkspace({
   }, [hubQ.data, form]);
 
   const completion = useMemo(() => (form ? computeCompletion(form) : 0), [form]);
+
+  // ------------- Gerar estratégia (fase 1 · pipeline de agentes) --------------
+  const [regenOpen, setRegenOpen] = useState(false);
+  const [generating, setGenerating] = useState(false);
+
+  const buildStrategyBriefing = (): string => {
+    if (!form) return "";
+    const lines: string[] = [];
+    const push = (label: string, value?: string | null) => {
+      const v = (value ?? "").trim();
+      if (v) lines.push(`${label}: ${v}`);
+    };
+    push("Marca", hubQ.data?.name);
+    push("Nicho", hubQ.data?.niche);
+    push("Missão", form.mission);
+    push("Posicionamento", form.positioning);
+    push("Valores", form.values);
+    push("Tom de voz", form.tone_text);
+    push("Oferta / produtos", form.offer);
+    push("Faixa de preço", form.price_range);
+    push("Diferenciais", form.differentials);
+    push("Objeções", form.objections);
+    push("Público", form.audience);
+    push("Jornada", form.journey);
+    push("Dores", form.pain_points);
+    push("Desejos", form.desires);
+    push("Concorrentes / referências", form.competitor_handles.join(", "));
+    push("Inspirações", form.inspirations.join(", "));
+    push("Hashtags", form.hashtags.join(" "));
+    push("Do", form.do_text);
+    push("Don't", form.dont_text);
+    push("Metas", form.goals);
+    const vol = Object.entries(form.volumetry)
+      .filter(([, n]) => n > 0)
+      .map(([k, n]) => `${k}: ${n}/sem`)
+      .join(", ");
+    push("Volumetria semanal", vol);
+    return lines.join("\n");
+  };
+
+  const runStrategy = async () => {
+    const briefing = buildStrategyBriefing();
+    if (briefing.length < 40) {
+      toast.error("Preencha o briefing antes de gerar a estratégia.");
+      return;
+    }
+    setGenerating(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) throw new Error("Sessão expirada");
+      const res = await fetch("/api/jobs/customer-pipeline", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          brandId,
+          clientId,
+          texto: briefing,
+          pautasQuantidade: 8,
+          pautasPeriodo: "próximos 15 dias",
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      toast.success("Estratégia rodando em segundo plano — acompanhe pelo indicador de IA no topo.");
+      qc.invalidateQueries({ queryKey: ["ai-jobs", "active"] });
+      qc.invalidateQueries({ queryKey: ["brand-hub", brandId, clientId] });
+      setRegenOpen(false);
+      onStrategyGenerated?.();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao iniciar a estratégia");
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const save = useMutation({
     mutationFn: async () => {
@@ -301,6 +392,20 @@ export function BriefingWorkspace({
             </Button>
             <Button
               size="sm"
+              variant="outline"
+              className="gap-1.5 border-fuchsia-500/40 text-fuchsia-300 hover:bg-fuchsia-500/10 hover:text-fuchsia-200"
+              onClick={() => setRegenOpen(true)}
+              disabled={generating}
+            >
+              {generating ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5" />
+              )}
+              Gerar estratégia
+            </Button>
+            <Button
+              size="sm"
               className={saveButtonClass}
               onClick={() => save.mutate()}
               disabled={save.isPending}
@@ -323,14 +428,29 @@ export function BriefingWorkspace({
               <div className="text-sm font-medium text-foreground">
                 {progressLabel(completion)} — {completion}% preenchido
               </div>
-              <Badge variant="outline" className="border-rose-500/30 bg-rose-500/10 font-mono text-[10px] text-rose-300">
-                {completion}%
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="border-rose-500/30 bg-rose-500/10 font-mono text-[10px] text-rose-300">
+                  {completion}%
+                </Badge>
+                <Button
+                  size="sm"
+                  className="gap-1.5 border-0 bg-gradient-to-r from-fuchsia-600 via-violet-600 to-cyan-500 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08)] hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => setRegenOpen(true)}
+                  disabled={generating}
+                >
+                  {generating ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3.5 w-3.5" />
+                  )}
+                  Gerar estratégia com IA
+                </Button>
+              </div>
             </div>
             <Progress value={completion} className="h-2" />
             <p className="text-xs text-muted-foreground">
-              Preencha as abas abaixo. Cada bloco completo melhora a qualidade das pautas e do
-              calendário gerados pela IA.
+              Preencha as abas abaixo e depois clique em <b>Gerar estratégia com IA</b> — os agentes
+              vão destilar tom de voz, personas, cohorts, SWOT e pautas a partir do que estiver aqui.
             </p>
           </AlertDescription>
         </Alert>
@@ -393,6 +513,32 @@ export function BriefingWorkspace({
           </Button>
         </div>
       </div>
+
+      <AlertDialog open={regenOpen} onOpenChange={setRegenOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Gerar estratégia com IA?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Os agentes vão ler os campos deste briefing e gerar <b>Voice Card</b>,
+              <b> Personas</b>, <b>Cohorts</b>, <b>SWOT</b> e um lote de <b>pautas</b> no pipeline.
+              Artefatos anteriores permanecem no histórico — os novos passam a ser a versão ativa.
+              O processo roda em segundo plano.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={generating}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void runStrategy();
+              }}
+              disabled={generating}
+            >
+              {generating ? "Iniciando…" : "Gerar estratégia"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 

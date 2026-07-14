@@ -34,7 +34,6 @@ import { useEffect } from "react";
 type Props = {
   brandId: string;
   clientId: string;
-  onRegenerate?: () => void;
   onOpenBriefing?: () => void;
 };
 
@@ -56,7 +55,7 @@ const STAGE_ACCENT: Record<(typeof STAGES)[number]["key"], string> = {
   published: "bg-emerald-500",
 };
 
-export function CustomerDashboard({ brandId, clientId, onRegenerate, onOpenBriefing }: Props) {
+export function CustomerDashboard({ brandId, clientId, onOpenBriefing }: Props) {
   const loadFn = useServerFn(loadCustomerDashboardFn);
   const scopeValid = isValidScope({ brandId, clientId });
 
@@ -86,7 +85,6 @@ export function CustomerDashboard({ brandId, clientId, onRegenerate, onOpenBrief
       data={q.data}
       clientId={clientId}
       brandId={brandId}
-      onRegenerate={onRegenerate}
       onOpenBriefing={onOpenBriefing}
     />
   );
@@ -96,12 +94,10 @@ function DashboardReady({
   data,
   clientId,
   brandId,
-  onRegenerate,
 }: {
   data: NonNullable<CustomerDashboardData>;
   clientId: string;
   brandId: string;
-  onRegenerate?: () => void;
   onOpenBriefing?: () => void;
 }) {
   const client = data.client;
@@ -128,12 +124,6 @@ function DashboardReady({
         </div>
         <div className="flex items-center gap-2">
           <MonthlyPlanDialog brandId={brandId} clientId={clientId} />
-          {onRegenerate ? (
-            <Button size="sm" variant="ghost" onClick={onRegenerate} className="gap-1.5 text-muted-foreground hover:text-foreground">
-              <RefreshCw className="h-3.5 w-3.5" />
-              Regerar estratégia
-            </Button>
-          ) : null}
         </div>
       </div>
 
