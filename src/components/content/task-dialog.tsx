@@ -449,8 +449,17 @@ function EditBody({
   }, [refsKey]);
 
   const save = useMutation({
-    mutationFn: () =>
-      updatePost({
+    mutationFn: async () => {
+      // Validate placement combination first
+      const primary = toEnum(state.format);
+      const allFormats: PlacementFormat[] = [primary, ...extras.map((e) => e.format)];
+      if (new Set(allFormats).size !== allFormats.length) {
+        throw new Error("Cada formato só pode ser publicado uma vez neste card.");
+      }
+      const invalid = validatePlacementSet(allFormats);
+      if (invalid) throw new Error(invalid);
+
+      await updatePost({
         data: {
           postId,
           patch: {
@@ -476,11 +485,32 @@ function EditBody({
             assignee_id: state.assigneeId,
           },
         },
-      }),
+      });
+
+      // Persist full placement set (primary + extras)
+      await savePlacements({
+        data: {
+          postId,
+          placements: [
+            {
+              format: primary,
+              scheduled_at: state.scheduledAt ? new Date(state.scheduledAt).toISOString() : null,
+              is_primary: true,
+            },
+            ...extras.map((e) => ({
+              format: e.format,
+              scheduled_at: e.scheduled_at ? new Date(e.scheduled_at).toISOString() : null,
+              is_primary: false,
+            })),
+          ],
+        },
+      });
+    },
     onSuccess: () => {
       toast.success("Tarefa atualizada");
       qc.invalidateQueries({ queryKey: invalidateKey });
       qc.invalidateQueries({ queryKey: ["post-detail", postId] });
+      qc.invalidateQueries({ queryKey: ["post-placements", postId] });
       onOpenChange(false);
     },
     onError: (e: Error) => toast.error(e.message),
