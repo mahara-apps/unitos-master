@@ -6,6 +6,7 @@ export type AgentPromptRow = {
   agent_id: string;
   agent_name: string;
   system_prompt: string;
+  default_prompt: string;
   required_fields: string[] | null;
   updated_at: string;
 };
@@ -30,18 +31,59 @@ export const listAgentPromptsFn = createServerFn({ method: "POST" })
   .handler(async ({ context }): Promise<AgentPromptRow[]> => {
     const { data, error } = await context.supabase
       .from("agent_prompts")
-      .select("agent_id, agent_name, system_prompt, required_fields, updated_at")
+      .select("agent_id, agent_name, system_prompt, default_prompt, required_fields, updated_at")
       .order("agent_name", { ascending: true });
     if (error) throw error;
     return ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({
       agent_id: String(r.agent_id),
       agent_name: String(r.agent_name),
       system_prompt: String(r.system_prompt ?? ""),
+      default_prompt: String(r.default_prompt ?? r.system_prompt ?? ""),
       required_fields: Array.isArray(r.required_fields)
         ? (r.required_fields as string[])
         : null,
       updated_at: String(r.updated_at),
     }));
+  });
+
+export const updateAgentPromptFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        agentId: z.string().min(1),
+        systemPrompt: z.string().min(1).max(20000),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("agent_prompts")
+      .update({ system_prompt: data.systemPrompt })
+      .eq("agent_id", data.agentId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const resetAgentPromptFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ agentId: z.string().min(1) }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: row, error: selErr } = await context.supabase
+      .from("agent_prompts")
+      .select("default_prompt")
+      .eq("agent_id", data.agentId)
+      .maybeSingle();
+    if (selErr) throw selErr;
+    if (!row?.default_prompt) throw new Error("Agente não possui prompt padrão.");
+    const { error } = await context.supabase
+      .from("agent_prompts")
+      .update({ system_prompt: row.default_prompt })
+      .eq("agent_id", data.agentId);
+    if (error) throw error;
+    return { systemPrompt: row.default_prompt as string };
   });
 
 export const listAgentJobsFn = createServerFn({ method: "POST" })
