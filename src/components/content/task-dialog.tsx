@@ -22,13 +22,9 @@ import {
   ShieldX,
 } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+} from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,6 +45,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@/components/ui/tabs";
+import { Wand2 } from "lucide-react";
 import {
   createPostFn,
   updatePostFn,
@@ -100,8 +97,11 @@ export type TaskDialogProps = CreateProps | EditProps;
 
 export function TaskDialog(props: TaskDialogProps) {
   return (
-    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
+    <Sheet open={props.open} onOpenChange={props.onOpenChange}>
+      <SheetContent
+        side="right"
+        className="flex w-full flex-col gap-0 border-l bg-background p-0 sm:max-w-[640px]"
+      >
         {props.mode === "edit" ? (
           <Suspense fallback={<LoadingBody />}>
             <EditBody {...props} />
@@ -109,8 +109,8 @@ export function TaskDialog(props: TaskDialogProps) {
         ) : (
           <CreateBody {...props} />
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -119,6 +119,36 @@ function LoadingBody() {
     <div className="flex h-64 items-center justify-center">
       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
     </div>
+  );
+}
+
+function QuickApprovalLinkButton({ postId }: { postId: string }) {
+  const qc = useQueryClient();
+  const createTok = useServerFn(createApprovalTokenFn);
+  const m = useMutation({
+    mutationFn: () => createTok({ data: { postId, expiresInDays: 14 } }),
+    onSuccess: (t) => {
+      const url =
+        typeof window !== "undefined"
+          ? `${window.location.origin}/approval/${t.token}`
+          : `/approval/${t.token}`;
+      void navigator.clipboard?.writeText(url).catch(() => {});
+      toast.success("Link de aprovação copiado");
+      qc.invalidateQueries({ queryKey: ["approval-tokens", postId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={() => m.mutate()}
+      disabled={m.isPending}
+    >
+      {m.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Link2 className="mr-1.5 h-3.5 w-3.5" />}
+      Gerar link
+    </Button>
   );
 }
 
@@ -181,19 +211,21 @@ function CreateBody({
 
   return (
     <>
-      <DialogHeader>
-        <DialogTitle>Nova tarefa</DialogTitle>
-        <DialogDescription>
+      <div className="sticky top-0 z-10 border-b bg-background px-6 py-4">
+        <h2 className="text-base font-semibold tracking-tight">Nova tarefa</h2>
+        <p className="text-xs text-muted-foreground">
           Preencha os detalhes para adicionar ao pipeline.
-        </DialogDescription>
-      </DialogHeader>
-      <TaskLayout
-        state={state}
-        setState={setState}
-        stages={stages}
-        mode="create"
-      />
-      <DialogFooter>
+        </p>
+      </div>
+      <div className="flex-1 overflow-y-auto px-6 py-5">
+        <TaskLayout
+          state={state}
+          setState={setState}
+          stages={stages}
+          mode="create"
+        />
+      </div>
+      <div className="sticky bottom-0 flex justify-end gap-2 border-t bg-background px-6 py-3">
         <Button variant="ghost" onClick={() => onOpenChange(false)}>
           Cancelar
         </Button>
@@ -206,7 +238,7 @@ function CreateBody({
           ) : null}
           Criar
         </Button>
-      </DialogFooter>
+      </div>
     </>
   );
 }
@@ -407,49 +439,79 @@ function EditBody({
 
   return (
     <>
-      <DialogHeader>
-        <DialogTitle className="flex items-center gap-2 text-base font-medium">
-          Detalhes da tarefa
-          {reviewStatus === "pending" && aiPhase === "idea" ? (
-            <Badge
-              variant="outline"
-              className="border-amber-500/40 text-amber-600 dark:text-amber-400"
-            >
-              Aguardando aprovação
-            </Badge>
-          ) : null}
-          {aiPhase === "copy_running" ? (
-            <Badge
-              variant="outline"
-              className="border-indigo-500/40 text-indigo-600 dark:text-indigo-400"
-            >
-              <Loader2 className="mr-1 h-3 w-3 animate-spin" /> Gerando copy
-            </Badge>
-          ) : null}
-          {aiPhase === "copy_ready" ? (
-            <Badge
-              variant="outline"
-              className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
-            >
-              Copy + Design prontos
-            </Badge>
-          ) : null}
-        </DialogTitle>
-        <DialogDescription>
-          Edite copy, briefings, agendamento, mídia e aprovação.
-        </DialogDescription>
-      </DialogHeader>
+      <div className="sticky top-0 z-10 space-y-3 border-b bg-background px-6 pb-3 pt-4">
+        <div className="flex items-start gap-3 pr-8">
+          <div className="min-w-0 flex-1">
+            <Input
+              value={state.title}
+              onChange={(e) => setState((p) => ({ ...p, title: e.target.value }))}
+              placeholder="Nome do post"
+              className="h-9 border-0 bg-transparent px-0 text-base font-semibold tracking-tight shadow-none focus-visible:ring-0"
+            />
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+              {reviewStatus === "pending" && aiPhase === "idea" ? (
+                <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400">
+                  Aguardando aprovação
+                </Badge>
+              ) : null}
+              {aiPhase === "copy_running" ? (
+                <Badge variant="outline" className="border-indigo-500/40 text-indigo-600 dark:text-indigo-400">
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" /> Gerando copy
+                </Badge>
+              ) : null}
+              {aiPhase === "copy_ready" ? (
+                <Badge variant="outline" className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
+                  Copy + Design prontos
+                </Badge>
+              ) : null}
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={state.stageId} onValueChange={(v) => setState((p) => ({ ...p, stageId: v }))}>
+            <SelectTrigger className="h-8 w-auto min-w-[140px] gap-1 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {stages.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="ml-auto flex items-center gap-1.5">
+            <QuickApprovalLinkButton postId={postId} />
+            {reviewStatus === "pending" && aiPhase === "idea" ? (
+              <Button size="sm" onClick={handleApproveAndGenerate} disabled={approving}>
+                {approving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
+                Aprovar & gerar
+              </Button>
+            ) : reviewStatus !== "approved" ? (
+              <Button size="sm" onClick={() => approveOnly.mutate()} disabled={approveOnly.isPending}>
+                {approveOnly.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />}
+                Aprovar
+              </Button>
+            ) : (
+              <Badge variant="outline" className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="mr-1 h-3 w-3" /> Aprovado
+              </Badge>
+            )}
+          </div>
+        </div>
+      </div>
 
-      <TaskLayout
-        state={state}
-        setState={setState}
-        stages={stages}
-        mode="edit"
-        postId={postId}
-      />
+      <div className="flex-1 overflow-y-auto px-6 py-5">
+        <TaskLayout
+          state={state}
+          setState={setState}
+          stages={stages}
+          mode="edit"
+          postId={postId}
+        />
 
-      <div className="mt-4 space-y-4">
-        <Separator />
+        <div className="mt-6 space-y-5">
+          <Separator />
         <div className="space-y-1.5">
           <Label className="flex items-center gap-1.5">
             <ImageIcon className="h-3.5 w-3.5" /> Mídias de referência
@@ -539,78 +601,44 @@ function EditBody({
           </div>
         ) : null}
 
-        <Separator />
-        <ApprovalLinkSection postId={postId} />
-        <Separator />
-        <Timeline items={data.timeline} />
+          <Separator />
+          <ApprovalLinkSection postId={postId} />
+          <Separator />
+          <Timeline items={data.timeline} />
+        </div>
       </div>
 
-      <DialogFooter className="mt-4 gap-2 sm:justify-between">
+      <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-2 border-t bg-background px-6 py-3">
         <Button
           variant="ghost"
+          size="sm"
           className="text-destructive hover:text-destructive"
           onClick={() => {
             if (confirm("Excluir esta tarefa?")) remove.mutate();
           }}
           disabled={remove.isPending}
         >
-          <Trash2 className="mr-2 h-4 w-4" /> Excluir
+          <Trash2 className="mr-1.5 h-4 w-4" /> Excluir
         </Button>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Fechar
-          </Button>
           <Button
             variant="outline"
+            size="sm"
             onClick={() => {
-              const notes =
-                window.prompt("Descreva o ajuste solicitado (opcional):") ?? "";
+              const notes = window.prompt("Descreva o ajuste solicitado (opcional):") ?? "";
               rework.mutate(notes);
             }}
             disabled={rework.isPending}
-            title="Reabrir para refação"
           >
-            {rework.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <RotateCcw className="mr-2 h-4 w-4" />
-            )}
+            {rework.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="mr-1.5 h-3.5 w-3.5" />}
             Refazer
           </Button>
-          <Button
-            variant="secondary"
-            onClick={() => save.mutate()}
-            disabled={save.isPending}
-          >
-            {save.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : null}
+          <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>
+            {save.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
             Salvar
           </Button>
-          {reviewStatus === "pending" && aiPhase === "idea" ? (
-            <Button onClick={handleApproveAndGenerate} disabled={approving}>
-              {approving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="mr-2 h-4 w-4" />
-              )}
-              Aprovar & gerar copy
-            </Button>
-          ) : reviewStatus !== "approved" ? (
-            <Button
-              onClick={() => approveOnly.mutate()}
-              disabled={approveOnly.isPending}
-            >
-              {approveOnly.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-              )}
-              Aprovar
-            </Button>
-          ) : null}
         </div>
-      </DialogFooter>
+      </div>
     </>
   );
 }
@@ -711,19 +739,21 @@ function TaskLayout({
     setState((prev) => ({ ...prev, tags: prev.tags.filter((x) => x !== t) }));
 
   return (
-    <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_260px]">
+    <div className="space-y-6">
       <div className="space-y-5">
-        <div className="space-y-1.5">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-            Título *
-          </Label>
-          <Input
-            value={state.title}
-            onChange={(e) => set("title", e.target.value)}
-            placeholder="Nome da tarefa..."
-            autoFocus={mode === "create"}
-          />
-        </div>
+        {mode === "create" ? (
+          <div className="space-y-1.5">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              Título *
+            </Label>
+            <Input
+              value={state.title}
+              onChange={(e) => set("title", e.target.value)}
+              placeholder="Nome da tarefa..."
+              autoFocus
+            />
+          </div>
+        ) : null}
 
         <div className="space-y-2">
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -772,55 +802,18 @@ function TaskLayout({
           </div>
         </div>
 
-        <Tabs defaultValue="copy" className="w-full">
-          <TabsList variant="grid" className="grid w-full grid-cols-4">
-            <TabsTrigger value="copy">Legenda</TabsTrigger>
+        <CopyEditor
+          value={state.copy}
+          onChange={(v) => set("copy", v)}
+          postId={mode === "edit" ? postId : undefined}
+        />
+
+        <Tabs defaultValue="internal" className="w-full">
+          <TabsList variant="grid" className="grid w-full grid-cols-3">
             <TabsTrigger value="internal">Briefing interno</TabsTrigger>
             <TabsTrigger value="client">Briefing cliente</TabsTrigger>
             <TabsTrigger value="script">Roteiro</TabsTrigger>
           </TabsList>
-          <TabsContent value="copy" className="space-y-2">
-            <Textarea
-              value={state.copy}
-              onChange={(e) => set("copy", e.target.value)}
-              rows={5}
-              placeholder="Caption do post..."
-            />
-            {mode === "edit" && postId ? (
-              <div className="flex flex-wrap gap-1.5">
-                <AiFieldButton
-                  postId={postId}
-                  field="copy"
-                  label="Gerar copy"
-                  onText={(t) => set("copy", t)}
-                />
-                <AiFieldButton
-                  postId={postId}
-                  field="hashtags"
-                  label="Hashtags"
-                  size="xs"
-                  onText={(t) =>
-                    setState((p) => ({
-                      ...p,
-                      copy: `${p.copy.trimEnd()}\n\n${t}`.trim(),
-                    }))
-                  }
-                />
-                <AiFieldButton
-                  postId={postId}
-                  field="cta"
-                  label="CTA"
-                  size="xs"
-                  onText={(t) =>
-                    setState((p) => ({
-                      ...p,
-                      copy: `${p.copy.trimEnd()}\n\n${t}`.trim(),
-                    }))
-                  }
-                />
-              </div>
-            ) : null}
-          </TabsContent>
           <TabsContent value="internal">
             <Textarea
               value={state.internalBriefing}
@@ -857,24 +850,26 @@ function TaskLayout({
         </Tabs>
       </div>
 
-      <div className="space-y-4">
-        <div className="space-y-1.5">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-            Etapa
-          </Label>
-          <Select value={state.stageId} onValueChange={(v) => set("stageId", v)}>
-            <SelectTrigger className="h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {stages.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="grid grid-cols-2 gap-3 border-t border-border/50 pt-5">
+        {mode === "create" ? (
+          <div className="space-y-1.5">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              Etapa
+            </Label>
+            <Select value={state.stageId} onValueChange={(v) => set("stageId", v)}>
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {stages.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
 
         <div className="space-y-1.5">
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -919,7 +914,7 @@ function TaskLayout({
           </Select>
         </div>
 
-        <div className="space-y-1.5">
+        <div className="col-span-2 space-y-1.5">
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
             Tags
           </Label>
@@ -954,7 +949,7 @@ function TaskLayout({
           </div>
         </div>
 
-        <div className="flex items-center justify-between rounded-md border border-border/60 px-3 py-2">
+        <div className="col-span-2 flex items-center justify-between rounded-md border border-border/60 px-3 py-2">
           <Label className="text-xs">Visível no portal</Label>
           <Switch
             checked={state.visibleInPortal}
@@ -1138,5 +1133,162 @@ function ApprovalLinkSection({ postId }: { postId: string }) {
         </ul>
       )}
     </div>
+  );
+}
+
+// ----------------- Structured Copy Editor -----------------
+
+type CopySections = {
+  gancho: string;
+  headline: string;
+  body: string;
+  cta: string;
+  hashtags: string;
+};
+
+const EMPTY_SECTIONS: CopySections = {
+  gancho: "",
+  headline: "",
+  body: "",
+  cta: "",
+  hashtags: "",
+};
+
+const SECTION_RE = /^###\s+(GANCHO|HEADLINE|COPY|CTA|HASHTAGS)\s*$/gim;
+
+function parseCopySections(raw: string | null | undefined): CopySections {
+  if (!raw) return { ...EMPTY_SECTIONS };
+  const parts = raw.split(SECTION_RE);
+  if (parts.length <= 1) return { ...EMPTY_SECTIONS, body: raw.trim() };
+  const out: CopySections = { ...EMPTY_SECTIONS };
+  for (let i = 1; i < parts.length; i += 2) {
+    const key = (parts[i] ?? "").toLowerCase();
+    const value = (parts[i + 1] ?? "").trim();
+    if (key === "gancho") out.gancho = value;
+    else if (key === "headline") out.headline = value;
+    else if (key === "copy") out.body = value;
+    else if (key === "cta") out.cta = value;
+    else if (key === "hashtags") out.hashtags = value;
+  }
+  return out;
+}
+
+function serializeCopySections(sec: CopySections): string {
+  const parts: string[] = [];
+  if (sec.gancho.trim()) parts.push(`### GANCHO\n${sec.gancho.trim()}`);
+  if (sec.headline.trim()) parts.push(`### HEADLINE\n${sec.headline.trim()}`);
+  if (sec.body.trim()) parts.push(`### COPY\n${sec.body.trim()}`);
+  if (sec.cta.trim()) parts.push(`### CTA\n${sec.cta.trim()}`);
+  if (sec.hashtags.trim()) parts.push(`### HASHTAGS\n${sec.hashtags.trim()}`);
+  return parts.join("\n\n");
+}
+
+const COPY_FIELDS: Array<{
+  key: keyof CopySections;
+  label: string;
+  placeholder: string;
+  rows: number;
+  aiField?: "copy" | "hashtags" | "cta";
+}> = [
+  { key: "gancho", label: "Gancho", placeholder: "Primeira linha que segura o scroll…", rows: 2 },
+  { key: "headline", label: "Headline", placeholder: "Ideia central em uma frase…", rows: 2 },
+  { key: "body", label: "Copy principal", placeholder: "Desenvolva o argumento…", rows: 6, aiField: "copy" },
+  { key: "cta", label: "CTA", placeholder: "Chamada para ação…", rows: 2, aiField: "cta" },
+  { key: "hashtags", label: "Hashtags", placeholder: "#marca #categoria #campanha", rows: 2, aiField: "hashtags" },
+];
+
+function CopyEditor({
+  value,
+  onChange,
+  postId,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  postId?: string;
+}) {
+  const sections = useMemo(() => parseCopySections(value), [value]);
+  const setSection = (key: keyof CopySections, next: string) => {
+    onChange(serializeCopySections({ ...sections, [key]: next }));
+  };
+
+  return (
+    <div className="rounded-lg border border-border/60 bg-background">
+      {COPY_FIELDS.map((f, i) => (
+        <div
+          key={f.key}
+          className={`px-3 py-3 ${i > 0 ? "border-t border-border/60" : ""}`}
+        >
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              {f.label}
+            </span>
+            <div className="flex items-center gap-1">
+              {postId && f.aiField ? (
+                <>
+                  <MicroAiButton
+                    postId={postId}
+                    field={f.aiField}
+                    tooltip="Regenerar com IA"
+                    icon="sparkles"
+                    onText={(t) => setSection(f.key, t)}
+                  />
+                  <MicroAiButton
+                    postId={postId}
+                    field={f.aiField}
+                    tooltip="Melhorar tom"
+                    icon="wand"
+                    onText={(t) => setSection(f.key, t)}
+                  />
+                </>
+              ) : null}
+            </div>
+          </div>
+          <Textarea
+            value={sections[f.key]}
+            onChange={(e) => setSection(f.key, e.target.value)}
+            placeholder={f.placeholder}
+            rows={f.rows}
+            className="min-h-0 resize-none border-0 bg-transparent p-0 text-sm leading-relaxed shadow-none focus-visible:ring-0"
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MicroAiButton({
+  postId,
+  field,
+  tooltip,
+  icon,
+  onText,
+}: {
+  postId: string;
+  field: "copy" | "hashtags" | "cta" | "script" | "briefing";
+  tooltip: string;
+  icon: "sparkles" | "wand";
+  onText: (t: string) => void;
+}) {
+  const runAi = useServerFn(aiInlineGenerateFn);
+  const m = useMutation({
+    mutationFn: () => runAi({ data: { postId, field } }),
+    onSuccess: (r: { text: string }) => {
+      onText(r.text);
+      toast.success("Atualizado com IA");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const Icon = icon === "sparkles" ? Sparkles : Wand2;
+  return (
+    <button
+      type="button"
+      title={tooltip}
+      aria-label={tooltip}
+      onClick={() => m.mutate()}
+      disabled={m.isPending}
+      className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-violet-500/30 bg-violet-500/10 text-violet-600 transition hover:bg-violet-500/20 disabled:opacity-60 dark:text-violet-300"
+    >
+      {m.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Icon className="h-3 w-3" />}
+    </button>
   );
 }

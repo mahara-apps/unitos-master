@@ -16,6 +16,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Check, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { Paperclip, ImageIcon, CalendarDays, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -457,51 +458,79 @@ function PostCard({
   isOverlay?: boolean;
 }) {
   const priority = post.priority ?? null;
-  const tags = (post.tags ?? []).slice(0, 3);
+  const refCount = Array.isArray(post.reference_media) ? post.reference_media.length : 0;
+  const hasCover = !!post.cover_url;
+  const snippet = (post.copy ?? "")
+    .replace(/^###\s+\w+\s*$/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const scheduled = post.scheduled_at ? new Date(post.scheduled_at) : null;
   return (
     <button
       type="button"
       onClick={() => onOpen(post.id)}
-      className={`w-full rounded-lg border border-border/70 bg-card p-3 text-left shadow-[0_1px_0_0_rgba(0,0,0,0.02)] transition hover:border-primary/50 hover:shadow-md ${
+      className={`group w-full overflow-hidden rounded-xl border border-border/70 bg-card text-left shadow-[0_1px_0_0_rgba(0,0,0,0.02)] transition hover:border-primary/50 hover:shadow-md ${
         isOverlay ? "cursor-grabbing shadow-lg" : ""
       }`}
     >
-      {(priority || post.format) ? (
-        <div className="mb-1.5 flex items-center gap-1">
-          {priority ? (
-            <span className={`rounded-md border px-1.5 py-0.5 text-[10px] uppercase tracking-wide ${PRIORITY_STYLES[priority] ?? ""}`}>
-              {PRIORITY_LABEL[priority] ?? priority}
-            </span>
-          ) : null}
-          {post.format ? (
-            <span className="rounded-md border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">
-              {post.format}
-            </span>
-          ) : null}
-        </div>
-      ) : null}
-      <p className="text-sm font-medium leading-snug">{post.title}</p>
-      {tags.length ? (
-        <div className="mt-1.5 flex flex-wrap gap-1">
-          {tags.map((t) => (
-            <span key={t} className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
-              #{t}
-            </span>
-          ))}
-        </div>
-      ) : null}
-      <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-        <span>
-          {post.scheduled_at
-            ? new Date(post.scheduled_at).toLocaleDateString("pt-BR", {
-                day: "2-digit",
-                month: "2-digit",
-              })
-            : "—"}
-        </span>
-        {post.channels?.length ? (
-          <span className="truncate">{post.channels.slice(0, 2).join(", ")}</span>
+      {/* Visual placeholder / cover */}
+      <div className="relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden border-b border-dashed border-border/60 bg-gradient-to-br from-muted/60 to-muted/20">
+        {hasCover ? (
+          <img src={post.cover_url!} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex flex-col items-center gap-1.5 text-muted-foreground/70 transition group-hover:text-muted-foreground">
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background/80 px-2.5 py-1 text-[10px] font-medium shadow-sm">
+              <Sparkles className="h-3 w-3" /> Subir arte ou gerar com IA
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="p-3">
+        {(priority || post.format) ? (
+          <div className="mb-1 flex flex-wrap items-center gap-1">
+            {post.format ? (
+              <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {post.format}
+              </span>
+            ) : null}
+            {priority ? (
+              <span className={`rounded-sm border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${PRIORITY_STYLES[priority] ?? ""}`}>
+                {PRIORITY_LABEL[priority] ?? priority}
+              </span>
+            ) : null}
+          </div>
         ) : null}
+        <p className="text-sm font-semibold leading-snug tracking-tight text-foreground line-clamp-2">
+          {post.title}
+        </p>
+        {snippet ? (
+          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{snippet}</p>
+        ) : null}
+
+        <div className="mt-2.5 flex items-center justify-between border-t border-border/50 pt-2 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-2">
+            {refCount > 0 ? (
+              <span className="inline-flex items-center gap-0.5" title={`${refCount} anexo(s)`}>
+                <Paperclip className="h-3 w-3" /> {refCount}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-0.5 opacity-50" title="Sem anexos">
+                <ImageIcon className="h-3 w-3" />
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5">
+            {scheduled ? (
+              <span className="inline-flex items-center gap-0.5 tabular-nums">
+                <CalendarDays className="h-3 w-3" />
+                {scheduled.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+              </span>
+            ) : (
+              <span className="opacity-50">—</span>
+            )}
+          </div>
+        </div>
       </div>
     </button>
   );
