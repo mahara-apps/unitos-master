@@ -89,7 +89,6 @@ function ContentReady({ brandId, clientId }: { brandId: string; clientId: string
   const [activePipelineId, setActivePipelineId] = useState<string | null>(null);
   const [openNewPipeline, setOpenNewPipeline] = useState(false);
   const [openPostId, setOpenPostId] = useState<string | null>(null);
-  const [openCopilot, setOpenCopilot] = useState(false);
   const [openColumnConfig, setOpenColumnConfig] = useState(false);
   const [newTaskStageId, setNewTaskStageId] = useState<string | null>(null);
   const [openNewTask, setOpenNewTask] = useState(false);
