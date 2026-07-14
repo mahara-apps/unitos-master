@@ -14,6 +14,7 @@ export type CalendarPost = {
   stage_id: string | null;
   review_status: string | null;
   ai_phase: string | null;
+  format: string | null;
   author: { id: string; name: string | null; avatar_url: string | null } | null;
 };
 
@@ -33,7 +34,7 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
     let q = context.supabase
       .from("posts")
       .select(
-        "id,title,scheduled_at,channels,cover_url,client_id,brand_id,pipeline_id,stage_id,review_status,ai_phase,created_by",
+        "id,title,scheduled_at,channels,cover_url,client_id,brand_id,pipeline_id,stage_id,review_status,ai_phase,format,created_by",
       )
       .eq("brand_id", data.brandId)
       .is("deleted_at", null)
