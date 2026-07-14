@@ -378,7 +378,7 @@ export const createStageFn = createServerFn({ method: "POST" })
         color: data.color,
         position: nextPos,
       })
-      .select("id,pipeline_id,key,label,color,position,is_terminal")
+      .select("id,pipeline_id,key,label,color,position,is_terminal,hide_in_portal,enables_approval_link")
       .single();
     if (error) throw error;
     return st as PipelineStage;
