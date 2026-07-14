@@ -55,6 +55,7 @@ import {
   uploadPostReferenceMediaFn,
   removePostReferenceMediaFn,
   signPostReferenceMediaFn,
+  listBrandAssigneesFn,
   type PipelineStage,
   type BoardPost,
   type PostTimelineEvent,
@@ -152,6 +153,62 @@ function QuickApprovalLinkButton({ postId }: { postId: string }) {
   );
 }
 
+function AssigneeSelect({
+  brandId,
+  value,
+  onChange,
+}: {
+  brandId: string;
+  value: string | null;
+  onChange: (id: string | null) => void;
+}) {
+  const fetchMembers = useServerFn(listBrandAssigneesFn);
+  const { data: members } = useQuery({
+    queryKey: ["brand-assignees", brandId],
+    queryFn: () => fetchMembers({ data: { brandId } }),
+    staleTime: 60_000,
+    enabled: !!brandId,
+  });
+  const list = members ?? [];
+  const initials = (name: string) =>
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((s) => s[0]?.toUpperCase() ?? "")
+      .join("") || "?";
+  return (
+    <Select
+      value={value ?? "none"}
+      onValueChange={(v) => onChange(v === "none" ? null : v)}
+    >
+      <SelectTrigger className="h-8 w-auto min-w-[160px] gap-1 text-xs">
+        <SelectValue placeholder="Sem responsável" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="none">
+          <span className="inline-flex items-center gap-2">
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-muted text-[9px] text-muted-foreground">
+              ·
+            </span>
+            Sem responsável
+          </span>
+        </SelectItem>
+        {list.map((m) => (
+          <SelectItem key={m.id} value={m.id}>
+            <span className="inline-flex items-center gap-2">
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[9px] font-medium text-white">
+                {initials(m.name)}
+              </span>
+              {m.name}
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 // ----------------- Create -----------------
 
 function CreateBody({
@@ -199,6 +256,7 @@ function CreateBody({
           priority: state.priority === "none" ? null : state.priority,
           tags: state.tags.length ? state.tags : undefined,
           visible_in_portal: state.visibleInPortal,
+          assignees: state.assigneeId ? [state.assigneeId] : undefined,
         },
       }),
     onSuccess: () => {
@@ -211,11 +269,32 @@ function CreateBody({
 
   return (
     <>
-      <div className="sticky top-0 z-10 border-b bg-background px-6 py-4">
-        <h2 className="text-base font-semibold tracking-tight">Nova tarefa</h2>
-        <p className="text-xs text-muted-foreground">
-          Preencha os detalhes para adicionar ao pipeline.
-        </p>
+      <div className="sticky top-0 z-10 space-y-3 border-b bg-background px-6 pb-3 pt-4">
+        <div>
+          <h2 className="text-base font-semibold tracking-tight">Nova tarefa</h2>
+          <p className="text-xs text-muted-foreground">
+            Preencha os detalhes para adicionar ao pipeline.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={state.stageId} onValueChange={(v) => setState((p) => ({ ...p, stageId: v }))}>
+            <SelectTrigger className="h-8 w-auto min-w-[140px] gap-1 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {stages.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <AssigneeSelect
+            brandId={brandId}
+            value={state.assigneeId}
+            onChange={(id) => setState((p) => ({ ...p, assigneeId: id }))}
+          />
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto px-6 py-5">
         <TaskLayout
@@ -325,6 +404,7 @@ function EditBody({
               ? new Date(state.remindAt).toISOString()
               : null,
             stage_id: state.stageId || null,
+            assignee_id: state.assigneeId,
           },
         },
       }),
@@ -480,6 +560,11 @@ function EditBody({
               ))}
             </SelectContent>
           </Select>
+          <AssigneeSelect
+            brandId={brandId}
+            value={state.assigneeId}
+            onChange={(id) => setState((p) => ({ ...p, assigneeId: id }))}
+          />
           <div className="ml-auto flex items-center gap-1.5">
             <QuickApprovalLinkButton postId={postId} />
             {reviewStatus === "pending" && aiPhase === "idea" ? (
@@ -648,6 +733,7 @@ function EditBody({
 type TaskState = {
   title: string;
   stageId: string;
+  assigneeId: string | null;
   channels: string[];
   format: string;
   copy: string;
@@ -665,6 +751,7 @@ function emptyState(stageId: string): TaskState {
   return {
     title: "",
     stageId,
+    assigneeId: null,
     channels: ["instagram"],
     format: "Feed",
     copy: "",
@@ -690,6 +777,7 @@ function stateFromPost(post: BoardPost, stages: PipelineStage[]): TaskState {
   return {
     title: post.title ?? "",
     stageId: post.stage_id ?? stages[0]?.id ?? "",
+    assigneeId: (post.assignee_id ?? null) as string | null,
     channels: (post.channels ?? []) as string[],
     format: post.format ?? "",
     copy: post.copy ?? "",

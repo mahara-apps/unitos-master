@@ -14,6 +14,36 @@ export const STAGE_COLORS = [
 ] as const;
 export type StageColor = (typeof STAGE_COLORS)[number];
 
+// ---------- Assignees ----------
+export const listBrandAssigneesFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { data: members, error } = await context.supabase
+      .from("brand_members")
+      .select("user_id, role")
+      .eq("brand_id", data.brandId);
+    if (error) throw error;
+    const ids = (members ?? []).map((m) => m.user_id as string);
+    if (ids.length === 0) return [] as Array<{ id: string; name: string; avatar_url: string | null; role: string }>;
+    const { data: profiles } = await context.supabase
+      .from("user_profiles")
+      .select("id, full_name, avatar_url")
+      .in("id", ids);
+    const profMap = new Map((profiles ?? []).map((p) => [p.id as string, p]));
+    return (members ?? [])
+      .map((m) => {
+        const p = profMap.get(m.user_id as string);
+        return {
+          id: m.user_id as string,
+          name: (p?.full_name as string) || "Sem nome",
+          avatar_url: (p?.avatar_url as string | null) ?? null,
+          role: (m.role as string) ?? "member",
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  });
+
 const DEFAULT_STAGES: Array<{ key: string; label: string; color: StageColor; is_terminal?: boolean }> = [
   { key: "briefing", label: "Ideia", color: "muted" },
   { key: "writing", label: "Produção", color: "indigo" },
@@ -494,7 +524,9 @@ export const createPostFn = createServerFn({ method: "POST" })
 
     // Fallback: if no assignee provided, attribute to brand owner (admin).
     const hasAssignees = Array.isArray(data.assignees) && data.assignees.length > 0;
-    if (!hasAssignees) {
+    if (hasAssignees) {
+      insertRow.assignee_id = data.assignees![0];
+    } else {
       const { data: ownerRow } = await context.supabase
         .from("brand_members")
         .select("user_id")
