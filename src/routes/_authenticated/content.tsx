@@ -173,7 +173,7 @@ function ContentReady({ brandId, clientId }: { brandId: string; clientId: string
   });
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] min-h-0 flex-col gap-4">
+    <div className="flex h-[calc(100vh-3.5rem)] min-h-0 flex-col">
       {effectivePipelineId ? (
         <Suspense fallback={<BoardSkeleton />}>
           <BoardView
