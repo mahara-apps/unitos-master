@@ -135,13 +135,12 @@ async function runOrchestrator(params: {
     const { data: promptRows, error: promptErr } = await supabase
       .from("agent_prompts")
       .select("agent_id, system_prompt")
-      .in("agent_id", ["planner_strategic", "copywriter_senior", "art_director_social"]);
+      .in("agent_id", ["planner_strategic", "copywriter_senior"]);
     if (promptErr) throw promptErr;
     const prompts = new Map((promptRows ?? []).map((r) => [r.agent_id, r.system_prompt]));
     const plannerPrompt = prompts.get("planner_strategic");
     const copyPrompt = prompts.get("copywriter_senior");
-    const briefPrompt = prompts.get("art_director_social");
-    if (!plannerPrompt || !copyPrompt || !briefPrompt) {
+    if (!plannerPrompt || !copyPrompt) {
       throw new Error("agent_prompts incompletos — reexecute o seed do vault de prompts.");
     }
 
@@ -246,10 +245,10 @@ async function runOrchestrator(params: {
       }
     }
 
-    // 4) Copywriter + Art Director in parallel per concept
+    // 4) Copywriter por conceito (paralelo) — apenas texto (headline + legenda)
     await patch({
       progress: 45,
-      step_label: `Copywriter + Direção de arte (${concepts.length} peças)`,
+      step_label: `Copywriter — escrevendo ${concepts.length} headlines`,
     });
 
     const persona0 = personasRow?.data
@@ -273,25 +272,7 @@ async function runOrchestrator(params: {
             schema: CopySchema,
             strategic: false,
           });
-          let brief = "";
-          try {
-            const briefSys = fillTemplate(briefPrompt, {
-              VISUAL_IDENTITY: visualIdentity,
-              PRIMARY_COLORS: primaryColors,
-              CONCEPT: conceptStr,
-              COPY: copy.caption,
-            });
-            const briefRes = await runStructured({
-              system: briefSys,
-              prompt: "Gere o brief de design para o post.",
-              schema: BriefSchema,
-              strategic: false,
-            });
-            brief = briefRes.design_brief;
-          } catch {
-            /* design brief é opcional — segue sem bloquear */
-          }
-          return { concept, copy, brief };
+          return { concept, copy };
         } catch (err) {
           return {
             concept,
@@ -301,7 +282,6 @@ async function runOrchestrator(params: {
               hook: concept.gancho,
               hashtags: [] as string[],
             },
-            brief: "",
             error: err instanceof Error ? err.message : String(err),
           };
         }
