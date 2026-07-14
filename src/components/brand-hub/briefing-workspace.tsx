@@ -434,6 +434,7 @@ export function BriefingWorkspace({
         completion={completion}
         onSave={() => save.mutate()}
         saving={save.isPending}
+        savedAt={savedAt}
         onGenerateStrategy={() => setRegenOpen(true)}
         onGenerateIdeas={() => setIdeasOpen(true)}
         strategyReady={strategyReady}
