@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Plus, Settings } from "lucide-react";
+import { Loader2, Pencil, Plus, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -28,6 +28,7 @@ import {
   ensureDefaultPipelineFn,
   listPipelinesFn,
   loadBoardFn,
+  renamePipelineFn,
 } from "@/lib/content.functions";
 import { ContentBoard } from "@/components/content/content-board";
 import { PostDetailDialog } from "@/components/content/post-detail-dialog";
@@ -73,6 +74,7 @@ function ContentReady({ brandId, clientId }: { brandId: string; clientId: string
   const listPipelines = useServerFn(listPipelinesFn);
   const ensureDefault = useServerFn(ensureDefaultPipelineFn);
   const createPipeline = useServerFn(createPipelineFn);
+  const renamePipeline = useServerFn(renamePipelineFn);
 
   const pipelinesQuery = useSuspenseQuery({
     queryKey: ["content-pipelines", brandId, clientId],
@@ -88,6 +90,7 @@ function ContentReady({ brandId, clientId }: { brandId: string; clientId: string
 
   const [activePipelineId, setActivePipelineId] = useState<string | null>(null);
   const [openNewPipeline, setOpenNewPipeline] = useState(false);
+  const [openRenamePipeline, setOpenRenamePipeline] = useState(false);
   const [openPostId, setOpenPostId] = useState<string | null>(null);
   const [openColumnConfig, setOpenColumnConfig] = useState(false);
   const [newTaskStageId, setNewTaskStageId] = useState<string | null>(null);
@@ -127,6 +130,12 @@ function ContentReady({ brandId, clientId }: { brandId: string; clientId: string
               <DropdownMenuItem onClick={() => setOpenNewPipeline(true)}>
                 <Plus className="mr-2 h-4 w-4" /> Novo pipeline
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setOpenRenamePipeline(true)}
+                disabled={!effectivePipelineId}
+              >
+                <Pencil className="mr-2 h-4 w-4" /> Renomear pipeline
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setOpenColumnConfig(true)}>
                 <Settings className="mr-2 h-4 w-4" /> Colunas
               </DropdownMenuItem>
@@ -148,6 +157,17 @@ function ContentReady({ brandId, clientId }: { brandId: string; clientId: string
       setOpenNewPipeline(false);
       qc.invalidateQueries({ queryKey: ["content-pipelines", brandId, clientId] });
       toast.success("Pipeline criado");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: ({ pipelineId, name }: { pipelineId: string; name: string }) =>
+      renamePipeline({ data: { pipelineId, name } }),
+    onSuccess: () => {
+      setOpenRenamePipeline(false);
+      qc.invalidateQueries({ queryKey: ["content-pipelines", brandId, clientId] });
+      toast.success("Pipeline renomeado");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -175,6 +195,17 @@ function ContentReady({ brandId, clientId }: { brandId: string; clientId: string
         onOpenChange={setOpenNewPipeline}
         onSubmit={(name) => createMutation.mutate(name)}
         pending={createMutation.isPending}
+      />
+
+      <RenamePipelineDialog
+        open={openRenamePipeline}
+        onOpenChange={setOpenRenamePipeline}
+        currentName={pipelines.find((p) => p.id === effectivePipelineId)?.name ?? ""}
+        onSubmit={(name) => {
+          if (!effectivePipelineId) return;
+          renameMutation.mutate({ pipelineId: effectivePipelineId, name });
+        }}
+        pending={renameMutation.isPending}
       />
 
       {effectivePipelineId && openPostId ? (
