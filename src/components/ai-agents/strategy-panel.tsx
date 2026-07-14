@@ -103,10 +103,10 @@ function SectionCard({
   className?: string;
 }) {
   return (
-    <div className={`rounded-xl border border-white/10 bg-neutral-950/60 p-5 ${className}`}>
+    <div className={`rounded-xl border border-border bg-card p-5 ${className}`}>
       <div className="mb-3 flex items-center gap-2">
-        {Icon && <Icon className="h-4 w-4 text-cyan-400" />}
-        <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-200">{title}</h3>
+        {Icon && <Icon className="h-4 w-4 text-primary" />}
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">{title}</h3>
       </div>
       {children}
     </div>
@@ -120,12 +120,12 @@ function EmptyHint({ text }: { text: string }) {
 function Chip({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "neutral" | "danger" | "success" | "info" }) {
   const toneClass =
     tone === "danger"
-      ? "border-red-500/30 bg-red-500/10 text-red-200"
+      ? "border-destructive/30 bg-destructive/10 text-destructive"
       : tone === "success"
-      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+      ? "border-[--health-good]/40 bg-[--health-good]/10 text-[--health-good]"
       : tone === "info"
-      ? "border-cyan-500/30 bg-cyan-500/10 text-cyan-200"
-      : "border-white/10 bg-white/5 text-neutral-200";
+      ? "border-primary/30 bg-primary/10 text-primary"
+      : "border-border bg-muted text-foreground";
   return (
     <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${toneClass}`}>
       {children}
