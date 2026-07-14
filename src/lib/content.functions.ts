@@ -681,6 +681,8 @@ export type PostTimelineEvent = {
   payload: string | null;
   created_at: string;
   actor_id: string | null;
+  actor_name: string | null;
+  actor_avatar: string | null;
 };
 
 export const getPostDetailFn = createServerFn({ method: "POST" })
@@ -704,6 +706,22 @@ export const getPostDetailFn = createServerFn({ method: "POST" })
         .limit(30),
     ]);
     if (error) throw error;
+    const actorIds = Array.from(
+      new Set((events ?? []).map((e) => e.actor_id).filter(Boolean) as string[]),
+    );
+    const actorMap = new Map<string, { name: string | null; avatar: string | null }>();
+    if (actorIds.length > 0) {
+      const { data: profs } = await context.supabase
+        .from("user_profiles")
+        .select("id, full_name, avatar_url")
+        .in("id", actorIds);
+      (profs ?? []).forEach((p) =>
+        actorMap.set(p.id as string, {
+          name: (p.full_name as string) ?? null,
+          avatar: (p.avatar_url as string | null) ?? null,
+        }),
+      );
+    }
     return {
       post: post as BoardPost,
       timeline: (events ?? []).map((e) => ({
@@ -712,6 +730,8 @@ export const getPostDetailFn = createServerFn({ method: "POST" })
         payload: e.payload == null ? null : JSON.stringify(e.payload),
         created_at: e.created_at,
         actor_id: e.actor_id,
+        actor_name: e.actor_id ? actorMap.get(e.actor_id)?.name ?? null : null,
+        actor_avatar: e.actor_id ? actorMap.get(e.actor_id)?.avatar ?? null : null,
       })) as PostTimelineEvent[],
     };
   });
