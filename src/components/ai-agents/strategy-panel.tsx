@@ -158,7 +158,7 @@ export function OverviewTab({ brandId, clientId }: Scope) {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {kpis.map((k) => (
-          <div key={k.label} className="rounded-xl border border-white/10 bg-neutral-950/60 p-4">
+          <div key={k.label} className="rounded-xl border border-border bg-card p-4">
             <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{k.label}</div>
             <div className="mt-1 text-2xl font-semibold">{k.value}</div>
           </div>
@@ -171,7 +171,7 @@ export function OverviewTab({ brandId, clientId }: Scope) {
             <ContextSourceBadge source="persona" />
           </div>
           {voice?.brand_personality ? (
-            <p className="text-sm leading-relaxed text-neutral-200">{voice.brand_personality}</p>
+            <p className="text-sm leading-relaxed text-foreground">{voice.brand_personality}</p>
           ) : (
             <EmptyHint text="Voice card ainda não gerado." />
           )}
@@ -188,7 +188,7 @@ export function OverviewTab({ brandId, clientId }: Scope) {
           <div className="mb-3">
             <ContextSourceBadge source="persona" />
           </div>
-          <p className="text-sm text-neutral-200">
+          <p className="text-sm text-foreground">
             {(briefing.publico_alvo as string | null) ?? <span className="text-muted-foreground">—</span>}
           </p>
           {Array.isArray(briefing.diferenciais) && (briefing.diferenciais as string[]).length ? (
@@ -233,7 +233,7 @@ export function StrategyTab({ brandId, clientId }: Scope) {
           {rows.map(([label, value]) => (
             <div key={label}>
               <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
-              <dd className="mt-1 text-sm text-neutral-200">
+              <dd className="mt-1 text-sm text-foreground">
                 {Array.isArray(value) ? (
                   value.length ? (
                     <div className="flex flex-wrap gap-1.5">
@@ -261,7 +261,7 @@ export function StrategyTab({ brandId, clientId }: Scope) {
           <div className="space-y-4">
             <div>
               <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Brand personality</div>
-              <p className="mt-1 text-sm leading-relaxed text-neutral-200">{voice.brand_personality}</p>
+              <p className="mt-1 text-sm leading-relaxed text-foreground">{voice.brand_personality}</p>
             </div>
             {voice.tone_characteristics?.length ? (
               <div>
@@ -275,7 +275,7 @@ export function StrategyTab({ brandId, clientId }: Scope) {
             ) : null}
             <div className="grid gap-3 md:grid-cols-2">
               <div>
-                <div className="text-[11px] font-medium uppercase tracking-wide text-emerald-300">Palavras a usar</div>
+                <div className="text-[11px] font-medium uppercase tracking-wide text-[color:var(--health-good)]">Palavras a usar</div>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {(voice.vocabulary_rules?.words_to_use ?? []).map((w, i) => (
                     <Chip key={i} tone="success">{w}</Chip>
@@ -283,7 +283,7 @@ export function StrategyTab({ brandId, clientId }: Scope) {
                 </div>
               </div>
               <div>
-                <div className="text-[11px] font-medium uppercase tracking-wide text-red-300">Palavras a evitar</div>
+                <div className="text-[11px] font-medium uppercase tracking-wide text-destructive">Palavras a evitar</div>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {(voice.vocabulary_rules?.words_to_avoid ?? []).map((w, i) => (
                     <Chip key={i} tone="danger">{w}</Chip>
@@ -296,7 +296,7 @@ export function StrategyTab({ brandId, clientId }: Scope) {
                 <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Frases-exemplo</div>
                 <ul className="mt-1.5 space-y-1.5">
                   {voice.brand_phrases_examples.map((p, i) => (
-                    <li key={i} className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-neutral-200">
+                    <li key={i} className="rounded-md border border-border bg-muted px-2.5 py-1.5 text-xs text-foreground">
                       “{p}”
                     </li>
                   ))}
@@ -323,25 +323,25 @@ export function TargetTab({ brandId, clientId }: Scope) {
     <div className="space-y-6">
       <div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-neutral-200">
-            <Users className="h-4 w-4 text-cyan-400" /> Personas
+          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-foreground">
+            <Users className="h-4 w-4 text-primary" /> Personas
           </h3>
           <ContextSourceBadge source="persona" />
         </div>
         {personas.length ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {personas.map((p, i) => (
-              <div key={i} className="rounded-xl border border-white/10 bg-neutral-950/60 p-4">
+              <div key={i} className="rounded-xl border border-border bg-card p-4">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500/30 to-indigo-500/30 text-[11px] font-bold text-cyan-100">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500/30 to-indigo-500/30 text-[11px] font-bold text-primary-foreground">
                     {p.nome?.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="text-sm font-semibold">{p.nome}</div>
                 </div>
-                <p className="mt-2 text-xs leading-relaxed text-neutral-300">{p.descricao}</p>
+                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{p.descricao}</p>
                 {p.dores?.length ? (
                   <div className="mt-3">
-                    <div className="text-[10px] font-medium uppercase tracking-wide text-red-300">Dores</div>
+                    <div className="text-[10px] font-medium uppercase tracking-wide text-destructive">Dores</div>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {p.dores.slice(0, 4).map((d, j) => (
                         <Chip key={j} tone="danger">{d}</Chip>
@@ -369,17 +369,17 @@ export function TargetTab({ brandId, clientId }: Scope) {
 
       <div>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-neutral-200">
-            <Layers className="h-4 w-4 text-cyan-400" /> Cohorts comportamentais
+          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-foreground">
+            <Layers className="h-4 w-4 text-primary" /> Cohorts comportamentais
           </h3>
           <ContextSourceBadge source="persona" />
         </div>
         {cohorts.length ? (
           <div className="space-y-2">
             {cohorts.map((c, i) => (
-              <div key={i} className="rounded-xl border border-white/10 bg-neutral-950/60 p-4">
+              <div key={i} className="rounded-xl border border-border bg-card p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-sm font-semibold text-neutral-100">{c.name}</div>
+                  <div className="text-sm font-semibold text-foreground">{c.name}</div>
                   <div className="flex flex-wrap gap-1.5">
                     {(c.target_personas ?? []).map((tp, j) => (
                       <Chip key={j} tone="info">{tp}</Chip>
@@ -389,15 +389,15 @@ export function TargetTab({ brandId, clientId }: Scope) {
                 <div className="mt-2 grid gap-2 text-xs md:grid-cols-3">
                   <div>
                     <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Behavioral traits</div>
-                    <p className="mt-1 text-neutral-300">{c.behavioral_traits}</p>
+                    <p className="mt-1 text-muted-foreground">{c.behavioral_traits}</p>
                   </div>
                   <div>
                     <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Content strategy</div>
-                    <p className="mt-1 text-neutral-300">{c.content_strategy}</p>
+                    <p className="mt-1 text-muted-foreground">{c.content_strategy}</p>
                   </div>
                   <div>
                     <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Conversion criteria</div>
-                    <p className="mt-1 text-neutral-300">{c.conversion_criteria}</p>
+                    <p className="mt-1 text-muted-foreground">{c.conversion_criteria}</p>
                   </div>
                 </div>
               </div>
@@ -423,10 +423,10 @@ export function MarketTab({ brandId, clientId }: Scope) {
   const matrix = swot?.competitive_matrix ?? [];
 
   const quadrants = [
-    { key: "strengths", label: "Strengths", items: analysis?.strengths ?? [], icon: TrendingUp, tone: "border-emerald-500/30 bg-emerald-500/5", accent: "text-emerald-300" },
-    { key: "weaknesses", label: "Weaknesses", items: analysis?.weaknesses ?? [], icon: ShieldAlert, tone: "border-amber-500/30 bg-amber-500/5", accent: "text-amber-300" },
-    { key: "opportunities", label: "Opportunities", items: analysis?.opportunities ?? [], icon: Zap, tone: "border-cyan-500/30 bg-cyan-500/5", accent: "text-cyan-300" },
-    { key: "threats", label: "Threats", items: analysis?.threats ?? [], icon: ShieldAlert, tone: "border-red-500/30 bg-red-500/5", accent: "text-red-300" },
+    { key: "strengths", label: "Strengths", items: analysis?.strengths ?? [], icon: TrendingUp, tone: "border-[color:var(--health-good)]/40 bg-[color:var(--health-good)]/10", accent: "text-[color:var(--health-good)]" },
+    { key: "weaknesses", label: "Weaknesses", items: analysis?.weaknesses ?? [], icon: ShieldAlert, tone: "border-[color:var(--severity-warning)]/40 bg-[color:var(--severity-warning)]/10", accent: "text-[color:var(--severity-warning)]" },
+    { key: "opportunities", label: "Opportunities", items: analysis?.opportunities ?? [], icon: Zap, tone: "border-primary/30 bg-primary/10", accent: "text-cyan-300" },
+    { key: "threats", label: "Threats", items: analysis?.threats ?? [], icon: ShieldAlert, tone: "border-destructive/40 bg-destructive/10", accent: "text-destructive" },
   ];
 
   return (
@@ -444,7 +444,7 @@ export function MarketTab({ brandId, clientId }: Scope) {
             <ul className="mt-3 space-y-1.5">
               {q.items.length ? (
                 q.items.map((it, i) => (
-                  <li key={i} className="text-xs leading-relaxed text-neutral-200">• {it}</li>
+                  <li key={i} className="text-xs leading-relaxed text-foreground">• {it}</li>
                 ))
               ) : (
                 <li className="text-xs text-muted-foreground">—</li>
@@ -461,19 +461,19 @@ export function MarketTab({ brandId, clientId }: Scope) {
         {matrix.length ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-white/10 text-[10px] uppercase tracking-widest text-muted-foreground">
+              <thead className="border-b border-border text-[10px] uppercase tracking-widest text-muted-foreground">
                 <tr>
                   <th className="py-2 pr-3 font-medium">Competitor</th>
-                  <th className="py-2 pr-3 font-medium text-emerald-300">Our advantages</th>
-                  <th className="py-2 pr-3 font-medium text-red-300">Vulnerabilities</th>
+                  <th className="py-2 pr-3 font-medium text-[color:var(--health-good)]">Our advantages</th>
+                  <th className="py-2 pr-3 font-medium text-destructive">Vulnerabilities</th>
                 </tr>
               </thead>
               <tbody>
                 {matrix.map((c, i) => (
-                  <tr key={i} className="border-b border-white/5 last:border-0">
-                    <td className="py-2.5 pr-3 font-medium text-neutral-100">{c.competitor_name}</td>
-                    <td className="py-2.5 pr-3 text-neutral-300">{c.our_advantages}</td>
-                    <td className="py-2.5 pr-3 text-neutral-300">{c.vulnerabilities}</td>
+                  <tr key={i} className="border-b border-border/60 last:border-0">
+                    <td className="py-2.5 pr-3 font-medium text-foreground">{c.competitor_name}</td>
+                    <td className="py-2.5 pr-3 text-muted-foreground">{c.our_advantages}</td>
+                    <td className="py-2.5 pr-3 text-muted-foreground">{c.vulnerabilities}</td>
                   </tr>
                 ))}
               </tbody>
@@ -522,7 +522,7 @@ export function TopicsTab({ brandId, clientId }: { brandId: string; clientId: st
         return (
           <div
             key={p.id}
-            className="flex flex-col gap-3 rounded-xl border border-white/10 bg-neutral-950/60 p-4 md:flex-row md:items-center md:justify-between"
+            className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 md:flex-row md:items-center md:justify-between"
           >
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-1.5">
@@ -532,7 +532,7 @@ export function TopicsTab({ brandId, clientId }: { brandId: string; clientId: st
                 {p.cohort_alvo ? <Chip>{p.cohort_alvo}</Chip> : null}
                 {sent ? <Chip tone="success">no pipeline</Chip> : null}
               </div>
-              <div className="mt-1.5 truncate text-sm font-semibold text-neutral-100">{p.titulo}</div>
+              <div className="mt-1.5 truncate text-sm font-semibold text-foreground">{p.titulo}</div>
               {p.gancho ? <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{p.gancho}</div> : null}
             </div>
             <Button
