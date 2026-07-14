@@ -15,10 +15,7 @@ import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
 const BodySchema = z.object({
   brandId: z.string().uuid(),
   clientId: z.string().uuid(),
-  pipelineId: z.string().uuid().nullable().optional(),
   texto: z.string().trim().min(20).max(20000),
-  pautasQuantidade: z.number().int().min(1).max(20).default(8),
-  pautasPeriodo: z.string().default("próximos 15 dias"),
 });
 
 function buildUserClient(token: string) {
@@ -93,18 +90,7 @@ const SwotSchema = z.object({
     }),
   ),
 });
-const PautasSchema = z.object({
-  pautas: z.array(
-    z.object({
-      titulo: z.string(),
-      pilar_type: z.string(),
-      cohort_alvo: z.string(),
-      formato: z.string(),
-      plataforma: z.string(),
-      gancho: z.string(),
-    }),
-  ),
-});
+// Pauta generation moved to /api/jobs/generate-ideas — Phase 2, human-gated.
 
 async function runStructured<T extends z.ZodTypeAny>(opts: {
   system: string;
@@ -152,8 +138,6 @@ const P = {
     "Você é estrategista sênior. Gere 3–5 cohorts comportamentais. Use EXATAMENTE as chaves do schema em inglês: cohorts[] com name, target_personas, behavioral_traits, content_strategy, conversion_criteria. Não traduza chaves. Responda SOMENTE JSON.",
   swot:
     "Você é estrategista sênior. Gere SWOT + matriz competitiva. Use EXATAMENTE as chaves em inglês: swot_analysis.strengths, weaknesses, opportunities, threats; competitive_matrix[] com competitor_name, our_advantages, vulnerabilities. Não traduza chaves. Responda SOMENTE JSON.",
-  pauta:
-    "Você é estrategista de conteúdo. Gere pautas diversificadas por pilar, plataforma e cohort. Responda SOMENTE JSON.",
 };
 
 // ---------------- Normalizers ----------------
