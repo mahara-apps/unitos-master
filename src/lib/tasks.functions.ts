@@ -204,7 +204,18 @@ export const updateTaskFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => UpdateTaskInput.parse(i))
   .handler(async ({ data, context }) => {
-    const patch: Record<string, unknown> = { ...data.patch };
+    const patch = { ...data.patch } as {
+      title?: string;
+      description?: string | null;
+      status?: TaskStatus;
+      priority?: TaskPriority;
+      assignee_id?: string | null;
+      client_id?: string | null;
+      project_id?: string | null;
+      due_at?: string | null;
+      done?: boolean;
+      done_at?: string | null;
+    };
     if (patch.done === true) {
       patch.status = "done";
       patch.done_at = new Date().toISOString();
