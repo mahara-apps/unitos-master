@@ -508,6 +508,7 @@ function PostCard({
     .trim();
   const scheduled = post.scheduled_at ? new Date(post.scheduled_at) : null;
   const created = post.created_at ? new Date(post.created_at) : null;
+  const tags = Array.isArray(post.tags) ? post.tags.filter(Boolean) : [];
   return (
     <button
       type="button"
@@ -561,6 +562,21 @@ function PostCard({
         </p>
         {snippet ? (
           <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{snippet}</p>
+        ) : null}
+        {tags.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {tags.slice(0, 4).map((t) => (
+              <span
+                key={t}
+                className="inline-flex items-center rounded-full border border-border/60 bg-muted/40 px-1.5 py-0 text-[10px] font-medium text-muted-foreground"
+              >
+                #{t}
+              </span>
+            ))}
+            {tags.length > 4 ? (
+              <span className="text-[10px] text-muted-foreground">+{tags.length - 4}</span>
+            ) : null}
+          </div>
         ) : null}
 
         <div className="mt-2.5 flex items-center justify-between border-t border-border/50 pt-2 text-[11px] text-muted-foreground">
