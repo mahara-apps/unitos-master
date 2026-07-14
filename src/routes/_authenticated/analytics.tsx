@@ -198,8 +198,8 @@ function AnalyticsPage() {
             filters={filters}
             setFilters={setFilters}
             clients={clientsQuery.data ?? []}
-            team={teamQuery.data ?? []}
-            projects={projectsQuery.data ?? []}
+            team={teamQuery.data?.members ?? []}
+            projects={projectsQuery.data?.projects ?? []}
           />
         </div>
       ),
