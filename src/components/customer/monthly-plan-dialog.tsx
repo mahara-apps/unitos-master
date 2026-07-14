@@ -15,9 +15,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type Props = { brandId: string; clientId: string };
+type Props = {
+  brandId: string;
+  clientId: string;
+  disabled?: boolean;
+  disabledReason?: string;
+};
 
-export function MonthlyPlanDialog({ brandId, clientId }: Props) {
+export function MonthlyPlanDialog({ brandId, clientId, disabled, disabledReason }: Props) {
   const [open, setOpen] = useState(false);
   const [quantidade, setQuantidade] = useState(12);
   const [periodo, setPeriodo] = useState("próximo mês");
@@ -53,11 +58,14 @@ export function MonthlyPlanDialog({ brandId, clientId }: Props) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => !disabled && setOpen(v)}>
       <DialogTrigger asChild>
         <Button
           size="sm"
-          className="gap-1.5 border-0 bg-gradient-to-r from-violet-600 via-fuchsia-500 to-pink-500 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08)] hover:opacity-95"
+          disabled={disabled}
+          title={disabled ? disabledReason : undefined}
+          aria-disabled={disabled}
+          className="gap-1.5 border-0 bg-gradient-to-r from-violet-600 via-fuchsia-500 to-pink-500 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08)] hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Sparkles className="h-3.5 w-3.5" />
           Gerar Plano do Mês
