@@ -401,6 +401,8 @@ export const updateStageFn = createServerFn({ method: "POST" })
             is_terminal: z.boolean().optional(),
             hide_in_portal: z.boolean().optional(),
             enables_approval_link: z.boolean().optional(),
+            sla_days: z.number().int().min(0).max(365).nullable().optional(),
+            position: z.number().int().optional(),
           })
           .strict(),
       })
