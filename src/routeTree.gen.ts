@@ -25,6 +25,7 @@ import { Route as AuthenticatedContentRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedConnectionsRouteImport } from './routes/_authenticated/connections'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
+import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
 import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authenticated/customers.index'
 import { Route as PBriefingTokenRouteImport } from './routes/p.briefing.$token'
 import { Route as ApiJobsPostPhase2RouteImport } from './routes/api/jobs/post-phase2'
@@ -33,6 +34,7 @@ import { Route as ApiJobsGenerateIdeasRouteImport } from './routes/api/jobs/gene
 import { Route as ApiJobsCustomerPipelineRouteImport } from './routes/api/jobs/customer-pipeline'
 import { Route as ApiJobsCopilotRouteImport } from './routes/api/jobs/copilot'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
+import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_authenticated/settings.profile'
 import { Route as AuthenticatedSettingsAiRouteImport } from './routes/_authenticated/settings.ai'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 import { Route as ApiPublicJobsReapRouteImport } from './routes/api/public/jobs.reap'
@@ -120,6 +122,12 @@ const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
   path: '/agents',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSettingsIndexRoute =
+  AuthenticatedSettingsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedCustomersIndexRoute =
   AuthenticatedCustomersIndexRouteImport.update({
     id: '/',
@@ -160,6 +168,12 @@ const AuthenticatedSettingsTeamRoute =
   AuthenticatedSettingsTeamRouteImport.update({
     id: '/team',
     path: '/team',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsProfileRoute =
+  AuthenticatedSettingsProfileRouteImport.update({
+    id: '/profile',
+    path: '/profile',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
 const AuthenticatedSettingsAiRoute = AuthenticatedSettingsAiRouteImport.update({
@@ -208,6 +222,7 @@ export interface FileRoutesByFullPath {
   '/portal/$token': typeof PortalTokenRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
+  '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
@@ -216,6 +231,7 @@ export interface FileRoutesByFullPath {
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/customers/': typeof AuthenticatedCustomersIndexRoute
+  '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/jobs/reap': typeof ApiPublicJobsReapRoute
@@ -230,13 +246,13 @@ export interface FileRoutesByTo {
   '/content': typeof AuthenticatedContentRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
-  '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
   '/': typeof AuthenticatedIndexRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
+  '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
@@ -245,6 +261,7 @@ export interface FileRoutesByTo {
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/customers': typeof AuthenticatedCustomersIndexRoute
+  '/settings': typeof AuthenticatedSettingsIndexRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/jobs/reap': typeof ApiPublicJobsReapRoute
@@ -269,6 +286,7 @@ export interface FileRoutesById {
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/_authenticated/settings/ai': typeof AuthenticatedSettingsAiRoute
+  '/_authenticated/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
@@ -277,6 +295,7 @@ export interface FileRoutesById {
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
+  '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/jobs/reap': typeof ApiPublicJobsReapRoute
@@ -301,6 +320,7 @@ export interface FileRouteTypes {
     | '/portal/$token'
     | '/customers/$customerId'
     | '/settings/ai'
+    | '/settings/profile'
     | '/settings/team'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
@@ -309,6 +329,7 @@ export interface FileRouteTypes {
     | '/api/jobs/post-phase2'
     | '/p/briefing/$token'
     | '/customers/'
+    | '/settings/'
     | '/customers/$customerId/briefing'
     | '/api/public/approval/$token'
     | '/api/public/jobs/reap'
@@ -323,13 +344,13 @@ export interface FileRouteTypes {
     | '/content'
     | '/dashboard'
     | '/notifications'
-    | '/settings'
     | '/approval/$token'
     | '/invite/$token'
     | '/portal/$token'
     | '/'
     | '/customers/$customerId'
     | '/settings/ai'
+    | '/settings/profile'
     | '/settings/team'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
@@ -338,6 +359,7 @@ export interface FileRouteTypes {
     | '/api/jobs/post-phase2'
     | '/p/briefing/$token'
     | '/customers'
+    | '/settings'
     | '/customers/$customerId/briefing'
     | '/api/public/approval/$token'
     | '/api/public/jobs/reap'
@@ -361,6 +383,7 @@ export interface FileRouteTypes {
     | '/_authenticated/'
     | '/_authenticated/customers/$customerId'
     | '/_authenticated/settings/ai'
+    | '/_authenticated/settings/profile'
     | '/_authenticated/settings/team'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
@@ -369,6 +392,7 @@ export interface FileRouteTypes {
     | '/api/jobs/post-phase2'
     | '/p/briefing/$token'
     | '/_authenticated/customers/'
+    | '/_authenticated/settings/'
     | '/_authenticated/customers/$customerId/briefing'
     | '/api/public/approval/$token'
     | '/api/public/jobs/reap'
@@ -506,6 +530,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgentsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/settings/': {
+      id: '/_authenticated/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/customers/': {
       id: '/_authenticated/customers/'
       path: '/'
@@ -560,6 +591,13 @@ declare module '@tanstack/react-router' {
       path: '/team'
       fullPath: '/settings/team'
       preLoaderRoute: typeof AuthenticatedSettingsTeamRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/profile': {
+      id: '/_authenticated/settings/profile'
+      path: '/profile'
+      fullPath: '/settings/profile'
+      preLoaderRoute: typeof AuthenticatedSettingsProfileRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/settings/ai': {
@@ -634,12 +672,16 @@ const AuthenticatedCustomersRouteWithChildren =
 
 interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsAiRoute: typeof AuthenticatedSettingsAiRoute
+  AuthenticatedSettingsProfileRoute: typeof AuthenticatedSettingsProfileRoute
   AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
+  AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
 }
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsAiRoute: AuthenticatedSettingsAiRoute,
+  AuthenticatedSettingsProfileRoute: AuthenticatedSettingsProfileRoute,
   AuthenticatedSettingsTeamRoute: AuthenticatedSettingsTeamRoute,
+  AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
 }
 
 const AuthenticatedSettingsRouteWithChildren =

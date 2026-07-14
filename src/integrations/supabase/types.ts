@@ -1769,29 +1769,44 @@ export type Database = {
       user_profiles: {
         Row: {
           avatar_url: string | null
+          bio: string | null
           created_at: string
           full_name: string
           id: string
+          job_title: string | null
+          locale: string
+          phone: string | null
           requires_password_change: boolean
           role: string
+          timezone: string
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string
           full_name: string
           id: string
+          job_title?: string | null
+          locale?: string
+          phone?: string | null
           requires_password_change?: boolean
           role?: string
+          timezone?: string
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string
           full_name?: string
           id?: string
+          job_title?: string | null
+          locale?: string
+          phone?: string | null
           requires_password_change?: boolean
           role?: string
+          timezone?: string
           updated_at?: string
         }
         Relationships: []
