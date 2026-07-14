@@ -129,8 +129,8 @@ export function MonthlyPlanDialog({ brandId, clientId, disabled, disabledReason 
             <Sparkles className="h-4 w-4 text-fuchsia-500" /> Plano do Mês
           </DialogTitle>
           <DialogDescription>
-            Volume e mix por canal derivados da <b>Volumetria</b> do briefing.
-            As peças aparecem no pipeline em <b>Ideia</b>.
+            O planejador estratégico e o copywriter geram <b>headlines e legendas</b> (apenas texto)
+            e distribuem as peças pelos dias úteis do período no <b>calendário</b> e no <b>pipeline</b>.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">

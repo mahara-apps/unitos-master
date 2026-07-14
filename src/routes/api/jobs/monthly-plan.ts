@@ -13,9 +13,10 @@ import { buildBrandContextBlueprint } from "@/lib/ai-agents.functions";
 // Blueprint, then runs:
 //   1) planner_strategic  -> N concepts
 //   2) copywriter_senior  -> caption per concept (parallel)
-//   3) art_director_social-> design brief per concept (parallel)
-// Each concept is inserted into `posts` at stage "idea" of the client's default
-// (or explicitly chosen) pipeline. Returns 202 with the ai_jobs id.
+// Each concept é inserido em `posts` no stage "idea" do pipeline padrão (ou
+// escolhido) do cliente, e com `scheduled_at` distribuído nos dias úteis do
+// período — garantindo aparição imediata no calendário editorial.
+// Retorna 202 com o id do ai_jobs.
 
 const BodySchema = z.object({
   brandId: z.string().uuid(),
@@ -49,7 +50,6 @@ const CopySchema = z.object({
   hook: z.string(),
   hashtags: z.array(z.string()),
 });
-const BriefSchema = z.object({ design_brief: z.string() });
 
 const CHANNEL_MAP: Record<string, "instagram" | "tiktok" | "linkedin" | "x" | "youtube" | "blog"> = {
   instagram: "instagram",
@@ -135,13 +135,12 @@ async function runOrchestrator(params: {
     const { data: promptRows, error: promptErr } = await supabase
       .from("agent_prompts")
       .select("agent_id, system_prompt")
-      .in("agent_id", ["planner_strategic", "copywriter_senior", "art_director_social"]);
+      .in("agent_id", ["planner_strategic", "copywriter_senior"]);
     if (promptErr) throw promptErr;
     const prompts = new Map((promptRows ?? []).map((r) => [r.agent_id, r.system_prompt]));
     const plannerPrompt = prompts.get("planner_strategic");
     const copyPrompt = prompts.get("copywriter_senior");
-    const briefPrompt = prompts.get("art_director_social");
-    if (!plannerPrompt || !copyPrompt || !briefPrompt) {
+    if (!plannerPrompt || !copyPrompt) {
       throw new Error("agent_prompts incompletos — reexecute o seed do vault de prompts.");
     }
 
@@ -195,9 +194,7 @@ async function runOrchestrator(params: {
     const competitorsStr = (competitorsRow ?? [])
       .map((c) => `- @${c.handle}`)
       .join("\n") || "(nenhum concorrente cadastrado)";
-    const visualIdentity = palette.length
-      ? palette.map((p) => `- ${p.label}: ${p.hex}`).join("\n")
-      : (clientRow?.color ?? "—");
+    // (identidade visual removida — pipeline é apenas texto)
 
     // 3) Planner
     await patch({ progress: 20, step_label: "Planejador estratégico — gerando conceitos" });
@@ -246,10 +243,10 @@ async function runOrchestrator(params: {
       }
     }
 
-    // 4) Copywriter + Art Director in parallel per concept
+    // 4) Copywriter por conceito (paralelo) — apenas texto (headline + legenda)
     await patch({
       progress: 45,
-      step_label: `Copywriter + Direção de arte (${concepts.length} peças)`,
+      step_label: `Copywriter — escrevendo ${concepts.length} headlines`,
     });
 
     const persona0 = personasRow?.data
@@ -273,25 +270,7 @@ async function runOrchestrator(params: {
             schema: CopySchema,
             strategic: false,
           });
-          let brief = "";
-          try {
-            const briefSys = fillTemplate(briefPrompt, {
-              VISUAL_IDENTITY: visualIdentity,
-              PRIMARY_COLORS: primaryColors,
-              CONCEPT: conceptStr,
-              COPY: copy.caption,
-            });
-            const briefRes = await runStructured({
-              system: briefSys,
-              prompt: "Gere o brief de design para o post.",
-              schema: BriefSchema,
-              strategic: false,
-            });
-            brief = briefRes.design_brief;
-          } catch {
-            /* design brief é opcional — segue sem bloquear */
-          }
-          return { concept, copy, brief };
+          return { concept, copy };
         } catch (err) {
           return {
             concept,
@@ -301,7 +280,6 @@ async function runOrchestrator(params: {
               hook: concept.gancho,
               hashtags: [] as string[],
             },
-            brief: "",
             error: err instanceof Error ? err.message : String(err),
           };
         }
@@ -344,10 +322,37 @@ async function runOrchestrator(params: {
         .order("position", { ascending: false })
         .limit(1);
       let nextPos = ((maxRow?.[0]?.position ?? -1) as number) + 1024;
-      const rows = results.map((r) => {
+      // Distribuição no calendário: dias úteis (seg–sex) a partir do 1º dia
+      // do próximo mês, atravessando `input.meses` meses. Horários escalonados
+      // 10:00 / 14:00 / 17:00 (UTC-3 armazenado como UTC).
+      const totalMeses = Math.max(1, input.meses ?? 1);
+      const start = new Date();
+      start.setUTCDate(1);
+      start.setUTCMonth(start.getUTCMonth() + 1);
+      start.setUTCHours(13, 0, 0, 0); // 10:00 BRT (UTC-3)
+      const businessDays: Date[] = [];
+      const cursor = new Date(start);
+      for (let m = 0; m < totalMeses; m++) {
+        const monthEnd = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 0));
+        while (cursor <= monthEnd) {
+          const dow = cursor.getUTCDay();
+          if (dow !== 0 && dow !== 6) businessDays.push(new Date(cursor));
+          cursor.setUTCDate(cursor.getUTCDate() + 1);
+        }
+      }
+      const slotHours = [13, 17, 20]; // 10h/14h/17h BRT
+      const scheduleFor = (index: number): string => {
+        if (!businessDays.length) return new Date().toISOString();
+        const perDay = Math.max(1, Math.ceil(results.length / businessDays.length));
+        const dayIdx = Math.min(businessDays.length - 1, Math.floor(index / perDay));
+        const slotIdx = index % perDay;
+        const d = new Date(businessDays[dayIdx]);
+        d.setUTCHours(slotHours[slotIdx % slotHours.length], 0, 0, 0);
+        return d.toISOString();
+      };
+      const rows = results.map((r, idx) => {
         const channel = normalizeChannel(r.concept.plataforma ?? "");
         const captionMd = r.copy.caption ?? "";
-        const briefBlock = r.brief ? `\n\n---\n\n### Design brief\n${r.brief}` : "";
         const tagsBlock = r.copy.hashtags?.length
           ? `\n\n${r.copy.hashtags.map((t) => `#${t.replace(/^#/, "")}`).join(" ")}`
           : "";
@@ -357,13 +362,14 @@ async function runOrchestrator(params: {
           pipeline_id: pipelineId!,
           stage_id: ideaStageId!,
           title: (r.copy.titulo || r.concept.titulo).slice(0, 160),
-          copy: `${captionMd}${tagsBlock}${briefBlock}`,
+          copy: `${captionMd}${tagsBlock}`,
           channels: [channel],
           stage: "idea" as const,
           position: nextPos,
           created_by: userId,
           review_status: "pending",
           ai_phase: "idea",
+          scheduled_at: scheduleFor(idx),
         };
         nextPos += 1024;
         return row;
@@ -381,7 +387,7 @@ async function runOrchestrator(params: {
       target_route: "/content",
       result: {
         title: `${injected} peças geradas no pipeline`,
-        content: `Planejador + Copywriter + Direção de arte concluídos para "${input.periodo}".`,
+        content: `Planejador + Copywriter concluídos para "${input.periodo}". Peças distribuídas no calendário.`,
         injected: injected > 0,
       } as never,
     });
@@ -425,7 +431,7 @@ export const Route = createFileRoute("/api/jobs/monthly-plan")({
             user_id: userId,
             kind: "monthly_plan",
             title: "✨ Plano do Mês",
-            subtitle: `Planejador → Copywriter → Direção de arte · ${input.quantidade} peças`,
+            subtitle: `Planejador → Copywriter · ${input.quantidade} peças`,
             status: "queued",
             progress: 0,
             input: input as unknown as Database["public"]["Tables"]["ai_jobs"]["Insert"]["input"],
