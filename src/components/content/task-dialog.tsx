@@ -383,9 +383,9 @@ function CreateBody({
             Preencha os detalhes para adicionar ao pipeline.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-3 items-center gap-2">
           <Select value={state.stageId} onValueChange={(v) => setState((p) => ({ ...p, stageId: v }))}>
-            <SelectTrigger className="h-8 w-auto min-w-[140px] gap-1 text-xs">
+            <SelectTrigger className="h-8 w-full min-w-0 gap-1 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
