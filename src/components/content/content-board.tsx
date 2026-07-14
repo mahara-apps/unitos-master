@@ -266,7 +266,6 @@ export function ContentBoard({ board, boardQueryKey, onOpenPost, onConfigureColu
         </button>
         </div>
       </DashboardPanelSurface>
-      </div>
       <DragOverlay>
         {activePost ? (
           <div className="w-64 rotate-2">
