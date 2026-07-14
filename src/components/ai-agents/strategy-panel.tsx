@@ -889,28 +889,79 @@ export function MarketTab({ brandId, clientId }: Scope) {
   const { analysis, matrix } = normalizeSwot(market.swot?.data);
 
   const quadrants = [
-    { key: "strengths", label: "Strengths", items: analysis.strengths, icon: TrendingUp, tone: "border-[color:var(--health-good)]/40 bg-[color:var(--health-good)]/10", accent: "text-[color:var(--health-good)]" },
-    { key: "weaknesses", label: "Weaknesses", items: analysis.weaknesses, icon: ShieldAlert, tone: "border-[color:var(--severity-warning)]/40 bg-[color:var(--severity-warning)]/10", accent: "text-[color:var(--severity-warning)]" },
-    { key: "opportunities", label: "Opportunities", items: analysis.opportunities, icon: Zap, tone: "border-primary/30 bg-primary/10", accent: "text-primary" },
-    { key: "threats", label: "Threats", items: analysis.threats, icon: ShieldAlert, tone: "border-destructive/40 bg-destructive/10", accent: "text-destructive" },
+    {
+      key: "strengths",
+      label: "Forças",
+      hint: "O que nos diferencia hoje",
+      items: analysis.strengths,
+      icon: TrendingUp,
+      bullet: Check,
+      tone: "bg-emerald-50 border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/40",
+      accent: "text-emerald-700 dark:text-emerald-400",
+      bulletTone: "text-emerald-500",
+    },
+    {
+      key: "weaknesses",
+      label: "Fraquezas",
+      hint: "Onde ainda estamos vulneráveis",
+      items: analysis.weaknesses,
+      icon: ShieldAlert,
+      bullet: AlertTriangle,
+      tone: "bg-amber-50 border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/40",
+      accent: "text-amber-700 dark:text-amber-400",
+      bulletTone: "text-amber-500",
+    },
+    {
+      key: "opportunities",
+      label: "Oportunidades",
+      hint: "Movimentos possíveis no mercado",
+      items: analysis.opportunities,
+      icon: Zap,
+      bullet: Lightbulb,
+      tone: "bg-sky-50 border-sky-100 dark:bg-sky-950/20 dark:border-sky-900/40",
+      accent: "text-sky-700 dark:text-sky-400",
+      bulletTone: "text-sky-500",
+    },
+    {
+      key: "threats",
+      label: "Ameaças",
+      hint: "Riscos externos a monitorar",
+      items: analysis.threats,
+      icon: Flame,
+      bullet: Flame,
+      tone: "bg-rose-50 border-rose-100 dark:bg-rose-950/20 dark:border-rose-900/40",
+      accent: "text-rose-700 dark:text-rose-400",
+      bulletTone: "text-rose-500",
+    },
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Matriz SWOT</h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Diagnóstico estratégico dos quatro vetores competitivos.
+          </p>
+        </div>
         <ContextSourceBadge source="competitors" />
       </div>
+
       <div className="grid gap-3 md:grid-cols-2">
         {quadrants.map((q) => (
           <div key={q.key} className={`rounded-xl border p-5 ${q.tone}`}>
             <div className={`flex items-center gap-2 ${q.accent}`}>
               <q.icon className="h-4 w-4" />
-              <h4 className="text-sm font-semibold uppercase tracking-wide">{q.label}</h4>
+              <h4 className="text-sm font-semibold">{q.label}</h4>
             </div>
-            <ul className="mt-3 space-y-1.5">
+            <p className="mt-0.5 text-[11px] text-muted-foreground">{q.hint}</p>
+            <ul className="mt-4 space-y-2">
               {q.items.length ? (
                 q.items.map((it, i) => (
-                  <li key={i} className="text-xs leading-relaxed text-foreground">• {it}</li>
+                  <li key={i} className="flex items-start gap-2 text-xs leading-relaxed text-foreground/90">
+                    <q.bullet className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${q.bulletTone}`} />
+                    <span>{it}</span>
+                  </li>
                 ))
               ) : (
                 <li className="text-xs text-muted-foreground">—</li>
@@ -920,37 +971,81 @@ export function MarketTab({ brandId, clientId }: Scope) {
         ))}
       </div>
 
-      <SectionCard title="Competitive matrix" icon={ShieldAlert}>
-        <div className="mb-3">
-          <ContextSourceBadge source="competitors" />
-        </div>
-        {matrix.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-border text-[10px] uppercase tracking-widest text-muted-foreground">
-                <tr>
-                  <th className="py-2 pr-3 font-medium">Competitor</th>
-                  <th className="py-2 pr-3 font-medium text-[color:var(--health-good)]">Our advantages</th>
-                  <th className="py-2 pr-3 font-medium text-destructive">Vulnerabilities</th>
-                </tr>
-              </thead>
-              <tbody>
-                {matrix.map((c, i) => (
-                  <tr key={i} className="border-b border-border/60 last:border-0">
-                    <td className="py-2.5 pr-3 font-medium text-foreground">{c.competitor_name}</td>
-                    <td className="py-2.5 pr-3 text-muted-foreground">{c.our_advantages}</td>
-                    <td className="py-2.5 pr-3 text-muted-foreground">{c.vulnerabilities}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <Card className="shadow-none">
+        <CardContent className="p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <ShieldAlert className="h-4 w-4 text-primary" /> Matriz competitiva
+              </h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Comparativo direto com concorrentes estruturados.
+              </p>
+            </div>
           </div>
-        ) : (
-          <EmptyHint text="Nenhum concorrente estruturado ainda." />
-        )}
-      </SectionCard>
+          {matrix.length ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[28%]">Concorrente</TableHead>
+                    <TableHead>Nossas vantagens</TableHead>
+                    <TableHead>Vulnerabilidades deles</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {matrix.map((c, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="align-top font-medium text-foreground">
+                        {c.competitor_name}
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <div className="flex flex-wrap gap-1">
+                          {splitBullets(c.our_advantages).map((v, j) => (
+                            <Badge
+                              key={j}
+                              className="rounded-full border border-emerald-200 bg-emerald-50 font-normal text-emerald-800 hover:bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300"
+                            >
+                              {v}
+                            </Badge>
+                          )) || <span className="text-xs text-muted-foreground">—</span>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <div className="flex flex-wrap gap-1">
+                          {splitBullets(c.vulnerabilities).map((v, j) => (
+                            <Badge
+                              key={j}
+                              className="rounded-full border border-rose-200 bg-rose-50 font-normal text-rose-800 hover:bg-rose-50 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300"
+                            >
+                              {v}
+                            </Badge>
+                          )) || <span className="text-xs text-muted-foreground">—</span>}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <EmptyHint text="Nenhum concorrente estruturado ainda." />
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
+}
+
+function splitBullets(input: string): string[] {
+  if (!input || !input.trim()) return [];
+  // Split on common bullet separators, keeping items concise
+  const parts = input
+    .split(/[;•\n]|(?:\s-\s)|(?:\s\|\s)|(?:,\s(?=[A-ZÀ-Ú]))/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (parts.length > 1) return parts.slice(0, 5);
+  return [input.trim()];
 }
 
 // ---------- TOPICS ----------
