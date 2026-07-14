@@ -13,6 +13,7 @@ export type CalendarPost = {
   stage_id: string | null;
   review_status: string | null;
   ai_phase: string | null;
+  author: { id: string; name: string | null; avatar_url: string | null } | null;
 };
 
 export const listScheduledPostsFn = createServerFn({ method: "POST" })
@@ -31,7 +32,7 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
     let q = context.supabase
       .from("posts")
       .select(
-        "id,title,scheduled_at,channels,cover_url,client_id,brand_id,stage_id,review_status,ai_phase",
+        "id,title,scheduled_at,channels,cover_url,client_id,brand_id,stage_id,review_status,ai_phase,created_by",
       )
       .eq("brand_id", data.brandId)
       .is("deleted_at", null)
@@ -42,7 +43,24 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
     if (data.clientId) q = q.eq("client_id", data.clientId);
     const { data: rows, error } = await q;
     if (error) throw error;
-    return (rows ?? []) as CalendarPost[];
+    const posts = (rows ?? []) as Array<Omit<CalendarPost, "author"> & { created_by: string | null }>;
+    const userIds = Array.from(
+      new Set(posts.map((p) => p.created_by).filter((v): v is string => !!v)),
+    );
+    let authors = new Map<string, { id: string; name: string | null; avatar_url: string | null }>();
+    if (userIds.length) {
+      const { data: profs } = await context.supabase
+        .from("user_profiles")
+        .select("id,full_name,avatar_url")
+        .in("id", userIds);
+      authors = new Map(
+        (profs ?? []).map((p) => [p.id, { id: p.id, name: p.full_name, avatar_url: p.avatar_url }]),
+      );
+    }
+    return posts.map(({ created_by, ...rest }) => ({
+      ...rest,
+      author: created_by ? authors.get(created_by) ?? null : null,
+    }));
   });
 
 export const rescheduleFn = createServerFn({ method: "POST" })
