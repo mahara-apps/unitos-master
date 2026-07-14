@@ -1,22 +1,18 @@
 import {
   BrainCircuit,
-  PenTool,
-  BarChart3,
-  Sparkles,
-  Users,
-  Target,
-  MessageSquare,
-  Layers,
   Compass,
+  PenTool,
+  LineChart,
+  Cpu,
   type LucideIcon,
 } from "lucide-react";
 
 export type AgentCategory =
-  | "strategy"
-  | "content"
+  | "intelligence"
+  | "planning"
+  | "creation"
   | "analysis"
-  | "audience"
-  | "creative";
+  | "system";
 
 export type AgentMeta = {
   category: AgentCategory;
@@ -30,83 +26,101 @@ export type AgentMeta = {
   model: string;
 };
 
+export const CATEGORY_ORDER: AgentCategory[] = [
+  "intelligence",
+  "planning",
+  "creation",
+  "analysis",
+  "system",
+];
+
 const CATEGORY_STYLE: Record<AgentCategory, Omit<AgentMeta, "category" | "model">> = {
-  strategy: {
-    categoryLabel: "Estratégia",
+  intelligence: {
+    categoryLabel: "Inteligência & Setup",
     icon: BrainCircuit,
     iconClass: "bg-violet-500/10 text-violet-500",
     badgeClass: "border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-300",
   },
-  content: {
-    categoryLabel: "Criação",
-    icon: PenTool,
+  planning: {
+    categoryLabel: "Planejamento & Direção",
+    icon: Compass,
     iconClass: "bg-blue-500/10 text-blue-500",
     badgeClass: "border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-300",
   },
+  creation: {
+    categoryLabel: "Criação & Copywriting",
+    icon: PenTool,
+    iconClass: "bg-orange-500/10 text-orange-500",
+    badgeClass: "border-orange-500/20 bg-orange-500/10 text-orange-600 dark:text-orange-300",
+  },
   analysis: {
-    categoryLabel: "Análise",
-    icon: BarChart3,
+    categoryLabel: "Análise & Otimização",
+    icon: LineChart,
     iconClass: "bg-emerald-500/10 text-emerald-500",
     badgeClass: "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
   },
-  audience: {
-    categoryLabel: "Audiência",
-    icon: Users,
-    iconClass: "bg-amber-500/10 text-amber-500",
-    badgeClass: "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-300",
+  system: {
+    categoryLabel: "Sistema & Infraestrutura",
+    icon: Cpu,
+    iconClass: "bg-slate-500/10 text-slate-500",
+    badgeClass: "border-slate-500/20 bg-slate-500/10 text-slate-600 dark:text-slate-300",
   },
-  creative: {
-    categoryLabel: "Criativo",
-    icon: Sparkles,
-    iconClass: "bg-pink-500/10 text-pink-500",
-    badgeClass: "border-pink-500/20 bg-pink-500/10 text-pink-600 dark:text-pink-300",
-  },
+};
+
+/** Explicit agent → category map (matches seeded agent_id list). */
+const ID_TO_CATEGORY: Record<string, AgentCategory> = {
+  briefing_extractor: "intelligence",
+  persona_generator: "intelligence",
+  brand_brain: "intelligence",
+  planner_strategic: "planning",
+  visual_analyst: "planning",
+  art_director_social: "planning",
+  copywriter_senior: "creation",
+  roteirista_social: "creation",
+  instagram_analyst: "analysis",
+  construtor_agentes: "system",
 };
 
 const KEYWORD_TO_CATEGORY: Array<[RegExp, AgentCategory]> = [
-  [/\b(persona|cohort|público|audien|segment)/i, "audience"],
-  [/\b(swot|analis|análise|market|mercado|benchmark|competitor|insight)/i, "analysis"],
-  [/\b(copy|caption|headline|roteir|script|conteúdo|conteudo|pauta|ideia)/i, "content"],
-  [/\b(voice|tom|brand|identidade|criativo|art\b)/i, "creative"],
-  [/\b(estrat|strategy|plano|planejamento|briefing)/i, "strategy"],
+  [/\b(construtor|meta.?agent|infra|sistema)/i, "system"],
+  [/\b(analis|análise|analytics|instagram|benchmark|insight|otimiza)/i, "analysis"],
+  [/\b(copy|caption|headline|roteir|script)/i, "creation"],
+  [/\b(planejad|planner|diretor|art\s?director|visual)/i, "planning"],
+  [/\b(briefing|persona|cérebro|cerebro|brand.?brain|setup)/i, "intelligence"],
 ];
 
 export function inferAgentCategory(id: string, name: string): AgentCategory {
+  if (ID_TO_CATEGORY[id]) return ID_TO_CATEGORY[id];
   const hay = `${id} ${name}`;
   for (const [re, cat] of KEYWORD_TO_CATEGORY) if (re.test(hay)) return cat;
-  return "strategy";
+  return "intelligence";
 }
-
-const OVERRIDE_ICONS: Record<string, LucideIcon> = {
-  strategist: Compass,
-  pauta: Layers,
-  copywriter: MessageSquare,
-  briefing: Target,
-};
 
 export function getAgentMeta(id: string, name: string): AgentMeta {
   const category = inferAgentCategory(id, name);
   const base = CATEGORY_STYLE[category];
-  let icon = base.icon;
-  for (const [key, ic] of Object.entries(OVERRIDE_ICONS)) {
-    if (id.toLowerCase().includes(key) || name.toLowerCase().includes(key)) {
-      icon = ic;
-      break;
-    }
-  }
   return {
     category,
     categoryLabel: base.categoryLabel,
-    icon,
+    icon: base.icon,
     iconClass: base.iconClass,
     badgeClass: base.badgeClass,
     model: "gemini-2.5-flash",
   };
 }
 
+export function getCategoryStyle(category: AgentCategory) {
+  return CATEGORY_STYLE[category];
+}
+
+/** Clean an agent name by stripping "(Meta)"-style suffixes before Title Case. */
+export function cleanAgentName(raw: string): string {
+  return raw.replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+/g, " ").trim();
+}
+
 /** Clean AI-generated prompt names into Title Case, no ALL CAPS, no dashes. */
 export function toTitleCase(raw: string): string {
-  const cleaned = raw
+  const cleaned = cleanAgentName(raw)
     .replace(/[_-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
