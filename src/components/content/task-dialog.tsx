@@ -122,6 +122,36 @@ function LoadingBody() {
   );
 }
 
+function QuickApprovalLinkButton({ postId }: { postId: string }) {
+  const qc = useQueryClient();
+  const createTok = useServerFn(createApprovalTokenFn);
+  const m = useMutation({
+    mutationFn: () => createTok({ data: { postId, expiresInDays: 14 } }),
+    onSuccess: (t) => {
+      const url =
+        typeof window !== "undefined"
+          ? `${window.location.origin}/approval/${t.token}`
+          : `/approval/${t.token}`;
+      void navigator.clipboard?.writeText(url).catch(() => {});
+      toast.success("Link de aprovação copiado");
+      qc.invalidateQueries({ queryKey: ["approval-tokens", postId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={() => m.mutate()}
+      disabled={m.isPending}
+    >
+      {m.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Link2 className="mr-1.5 h-3.5 w-3.5" />}
+      Gerar link
+    </Button>
+  );
+}
+
 // ----------------- Create -----------------
 
 function CreateBody({
