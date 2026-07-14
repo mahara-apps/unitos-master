@@ -409,49 +409,79 @@ function EditBody({
 
   return (
     <>
-      <DialogHeader>
-        <DialogTitle className="flex items-center gap-2 text-base font-medium">
-          Detalhes da tarefa
-          {reviewStatus === "pending" && aiPhase === "idea" ? (
-            <Badge
-              variant="outline"
-              className="border-amber-500/40 text-amber-600 dark:text-amber-400"
-            >
-              Aguardando aprovação
-            </Badge>
-          ) : null}
-          {aiPhase === "copy_running" ? (
-            <Badge
-              variant="outline"
-              className="border-indigo-500/40 text-indigo-600 dark:text-indigo-400"
-            >
-              <Loader2 className="mr-1 h-3 w-3 animate-spin" /> Gerando copy
-            </Badge>
-          ) : null}
-          {aiPhase === "copy_ready" ? (
-            <Badge
-              variant="outline"
-              className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400"
-            >
-              Copy + Design prontos
-            </Badge>
-          ) : null}
-        </DialogTitle>
-        <DialogDescription>
-          Edite copy, briefings, agendamento, mídia e aprovação.
-        </DialogDescription>
-      </DialogHeader>
+      <div className="sticky top-0 z-10 space-y-3 border-b bg-background px-6 pb-3 pt-4">
+        <div className="flex items-start gap-3 pr-8">
+          <div className="min-w-0 flex-1">
+            <Input
+              value={state.title}
+              onChange={(e) => setState((p) => ({ ...p, title: e.target.value }))}
+              placeholder="Nome do post"
+              className="h-9 border-0 bg-transparent px-0 text-base font-semibold tracking-tight shadow-none focus-visible:ring-0"
+            />
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+              {reviewStatus === "pending" && aiPhase === "idea" ? (
+                <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400">
+                  Aguardando aprovação
+                </Badge>
+              ) : null}
+              {aiPhase === "copy_running" ? (
+                <Badge variant="outline" className="border-indigo-500/40 text-indigo-600 dark:text-indigo-400">
+                  <Loader2 className="mr-1 h-3 w-3 animate-spin" /> Gerando copy
+                </Badge>
+              ) : null}
+              {aiPhase === "copy_ready" ? (
+                <Badge variant="outline" className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
+                  Copy + Design prontos
+                </Badge>
+              ) : null}
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={state.stageId} onValueChange={(v) => setState((p) => ({ ...p, stageId: v }))}>
+            <SelectTrigger className="h-8 w-auto min-w-[140px] gap-1 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {stages.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="ml-auto flex items-center gap-1.5">
+            <ApprovalLinkButton postId={postId} />
+            {reviewStatus === "pending" && aiPhase === "idea" ? (
+              <Button size="sm" onClick={handleApproveAndGenerate} disabled={approving}>
+                {approving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
+                Aprovar & gerar
+              </Button>
+            ) : reviewStatus !== "approved" ? (
+              <Button size="sm" onClick={() => approveOnly.mutate()} disabled={approveOnly.isPending}>
+                {approveOnly.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />}
+                Aprovar
+              </Button>
+            ) : (
+              <Badge variant="outline" className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="mr-1 h-3 w-3" /> Aprovado
+              </Badge>
+            )}
+          </div>
+        </div>
+      </div>
 
-      <TaskLayout
-        state={state}
-        setState={setState}
-        stages={stages}
-        mode="edit"
-        postId={postId}
-      />
+      <div className="flex-1 overflow-y-auto px-6 py-5">
+        <TaskLayout
+          state={state}
+          setState={setState}
+          stages={stages}
+          mode="edit"
+          postId={postId}
+        />
 
-      <div className="mt-4 space-y-4">
-        <Separator />
+        <div className="mt-6 space-y-5">
+          <Separator />
         <div className="space-y-1.5">
           <Label className="flex items-center gap-1.5">
             <ImageIcon className="h-3.5 w-3.5" /> Mídias de referência
@@ -541,78 +571,44 @@ function EditBody({
           </div>
         ) : null}
 
-        <Separator />
-        <ApprovalLinkSection postId={postId} />
-        <Separator />
-        <Timeline items={data.timeline} />
+          <Separator />
+          <ApprovalLinkSection postId={postId} />
+          <Separator />
+          <Timeline items={data.timeline} />
+        </div>
       </div>
 
-      <DialogFooter className="mt-4 gap-2 sm:justify-between">
+      <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-2 border-t bg-background px-6 py-3">
         <Button
           variant="ghost"
+          size="sm"
           className="text-destructive hover:text-destructive"
           onClick={() => {
             if (confirm("Excluir esta tarefa?")) remove.mutate();
           }}
           disabled={remove.isPending}
         >
-          <Trash2 className="mr-2 h-4 w-4" /> Excluir
+          <Trash2 className="mr-1.5 h-4 w-4" /> Excluir
         </Button>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Fechar
-          </Button>
           <Button
             variant="outline"
+            size="sm"
             onClick={() => {
-              const notes =
-                window.prompt("Descreva o ajuste solicitado (opcional):") ?? "";
+              const notes = window.prompt("Descreva o ajuste solicitado (opcional):") ?? "";
               rework.mutate(notes);
             }}
             disabled={rework.isPending}
-            title="Reabrir para refação"
           >
-            {rework.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <RotateCcw className="mr-2 h-4 w-4" />
-            )}
+            {rework.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="mr-1.5 h-3.5 w-3.5" />}
             Refazer
           </Button>
-          <Button
-            variant="secondary"
-            onClick={() => save.mutate()}
-            disabled={save.isPending}
-          >
-            {save.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : null}
+          <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>
+            {save.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
             Salvar
           </Button>
-          {reviewStatus === "pending" && aiPhase === "idea" ? (
-            <Button onClick={handleApproveAndGenerate} disabled={approving}>
-              {approving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="mr-2 h-4 w-4" />
-              )}
-              Aprovar & gerar copy
-            </Button>
-          ) : reviewStatus !== "approved" ? (
-            <Button
-              onClick={() => approveOnly.mutate()}
-              disabled={approveOnly.isPending}
-            >
-              {approveOnly.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-              )}
-              Aprovar
-            </Button>
-          ) : null}
         </div>
-      </DialogFooter>
+      </div>
     </>
   );
 }
