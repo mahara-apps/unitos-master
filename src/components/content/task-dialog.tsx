@@ -1304,12 +1304,26 @@ function CopyEditor({
   };
 
   return (
-    <div className="rounded-lg border border-border/60 bg-background">
-      {COPY_FIELDS.map((f, i) => (
-        <div
-          key={f.key}
-          className={`px-3 py-3 ${i > 0 ? "border-t border-border/60" : ""}`}
-        >
+    <Tabs defaultValue={COPY_FIELDS[0].key} className="rounded-lg border border-border/60 bg-background">
+      <TabsList className="h-9 w-full justify-start gap-1 rounded-none rounded-t-lg border-b border-border/60 bg-muted/30 px-2">
+        {COPY_FIELDS.map((f) => {
+          const filled = sections[f.key].trim().length > 0;
+          return (
+            <TabsTrigger
+              key={f.key}
+              value={f.key}
+              className="h-7 gap-1.5 px-2.5 text-[11px] font-semibold uppercase tracking-[0.1em]"
+            >
+              {f.label}
+              {filled ? (
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              ) : null}
+            </TabsTrigger>
+          );
+        })}
+      </TabsList>
+      {COPY_FIELDS.map((f) => (
+        <TabsContent key={f.key} value={f.key} className="mt-0 px-3 py-3">
           <div className="mb-1.5 flex items-center justify-between">
             <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
               {f.label}
@@ -1342,9 +1356,9 @@ function CopyEditor({
             rows={f.rows}
             className="min-h-0 resize-none border-0 bg-transparent p-0 text-sm leading-relaxed shadow-none focus-visible:ring-0"
           />
-        </div>
+        </TabsContent>
       ))}
-    </div>
+    </Tabs>
   );
 }
 
