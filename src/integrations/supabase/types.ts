@@ -1363,6 +1363,7 @@ export type Database = {
           cover_url: string | null
           created_at: string
           created_by: string | null
+          deleted_at: string | null
           design_brief: string | null
           id: string
           pipeline_id: string | null
@@ -1371,6 +1372,7 @@ export type Database = {
           published_at: string | null
           reference_media: Json
           review_status: string
+          rework_notes: string | null
           scheduled_at: string | null
           stage: Database["public"]["Enums"]["post_stage"]
           stage_id: string | null
@@ -1389,6 +1391,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
           design_brief?: string | null
           id?: string
           pipeline_id?: string | null
@@ -1397,6 +1400,7 @@ export type Database = {
           published_at?: string | null
           reference_media?: Json
           review_status?: string
+          rework_notes?: string | null
           scheduled_at?: string | null
           stage?: Database["public"]["Enums"]["post_stage"]
           stage_id?: string | null
@@ -1415,6 +1419,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           created_by?: string | null
+          deleted_at?: string | null
           design_brief?: string | null
           id?: string
           pipeline_id?: string | null
@@ -1423,6 +1428,7 @@ export type Database = {
           published_at?: string | null
           reference_media?: Json
           review_status?: string
+          rework_notes?: string | null
           scheduled_at?: string | null
           stage?: Database["public"]["Enums"]["post_stage"]
           stage_id?: string | null
