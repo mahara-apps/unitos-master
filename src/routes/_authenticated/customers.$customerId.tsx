@@ -2,11 +2,12 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useEffect, useState } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { FALLBACK_ROUTE } from "@/lib/permissions";
@@ -40,11 +41,8 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
 
 const TABS = [
   { value: "overview", label: "Visão geral" },
-  { value: "basic", label: "Dados básicos" },
-  { value: "briefing", label: "Briefing" },
-  { value: "strategy", label: "Estratégia" },
-  { value: "target", label: "Público" },
-  { value: "market", label: "Mercado" },
+  { value: "brain", label: "Cérebro da Marca" },
+  { value: "production", label: "Produção" },
 ] as const;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -129,6 +127,7 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
   const list = useServerFn(listClients);
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<string>("overview");
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Lista de customers do brand ativo — só para nome/cor do header.
   const customersQ = useQuery({
@@ -155,7 +154,17 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
     {
       title: customer?.name ?? (customersQ.isLoading ? "Carregando…" : "Cliente"),
       subtitle: `${customer?.niche ?? "—"} · ${customerId.slice(0, 8)}`,
-      actions: null,
+      actions: (
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8"
+          onClick={() => setSettingsOpen(true)}
+          title="Configurações da conta"
+        >
+          <Settings2 className="h-4 w-4" />
+        </Button>
+      ),
     },
     [customer?.name, customer?.niche, customerId],
   );
@@ -193,38 +202,81 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
               <CustomerDashboard
                 brandId={brandId}
                 clientId={customerId}
-                onOpenBriefing={() => setActiveTab("briefing")}
+                onOpenBriefing={() => setActiveTab("brain")}
               />
             </TabsContent>
-            <TabsContent value="basic">
-              <BasicInfoTab brandId={brandId} clientId={customerId} />
-            </TabsContent>
-            <TabsContent value="briefing">
+            <TabsContent value="brain">
               <BriefingWorkspace
                 brandId={brandId}
                 clientId={customerId}
                 embedded
+                layout="stacked"
                 onStrategyGenerated={invalidateAll}
+                appendSlot={
+                  <>
+                    <section id="estrategia" className="scroll-mt-24 space-y-4">
+                      <h3 className="text-lg font-semibold tracking-tight">Estratégia IA</h3>
+                      <Suspense fallback={<StrategySkeleton />}>
+                        <StrategyTab brandId={brandId} clientId={customerId} />
+                      </Suspense>
+                    </section>
+                    <section id="personas" className="scroll-mt-24 space-y-4">
+                      <h3 className="text-lg font-semibold tracking-tight">Personas & Público IA</h3>
+                      <Suspense fallback={<TargetSkeleton />}>
+                        <TargetTab brandId={brandId} clientId={customerId} />
+                      </Suspense>
+                    </section>
+                    <section id="mercado" className="scroll-mt-24 space-y-4">
+                      <h3 className="text-lg font-semibold tracking-tight">Análise de Mercado</h3>
+                      <Suspense fallback={<MarketSkeleton />}>
+                        <MarketTab brandId={brandId} clientId={customerId} />
+                      </Suspense>
+                    </section>
+                  </>
+                }
               />
             </TabsContent>
-            <TabsContent value="strategy">
-              <Suspense fallback={<StrategySkeleton />}>
-                <StrategyTab brandId={brandId} clientId={customerId} />
-              </Suspense>
-            </TabsContent>
-            <TabsContent value="target">
-              <Suspense fallback={<TargetSkeleton />}>
-                <TargetTab brandId={brandId} clientId={customerId} />
-              </Suspense>
-            </TabsContent>
-            <TabsContent value="market">
-              <Suspense fallback={<MarketSkeleton />}>
-                <MarketTab brandId={brandId} clientId={customerId} />
-              </Suspense>
+            <TabsContent value="production">
+              <ProductionPanel brandId={brandId} clientId={customerId} />
             </TabsContent>
           </Tabs>
         )}
       </div>
+
+      <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
+          <SheetHeader className="mb-4">
+            <SheetTitle>Configurações da conta</SheetTitle>
+            <SheetDescription>
+              Contato, telefone, e-mail corporativo e redes sociais.
+            </SheetDescription>
+          </SheetHeader>
+          <BasicInfoTab brandId={brandId} clientId={customerId} />
+        </SheetContent>
+      </Sheet>
     </ScrollArea>
+  );
+}
+
+function ProductionPanel({ brandId, clientId }: { brandId: string; clientId: string }) {
+  void brandId; void clientId;
+  const stages = ["Ideia", "Produção", "Revisão", "Aprovado", "Agendado", "Publicado"] as const;
+  return (
+    <div className="flex gap-3 overflow-x-auto pb-4">
+      {stages.map((s) => (
+        <div
+          key={s}
+          className="flex h-[60vh] w-72 shrink-0 flex-col rounded-lg border border-border/60 bg-card/40"
+        >
+          <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
+            <div className="text-xs font-medium">{s}</div>
+            <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">0</span>
+          </div>
+          <div className="flex flex-1 items-center justify-center p-6 text-[11px] text-muted-foreground">
+            Nenhum post neste estágio.
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }
