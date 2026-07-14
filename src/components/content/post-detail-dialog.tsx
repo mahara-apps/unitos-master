@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Trash2, Sparkles, Upload, X, ImageIcon, FileText, RotateCcw, CheckCircle2 } from "lucide-react";
+import { Loader2, Trash2, Sparkles, Upload, X, ImageIcon, FileText, RotateCcw, CheckCircle2, Link2, Copy as CopyIcon, ShieldX } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +26,12 @@ import {
   signPostReferenceMediaFn,
 } from "@/lib/content.functions";
 import { reworkPostFn } from "@/lib/content.functions";
+import { aiInlineGenerateFn } from "@/lib/copilot-inline.functions";
+import {
+  listApprovalTokensFn,
+  createApprovalTokenFn,
+  revokeApprovalTokenFn,
+} from "@/lib/approval.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 type Props = {
