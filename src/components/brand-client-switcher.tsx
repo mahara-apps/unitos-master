@@ -138,13 +138,13 @@ export function ContextSwitcher() {
               )}
               <div className="flex flex-col text-left leading-tight min-w-0 group-data-[collapsible=icon]:hidden">
                 <span className="truncate text-sm font-semibold">
-                  {activeClient?.name ?? activeBrand?.name ?? "No workspace"}
+                  {activeClient?.name ?? activeBrand?.name ?? "Nenhum workspace"}
                 </span>
                 <span className="flex items-center gap-1 truncate text-[11px] text-muted-foreground">
                   {activeClient ? (
                     <span className="truncate">{activeBrand?.name ?? ""}</span>
                   ) : (
-                    <span className="truncate">All accounts</span>
+                    <span className="truncate">Todas as contas</span>
                   )}
                 </span>
               </div>
@@ -154,12 +154,12 @@ export function ContextSwitcher() {
         </PopoverTrigger>
         <PopoverContent align="start" sideOffset={8} className="w-72 p-0">
           <Command>
-            <CommandInput placeholder="Search workspace or customer…" className="h-9" />
+            <CommandInput placeholder="Buscar workspace ou cliente…" className="h-9" />
             <CommandList className="max-h-80">
-              <CommandEmpty>No results.</CommandEmpty>
+              <CommandEmpty>Nenhum resultado.</CommandEmpty>
               <CommandGroup heading={
                 <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                  <Building2 className="h-3 w-3" /> Workspaces
+                  <Building2 className="h-3 w-3" /> WORKSPACES
                 </span>
               }>
                 {brandsQ.data?.map((b) => (
@@ -188,13 +188,13 @@ export function ContextSwitcher() {
                   className="text-muted-foreground"
                 >
                   <Plus className="h-3.5 w-3.5" />
-                  <span>New workspace</span>
+                  <span>Novo workspace</span>
                 </CommandItem>
               </CommandGroup>
               <CommandSeparator />
               <CommandGroup heading={
                 <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                  <Users className="h-3 w-3" /> Customers
+                  <Users className="h-3 w-3" /> CLIENTES
                 </span>
               }>
                 <CommandItem
@@ -205,12 +205,12 @@ export function ContextSwitcher() {
                   }}
                 >
                   <div className="h-3 w-3 rounded-full border border-dashed border-muted-foreground" />
-                  <span className="flex-1">All customers</span>
+                  <span className="flex-1">Todos os clientes</span>
                   {!clientId && <Check className="h-3.5 w-3.5" />}
                 </CommandItem>
                 {visibleClients.length === 0 && (
                   <div className="px-2 py-3 text-center text-xs text-muted-foreground">
-                    {isAdmin ? "No customers yet." : "Nenhum cliente atribuído a você."}
+                    {isAdmin ? "Nenhum cliente ainda." : "Nenhum cliente atribuído a você."}
                   </div>
                 )}
                 {visibleClients.map((c) => (
@@ -242,7 +242,7 @@ export function ContextSwitcher() {
                     className="text-muted-foreground"
                   >
                     <UserPlus className="h-3.5 w-3.5" />
-                    <span>New customer</span>
+                    <span>Novo cliente</span>
                   </CommandItem>
                 )}
               </CommandGroup>
@@ -254,19 +254,19 @@ export function ContextSwitcher() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New workspace</DialogTitle>
+            <DialogTitle>Novo workspace</DialogTitle>
             <DialogDescription>
-              A workspace is the container for your agency. Create as many as you need.
+              Um workspace é o contêiner da sua agência. Crie quantos precisar.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label>Name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="My agency" />
+            <Label>Nome</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Minha agência" />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
             <Button onClick={() => createMut.mutate(name)} disabled={name.trim().length < 2 || createMut.isPending}>
-              Create with sample data
+              Criar workspace
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -275,10 +275,10 @@ export function ContextSwitcher() {
       <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New customer</DialogTitle>
+            <DialogTitle>Novo cliente</DialogTitle>
             <DialogDescription>
-              Add a customer to the current workspace. You can refine branding
-              and channels later from the customers page.
+              Adicione um cliente ao workspace atual. Você pode refinar branding
+              e canais depois, na página de clientes.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -290,25 +290,25 @@ export function ContextSwitcher() {
                 textClassName="text-sm"
               />
               <div className="flex-1 space-y-1">
-                <Label className="text-xs">Name</Label>
+                <Label className="text-xs">Nome</Label>
                 <Input
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="e.g. Café Aurora"
+                  placeholder="Ex.: Café Aurora"
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs">Niche</Label>
+                <Label className="text-xs">Nicho</Label>
                 <Input
                   value={customerNiche}
                   onChange={(e) => setCustomerNiche(e.target.value)}
-                  placeholder="Coffee shop"
+                  placeholder="Cafeteria"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Logo URL (optional)</Label>
+                <Label className="text-xs">URL do logo (opcional)</Label>
                 <Input
                   value={customerLogo}
                   onChange={(e) => setCustomerLogo(e.target.value)}
@@ -319,13 +319,13 @@ export function ContextSwitcher() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCustomerDialogOpen(false)}>
-              Cancel
+              Cancelar
             </Button>
             <Button
               onClick={() => createCustomerMut.mutate()}
               disabled={customerName.trim().length < 2 || createCustomerMut.isPending}
             >
-              Create customer
+              Criar cliente
             </Button>
           </DialogFooter>
         </DialogContent>
