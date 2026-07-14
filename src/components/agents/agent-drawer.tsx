@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import {
   Sheet,
   SheetContent,
@@ -20,8 +23,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Play, Circle } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Loader2, Play, Circle, RotateCcw, Save, Eye, Pencil } from "lucide-react";
 import type { AgentPromptRow } from "@/lib/agents.functions";
+import { updateAgentPromptFn, resetAgentPromptFn } from "@/lib/agents.functions";
 import {
   extractPromptVariables,
   getAgentMeta,
@@ -49,21 +64,59 @@ export function AgentDrawer({ agent, open, onOpenChange }: Props) {
   const [testing, setTesting] = useState(false);
   const [testOutput, setTestOutput] = useState<string | null>(null);
   const [variables, setVariables] = useState<Record<string, string>>({});
+  const [editing, setEditing] = useState(false);
+  const [draftPrompt, setDraftPrompt] = useState("");
+
+  const qc = useQueryClient();
+  const updateFn = useServerFn(updateAgentPromptFn);
+  const resetFn = useServerFn(resetAgentPromptFn);
 
   const vars = useMemo(
-    () => (agent ? extractPromptVariables(agent.system_prompt) : []),
-    [agent],
+    () => (agent ? extractPromptVariables(editing ? draftPrompt : agent.system_prompt) : []),
+    [agent, editing, draftPrompt],
   );
 
   useEffect(() => {
     setTestOutput(null);
     setTestInput("");
+    setEditing(false);
+    setDraftPrompt(agent?.system_prompt ?? "");
     setVariables(Object.fromEntries(vars.map((v) => [v, ""])));
-  }, [agent, vars]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [agent]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!agent) return;
+      await updateFn({ data: { agentId: agent.agent_id, systemPrompt: draftPrompt } });
+    },
+    onSuccess: () => {
+      toast.success("Prompt atualizado.");
+      setEditing(false);
+      qc.invalidateQueries({ queryKey: ["agent-prompts"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const resetMutation = useMutation({
+    mutationFn: async () => {
+      if (!agent) return null;
+      return await resetFn({ data: { agentId: agent.agent_id } });
+    },
+    onSuccess: (res) => {
+      if (res?.systemPrompt) setDraftPrompt(res.systemPrompt);
+      toast.success("Prompt restaurado ao padrão original.");
+      setEditing(false);
+      qc.invalidateQueries({ queryKey: ["agent-prompts"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   if (!agent) return null;
   const meta = getAgentMeta(agent.agent_id, agent.agent_name);
   const Icon = meta.icon;
+  const isDirty = draftPrompt !== agent.system_prompt;
+  const isCustomized = agent.system_prompt !== agent.default_prompt;
 
   const runTest = async () => {
     setTesting(true);
@@ -151,14 +204,103 @@ export function AgentDrawer({ agent, open, onOpenChange }: Props) {
 
           <TabsContent value="prompt" className="flex-1 overflow-hidden p-5 pt-3">
             <div className="flex h-full flex-col">
-              <Label className="mb-2 text-xs text-muted-foreground">
-                System prompt · variáveis em <code>{"{{VAR}}"}</code> são destacadas
-              </Label>
-              <ScrollArea className="flex-1 rounded-md border bg-muted/40">
-                <pre className="whitespace-pre-wrap p-4 font-mono text-xs leading-relaxed">
-                  {highlightVars(agent.system_prompt)}
-                </pre>
-              </ScrollArea>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <Label className="text-xs text-muted-foreground">
+                  System prompt · variáveis em <code>{"{{VAR}}"}</code> são destacadas
+                  {isCustomized && (
+                    <Badge variant="outline" className="ml-2 h-5 rounded-md px-1.5 text-[10px]">
+                      customizado
+                    </Badge>
+                  )}
+                </Label>
+                <div className="flex items-center gap-1.5">
+                  {editing ? (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 gap-1.5 text-xs"
+                        onClick={() => {
+                          setDraftPrompt(agent.system_prompt);
+                          setEditing(false);
+                        }}
+                      >
+                        <Eye className="h-3.5 w-3.5" /> Cancelar
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-7 gap-1.5 text-xs"
+                        disabled={!isDirty || saveMutation.isPending}
+                        onClick={() => saveMutation.mutate()}
+                      >
+                        {saveMutation.isPending ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Save className="h-3.5 w-3.5" />
+                        )}
+                        Salvar
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 gap-1.5 text-xs"
+                            disabled={!isCustomized || resetMutation.isPending}
+                            title={isCustomized ? "Restaurar prompt original" : "Já está no padrão"}
+                          >
+                            {resetMutation.isPending ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            )}
+                            Restaurar padrão
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Restaurar prompt original?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Isto descarta as customizações e volta ao prompt seed do agente{" "}
+                              <strong>{toTitleCase(agent.agent_name)}</strong>. A ação não pode ser desfeita.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => resetMutation.mutate()}>
+                              Restaurar
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 gap-1.5 text-xs"
+                        onClick={() => setEditing(true)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" /> Editar
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+              {editing ? (
+                <Textarea
+                  value={draftPrompt}
+                  onChange={(e) => setDraftPrompt(e.target.value)}
+                  className="flex-1 resize-none rounded-md border bg-muted/40 font-mono text-xs leading-relaxed"
+                />
+              ) : (
+                <ScrollArea className="flex-1 rounded-md border bg-muted/40">
+                  <pre className="whitespace-pre-wrap p-4 font-mono text-xs leading-relaxed">
+                    {highlightVars(agent.system_prompt)}
+                  </pre>
+                </ScrollArea>
+              )}
             </div>
           </TabsContent>
 
