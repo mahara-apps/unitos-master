@@ -2,9 +2,9 @@ import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Activity, Brain, Loader2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Activity, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
   listAgentPromptsFn,
@@ -15,7 +15,12 @@ import { usePageHeader } from "@/hooks/use-page-header";
 import { AgentCard } from "@/components/agents/agent-card";
 import { AgentDrawer } from "@/components/agents/agent-drawer";
 import { JobsTable } from "@/components/agents/jobs-table";
-import { getAgentMeta } from "@/components/agents/agent-meta";
+import {
+  CATEGORY_ORDER,
+  getAgentMeta,
+  getCategoryStyle,
+  type AgentCategory,
+} from "@/components/agents/agent-meta";
 
 export const Route = createFileRoute("/_authenticated/agents")({
   component: AgentsPage,
@@ -40,20 +45,27 @@ function AgentsPage() {
 
   const [selected, setSelected] = useState<AgentPromptRow | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [tab, setTab] = useState<AgentCategory | "all">("all");
 
   const openAgent = (a: AgentPromptRow) => {
     setSelected(a);
     setDrawerOpen(true);
   };
 
-  const categoryCounts = useMemo(() => {
-    const map = new Map<string, number>();
+  const countsByCategory = useMemo(() => {
+    const map = new Map<AgentCategory, number>();
     for (const a of prompts.data ?? []) {
-      const c = getAgentMeta(a.agent_id, a.agent_name).categoryLabel;
+      const c = getAgentMeta(a.agent_id, a.agent_name).category;
       map.set(c, (map.get(c) ?? 0) + 1);
     }
-    return [...map.entries()];
+    return map;
   }, [prompts.data]);
+
+  const filteredAgents = useMemo(() => {
+    const all = prompts.data ?? [];
+    if (tab === "all") return all;
+    return all.filter((a) => getAgentMeta(a.agent_id, a.agent_name).category === tab);
+  }, [prompts.data, tab]);
 
   usePageHeader(
     {
@@ -71,24 +83,36 @@ function AgentsPage() {
     );
   }
 
+  const total = prompts.data?.length ?? 0;
+
   return (
     <div className="flex h-full flex-col gap-8 p-6">
       <section>
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Brain className="h-4 w-4" /> Agentes disponíveis
-            <span className="text-muted-foreground">
-              · {prompts.data?.length ?? 0}
-            </span>
-          </div>
-          <div className="hidden gap-1.5 md:flex">
-            {categoryCounts.map(([label, n]) => (
-              <Badge key={label} variant="outline" className="h-5 text-[10px]">
-                {label} · {n}
-              </Badge>
-            ))}
-          </div>
-        </div>
+        <Tabs value={tab} onValueChange={(v) => setTab(v as AgentCategory | "all")} className="mb-5">
+          <TabsList className="h-9 flex-wrap gap-1 bg-muted/50 p-1">
+            <TabsTrigger value="all" className="h-7 px-3 text-xs data-[state=active]:bg-background">
+              Todos
+              <span className="ml-1.5 text-[10px] text-muted-foreground">{total}</span>
+            </TabsTrigger>
+            {CATEGORY_ORDER.map((cat) => {
+              const style = getCategoryStyle(cat);
+              const n = countsByCategory.get(cat) ?? 0;
+              const Icon = style.icon;
+              return (
+                <TabsTrigger
+                  key={cat}
+                  value={cat}
+                  className="h-7 gap-1.5 px-3 text-xs data-[state=active]:bg-background"
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {style.categoryLabel}
+                  <span className="ml-1 text-[10px] text-muted-foreground">{n}</span>
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </Tabs>
+
         {prompts.isLoading ? (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -98,11 +122,13 @@ function AgentsPage() {
               />
             ))}
           </div>
-        ) : (prompts.data ?? []).length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nenhum agente cadastrado.</p>
+        ) : filteredAgents.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Nenhum agente nesta categoria.
+          </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {(prompts.data ?? []).map((a) => (
+            {filteredAgents.map((a) => (
               <AgentCard key={a.agent_id} agent={a} onOpen={openAgent} />
             ))}
           </div>
