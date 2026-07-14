@@ -30,9 +30,6 @@ import {
   type CustomerDashboardData,
 } from "@/lib/customer-dashboard.functions";
 import { useEffect } from "react";
-import { getBrandHub } from "@/lib/brand-hub.functions";
-import { computeBriefingCompletion } from "@/lib/briefing-progress";
-import { Progress } from "@/components/ui/progress";
 
 type Props = {
   brandId: string;
@@ -100,7 +97,6 @@ function DashboardReady({
   clientId,
   brandId,
   onRegenerate,
-  onOpenBriefing,
 }: {
   data: NonNullable<CustomerDashboardData>;
   clientId: string;
@@ -112,18 +108,6 @@ function DashboardReady({
   const m = data.metrics;
   const approvalPct = m.totalApprovals ? Math.round((m.decidedApprovals / m.totalApprovals) * 100) : 0;
   const socials = (client?.socials ?? {}) as Record<string, string | undefined>;
-
-  const hubFn = useServerFn(getBrandHub);
-  const hubQ = useQuery({
-    queryKey: ["brand-hub", brandId, clientId],
-    queryFn: () => hubFn({ data: { brandId, clientId } }),
-    staleTime: 30_000,
-  });
-  const briefingPct = hubQ.data
-    ? computeBriefingCompletion(hubQ.data.brand_hub, hubQ.data)
-    : 0;
-  const briefingReady = briefingPct >= 100;
-  const disabledReason = "Complete 100% do briefing para liberar a geração de conteúdo.";
 
   return (
     <div className="space-y-5">
@@ -143,12 +127,7 @@ function DashboardReady({
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <MonthlyPlanDialog
-            brandId={brandId}
-            clientId={clientId}
-            disabled={!briefingReady}
-            disabledReason={disabledReason}
-          />
+          <MonthlyPlanDialog brandId={brandId} clientId={clientId} />
           {onRegenerate ? (
             <Button size="sm" variant="ghost" onClick={onRegenerate} className="gap-1.5 text-muted-foreground hover:text-foreground">
               <RefreshCw className="h-3.5 w-3.5" />
@@ -157,33 +136,6 @@ function DashboardReady({
           ) : null}
         </div>
       </div>
-
-      {!briefingReady ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-              <span className="text-sm font-medium text-foreground">
-                Briefing {briefingPct}% — complete para liberar a geração de conteúdo
-              </span>
-            </div>
-            <div className="mt-2 max-w-md">
-              <Progress value={briefingPct} className="h-1.5" />
-            </div>
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              A IA cruza tom, público, ofertas, concorrentes, hashtags e volumetria — sem 100% os temas ficam genéricos.
-            </p>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-amber-500/40 text-amber-600 hover:text-amber-600 dark:text-amber-300"
-            onClick={() => onOpenBriefing?.()}
-          >
-            Abrir Briefing
-          </Button>
-        </div>
-      ) : null}
 
       {/* Metrics row */}
       <div className="grid gap-4 md:grid-cols-3">
