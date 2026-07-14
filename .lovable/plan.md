@@ -1,20 +1,36 @@
-## Problemas
-
-1. **Concorrentes não persistem.** `briefing-workspace.tsx` mostra o campo `competitor_handles` e o soma no cálculo de completude (marca 100% na hora), mas o payload da mutation `save` NÃO inclui `competitors`. Ao recarregar, o hub volta sem os handles e o percentual cai.
-2. **Botão "Gerar Plano do Mês" travado.** Hoje `customer-dashboard.tsx` desabilita o botão até 100% e mostra um banner âmbar persistente. O usuário quer poder gerar em qualquer momento.
+## Objetivo
+Fazer o "Plano do Mês" respeitar automaticamente a **Volumetria semanal por canal** definida no Briefing (aba Volumetria & Metas), em vez de pedir um número genérico de peças.
 
 ## Mudanças
 
-### `src/components/brand-hub/briefing-workspace.tsx`
-- No `save.mutationFn`, incluir `competitors` no `patch`: mapear `form.competitor_handles` para entradas `{ id, handle, platform: "instagram", added_at }`, preservando `id`/`added_at`/`platform`/`notes` dos concorrentes já existentes em `hubQ.data.brand_hub.competitors` (match por handle normalizado, para não sobrescrever concorrentes cadastrados pela aba "Concorrentes").
+### 1. `src/components/customer/monthly-plan-dialog.tsx`
+- Carregar `clients.brand_hub.volumetry` (via `useQuery` no `brand-hub.functions`) para o `clientId`.
+- Calcular automaticamente: `pecasPorMes = Σ (volumetry[canal] * 4.33 semanas)` arredondado.
+- Substituir o input "Peças por mês" por um **breakdown read-only por canal**:
+  ```
+  Instagram   20/sem → 87/mês
+  TikTok       8/sem → 35/mês
+  LinkedIn     4/sem → 17/mês
+  ─────────────────────────────
+  Total: 139 peças/mês  ·  Multiplicado por N meses = X
+  ```
+- Manter o seletor "Quantidade de meses" (1–6).
+- Se a volumetria estiver zerada, exibir alerta com link para `/customers/$id/briefing` e desabilitar o botão.
+- Permitir um toggle "Ajustar manualmente" que reabre o input numérico (fallback), preservando a UX atual como escape.
 
-### `src/components/customer/customer-dashboard.tsx`
-- Remover o bloco do banner âmbar (`{!briefingReady ? … : null}`).
-- Remover `disabled={!briefingReady}` e `disabledReason` do `<MonthlyPlanDialog />` — botão sempre habilitado.
-- Remover imports e queries que ficarem sem uso (`getBrandHub`, `computeBriefingCompletion`, `Progress`, `hubQ`, `briefingPct`, `briefingReady`, `disabledReason`, `onOpenBriefing` continua útil? — sim, mantido para o header do cliente, então preservar a prop mas parar de usá-la aqui se não for referenciada).
+### 2. `src/routes/api/jobs/monthly-plan.ts`
+- Estender o `BodySchema` com um campo opcional `channelMix: Record<channel, number>` (peças por canal no período total).
+- Passar esse mix ao **planner_strategic** via novas variáveis de template: `{{CHANNEL_MIX}}` e `{{TOTAL_PECAS}}`.
+- Ao inserir posts, respeitar a distribuição: se o planner retornar plataforma diferente da cota, forçar `channels` do primeiro canal com cota restante (round-robin por cota).
+- Fallback: se `channelMix` ausente, comportamento atual (quantidade × período).
 
-### `src/components/customer/monthly-plan-dialog.tsx`
-- Nenhuma mudança de comportamento; props `disabled`/`disabledReason` continuam suportadas para outros usos, apenas não serão mais setadas pelo dashboard.
+### 3. `agent_prompts` (planner_strategic)
+- Atualizar o system prompt (via `supabase--migration`) para instruir explicitamente:
+  > "Distribua os N conceitos respeitando a cota por canal em CHANNEL_MIX. Não gere mais peças por plataforma do que o cota indica."
 
-## Fora de escopo
-- Não mexer nas RLS, no cálculo de completude, nem no fluxo de scraping da aba Concorrentes.
+### 4. Sem alterações em
+- Schema do banco (a volumetria já vive em `clients.brand_hub.volumetry`).
+- Pipeline/stages/posts insert logic (só o preenchimento de `channels` muda).
+
+## Resultado
+O usuário abre "Gerar Plano do Mês", vê o volume derivado do briefing, escolhe apenas quantos meses gerar, e o pipeline recebe as peças na proporção correta por canal.
