@@ -58,22 +58,16 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
     label: "Inteligência",
     items: [
       { title: "Analytics", url: "/analytics", icon: BarChart3 },
-      { title: "Relatórios", url: "/reports", icon: FileBarChart },
     ],
   },
   {
     label: "Sistema",
     items: [
       { title: "Integrações", url: "/connections", icon: Plug },
-      { title: "IA", url: "/ai", icon: Sparkles },
       { title: "Agentes IA", url: "/agents", icon: Bot },
-      { title: "Pipelines", url: "/pipelines", icon: Workflow },
       { title: "Conteúdo", url: "/content", icon: KanbanSquare },
-      { title: "Briefings", url: "/settings/briefing", icon: Link2 },
       { title: "Equipe", url: "/settings/team", icon: UserPlus },
       { title: "Notificações", url: "/notifications", icon: Bell },
-      { title: "Indique e ganhe", url: "/referrals", icon: Gift },
-      { title: "Novidades", url: "/changelog", icon: Megaphone },
       { title: "Configurações", url: "/settings", icon: SettingsIcon },
     ],
   },
