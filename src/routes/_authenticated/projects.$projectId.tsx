@@ -82,10 +82,10 @@ function fmtDate(iso?: string | null) {
 
 function ProjectDetailPage() {
   const { projectId } = Route.useParams();
-  const { brandId, setClientId } = useActiveContext();
+  const { brandId, setClientId: setActiveClientId } = useActiveContext();
   const navigate = useNavigate();
   function goCreateItem() {
-    if (project?.client_id) setClientId(project.client_id);
+    if (project?.client_id) setActiveClientId(project.client_id);
     navigate({ to: "/content", search: { project: projectId, new: true } });
   }
 
