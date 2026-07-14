@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Plus, Settings2, Sparkles } from "lucide-react";
+import { Loader2, Plus, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -31,10 +31,15 @@ import {
 } from "@/lib/content.functions";
 import { ContentBoard } from "@/components/content/content-board";
 import { PostDetailDialog } from "@/components/content/post-detail-dialog";
-import { AiCopilotSheet } from "@/components/content/ai-copilot-sheet";
 import { ColumnConfigDialog } from "@/components/content/column-config-dialog";
 import { NewPostDialog } from "@/components/content/new-post-dialog";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/_authenticated/content")({
   component: ContentPage,
