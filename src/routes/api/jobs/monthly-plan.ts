@@ -21,8 +21,9 @@ const BodySchema = z.object({
   brandId: z.string().uuid(),
   clientId: z.string().uuid(),
   pipelineId: z.string().uuid().nullable().optional(),
-  quantidade: z.number().int().min(3).max(30).default(12),
+  quantidade: z.number().int().min(3).max(180).default(12),
   periodo: z.string().default("próximo mês"),
+  meses: z.number().int().min(1).max(6).optional(),
 });
 
 const STRATEGIC_MODEL = "google/gemini-2.5-pro";

@@ -14,6 +14,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Props = {
   brandId: string;
@@ -25,8 +32,12 @@ type Props = {
 export function MonthlyPlanDialog({ brandId, clientId, disabled, disabledReason }: Props) {
   const [open, setOpen] = useState(false);
   const [quantidade, setQuantidade] = useState(12);
-  const [periodo, setPeriodo] = useState("próximo mês");
+  const [meses, setMeses] = useState(1);
   const [pending, setPending] = useState(false);
+
+  const periodo =
+    meses === 1 ? "próximo mês" : `próximos ${meses} meses`;
+  const totalPecas = quantidade * meses;
 
   async function launch() {
     setPending(true);
@@ -40,7 +51,13 @@ export function MonthlyPlanDialog({ brandId, clientId, disabled, disabledReason 
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ brandId, clientId, quantidade, periodo }),
+        body: JSON.stringify({
+          brandId,
+          clientId,
+          quantidade: totalPecas,
+          periodo,
+          meses,
+        }),
       });
       if (!res.ok) {
         const msg = await res.text();
@@ -83,7 +100,22 @@ export function MonthlyPlanDialog({ brandId, clientId, disabled, disabledReason 
         </DialogHeader>
         <div className="grid gap-3">
           <div className="grid gap-1.5">
-            <Label htmlFor="qtd">Quantidade de peças</Label>
+            <Label htmlFor="meses">Quantidade de meses</Label>
+            <Select value={String(meses)} onValueChange={(v) => setMeses(Number(v))}>
+              <SelectTrigger id="meses">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[1, 2, 3, 4, 5, 6].map((m) => (
+                  <SelectItem key={m} value={String(m)}>
+                    {m === 1 ? "1 mês" : `${m} meses`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="qtd">Peças por mês</Label>
             <Input
               id="qtd"
               type="number"
@@ -92,15 +124,9 @@ export function MonthlyPlanDialog({ brandId, clientId, disabled, disabledReason 
               value={quantidade}
               onChange={(e) => setQuantidade(Math.max(3, Math.min(30, Number(e.target.value) || 12)))}
             />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="periodo">Período</Label>
-            <Input
-              id="periodo"
-              value={periodo}
-              onChange={(e) => setPeriodo(e.target.value)}
-              placeholder="Ex.: próximas 4 semanas"
-            />
+            <p className="text-xs text-muted-foreground">
+              Total: <span className="font-medium text-foreground">{totalPecas}</span> peças em {periodo}.
+            </p>
           </div>
         </div>
         <DialogFooter>
