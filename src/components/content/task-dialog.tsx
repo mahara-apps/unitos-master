@@ -97,8 +97,11 @@ export type TaskDialogProps = CreateProps | EditProps;
 
 export function TaskDialog(props: TaskDialogProps) {
   return (
-    <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
+    <Sheet open={props.open} onOpenChange={props.onOpenChange}>
+      <SheetContent
+        side="right"
+        className="flex w-full flex-col gap-0 border-l bg-background p-0 sm:max-w-[640px]"
+      >
         {props.mode === "edit" ? (
           <Suspense fallback={<LoadingBody />}>
             <EditBody {...props} />
@@ -106,8 +109,8 @@ export function TaskDialog(props: TaskDialogProps) {
         ) : (
           <CreateBody {...props} />
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
 
