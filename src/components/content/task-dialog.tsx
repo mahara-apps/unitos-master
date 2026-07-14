@@ -81,6 +81,8 @@ import {
   validatePlacementSet,
   type PlacementFormat,
 } from "@/lib/placements.functions";
+import { listProjects } from "@/lib/projects.functions";
+import { FolderKanban } from "lucide-react";
 
 // UI helpers to bridge display strings ("Feed"/"Story"/"Reels"/"Carrossel")
 // used elsewhere in this component with the DB enum used by placements.
@@ -123,6 +125,7 @@ type CreateProps = CommonProps & {
   mode: "create";
   defaultStageId?: string;
   defaultScheduledAt?: string; // ISO string; pre-fills scheduled date/time
+  defaultProjectId?: string | null;
   postId?: never;
 };
 
@@ -257,6 +260,7 @@ function CreateBody({
   stages,
   defaultStageId,
   defaultScheduledAt,
+  defaultProjectId,
   invalidateKey,
 }: CreateProps) {
   const qc = useQueryClient();
@@ -265,15 +269,17 @@ function CreateBody({
   const [state, setState] = useState(() => {
     const s = emptyState(defaultStageId ?? stages[0]?.id ?? "");
     if (defaultScheduledAt) s.scheduledAt = toLocalInputValue(defaultScheduledAt);
+    if (defaultProjectId) s.projectId = defaultProjectId;
     return s;
   });
 
   useEffect(() => {
     const s = emptyState(defaultStageId ?? stages[0]?.id ?? "");
     if (defaultScheduledAt) s.scheduledAt = toLocalInputValue(defaultScheduledAt);
+    if (defaultProjectId) s.projectId = defaultProjectId;
     setState(s);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultStageId, stages.length, defaultScheduledAt]);
+  }, [defaultStageId, stages.length, defaultScheduledAt, defaultProjectId]);
 
   const create = useMutation({
     mutationFn: async () =>
@@ -302,11 +308,14 @@ function CreateBody({
           tags: state.tags.length ? state.tags : undefined,
           visible_in_portal: state.visibleInPortal,
           assignees: state.assigneeId ? [state.assigneeId] : undefined,
+          project_id: state.projectId ?? null,
         },
       }),
     onSuccess: () => {
       toast.success("Tarefa criada");
       qc.invalidateQueries({ queryKey: invalidateKey });
+      qc.invalidateQueries({ queryKey: ["projects", brandId] });
+      if (state.projectId) qc.invalidateQueries({ queryKey: ["project", brandId, state.projectId] });
       onOpenChange(false);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -338,6 +347,12 @@ function CreateBody({
             brandId={brandId}
             value={state.assigneeId}
             onChange={(id) => setState((p) => ({ ...p, assigneeId: id }))}
+          />
+          <ProjectSelect
+            brandId={brandId}
+            clientId={clientId}
+            value={state.projectId}
+            onChange={(id) => setState((p) => ({ ...p, projectId: id }))}
           />
         </div>
       </div>
