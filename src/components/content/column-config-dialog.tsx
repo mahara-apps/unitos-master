@@ -40,6 +40,7 @@ import {
   type StageColor,
 } from "@/lib/content.functions";
 import { STAGE_BG } from "./stage-colors";
+import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 
 type Props = {
   open: boolean;
@@ -126,33 +127,35 @@ export function ColumnConfigDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Configurar colunas</DialogTitle>
+      <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto border-border/60 bg-background p-0">
+        <DialogHeader className="border-b border-border/60 px-6 py-4">
+          <DialogTitle className="text-base">Configurar colunas</DialogTitle>
         </DialogHeader>
 
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-          <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-            <div className="space-y-2">
-              {items.map((stage) => (
-                <SortableRow
-                  key={stage.id}
-                  stage={stage}
-                  onPatch={(patch) => patchStage(stage.id, patch)}
-                  onDelete={() => deleteStage(stage.id, stage.label)}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
+        <div className="space-y-4 px-6 py-5">
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+            <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-2">
+                {items.map((stage) => (
+                  <SortableRow
+                    key={stage.id}
+                    stage={stage}
+                    onPatch={(patch) => patchStage(stage.id, patch)}
+                    onDelete={() => deleteStage(stage.id, stage.label)}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
 
-        <div>
-          <Button variant="outline" size="sm" onClick={addColumn}>+ Adicionar coluna</Button>
+          <div>
+            <Button variant="outline" size="sm" className="h-9" onClick={addColumn}>+ Adicionar coluna</Button>
+          </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Fechar</Button>
-          <Button onClick={() => save.mutate()} disabled={!dirty || save.isPending}>
+        <DialogFooter className="border-t border-border/60 px-6 py-4">
+          <Button variant="ghost" className="h-9" onClick={() => onOpenChange(false)}>Fechar</Button>
+          <Button className="h-9" onClick={() => save.mutate()} disabled={!dirty || save.isPending}>
             {save.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Salvar ordem
           </Button>
@@ -186,17 +189,17 @@ function SortableRow({
   };
 
   return (
-    <div
+    <DashboardPanelSurface
       ref={setNodeRef}
       style={style}
-      className="rounded-lg border border-border/60 bg-card p-3 space-y-3"
+      className="space-y-3 p-3"
     >
       <div className="flex items-center gap-2">
         <button
           type="button"
           {...attributes}
           {...listeners}
-          className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+          className="cursor-grab touch-none rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
           aria-label="Reordenar"
         >
           <GripVertical className="h-4 w-4" />
@@ -209,7 +212,7 @@ function SortableRow({
             const v = label.trim();
             if (v && v !== stage.label) onPatch({ label: v });
           }}
-          className="h-8 flex-1"
+          className="h-9 flex-1"
         />
         <div className="flex items-center gap-1">
           {STAGE_COLORS.map((c) => (
@@ -224,14 +227,14 @@ function SortableRow({
             />
           ))}
         </div>
-        <Button size="icon" variant="ghost" onClick={onDelete} className="h-8 w-8 text-destructive">
+        <Button size="icon" variant="ghost" onClick={onDelete} className="h-9 w-9 text-destructive">
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
 
       <div className="grid gap-3 md:grid-cols-3 pl-6">
         <div className="space-y-1">
-          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">SLA (dias)</Label>
+          <Label className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">SLA (dias)</Label>
           <Input
             type="number"
             min={0}
@@ -242,17 +245,17 @@ function SortableRow({
               onPatch({ sla_days: Number.isFinite(n) || n === null ? (n as number | null) : null });
             }}
             placeholder="—"
-            className="h-8"
+            className="h-9"
           />
         </div>
-        <div className="flex items-center justify-between rounded-md border border-border/60 px-3 py-2">
+        <div className="flex items-center justify-between rounded-md border border-border/60 bg-background/60 px-3 py-2">
           <Label className="text-xs">Sumir do portal</Label>
           <Switch
             checked={!!stage.hide_in_portal}
             onCheckedChange={(v) => onPatch({ hide_in_portal: v })}
           />
         </div>
-        <div className="flex items-center justify-between rounded-md border border-border/60 px-3 py-2">
+        <div className="flex items-center justify-between rounded-md border border-border/60 bg-background/60 px-3 py-2">
           <Label className="text-xs">Link aprovação</Label>
           <Switch
             checked={!!stage.enables_approval_link}
@@ -260,6 +263,6 @@ function SortableRow({
           />
         </div>
       </div>
-    </div>
+    </DashboardPanelSurface>
   );
 }

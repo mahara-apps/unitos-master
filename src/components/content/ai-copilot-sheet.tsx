@@ -17,6 +17,8 @@ import { Instagram, Linkedin, Music2, Sparkles, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { ContextSourceBadge } from "@/components/ai-agents/context-source-badge";
+import { PanelEmptyState } from "@/components/ui/panel-empty";
+import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 
 type ContentType = "reel" | "carousel" | "image" | "short_copy";
 type Channel = "instagram" | "tiktok" | "linkedin";
@@ -118,14 +120,14 @@ export function AiCopilotSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="right"
-        className="w-full md:max-w-xl flex flex-col gap-0 p-0 bg-background dark:bg-[#0a0a0c] border-l dark:border-zinc-800"
+        className="flex w-full flex-col gap-0 border-l border-border/60 bg-background p-0 md:max-w-xl"
       >
         <SheetHeader className="border-b border-border/60 px-6 py-4">
           <SheetTitle className="flex items-center gap-2 text-base">
             <Wand2 className="h-4 w-4 text-primary" />
             AI Content Co-pilot
           </SheetTitle>
-          <SheetDescription className="text-xs">
+          <SheetDescription className="text-xs text-muted-foreground">
             Draft channel-ready content grounded in this account's brand voice.
           </SheetDescription>
           <div className="mt-2 flex flex-wrap gap-1.5">
@@ -135,15 +137,18 @@ export function AiCopilotSheet({
           </div>
         </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
+        <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
           {missingContext ? (
-            <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-              Select an active account in the sidebar switcher to start generating content.
-            </div>
+            <DashboardPanelSurface className="border-dashed bg-card/40">
+              <PanelEmptyState
+                icon={<Wand2 className="h-5 w-5" />}
+                text="Selecione uma conta ativa para começar a gerar conteúdo."
+              />
+            </DashboardPanelSurface>
           ) : (
             <>
               <section className="space-y-2">
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-mono">
+                <Label className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                   Content Objective
                 </Label>
                 <Textarea
@@ -156,7 +161,7 @@ export function AiCopilotSheet({
               </section>
 
               <section className="space-y-2">
-                <Label className="text-xs uppercase tracking-wider text-muted-foreground font-mono">
+                <Label className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                   Target Channels
                 </Label>
                 <ToggleGroup
@@ -179,7 +184,7 @@ export function AiCopilotSheet({
 
               <section className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground font-mono">
+                  <Label className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                     Content Type
                   </Label>
                   <div className="grid grid-cols-2 gap-1.5">
@@ -192,7 +197,7 @@ export function AiCopilotSheet({
                           "h-9 rounded-md border text-xs font-medium transition-colors",
                           contentType === opt.value
                             ? "border-primary bg-primary/10 text-foreground"
-                            : "border-border bg-transparent text-muted-foreground hover:bg-muted/50",
+                            : "border-border/60 bg-background/60 text-muted-foreground hover:border-border hover:text-foreground",
                         )}
                       >
                         {opt.label}
@@ -201,7 +206,7 @@ export function AiCopilotSheet({
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground font-mono">
+                  <Label className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
                     Tone of Voice
                   </Label>
                   <Input
@@ -219,15 +224,15 @@ export function AiCopilotSheet({
                 </div>
               </section>
 
-              <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 p-4 text-[11px] text-muted-foreground">
+              <DashboardPanelSurface className="border-dashed bg-card/40 p-4 text-[11px] text-muted-foreground">
                 A geração roda em segundo plano. Você pode fechar este painel e continuar
                 navegando — enviaremos uma notificação quando o rascunho estiver pronto.
-              </div>
+              </DashboardPanelSurface>
             </>
           )}
         </div>
 
-        <footer className="border-t border-border/60 bg-background/80 px-6 py-4 backdrop-blur">
+        <footer className="border-t border-border/60 bg-background/95 px-6 py-4 backdrop-blur">
           <Button
             className="w-full"
             disabled={!canGenerate}

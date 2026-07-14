@@ -84,6 +84,7 @@ import {
 } from "@/lib/placements.functions";
 import { listProjects } from "@/lib/projects.functions";
 import { FolderKanban } from "lucide-react";
+import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 
 // UI helpers to bridge display strings ("Feed"/"Story"/"Reels"/"Carrossel")
 // used elsewhere in this component with the DB enum used by placements.
@@ -143,7 +144,7 @@ export function TaskDialog(props: TaskDialogProps) {
     <Sheet open={props.open} onOpenChange={props.onOpenChange}>
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-0 border-l bg-background p-0 sm:max-w-[640px]"
+        className="flex w-full flex-col gap-0 border-l border-border/60 bg-background p-0 sm:max-w-[640px]"
       >
         {props.mode === "edit" ? (
           <Suspense fallback={<LoadingBody />}>
@@ -226,7 +227,7 @@ function AssigneeSelect({
       value={value ?? "none"}
       onValueChange={(v) => onChange(v === "none" ? null : v)}
     >
-      <SelectTrigger className={cn("h-8 w-full min-w-0 gap-1 text-xs", className)}>
+      <SelectTrigger className={cn("h-9 w-full min-w-0 gap-1 text-xs", className)}>
         <SelectValue placeholder="Sem responsável" />
       </SelectTrigger>
       <SelectContent>
@@ -241,7 +242,7 @@ function AssigneeSelect({
         {list.map((m) => (
           <SelectItem key={m.id} value={m.id}>
             <span className="inline-flex items-center gap-2">
-              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[9px] font-medium text-white">
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-medium text-primary-foreground">
                 {initials(m.name)}
               </span>
               {m.name}
@@ -281,7 +282,7 @@ function ProjectSelect({
       value={value ?? "none"}
       onValueChange={(v) => onChange(v === "none" ? null : v)}
     >
-      <SelectTrigger className={cn("h-8 w-full min-w-0 gap-1 text-xs", className)}>
+      <SelectTrigger className={cn("h-9 w-full min-w-0 gap-1 text-xs", className)}>
         <FolderKanban className="mr-1 h-3.5 w-3.5 text-muted-foreground" />
         <SelectValue placeholder="Sem projeto" />
       </SelectTrigger>
@@ -376,7 +377,7 @@ function CreateBody({
 
   return (
     <>
-      <div className="sticky top-0 z-10 space-y-3 border-b bg-background px-6 pb-3 pt-4">
+      <div className="sticky top-0 z-10 space-y-3 border-b border-border/60 bg-background/95 px-6 pb-3 pt-4 backdrop-blur">
         <div>
           <h2 className="text-base font-semibold tracking-tight">Nova tarefa</h2>
           <p className="text-xs text-muted-foreground">
@@ -385,7 +386,7 @@ function CreateBody({
         </div>
         <div className="grid grid-cols-3 items-center gap-2">
           <Select value={state.stageId} onValueChange={(v) => setState((p) => ({ ...p, stageId: v }))}>
-            <SelectTrigger className="h-8 w-full min-w-0 gap-1 text-xs">
+            <SelectTrigger className="h-9 w-full min-w-0 gap-1 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -417,11 +418,12 @@ function CreateBody({
           mode="create"
         />
       </div>
-      <div className="sticky bottom-0 flex justify-end gap-2 border-t bg-background px-6 py-3">
-        <Button variant="ghost" onClick={() => onOpenChange(false)}>
+      <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border/60 bg-background/95 px-6 py-3 backdrop-blur">
+        <Button variant="ghost" className="h-9" onClick={() => onOpenChange(false)}>
           Cancelar
         </Button>
         <Button
+          className="h-9"
           onClick={() => create.mutate()}
           disabled={!state.title.trim() || !state.stageId || create.isPending}
         >
@@ -752,7 +754,7 @@ function EditBody({
 
   return (
     <>
-      <div className="sticky top-0 z-10 space-y-3 border-b bg-background px-6 pb-3 pt-4">
+      <div className="sticky top-0 z-10 space-y-3 border-b border-border/60 bg-background/95 px-6 pb-3 pt-4 backdrop-blur">
         <div className="flex items-start gap-3 pr-8">
           <div className="min-w-0 flex-1">
             <Input
@@ -763,17 +765,17 @@ function EditBody({
             />
             <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
               {reviewStatus === "pending" && aiPhase === "idea" ? (
-                <Badge variant="outline" className="border-amber-500/40 text-amber-600 dark:text-amber-400">
+                <Badge variant="outline" className="rounded-md border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400">
                   Aguardando aprovação
                 </Badge>
               ) : null}
               {aiPhase === "copy_running" ? (
-                <Badge variant="outline" className="border-indigo-500/40 text-indigo-600 dark:text-indigo-400">
+                <Badge variant="outline" className="rounded-md border-indigo-500/40 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
                   <Loader2 className="mr-1 h-3 w-3 animate-spin" /> Gerando copy
                 </Badge>
               ) : null}
               {aiPhase === "copy_ready" ? (
-                <Badge variant="outline" className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
+                <Badge variant="outline" className="rounded-md border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                   Copy + Design prontos
                 </Badge>
               ) : null}
@@ -782,7 +784,7 @@ function EditBody({
         </div>
         <div className="grid grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.25fr)] items-center gap-2">
           <Select value={state.stageId} onValueChange={(v) => setState((p) => ({ ...p, stageId: v }))}>
-            <SelectTrigger className="h-8 w-full min-w-0 gap-1 text-xs">
+            <SelectTrigger className="h-9 w-full min-w-0 gap-1 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -806,17 +808,17 @@ function EditBody({
           />
           <div className="flex items-center justify-end">
             {reviewStatus === "pending" && aiPhase === "idea" ? (
-              <Button size="sm" onClick={handleApproveAndGenerate} disabled={approving} className="h-8 w-full">
+              <Button size="sm" onClick={handleApproveAndGenerate} disabled={approving} className="h-9 w-full">
                 {approving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
                 Aprovar & gerar
               </Button>
             ) : reviewStatus !== "approved" ? (
-              <Button size="sm" onClick={() => approveOnly.mutate()} disabled={approveOnly.isPending} className="h-8 w-full">
+              <Button size="sm" onClick={() => approveOnly.mutate()} disabled={approveOnly.isPending} className="h-9 w-full">
                 {approveOnly.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />}
                 Aprovar
               </Button>
             ) : (
-              <Badge variant="outline" className="w-full justify-center border-emerald-500/40 py-1.5 text-emerald-600 dark:text-emerald-400">
+              <Badge variant="outline" className="h-9 w-full justify-center rounded-md border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                 <CheckCircle2 className="mr-1 h-3 w-3" /> Aprovado
               </Badge>
             )}
@@ -849,9 +851,9 @@ function EditBody({
               (feeds, stories, moodboard)
             </span>
           </Label>
-          <div className="rounded-md border p-2">
+          <DashboardPanelSurface className="p-3">
             {refs.length === 0 ? (
-              <p className="px-1 py-2 text-xs text-muted-foreground">
+              <p className="rounded-lg border border-dashed border-border/60 bg-card/40 px-3 py-4 text-xs text-muted-foreground">
                 Anexe imagens ou vídeos. Ao inserir 2 ou mais, o post vira
                 automaticamente um Carrossel.
               </p>
@@ -905,7 +907,7 @@ function EditBody({
                 </Button>
               </div>
             </div>
-          </div>
+          </DashboardPanelSurface>
         </div>
 
         {post.design_brief ? (
@@ -913,9 +915,9 @@ function EditBody({
             <Label className="flex items-center gap-1.5">
               <FileText className="h-3.5 w-3.5" /> Briefing visual (IA)
             </Label>
-            <div className="rounded-md border bg-muted/40 p-3 text-sm whitespace-pre-wrap">
+            <DashboardPanelSurface className="bg-background/60 p-3 text-sm whitespace-pre-wrap">
               {post.design_brief}
-            </div>
+            </DashboardPanelSurface>
           </div>
         ) : null}
 
@@ -926,7 +928,7 @@ function EditBody({
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-2 border-t bg-background px-6 py-3">
+      <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 bg-background/95 px-6 py-3 backdrop-blur">
         <Button
           variant="ghost"
           size="sm"
@@ -951,7 +953,7 @@ function EditBody({
             {rework.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="mr-1.5 h-3.5 w-3.5" />}
             Refazer
           </Button>
-          <Button size="sm" onClick={() => save.mutate()} disabled={save.isPending}>
+          <Button size="sm" className="h-9" onClick={() => save.mutate()} disabled={save.isPending}>
             {save.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
             Salvar
           </Button>
@@ -1080,7 +1082,7 @@ function TaskLayout({
       <div className="space-y-5">
         {mode === "create" ? (
           <div className="space-y-1.5">
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+            <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
               Título *
             </Label>
             <Input
@@ -1093,7 +1095,7 @@ function TaskLayout({
         ) : null}
 
         <div className="space-y-2">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+          <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
             Vai publicar? Selecione o canal
           </Label>
           <div className="flex flex-wrap gap-1.5">
@@ -1105,10 +1107,10 @@ function TaskLayout({
                   key={c.id}
                   type="button"
                   onClick={() => toggleChannel(c.id)}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition ${
+                  className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition ${
                     active
                       ? CHANNEL_STYLES[c.id] ?? "border-primary bg-primary/10 text-foreground"
-                      : "border-border/60 text-muted-foreground hover:border-border"
+                      : "border-border/60 bg-background/60 text-muted-foreground hover:border-border hover:text-foreground"
                   }`}
                 >
                   <Icon className="h-3.5 w-3.5" />
@@ -1120,7 +1122,7 @@ function TaskLayout({
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+          <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
             Formato
           </Label>
           <div className="flex flex-wrap gap-1.5">
@@ -1129,10 +1131,10 @@ function TaskLayout({
                 key={f}
                 type="button"
                 onClick={() => set("format", f)}
-                className={`rounded-full border px-3 py-1 text-xs transition ${
+                className={`h-8 rounded-md border px-3 text-xs font-medium transition ${
                   state.format === f
                     ? FORMAT_STYLES[f] ?? "border-primary bg-primary/10 text-foreground"
-                    : "border-border/60 text-muted-foreground hover:border-border"
+                    : "border-border/60 bg-background/60 text-muted-foreground hover:border-border hover:text-foreground"
                 }`}
               >
                 {f}
@@ -1192,7 +1194,7 @@ function TaskLayout({
       <div className="grid grid-cols-2 gap-3 border-t border-border/50 pt-5">
         {mode === "create" ? (
           <div className="space-y-1.5">
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+            <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
               Etapa
             </Label>
             <Select value={state.stageId} onValueChange={(v) => set("stageId", v)}>
@@ -1211,7 +1213,7 @@ function TaskLayout({
         ) : null}
 
         <div className="space-y-1.5">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+          <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
             Data de publicação
           </Label>
           <Input
@@ -1227,7 +1229,7 @@ function TaskLayout({
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+          <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
             Lembrete <span className="normal-case text-muted-foreground/70">(opcional)</span>
           </Label>
           <Input
@@ -1241,7 +1243,7 @@ function TaskLayout({
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+          <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
             Prioridade
           </Label>
           <Select
@@ -1262,7 +1264,7 @@ function TaskLayout({
         </div>
 
         <div className="col-span-2 space-y-1.5">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+          <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
             Tags
           </Label>
           <div className="flex flex-wrap gap-1">
@@ -1270,7 +1272,7 @@ function TaskLayout({
               <Badge
                 key={t}
                 variant="secondary"
-                className="cursor-pointer"
+                className="h-6 cursor-pointer rounded-md border border-border/60 bg-background/60 text-[11px] font-medium text-muted-foreground hover:text-foreground"
                 onClick={() => removeTag(t)}
               >
                 {t} ×
@@ -1290,13 +1292,13 @@ function TaskLayout({
               placeholder="Adicionar tag"
               className="h-8 text-xs"
             />
-            <Button type="button" size="sm" variant="outline" onClick={addTag}>
+            <Button type="button" size="sm" variant="outline" className="h-8" onClick={addTag}>
               +
             </Button>
           </div>
         </div>
 
-        <div className="col-span-2 flex items-center justify-between rounded-md border border-border/60 px-3 py-2">
+        <div className="col-span-2 flex items-center justify-between rounded-md border border-border/60 bg-background/60 px-3 py-2">
           <Label className="text-xs">Visível no portal</Label>
           <Switch
             checked={state.visibleInPortal}
@@ -1358,7 +1360,7 @@ function Timeline({ items }: { items: PostTimelineEvent[] }) {
   }
   return (
     <div>
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <p className="mb-2 text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
         Histórico
       </p>
       <ul className="space-y-2 text-sm">
@@ -1371,8 +1373,8 @@ function Timeline({ items }: { items: PostTimelineEvent[] }) {
             minute: "2-digit",
           });
           return (
-            <li key={ev.id} className="flex items-start gap-2">
-              <Badge variant="secondary" className="mt-0.5 shrink-0 font-normal">
+            <li key={ev.id} className="flex items-start gap-2 rounded-md border border-border/60 bg-background/60 px-2 py-1.5">
+              <Badge variant="secondary" className="mt-0.5 shrink-0 rounded-md border border-border/60 bg-card font-normal">
                 {translateVerb(ev.verb)}
               </Badge>
               <div className="flex min-w-0 flex-1 items-center gap-2 text-muted-foreground">
@@ -1383,7 +1385,7 @@ function Timeline({ items }: { items: PostTimelineEvent[] }) {
                     className="h-5 w-5 shrink-0 rounded-full object-cover"
                   />
                 ) : ev.actor_name ? (
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-foreground">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
                     {initialsOf(ev.actor_name)}
                   </span>
                 ) : null}
@@ -1485,15 +1487,16 @@ function ApprovalLinkSection({ postId }: { postId: string }) {
   );
 
   return (
-    <div className="space-y-2">
+    <DashboardPanelSurface className="space-y-3 p-4">
       <div className="flex items-center justify-between">
-        <Label className="flex items-center gap-1.5">
+        <Label className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
           <Link2 className="h-3.5 w-3.5" /> Aprovação externa
         </Label>
         <Button
           type="button"
           size="sm"
           variant="outline"
+          className="h-9"
           onClick={() => create.mutate()}
           disabled={create.isPending}
         >
@@ -1506,7 +1509,7 @@ function ApprovalLinkSection({ postId }: { postId: string }) {
         </Button>
       </div>
       {active.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="rounded-lg border border-dashed border-border/60 bg-card/40 px-3 py-4 text-xs text-muted-foreground">
           Nenhum link ativo. Gere um link seguro para envio ao cliente aprovar
           sem login.
         </p>
@@ -1520,12 +1523,12 @@ function ApprovalLinkSection({ postId }: { postId: string }) {
             return (
               <li
                 key={t.id}
-                className="flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5 text-xs"
+                className="flex items-center gap-2 rounded-md border border-border/60 bg-background/60 px-2 py-1.5 text-xs"
               >
                 <code className="flex-1 truncate font-mono">{url}</code>
                 <button
                   type="button"
-                  className="rounded p-1 hover:bg-muted"
+                  className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
                   onClick={() => {
                     void navigator.clipboard.writeText(url);
                     toast.success("Link copiado");
@@ -1536,7 +1539,7 @@ function ApprovalLinkSection({ postId }: { postId: string }) {
                 </button>
                 <button
                   type="button"
-                  className="rounded p-1 text-destructive hover:bg-destructive/10"
+                  className="rounded-md p-1 text-destructive hover:bg-destructive/10"
                   onClick={() => revoke.mutate(t.id)}
                   title="Revogar"
                 >
@@ -1547,7 +1550,7 @@ function ApprovalLinkSection({ postId }: { postId: string }) {
           })}
         </ul>
       )}
-    </div>
+    </DashboardPanelSurface>
   );
 }
 
@@ -1627,15 +1630,15 @@ function CopyEditor({
   };
 
   return (
-    <Tabs defaultValue={COPY_FIELDS[0].key} className="rounded-lg border border-border/60 bg-background">
-      <TabsList className="h-9 w-full justify-start gap-1 rounded-none rounded-t-lg border-b border-border/60 bg-muted/30 px-2">
+    <Tabs defaultValue={COPY_FIELDS[0].key} className="overflow-hidden rounded-xl border border-border/60 bg-card">
+      <TabsList className="h-10 w-full justify-start gap-1 rounded-none border-b border-border/60 bg-background/60 px-2">
         {COPY_FIELDS.map((f) => {
           const filled = sections[f.key].trim().length > 0;
           return (
             <TabsTrigger
               key={f.key}
               value={f.key}
-              className="h-7 gap-1.5 px-2.5 text-[11px] font-semibold uppercase tracking-[0.1em]"
+              className="h-7 gap-1.5 px-2.5 text-[11px] font-semibold uppercase tracking-widest"
             >
               {f.label}
               {filled ? (
@@ -1648,7 +1651,7 @@ function CopyEditor({
       {COPY_FIELDS.map((f) => (
         <TabsContent key={f.key} value={f.key} className="mt-0 px-3 py-3">
           <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            <span className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
               {f.label}
             </span>
             <div className="flex items-center gap-1">
@@ -1715,7 +1718,7 @@ function MicroAiButton({
       aria-label={tooltip}
       onClick={() => m.mutate()}
       disabled={m.isPending}
-      className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-violet-500/30 bg-violet-500/10 text-violet-600 transition hover:bg-violet-500/20 disabled:opacity-60 dark:text-violet-300"
+      className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-background/60 text-muted-foreground transition hover:border-border hover:text-foreground disabled:opacity-60"
     >
       {m.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Icon className="h-3 w-3" />}
     </button>
@@ -1849,7 +1852,7 @@ function InstagramPreview({
 
   return (
     <div className="space-y-2">
-      <div className="relative mx-auto w-full max-w-sm overflow-hidden rounded-xl border bg-black">
+      <div className="relative mx-auto w-full max-w-sm overflow-hidden rounded-xl border border-border/60 bg-foreground">
         <div className="relative aspect-square w-full">
           {displayUrl ? (
             isVideo && !current.pruned ? (
@@ -1875,21 +1878,21 @@ function InstagramPreview({
           )}
 
           {isVideo && current.pruned ? (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/40">
-              <Play className="h-10 w-10 text-white/90" />
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-foreground/40">
+              <Play className="h-10 w-10 text-background/90" />
             </div>
           ) : null}
 
           {refs.length > 1 ? (
             <>
-              <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-medium text-white">
+              <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md bg-foreground/70 px-2 py-0.5 text-[11px] font-medium text-background">
                 <Images className="h-3 w-3" /> {idx + 1}/{refs.length}
               </span>
               {idx > 0 ? (
                 <button
                   type="button"
                   onClick={() => setIdx((i) => Math.max(0, i - 1))}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-1 text-white transition hover:bg-black/70"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 rounded-md bg-foreground/60 p-1 text-background transition hover:bg-foreground/80"
                   aria-label="Anterior"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -1901,7 +1904,7 @@ function InstagramPreview({
                   onClick={() =>
                     setIdx((i) => Math.min(refs.length - 1, i + 1))
                   }
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-1 text-white transition hover:bg-black/70"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-foreground/60 p-1 text-background transition hover:bg-foreground/80"
                   aria-label="Próximo"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -1914,21 +1917,21 @@ function InstagramPreview({
             type="button"
             onClick={() => onRemove(current.path)}
             title="Remover mídia"
-            className="absolute left-2 top-2 rounded-full bg-black/60 p-1 text-white transition hover:bg-red-500/90"
+            className="absolute left-2 top-2 rounded-md bg-foreground/70 p-1 text-background transition hover:bg-destructive hover:text-destructive-foreground"
           >
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
 
         {refs.length > 1 ? (
-          <div className="flex items-center justify-center gap-1 bg-black/80 py-2">
+          <div className="flex items-center justify-center gap-1 bg-foreground/80 py-2">
             {refs.map((_, i) => (
               <button
                 key={i}
                 type="button"
                 onClick={() => setIdx(i)}
                 className={`h-1.5 rounded-full transition-all ${
-                  i === idx ? "w-4 bg-white" : "w-1.5 bg-white/40"
+                  i === idx ? "w-4 bg-background" : "w-1.5 bg-background/40"
                 }`}
                 aria-label={`Ir para ${i + 1}`}
               />
@@ -1947,7 +1950,7 @@ function InstagramPreview({
                 key={r.path}
                 type="button"
                 onClick={() => setIdx(i)}
-                className={`relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-md border transition ${
+                className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-border/60 transition ${
                   i === idx ? "ring-2 ring-primary" : "opacity-70 hover:opacity-100"
                 }`}
               >
@@ -1957,8 +1960,8 @@ function InstagramPreview({
                   <div className="h-full w-full bg-muted" />
                 )}
                 {isVid ? (
-                  <span className="absolute inset-0 flex items-center justify-center bg-black/30">
-                    <Play className="h-3.5 w-3.5 text-white" />
+                  <span className="absolute inset-0 flex items-center justify-center bg-foreground/30">
+                    <Play className="h-3.5 w-3.5 text-background" />
                   </span>
                 ) : null}
               </button>
@@ -1999,10 +2002,10 @@ function PlacementsPanel({
   });
 
   return (
-    <div className="space-y-2">
+    <DashboardPanelSurface className="space-y-3 p-4">
       <div className="flex items-center justify-between">
         <div>
-          <Label className="flex items-center gap-1.5">
+          <Label className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
             <Sparkles className="h-3.5 w-3.5" /> Multi-publicação
           </Label>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -2020,7 +2023,7 @@ function PlacementsPanel({
               ])
             }
           >
-            <SelectTrigger className="h-8 w-[180px] text-xs">
+            <SelectTrigger className="h-9 w-[180px] text-xs">
               <SelectValue placeholder="+ Adicionar formato" />
             </SelectTrigger>
             <SelectContent>
@@ -2034,8 +2037,8 @@ function PlacementsPanel({
         ) : null}
       </div>
 
-      <div className="space-y-2 rounded-md border p-2">
-        <div className="flex items-center justify-between gap-3 rounded bg-muted/40 px-2 py-1.5 text-xs">
+      <div className="space-y-2 rounded-lg border border-border/60 bg-background/60 p-2">
+        <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 bg-card px-2 py-1.5 text-xs">
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="h-5">
               {ENUM_TO_LABEL[primaryFormat]}
@@ -2048,7 +2051,7 @@ function PlacementsPanel({
         </div>
 
         {extras.length === 0 ? (
-          <p className="px-1 py-1 text-xs text-muted-foreground">
+          <p className="rounded-md border border-dashed border-border/60 bg-card/40 px-3 py-3 text-xs text-muted-foreground">
             Nenhum formato adicional. Combinações válidas: Feed+Stories,
             Reels+Stories, Carrossel+Stories.
           </p>
@@ -2056,7 +2059,7 @@ function PlacementsPanel({
           extras.map((p, idx) => (
             <div
               key={`${p.format}-${idx}`}
-              className="flex items-center gap-2 rounded border px-2 py-1.5"
+              className="flex items-center gap-2 rounded-md border border-border/60 bg-card px-2 py-1.5"
             >
               <Badge variant="outline" className="h-5">
                 {ENUM_TO_LABEL[p.format]}
@@ -2069,12 +2072,12 @@ function PlacementsPanel({
                   next[idx] = { ...p, scheduled_at: e.target.value };
                   onChange(next);
                 }}
-                className="h-7 flex-1 text-xs"
+                className="h-8 flex-1 text-xs"
               />
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
                 onClick={() =>
                   onChange(extras.filter((_, i) => i !== idx))
                 }
@@ -2085,6 +2088,6 @@ function PlacementsPanel({
           ))
         )}
       </div>
-    </div>
+    </DashboardPanelSurface>
   );
 }
