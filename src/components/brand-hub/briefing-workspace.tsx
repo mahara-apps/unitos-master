@@ -1336,3 +1336,256 @@ function VolumetriaTab({
 
 // prevent unused-import warning for Link during tree-shaking edge cases
 void Link;
+
+/* ------------------------- Stacked (single-page) layout ------------------------- */
+
+const BRAIN_SECTIONS = [
+  { id: "identidade", label: "Identidade" },
+  { id: "produto", label: "Produto" },
+  { id: "publico", label: "Público" },
+  { id: "concorrentes", label: "Concorrentes" },
+  { id: "estetica", label: "Estética" },
+  { id: "metas", label: "Metas" },
+] as const;
+
+type StackedProps = {
+  brandId: string;
+  clientId: string;
+  client: BrandHubClient;
+  form: FormState;
+  setForm: (f: FormState) => void;
+  completion: number;
+  onSave: () => void;
+  saving: boolean;
+  onGenerateStrategy: () => void;
+  onGenerateIdeas: () => void;
+  strategyReady: boolean;
+  generating: boolean;
+  genIdeas: boolean;
+  appendSlot?: React.ReactNode;
+  regenOpen: boolean;
+  setRegenOpen: (v: boolean) => void;
+  runStrategy: () => Promise<void> | void;
+  ideasOpen: boolean;
+  setIdeasOpen: (v: boolean) => void;
+  ideasQty: number;
+  setIdeasQty: (n: number) => void;
+  ideasPeriod: string;
+  setIdeasPeriod: (v: string) => void;
+  runIdeas: () => Promise<void> | void;
+};
+
+function StackedBrainLayout(props: StackedProps) {
+  const {
+    brandId, clientId, client, form, setForm, completion,
+    onSave, saving, onGenerateStrategy, generating, appendSlot,
+    regenOpen, setRegenOpen, runStrategy,
+    ideasOpen, setIdeasOpen, ideasQty, setIdeasQty, ideasPeriod, setIdeasPeriod,
+    genIdeas, runIdeas,
+  } = props;
+  const [active, setActive] = useState<string>(BRAIN_SECTIONS[0].id);
+
+  useEffect(() => {
+    const els = BRAIN_SECTIONS.map((s) => document.getElementById(s.id)).filter(Boolean) as HTMLElement[];
+    if (!els.length) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => (a.boundingClientRect.top - b.boundingClientRect.top))[0];
+        if (visible?.target?.id) setActive(visible.target.id);
+      },
+      { rootMargin: "-30% 0px -60% 0px", threshold: 0 },
+    );
+    els.forEach((el) => obs.observe(el));
+    return () => obs.disconnect();
+  }, []);
+
+  const scrollTo = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  return (
+    <div className="relative">
+      {/* Sticky action bar */}
+      <div className="sticky top-0 z-20 -mx-1 border-b border-border/60 bg-background/80 px-1 py-3 backdrop-blur-md">
+        <div className="flex items-center gap-4">
+          <div className="flex flex-1 items-center gap-3">
+            <div className="w-full max-w-xs">
+              <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>Briefing</span>
+                <span className="font-mono">{completion}%</span>
+              </div>
+              <Progress value={completion} className="h-1.5" />
+            </div>
+            <span className="hidden text-[11px] text-muted-foreground md:inline">
+              Salvo há poucos segundos
+            </span>
+          </div>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 gap-1.5 text-xs"
+            onClick={onSave}
+            disabled={saving}
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            Salvar
+          </Button>
+          <Button
+            size="sm"
+            className="gap-1.5 border-0 bg-gradient-to-r from-fuchsia-600 via-violet-600 to-cyan-500 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08)] hover:opacity-95"
+            onClick={onGenerateStrategy}
+            disabled={generating}
+          >
+            {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            Gerar Inteligência com IA
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid gap-8 pt-6 md:grid-cols-[200px_minmax(0,1fr)]">
+        {/* Left anchor nav */}
+        <aside className="hidden md:block">
+          <nav className="sticky top-24 space-y-1">
+            <div className="mb-2 px-2 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              Cérebro
+            </div>
+            {BRAIN_SECTIONS.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => scrollTo(s.id)}
+                className={cn(
+                  "block w-full rounded-md px-3 py-1.5 text-left text-xs transition",
+                  active === s.id
+                    ? "bg-accent font-medium text-accent-foreground"
+                    : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
+                )}
+              >
+                {s.label}
+              </button>
+            ))}
+          </nav>
+        </aside>
+
+        {/* Stacked content */}
+        <div className="min-w-0 space-y-10 pb-24">
+          <BrainSection id="identidade" title="Identidade">
+            <IdentidadeTab
+              brandId={brandId}
+              clientId={clientId}
+              client={client}
+              form={form}
+              setForm={setForm}
+            />
+          </BrainSection>
+
+          <BrainSection id="produto" title="Produto & Oferta">
+            <ProdutoTab form={form} setForm={setForm} />
+          </BrainSection>
+
+          <BrainSection id="publico" title="Público-alvo">
+            <PublicoTab form={form} setForm={setForm} />
+          </BrainSection>
+
+          <BrainSection id="concorrentes" title="Concorrentes & Inspirações">
+            <ConcorrentesTab form={form} setForm={setForm} />
+          </BrainSection>
+
+          <BrainSection id="estetica" title="Estética & Hashtags">
+            <HashtagsTab form={form} setForm={setForm} />
+          </BrainSection>
+
+          <BrainSection id="metas" title="Volumetria & Metas">
+            <VolumetriaTab form={form} setForm={setForm} />
+          </BrainSection>
+
+          {appendSlot ? <div className="space-y-10 pt-4">{appendSlot}</div> : null}
+        </div>
+      </div>
+
+      <AlertDialog open={regenOpen} onOpenChange={setRegenOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Gerar inteligência com IA?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Os agentes vão ler o briefing e gerar Voice Card, Personas, Cohorts e SWOT.
+              O processo roda em segundo plano.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={generating}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); void runStrategy(); }}
+              disabled={generating}
+            >
+              {generating ? "Iniciando…" : "Gerar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={ideasOpen} onOpenChange={setIdeasOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Gerar ideias de conteúdo</DialogTitle>
+            <DialogDescription>
+              Pautas geradas a partir da estratégia revisada e injetadas no pipeline.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="ideas-qty-stacked">Quantidade</Label>
+              <Input
+                id="ideas-qty-stacked"
+                type="number"
+                min={1}
+                max={20}
+                value={ideasQty}
+                onChange={(e) => setIdeasQty(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="ideas-period-stacked">Período</Label>
+              <Input
+                id="ideas-period-stacked"
+                value={ideasPeriod}
+                onChange={(e) => setIdeasPeriod(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIdeasOpen(false)} disabled={genIdeas}>
+              Cancelar
+            </Button>
+            <Button onClick={() => void runIdeas()} disabled={genIdeas} className="gap-1.5">
+              {genIdeas ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lightbulb className="h-3.5 w-3.5" />}
+              {genIdeas ? "Iniciando…" : "Gerar ideias"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function BrainSection({
+  id,
+  title,
+  children,
+}: {
+  id: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section id={id} className="scroll-mt-24 space-y-4">
+      <div>
+        <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
+      </div>
+      {children}
+    </section>
+  );
+}
