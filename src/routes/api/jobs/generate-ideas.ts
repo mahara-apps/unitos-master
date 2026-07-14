@@ -29,18 +29,31 @@ function buildUserClient(token: string) {
   });
 }
 
+const FORMAT_ENUM = ["Feed", "Reels", "Story", "Carrossel"] as const;
+type FormatKind = (typeof FORMAT_ENUM)[number];
+
 const PautasSchema = z.object({
   pautas: z.array(
     z.object({
       titulo: z.string(),
       pilar_type: z.string(),
       cohort_alvo: z.string(),
-      formato: z.string(),
+      formato: z.enum(FORMAT_ENUM),
+      formato_justificativa: z.string().optional(),
       plataforma: z.string(),
       gancho: z.string(),
     }),
   ),
 });
+
+function normalizeFormat(raw: string | null | undefined): FormatKind {
+  const s = (raw ?? "").toString().trim().toLowerCase();
+  if (!s) return "Feed";
+  if (s.startsWith("reel")) return "Reels";
+  if (s.startsWith("stor")) return "Story";
+  if (s.startsWith("carr") || s.startsWith("carou")) return "Carrossel";
+  return "Feed";
+}
 
 const CHANNEL_MAP: Record<string, "instagram" | "tiktok" | "linkedin" | "x" | "youtube" | "blog"> = {
   instagram: "instagram",
@@ -159,7 +172,7 @@ async function runIdeas(params: {
       const res = await generateText({
         model: gateway("google/gemini-2.5-flash"),
         system:
-          "Você é estrategista de conteúdo. Gere pautas diversificadas por pilar, plataforma e cohort. Responda SOMENTE JSON.",
+          "Você é estrategista de conteúdo social. Gere pautas diversificadas por pilar, plataforma e cohort. Para CADA pauta, escolha o MELHOR formato entre Feed, Reels, Story, Carrossel — combinando gancho, objetivo do pilar e comportamento do cohort (Reels para alcance/entretenimento e demonstração rápida; Carrossel para educar, listar passos ou storytelling profundo; Story para bastidores, enquetes e prova social efêmera; Feed para autoridade, anúncios e posts atemporais). Nunca use o mesmo formato para todas. Responda SOMENTE JSON.",
         prompt: [
           `Briefing: ${JSON.stringify(briefingR.data?.data ?? {})}`,
           `Voice: ${JSON.stringify(voiceR.data.data)}`,
@@ -169,6 +182,7 @@ async function runIdeas(params: {
           `Quantidade: ${input.quantidade}`,
           `Período: ${input.periodo}`,
           volumetriaBlock,
+          `Formatos permitidos (obrigatório escolher um por pauta): Feed | Reels | Story | Carrossel. Inclua 'formato_justificativa' curta explicando a escolha.`,
         ].join("\n"),
         output: Output.object({ schema: PautasSchema }),
       });
@@ -273,6 +287,7 @@ async function runIdeas(params: {
           title: p.titulo.slice(0, 160),
           copy: p.gancho,
           channels: [channel],
+          format: normalizeFormat(p.formato),
           stage: "idea" as const,
           position: nextPos,
           created_by: userId,

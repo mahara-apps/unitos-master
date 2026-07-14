@@ -157,12 +157,20 @@ function normalizeConcept(c: unknown): {
   return {
     titulo: titulo || gancho,
     pilar: pick("pilar", "pillar", "categoria", "tema"),
-    formato: pick("formato", "format", "tipo") || "Feed",
+    formato: normalizeFormatKind(pick("formato", "format", "tipo")),
     plataforma: pick("plataforma", "canal", "platform", "channel") || "instagram",
     gancho: gancho || titulo,
     objetivo: pick("objetivo", "goal", "objective"),
     cta: pick("cta", "call_to_action", "acao"),
   };
+}
+
+function normalizeFormatKind(raw: string | null | undefined): "Feed" | "Reels" | "Story" | "Carrossel" {
+  const s = (raw ?? "").toString().trim().toLowerCase();
+  if (s.startsWith("reel")) return "Reels";
+  if (s.startsWith("stor")) return "Story";
+  if (s.startsWith("carr") || s.startsWith("carou")) return "Carrossel";
+  return "Feed";
 }
 
 function fillTemplate(template: string, vars: Record<string, string>): string {
@@ -278,10 +286,11 @@ async function runOrchestrator(params: {
       prompt:
         `Gere ${input.quantidade} conceitos para o período "${input.periodo}".\n\n` +
         `Responda EXCLUSIVAMENTE com JSON válido no formato:\n` +
-        `{"concepts":[{"titulo":"...","pilar":"...","formato":"Feed|Reels|Stories|Carrossel",` +
+        `{"concepts":[{"titulo":"...","pilar":"...","formato":"Feed|Reels|Story|Carrossel",` +
         `"plataforma":"instagram|tiktok|linkedin|youtube|blog|x","gancho":"...",` +
         `"objetivo":"...","cta":"..."}]}\n` +
-        `A chave raiz DEVE ser exatamente "concepts". Sem markdown, sem comentários.`,
+        `A chave raiz DEVE ser exatamente "concepts". Sem markdown, sem comentários.\n` +
+        `IMPORTANTE: escolha o MELHOR formato por conceito combinando gancho, pilar e comportamento do cohort — Reels para alcance/entretenimento e demos rápidas, Carrossel para educar/listar passos/storytelling, Story para bastidores/enquetes/prova social, Feed para autoridade e posts atemporais. Nunca use o mesmo formato para todos.`,
       schema: PlannerSchema,
       strategic: true,
     });
@@ -411,6 +420,7 @@ async function runOrchestrator(params: {
           title: (r.copy.titulo || r.concept.titulo).slice(0, 160),
           copy: `${captionMd}${tagsBlock}`,
           channels: [channel],
+        format: normalizeFormatKind(r.concept.formato),
           stage: "idea" as const,
           position: nextPos,
           created_by: userId,
