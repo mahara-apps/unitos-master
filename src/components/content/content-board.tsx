@@ -306,7 +306,7 @@ function Column({
   return (
     <div
       ref={setNodeRef}
-      className={`relative flex h-full w-[300px] shrink-0 flex-col overflow-hidden rounded-xl border bg-muted/30 px-5 pt-5 pb-4 transition ${
+      className={`relative flex h-full w-[300px] shrink-0 flex-col overflow-hidden rounded-xl border bg-card px-5 pt-5 pb-4 transition ${
         isOver ? "border-primary/60 bg-primary/5" : "border-border/60"
       }`}
     >
