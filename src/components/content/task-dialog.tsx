@@ -181,19 +181,21 @@ function CreateBody({
 
   return (
     <>
-      <DialogHeader>
-        <DialogTitle>Nova tarefa</DialogTitle>
-        <DialogDescription>
+      <div className="sticky top-0 z-10 border-b bg-background px-6 py-4">
+        <h2 className="text-base font-semibold tracking-tight">Nova tarefa</h2>
+        <p className="text-xs text-muted-foreground">
           Preencha os detalhes para adicionar ao pipeline.
-        </DialogDescription>
-      </DialogHeader>
-      <TaskLayout
-        state={state}
-        setState={setState}
-        stages={stages}
-        mode="create"
-      />
-      <DialogFooter>
+        </p>
+      </div>
+      <div className="flex-1 overflow-y-auto px-6 py-5">
+        <TaskLayout
+          state={state}
+          setState={setState}
+          stages={stages}
+          mode="create"
+        />
+      </div>
+      <div className="sticky bottom-0 flex justify-end gap-2 border-t bg-background px-6 py-3">
         <Button variant="ghost" onClick={() => onOpenChange(false)}>
           Cancelar
         </Button>
@@ -206,7 +208,7 @@ function CreateBody({
           ) : null}
           Criar
         </Button>
-      </DialogFooter>
+      </div>
     </>
   );
 }
