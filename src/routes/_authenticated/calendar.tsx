@@ -278,12 +278,38 @@ function CalendarPage() {
                   </div>
                   <div className="space-y-1">
                     {posts.slice(0, 3).map((p) => (
-                      <PostChip key={p.id} post={p} onOpen={setOpenPost} />
+                      <PostChip key={p.id} post={p} onOpen={handleOpenPost} />
                     ))}
                     {posts.length > 3 ? (
-                      <span className="block pl-0.5 text-[10px] font-medium text-muted-foreground">
-                        +{posts.length - 3} mais
-                      </span>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="block w-full rounded-md px-1.5 py-0.5 pl-0.5 text-left text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          >
+                            +{posts.length - 3} mais
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-72 p-2">
+                          <div className="mb-2 flex items-center justify-between px-1">
+                            <span className="text-xs font-semibold">
+                              {day.date.toLocaleDateString("pt-BR", {
+                                weekday: "short",
+                                day: "2-digit",
+                                month: "short",
+                              })}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {posts.length} publicações
+                            </span>
+                          </div>
+                          <div className="space-y-1 max-h-72 overflow-y-auto">
+                            {posts.map((p) => (
+                              <PostChip key={p.id} post={p} onOpen={handleOpenPost} />
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     ) : null}
                     {posts.length === 0 && isCurrentMonth ? (
                       <button
