@@ -20,6 +20,7 @@ import {
   Bot,
   Gift,
   Megaphone,
+  Users,
   Settings as SettingsIcon,
 } from "lucide-react";
 import {
@@ -49,14 +50,11 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
     label: "Operação",
     items: [
       { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-      { title: "Trabalho", url: "/work", icon: ListChecks },
+      { title: "Produção", url: "/content", icon: KanbanSquare },
       { title: "Calendário", url: "/calendar", icon: CalendarDays },
+      { title: "Tarefas", url: "/work", icon: ListChecks },
       { title: "Projetos", url: "/projects", icon: FolderKanban },
-    ],
-  },
-  {
-    label: "Inteligência",
-    items: [
+      { title: "Clientes", url: "/customers", icon: Users },
       { title: "Analytics", url: "/analytics", icon: BarChart3 },
     ],
   },
@@ -65,7 +63,6 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { title: "Integrações", url: "/connections", icon: Plug },
       { title: "Agentes IA", url: "/agents", icon: Bot },
-      { title: "Conteúdo", url: "/content", icon: KanbanSquare },
       { title: "Equipe", url: "/settings/team", icon: UserPlus },
       { title: "Notificações", url: "/notifications", icon: Bell },
       { title: "Configurações", url: "/settings", icon: SettingsIcon },
