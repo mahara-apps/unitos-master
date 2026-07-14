@@ -828,12 +828,14 @@ function TaskLayout({
   stages,
   mode,
   postId,
+  createdAt,
 }: {
   state: TaskState;
   setState: (fn: (prev: TaskState) => TaskState) => void;
   stages: PipelineStage[];
   mode: "create" | "edit";
   postId?: string;
+  createdAt?: string | null;
 }) {
   const [tagInput, setTagInput] = useState("");
   const set = <K extends keyof TaskState>(key: K, value: TaskState[K]) =>
