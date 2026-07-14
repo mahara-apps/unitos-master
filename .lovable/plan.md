@@ -1,43 +1,56 @@
-## Ajustes na tela do Cliente
+## Objetivo
 
-**Arquivos afetados**
-- `src/routes/_authenticated/customers.$customerId.tsx` — reordenar/remover abas
-- `src/components/customer/customer-dashboard.tsx` — gate do botão "Gerar Plano do Mês"
-- `src/components/customer/monthly-plan-dialog.tsx` — aceitar prop `disabled` + tooltip
-- `src/components/brand-hub/briefing-workspace.tsx` — expor `computeCompletion` (ou replicar cálculo de progresso via query)
+Criar um cliente **"Café Aurora ☕ (mock)"** no workspace ativo (brand `60fce5a7-…`) já com **briefing 100% preenchido** e toda a memória de marca (personas, voice card, SWOT, cohorts, concorrentes, pipeline) para permitir testar de ponta a ponta:
 
-### 1. Reordenar abas e remover Tópicos
+1. Abrir o cliente → briefing marca 100% → botão **"Gerar Plano do Mês"** liberado.
+2. Rodar o orquestrador (Planejador → Copywriter → Direção de arte).
+3. Ver as peças caírem no Kanban de Produção (estágio *Ideia*) e no Calendário.
 
-Nova ordem em `TABS`:
-```
-Visão geral · Dados básicos · Briefing · Estratégia · Público · Mercado
-```
-- Remover a entrada `topics` (`TopicsTab`) e o respectivo `<TabsContent value="topics">`.
-- Remover imports não utilizados (`TopicsTab`, `TopicsSkeleton`, `customerPautasQuery` do prefetch caso não seja mais usado em nenhuma outra aba — manter se `StrategyTab`/`MarketTab` dependerem dele).
-- Mover `<TabsContent value="briefing">` para logo após `basic`.
+## Identidade da marca (fictícia)
 
-### 2. Gate de geração de conteúdo pelo Briefing
+- **Nome:** Café Aurora
+- **Nicho:** cafeteria de especialidade + torrefação artesanal
+- **Missão:** "Iluminar o dia das pessoas com cafés de origem única, colhidos de forma justa."
+- **Posicionamento:** premium acessível — entre o café de rua e a torrefação de luxo.
+- **Cores:** `#4A2C1A` (Café Escuro), `#E9B872` (Dourado Alvorada), `#F5E6D3` (Cremoso), `#2C6E49` (Verde Grão).
+- **Voz:** acolhedora, sensorial, curiosa; nunca pedante.
+- **Público:** 25–45 anos, urbano, café como ritual matinal e social.
+- **Volumetria mensal:** Instagram 20, TikTok 8, YouTube 2, LinkedIn 4.
 
-Regra: só liberar "Gerar Plano do Mês" (e o pipeline de conteúdo derivado do briefing) quando o briefing estiver **100% preenchido**.
+## Entregáveis
 
-Implementação:
-- Exportar a função `computeCompletion` de `briefing-workspace.tsx` (ou mover para `src/lib/briefing-progress.ts`) para ser reutilizada no dashboard do cliente.
-- No `CustomerDashboard`, ler o hub via `getBrandHub` (query já cacheada pelo Briefing) e calcular `completion`.
-- Passar `disabled={completion < 100}` para `MonthlyPlanDialog` e um `reason` textual.
+### 1. Ativos visuais
 
-Em `monthly-plan-dialog.tsx`:
-- Aceitar props `disabled?: boolean` e `disabledReason?: string`.
-- Quando `disabled`, o botão principal fica desabilitado, com tooltip:
-  > "Complete 100% do briefing para liberar a geração de conteúdo."
-- Adicionar um badge/hint no card do dashboard mostrando `Briefing 62% — complete para liberar` com link direto para a aba Briefing.
+- Gerar `src/assets/aurora-logo.png` (logo horizontal, PNG transparente, premium) via image gen.
+- Gerar `src/assets/aurora-favicon.png` (símbolo do grão + sol nascendo, quadrado).
+- Publicar via `lovable-assets create` para ter URL CDN estável — gravar nos campos `clients.logo_url` e `clients.favicon_url`.
 
-### 3. Fluxo pós-liberação (já existente, apenas confirmado)
+### 2. Migração Supabase (uma migration SQL)
 
-O endpoint `/api/jobs/monthly-plan` continua sendo o motor:
-- Usa os agentes atuais (temas, headlines, ganchos) cruzando **todo o briefing** (`brand_hub` + `voice` + volumetria).
-- Cria posts no `posts` com `pipeline_id` padrão → aparecem automaticamente no **Kanban de Produção** e no **Calendário** (o Calendar já lê da mesma tabela).
-- Nenhuma mudança de schema necessária.
+Todas as inserções escopadas à `brand_id = 60fce5a7-1859-4bbd-a887-9018ed7f17b5` e ao novo `client_id` gerado (via CTE). `created_by` = owner atual da brand (via `brand_members` role `owner`).
 
-### Fora de escopo
-- Não mexer no motor de agentes nem em RLS.
-- Não alterar o layout do header do cliente (KPIs, botões Regenerate/Pipeline).
+Registros criados:
+
+- **`clients`** — 1 linha
+  - `name = 'Café Aurora ☕ (mock)'`, `niche`, `color = '#4A2C1A'`, `tone_of_voice`, `palette` jsonb (4 cores), `socials` jsonb (@cafeaurora IG/TikTok/YT), `logo_url`, `favicon_url`.
+  - `brand_hub` jsonb **cobrindo os 19 checks** de `computeBriefingCompletion`:
+    `mission, positioning, values, offer, price_range, differentials, objections, audience, journey, pain_points, desires, tone_text, goals, hashtags (10), palette (4), inspirations (5), do_dont.{do,dont}, volumetry.{instagram,tiktok,linkedin,youtube,facebook}, competitors (3 handles)`.
+
+- **`brand_briefings`** — 1 linha, `data` = espelho estruturado do briefing, `completude = 100`.
+- **`brand_voice_cards`** — 1 linha ativa (`is_active = true`) com pilares, palavras-chave, exemplos ✅/❌.
+- **`brand_personas`** — 1 linha ativa com 2 personas (Marina, 32, arquiteta; Ricardo, 41, empreendedor).
+- **`brand_swot`** — 1 linha ativa (S/W/O/T com 3–4 itens cada).
+- **`brand_cohorts`** — 1 linha ativa com 3 cohorts comportamentais.
+- **`brand_competitors`** — 3 linhas (@suplicycafes, @orfeucafes, @coffeelab) com `bio_colada` e `snapshot` mock.
+- **`content_pipelines`** — 1 pipeline `"Editorial Café Aurora"` (`is_default = true`) + **6 estágios** em `content_pipeline_stages` (Ideia → Roteiro → Produção → Revisão → Aprovado → Publicado) para que o orquestrador tenha onde injetar posts.
+
+### 3. Pós-migração
+
+- Sem mudanças de código de aplicação — apenas dados.
+- Verificação manual: abrir `/customers/<novo-id>` → briefing 100% → clicar **Gerar Plano do Mês** com 1 mês / 12 peças e conferir jobs + posts no Kanban.
+
+## Notas técnicas
+
+- Não altero o cliente existente `541b9028-…` (também chamado "Café Aurora" mas vazio) — o novo entra com sufixo `☕ (mock)` para distinguir e preservar o histórico.
+- Não crio novas tabelas, políticas RLS nem funções — só INSERTs. As policies existentes já permitem membros da brand ler/escrever.
+- Fluxo do `monthly-plan` já lê `brand_hub`, `brand_personas`, `brand_voice_cards`, `brand_competitors` e `content_pipelines/stages` — os inserts acima cobrem 100% das dependências do orquestrador.
