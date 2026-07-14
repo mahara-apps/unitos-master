@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -185,11 +186,15 @@ export function BriefingWorkspace({
   clientId,
   embedded = false,
   onStrategyGenerated,
+  layout = "tabs",
+  appendSlot,
 }: {
   brandId: string;
   clientId: string;
   embedded?: boolean;
   onStrategyGenerated?: () => void;
+  layout?: "tabs" | "stacked";
+  appendSlot?: React.ReactNode;
 }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -411,6 +416,37 @@ export function BriefingWorkspace({
 
   const saveButtonClass =
     "gap-1.5 bg-rose-600 text-white hover:bg-rose-700 border-rose-600";
+
+  if (layout === "stacked") {
+    return (
+      <StackedBrainLayout
+        brandId={brandId}
+        clientId={clientId}
+        client={client}
+        form={form}
+        setForm={setForm}
+        completion={completion}
+        onSave={() => save.mutate()}
+        saving={save.isPending}
+        onGenerateStrategy={() => setRegenOpen(true)}
+        onGenerateIdeas={() => setIdeasOpen(true)}
+        strategyReady={strategyReady}
+        generating={generating}
+        genIdeas={genIdeas}
+        appendSlot={appendSlot}
+        regenOpen={regenOpen}
+        setRegenOpen={setRegenOpen}
+        runStrategy={runStrategy}
+        ideasOpen={ideasOpen}
+        setIdeasOpen={setIdeasOpen}
+        ideasQty={ideasQty}
+        setIdeasQty={setIdeasQty}
+        ideasPeriod={ideasPeriod}
+        setIdeasPeriod={setIdeasPeriod}
+        runIdeas={runIdeas}
+      />
+    );
+  }
 
   const body = (
     <>
