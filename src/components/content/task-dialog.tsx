@@ -342,6 +342,7 @@ function EditBody({
   const uploadRef = useServerFn(uploadPostReferenceMediaFn);
   const removeRef = useServerFn(removePostReferenceMediaFn);
   const signRefs = useServerFn(signPostReferenceMediaFn);
+  const generateRefImage = useServerFn(generatePostReferenceImageFn);
 
   const { data } = useSuspenseQuery({
     queryKey: ["post-detail", postId],
@@ -476,6 +477,15 @@ function EditBody({
   const removeMedia = useMutation({
     mutationFn: (path: string) => removeRef({ data: { postId, path } }),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["post-detail", postId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const generateMedia = useMutation({
+    mutationFn: () => generateRefImage({ data: { postId } }),
+    onSuccess: () => {
+      toast.success("Imagem gerada pela IA");
       qc.invalidateQueries({ queryKey: ["post-detail", postId] });
     },
     onError: (e: Error) => toast.error(e.message),
