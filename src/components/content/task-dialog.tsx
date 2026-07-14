@@ -153,6 +153,62 @@ function QuickApprovalLinkButton({ postId }: { postId: string }) {
   );
 }
 
+function AssigneeSelect({
+  brandId,
+  value,
+  onChange,
+}: {
+  brandId: string;
+  value: string | null;
+  onChange: (id: string | null) => void;
+}) {
+  const fetchMembers = useServerFn(listBrandAssigneesFn);
+  const { data: members } = useQuery({
+    queryKey: ["brand-assignees", brandId],
+    queryFn: () => fetchMembers({ data: { brandId } }),
+    staleTime: 60_000,
+    enabled: !!brandId,
+  });
+  const list = members ?? [];
+  const initials = (name: string) =>
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((s) => s[0]?.toUpperCase() ?? "")
+      .join("") || "?";
+  return (
+    <Select
+      value={value ?? "none"}
+      onValueChange={(v) => onChange(v === "none" ? null : v)}
+    >
+      <SelectTrigger className="h-8 w-auto min-w-[160px] gap-1 text-xs">
+        <SelectValue placeholder="Sem responsável" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="none">
+          <span className="inline-flex items-center gap-2">
+            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-muted text-[9px] text-muted-foreground">
+              ·
+            </span>
+            Sem responsável
+          </span>
+        </SelectItem>
+        {list.map((m) => (
+          <SelectItem key={m.id} value={m.id}>
+            <span className="inline-flex items-center gap-2">
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[9px] font-medium text-white">
+                {initials(m.name)}
+              </span>
+              {m.name}
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 // ----------------- Create -----------------
 
 function CreateBody({
