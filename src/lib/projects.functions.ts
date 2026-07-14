@@ -39,7 +39,7 @@ export const listProjects = createServerFn({ method: "GET" })
     const ids = projects.map((p) => p.id);
     const { data: postRows, error: postErr } = await context.supabase
       .from("posts")
-      .select("id, project_id, status")
+      .select("id, project_id, stage, published_at, review_status")
       .eq("brand_id", data.brandId)
       .in("project_id", ids);
     if (postErr) throw postErr;
@@ -50,10 +50,12 @@ export const listProjects = createServerFn({ method: "GET" })
       const s = stats[p.project_id as string];
       if (!s) continue;
       s.total += 1;
-      const st = String(p.status ?? "").toLowerCase();
-      if (st === "approved") s.approved += 1;
-      if (st === "published") s.published += 1;
-      if (st === "pending" || st === "draft" || st === "in_review") s.pending += 1;
+      const stage = String(p.stage ?? "").toLowerCase();
+      const review = String(p.review_status ?? "").toLowerCase();
+      const published = !!p.published_at || stage === "published";
+      if (published) s.published += 1;
+      if (review === "approved" || stage === "approved") s.approved += 1;
+      if (!published && review !== "approved" && stage !== "approved") s.pending += 1;
     }
     return { projects, stats };
   });
@@ -79,7 +81,7 @@ export const getProject = createServerFn({ method: "GET" })
 
     const { data: postRows } = await context.supabase
       .from("posts")
-      .select("id, title, status, stage, scheduled_for, channels, created_at, updated_at")
+      .select("id, title, stage, review_status, published_at, scheduled_at, channels, cover_url, created_at, updated_at")
       .eq("brand_id", data.brandId)
       .eq("project_id", data.projectId)
       .order("created_at", { ascending: false });
@@ -87,10 +89,12 @@ export const getProject = createServerFn({ method: "GET" })
     const posts = postRows ?? [];
     const stats: ProjectStats = { total: posts.length, approved: 0, published: 0, pending: 0 };
     for (const p of posts) {
-      const st = String(p.status ?? "").toLowerCase();
-      if (st === "approved") stats.approved += 1;
-      if (st === "published") stats.published += 1;
-      if (st === "pending" || st === "draft" || st === "in_review") stats.pending += 1;
+      const stage = String(p.stage ?? "").toLowerCase();
+      const review = String(p.review_status ?? "").toLowerCase();
+      const published = !!p.published_at || stage === "published";
+      if (published) stats.published += 1;
+      if (review === "approved" || stage === "approved") stats.approved += 1;
+      if (!published && review !== "approved" && stage !== "approved") stats.pending += 1;
     }
     return { project, posts, stats };
   });
