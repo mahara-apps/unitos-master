@@ -15,10 +15,7 @@ import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
 const BodySchema = z.object({
   brandId: z.string().uuid(),
   clientId: z.string().uuid(),
-  pipelineId: z.string().uuid().nullable().optional(),
   texto: z.string().trim().min(20).max(20000),
-  pautasQuantidade: z.number().int().min(1).max(20).default(8),
-  pautasPeriodo: z.string().default("próximos 15 dias"),
 });
 
 function buildUserClient(token: string) {
@@ -93,18 +90,7 @@ const SwotSchema = z.object({
     }),
   ),
 });
-const PautasSchema = z.object({
-  pautas: z.array(
-    z.object({
-      titulo: z.string(),
-      pilar_type: z.string(),
-      cohort_alvo: z.string(),
-      formato: z.string(),
-      plataforma: z.string(),
-      gancho: z.string(),
-    }),
-  ),
-});
+// Pauta generation moved to /api/jobs/generate-ideas — Phase 2, human-gated.
 
 async function runStructured<T extends z.ZodTypeAny>(opts: {
   system: string;
@@ -152,8 +138,6 @@ const P = {
     "Você é estrategista sênior. Gere 3–5 cohorts comportamentais. Use EXATAMENTE as chaves do schema em inglês: cohorts[] com name, target_personas, behavioral_traits, content_strategy, conversion_criteria. Não traduza chaves. Responda SOMENTE JSON.",
   swot:
     "Você é estrategista sênior. Gere SWOT + matriz competitiva. Use EXATAMENTE as chaves em inglês: swot_analysis.strengths, weaknesses, opportunities, threats; competitive_matrix[] com competitor_name, our_advantages, vulnerabilities. Não traduza chaves. Responda SOMENTE JSON.",
-  pauta:
-    "Você é estrategista de conteúdo. Gere pautas diversificadas por pilar, plataforma e cohort. Responda SOMENTE JSON.",
 };
 
 // ---------------- Normalizers ----------------
@@ -272,16 +256,6 @@ function normalizeSwotPayload(raw: unknown): z.infer<typeof SwotSchema> {
     })),
   };
 }
-
-const CHANNEL_MAP: Record<string, "instagram" | "tiktok" | "linkedin" | "x" | "youtube" | "blog"> = {
-  instagram: "instagram",
-  tiktok: "tiktok",
-  linkedin: "linkedin",
-  x: "x",
-  twitter: "x",
-  youtube: "youtube",
-  blog: "blog",
-};
 
 async function runPhase1(params: {
   jobId: string;
@@ -405,114 +379,27 @@ async function runPhase1(params: {
       created_by: userId,
     });
 
-    await patch({ progress: 80, step_label: "Gerando ideias de pauta" });
-    const pautas = await runStructured({
-      system: P.pauta,
-      prompt: [
-        `Briefing: ${JSON.stringify(briefing)}`,
-        `Personas: ${JSON.stringify(personas)}`,
-        `Cohorts: ${JSON.stringify(cohorts)}`,
-        `SWOT: ${JSON.stringify(swot)}`,
-        `Quantidade: ${input.pautasQuantidade}`,
-        `Período: ${input.pautasPeriodo}`,
-      ].join("\n"),
-      schema: PautasSchema,
-      strategic: false,
+    // Strategy is done. Notify the user so they can review before generating ideas.
+    const reviewRoute = `/customers/${input.clientId}/briefing`;
+    await supabase.from("notifications").insert({
+      user_id: userId,
+      brand_id: input.brandId,
+      kind: "system",
+      title: "Estratégia gerada — revise antes de criar ideias",
+      body: "Voice card, personas, cohorts e SWOT prontos. Confira, ajuste e depois clique em Gerar ideias.",
+      href: reviewRoute,
+      payload: { event: "strategy_ready", client_id: input.clientId },
     });
-
-    // Persist pautas for the strategy panel.
-    if (Array.isArray(pautas.pautas) && pautas.pautas.length) {
-      await supabase.from("brand_pautas").insert(
-        pautas.pautas.map((p) => ({
-          brand_id: input.brandId,
-          client_id: input.clientId,
-          titulo: p.titulo,
-          pilar: p.pilar_type,
-          pilar_type: p.pilar_type,
-          status: "sent_to_content",
-          cohort_alvo: p.cohort_alvo,
-          formato_recomendado: p.formato,
-          formato: p.formato,
-          plataforma: p.plataforma,
-          gancho: p.gancho,
-          data: p,
-          created_by: userId,
-        })),
-      );
-    }
-
-    await patch({ progress: 92, step_label: "Injetando ideias no pipeline" });
-
-    // Resolve pipeline + first stage.
-    let pipelineId = input.pipelineId ?? null;
-    if (!pipelineId) {
-      const { data: def } = await supabase
-        .from("content_pipelines")
-        .select("id")
-        .eq("brand_id", input.brandId)
-        .eq("client_id", input.clientId)
-        .order("is_default", { ascending: false })
-        .order("position", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      pipelineId = def?.id ?? null;
-    }
-    let ideaStageId: string | null = null;
-    if (pipelineId) {
-      const { data: stage } = await supabase
-        .from("content_pipeline_stages")
-        .select("id")
-        .eq("pipeline_id", pipelineId)
-        .order("position", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      ideaStageId = stage?.id ?? null;
-    }
-
-    let injected = 0;
-    if (pipelineId && ideaStageId && pautas.pautas?.length) {
-      const { data: maxRow } = await supabase
-        .from("posts")
-        .select("position")
-        .eq("stage_id", ideaStageId)
-        .order("position", { ascending: false })
-        .limit(1);
-      let nextPos = ((maxRow?.[0]?.position ?? -1) as number) + 1024;
-      const rows = pautas.pautas.map((p) => {
-        const platform = (p.plataforma ?? "").toLowerCase().trim();
-        const channel = CHANNEL_MAP[platform] ?? "instagram";
-        const row = {
-          brand_id: input.brandId,
-          client_id: input.clientId,
-          pipeline_id: pipelineId!,
-          stage_id: ideaStageId!,
-          title: p.titulo.slice(0, 160),
-          copy: p.gancho,
-          channels: [channel],
-          stage: "idea" as const,
-          position: nextPos,
-          created_by: userId,
-          review_status: "pending",
-          ai_phase: "idea",
-        };
-        nextPos += 1024;
-        return row;
-      });
-      const { error: insErr } = await supabase.from("posts").insert(rows as never);
-      if (insErr) throw insErr;
-      injected = rows.length;
-    }
 
     await patch({
       status: "succeeded",
       progress: 100,
       step_label: null,
       finished_at: new Date().toISOString(),
-      target_route: "/content",
+      target_route: reviewRoute,
       result: {
-        title: `${injected} ideias aguardando aprovação`,
-        content: `Fase 1 concluída. Aprove cada ideia no pipeline para acionar Copy + Design Brief.`,
-        injected: injected > 0,
+        title: "Estratégia pronta para revisão",
+        content: "Revise voice, personas, cohorts e SWOT. Depois clique em Gerar ideias.",
       } as never,
     });
   } catch (err) {
@@ -553,9 +440,9 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
             brand_id: input.brandId,
             client_id: input.clientId,
             user_id: userId,
-            kind: "customer_pipeline_phase1",
-            title: "Pipeline de onboarding — Fase 1",
-            subtitle: "Briefing · Voz · Personas · Cohorts · SWOT · Ideias",
+            kind: "customer_strategy",
+            title: "Estratégia do cliente",
+            subtitle: "Briefing · Voz · Personas · Cohorts · SWOT",
             status: "queued",
             progress: 0,
             input: input as unknown as Database["public"]["Tables"]["ai_jobs"]["Insert"]["input"],

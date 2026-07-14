@@ -7,6 +7,7 @@ import {
   FileUp,
   ImageIcon,
   Loader2,
+  Lightbulb,
   Plus,
   Save,
   Sparkles,
@@ -26,6 +27,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -202,6 +211,51 @@ export function BriefingWorkspace({
   // ------------- Gerar estratégia (fase 1 · pipeline de agentes) --------------
   const [regenOpen, setRegenOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
+
+  // ------------- Gerar ideias (fase 2 · gate humano) --------------
+  const [ideasOpen, setIdeasOpen] = useState(false);
+  const [ideasQty, setIdeasQty] = useState(8);
+  const [ideasPeriod, setIdeasPeriod] = useState("próximos 15 dias");
+  const [genIdeas, setGenIdeas] = useState(false);
+
+  // Strategy artifacts gate — enable "Gerar ideias" only when all four exist.
+  const strategyQ = useQuery({
+    queryKey: ["strategy-gate", brandId, clientId],
+    queryFn: async () => {
+      const [v, p, c, s] = await Promise.all([
+        supabase.from("brand_voice_cards").select("id").eq("brand_id", brandId).eq("client_id", clientId).eq("is_active", true).maybeSingle(),
+        supabase.from("brand_personas").select("id").eq("brand_id", brandId).eq("client_id", clientId).eq("is_active", true).maybeSingle(),
+        supabase.from("brand_cohorts").select("id").eq("brand_id", brandId).eq("client_id", clientId).eq("is_active", true).maybeSingle(),
+        supabase.from("brand_swot").select("id").eq("brand_id", brandId).eq("client_id", clientId).eq("is_active", true).maybeSingle(),
+      ]);
+      return { voice: !!v.data, personas: !!p.data, cohorts: !!c.data, swot: !!s.data };
+    },
+    refetchOnWindowFocus: true,
+  });
+  const strategyReady =
+    !!strategyQ.data && strategyQ.data.voice && strategyQ.data.personas && strategyQ.data.cohorts && strategyQ.data.swot;
+
+  const runIdeas = async () => {
+    setGenIdeas(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) throw new Error("Sessão expirada");
+      const res = await fetch("/api/jobs/generate-ideas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ brandId, clientId, quantidade: ideasQty, periodo: ideasPeriod }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      toast.success("Gerando ideias em segundo plano — acompanhe pelo indicador de IA.");
+      qc.invalidateQueries({ queryKey: ["ai-jobs", "active"] });
+      setIdeasOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao gerar ideias");
+    } finally {
+      setGenIdeas(false);
+    }
+  };
 
   const buildStrategyBriefing = (): string => {
     if (!form) return "";
@@ -406,6 +460,21 @@ export function BriefingWorkspace({
             </Button>
             <Button
               size="sm"
+              variant="outline"
+              className="gap-1.5 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-200 disabled:opacity-50"
+              onClick={() => setIdeasOpen(true)}
+              disabled={!strategyReady || genIdeas}
+              title={strategyReady ? "Gerar ideias de conteúdo" : "Gere e revise a estratégia primeiro"}
+            >
+              {genIdeas ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Lightbulb className="h-3.5 w-3.5" />
+              )}
+              Gerar ideias
+            </Button>
+            <Button
+              size="sm"
               className={saveButtonClass}
               onClick={() => save.mutate()}
               disabled={save.isPending}
@@ -444,6 +513,21 @@ export function BriefingWorkspace({
                     <Sparkles className="h-3.5 w-3.5" />
                   )}
                   Gerar estratégia com IA
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-200 disabled:opacity-50"
+                  onClick={() => setIdeasOpen(true)}
+                  disabled={!strategyReady || genIdeas}
+                  title={strategyReady ? "Gerar ideias de conteúdo" : "Revise a estratégia primeiro"}
+                >
+                  {genIdeas ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Lightbulb className="h-3.5 w-3.5" />
+                  )}
+                  Gerar ideias
                 </Button>
               </div>
             </div>
@@ -539,6 +623,49 @@ export function BriefingWorkspace({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={ideasOpen} onOpenChange={setIdeasOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Gerar ideias de conteúdo</DialogTitle>
+            <DialogDescription>
+              As pautas serão criadas a partir da estratégia revisada (voice, personas, cohorts e SWOT)
+              e injetadas no pipeline como ideias aguardando aprovação.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="ideas-qty">Quantidade de ideias</Label>
+              <Input
+                id="ideas-qty"
+                type="number"
+                min={1}
+                max={20}
+                value={ideasQty}
+                onChange={(e) => setIdeasQty(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="ideas-period">Período</Label>
+              <Input
+                id="ideas-period"
+                value={ideasPeriod}
+                onChange={(e) => setIdeasPeriod(e.target.value)}
+                placeholder="próximos 15 dias"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIdeasOpen(false)} disabled={genIdeas}>
+              Cancelar
+            </Button>
+            <Button onClick={runIdeas} disabled={genIdeas} className="gap-1.5">
+              {genIdeas ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lightbulb className="h-3.5 w-3.5" />}
+              {genIdeas ? "Iniciando…" : "Gerar ideias"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 
