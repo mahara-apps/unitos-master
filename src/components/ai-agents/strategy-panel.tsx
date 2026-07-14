@@ -267,16 +267,16 @@ export function OverviewTab({ brandId, clientId }: Scope) {
   const { data: market } = useSuspenseQuery(customerMarketQuery({ brandId, clientId }));
 
   const briefing = (core.briefing?.data ?? {}) as Record<string, unknown>;
-  const voice = (core.voice?.data as { voice_card?: { brand_personality?: string; tone_characteristics?: string[] } } | null)?.voice_card;
+  const voice = normalizeVoice(core.voice?.data);
   const personas = normalizePersonas(target.personas?.data);
   const cohorts = normalizeCohorts(target.cohorts?.data);
-  const swot = (market.swot?.data as { swot_analysis?: Record<string, string[]> } | null)?.swot_analysis;
+  const swot = normalizeSwot(market.swot?.data).analysis;
 
   const kpis = [
     { label: "Completude briefing", value: `${core.briefing?.completude ?? 0}%` },
     { label: "Personas", value: personas.length },
     { label: "Cohorts", value: cohorts.length },
-    { label: "Forças (SWOT)", value: swot?.strengths?.length ?? 0 },
+    { label: "Forças (SWOT)", value: swot.strengths.length },
   ];
 
   return (
@@ -337,7 +337,7 @@ export function OverviewTab({ brandId, clientId }: Scope) {
 export function StrategyTab({ brandId, clientId }: Scope) {
   const { data: core } = useSuspenseQuery(customerCoreQuery({ brandId, clientId }));
   const briefing = (core.briefing?.data ?? {}) as Record<string, unknown>;
-  const voice = (core.voice?.data as { voice_card?: { brand_personality?: string; tone_characteristics?: string[]; vocabulary_rules?: { words_to_use?: string[]; words_to_avoid?: string[] }; brand_phrases_examples?: string[] } } | null)?.voice_card;
+  const voice = normalizeVoice(core.voice?.data);
 
   const rows: Array<[string, unknown]> = [
     ["Público-alvo", briefing.publico_alvo],
@@ -540,18 +540,13 @@ export function TargetTab({ brandId, clientId }: Scope) {
 
 export function MarketTab({ brandId, clientId }: Scope) {
   const { data: market } = useSuspenseQuery(customerMarketQuery({ brandId, clientId }));
-  const swot = (market.swot?.data as {
-    swot_analysis?: { strengths?: string[]; weaknesses?: string[]; opportunities?: string[]; threats?: string[] };
-    competitive_matrix?: Array<{ competitor_name: string; our_advantages: string; vulnerabilities: string }>;
-  } | null);
-  const analysis = swot?.swot_analysis;
-  const matrix = swot?.competitive_matrix ?? [];
+  const { analysis, matrix } = normalizeSwot(market.swot?.data);
 
   const quadrants = [
-    { key: "strengths", label: "Strengths", items: analysis?.strengths ?? [], icon: TrendingUp, tone: "border-[color:var(--health-good)]/40 bg-[color:var(--health-good)]/10", accent: "text-[color:var(--health-good)]" },
-    { key: "weaknesses", label: "Weaknesses", items: analysis?.weaknesses ?? [], icon: ShieldAlert, tone: "border-[color:var(--severity-warning)]/40 bg-[color:var(--severity-warning)]/10", accent: "text-[color:var(--severity-warning)]" },
-    { key: "opportunities", label: "Opportunities", items: analysis?.opportunities ?? [], icon: Zap, tone: "border-primary/30 bg-primary/10", accent: "text-primary" },
-    { key: "threats", label: "Threats", items: analysis?.threats ?? [], icon: ShieldAlert, tone: "border-destructive/40 bg-destructive/10", accent: "text-destructive" },
+    { key: "strengths", label: "Strengths", items: analysis.strengths, icon: TrendingUp, tone: "border-[color:var(--health-good)]/40 bg-[color:var(--health-good)]/10", accent: "text-[color:var(--health-good)]" },
+    { key: "weaknesses", label: "Weaknesses", items: analysis.weaknesses, icon: ShieldAlert, tone: "border-[color:var(--severity-warning)]/40 bg-[color:var(--severity-warning)]/10", accent: "text-[color:var(--severity-warning)]" },
+    { key: "opportunities", label: "Opportunities", items: analysis.opportunities, icon: Zap, tone: "border-primary/30 bg-primary/10", accent: "text-primary" },
+    { key: "threats", label: "Threats", items: analysis.threats, icon: ShieldAlert, tone: "border-destructive/40 bg-destructive/10", accent: "text-destructive" },
   ];
 
   return (
