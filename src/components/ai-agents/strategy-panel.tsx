@@ -58,13 +58,22 @@ function normalizePersonas(data: unknown): NormalizedPersona[] {
     const dorPrincipal = p.dor_principal as string | undefined;
     const dores = Array.isArray(p.dores) ? (p.dores as string[]) : dorPrincipal ? [dorPrincipal] : [];
     return {
-      nome: (p.nome as string) ?? (p.name as string) ?? "Persona",
-      descricao: (p.perfil as string) ?? (p.descricao as string) ?? (p.description as string) ?? "",
+      nome:
+        (p.nome as string) ??
+        (p.nome_persona as string) ??
+        (p.name as string) ??
+        "Persona",
+      descricao:
+        (p.perfil as string) ??
+        (p.descricao as string) ??
+        (p.biografia as string) ??
+        (p.description as string) ??
+        "",
       dores,
       canais_preferidos: Array.isArray(p.canais_preferidos)
         ? (p.canais_preferidos as string[])
-        : Array.isArray(p.ganchos_sugeridos)
-          ? []
+        : Array.isArray(p.canais)
+          ? (p.canais as string[])
           : [],
     };
   });
@@ -81,12 +90,128 @@ function normalizeCohorts(data: unknown): NormalizedCohort[] {
       ? ((parsed as { cohorts: Record<string, unknown>[] }).cohorts)
       : [];
   return arr.map((c) => ({
-    name: (c.name as string) ?? "Cohort",
-    target_personas: Array.isArray(c.target_personas) ? (c.target_personas as string[]) : [],
-    behavioral_traits: (c.behavioral_traits as string) ?? "",
-    content_strategy: (c.content_strategy as string) ?? "",
-    conversion_criteria: (c.conversion_criteria as string) ?? "",
+    name: (c.name as string) ?? (c.nome as string) ?? (c.nome_cohort as string) ?? "Cohort",
+    target_personas: Array.isArray(c.target_personas)
+      ? (c.target_personas as string[])
+      : Array.isArray(c.personas_alvo)
+        ? (c.personas_alvo as string[])
+        : Array.isArray(c.personas)
+          ? (c.personas as string[])
+          : [],
+    behavioral_traits:
+      (c.behavioral_traits as string) ??
+      (c.comportamento as string) ??
+      (c.tracos_comportamentais as string) ??
+      "",
+    content_strategy:
+      (c.content_strategy as string) ??
+      (c.estrategia_conteudo as string) ??
+      (c.estrategia_de_conteudo as string) ??
+      "",
+    conversion_criteria:
+      (c.conversion_criteria as string) ??
+      (c.criterio_conversao as string) ??
+      (c.criterio_de_conversao as string) ??
+      "",
   }));
+}
+
+// Voice card can arrive canonical (voice_card.*) or as a PT-BR shape
+// (persona.arquetipo, tom_de_voz.principais, guia_linguistico.*, exemplos_praticos.*).
+type NormalizedVoice = {
+  brand_personality: string;
+  tone_characteristics: string[];
+  vocabulary_rules: { words_to_use: string[]; words_to_avoid: string[] };
+  brand_phrases_examples: string[];
+};
+
+function normalizeVoice(data: unknown): NormalizedVoice | null {
+  const parsed = extractRaw<Record<string, unknown>>(data);
+  if (!parsed) return null;
+  const vc = (parsed.voice_card as Record<string, unknown> | undefined) ?? parsed;
+  const persona = vc.persona as Record<string, unknown> | undefined;
+  const tom = vc.tom_de_voz as Record<string, unknown> | undefined;
+  const lingu = vc.guia_linguistico as Record<string, unknown> | undefined;
+  const ex = vc.exemplos_praticos as Record<string, unknown> | undefined;
+
+  const brand_personality =
+    (vc.brand_personality as string) ??
+    (persona?.arquetipo as string) ??
+    (persona?.descricao as string) ??
+    (tom?.descricao_detalhada as string) ??
+    "";
+  const tone_characteristics = Array.isArray(vc.tone_characteristics)
+    ? (vc.tone_characteristics as string[])
+    : Array.isArray(tom?.principais)
+      ? (tom!.principais as string[])
+      : [];
+  const vr = vc.vocabulary_rules as Record<string, unknown> | undefined;
+  const words_to_use = Array.isArray(vr?.words_to_use)
+    ? (vr!.words_to_use as string[])
+    : Array.isArray(lingu?.vocabulario_usar)
+      ? (lingu!.vocabulario_usar as string[])
+      : [];
+  const words_to_avoid = Array.isArray(vr?.words_to_avoid)
+    ? (vr!.words_to_avoid as string[])
+    : Array.isArray(lingu?.vocabulario_evitar)
+      ? (lingu!.vocabulario_evitar as string[])
+      : [];
+  const brand_phrases_examples = Array.isArray(vc.brand_phrases_examples)
+    ? (vc.brand_phrases_examples as string[])
+    : ex
+      ? [ex.post_instagram_certo, ex.resposta_cliente_certo].filter(
+          (s): s is string => typeof s === "string" && s.length > 0,
+        )
+      : [];
+
+  if (!brand_personality && !tone_characteristics.length && !words_to_use.length) return null;
+  return {
+    brand_personality,
+    tone_characteristics,
+    vocabulary_rules: { words_to_use, words_to_avoid },
+    brand_phrases_examples,
+  };
+}
+
+// SWOT: canonical { swot_analysis, competitive_matrix } or PT-BR
+// { forcas/fraquezas/oportunidades/ameacas, matriz_competitiva[] }.
+type NormalizedSwot = {
+  analysis: { strengths: string[]; weaknesses: string[]; opportunities: string[]; threats: string[] };
+  matrix: Array<{ competitor_name: string; our_advantages: string; vulnerabilities: string }>;
+};
+
+function normalizeSwot(data: unknown): NormalizedSwot {
+  const parsed = extractRaw<Record<string, unknown>>(data) ?? {};
+  const analysisRaw = (parsed.swot_analysis as Record<string, unknown> | undefined) ?? parsed;
+  const list = (v: unknown): string[] => (Array.isArray(v) ? (v as string[]) : []);
+  const analysis = {
+    strengths: list(analysisRaw.strengths ?? analysisRaw.forcas ?? analysisRaw.forças),
+    weaknesses: list(analysisRaw.weaknesses ?? analysisRaw.fraquezas),
+    opportunities: list(analysisRaw.opportunities ?? analysisRaw.oportunidades),
+    threats: list(analysisRaw.threats ?? analysisRaw.ameacas ?? analysisRaw.ameaças),
+  };
+  const rawMatrix = Array.isArray(parsed.competitive_matrix)
+    ? (parsed.competitive_matrix as Record<string, unknown>[])
+    : Array.isArray(parsed.matriz_competitiva)
+      ? (parsed.matriz_competitiva as Record<string, unknown>[])
+      : [];
+  const matrix = rawMatrix.map((c) => ({
+    competitor_name:
+      (c.competitor_name as string) ??
+      (c.nome as string) ??
+      (c.concorrente as string) ??
+      "—",
+    our_advantages:
+      (c.our_advantages as string) ??
+      (c.vantagens as string) ??
+      (c.nossas_vantagens as string) ??
+      "",
+    vulnerabilities:
+      (c.vulnerabilities as string) ??
+      (c.vulnerabilidades as string) ??
+      "",
+  }));
+  return { analysis, matrix };
 }
 
 // ---------- helpers ----------
@@ -142,16 +267,16 @@ export function OverviewTab({ brandId, clientId }: Scope) {
   const { data: market } = useSuspenseQuery(customerMarketQuery({ brandId, clientId }));
 
   const briefing = (core.briefing?.data ?? {}) as Record<string, unknown>;
-  const voice = (core.voice?.data as { voice_card?: { brand_personality?: string; tone_characteristics?: string[] } } | null)?.voice_card;
+  const voice = normalizeVoice(core.voice?.data);
   const personas = normalizePersonas(target.personas?.data);
   const cohorts = normalizeCohorts(target.cohorts?.data);
-  const swot = (market.swot?.data as { swot_analysis?: Record<string, string[]> } | null)?.swot_analysis;
+  const swot = normalizeSwot(market.swot?.data).analysis;
 
   const kpis = [
     { label: "Completude briefing", value: `${core.briefing?.completude ?? 0}%` },
     { label: "Personas", value: personas.length },
     { label: "Cohorts", value: cohorts.length },
-    { label: "Forças (SWOT)", value: swot?.strengths?.length ?? 0 },
+    { label: "Forças (SWOT)", value: swot.strengths.length },
   ];
 
   return (
@@ -212,7 +337,7 @@ export function OverviewTab({ brandId, clientId }: Scope) {
 export function StrategyTab({ brandId, clientId }: Scope) {
   const { data: core } = useSuspenseQuery(customerCoreQuery({ brandId, clientId }));
   const briefing = (core.briefing?.data ?? {}) as Record<string, unknown>;
-  const voice = (core.voice?.data as { voice_card?: { brand_personality?: string; tone_characteristics?: string[]; vocabulary_rules?: { words_to_use?: string[]; words_to_avoid?: string[] }; brand_phrases_examples?: string[] } } | null)?.voice_card;
+  const voice = normalizeVoice(core.voice?.data);
 
   const rows: Array<[string, unknown]> = [
     ["Público-alvo", briefing.publico_alvo],
@@ -415,18 +540,13 @@ export function TargetTab({ brandId, clientId }: Scope) {
 
 export function MarketTab({ brandId, clientId }: Scope) {
   const { data: market } = useSuspenseQuery(customerMarketQuery({ brandId, clientId }));
-  const swot = (market.swot?.data as {
-    swot_analysis?: { strengths?: string[]; weaknesses?: string[]; opportunities?: string[]; threats?: string[] };
-    competitive_matrix?: Array<{ competitor_name: string; our_advantages: string; vulnerabilities: string }>;
-  } | null);
-  const analysis = swot?.swot_analysis;
-  const matrix = swot?.competitive_matrix ?? [];
+  const { analysis, matrix } = normalizeSwot(market.swot?.data);
 
   const quadrants = [
-    { key: "strengths", label: "Strengths", items: analysis?.strengths ?? [], icon: TrendingUp, tone: "border-[color:var(--health-good)]/40 bg-[color:var(--health-good)]/10", accent: "text-[color:var(--health-good)]" },
-    { key: "weaknesses", label: "Weaknesses", items: analysis?.weaknesses ?? [], icon: ShieldAlert, tone: "border-[color:var(--severity-warning)]/40 bg-[color:var(--severity-warning)]/10", accent: "text-[color:var(--severity-warning)]" },
-    { key: "opportunities", label: "Opportunities", items: analysis?.opportunities ?? [], icon: Zap, tone: "border-primary/30 bg-primary/10", accent: "text-primary" },
-    { key: "threats", label: "Threats", items: analysis?.threats ?? [], icon: ShieldAlert, tone: "border-destructive/40 bg-destructive/10", accent: "text-destructive" },
+    { key: "strengths", label: "Strengths", items: analysis.strengths, icon: TrendingUp, tone: "border-[color:var(--health-good)]/40 bg-[color:var(--health-good)]/10", accent: "text-[color:var(--health-good)]" },
+    { key: "weaknesses", label: "Weaknesses", items: analysis.weaknesses, icon: ShieldAlert, tone: "border-[color:var(--severity-warning)]/40 bg-[color:var(--severity-warning)]/10", accent: "text-[color:var(--severity-warning)]" },
+    { key: "opportunities", label: "Opportunities", items: analysis.opportunities, icon: Zap, tone: "border-primary/30 bg-primary/10", accent: "text-primary" },
+    { key: "threats", label: "Threats", items: analysis.threats, icon: ShieldAlert, tone: "border-destructive/40 bg-destructive/10", accent: "text-destructive" },
   ];
 
   return (
