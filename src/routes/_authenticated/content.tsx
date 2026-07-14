@@ -31,9 +31,8 @@ import {
   renamePipelineFn,
 } from "@/lib/content.functions";
 import { ContentBoard } from "@/components/content/content-board";
-import { PostDetailDialog } from "@/components/content/post-detail-dialog";
 import { ColumnConfigDialog } from "@/components/content/column-config-dialog";
-import { NewPostDialog } from "@/components/content/new-post-dialog";
+import { TaskDialog } from "@/components/content/task-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import {
   DropdownMenu,
@@ -208,16 +207,6 @@ function ContentReady({ brandId, clientId }: { brandId: string; clientId: string
         pending={renameMutation.isPending}
       />
 
-      {effectivePipelineId && openPostId ? (
-        <Suspense fallback={null}>
-          <PostDetailDialog
-            postId={openPostId}
-            onClose={() => setOpenPostId(null)}
-            boardQueryKey={["content-board", brandId, clientId, effectivePipelineId] as const}
-          />
-        </Suspense>
-      ) : null}
-
       {effectivePipelineId ? (
         <Suspense fallback={null}>
           <BoardExtras
@@ -229,6 +218,8 @@ function ContentReady({ brandId, clientId }: { brandId: string; clientId: string
             openNewTask={openNewTask}
             setOpenNewTask={setOpenNewTask}
             newTaskStageId={newTaskStageId}
+            openPostId={openPostId}
+            setOpenPostId={setOpenPostId}
           />
         </Suspense>
       ) : null}
@@ -296,6 +287,8 @@ function BoardExtras({
   openNewTask,
   setOpenNewTask,
   newTaskStageId,
+  openPostId,
+  setOpenPostId,
 }: {
   brandId: string;
   clientId: string;
@@ -305,6 +298,8 @@ function BoardExtras({
   openNewTask: boolean;
   setOpenNewTask: (v: boolean) => void;
   newTaskStageId: string | null;
+  openPostId: string | null;
+  setOpenPostId: (v: string | null) => void;
 }) {
   const loadBoard = useServerFn(loadBoardFn);
   const queryKey = useMemo(
@@ -324,7 +319,8 @@ function BoardExtras({
         stages={data.stages}
         invalidateKey={queryKey}
       />
-      <NewPostDialog
+      <TaskDialog
+        mode="create"
         open={openNewTask}
         onOpenChange={setOpenNewTask}
         brandId={brandId}
@@ -334,6 +330,19 @@ function BoardExtras({
         defaultStageId={newTaskStageId ?? data.stages[0]?.id}
         invalidateKey={queryKey}
       />
+      {openPostId ? (
+        <TaskDialog
+          mode="edit"
+          open={!!openPostId}
+          onOpenChange={(o) => !o && setOpenPostId(null)}
+          brandId={brandId}
+          clientId={clientId}
+          pipelineId={pipelineId}
+          stages={data.stages}
+          postId={openPostId}
+          invalidateKey={queryKey}
+        />
+      ) : null}
     </>
   );
 }
