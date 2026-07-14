@@ -544,13 +544,11 @@ function PostCard({
           </div>
           <div className="flex items-center gap-1.5">
             {scheduled ? (
-              <span className="inline-flex items-center gap-0.5 tabular-nums">
+              <span className="inline-flex items-center gap-0.5 tabular-nums" title="Agendado para">
                 <CalendarDays className="h-3 w-3" />
                 {scheduled.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
               </span>
-            ) : (
-              <span className="opacity-50">—</span>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
