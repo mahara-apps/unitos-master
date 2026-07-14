@@ -6,7 +6,7 @@ export type AgentPromptRow = {
   agent_id: string;
   agent_name: string;
   system_prompt: string;
-  required_fields: unknown;
+  required_fields: string[] | null;
   updated_at: string;
 };
 
@@ -33,7 +33,15 @@ export const listAgentPromptsFn = createServerFn({ method: "POST" })
       .select("agent_id, agent_name, system_prompt, required_fields, updated_at")
       .order("agent_name", { ascending: true });
     if (error) throw error;
-    return (data ?? []) as AgentPromptRow[];
+    return ((data ?? []) as Array<Record<string, unknown>>).map((r) => ({
+      agent_id: String(r.agent_id),
+      agent_name: String(r.agent_name),
+      system_prompt: String(r.system_prompt ?? ""),
+      required_fields: Array.isArray(r.required_fields)
+        ? (r.required_fields as string[])
+        : null,
+      updated_at: String(r.updated_at),
+    }));
   });
 
 export const listAgentJobsFn = createServerFn({ method: "POST" })
