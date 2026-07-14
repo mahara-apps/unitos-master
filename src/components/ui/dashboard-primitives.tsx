@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -52,16 +52,15 @@ export function DashboardIconFrame({
 export function DashboardMutedPill({
   children,
   className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+  ...props
+}: ComponentPropsWithoutRef<"span">) {
   return (
     <span
       className={cn(
         "inline-flex items-center gap-1 rounded-md border border-border/60 bg-background/60 px-2 py-1 text-[11px] text-muted-foreground",
         className,
       )}
+      {...props}
     >
       {children}
     </span>
@@ -71,16 +70,15 @@ export function DashboardMutedPill({
 export function DashboardCountBadge({
   children,
   className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+  ...props
+}: ComponentPropsWithoutRef<"span">) {
   return (
     <span
       className={cn(
         "rounded-md border border-border/60 bg-background/60 px-1.5 py-0.5 font-mono text-xs tabular-nums text-foreground",
         className,
       )}
+      {...props}
     >
       {children}
     </span>
