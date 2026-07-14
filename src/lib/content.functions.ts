@@ -492,6 +492,21 @@ export const createPostFn = createServerFn({ method: "POST" })
       if (data[k] !== undefined) insertRow[k as string] = data[k];
     }
 
+    // Fallback: if no assignee provided, attribute to brand owner (admin).
+    const hasAssignees = Array.isArray(data.assignees) && data.assignees.length > 0;
+    if (!hasAssignees) {
+      const { data: ownerRow } = await context.supabase
+        .from("brand_members")
+        .select("user_id")
+        .eq("brand_id", data.brandId)
+        .eq("role", "owner")
+        .limit(1)
+        .maybeSingle();
+      const fallback = (ownerRow?.user_id as string | undefined) ?? context.userId;
+      insertRow.assignee_id = fallback;
+      insertRow.assignees = [fallback];
+    }
+
     const { data: post, error } = await context.supabase
       .from("posts")
       .insert(insertRow as never)
