@@ -30,7 +30,13 @@ export type Placement = {
   client_id: string;
   format: PlacementFormat;
   scheduled_at: string | null;
-  copy_override: Record<string, unknown> | null;
+  copy_override: {
+    hook?: string;
+    headline?: string;
+    copy?: string;
+    cta?: string;
+    hashtags?: string;
+  } | null;
   media: Array<{ path: string; type?: string; name?: string }>;
   status: "draft" | "scheduled" | "published" | "failed";
   published_at: string | null;
@@ -38,10 +44,18 @@ export type Placement = {
   external_ref: string | null;
 };
 
+const CopyOverrideSchema = z.object({
+  hook: z.string().optional(),
+  headline: z.string().optional(),
+  copy: z.string().optional(),
+  cta: z.string().optional(),
+  hashtags: z.string().optional(),
+});
+
 const PlacementInput = z.object({
   format: z.enum(PLACEMENT_FORMATS),
   scheduled_at: z.string().nullable().optional(),
-  copy_override: z.record(z.string(), z.any()).nullable().optional(),
+  copy_override: CopyOverrideSchema.nullable().optional(),
   media: z
     .array(z.object({ path: z.string(), type: z.string().optional(), name: z.string().optional() }))
     .optional(),
