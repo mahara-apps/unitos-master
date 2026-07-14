@@ -80,7 +80,13 @@ export function AiJobsIndicator() {
                       <div className="mt-1 line-clamp-2 text-[11px] text-red-500">{j.error}</div>
                     )}
                     <div className="mt-1 text-[10px] text-muted-foreground">
-                      {formatDistanceToNow(new Date(j.created_at), { addSuffix: true, locale: ptBR })}
+                      {(() => {
+                        const created = new Date(j.created_at);
+                        const diffMs = Date.now() - created.getTime();
+                        // Clamp relógios dessincronizados (sandbox/preview) para evitar "em cerca de X horas"
+                        const safe = diffMs < 0 ? new Date() : created;
+                        return formatDistanceToNow(safe, { addSuffix: true, locale: ptBR });
+                      })()}
                     </div>
                   </div>
                   {!isActive && (
