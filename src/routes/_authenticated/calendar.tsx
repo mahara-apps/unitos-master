@@ -1,11 +1,10 @@
 import { useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronLeft, ChevronRight, CalendarDays, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -22,6 +21,8 @@ import { TaskDialog } from "@/components/content/task-dialog";
 import { loadBoardFn, ensureDefaultPipelineFn, type PipelineStage } from "@/lib/content.functions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { PanelCard } from "@/components/ui/panel-card";
+import { PanelEmptyState } from "@/components/ui/panel-empty";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   component: CalendarPage,
@@ -151,13 +152,13 @@ function CalendarPage() {
       subtitle: `Publicações agendadas · ${q.data?.length ?? 0} posts no mês`,
       actions: (
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => setCursor((d) => addMonths(d, -1))}>
+          <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => setCursor((d) => addMonths(d, -1))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setCursor(startOfMonth(new Date()))}>
+          <Button variant="outline" size="sm" className="h-9" onClick={() => setCursor(startOfMonth(new Date()))}>
             Hoje
           </Button>
-          <Button variant="outline" size="icon" onClick={() => setCursor((d) => addMonths(d, 1))}>
+          <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => setCursor((d) => addMonths(d, 1))}>
             <ChevronRight className="h-4 w-4" />
           </Button>
           {brandId ? (
@@ -177,15 +178,24 @@ function CalendarPage() {
 
   if (!brandId) {
     return (
-      <div className="p-8 text-sm text-muted-foreground">
-        Selecione um workspace para visualizar o calendário editorial.
+      <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
+        <PanelCard
+          title="Selecione um workspace"
+          subtitle="O calendário editorial é organizado por workspace."
+          icon={<CalendarDays className="h-4 w-4" />}
+        >
+          <PanelEmptyState
+            icon={<CalendarDays className="h-5 w-5" />}
+            text="Escolha um workspace na barra lateral para visualizar as publicações agendadas."
+          />
+        </PanelCard>
       </div>
     );
   }
 
   return (
     <TooltipProvider delayDuration={200}>
-    <div className="flex h-full flex-col gap-5 p-6">
+    <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       {/* Volumetria */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {volumetry.map((v) => (
@@ -195,7 +205,7 @@ function CalendarPage() {
             onClick={() => setFormatFilter((cur) => (cur === v.key ? null : v.key))}
             aria-pressed={formatFilter === v.key}
             className={cn(
-              "group relative overflow-hidden rounded-xl border bg-card p-4 text-left transition-all hover:border-foreground/20 hover:-translate-y-px",
+              "group relative overflow-hidden rounded-xl border border-border/60 bg-card p-4 text-left transition-all hover:border-foreground/20 hover:-translate-y-px",
               formatFilter === v.key
                 ? "border-foreground/40 ring-2 ring-foreground/10 shadow-sm"
                 : formatFilter
@@ -221,9 +231,8 @@ function CalendarPage() {
         ))}
       </section>
 
-      <Card className="flex-1 overflow-hidden">
-        <CardContent className="p-0">
-          <div className="grid grid-cols-7 border-b bg-muted/40 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+      <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
+          <div className="grid grid-cols-7 border-b border-border/60 bg-muted/40 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
               <div key={d} className="px-3 py-3 text-center">
                 {d}
@@ -240,7 +249,7 @@ function CalendarPage() {
                 <div
                   key={i}
                   className={cn(
-                    "border-b border-r p-2 text-xs transition-colors",
+                    "border-b border-r border-border/60 p-2 text-xs transition-colors",
                     "group/day relative",
                     isCurrentMonth ? "hover:bg-muted/30" : "bg-muted/20 text-muted-foreground/50",
                   )}
@@ -326,14 +335,15 @@ function CalendarPage() {
               );
             })}
           </div>
-        </CardContent>
-      </Card>
+      </div>
 
-      <section>
-        <h2 className="mb-2 flex items-center gap-2 text-sm font-medium">
-          <CalendarDays className="h-4 w-4" /> Próximas publicações
-          {formatFilter ? (
-            <Badge variant="secondary" className="ml-1 text-[10px] capitalize">
+      <PanelCard
+        title="Próximas publicações"
+        subtitle={`${filteredPosts.length} ${filteredPosts.length === 1 ? "publicação" : "publicações"} no mês`}
+        icon={<CalendarDays className="h-4 w-4" />}
+        action={
+          formatFilter ? (
+            <Badge variant="secondary" className="text-[10px] capitalize">
               {formatFilter}
               <button
                 type="button"
@@ -344,42 +354,46 @@ function CalendarPage() {
                 ×
               </button>
             </Badge>
-          ) : null}
-        </h2>
+          ) : null
+        }
+      >
         {q.isLoading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 px-4 py-6 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
           </div>
         ) : filteredPosts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {formatFilter
-              ? `Nenhum post do formato "${formatFilter}" neste mês.`
-              : <>Nenhum post agendado neste mês. Gere um plano em <Link to="/content" className="underline">Produção</Link>.</>}
-          </p>
+          <PanelEmptyState
+            icon={<CalendarDays className="h-5 w-5" />}
+            text={
+              formatFilter
+                ? `Nenhum post do formato "${formatFilter}" neste mês.`
+                : "Nenhum post agendado neste mês. Gere um plano em Produção."
+            }
+          />
         ) : (
-          <ul className="divide-y rounded-md border">
+          <ul className="divide-y divide-border/60">
             {filteredPosts.slice(0, 8).map((p) => (
               <li key={p.id}>
                 <button
                   type="button"
                   onClick={() => handleOpenPost(p)}
-                  className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
+                  className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-muted/40"
                 >
-                <div className="min-w-0">
-                  <div className="truncate font-medium">{p.title}</div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {new Date(p.scheduled_at).toLocaleString("pt-BR")} · {p.channels?.join(", ")}
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">{p.title}</div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {new Date(p.scheduled_at).toLocaleString("pt-BR")} · {p.channels?.join(", ")}
+                    </div>
                   </div>
-                </div>
-                <Badge variant="outline" className="capitalize">
-                  {p.review_status ?? "pendente"}
-                </Badge>
+                  <Badge variant="outline" className="capitalize">
+                    {p.review_status ?? "pendente"}
+                  </Badge>
                 </button>
               </li>
             ))}
           </ul>
         )}
-      </section>
+      </PanelCard>
 
       {openPost && openPost.pipeline_id && stagesQ.data ? (
         <TaskDialog
