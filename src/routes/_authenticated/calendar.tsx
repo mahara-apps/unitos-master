@@ -213,7 +213,12 @@ function CalendarPage() {
         ) : (
           <ul className="divide-y rounded-md border">
             {(q.data ?? []).slice(0, 8).map((p) => (
-              <li key={p.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onClick={() => setOpenPost(p)}
+                  className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
+                >
                 <div className="min-w-0">
                   <div className="truncate font-medium">{p.title}</div>
                   <div className="truncate text-xs text-muted-foreground">
@@ -223,6 +228,7 @@ function CalendarPage() {
                 <Badge variant="outline" className="capitalize">
                   {p.review_status ?? "pendente"}
                 </Badge>
+                </button>
               </li>
             ))}
           </ul>
