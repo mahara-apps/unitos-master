@@ -1,5 +1,6 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
+import { z } from "zod";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -42,11 +43,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/_authenticated/content")({
+  validateSearch: (s: Record<string, unknown>) =>
+    z
+      .object({
+        project: z.string().uuid().optional(),
+        new: z.coerce.boolean().optional(),
+      })
+      .parse(s),
   component: ContentPage,
 });
 
 function ContentPage() {
   const { brandId, clientId } = useActiveContext();
+  const search = Route.useSearch();
 
   if (!brandId) {
     return (
@@ -65,10 +74,27 @@ function ContentPage() {
     );
   }
 
-  return <ContentReady brandId={brandId} clientId={clientId} />;
+  return (
+    <ContentReady
+      brandId={brandId}
+      clientId={clientId}
+      defaultProjectId={search.project ?? null}
+      autoOpenNewTask={!!search.new}
+    />
+  );
 }
 
-function ContentReady({ brandId, clientId }: { brandId: string; clientId: string }) {
+function ContentReady({
+  brandId,
+  clientId,
+  defaultProjectId,
+  autoOpenNewTask,
+}: {
+  brandId: string;
+  clientId: string;
+  defaultProjectId: string | null;
+  autoOpenNewTask: boolean;
+}) {
   const qc = useQueryClient();
   const listPipelines = useServerFn(listPipelinesFn);
   const ensureDefault = useServerFn(ensureDefaultPipelineFn);
@@ -94,6 +120,14 @@ function ContentReady({ brandId, clientId }: { brandId: string; clientId: string
   const [openColumnConfig, setOpenColumnConfig] = useState(false);
   const [newTaskStageId, setNewTaskStageId] = useState<string | null>(null);
   const [openNewTask, setOpenNewTask] = useState(false);
+
+  useEffect(() => {
+    if (autoOpenNewTask) {
+      setNewTaskStageId(null);
+      setOpenNewTask(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenNewTask]);
 
   const pipelines = pipelinesQuery.data;
   const effectivePipelineId = activePipelineId ?? pipelines[0]?.id ?? null;
@@ -218,6 +252,7 @@ function ContentReady({ brandId, clientId }: { brandId: string; clientId: string
             openNewTask={openNewTask}
             setOpenNewTask={setOpenNewTask}
             newTaskStageId={newTaskStageId}
+            defaultProjectId={defaultProjectId}
             openPostId={openPostId}
             setOpenPostId={setOpenPostId}
           />
