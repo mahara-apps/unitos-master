@@ -26,6 +26,7 @@ const BodySchema = z.object({
   periodo: z.string().default("próximo mês"),
   meses: z.number().int().min(1).max(6).optional(),
   channelMix: z.record(z.string(), z.number().int().min(0).max(180)).optional(),
+  direcionamento: z.string().max(1200).optional(),
 });
 
 const STRATEGIC_MODEL = "google/gemini-2.5-pro";
