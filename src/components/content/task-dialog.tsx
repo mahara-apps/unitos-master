@@ -73,6 +73,7 @@ import {
   revokeApprovalTokenFn,
 } from "@/lib/approval.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { cn } from "@/lib/utils";
 import { CHANNELS, CHANNEL_STYLES, FORMATS, FORMAT_STYLES, PRIORITY_STYLES } from "./stage-colors";
 import {
   listPlacementsFn,
@@ -198,10 +199,12 @@ function AssigneeSelect({
   brandId,
   value,
   onChange,
+  className,
 }: {
   brandId: string;
   value: string | null;
   onChange: (id: string | null) => void;
+  className?: string;
 }) {
   const fetchMembers = useServerFn(listBrandAssigneesFn);
   const { data: members } = useQuery({
@@ -223,7 +226,7 @@ function AssigneeSelect({
       value={value ?? "none"}
       onValueChange={(v) => onChange(v === "none" ? null : v)}
     >
-      <SelectTrigger className="h-8 w-auto min-w-[160px] gap-1 text-xs">
+      <SelectTrigger className={cn("h-8 w-full min-w-0 gap-1 text-xs", className)}>
         <SelectValue placeholder="Sem responsável" />
       </SelectTrigger>
       <SelectContent>
@@ -257,11 +260,13 @@ function ProjectSelect({
   clientId,
   value,
   onChange,
+  className,
 }: {
   brandId: string;
   clientId: string;
   value: string | null;
   onChange: (id: string | null) => void;
+  className?: string;
 }) {
   const fetchProjects = useServerFn(listProjects);
   const { data } = useQuery({
@@ -276,7 +281,7 @@ function ProjectSelect({
       value={value ?? "none"}
       onValueChange={(v) => onChange(v === "none" ? null : v)}
     >
-      <SelectTrigger className="h-8 w-auto min-w-[160px] gap-1 text-xs">
+      <SelectTrigger className={cn("h-8 w-full min-w-0 gap-1 text-xs", className)}>
         <FolderKanban className="mr-1 h-3.5 w-3.5 text-muted-foreground" />
         <SelectValue placeholder="Sem projeto" />
       </SelectTrigger>
@@ -378,9 +383,9 @@ function CreateBody({
             Preencha os detalhes para adicionar ao pipeline.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-3 items-center gap-2">
           <Select value={state.stageId} onValueChange={(v) => setState((p) => ({ ...p, stageId: v }))}>
-            <SelectTrigger className="h-8 w-auto min-w-[140px] gap-1 text-xs">
+            <SelectTrigger className="h-8 w-full min-w-0 gap-1 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -775,9 +780,9 @@ function EditBody({
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.25fr)] items-center gap-2">
           <Select value={state.stageId} onValueChange={(v) => setState((p) => ({ ...p, stageId: v }))}>
-            <SelectTrigger className="h-8 w-auto min-w-[140px] gap-1 text-xs">
+            <SelectTrigger className="h-8 w-full min-w-0 gap-1 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -799,19 +804,19 @@ function EditBody({
             value={state.projectId}
             onChange={(id) => setState((p) => ({ ...p, projectId: id }))}
           />
-          <div className="ml-auto flex items-center gap-1.5">
+          <div className="flex items-center justify-end">
             {reviewStatus === "pending" && aiPhase === "idea" ? (
-              <Button size="sm" onClick={handleApproveAndGenerate} disabled={approving}>
+              <Button size="sm" onClick={handleApproveAndGenerate} disabled={approving} className="h-8 w-full">
                 {approving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
                 Aprovar & gerar
               </Button>
             ) : reviewStatus !== "approved" ? (
-              <Button size="sm" onClick={() => approveOnly.mutate()} disabled={approveOnly.isPending}>
+              <Button size="sm" onClick={() => approveOnly.mutate()} disabled={approveOnly.isPending} className="h-8 w-full">
                 {approveOnly.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />}
                 Aprovar
               </Button>
             ) : (
-              <Badge variant="outline" className="border-emerald-500/40 text-emerald-600 dark:text-emerald-400">
+              <Badge variant="outline" className="w-full justify-center border-emerald-500/40 py-1.5 text-emerald-600 dark:text-emerald-400">
                 <CheckCircle2 className="mr-1 h-3 w-3" /> Aprovado
               </Badge>
             )}
