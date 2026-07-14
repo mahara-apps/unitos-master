@@ -380,23 +380,55 @@ function classifyChannel(raw: string): ChannelKind {
   return CHANNEL_KINDS.other;
 }
 
+const FORMAT_KINDS: ChannelKind[] = [
+  {
+    key: "feed",
+    label: "Feed",
+    chip: "border-purple-200 bg-purple-100 text-purple-700 dark:border-purple-500/30 dark:bg-purple-500/15 dark:text-purple-300",
+    dot: "bg-purple-500",
+    bar: "bg-gradient-to-r from-purple-500 to-fuchsia-500",
+  },
+  {
+    key: "stories",
+    label: "Stories",
+    chip: "border-blue-200 bg-blue-100 text-blue-700 dark:border-blue-500/30 dark:bg-blue-500/15 dark:text-blue-300",
+    dot: "bg-blue-500",
+    bar: "bg-gradient-to-r from-blue-500 to-sky-500",
+  },
+  {
+    key: "reels",
+    label: "Reels",
+    chip: "border-pink-200 bg-pink-100 text-pink-700 dark:border-pink-500/30 dark:bg-pink-500/15 dark:text-pink-300",
+    dot: "bg-pink-500",
+    bar: "bg-gradient-to-r from-pink-500 to-rose-500",
+  },
+  {
+    key: "carrossel",
+    label: "Carrossel",
+    chip: "border-amber-200 bg-amber-100 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-300",
+    dot: "bg-amber-500",
+    bar: "bg-gradient-to-r from-amber-500 to-orange-500",
+  },
+];
+
+function classifyFormat(raw: string | null | undefined): string | null {
+  const k = (raw ?? "").toLowerCase().trim();
+  if (!k) return null;
+  if (k.includes("stor")) return "stories";
+  if (k.includes("reel") || k.includes("short") || k.includes("tiktok") || k.includes("video") || k.includes("vídeo")) return "reels";
+  if (k.includes("carro") || k.includes("carousel")) return "carrossel";
+  if (k.includes("feed") || k.includes("post") || k.includes("static") || k.includes("imagem") || k.includes("image")) return "feed";
+  return "feed";
+}
+
 function computeVolumetry(posts: CalendarPost[]) {
   const counts = new Map<string, number>();
   for (const p of posts) {
-    const kind = classifyChannel(p.channels?.[0] ?? "");
-    counts.set(kind.key, (counts.get(kind.key) ?? 0) + 1);
+    const key = classifyFormat(p.format);
+    if (!key) continue;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
   }
-  const preferred = ["instagram", "stories", "tiktok", "linkedin", "youtube", "whatsapp", "blog", "other"];
-  const items = preferred
-    .map((k) => ({ ...CHANNEL_KINDS[k], count: counts.get(k) ?? 0 }))
-    .filter((v) => v.count > 0);
-  if (items.length >= 4) return items.slice(0, 4);
-  // Fill with placeholders (0 count) up to 4 so header always has a full row.
-  const fillers = preferred
-    .filter((k) => !items.find((i) => i.key === k))
-    .slice(0, 4 - items.length)
-    .map((k) => ({ ...CHANNEL_KINDS[k], count: 0 }));
-  return [...items, ...fillers];
+  return FORMAT_KINDS.map((k) => ({ ...k, count: counts.get(k.key) ?? 0 }));
 }
 
 function buildMonthGrid(cursor: Date) {
