@@ -67,6 +67,7 @@ export type BoardPost = {
   ai_phase?: string | null;
   approved_at?: string | null;
   approved_by?: string | null;
+  rework_notes?: string | null;
 };
 
 export type Board = {
@@ -260,11 +261,12 @@ export const loadBoardFn = createServerFn({ method: "POST" })
         context.supabase
           .from("posts")
           .select(
-            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id",
+            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes",
           )
           .eq("brand_id", data.brandId)
           .eq("client_id", data.clientId)
           .eq("pipeline_id", data.pipelineId)
+          .is("deleted_at", null)
           .order("position", { ascending: true }),
       ]);
     if (pErr) throw pErr;
