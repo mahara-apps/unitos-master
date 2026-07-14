@@ -471,6 +471,21 @@ export const Route = createFileRoute("/api/jobs/monthly-plan")({
         const userId = claims?.claims?.sub;
         if (!userId) return new Response("Unauthorized", { status: 401 });
 
+        // Guardrail: só gera conteúdo para um cliente com briefing salvo.
+        const { data: briefing } = await supabase
+          .from("brand_briefings")
+          .select("id")
+          .eq("brand_id", input.brandId)
+          .eq("client_id", input.clientId)
+          .limit(1)
+          .maybeSingle();
+        if (!briefing) {
+          return new Response(
+            "Este cliente ainda não possui briefing. Preencha o briefing na aba Brand Brain antes de gerar conteúdo.",
+            { status: 422 },
+          );
+        }
+
         const { data: job, error: jobErr } = await supabase
           .from("ai_jobs")
           .insert({

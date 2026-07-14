@@ -8,7 +8,7 @@ import {
   listClients,
   createBrand,
   createClient,
-  seedDemoData,
+  // seedDemoData removido — sistema não cria mais clientes/conteúdos automáticos
 } from "@/lib/workspace.functions";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,7 +46,6 @@ export function ContextSwitcher() {
   const isAdmin = role === "admin";
   const list = useServerFn(listMyBrands);
   const create = useServerFn(createBrand);
-  const seed = useServerFn(seedDemoData);
   const listCl = useServerFn(listClients);
   const createCustomer = useServerFn(createClient);
 
@@ -70,9 +69,8 @@ export function ContextSwitcher() {
     onSuccess: async (b) => {
       await qc.invalidateQueries({ queryKey: ["brands"] });
       setBrandId(b.id);
-      await seed({ data: { brandId: b.id } });
       await qc.invalidateQueries();
-      toast.success("Workspace created", { description: "Sample data added." });
+      toast.success("Workspace criado", { description: "Cadastre seu primeiro cliente para começar." });
       setDialogOpen(false);
       setName("");
     },

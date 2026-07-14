@@ -344,7 +344,20 @@ export const Route = createFileRoute("/api/jobs/generate-ideas")({
         const userId = claims?.claims?.sub;
         if (!userId) return new Response("Unauthorized", { status: 401 });
 
-        // Preflight: strategy artifacts must exist.
+        // Preflight: briefing + strategy artifacts must exist for the selected client.
+        const briefingR = await supabase
+          .from("brand_briefings")
+          .select("id")
+          .eq("brand_id", input.brandId)
+          .eq("client_id", input.clientId)
+          .limit(1)
+          .maybeSingle();
+        if (!briefingR.data) {
+          return new Response(
+            JSON.stringify({ error: "Este cliente ainda não possui briefing. Preencha o briefing antes de gerar ideias." }),
+            { status: 422, headers: { "Content-Type": "application/json" } },
+          );
+        }
         const [voiceR, personasR, cohortsR, swotR] = await Promise.all([
           supabase.from("brand_voice_cards").select("id").eq("brand_id", input.brandId).eq("client_id", input.clientId).eq("is_active", true).maybeSingle(),
           supabase.from("brand_personas").select("id").eq("brand_id", input.brandId).eq("client_id", input.clientId).eq("is_active", true).maybeSingle(),
