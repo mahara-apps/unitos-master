@@ -133,6 +133,21 @@ const HubPatch = Scope.extend({
         .optional(),
       goals: z.string().max(3000).optional(),
       tone_text: z.string().max(2000).optional(),
+      competitors: z
+        .array(
+          z.object({
+            id: z.string(),
+            handle: z.string().max(120),
+            platform: z.string().max(40).default("instagram"),
+            added_at: z.string().optional().default(() => new Date().toISOString()),
+            notes: z.string().max(500).optional(),
+            last_scraped_at: z.string().optional(),
+            last_error: z.string().optional(),
+            snapshot: z.unknown().optional(),
+          }),
+        )
+        .max(30)
+        .optional(),
     })
     .partial(),
 });
