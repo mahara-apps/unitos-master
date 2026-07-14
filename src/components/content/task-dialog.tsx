@@ -198,10 +198,12 @@ function AssigneeSelect({
   brandId,
   value,
   onChange,
+  className,
 }: {
   brandId: string;
   value: string | null;
   onChange: (id: string | null) => void;
+  className?: string;
 }) {
   const fetchMembers = useServerFn(listBrandAssigneesFn);
   const { data: members } = useQuery({
@@ -223,7 +225,7 @@ function AssigneeSelect({
       value={value ?? "none"}
       onValueChange={(v) => onChange(v === "none" ? null : v)}
     >
-      <SelectTrigger className="h-8 w-auto min-w-[160px] gap-1 text-xs">
+      <SelectTrigger className={cn("h-8 w-full min-w-0 gap-1 text-xs", className)}>
         <SelectValue placeholder="Sem responsável" />
       </SelectTrigger>
       <SelectContent>
