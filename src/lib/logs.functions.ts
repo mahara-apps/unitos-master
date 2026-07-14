@@ -5,6 +5,14 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 export type LogLevel = "error" | "warn" | "info" | "success";
 export type LogSource = "ai_job" | "activity" | "notification";
 
+type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
 export type SystemLogEntry = {
   id: string;
   source: LogSource;
@@ -15,7 +23,7 @@ export type SystemLogEntry = {
   brand_id: string | null;
   client_id: string | null;
   actor_id: string | null;
-  meta: Record<string, unknown>;
+  meta: JsonValue;
 };
 
 const Input = z.object({
@@ -61,15 +69,24 @@ type ActivityRow = {
 
 type NotificationRow = {
   id: string;
-  brand_id: string | null;
+  brand_id: string;
   user_id: string;
-  type: string;
+  kind: string;
   title: string;
-  message: string | null;
-  data: Record<string, unknown> | null;
+  body: string | null;
+  href: string | null;
+  payload: JsonValue | null;
   read_at: string | null;
   created_at: string;
 };
+
+function toJson(v: unknown): JsonValue {
+  try {
+    return JSON.parse(JSON.stringify(v ?? null)) as JsonValue;
+  } catch {
+    return null;
+  }
+}
 
 function jobToEntry(j: JobRow): SystemLogEntry {
   const level: LogLevel =
@@ -93,7 +110,7 @@ function jobToEntry(j: JobRow): SystemLogEntry {
     brand_id: j.brand_id,
     client_id: j.client_id,
     actor_id: j.user_id,
-    meta: {
+    meta: toJson({
       status: j.status,
       kind: j.kind,
       progress: j.progress,
@@ -105,7 +122,7 @@ function jobToEntry(j: JobRow): SystemLogEntry {
       subtitle: j.subtitle,
       input: j.input,
       result: j.result,
-    },
+    }),
   };
 }
 
@@ -122,17 +139,17 @@ function activityToEntry(a: ActivityRow): SystemLogEntry {
     brand_id: a.brand_id,
     client_id: a.client_id,
     actor_id: a.actor_id,
-    meta: {
+    meta: toJson({
       entity_type: a.entity_type,
       entity_id: a.entity_id,
       verb: a.verb,
       payload,
-    },
+    }),
   };
 }
 
 function notificationToEntry(n: NotificationRow): SystemLogEntry {
-  const t = n.type.toLowerCase();
+  const t = n.kind.toLowerCase();
   const level: LogLevel =
     t.includes("error") || t.includes("fail") ? "error"
     : t.includes("warn") ? "warn"
@@ -143,16 +160,17 @@ function notificationToEntry(n: NotificationRow): SystemLogEntry {
     source: "notification",
     level,
     title: n.title,
-    subtitle: n.message ?? n.type,
+    subtitle: n.body ?? n.kind,
     timestamp: n.created_at,
     brand_id: n.brand_id,
     client_id: null,
     actor_id: n.user_id,
-    meta: {
-      type: n.type,
-      data: n.data,
+    meta: toJson({
+      kind: n.kind,
+      href: n.href,
+      payload: n.payload,
       read_at: n.read_at,
-    },
+    }),
   };
 }
 
@@ -215,11 +233,11 @@ export const listSystemLogs = createServerFn({ method: "POST" })
         (async () => {
           const { data: rows } = await supabase
             .from("notifications")
-            .select("id, brand_id, user_id, type, title, message, data, read_at, created_at")
+            .select("id, brand_id, user_id, kind, title, body, href, payload, read_at, created_at")
             .eq("user_id", userId)
             .order("created_at", { ascending: false })
             .limit(limit);
-          return ((rows ?? []) as NotificationRow[]).map(notificationToEntry);
+          return ((rows ?? []) as unknown as NotificationRow[]).map(notificationToEntry);
         })(),
       );
     }
