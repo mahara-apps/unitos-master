@@ -33,6 +33,8 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
     : {}) ?? {};
 
   const [form, setForm] = useState({
+    name: "",
+    niche: "",
     contact_name: "",
     contact_email: "",
     phone: "",
@@ -45,6 +47,8 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
   useEffect(() => {
     if (!client) return;
     setForm({
+      name: client.name ?? "",
+      niche: client.niche ?? "",
       contact_name: client.contact_name ?? "",
       contact_email: client.contact_email ?? "",
       phone: socials.phone ?? "",
@@ -71,6 +75,8 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
           brandId,
           clientId,
           patch: {
+            name: form.name.trim() || undefined,
+            niche: form.niche.trim() || null,
             contact_name: form.contact_name.trim() || null,
             contact_email: form.contact_email.trim() || null,
             socials: nextSocials,
@@ -120,6 +126,14 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
       ) : null}
 
       <div className="grid gap-4 rounded-xl border border-border bg-card p-6 sm:grid-cols-2">
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs">Nome da conta</Label>
+          <Input placeholder="Ex.: Café Aurora" value={form.name} onChange={set("name")} disabled={disabled} />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label className="text-xs">Subtítulo / Nicho</Label>
+          <Input placeholder="Ex.: Cafeteria especial · Curitiba" value={form.niche} onChange={set("niche")} disabled={disabled} />
+        </div>
         <div className="space-y-1.5 sm:col-span-1">
           <Label className="text-xs">Contato</Label>
           <Input placeholder="Nome do contato" value={form.contact_name} onChange={set("contact_name")} disabled={disabled} />
