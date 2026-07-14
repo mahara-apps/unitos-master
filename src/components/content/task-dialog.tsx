@@ -1896,3 +1896,116 @@ function InstagramPreview({
     </div>
   );
 }
+
+// ----------------- Placements Panel -----------------
+
+function PlacementsPanel({
+  primaryFormat,
+  extras,
+  onChange,
+}: {
+  primaryFormat: PlacementFormat;
+  extras: Array<{ format: PlacementFormat; scheduled_at: string }>;
+  onChange: (
+    v: Array<{ format: PlacementFormat; scheduled_at: string }>,
+  ) => void;
+}) {
+  const available = PLACEMENT_FORMATS.filter(
+    (f) => f !== primaryFormat && !extras.some((e) => e.format === f),
+  );
+  // Filter out combinations that would be invalid with current selection
+  const validAvailable = available.filter((f) => {
+    const test = [primaryFormat, ...extras.map((e) => e.format), f];
+    return validatePlacementSet(test) === null;
+  });
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <Label className="flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5" /> Multi-publicação
+          </Label>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Reaproveite este conceito em mais de um formato com agendamentos
+            independentes.
+          </p>
+        </div>
+        {validAvailable.length > 0 ? (
+          <Select
+            value=""
+            onValueChange={(v) =>
+              onChange([
+                ...extras,
+                { format: v as PlacementFormat, scheduled_at: "" },
+              ])
+            }
+          >
+            <SelectTrigger className="h-8 w-[180px] text-xs">
+              <SelectValue placeholder="+ Adicionar formato" />
+            </SelectTrigger>
+            <SelectContent>
+              {validAvailable.map((f) => (
+                <SelectItem key={f} value={f}>
+                  {ENUM_TO_LABEL[f]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+      </div>
+
+      <div className="space-y-2 rounded-md border p-2">
+        <div className="flex items-center justify-between gap-3 rounded bg-muted/40 px-2 py-1.5 text-xs">
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="h-5">
+              {ENUM_TO_LABEL[primaryFormat]}
+            </Badge>
+            <span className="text-muted-foreground">Principal</span>
+          </div>
+          <span className="text-muted-foreground">
+            Usa a data de agendamento do card
+          </span>
+        </div>
+
+        {extras.length === 0 ? (
+          <p className="px-1 py-1 text-xs text-muted-foreground">
+            Nenhum formato adicional. Combinações válidas: Feed+Stories,
+            Reels+Stories, Carrossel+Stories.
+          </p>
+        ) : (
+          extras.map((p, idx) => (
+            <div
+              key={`${p.format}-${idx}`}
+              className="flex items-center gap-2 rounded border px-2 py-1.5"
+            >
+              <Badge variant="outline" className="h-5">
+                {ENUM_TO_LABEL[p.format]}
+              </Badge>
+              <Input
+                type="datetime-local"
+                value={p.scheduled_at}
+                onChange={(e) => {
+                  const next = [...extras];
+                  next[idx] = { ...p, scheduled_at: e.target.value };
+                  onChange(next);
+                }}
+                className="h-7 flex-1 text-xs"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                onClick={() =>
+                  onChange(extras.filter((_, i) => i !== idx))
+                }
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
