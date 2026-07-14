@@ -40,6 +40,7 @@ import { usePageHeader } from "@/hooks/use-page-header";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { listClients } from "@/lib/workspace.functions";
 import { listBrandTeam } from "@/lib/team.functions";
+import { PanelEmptyState } from "@/components/ui/panel-empty";
 import {
   createProject,
   listProjects,
@@ -158,11 +159,11 @@ function ProjectsIndexPage() {
       subtitle: "Gerencie seus projetos e acompanhe o progresso das publicações.",
       actions: (
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" className="h-9">
             <FileBarChart2 className="mr-2 h-4 w-4" />
             Relatório
           </Button>
-          <Button size="sm" onClick={() => setFormOpen(true)}>
+          <Button size="sm" className="h-9" onClick={() => setFormOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Novo Projeto
           </Button>
@@ -174,16 +175,17 @@ function ProjectsIndexPage() {
 
   if (!brandId) {
     return (
-      <div className="mx-auto max-w-6xl p-6">
-        <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-6 text-sm text-amber-500">
-          <AlertTriangle className="h-4 w-4" /> Selecione um workspace no menu lateral para ver os projetos.
+      <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 text-sm text-muted-foreground">
+          <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-500" />
+          Selecione um workspace no menu lateral para ver os projetos.
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full space-y-6 px-6 py-6 md:px-8">
+    <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative w-full max-w-xs">
@@ -192,7 +194,7 @@ function ProjectsIndexPage() {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Buscar..."
-            className="pl-8 text-xs"
+            className="h-9 pl-8 text-xs"
           />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -243,14 +245,15 @@ function ProjectsIndexPage() {
       {projectsQ.isLoading ? (
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-40 animate-pulse rounded-xl border border-border bg-card" />
+            <div key={i} className="h-40 animate-pulse rounded-xl border border-border/60 bg-card" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border bg-card p-12 text-center">
-          <p className="text-sm text-muted-foreground">
-            Nenhum projeto encontrado. Crie o primeiro clicando em <strong>Novo Projeto</strong>.
-          </p>
+        <div className="rounded-xl border border-border/60 bg-card">
+          <PanelEmptyState
+            icon={<FileBarChart2 className="h-4 w-4" />}
+            text="Nenhum projeto encontrado. Crie o primeiro clicando em Novo Projeto."
+          />
         </div>
       ) : (
         <div className="grid w-full grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -266,7 +269,7 @@ function ProjectsIndexPage() {
                 key={p.id}
                 to="/projects/$projectId"
                 params={{ projectId: p.id }}
-                className="group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card p-5 transition-all hover:border-zinc-700 hover:shadow-md dark:hover:border-zinc-300"
+                className="group relative flex flex-col overflow-hidden rounded-xl border border-border/60 bg-card p-5 transition-all hover:border-border hover:shadow-sm"
               >
                 <span
                   aria-hidden

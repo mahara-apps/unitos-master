@@ -205,10 +205,10 @@ function ProjectDetailPage() {
       subtitle: "Detalhes, progresso e itens do projeto",
       actions: (
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => archMut.mutate()} disabled={archMut.isPending}>
+          <Button variant="outline" size="sm" className="h-9" onClick={() => archMut.mutate()} disabled={archMut.isPending}>
             <Archive className="mr-2 h-4 w-4" /> Arquivar
           </Button>
-          <Button variant="destructive" size="sm" onClick={() => setConfirmDelete(true)}>
+          <Button variant="destructive" size="sm" className="h-9" onClick={() => setConfirmDelete(true)}>
             <Trash2 className="mr-2 h-4 w-4" /> Excluir
           </Button>
         </div>
@@ -222,7 +222,7 @@ function ProjectDetailPage() {
 
   if (projectQ.isLoading) {
     return (
-      <div className="mx-auto max-w-6xl space-y-4 p-6">
+      <div className="w-full space-y-4 px-4 py-6 sm:px-6 lg:px-8">
         <div className="h-8 w-1/3 animate-pulse rounded bg-muted" />
         <div className="h-40 animate-pulse rounded-xl bg-muted" />
         <div className="h-40 animate-pulse rounded-xl bg-muted" />
@@ -232,9 +232,9 @@ function ProjectDetailPage() {
 
   if (!project) {
     return (
-      <div className="mx-auto max-w-6xl p-6">
+      <div className="w-full space-y-4 px-4 py-6 sm:px-6 lg:px-8">
         <p className="text-sm text-muted-foreground">Projeto não encontrado.</p>
-        <Button variant="ghost" size="sm" className="mt-3" onClick={() => navigate({ to: "/projects" })}>
+        <Button variant="ghost" size="sm" className="mt-3 h-9" onClick={() => navigate({ to: "/projects" })}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
         </Button>
       </div>
@@ -246,8 +246,8 @@ function ProjectDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6 px-6 py-6 md:px-8">
-      <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate({ to: "/projects" })}>
+    <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+      <Button variant="ghost" size="sm" className="-ml-2 h-9" onClick={() => navigate({ to: "/projects" })}>
         <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
       </Button>
 
@@ -278,7 +278,7 @@ function ProjectDetailPage() {
       </div>
 
       {/* Formulário compacto */}
-      <div className="grid gap-4 rounded-xl border border-border bg-card p-5 md:grid-cols-3">
+      <div className="grid gap-4 rounded-xl border border-border/60 bg-card p-5 md:grid-cols-3">
         <div className="grid gap-1.5">
           <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Status</Label>
           <Select
@@ -393,7 +393,7 @@ function ProjectDetailPage() {
       </div>
 
       {/* Progresso */}
-      <div className="rounded-xl border border-border bg-card p-5">
+      <div className="rounded-xl border border-border/60 bg-card p-5">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold">Progresso do Projeto</h3>
           <span className="text-2xl font-semibold" style={{ color }}>
@@ -408,10 +408,10 @@ function ProjectDetailPage() {
       </div>
 
       {/* Itens do projeto */}
-      <div className="rounded-xl border border-border bg-card p-5">
+      <div className="rounded-xl border border-border/60 bg-card p-5">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="text-sm font-semibold">Itens do Projeto ({posts.length})</h3>
-          <Button size="sm" onClick={goCreateItem}>
+          <Button size="sm" className="h-9" onClick={goCreateItem}>
             <Plus className="mr-2 h-4 w-4" /> Novo item
           </Button>
         </div>
@@ -491,7 +491,7 @@ function ProjectDetailPage() {
 
 function KpiCard(props: { icon: React.ReactNode; label: string; value: number; tone: string }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
+    <div className="rounded-xl border border-border/60 bg-card p-4">
       <div className={`mb-1 flex items-center gap-2 ${props.tone}`}>{props.icon}</div>
       <div className="text-2xl font-semibold">{props.value}</div>
       <div className="text-[11px] text-muted-foreground">{props.label}</div>
