@@ -4,7 +4,7 @@ import { z } from "zod";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Pencil, Plus, Settings } from "lucide-react";
+import { Layers, Loader2, Pencil, Plus, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -41,6 +41,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { PanelCard } from "@/components/ui/panel-card";
+import { PanelEmptyState } from "@/components/ui/panel-empty";
 
 export const Route = createFileRoute("/_authenticated/content")({
   validateSearch: (s: Record<string, unknown>) =>
@@ -59,7 +61,7 @@ function ContentPage() {
 
   if (!brandId) {
     return (
-      <EmptyState
+      <BoardEmpty
         title="Selecione um workspace"
         description="Escolha um workspace na barra lateral para visualizar o pipeline de conteúdo."
       />
@@ -67,7 +69,7 @@ function ContentPage() {
   }
   if (!clientId) {
     return (
-      <EmptyState
+      <BoardEmpty
         title="Selecione uma conta"
         description="O pipeline de conteúdo é organizado por cliente. Selecione uma conta ativa."
       />
@@ -430,11 +432,15 @@ function NewPipelineDialog({
   );
 }
 
-function EmptyState({ title, description }: { title: string; description: string }) {
+function BoardEmpty({ title, description }: { title: string; description: string }) {
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center rounded-lg border border-dashed border-border/60 p-10 text-center">
-      <h2 className="text-lg font-medium">{title}</h2>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>
+    <div className="px-4 py-6 sm:px-6 lg:px-8">
+      <PanelCard title={title} subtitle={description} icon={<Layers className="h-4 w-4" />}>
+        <PanelEmptyState
+          icon={<Layers className="h-5 w-5" />}
+          text="Nenhum conteúdo para exibir com o contexto atual."
+        />
+      </PanelCard>
     </div>
   );
 }
