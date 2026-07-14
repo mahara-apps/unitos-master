@@ -565,20 +565,13 @@ function PostCard({
 
         <div className="mt-2.5 flex items-center justify-between border-t border-border/50 pt-2 text-[11px] text-muted-foreground">
           <div className="flex items-center gap-2">
+            <AssigneeChip brandId={post.brand_id} assigneeId={post.assignee_id} />
             {created ? (
               <span className="inline-flex items-center gap-0.5 tabular-nums" title={`Criado em ${created.toLocaleDateString("pt-BR")}`}>
                 <CalendarPlus className="h-3 w-3" />
                 {created.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
               </span>
             ) : null}
-            <AssigneeChip brandId={post.brand_id} assigneeId={post.assignee_id} />
-            {refCount > 0 ? (
-              <span className="inline-flex items-center gap-0.5" title={`${refCount} anexo(s)`}>
-                <Paperclip className="h-3 w-3" /> {refCount}
-              </span>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-1.5">
             {scheduled ? (
               <span
                 className="inline-flex items-center gap-0.5 tabular-nums"
@@ -589,6 +582,11 @@ function PostCard({
               </span>
             ) : null}
           </div>
+          {refCount > 0 ? (
+            <span className="inline-flex items-center gap-0.5" title={`${refCount} anexo(s)`}>
+              <Paperclip className="h-3 w-3" /> {refCount}
+            </span>
+          ) : null}
         </div>
       </div>
     </button>
