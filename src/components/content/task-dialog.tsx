@@ -996,24 +996,32 @@ function TaskLayout({
 
         <div className="space-y-1.5">
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-            Prazo
+            Data de publicação
           </Label>
           <Input
             type="datetime-local"
             value={state.scheduledAt}
             onChange={(e) => set("scheduledAt", e.target.value)}
           />
+          {mode === "edit" && createdAt ? (
+            <p className="text-[11px] text-muted-foreground">
+              Criado em {new Date(createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+            </p>
+          ) : null}
         </div>
 
         <div className="space-y-1.5">
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-            Lembrete
+            Lembrete <span className="normal-case text-muted-foreground/70">(opcional)</span>
           </Label>
           <Input
             type="datetime-local"
             value={state.remindAt}
             onChange={(e) => set("remindAt", e.target.value)}
           />
+          <p className="text-[11px] text-muted-foreground">
+            Você receberá uma notificação no sistema neste horário.
+          </p>
         </div>
 
         <div className="space-y-1.5">
