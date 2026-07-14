@@ -137,9 +137,11 @@ export function GeneratePlanDialog({ brandId, clientId, onGenerated }: Props) {
 
         <div className="grid gap-4 py-2">
           <div className="grid gap-1.5">
-            <Label htmlFor="ppw">Quantos posts por semana?</Label>
+            <Label htmlFor="ppw" className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+              Quantos posts por semana?
+            </Label>
             <Select value={String(postsPerWeek)} onValueChange={(v) => setPostsPerWeek(Number(v))}>
-              <SelectTrigger id="ppw"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="ppw" className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {[1, 2, 3, 4, 5, 6, 7].map((n) => (
                   <SelectItem key={n} value={String(n)}>
@@ -151,9 +153,11 @@ export function GeneratePlanDialog({ brandId, clientId, onGenerated }: Props) {
           </div>
 
           <div className="grid gap-1.5">
-            <Label htmlFor="start">A partir de quando?</Label>
+            <Label htmlFor="start" className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+              A partir de quando?
+            </Label>
             <Select value={startFrom} onValueChange={(v) => setStartFrom(v as typeof startFrom)}>
-              <SelectTrigger id="start"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="start" className="h-9"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="current-remaining">Restante do mês atual</SelectItem>
                 <SelectItem value="next-month">Próximo mês</SelectItem>
@@ -162,7 +166,9 @@ export function GeneratePlanDialog({ brandId, clientId, onGenerated }: Props) {
           </div>
 
           <div className="grid gap-1.5">
-            <Label htmlFor="dir">Direcionamento extra (opcional)</Label>
+            <Label htmlFor="dir" className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+              Direcionamento extra (opcional)
+            </Label>
             <Textarea
               id="dir"
               value={direction}
@@ -173,8 +179,8 @@ export function GeneratePlanDialog({ brandId, clientId, onGenerated }: Props) {
             />
           </div>
 
-          <div className="flex items-start gap-2 rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 text-xs">
-            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-violet-500" />
+          <div className="flex items-start gap-2 rounded-xl border border-border/60 bg-background/60 p-3 text-xs">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             <div className="text-muted-foreground">
               Vamos gerar <span className="font-semibold text-foreground">{totalPosts} entradas</span> em ~{weeks} semana{weeks === 1 ? "" : "s"} ({periodo}).
             </div>
@@ -182,13 +188,14 @@ export function GeneratePlanDialog({ brandId, clientId, onGenerated }: Props) {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>
+          <Button variant="outline" size="sm" className="h-9" onClick={() => setOpen(false)} disabled={pending}>
             Cancelar
           </Button>
           <Button
+            size="sm"
             onClick={launch}
             disabled={pending}
-            className="gap-2 border-0 bg-gradient-to-r from-violet-600 via-fuchsia-500 to-pink-500 text-white hover:opacity-95 min-w-[180px]"
+            className="h-9 gap-2 border-0 bg-gradient-to-r from-violet-600 via-fuchsia-500 to-pink-500 text-white hover:opacity-95 min-w-[180px]"
           >
             {pending ? (
               <>
