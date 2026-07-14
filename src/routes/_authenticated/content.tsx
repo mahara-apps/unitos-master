@@ -157,7 +157,7 @@ function ContentReady({
           </Select>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" aria-label="Configurações do pipeline">
+              <Button variant="outline" size="sm" className="h-9" aria-label="Configurações do pipeline">
                 <Settings className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -176,7 +176,7 @@ function ContentReady({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button size="sm" onClick={() => { setNewTaskStageId(null); setOpenNewTask(true); }}>
+          <Button size="sm" className="h-9" onClick={() => { setNewTaskStageId(null); setOpenNewTask(true); }}>
             <Plus className="mr-1.5 h-4 w-4" /> Nova tarefa
           </Button>
         </div>
