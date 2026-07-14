@@ -1,6 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { createLovableAiGatewayProvider } from "./ai-gateway.server";
+import { generateText } from "ai";
+import { renderPrompt } from "./agent-variables";
 
 export type AgentPromptRow = {
   agent_id: string;
@@ -140,5 +143,60 @@ export const getBrandVolumetryFn = createServerFn({ method: "POST" })
     return {
       postsPerMonth: Number.isFinite(n) && n > 0 ? Math.min(60, Math.round(n)) : 12,
       channels,
+    };
+  });
+
+/**
+ * Playground execution for an agent prompt.
+ * Uses the agent's current system prompt, injects resolved variables +
+ * runtime overrides, and calls the Lovable AI Gateway. Returns the raw
+ * text response so the user can inspect exactly what the prompt produces
+ * today.
+ */
+export const runAgentPlaygroundFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        agentId: z.string().min(1),
+        userInput: z.string().max(8000).optional(),
+        variables: z.record(z.string(), z.string()).optional(),
+        model: z.string().optional(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const key = process.env.LOVABLE_API_KEY;
+    if (!key) throw new Error("LOVABLE_API_KEY não configurado.");
+
+    const { data: row, error } = await context.supabase
+      .from("agent_prompts")
+      .select("system_prompt")
+      .eq("agent_id", data.agentId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!row?.system_prompt) throw new Error("Prompt do agente não encontrado.");
+
+    const rendered = renderPrompt(
+      String(row.system_prompt),
+      data.variables ?? {},
+      "(não informado)",
+    );
+    const model = data.model || "google/gemini-2.5-flash";
+    const gateway = createLovableAiGatewayProvider(key);
+
+    const started = Date.now();
+    const result = await generateText({
+      model: gateway(model),
+      system: rendered,
+      prompt: data.userInput?.trim() || "Execute o agente com o contexto acima.",
+    });
+    const ms = Date.now() - started;
+
+    return {
+      output: result.text,
+      usage: result.usage,
+      model,
+      ms,
     };
   });

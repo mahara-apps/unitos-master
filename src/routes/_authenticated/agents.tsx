@@ -160,6 +160,8 @@ function AgentsPage() {
         agent={selected}
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
+        brandId={brandId ?? null}
+        clientId={clientId ?? null}
       />
     </div>
   );
