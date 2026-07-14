@@ -1,9 +1,22 @@
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Send, Users, Layers, Target, TrendingUp, ShieldAlert, Zap, Sparkles, CheckCircle2 } from "lucide-react";
+import {
+  Send, Users, Layers, Target, TrendingUp, ShieldAlert, Zap, Sparkles, CheckCircle2,
+  Eye, Shield, Clock, BadgeCheck, MessageSquare, ArrowRight, Sprout, AlertTriangle,
+  Lightbulb, Flame, Ban, Check, User,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from "@/components/ui/sheet";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import { useState } from "react";
 import {
   sendPautaToContentFn,
 } from "@/lib/ai-agents.functions";
