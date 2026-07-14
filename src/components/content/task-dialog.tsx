@@ -404,6 +404,7 @@ function EditBody({
               ? new Date(state.remindAt).toISOString()
               : null,
             stage_id: state.stageId || null,
+            assignee_id: state.assigneeId,
           },
         },
       }),
