@@ -49,6 +49,12 @@ import {
   getProject,
   updateProject,
 } from "@/lib/projects.functions";
+import {
+  listPipelinesFn,
+  ensureDefaultPipelineFn,
+  loadBoardFn,
+} from "@/lib/content.functions";
+import { TaskDialog } from "@/components/content/task-dialog";
 
 export const Route = createFileRoute("/_authenticated/projects/$projectId")({
   component: ProjectDetailPage,
@@ -82,11 +88,11 @@ function fmtDate(iso?: string | null) {
 
 function ProjectDetailPage() {
   const { projectId } = Route.useParams();
-  const { brandId, setClientId: setActiveClientId } = useActiveContext();
+  const { brandId } = useActiveContext();
   const navigate = useNavigate();
+  const [openNewTask, setOpenNewTask] = useState(false);
   function goCreateItem() {
-    if (project?.client_id) setActiveClientId(project.client_id);
-    navigate({ to: "/content", search: { project: projectId, new: true } });
+    setOpenNewTask(true);
   }
 
   const qc = useQueryClient();
@@ -97,6 +103,9 @@ function ProjectDetailPage() {
   const del = useServerFn(deleteProject);
   const clientsFn = useServerFn(listClients);
   const teamFn = useServerFn(listBrandTeam);
+  const listPipes = useServerFn(listPipelinesFn);
+  const ensureDefault = useServerFn(ensureDefaultPipelineFn);
+  const loadBoard = useServerFn(loadBoardFn);
 
   const projectQ = useQuery({
     queryKey: ["project", brandId, projectId],
@@ -120,6 +129,25 @@ function ProjectDetailPage() {
   const project = projectQ.data?.project;
   const posts = projectQ.data?.posts ?? [];
   const stats = projectQ.data?.stats ?? { total: 0, approved: 0, published: 0, pending: 0 };
+
+  // Pipeline + stages para o cliente do projeto (para o drawer de nova peça)
+  const pipelineQ = useQuery({
+    queryKey: ["project-pipeline", brandId, project?.client_id],
+    enabled: !!brandId && !!project?.client_id,
+    queryFn: async () => {
+      let list = await listPipes({ data: { brandId: brandId!, clientId: project!.client_id! } });
+      if (list.length === 0) {
+        await ensureDefault({ data: { brandId: brandId!, clientId: project!.client_id! } });
+        list = await listPipes({ data: { brandId: brandId!, clientId: project!.client_id! } });
+      }
+      const pipe = list[0];
+      if (!pipe) return null;
+      const board = await loadBoard({
+        data: { brandId: brandId!, clientId: project!.client_id!, pipelineId: pipe.id },
+      });
+      return { pipelineId: pipe.id, stages: board.stages };
+    },
+  });
 
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
@@ -442,6 +470,21 @@ function ProjectDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {openNewTask && project?.client_id && pipelineQ.data && (
+        <TaskDialog
+          mode="create"
+          open={openNewTask}
+          onOpenChange={setOpenNewTask}
+          brandId={brandId!}
+          clientId={project.client_id}
+          pipelineId={pipelineQ.data.pipelineId}
+          stages={pipelineQ.data.stages}
+          defaultStageId={pipelineQ.data.stages[0]?.id}
+          defaultProjectId={projectId}
+          invalidateKey={["project", brandId, projectId] as const}
+        />
+      )}
     </div>
   );
 }
