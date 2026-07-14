@@ -142,6 +142,7 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
   const qc = useQueryClient();
   const [regenOpen, setRegenOpen] = useState(false);
   const [forceOnboarding, setForceOnboarding] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("overview");
 
   // Lista de customers do brand ativo — só para nome/cor do header.
   const customersQ = useQuery({
@@ -222,7 +223,7 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
             }}
           />
         ) : (
-          <Tabs defaultValue="overview" className="space-y-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <TabsList className="w-full justify-start overflow-x-auto rounded-lg border border-border bg-card p-1">
               {TABS.map((t) => (
                 <TabsTrigger
@@ -239,6 +240,7 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
                 brandId={brandId}
                 clientId={customerId}
                 onRegenerate={() => setRegenOpen(true)}
+                onOpenBriefing={() => setActiveTab("briefing")}
               />
             </TabsContent>
             <TabsContent value="basic">
