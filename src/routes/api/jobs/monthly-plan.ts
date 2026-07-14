@@ -26,6 +26,8 @@ const BodySchema = z.object({
   periodo: z.string().default("próximo mês"),
   meses: z.number().int().min(1).max(6).optional(),
   channelMix: z.record(z.string(), z.number().int().min(0).max(180)).optional(),
+  direction: z.string().max(2000).optional(),
+  startFrom: z.enum(["current-remaining", "next-month"]).optional(),
 });
 
 const STRATEGIC_MODEL = "google/gemini-2.5-pro";
@@ -215,7 +217,7 @@ async function runOrchestrator(params: {
       QUANTIDADE: String(input.quantidade),
       PERIODO: input.periodo,
       CHANNEL_MIX: mixLines || "(livre — escolha o melhor mix)",
-    }) + mixInstruction;
+    }) + mixInstruction + (input.direction ? `\n\nDIRECIONAMENTO EXTRA DO USUÁRIO (prioridade máxima):\n${input.direction}` : "");
     const planned = await runStructured({
       system: plannerSys,
       prompt: `Gere ${input.quantidade} conceitos para o período "${input.periodo}".`,
@@ -327,8 +329,13 @@ async function runOrchestrator(params: {
       // 10:00 / 14:00 / 17:00 (UTC-3 armazenado como UTC).
       const totalMeses = Math.max(1, input.meses ?? 1);
       const start = new Date();
-      start.setUTCDate(1);
-      start.setUTCMonth(start.getUTCMonth() + 1);
+      if (input.startFrom === "current-remaining") {
+        // Start tomorrow, stay within remaining days of the current month.
+        start.setUTCDate(start.getUTCDate() + 1);
+      } else {
+        start.setUTCDate(1);
+        start.setUTCMonth(start.getUTCMonth() + 1);
+      }
       start.setUTCHours(13, 0, 0, 0); // 10:00 BRT (UTC-3)
       const businessDays: Date[] = [];
       const cursor = new Date(start);
