@@ -1550,7 +1550,8 @@ function StackedBrainLayout(props: StackedProps) {
           <DialogHeader>
             <DialogTitle>Gerar ideias de conteúdo</DialogTitle>
             <DialogDescription>
-              Pautas geradas a partir da estratégia revisada e injetadas no pipeline.
+              Pautas geradas a partir da estratégia revisada, distribuídas por canal e agendadas no calendário
+              respeitando a volumetria semanal (posts/semana por canal) do briefing.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">
