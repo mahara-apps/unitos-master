@@ -24,6 +24,7 @@ import {
   Megaphone,
   Users,
   Settings as SettingsIcon,
+  ScrollText,
 } from "lucide-react";
 import {
   Sidebar,
