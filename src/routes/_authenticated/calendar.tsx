@@ -18,7 +18,7 @@ import { listScheduledPostsFn, type CalendarPost } from "@/lib/calendar.function
 import { usePageHeader } from "@/hooks/use-page-header";
 import { GeneratePlanDialog } from "@/components/calendar/generate-plan-dialog";
 import { TaskDialog } from "@/components/content/task-dialog";
-import { loadBoardFn, ensureDefaultPipelineFn } from "@/lib/content.functions";
+import { loadBoardFn, ensureDefaultPipelineFn, type PipelineStage } from "@/lib/content.functions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -46,7 +46,7 @@ function CalendarPage() {
   const loadBoard = useServerFn(loadBoardFn);
   const ensurePipeline = useServerFn(ensureDefaultPipelineFn);
   const [createCtx, setCreateCtx] = useState<
-    | { date: Date; pipelineId: string; stages: { id: string; label: string }[] }
+    | { date: Date; pipelineId: string; stages: PipelineStage[] }
     | null
   >(null);
   const [creating, setCreating] = useState(false);
