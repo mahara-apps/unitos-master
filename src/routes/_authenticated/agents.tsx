@@ -1,20 +1,16 @@
 import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { toast } from "sonner";
-import { Sparkles, Loader2, Activity, Brain } from "lucide-react";
+import { Activity, Brain } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
   listAgentPromptsFn,
   listAgentJobsFn,
-  getBrandVolumetryFn,
   type AgentPromptRow,
 } from "@/lib/agents.functions";
-import { supabase } from "@/integrations/supabase/client";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { AgentCard } from "@/components/agents/agent-card";
 import { AgentDrawer } from "@/components/agents/agent-drawer";
@@ -27,10 +23,8 @@ export const Route = createFileRoute("/_authenticated/agents")({
 
 function AgentsPage() {
   const { brandId, clientId } = useActiveContext();
-  const qc = useQueryClient();
   const listPrompts = useServerFn(listAgentPromptsFn);
   const listJobs = useServerFn(listAgentJobsFn);
-  const getVol = useServerFn(getBrandVolumetryFn);
 
   const prompts = useQuery({
     queryKey: ["agent-prompts"],
@@ -44,13 +38,6 @@ function AgentsPage() {
     refetchInterval: 15000,
   });
 
-  const vol = useQuery({
-    enabled: !!clientId,
-    queryKey: ["brand-volumetry", clientId],
-    queryFn: () => getVol({ data: { clientId: clientId! } }),
-  });
-
-  const [running, setRunning] = useState(false);
   const [selected, setSelected] = useState<AgentPromptRow | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -68,58 +55,12 @@ function AgentsPage() {
     return [...map.entries()];
   }, [prompts.data]);
 
-  const runMonthlyPlan = useMutation({
-    mutationFn: async () => {
-      if (!brandId || !clientId) throw new Error("Selecione um cliente.");
-      setRunning(true);
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
-      if (!token) throw new Error("Sessão expirada.");
-      const res = await fetch("/api/jobs/monthly-plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          brandId,
-          clientId,
-          postsCount: vol.data?.postsPerMonth ?? 12,
-        }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-    },
-    onSuccess: () => {
-      toast.success("Plano do mês iniciado. Acompanhe pelo orb no header.");
-      qc.invalidateQueries({ queryKey: ["agent-jobs"] });
-      qc.invalidateQueries({ queryKey: ["ai-jobs", "active"] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-    onSettled: () => setRunning(false),
-  });
-
-  const monthlyAction = clientId ? (
-    <Button
-      size="sm"
-      onClick={() => runMonthlyPlan.mutate()}
-      disabled={running || runMonthlyPlan.isPending}
-      className="gap-2"
-    >
-      {running || runMonthlyPlan.isPending ? (
-        <Loader2 className="h-4 w-4 animate-spin" />
-      ) : (
-        <Sparkles className="h-4 w-4" />
-      )}
-      Sugerir pauta do mês ({vol.data?.postsPerMonth ?? 12} posts)
-    </Button>
-  ) : (
-    <Badge variant="outline">Selecione um cliente para acionar a pauta</Badge>
-  );
-
   usePageHeader(
     {
       title: "Cérebro de Agentes",
       subtitle: "Especialistas de IA orquestrados a partir do briefing da marca.",
-      actions: monthlyAction,
     },
-    [clientId, running, runMonthlyPlan.isPending, vol.data?.postsPerMonth],
+    [],
   );
 
   if (!brandId) {
