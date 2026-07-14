@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Trash2, Sparkles, Upload, X, ImageIcon, FileText, RotateCcw, CheckCircle2 } from "lucide-react";
+import { Loader2, Trash2, Sparkles, Upload, X, ImageIcon, FileText, RotateCcw, CheckCircle2, Link2, Copy as CopyIcon, ShieldX } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +26,12 @@ import {
   signPostReferenceMediaFn,
 } from "@/lib/content.functions";
 import { reworkPostFn } from "@/lib/content.functions";
+import { aiInlineGenerateFn } from "@/lib/copilot-inline.functions";
+import {
+  listApprovalTokensFn,
+  createApprovalTokenFn,
+  revokeApprovalTokenFn,
+} from "@/lib/approval.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 type Props = {
@@ -37,7 +43,7 @@ type Props = {
 export function PostDetailDialog({ postId, onClose, boardQueryKey }: Props) {
   return (
     <Dialog open={!!postId} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
         {postId ? (
           <PostDetailBody postId={postId} onClose={onClose} boardQueryKey={boardQueryKey} />
         ) : null}
@@ -232,7 +238,15 @@ function PostDetailBody({
           <Input id="pd-title" value={title} onChange={(e) => setTitle(e.target.value)} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="pd-copy">Copy</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="pd-copy">Copy</Label>
+            <AiFieldButton
+              postId={postId}
+              field="copy"
+              label="Gerar copy"
+              onText={(t) => setCopy(t)}
+            />
+          </div>
           <Textarea
             id="pd-copy"
             rows={6}
@@ -240,6 +254,29 @@ function PostDetailBody({
             onChange={(e) => setCopy(e.target.value)}
             placeholder="Escreva o texto do post…"
           />
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            <AiFieldButton
+              postId={postId}
+              field="hashtags"
+              label="Hashtags"
+              size="xs"
+              onText={(t) => setCopy((prev) => `${prev.trimEnd()}\n\n${t}`.trim())}
+            />
+            <AiFieldButton
+              postId={postId}
+              field="cta"
+              label="CTA"
+              size="xs"
+              onText={(t) => setCopy((prev) => `${prev.trimEnd()}\n\n${t}`.trim())}
+            />
+            <AiFieldButton
+              postId={postId}
+              field="script"
+              label="Roteiro"
+              size="xs"
+              onText={(t) => setCopy((prev) => `${prev.trimEnd()}\n\n${t}`.trim())}
+            />
+          </div>
         </div>
         {data.post.design_brief ? (
           <div className="space-y-1.5">
@@ -315,6 +352,8 @@ function PostDetailBody({
             onChange={(e) => setScheduledAt(e.target.value)}
           />
         </div>
+        <Separator />
+        <ApprovalLinkSection postId={postId} />
         <Separator />
         <Timeline items={data.timeline} />
       </div>
@@ -399,6 +438,146 @@ function Timeline({
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function AiFieldButton({
+  postId,
+  field,
+  label,
+  onText,
+  size = "sm",
+}: {
+  postId: string;
+  field: "copy" | "hashtags" | "cta" | "script" | "briefing";
+  label: string;
+  onText: (t: string) => void;
+  size?: "xs" | "sm";
+}) {
+  const runAi = useServerFn(aiInlineGenerateFn);
+  const m = useMutation({
+    mutationFn: () => runAi({ data: { postId, field } }),
+    onSuccess: (r: { text: string }) => {
+      onText(r.text);
+      toast.success(`${label} gerado`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const cls =
+    size === "xs"
+      ? "h-7 rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 text-xs text-violet-700 hover:bg-violet-500/20 dark:text-violet-300"
+      : "h-8 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 text-xs text-violet-700 hover:bg-violet-500/20 dark:text-violet-300";
+  return (
+    <button
+      type="button"
+      className={`inline-flex items-center gap-1.5 ${cls}`}
+      onClick={() => m.mutate()}
+      disabled={m.isPending}
+    >
+      {m.isPending ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : (
+        <Sparkles className="h-3 w-3" />
+      )}
+      {label}
+    </button>
+  );
+}
+
+function ApprovalLinkSection({ postId }: { postId: string }) {
+  const qc = useQueryClient();
+  const listTokens = useServerFn(listApprovalTokensFn);
+  const createTok = useServerFn(createApprovalTokenFn);
+  const revokeTok = useServerFn(revokeApprovalTokenFn);
+
+  const q = useQuery({
+    queryKey: ["approval-tokens", postId],
+    queryFn: () => listTokens({ data: { postId } }),
+  });
+
+  const create = useMutation({
+    mutationFn: () => createTok({ data: { postId, expiresInDays: 14 } }),
+    onSuccess: () => {
+      toast.success("Link de aprovação gerado");
+      qc.invalidateQueries({ queryKey: ["approval-tokens", postId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const revoke = useMutation({
+    mutationFn: (tokenId: string) => revokeTok({ data: { tokenId } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["approval-tokens", postId] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const active = (q.data ?? []).filter(
+    (t) =>
+      !t.revoked_at &&
+      (!t.expires_at || new Date(t.expires_at).getTime() > Date.now()),
+  );
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="flex items-center gap-1.5">
+          <Link2 className="h-3.5 w-3.5" /> Aprovação externa
+        </Label>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() => create.mutate()}
+          disabled={create.isPending}
+        >
+          {create.isPending ? (
+            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Link2 className="mr-2 h-3.5 w-3.5" />
+          )}
+          Gerar link
+        </Button>
+      </div>
+      {active.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          Nenhum link ativo. Gere um link seguro para envio ao cliente aprovar sem login.
+        </p>
+      ) : (
+        <ul className="space-y-1.5">
+          {active.map((t) => {
+            const url =
+              typeof window !== "undefined"
+                ? `${window.location.origin}/approval/${t.token}`
+                : `/approval/${t.token}`;
+            return (
+              <li
+                key={t.id}
+                className="flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5 text-xs"
+              >
+                <code className="flex-1 truncate font-mono">{url}</code>
+                <button
+                  type="button"
+                  className="rounded p-1 hover:bg-muted"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(url);
+                    toast.success("Link copiado");
+                  }}
+                  title="Copiar"
+                >
+                  <CopyIcon className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className="rounded p-1 text-destructive hover:bg-destructive/10"
+                  onClick={() => revoke.mutate(t.id)}
+                  title="Revogar"
+                >
+                  <ShieldX className="h-3.5 w-3.5" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }

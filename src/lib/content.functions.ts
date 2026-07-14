@@ -33,6 +33,9 @@ export type Pipeline = {
   is_default: boolean;
   position: number;
   post_count: number;
+  color?: string | null;
+  description?: string | null;
+  icon?: string | null;
 };
 
 export type PipelineStage = {
@@ -43,6 +46,8 @@ export type PipelineStage = {
   color: StageColor;
   position: number;
   is_terminal: boolean;
+  hide_in_portal?: boolean | null;
+  enables_approval_link?: boolean | null;
 };
 
 export type BoardPost = {
@@ -68,6 +73,31 @@ export type BoardPost = {
   approved_at?: string | null;
   approved_by?: string | null;
   rework_notes?: string | null;
+  priority?: string | null;
+  format?: string | null;
+  tags?: string[] | null;
+  visible_in_portal?: boolean | null;
+  internal_briefing?: string | null;
+  client_briefing?: string | null;
+  script?: ScriptScene[] | null;
+  references?: PostReference[] | null;
+};
+
+export type ScriptScene = {
+  cena: number;
+  tempo?: string;
+  narrador?: string;
+  fala?: string;
+  observacao?: string;
+};
+
+export type PostReference = {
+  id: string;
+  url?: string;
+  title?: string;
+  description?: string;
+  image?: string;
+  visible_in_portal?: boolean;
 };
 
 export type Board = {
@@ -255,13 +285,13 @@ export const loadBoardFn = createServerFn({ method: "POST" })
           .single(),
         context.supabase
           .from("content_pipeline_stages")
-          .select("id,pipeline_id,key,label,color,position,is_terminal")
+          .select("id,pipeline_id,key,label,color,position,is_terminal,hide_in_portal,enables_approval_link")
           .eq("pipeline_id", data.pipelineId)
           .order("position", { ascending: true }),
         context.supabase
           .from("posts")
           .select(
-            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes",
+            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes,priority,format,tags,visible_in_portal",
           )
           .eq("brand_id", data.brandId)
           .eq("client_id", data.clientId)
@@ -348,7 +378,7 @@ export const createStageFn = createServerFn({ method: "POST" })
         color: data.color,
         position: nextPos,
       })
-      .select("id,pipeline_id,key,label,color,position,is_terminal")
+      .select("id,pipeline_id,key,label,color,position,is_terminal,hide_in_portal,enables_approval_link")
       .single();
     if (error) throw error;
     return st as PipelineStage;
@@ -365,6 +395,8 @@ export const updateStageFn = createServerFn({ method: "POST" })
             label: z.string().min(1).max(40).optional(),
             color: z.enum(STAGE_COLORS).optional(),
             is_terminal: z.boolean().optional(),
+            hide_in_portal: z.boolean().optional(),
+            enables_approval_link: z.boolean().optional(),
           })
           .strict(),
       })
@@ -480,6 +512,14 @@ export const updatePostFn = createServerFn({ method: "POST" })
               .optional(),
             design_brief: z.string().max(8000).nullable().optional(),
             review_status: z.enum(["pending", "approved", "rejected", "rework"]).optional(),
+            priority: z.enum(["low", "medium", "high", "urgent"]).nullable().optional(),
+            format: z.string().max(60).nullable().optional(),
+            tags: z.array(z.string().max(40)).max(20).optional(),
+            visible_in_portal: z.boolean().optional(),
+            internal_briefing: z.string().max(8000).nullable().optional(),
+            client_briefing: z.string().max(8000).nullable().optional(),
+            script: z.array(z.any()).nullable().optional(),
+            references: z.array(z.any()).nullable().optional(),
           })
           .strict(),
       })
@@ -584,7 +624,7 @@ export const getPostDetailFn = createServerFn({ method: "POST" })
       context.supabase
         .from("posts")
         .select(
-          "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,reference_media,design_brief,ai_phase,approved_at,approved_by,rework_notes",
+          "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,reference_media,design_brief,ai_phase,approved_at,approved_by,rework_notes,priority,format,tags,visible_in_portal,internal_briefing,client_briefing,script,references",
         )
         .eq("id", data.postId)
         .single(),

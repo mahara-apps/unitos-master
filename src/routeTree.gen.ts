@@ -16,6 +16,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as ApprovalTokenRouteImport } from './routes/approval.$token'
 import { Route as AuthenticatedWorkRouteImport } from './routes/_authenticated/work'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
@@ -43,6 +44,7 @@ import { Route as AuthenticatedSettingsBriefingRouteImport } from './routes/_aut
 import { Route as AuthenticatedSettingsAiRouteImport } from './routes/_authenticated/settings.ai'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 import { Route as ApiPublicJobsReapRouteImport } from './routes/api/public/jobs.reap'
+import { Route as ApiPublicApprovalTokenRouteImport } from './routes/api/public/approval.$token'
 import { Route as AuthenticatedCustomersCustomerIdPipelineRouteImport } from './routes/_authenticated/customers.$customerId.pipeline'
 import { Route as AuthenticatedCustomersCustomerIdBriefingRouteImport } from './routes/_authenticated/customers.$customerId.briefing'
 
@@ -78,6 +80,11 @@ const PortalTokenRoute = PortalTokenRouteImport.update({
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApprovalTokenRoute = ApprovalTokenRouteImport.update({
+  id: '/approval/$token',
+  path: '/approval/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedWorkRoute = AuthenticatedWorkRouteImport.update({
@@ -221,6 +228,11 @@ const ApiPublicJobsReapRoute = ApiPublicJobsReapRouteImport.update({
   path: '/api/public/jobs/reap',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicApprovalTokenRoute = ApiPublicApprovalTokenRouteImport.update({
+  id: '/api/public/approval/$token',
+  path: '/api/public/approval/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedCustomersCustomerIdPipelineRoute =
   AuthenticatedCustomersCustomerIdPipelineRouteImport.update({
     id: '/pipeline',
@@ -255,6 +267,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/work': typeof AuthenticatedWorkRoute
+  '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
@@ -269,6 +282,7 @@ export interface FileRoutesByFullPath {
   '/customers/': typeof AuthenticatedCustomersIndexRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
+  '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/jobs/reap': typeof ApiPublicJobsReapRoute
 }
 export interface FileRoutesByTo {
@@ -290,6 +304,7 @@ export interface FileRoutesByTo {
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/work': typeof AuthenticatedWorkRoute
+  '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
   '/': typeof AuthenticatedIndexRoute
@@ -305,6 +320,7 @@ export interface FileRoutesByTo {
   '/customers': typeof AuthenticatedCustomersIndexRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
+  '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/jobs/reap': typeof ApiPublicJobsReapRoute
 }
 export interface FileRoutesById {
@@ -329,6 +345,7 @@ export interface FileRoutesById {
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/work': typeof AuthenticatedWorkRoute
+  '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -344,6 +361,7 @@ export interface FileRoutesById {
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
   '/_authenticated/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/_authenticated/customers/$customerId/pipeline': typeof AuthenticatedCustomersCustomerIdPipelineRoute
+  '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/jobs/reap': typeof ApiPublicJobsReapRoute
 }
 export interface FileRouteTypes {
@@ -369,6 +387,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/settings'
     | '/work'
+    | '/approval/$token'
     | '/invite/$token'
     | '/portal/$token'
     | '/customers/$customerId'
@@ -383,6 +402,7 @@ export interface FileRouteTypes {
     | '/customers/'
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/pipeline'
+    | '/api/public/approval/$token'
     | '/api/public/jobs/reap'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -404,6 +424,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/settings'
     | '/work'
+    | '/approval/$token'
     | '/invite/$token'
     | '/portal/$token'
     | '/'
@@ -419,6 +440,7 @@ export interface FileRouteTypes {
     | '/customers'
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/pipeline'
+    | '/api/public/approval/$token'
     | '/api/public/jobs/reap'
   id:
     | '__root__'
@@ -442,6 +464,7 @@ export interface FileRouteTypes {
     | '/_authenticated/reports'
     | '/_authenticated/settings'
     | '/_authenticated/work'
+    | '/approval/$token'
     | '/invite/$token'
     | '/portal/$token'
     | '/_authenticated/'
@@ -457,6 +480,7 @@ export interface FileRouteTypes {
     | '/_authenticated/customers/'
     | '/_authenticated/customers/$customerId/briefing'
     | '/_authenticated/customers/$customerId/pipeline'
+    | '/api/public/approval/$token'
     | '/api/public/jobs/reap'
   fileRoutesById: FileRoutesById
 }
@@ -465,6 +489,7 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  ApprovalTokenRoute: typeof ApprovalTokenRoute
   InviteTokenRoute: typeof InviteTokenRoute
   PortalTokenRoute: typeof PortalTokenRoute
   ApiJobsCopilotRoute: typeof ApiJobsCopilotRoute
@@ -472,6 +497,7 @@ export interface RootRouteChildren {
   ApiJobsMonthlyPlanRoute: typeof ApiJobsMonthlyPlanRoute
   ApiJobsPostPhase2Route: typeof ApiJobsPostPhase2Route
   PBriefingTokenRoute: typeof PBriefingTokenRoute
+  ApiPublicApprovalTokenRoute: typeof ApiPublicApprovalTokenRoute
   ApiPublicJobsReapRoute: typeof ApiPublicJobsReapRoute
 }
 
@@ -524,6 +550,13 @@ declare module '@tanstack/react-router' {
       path: '/invite/$token'
       fullPath: '/invite/$token'
       preLoaderRoute: typeof InviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/approval/$token': {
+      id: '/approval/$token'
+      path: '/approval/$token'
+      fullPath: '/approval/$token'
+      preLoaderRoute: typeof ApprovalTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/work': {
@@ -715,6 +748,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicJobsReapRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/approval/$token': {
+      id: '/api/public/approval/$token'
+      path: '/api/public/approval/$token'
+      fullPath: '/api/public/approval/$token'
+      preLoaderRoute: typeof ApiPublicApprovalTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/customers/$customerId/pipeline': {
       id: '/_authenticated/customers/$customerId/pipeline'
       path: '/pipeline'
@@ -832,6 +872,7 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  ApprovalTokenRoute: ApprovalTokenRoute,
   InviteTokenRoute: InviteTokenRoute,
   PortalTokenRoute: PortalTokenRoute,
   ApiJobsCopilotRoute: ApiJobsCopilotRoute,
@@ -839,6 +880,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiJobsMonthlyPlanRoute: ApiJobsMonthlyPlanRoute,
   ApiJobsPostPhase2Route: ApiJobsPostPhase2Route,
   PBriefingTokenRoute: PBriefingTokenRoute,
+  ApiPublicApprovalTokenRoute: ApiPublicApprovalTokenRoute,
   ApiPublicJobsReapRoute: ApiPublicJobsReapRoute,
 }
 export const routeTree = rootRouteImport

@@ -882,6 +882,112 @@ export type Database = {
         }
         Relationships: []
       }
+      card_approval_events: {
+        Row: {
+          brand_id: string
+          comment: string | null
+          created_at: string
+          id: string
+          ip: unknown
+          post_id: string
+          token_id: string | null
+          user_agent: string | null
+          verb: string
+        }
+        Insert: {
+          brand_id: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          ip?: unknown
+          post_id: string
+          token_id?: string | null
+          user_agent?: string | null
+          verb: string
+        }
+        Update: {
+          brand_id?: string
+          comment?: string | null
+          created_at?: string
+          id?: string
+          ip?: unknown
+          post_id?: string
+          token_id?: string | null
+          user_agent?: string | null
+          verb?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_approval_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_approval_events_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_approval_events_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "card_approval_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      card_approval_tokens: {
+        Row: {
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          post_id: string
+          revoked_at: string | null
+          token: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          post_id: string
+          revoked_at?: string | null
+          token: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          post_id?: string
+          revoked_at?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "card_approval_tokens_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "card_approval_tokens_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_briefing_tokens: {
         Row: {
           brand_id: string
@@ -1124,6 +1230,8 @@ export type Database = {
         Row: {
           color: string
           created_at: string
+          enables_approval_link: boolean
+          hide_in_portal: boolean
           id: string
           is_terminal: boolean
           key: string
@@ -1135,6 +1243,8 @@ export type Database = {
         Insert: {
           color?: string
           created_at?: string
+          enables_approval_link?: boolean
+          hide_in_portal?: boolean
           id?: string
           is_terminal?: boolean
           key: string
@@ -1146,6 +1256,8 @@ export type Database = {
         Update: {
           color?: string
           created_at?: string
+          enables_approval_link?: boolean
+          hide_in_portal?: boolean
           id?: string
           is_terminal?: boolean
           key?: string
@@ -1168,8 +1280,11 @@ export type Database = {
         Row: {
           brand_id: string
           client_id: string
+          color: string | null
           created_at: string
           created_by: string | null
+          description: string | null
+          icon: string | null
           id: string
           is_default: boolean
           name: string
@@ -1180,8 +1295,11 @@ export type Database = {
         Insert: {
           brand_id: string
           client_id: string
+          color?: string | null
           created_at?: string
           created_by?: string | null
+          description?: string | null
+          icon?: string | null
           id?: string
           is_default?: boolean
           name: string
@@ -1192,8 +1310,11 @@ export type Database = {
         Update: {
           brand_id?: string
           client_id?: string
+          color?: string | null
           created_at?: string
           created_by?: string | null
+          description?: string | null
+          icon?: string | null
           id?: string
           is_default?: boolean
           name?: string
@@ -1358,6 +1479,7 @@ export type Database = {
           assignee_id: string | null
           brand_id: string
           channels: Database["public"]["Enums"]["post_channel"][]
+          client_briefing: string | null
           client_id: string
           copy: string | null
           cover_url: string | null
@@ -1365,19 +1487,26 @@ export type Database = {
           created_by: string | null
           deleted_at: string | null
           design_brief: string | null
+          format: string | null
           id: string
+          internal_briefing: string | null
           pipeline_id: string | null
           position: number
+          priority: string
           project_id: string | null
           published_at: string | null
           reference_media: Json
+          references: Json
           review_status: string
           rework_notes: string | null
           scheduled_at: string | null
+          script: Json
           stage: Database["public"]["Enums"]["post_stage"]
           stage_id: string | null
+          tags: string[]
           title: string
           updated_at: string
+          visible_in_portal: boolean
         }
         Insert: {
           ai_phase?: string
@@ -1386,6 +1515,7 @@ export type Database = {
           assignee_id?: string | null
           brand_id: string
           channels?: Database["public"]["Enums"]["post_channel"][]
+          client_briefing?: string | null
           client_id: string
           copy?: string | null
           cover_url?: string | null
@@ -1393,19 +1523,26 @@ export type Database = {
           created_by?: string | null
           deleted_at?: string | null
           design_brief?: string | null
+          format?: string | null
           id?: string
+          internal_briefing?: string | null
           pipeline_id?: string | null
           position?: number
+          priority?: string
           project_id?: string | null
           published_at?: string | null
           reference_media?: Json
+          references?: Json
           review_status?: string
           rework_notes?: string | null
           scheduled_at?: string | null
+          script?: Json
           stage?: Database["public"]["Enums"]["post_stage"]
           stage_id?: string | null
+          tags?: string[]
           title: string
           updated_at?: string
+          visible_in_portal?: boolean
         }
         Update: {
           ai_phase?: string
@@ -1414,6 +1551,7 @@ export type Database = {
           assignee_id?: string | null
           brand_id?: string
           channels?: Database["public"]["Enums"]["post_channel"][]
+          client_briefing?: string | null
           client_id?: string
           copy?: string | null
           cover_url?: string | null
@@ -1421,19 +1559,26 @@ export type Database = {
           created_by?: string | null
           deleted_at?: string | null
           design_brief?: string | null
+          format?: string | null
           id?: string
+          internal_briefing?: string | null
           pipeline_id?: string | null
           position?: number
+          priority?: string
           project_id?: string | null
           published_at?: string | null
           reference_media?: Json
+          references?: Json
           review_status?: string
           rework_notes?: string | null
           scheduled_at?: string | null
+          script?: Json
           stage?: Database["public"]["Enums"]["post_stage"]
           stage_id?: string | null
+          tags?: string[]
           title?: string
           updated_at?: string
+          visible_in_portal?: boolean
         }
         Relationships: [
           {
