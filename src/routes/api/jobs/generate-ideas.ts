@@ -29,18 +29,31 @@ function buildUserClient(token: string) {
   });
 }
 
+const FORMAT_ENUM = ["Feed", "Reels", "Story", "Carrossel"] as const;
+type FormatKind = (typeof FORMAT_ENUM)[number];
+
 const PautasSchema = z.object({
   pautas: z.array(
     z.object({
       titulo: z.string(),
       pilar_type: z.string(),
       cohort_alvo: z.string(),
-      formato: z.string(),
+      formato: z.enum(FORMAT_ENUM),
+      formato_justificativa: z.string().optional(),
       plataforma: z.string(),
       gancho: z.string(),
     }),
   ),
 });
+
+function normalizeFormat(raw: string | null | undefined): FormatKind {
+  const s = (raw ?? "").toString().trim().toLowerCase();
+  if (!s) return "Feed";
+  if (s.startsWith("reel")) return "Reels";
+  if (s.startsWith("stor")) return "Story";
+  if (s.startsWith("carr") || s.startsWith("carou")) return "Carrossel";
+  return "Feed";
+}
 
 const CHANNEL_MAP: Record<string, "instagram" | "tiktok" | "linkedin" | "x" | "youtube" | "blog"> = {
   instagram: "instagram",
