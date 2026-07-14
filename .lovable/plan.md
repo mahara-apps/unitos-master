@@ -1,98 +1,64 @@
-# Multi-Placement em um Único Card
+## Objetivo
 
-## Problema
-Hoje cada card = 1 formato. Se o usuário quer publicar o mesmo conceito em **Feed + Stories** (ou Reels + Stories), precisa duplicar cards, duplicar mídias, duplicar aprovações. Ineficiente e polui o calendário.
+Criar `/analytics` com 4 abas (Redes Sociais · Produção · Equipe · Clientes), inspirada nas referências, com dados **reais** vindos do Supabase (posts, tasks, aprovações, conexões, projetos e membros).
 
-## Estratégia
-Transformar `format` (single) em **placements[]** (multi), preservando 1 card = 1 conceito criativo, mas com N destinos de publicação, cada um com sua própria regra (horário, mídia adaptada, copy adaptada, status de publicação).
+## Escopo dos dados
 
-Não é obrigatório — usuário continua podendo criar card single-format. Multi-placement é **opt-in**.
+Todas as métricas são calculadas server-side em `src/lib/analytics.functions.ts`, escopadas por `brandId` + `clientId` opcional + intervalo de datas.
 
-## Regras de negócio
+### Aba Redes Sociais
+- **KPIs**: Posts publicados, Engajamento médio/post, Crescimento líquido (deltas por período), Plataformas conectadas (via `brand_connections`).
+- **Comparativo por plataforma**: contagem de posts publicados por canal, agrupado a partir de `posts.channels`.
+- **Melhor momento pra postar**: agrupa `posts.published_at` por dia da semana × hora (usa `posts` publicados). Se < 5 publicados, mostra empty state igual à referência.
+- **Performance por formato**: contagem por tipo (feed/reels/story/carrossel) via `posts.format` e `post_placements`.
+- **Top posts**: lista de publicados mais recentes.
+- *Nota de honestidade*: seguidores, alcance e taxa de engajamento **reais** exigem integração Instagram Graph API que ainda não existe. Vou mostrar cards com estado "Conecte uma rede para ver" quando não houver métricas persistidas, em vez de inventar números.
 
-**Combinações válidas** (o "cérebro" da regra):
-- ✅ `Feed + Stories` → mais comum (post principal + teaser 24h)
-- ✅ `Reels + Stories` → reels compartilhado no story
-- ✅ `Carrossel + Stories` → divulgação do carrossel
-- ❌ `Feed + Reels` → conflita (Reels já ocupa grid); bloqueado com aviso
-- ❌ `Feed + Carrossel` → mesmo espaço; bloqueado
+### Aba Produção
+- **KPI cards**: Entregues no prazo, Atrasadas, Aguardando aprovação (posts com `stage=review`).
+- **Funil de produção**: contagem de posts por `stage` (ideia → em produção → em revisão → aguardando aprovação → aprovado → agendado → publicado).
+- **Por canal**: barras horizontais com posts por canal.
+- **Velocidade média**: média `published_at - created_at` para posts publicados no período.
+- **Por tipo de conteúdo**: barras por `posts.format`.
+- **Produção ao longo do tempo**: linha (criadas × concluídas × aprovadas) por dia usando `posts.created_at`, `published_at`, `post_approvals`.
 
-**Aproveitamento de mídia por placement**:
-- Feed/Carrossel: 1:1 ou 4:5
-- Stories/Reels: 9:16
-- Se usuário só enviou 1:1 e adicionou Stories → sistema mostra aviso "adapte a mídia 9:16" (não bloqueia; permite salvar como pendência)
-- Opcional futuro: auto-crop com IA (fora do escopo desta fase)
+### Aba Equipe
+- **Visão geral**: por membro (`brand_members` + `user_profiles`) — abertas, atrasadas, velocidade média (`done_at - created_at`), % no prazo, % retrabalho (tasks reabertas contando `activity_events`).
+- **Onde tá travando por pessoa**: agrupa tasks abertas por `status` por membro.
+- **Resumo da equipe**: KPIs agregados (velocidade média, pontualidade geral, taxa de retrabalho, dependência do maior membro).
 
-**Copy por placement**:
-- Compartilhada por padrão (hook/headline/copy/CTA/hashtags únicos)
-- Override opcional por placement (ex.: Stories usa só hook + sticker CTA)
-- UI: toggle "Personalizar copy para Stories"
+### Aba Clientes
+- **Saúde por marca**: por cliente (`clients`) — dias médios de aprovação, número de ajustes (comentários), frequência de posts, score composto 0-100.
+- **Alertas**: heurística — pendentes > 3 dias, atrasos > 0, sem publicações há 14 dias.
+- **Gargalos de aprovação**: lista de posts em `review` há mais tempo.
+- **Taxa de aprovação no prazo**: % aprovados antes da `scheduled_at`.
 
-**Agendamento por placement**:
-- Cada placement tem seu `scheduled_at` independente
-- Default inteligente: Feed no horário principal; Stories +2h depois; Reels em horário de pico de vídeo
-- Reaproveita o motor `src/lib/scheduling.ts` (best_times por formato)
+## Filtros globais (header)
+- Range: Últimos 7 / 30 / 90 dias / Personalizado (persistido em `search params` com `zodValidator`).
+- Sheet "Filtros": Painel de Produção (pipeline), Marcas (cliente), Responsável, Projeto, Tags, Tipo de conteúdo, Canais.
+- Chip "Limpar" reseta filtros.
+- Botão "Exportar PDF" usa `window.print()` com CSS `@media print` na primeira versão (funcional, sem lib externa).
 
-**Aprovação**:
-- 1 aprovação = aprova todos os placements do card (mesmo conceito)
-- Rejeição pode ser granular ("rejeitar só Stories") — fase 2
+## Estrutura de arquivos
 
-**Publicação**:
-- Status independente por placement (`draft/scheduled/published/failed`)
-- Card só entra em "Publicado" quando todos placements publicaram
-
-## Modelo de dados
-
-Nova tabela `post_placements` (1-N com `posts`):
-```
-post_placements
-- id uuid pk
-- post_id uuid fk posts(id) cascade
-- brand_id, client_id (denormalizado p/ RLS)
-- format text ('feed'|'stories'|'reels'|'carrossel')
-- scheduled_at timestamptz
-- copy_override jsonb null   -- {hook,headline,copy,cta,hashtags} quando personalizado
-- media jsonb default '[]'   -- refs de mídia específicas deste placement (fallback: mídia do post)
-- status text default 'draft'
-- published_at timestamptz null
-- external_ref text null     -- id retornado pela API do Instagram
-- created_at/updated_at
+```text
+src/lib/analytics.functions.ts        # 4 server fns: getSocialAnalytics, getProductionAnalytics, getTeamAnalytics, getClientsAnalytics
+src/routes/_authenticated/analytics.tsx           # layout + validateSearch + tabs
+src/components/analytics/
+  ├── filters-bar.tsx                 # tabs + range + filtros sheet
+  ├── kpi-card.tsx                    # cards coloridos gradient
+  ├── social-tab.tsx
+  ├── production-tab.tsx
+  ├── team-tab.tsx
+  └── clients-tab.tsx
 ```
 
-Migração de dados existente: cada post atual vira 1 placement com seu `format` e `scheduled_at` atuais. Coluna `posts.format` mantida como "formato primário" para compat + KPIs rápidos.
+## Padrões técnicos
+- Server fns com `requireSupabaseAuth`, `zod` no `inputValidator`, retornam DTOs simples.
+- `queryOptions` + `ensureQueryData` no loader do route, `useSuspenseQuery` nas tabs, Suspense skeletons.
+- Charts com `recharts` (já usado). Cards seguem tokens semânticos.
+- Header dinâmico via `PageHeaderProvider` (título "Analytics", ação "Exportar PDF").
+- Sidebar já tem link `/analytics` — só criar a rota.
 
-RLS + GRANT via helper `is_brand_member` já existente.
-
-## UI/UX
-
-**Card TaskDialog**:
-- Novo bloco "Placements" no topo (abaixo do estágio/responsável)
-- Chips selecionáveis: `[✓ Feed] [+ Stories] [+ Reels] [+ Carrossel]`
-- Ao adicionar placement inválido → toast explicando a regra
-- Cada placement expande accordion com: data/hora, mídia (herda ou override), toggle "personalizar copy"
-
-**Calendário**:
-- Um card com 2 placements aparece **2x** no calendário (uma por data/hora), com badge visual `↳ do mesmo conceito` linkando ao card mestre
-- KPIs (Feed/Stories/Reels/Carrossel) contam **placements**, não cards → números refletem a realidade da publicação
-- Filtros por formato continuam funcionando (filtram placements)
-
-**Board (`/content`)**:
-- Card mostra badges de todos os placements: `Feed · Stories`
-- Preview usa a mídia do formato primário
-
-## AI Engine
-- Prompt do gerador de ideias ganha campo `suggested_placements[]`
-- Heurística: hook educativo longo → Feed+Stories; hook viral curto → Reels+Stories; produto → Carrossel+Stories
-- Persistência: cria post + N placements na mesma transação
-
-## Rollout (fases)
-1. **DB + migração** (posts existentes → 1 placement cada)
-2. **CRUD de placements** em `task-dialog.tsx` (opt-in, começa com Feed+Stories)
-3. **Calendário e KPIs** consumindo placements
-4. **AI** sugerindo combinações
-5. **Publicação real** via Instagram Graph (fase futura — hoje é mock)
-
-## Fora do escopo desta fase
-- Auto-crop 1:1 → 9:16
-- Aprovação granular por placement
-- Cross-posting para outros canais (TikTok, LinkedIn)
+## Fora de escopo (marcado como "requer conexão")
+- Seguidores reais / alcance real do Instagram (não há tabela de insights). Vou deixar cards prontos que passam a mostrar dados quando integrarmos Instagram Graph API — não vou fabricar números.
