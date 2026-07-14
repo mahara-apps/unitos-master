@@ -320,7 +320,7 @@ export const loadBoardFn = createServerFn({ method: "POST" })
         context.supabase
           .from("posts")
           .select(
-            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes,priority,format,tags,visible_in_portal,project_id,remind_at,assignees",
+            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes,priority,format,tags,visible_in_portal,project_id,remind_at,assignees,reference_media",
           )
           .eq("brand_id", data.brandId)
           .eq("client_id", data.clientId)
@@ -344,6 +344,42 @@ export const loadBoardFn = createServerFn({ method: "POST" })
           orphaned.map((p) => p.id),
         );
       orphaned.forEach((p) => (p.stage_id = firstStage));
+    }
+
+    // Derive cover_url from first image in reference_media when missing.
+    // Uses signed URLs so private brand-assets renders in the card.
+    const needsCover = (posts ?? []).filter((p) => {
+      if (p.cover_url) return false;
+      const refs = Array.isArray(p.reference_media)
+        ? (p.reference_media as Array<Record<string, unknown>>)
+        : [];
+      return refs.some((r) => {
+        const type = typeof r?.type === "string" ? (r.type as string) : "";
+        const path = typeof r?.path === "string" ? (r.path as string) : "";
+        return path && (type.startsWith("image/") || !type);
+      });
+    });
+    if (needsCover.length > 0) {
+      await Promise.all(
+        needsCover.map(async (p) => {
+          const refs = (p.reference_media as Array<Record<string, unknown>>) ?? [];
+          const firstImg = refs.find((r) => {
+            const type = typeof r?.type === "string" ? (r.type as string) : "";
+            const path = typeof r?.path === "string" ? (r.path as string) : "";
+            return path && (type.startsWith("image/") || !type);
+          });
+          const thumbPath =
+            typeof firstImg?.thumb_path === "string" ? (firstImg.thumb_path as string) : null;
+          const originalPath =
+            typeof firstImg?.path === "string" ? (firstImg.path as string) : null;
+          const target = thumbPath ?? originalPath;
+          if (!target) return;
+          const { data: signed } = await context.supabase.storage
+            .from("brand-assets")
+            .createSignedUrl(target, 60 * 60 * 24 * 7);
+          if (signed?.signedUrl) p.cover_url = signed.signedUrl;
+        }),
+      );
     }
 
     return {
