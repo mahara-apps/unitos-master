@@ -172,7 +172,7 @@ async function runIdeas(params: {
       const res = await generateText({
         model: gateway("google/gemini-2.5-flash"),
         system:
-          "Você é estrategista de conteúdo. Gere pautas diversificadas por pilar, plataforma e cohort. Responda SOMENTE JSON.",
+          "Você é estrategista de conteúdo social. Gere pautas diversificadas por pilar, plataforma e cohort. Para CADA pauta, escolha o MELHOR formato entre Feed, Reels, Story, Carrossel — combinando gancho, objetivo do pilar e comportamento do cohort (Reels para alcance/entretenimento e demonstração rápida; Carrossel para educar, listar passos ou storytelling profundo; Story para bastidores, enquetes e prova social efêmera; Feed para autoridade, anúncios e posts atemporais). Nunca use o mesmo formato para todas. Responda SOMENTE JSON.",
         prompt: [
           `Briefing: ${JSON.stringify(briefingR.data?.data ?? {})}`,
           `Voice: ${JSON.stringify(voiceR.data.data)}`,
@@ -182,6 +182,7 @@ async function runIdeas(params: {
           `Quantidade: ${input.quantidade}`,
           `Período: ${input.periodo}`,
           volumetriaBlock,
+          `Formatos permitidos (obrigatório escolher um por pauta): Feed | Reels | Story | Carrossel. Inclua 'formato_justificativa' curta explicando a escolha.`,
         ].join("\n"),
         output: Output.object({ schema: PautasSchema }),
       });
