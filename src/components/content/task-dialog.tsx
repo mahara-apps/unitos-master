@@ -464,24 +464,77 @@ function EditBody({
   });
 
   const upload = useMutation({
-    mutationFn: async (file: File) => {
-      const buf = await file.arrayBuffer();
-      let binary = "";
-      const bytes = new Uint8Array(buf);
-      for (let i = 0; i < bytes.byteLength; i++)
-        binary += String.fromCharCode(bytes[i]);
-      const base64 = btoa(binary);
-      return uploadRef({
-        data: {
-          postId,
-          filename: file.name,
-          contentType: file.type || "application/octet-stream",
-          base64,
-        },
-      });
+    mutationFn: async (files: File[]) => {
+      const isImage = (f: File) => f.type.startsWith("image/");
+      const isVideo = (f: File) => f.type.startsWith("video/");
+      const existingCount = refs.length;
+      let uploaded = 0;
+      for (const file of files) {
+        // Size guard on the client (server also enforces).
+        const max = isVideo(file) ? 100 * 1024 * 1024 : 25 * 1024 * 1024;
+        if (file.size > max) {
+          toast.error(
+            `${file.name}: excede o limite (${isVideo(file) ? "100 MB" : "25 MB"})`,
+          );
+          continue;
+        }
+        if (!isImage(file) && !isVideo(file)) {
+          toast.error(`${file.name}: formato não suportado`);
+          continue;
+        }
+        try {
+          const base64 = await fileToBase64(file);
+          const res = await uploadRef({
+            data: {
+              postId,
+              filename: file.name,
+              contentType: file.type || "application/octet-stream",
+              base64,
+            },
+          });
+          uploaded += 1;
+          // Generate thumbnail (best-effort) and attach to the same entry.
+          try {
+            const thumb = await generateThumbnail(file);
+            if (thumb) {
+              const thumbB64 = await blobToBase64(thumb);
+              await uploadRef({
+                data: {
+                  postId,
+                  filename: `thumb-${file.name.replace(/\.[^.]+$/, "")}.webp`,
+                  contentType: "image/webp",
+                  base64: thumbB64,
+                  variant: "thumb",
+                  originalPath: res.path,
+                },
+              });
+            }
+          } catch (thumbErr) {
+            console.warn("thumb failed", thumbErr);
+          }
+        } catch (err) {
+          toast.error(
+            `${file.name}: ${(err as Error).message ?? "falha ao enviar"}`,
+          );
+        }
+      }
+      return { uploaded, totalAfter: existingCount + uploaded };
     },
-    onSuccess: () => {
-      toast.success("Mídia anexada");
+    onSuccess: (r) => {
+      if (r.uploaded > 0) {
+        toast.success(
+          r.uploaded === 1 ? "Mídia anexada" : `${r.uploaded} mídias anexadas`,
+        );
+        // Auto-carrossel when ending with 2+ media (except Story format).
+        if (r.totalAfter >= 2 && state.format !== "Story") {
+          if (state.format !== "Carrossel") {
+            setState((s) => ({ ...s, format: "Carrossel" }));
+            toast.info("Formato ajustado para Carrossel");
+          }
+        } else if (r.totalAfter <= 1 && state.format === "Carrossel") {
+          setState((s) => ({ ...s, format: "Feed" }));
+        }
+      }
       qc.invalidateQueries({ queryKey: ["post-detail", postId] });
     },
     onError: (e: Error) => toast.error(e.message),
