@@ -1,0 +1,322 @@
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
+export const TASK_STATUSES = ["todo", "in_progress", "review", "done"] as const;
+export const TASK_PRIORITIES = ["low", "medium", "high", "urgent"] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
+export type TaskPriority = (typeof TASK_PRIORITIES)[number];
+
+export type TaskRow = {
+  id: string;
+  brand_id: string;
+  client_id: string | null;
+  project_id: string | null;
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  priority: TaskPriority;
+  assignee_id: string | null;
+  due_at: string | null;
+  done: boolean;
+  done_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  // joined
+  assignee_name?: string | null;
+  assignee_avatar?: string | null;
+  client_name?: string | null;
+  project_name?: string | null;
+  comments_count?: number;
+};
+
+export type TaskComment = {
+  id: string;
+  task_id: string;
+  author_id: string;
+  author_name: string | null;
+  author_avatar: string | null;
+  body: string;
+  mentions: string[];
+  created_at: string;
+};
+
+export const listTasksFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid().nullable().optional(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }): Promise<TaskRow[]> => {
+    let q = context.supabase
+      .from("tasks")
+      .select(
+        "id, brand_id, client_id, project_id, title, description, status, priority, assignee_id, due_at, done, done_at, created_by, created_at, updated_at",
+      )
+      .eq("brand_id", data.brandId)
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (data.clientId) q = q.eq("client_id", data.clientId);
+    const { data: rows, error } = await q;
+    if (error) throw error;
+    const tasks = rows ?? [];
+    if (tasks.length === 0) return [];
+
+    const userIds = Array.from(
+      new Set(tasks.map((t) => t.assignee_id).filter(Boolean) as string[]),
+    );
+    const clientIds = Array.from(
+      new Set(tasks.map((t) => t.client_id).filter(Boolean) as string[]),
+    );
+    const projectIds = Array.from(
+      new Set(tasks.map((t) => t.project_id).filter(Boolean) as string[]),
+    );
+
+    const [profilesRes, clientsRes, projectsRes, commentsRes] = await Promise.all([
+      userIds.length
+        ? context.supabase
+            .from("user_profiles")
+            .select("id, full_name, avatar_url")
+            .in("id", userIds)
+        : Promise.resolve({ data: [], error: null } as never),
+      clientIds.length
+        ? context.supabase
+            .from("clients")
+            .select("id, name")
+            .in("id", clientIds)
+        : Promise.resolve({ data: [], error: null } as never),
+      projectIds.length
+        ? context.supabase
+            .from("projects")
+            .select("id, name")
+            .in("id", projectIds)
+        : Promise.resolve({ data: [], error: null } as never),
+      context.supabase
+        .from("task_comments")
+        .select("task_id")
+        .in(
+          "task_id",
+          tasks.map((t) => t.id),
+        ),
+    ]);
+
+    const profMap = new Map(
+      ((profilesRes.data ?? []) as Array<{ id: string; full_name: string | null; avatar_url: string | null }>).map(
+        (p) => [p.id, p],
+      ),
+    );
+    const clientMap = new Map(
+      ((clientsRes.data ?? []) as Array<{ id: string; name: string }>).map((c) => [c.id, c.name]),
+    );
+    const projectMap = new Map(
+      ((projectsRes.data ?? []) as Array<{ id: string; name: string }>).map((p) => [p.id, p.name]),
+    );
+    const commentCounts = new Map<string, number>();
+    for (const c of (commentsRes.data ?? []) as Array<{ task_id: string }>) {
+      commentCounts.set(c.task_id, (commentCounts.get(c.task_id) ?? 0) + 1);
+    }
+
+    return tasks.map((t) => {
+      const p = t.assignee_id ? profMap.get(t.assignee_id) : null;
+      return {
+        ...t,
+        status: t.status as TaskStatus,
+        priority: t.priority as TaskPriority,
+        assignee_name: p?.full_name ?? null,
+        assignee_avatar: p?.avatar_url ?? null,
+        client_name: t.client_id ? clientMap.get(t.client_id) ?? null : null,
+        project_name: t.project_id ? projectMap.get(t.project_id) ?? null : null,
+        comments_count: commentCounts.get(t.id) ?? 0,
+      } as TaskRow;
+    });
+  });
+
+export const listProjectsFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("projects")
+      .select("id, name, client_id")
+      .eq("brand_id", data.brandId)
+      .order("name");
+    if (error) throw error;
+    return (rows ?? []) as Array<{ id: string; name: string; client_id: string | null }>;
+  });
+
+const CreateTaskInput = z.object({
+  brandId: z.string().uuid(),
+  title: z.string().trim().min(1).max(200),
+  description: z.string().max(4000).optional().nullable(),
+  status: z.enum(TASK_STATUSES).optional(),
+  priority: z.enum(TASK_PRIORITIES).optional(),
+  assignee_id: z.string().uuid().nullable().optional(),
+  client_id: z.string().uuid().nullable().optional(),
+  project_id: z.string().uuid().nullable().optional(),
+  due_at: z.string().nullable().optional(),
+});
+
+export const createTaskFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => CreateTaskInput.parse(i))
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase
+      .from("tasks")
+      .insert({
+        brand_id: data.brandId,
+        title: data.title,
+        description: data.description ?? null,
+        status: data.status ?? "todo",
+        priority: data.priority ?? "medium",
+        assignee_id: data.assignee_id ?? null,
+        client_id: data.client_id ?? null,
+        project_id: data.project_id ?? null,
+        due_at: data.due_at ?? null,
+        created_by: context.userId,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    return { id: row!.id as string };
+  });
+
+const UpdateTaskInput = z.object({
+  taskId: z.string().uuid(),
+  patch: z.object({
+    title: z.string().trim().min(1).max(200).optional(),
+    description: z.string().max(4000).nullable().optional(),
+    status: z.enum(TASK_STATUSES).optional(),
+    priority: z.enum(TASK_PRIORITIES).optional(),
+    assignee_id: z.string().uuid().nullable().optional(),
+    client_id: z.string().uuid().nullable().optional(),
+    project_id: z.string().uuid().nullable().optional(),
+    due_at: z.string().nullable().optional(),
+    done: z.boolean().optional(),
+  }),
+});
+
+export const updateTaskFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => UpdateTaskInput.parse(i))
+  .handler(async ({ data, context }) => {
+    const patch = { ...data.patch } as {
+      title?: string;
+      description?: string | null;
+      status?: TaskStatus;
+      priority?: TaskPriority;
+      assignee_id?: string | null;
+      client_id?: string | null;
+      project_id?: string | null;
+      due_at?: string | null;
+      done?: boolean;
+      done_at?: string | null;
+    };
+    if (patch.done === true) {
+      patch.status = "done";
+      patch.done_at = new Date().toISOString();
+    } else if (patch.done === false) {
+      patch.done_at = null;
+    }
+    const { error } = await context.supabase
+      .from("tasks")
+      .update(patch)
+      .eq("id", data.taskId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const deleteTaskFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ taskId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("tasks")
+      .delete()
+      .eq("id", data.taskId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const listTaskCommentsFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ taskId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }): Promise<TaskComment[]> => {
+    const { data: rows, error } = await context.supabase
+      .from("task_comments")
+      .select("id, task_id, author_id, body, mentions, created_at")
+      .eq("task_id", data.taskId)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    const list = rows ?? [];
+    if (list.length === 0) return [];
+    const authorIds = Array.from(new Set(list.map((c) => c.author_id as string)));
+    const { data: profs } = await context.supabase
+      .from("user_profiles")
+      .select("id, full_name, avatar_url")
+      .in("id", authorIds);
+    const map = new Map(
+      ((profs ?? []) as Array<{ id: string; full_name: string | null; avatar_url: string | null }>).map(
+        (p) => [p.id, p],
+      ),
+    );
+    return list.map((c) => {
+      const p = map.get(c.author_id as string);
+      return {
+        id: c.id as string,
+        task_id: c.task_id as string,
+        author_id: c.author_id as string,
+        author_name: p?.full_name ?? null,
+        author_avatar: p?.avatar_url ?? null,
+        body: c.body as string,
+        mentions: (c.mentions as string[]) ?? [],
+        created_at: c.created_at as string,
+      };
+    });
+  });
+
+export const addTaskCommentFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        taskId: z.string().uuid(),
+        body: z.string().trim().min(1).max(4000),
+        mentions: z.array(z.string().uuid()).optional(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: task, error: tErr } = await context.supabase
+      .from("tasks")
+      .select("brand_id")
+      .eq("id", data.taskId)
+      .single();
+    if (tErr) throw tErr;
+    const { error } = await context.supabase.from("task_comments").insert({
+      task_id: data.taskId,
+      brand_id: task!.brand_id as string,
+      author_id: context.userId,
+      body: data.body,
+      mentions: data.mentions ?? [],
+    });
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const deleteTaskCommentFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ commentId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("task_comments")
+      .delete()
+      .eq("id", data.commentId)
+      .eq("author_id", context.userId);
+    if (error) throw error;
+    return { ok: true };
+  });

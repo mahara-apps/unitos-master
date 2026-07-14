@@ -55,7 +55,7 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
       { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
       { title: "Produção", url: "/content", icon: KanbanSquare },
       { title: "Calendário", url: "/calendar", icon: CalendarDays },
-      { title: "Tarefas", url: "/work", icon: ListChecks },
+      { title: "Tarefas", url: "/tasks", icon: ListChecks },
       { title: "Projetos", url: "/projects", icon: FolderKanban },
       { title: "Clientes", url: "/customers", icon: Users },
       { title: "Analytics", url: "/analytics", icon: BarChart3 },
