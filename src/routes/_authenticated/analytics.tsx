@@ -164,7 +164,7 @@ function AnalyticsPage() {
   const projectsQuery = useQuery({
     enabled: !!brandId,
     queryKey: ["analytics-projects", brandId],
-    queryFn: () => projectsFn({ data: { brand_id: brandId! } }),
+    queryFn: () => projectsFn({ data: { brandId: brandId! } }),
   });
 
   usePageHeader(
