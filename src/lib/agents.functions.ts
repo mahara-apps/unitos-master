@@ -115,37 +115,6 @@ export const listAgentJobsFn = createServerFn({ method: "POST" })
     return (rows ?? []) as AgentJobRow[];
   });
 
-export type BrandVolumetry = {
-  postsPerMonth: number;
-  channels: string[];
-};
-
-export const getBrandVolumetryFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) =>
-    z.object({ clientId: z.string().uuid() }).parse(i),
-  )
-  .handler(async ({ data, context }): Promise<BrandVolumetry> => {
-    const { data: row } = await context.supabase
-      .from("clients")
-      .select("brand_hub")
-      .eq("id", data.clientId)
-      .maybeSingle();
-    const hub = ((row?.brand_hub ?? {}) as Record<string, unknown>) || {};
-    const vol = (hub.volumetria ?? {}) as Record<string, unknown>;
-    const raw = vol.postsPerMonth ?? vol.posts_per_month ?? vol.qty ?? 12;
-    const n = Number(raw);
-    const channels = Array.isArray(hub.canais)
-      ? (hub.canais as string[])
-      : Array.isArray(vol.channels)
-        ? (vol.channels as string[])
-        : ["instagram"];
-    return {
-      postsPerMonth: Number.isFinite(n) && n > 0 ? Math.min(60, Math.round(n)) : 12,
-      channels,
-    };
-  });
-
 /**
  * Playground execution for an agent prompt.
  * Uses the agent's current system prompt, injects resolved variables +
