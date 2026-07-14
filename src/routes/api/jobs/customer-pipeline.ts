@@ -394,11 +394,12 @@ async function runPhase1(params: {
     await supabase.from("notifications").insert({
       user_id: userId,
       brand_id: input.brandId,
-      type: "strategy_ready",
+      kind: "system",
       title: "Estratégia gerada — revise antes de criar ideias",
-      body: "Voice card, personas, cohorts e SWOT estão prontos. Confira e ajuste, depois gere as ideias.",
-      link: reviewRoute,
-    } as never);
+      body: "Voice card, personas, cohorts e SWOT prontos. Confira, ajuste e depois clique em Gerar ideias.",
+      href: reviewRoute,
+      payload: { event: "strategy_ready", client_id: input.clientId },
+    });
 
     await patch({
       status: "succeeded",
