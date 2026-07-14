@@ -1082,7 +1082,7 @@ function TaskLayout({
       <div className="space-y-5">
         {mode === "create" ? (
           <div className="space-y-1.5">
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+            <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
               Título *
             </Label>
             <Input
@@ -1095,7 +1095,7 @@ function TaskLayout({
         ) : null}
 
         <div className="space-y-2">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+          <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
             Vai publicar? Selecione o canal
           </Label>
           <div className="flex flex-wrap gap-1.5">
@@ -1107,10 +1107,10 @@ function TaskLayout({
                   key={c.id}
                   type="button"
                   onClick={() => toggleChannel(c.id)}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition ${
+                  className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition ${
                     active
                       ? CHANNEL_STYLES[c.id] ?? "border-primary bg-primary/10 text-foreground"
-                      : "border-border/60 text-muted-foreground hover:border-border"
+                      : "border-border/60 bg-background/60 text-muted-foreground hover:border-border hover:text-foreground"
                   }`}
                 >
                   <Icon className="h-3.5 w-3.5" />
@@ -1122,7 +1122,7 @@ function TaskLayout({
         </div>
 
         <div className="space-y-2">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+          <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
             Formato
           </Label>
           <div className="flex flex-wrap gap-1.5">
@@ -1131,10 +1131,10 @@ function TaskLayout({
                 key={f}
                 type="button"
                 onClick={() => set("format", f)}
-                className={`rounded-full border px-3 py-1 text-xs transition ${
+                className={`h-8 rounded-md border px-3 text-xs font-medium transition ${
                   state.format === f
                     ? FORMAT_STYLES[f] ?? "border-primary bg-primary/10 text-foreground"
-                    : "border-border/60 text-muted-foreground hover:border-border"
+                    : "border-border/60 bg-background/60 text-muted-foreground hover:border-border hover:text-foreground"
                 }`}
               >
                 {f}
@@ -1194,7 +1194,7 @@ function TaskLayout({
       <div className="grid grid-cols-2 gap-3 border-t border-border/50 pt-5">
         {mode === "create" ? (
           <div className="space-y-1.5">
-            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+            <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
               Etapa
             </Label>
             <Select value={state.stageId} onValueChange={(v) => set("stageId", v)}>
@@ -1213,7 +1213,7 @@ function TaskLayout({
         ) : null}
 
         <div className="space-y-1.5">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+          <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
             Data de publicação
           </Label>
           <Input
@@ -1229,7 +1229,7 @@ function TaskLayout({
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+          <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
             Lembrete <span className="normal-case text-muted-foreground/70">(opcional)</span>
           </Label>
           <Input
@@ -1243,7 +1243,7 @@ function TaskLayout({
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+          <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
             Prioridade
           </Label>
           <Select
@@ -1264,7 +1264,7 @@ function TaskLayout({
         </div>
 
         <div className="col-span-2 space-y-1.5">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+          <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
             Tags
           </Label>
           <div className="flex flex-wrap gap-1">
@@ -1272,7 +1272,7 @@ function TaskLayout({
               <Badge
                 key={t}
                 variant="secondary"
-                className="cursor-pointer"
+                className="h-6 cursor-pointer rounded-md border border-border/60 bg-background/60 text-[11px] font-medium text-muted-foreground hover:text-foreground"
                 onClick={() => removeTag(t)}
               >
                 {t} ×
@@ -1292,13 +1292,13 @@ function TaskLayout({
               placeholder="Adicionar tag"
               className="h-8 text-xs"
             />
-            <Button type="button" size="sm" variant="outline" onClick={addTag}>
+            <Button type="button" size="sm" variant="outline" className="h-8" onClick={addTag}>
               +
             </Button>
           </div>
         </div>
 
-        <div className="col-span-2 flex items-center justify-between rounded-md border border-border/60 px-3 py-2">
+        <div className="col-span-2 flex items-center justify-between rounded-md border border-border/60 bg-background/60 px-3 py-2">
           <Label className="text-xs">Visível no portal</Label>
           <Switch
             checked={state.visibleInPortal}
@@ -1360,7 +1360,7 @@ function Timeline({ items }: { items: PostTimelineEvent[] }) {
   }
   return (
     <div>
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+      <p className="mb-2 text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
         Histórico
       </p>
       <ul className="space-y-2 text-sm">
@@ -1373,8 +1373,8 @@ function Timeline({ items }: { items: PostTimelineEvent[] }) {
             minute: "2-digit",
           });
           return (
-            <li key={ev.id} className="flex items-start gap-2">
-              <Badge variant="secondary" className="mt-0.5 shrink-0 font-normal">
+            <li key={ev.id} className="flex items-start gap-2 rounded-md border border-border/60 bg-background/60 px-2 py-1.5">
+              <Badge variant="secondary" className="mt-0.5 shrink-0 rounded-md border border-border/60 bg-card font-normal">
                 {translateVerb(ev.verb)}
               </Badge>
               <div className="flex min-w-0 flex-1 items-center gap-2 text-muted-foreground">
@@ -1385,7 +1385,7 @@ function Timeline({ items }: { items: PostTimelineEvent[] }) {
                     className="h-5 w-5 shrink-0 rounded-full object-cover"
                   />
                 ) : ev.actor_name ? (
-                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-foreground">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
                     {initialsOf(ev.actor_name)}
                   </span>
                 ) : null}
