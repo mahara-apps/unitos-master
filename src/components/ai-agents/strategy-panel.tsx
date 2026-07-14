@@ -393,6 +393,8 @@ export function StrategyTab({ brandId, clientId }: Scope) {
   const { data: core } = useSuspenseQuery(customerCoreQuery({ brandId, clientId }));
   const briefing = (core.briefing?.data ?? {}) as Record<string, unknown>;
   const voice = normalizeVoice(core.voice?.data);
+  const voiceId = (core.voice as { id?: string } | null | undefined)?.id;
+  const [voiceOpen, setVoiceOpen] = useState(false);
 
   const wordsUse = voice?.vocabulary_rules?.words_to_use ?? [];
   const wordsAvoid = voice?.vocabulary_rules?.words_to_avoid ?? [];
@@ -402,10 +404,27 @@ export function StrategyTab({ brandId, clientId }: Scope) {
   const diferenciais = Array.isArray(briefing.diferenciais) ? (briefing.diferenciais as string[]) : [];
   const hashtags = Array.isArray(briefing.hashtags_sugeridas) ? (briefing.hashtags_sugeridas as string[]) : [];
 
+  const voiceInitial: VoiceState = {
+    brand_personality: personality,
+    tone_characteristics: tone,
+    words_to_use: wordsUse,
+    words_to_avoid: wordsAvoid,
+    brand_phrases_examples: phrases,
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-2">
         <ContextSourceBadge source="persona" />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setVoiceOpen(true)}
+          disabled={!voiceId}
+          className="h-8 gap-1.5"
+        >
+          <Pencil className="h-3.5 w-3.5" /> Editar tom & vocabulário
+        </Button>
       </div>
 
       {/* Tom de voz e personalidade */}
@@ -518,6 +537,14 @@ export function StrategyTab({ brandId, clientId }: Scope) {
           ) : null}
         </div>
       ) : null}
+
+      <VoiceEditor
+        open={voiceOpen}
+        onClose={() => setVoiceOpen(false)}
+        scope={{ brandId, clientId }}
+        entityId={voiceId}
+        initial={voiceInitial}
+      />
     </div>
   );
 }
