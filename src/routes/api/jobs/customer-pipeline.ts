@@ -111,13 +111,16 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
   prompt: string;
   schema: T;
   strategic: boolean;
+  modelOverride?: string;
 }): Promise<z.infer<T>> {
   const key = process.env.LOVABLE_API_KEY;
   if (!key) throw new Error("Missing LOVABLE_API_KEY");
   const gateway = createLovableAiGatewayProvider(key, undefined, {
     structuredOutputs: !opts.strategic,
   });
-  const model = gateway(opts.strategic ? STRATEGIC_MODEL : OPERATIONAL_MODEL);
+  const model = gateway(
+    opts.modelOverride ?? (opts.strategic ? STRATEGIC_MODEL : OPERATIONAL_MODEL),
+  );
   try {
     const res = await generateText({
       model,
@@ -142,16 +145,133 @@ const P = {
   briefing:
     "Você é um estrategista de marketing sênior. Estruture o briefing bruto em JSON limpo. Nunca invente informação. Responda SOMENTE JSON.",
   voice:
-    "Você é um redator sênior. A partir do briefing estruturado, gere um Voice Card. Responda SOMENTE JSON.",
+    "Você é um redator sênior. A partir do briefing estruturado, gere um Voice Card. Use EXATAMENTE as chaves do schema em inglês: voice_card.brand_personality, tone_characteristics, vocabulary_rules.words_to_use, vocabulary_rules.words_to_avoid, brand_phrases_examples. Não traduza nomes de campos. Responda SOMENTE JSON.",
   personas:
-    "Você é um estrategista sênior. Gere 3–5 personas acionáveis a partir do briefing. Responda SOMENTE JSON.",
+    "Você é um estrategista sênior. Gere 3–5 personas acionáveis a partir do briefing. Use EXATAMENTE as chaves do schema em inglês/português combinado: personas[] com nome, descricao, dores, desejos, canais_preferidos, gatilhos_de_decisao, objecoes_comuns. Não use nome_persona nem biografia. Responda SOMENTE JSON.",
   cohorts:
-    "Você é estrategista sênior. Gere 3–5 cohorts comportamentais. Responda SOMENTE JSON.",
+    "Você é estrategista sênior. Gere 3–5 cohorts comportamentais. Use EXATAMENTE as chaves do schema em inglês: cohorts[] com name, target_personas, behavioral_traits, content_strategy, conversion_criteria. Não traduza chaves. Responda SOMENTE JSON.",
   swot:
-    "Você é estrategista sênior. Gere SWOT + matriz competitiva. Responda SOMENTE JSON.",
+    "Você é estrategista sênior. Gere SWOT + matriz competitiva. Use EXATAMENTE as chaves em inglês: swot_analysis.strengths, weaknesses, opportunities, threats; competitive_matrix[] com competitor_name, our_advantages, vulnerabilities. Não traduza chaves. Responda SOMENTE JSON.",
   pauta:
     "Você é estrategista de conteúdo. Gere pautas diversificadas por pilar, plataforma e cohort. Responda SOMENTE JSON.",
 };
+
+// ---------------- Normalizers ----------------
+// Coerce PT-BR aliases into the canonical shape before persisting so the
+// strategy panel always finds what it expects.
+
+type AnyRec = Record<string, unknown>;
+const asStr = (v: unknown, d = ""): string => (typeof v === "string" ? v : d);
+const asArr = (v: unknown): string[] => (Array.isArray(v) ? (v as string[]).filter((x) => typeof x === "string") : []);
+
+function normalizeVoicePayload(raw: unknown): z.infer<typeof VoiceSchema> {
+  const r = (raw ?? {}) as AnyRec;
+  const vc = (r.voice_card as AnyRec | undefined) ?? r;
+  const persona = vc.persona as AnyRec | undefined;
+  const tom = vc.tom_de_voz as AnyRec | undefined;
+  const lingu = vc.guia_linguistico as AnyRec | undefined;
+  const ex = vc.exemplos_praticos as AnyRec | undefined;
+  const vr = vc.vocabulary_rules as AnyRec | undefined;
+  return {
+    voice_card: {
+      brand_personality:
+        asStr(vc.brand_personality) ||
+        asStr(persona?.arquetipo) ||
+        asStr(persona?.descricao) ||
+        asStr(tom?.descricao_detalhada),
+      tone_characteristics: asArr(vc.tone_characteristics).length
+        ? asArr(vc.tone_characteristics)
+        : asArr(tom?.principais),
+      vocabulary_rules: {
+        words_to_use: asArr(vr?.words_to_use).length
+          ? asArr(vr?.words_to_use)
+          : asArr(lingu?.vocabulario_usar),
+        words_to_avoid: asArr(vr?.words_to_avoid).length
+          ? asArr(vr?.words_to_avoid)
+          : asArr(lingu?.vocabulario_evitar),
+      },
+      brand_phrases_examples: asArr(vc.brand_phrases_examples).length
+        ? asArr(vc.brand_phrases_examples)
+        : [ex?.post_instagram_certo, ex?.resposta_cliente_certo].filter(
+            (s): s is string => typeof s === "string" && s.length > 0,
+          ),
+    },
+  };
+}
+
+function normalizePersonasPayload(raw: unknown): z.infer<typeof PersonasSchema> {
+  const r = raw as AnyRec | AnyRec[] | undefined;
+  const arr: AnyRec[] = Array.isArray(r)
+    ? (r as AnyRec[])
+    : Array.isArray((r as AnyRec | undefined)?.personas)
+      ? ((r as AnyRec).personas as AnyRec[])
+      : [];
+  return {
+    personas: arr.map((p) => ({
+      nome: asStr(p.nome) || asStr(p.nome_persona) || asStr(p.name) || "Persona",
+      descricao: asStr(p.descricao) || asStr(p.biografia) || asStr(p.perfil) || "",
+      dores: asArr(p.dores),
+      desejos: asArr(p.desejos).length ? asArr(p.desejos) : asArr(p.objetivos),
+      canais_preferidos: asArr(p.canais_preferidos).length
+        ? asArr(p.canais_preferidos)
+        : asArr(p.canais),
+      gatilhos_de_decisao: asArr(p.gatilhos_de_decisao).length
+        ? asArr(p.gatilhos_de_decisao)
+        : asArr(p.gatilhos),
+      objecoes_comuns: asArr(p.objecoes_comuns).length
+        ? asArr(p.objecoes_comuns)
+        : asArr(p.objecoes),
+    })),
+  };
+}
+
+function normalizeCohortsPayload(raw: unknown): z.infer<typeof CohortsSchema> {
+  const r = raw as AnyRec | AnyRec[] | undefined;
+  const arr: AnyRec[] = Array.isArray(r)
+    ? (r as AnyRec[])
+    : Array.isArray((r as AnyRec | undefined)?.cohorts)
+      ? ((r as AnyRec).cohorts as AnyRec[])
+      : [];
+  return {
+    cohorts: arr.map((c) => ({
+      name: asStr(c.name) || asStr(c.nome) || "Cohort",
+      target_personas: asArr(c.target_personas).length
+        ? asArr(c.target_personas)
+        : asArr(c.personas_alvo).length
+          ? asArr(c.personas_alvo)
+          : asArr(c.personas),
+      behavioral_traits:
+        asStr(c.behavioral_traits) || asStr(c.comportamento) || asStr(c.tracos_comportamentais),
+      content_strategy:
+        asStr(c.content_strategy) || asStr(c.estrategia_conteudo) || asStr(c.estrategia_de_conteudo),
+      conversion_criteria:
+        asStr(c.conversion_criteria) || asStr(c.criterio_conversao) || asStr(c.criterio_de_conversao),
+    })),
+  };
+}
+
+function normalizeSwotPayload(raw: unknown): z.infer<typeof SwotSchema> {
+  const r = (raw ?? {}) as AnyRec;
+  const a = (r.swot_analysis as AnyRec | undefined) ?? r;
+  const matrixRaw = Array.isArray(r.competitive_matrix)
+    ? (r.competitive_matrix as AnyRec[])
+    : Array.isArray(r.matriz_competitiva)
+      ? (r.matriz_competitiva as AnyRec[])
+      : [];
+  return {
+    swot_analysis: {
+      strengths: asArr(a.strengths).length ? asArr(a.strengths) : asArr(a.forcas),
+      weaknesses: asArr(a.weaknesses).length ? asArr(a.weaknesses) : asArr(a.fraquezas),
+      opportunities: asArr(a.opportunities).length ? asArr(a.opportunities) : asArr(a.oportunidades),
+      threats: asArr(a.threats).length ? asArr(a.threats) : asArr(a.ameacas),
+    },
+    competitive_matrix: matrixRaw.map((c) => ({
+      competitor_name: asStr(c.competitor_name) || asStr(c.nome) || asStr(c.concorrente) || "—",
+      our_advantages: asStr(c.our_advantages) || asStr(c.vantagens) || asStr(c.nossas_vantagens),
+      vulnerabilities: asStr(c.vulnerabilities) || asStr(c.vulnerabilidades),
+    })),
+  };
+}
 
 const CHANNEL_MAP: Record<string, "instagram" | "tiktok" | "linkedin" | "x" | "youtube" | "blog"> = {
   instagram: "instagram",
