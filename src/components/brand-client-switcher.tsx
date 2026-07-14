@@ -8,7 +8,7 @@ import {
   listClients,
   createBrand,
   createClient,
-  seedDemoData,
+  // seedDemoData removido — sistema não cria mais clientes/conteúdos automáticos
 } from "@/lib/workspace.functions";
 import { Button } from "@/components/ui/button";
 import {
