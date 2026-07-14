@@ -37,7 +37,6 @@ import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authent
 import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_authenticated/settings.profile'
 import { Route as AuthenticatedSettingsAiRouteImport } from './routes/_authenticated/settings.ai'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
-import { Route as ApiPublicJobsReapRouteImport } from './routes/api/public/jobs.reap'
 import { Route as ApiPublicApprovalTokenRouteImport } from './routes/api/public/approval.$token'
 import { Route as AuthenticatedCustomersCustomerIdBriefingRouteImport } from './routes/_authenticated/customers.$customerId.briefing'
 
@@ -187,11 +186,6 @@ const AuthenticatedCustomersCustomerIdRoute =
     path: '/$customerId',
     getParentRoute: () => AuthenticatedCustomersRoute,
   } as any)
-const ApiPublicJobsReapRoute = ApiPublicJobsReapRouteImport.update({
-  id: '/api/public/jobs/reap',
-  path: '/api/public/jobs/reap',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiPublicApprovalTokenRoute = ApiPublicApprovalTokenRouteImport.update({
   id: '/api/public/approval/$token',
   path: '/api/public/approval/$token',
@@ -234,7 +228,6 @@ export interface FileRoutesByFullPath {
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
-  '/api/public/jobs/reap': typeof ApiPublicJobsReapRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -264,7 +257,6 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
-  '/api/public/jobs/reap': typeof ApiPublicJobsReapRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -298,7 +290,6 @@ export interface FileRoutesById {
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
-  '/api/public/jobs/reap': typeof ApiPublicJobsReapRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -332,7 +323,6 @@ export interface FileRouteTypes {
     | '/settings/'
     | '/customers/$customerId/briefing'
     | '/api/public/approval/$token'
-    | '/api/public/jobs/reap'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -362,7 +352,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/customers/$customerId/briefing'
     | '/api/public/approval/$token'
-    | '/api/public/jobs/reap'
   id:
     | '__root__'
     | '/'
@@ -395,7 +384,6 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/'
     | '/_authenticated/customers/$customerId/briefing'
     | '/api/public/approval/$token'
-    | '/api/public/jobs/reap'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -414,7 +402,6 @@ export interface RootRouteChildren {
   ApiJobsPostPhase2Route: typeof ApiJobsPostPhase2Route
   PBriefingTokenRoute: typeof PBriefingTokenRoute
   ApiPublicApprovalTokenRoute: typeof ApiPublicApprovalTokenRoute
-  ApiPublicJobsReapRoute: typeof ApiPublicJobsReapRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -615,13 +602,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersCustomerIdRouteImport
       parentRoute: typeof AuthenticatedCustomersRoute
     }
-    '/api/public/jobs/reap': {
-      id: '/api/public/jobs/reap'
-      path: '/api/public/jobs/reap'
-      fullPath: '/api/public/jobs/reap'
-      preLoaderRoute: typeof ApiPublicJobsReapRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/public/approval/$token': {
       id: '/api/public/approval/$token'
       path: '/api/public/approval/$token'
@@ -731,7 +711,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiJobsPostPhase2Route: ApiJobsPostPhase2Route,
   PBriefingTokenRoute: PBriefingTokenRoute,
   ApiPublicApprovalTokenRoute: ApiPublicApprovalTokenRoute,
-  ApiPublicJobsReapRoute: ApiPublicJobsReapRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
