@@ -89,8 +89,8 @@ function AgentsPage() {
     <div className="flex h-full flex-col gap-8 p-6">
       <section>
         <Tabs value={tab} onValueChange={(v) => setTab(v as AgentCategory | "all")} className="mb-5">
-          <TabsList className="h-9 flex-wrap gap-1 bg-muted/50 p-1">
-            <TabsTrigger value="all" className="h-7 px-3 text-xs data-[state=active]:bg-background">
+          <TabsList className="flex-wrap gap-1">
+            <TabsTrigger value="all">
               Todos
               <span className="ml-1.5 text-[10px] text-muted-foreground">{total}</span>
             </TabsTrigger>
@@ -99,11 +99,7 @@ function AgentsPage() {
               const n = countsByCategory.get(cat) ?? 0;
               const Icon = style.icon;
               return (
-                <TabsTrigger
-                  key={cat}
-                  value={cat}
-                  className="h-7 gap-1.5 px-3 text-xs data-[state=active]:bg-background"
-                >
+                <TabsTrigger key={cat} value={cat}>
                   <Icon className="h-3.5 w-3.5" />
                   {style.categoryLabel}
                   <span className="ml-1 text-[10px] text-muted-foreground">{n}</span>
