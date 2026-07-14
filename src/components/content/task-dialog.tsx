@@ -917,6 +917,7 @@ type TaskState = {
   priority: Priority | "none";
   tags: string[];
   visibleInPortal: boolean;
+  projectId: string | null;
 };
 
 function emptyState(stageId: string): TaskState {
@@ -935,6 +936,7 @@ function emptyState(stageId: string): TaskState {
     priority: "none",
     tags: [],
     visibleInPortal: false,
+    projectId: null,
   };
 }
 
@@ -972,6 +974,7 @@ function stateFromPost(post: BoardPost, stages: PipelineStage[]): TaskState {
       : "none"),
     tags: (post.tags ?? []) as string[],
     visibleInPortal: !!post.visible_in_portal,
+    projectId: (post.project_id ?? null) as string | null,
   };
 }
 
