@@ -1,9 +1,8 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useEffect, useState } from "react";
-import { AlertTriangle, DollarSign, KanbanSquare, RefreshCw } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -163,7 +162,6 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
     qc.prefetchQuery(customerPautasQuery({ brandId, clientId: customerId }));
   }, [qc, brandId, customerId]);
 
-  const cost = core.usage.totalCostUsd;
   const hasBriefing = Boolean(core.briefing);
   const showOnboarding = !hasBriefing || forceOnboarding;
 
@@ -173,28 +171,9 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
     {
       title: customer?.name ?? (customersQ.isLoading ? "Carregando…" : "Cliente"),
       subtitle: `${customer?.niche ?? "—"} · ${customerId.slice(0, 8)}`,
-      actions: (
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="border-cyan-500/30 bg-cyan-500/10 font-mono text-[10px] text-cyan-300">
-            <DollarSign className="mr-1 h-3 w-3" />
-            {cost.toFixed(4)} USD · 30d
-          </Badge>
-          {hasBriefing ? (
-            <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => setRegenOpen(true)}>
-              <RefreshCw className="h-3.5 w-3.5" />
-              Regenerate Strategy
-            </Button>
-          ) : null}
-          <Button asChild size="sm" variant="outline" className="gap-1.5">
-            <Link to="/customers/$customerId/pipeline" params={{ customerId }}>
-              <KanbanSquare className="h-3.5 w-3.5" />
-              Pipeline
-            </Link>
-          </Button>
-        </div>
-      ),
+      actions: null,
     },
-    [customer?.name, customer?.niche, customerId, cost, hasBriefing],
+    [customer?.name, customer?.niche, customerId],
   );
 
   const scope = { brandId, clientId: customerId };
