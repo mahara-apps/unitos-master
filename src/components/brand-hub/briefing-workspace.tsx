@@ -623,6 +623,49 @@ export function BriefingWorkspace({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={ideasOpen} onOpenChange={setIdeasOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Gerar ideias de conteúdo</DialogTitle>
+            <DialogDescription>
+              As pautas serão criadas a partir da estratégia revisada (voice, personas, cohorts e SWOT)
+              e injetadas no pipeline como ideias aguardando aprovação.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 py-2">
+            <div className="grid gap-1.5">
+              <Label htmlFor="ideas-qty">Quantidade de ideias</Label>
+              <Input
+                id="ideas-qty"
+                type="number"
+                min={1}
+                max={20}
+                value={ideasQty}
+                onChange={(e) => setIdeasQty(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="ideas-period">Período</Label>
+              <Input
+                id="ideas-period"
+                value={ideasPeriod}
+                onChange={(e) => setIdeasPeriod(e.target.value)}
+                placeholder="próximos 15 dias"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIdeasOpen(false)} disabled={genIdeas}>
+              Cancelar
+            </Button>
+            <Button onClick={runIdeas} disabled={genIdeas} className="gap-1.5">
+              {genIdeas ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lightbulb className="h-3.5 w-3.5" />}
+              {genIdeas ? "Iniciando…" : "Gerar ideias"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 
