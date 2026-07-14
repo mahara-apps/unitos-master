@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import {
   Send, Users, Layers, Target, TrendingUp, ShieldAlert, Zap, Sparkles, CheckCircle2,
   Eye, Shield, Clock, BadgeCheck, MessageSquare, ArrowRight, Sprout, AlertTriangle,
-  Lightbulb, Flame, Ban, Check, User,
+  Lightbulb, Flame, Ban, Check, User, Pencil,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,10 @@ import {
   customerPautasQuery,
 } from "@/lib/customer-queries";
 import { ContextSourceBadge } from "./context-source-badge";
+import {
+  VoiceEditor, PersonasEditor, CohortsEditor, SwotEditor,
+  type VoiceState, type PersonaState, type CohortState, type SwotState,
+} from "./strategy-editors";
 
 type Scope = { brandId: string; clientId: string };
 
@@ -389,6 +393,8 @@ export function StrategyTab({ brandId, clientId }: Scope) {
   const { data: core } = useSuspenseQuery(customerCoreQuery({ brandId, clientId }));
   const briefing = (core.briefing?.data ?? {}) as Record<string, unknown>;
   const voice = normalizeVoice(core.voice?.data);
+  const voiceId = (core.voice as { id?: string } | null | undefined)?.id;
+  const [voiceOpen, setVoiceOpen] = useState(false);
 
   const wordsUse = voice?.vocabulary_rules?.words_to_use ?? [];
   const wordsAvoid = voice?.vocabulary_rules?.words_to_avoid ?? [];
@@ -398,10 +404,27 @@ export function StrategyTab({ brandId, clientId }: Scope) {
   const diferenciais = Array.isArray(briefing.diferenciais) ? (briefing.diferenciais as string[]) : [];
   const hashtags = Array.isArray(briefing.hashtags_sugeridas) ? (briefing.hashtags_sugeridas as string[]) : [];
 
+  const voiceInitial: VoiceState = {
+    brand_personality: personality,
+    tone_characteristics: tone,
+    words_to_use: wordsUse,
+    words_to_avoid: wordsAvoid,
+    brand_phrases_examples: phrases,
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-end gap-2">
         <ContextSourceBadge source="persona" />
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setVoiceOpen(true)}
+          disabled={!voiceId}
+          className="h-8 gap-1.5"
+        >
+          <Pencil className="h-3.5 w-3.5" /> Editar tom & vocabulário
+        </Button>
       </div>
 
       {/* Tom de voz e personalidade */}
@@ -514,6 +537,14 @@ export function StrategyTab({ brandId, clientId }: Scope) {
           ) : null}
         </div>
       ) : null}
+
+      <VoiceEditor
+        open={voiceOpen}
+        onClose={() => setVoiceOpen(false)}
+        scope={{ brandId, clientId }}
+        entityId={voiceId}
+        initial={voiceInitial}
+      />
     </div>
   );
 }
@@ -525,6 +556,10 @@ export function TargetTab({ brandId, clientId }: Scope) {
   const personas = normalizePersonas(target.personas?.data);
   const cohorts = normalizeCohorts(target.cohorts?.data);
   const [selected, setSelected] = useState<NormalizedPersona | null>(null);
+  const personasId = (target.personas as { id?: string } | null | undefined)?.id;
+  const cohortsId = (target.cohorts as { id?: string } | null | undefined)?.id;
+  const [personasOpen, setPersonasOpen] = useState(false);
+  const [cohortsOpen, setCohortsOpen] = useState(false);
 
   // Diagnóstico global — agrega as personas
   const diagnostic = summarizeDiagnostic(personas);
@@ -567,7 +602,12 @@ export function TargetTab({ brandId, clientId }: Scope) {
               Clique em um card para abrir o dossiê psicológico completo.
             </p>
           </div>
-          <ContextSourceBadge source="persona" />
+          <div className="flex items-center gap-2">
+            <ContextSourceBadge source="persona" />
+            <Button variant="outline" size="sm" onClick={() => setPersonasOpen(true)} disabled={!personasId} className="h-8 gap-1.5">
+              <Pencil className="h-3.5 w-3.5" /> Editar
+            </Button>
+          </div>
         </div>
         {personas.length ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -586,7 +626,12 @@ export function TargetTab({ brandId, clientId }: Scope) {
           <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Layers className="h-4 w-4 text-primary" /> Cohorts comportamentais
           </h3>
-          <ContextSourceBadge source="persona" />
+          <div className="flex items-center gap-2">
+            <ContextSourceBadge source="persona" />
+            <Button variant="outline" size="sm" onClick={() => setCohortsOpen(true)} disabled={!cohortsId} className="h-8 gap-1.5">
+              <Pencil className="h-3.5 w-3.5" /> Editar
+            </Button>
+          </div>
         </div>
         {cohorts.length ? (
           <div className="grid gap-3 md:grid-cols-2">
@@ -632,6 +677,21 @@ export function TargetTab({ brandId, clientId }: Scope) {
       </div>
 
       <PersonaDrawer persona={selected} onClose={() => setSelected(null)} />
+
+      <PersonasEditor
+        open={personasOpen}
+        onClose={() => setPersonasOpen(false)}
+        scope={{ brandId, clientId }}
+        entityId={personasId}
+        initial={personas as PersonaState[]}
+      />
+      <CohortsEditor
+        open={cohortsOpen}
+        onClose={() => setCohortsOpen(false)}
+        scope={{ brandId, clientId }}
+        entityId={cohortsId}
+        initial={cohorts as CohortState[]}
+      />
     </div>
   );
 }
@@ -887,6 +947,15 @@ function PersonaDrawer({ persona, onClose }: { persona: NormalizedPersona | null
 export function MarketTab({ brandId, clientId }: Scope) {
   const { data: market } = useSuspenseQuery(customerMarketQuery({ brandId, clientId }));
   const { analysis, matrix } = normalizeSwot(market.swot?.data);
+  const swotId = (market.swot as { id?: string } | null | undefined)?.id;
+  const [swotOpen, setSwotOpen] = useState(false);
+  const swotInitial: SwotState = {
+    strengths: analysis.strengths,
+    weaknesses: analysis.weaknesses,
+    opportunities: analysis.opportunities,
+    threats: analysis.threats,
+    matrix,
+  };
 
   const quadrants = [
     {
@@ -944,7 +1013,12 @@ export function MarketTab({ brandId, clientId }: Scope) {
             Diagnóstico estratégico dos quatro vetores competitivos.
           </p>
         </div>
-        <ContextSourceBadge source="competitors" />
+        <div className="flex items-center gap-2">
+          <ContextSourceBadge source="competitors" />
+          <Button variant="outline" size="sm" onClick={() => setSwotOpen(true)} disabled={!swotId} className="h-8 gap-1.5">
+            <Pencil className="h-3.5 w-3.5" /> Editar SWOT
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
@@ -1033,6 +1107,14 @@ export function MarketTab({ brandId, clientId }: Scope) {
           )}
         </CardContent>
       </Card>
+
+      <SwotEditor
+        open={swotOpen}
+        onClose={() => setSwotOpen(false)}
+        scope={{ brandId, clientId }}
+        entityId={swotId}
+        initial={swotInitial}
+      />
     </div>
   );
 }
