@@ -56,7 +56,6 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function DashboardPage() {
   const { brandId, clientId } = useActiveContext();
-  usePageHeader({ title: "" }, []);
 
   if (!brandId) {
     return (
