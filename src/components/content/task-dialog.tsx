@@ -742,6 +742,12 @@ function EditBody({
             value={state.assigneeId}
             onChange={(id) => setState((p) => ({ ...p, assigneeId: id }))}
           />
+          <ProjectSelect
+            brandId={brandId}
+            clientId={clientId}
+            value={state.projectId}
+            onChange={(id) => setState((p) => ({ ...p, projectId: id }))}
+          />
           <div className="ml-auto flex items-center gap-1.5">
             <QuickApprovalLinkButton postId={postId} />
             {reviewStatus === "pending" && aiPhase === "idea" ? (
