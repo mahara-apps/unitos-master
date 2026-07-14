@@ -286,10 +286,11 @@ async function runOrchestrator(params: {
       prompt:
         `Gere ${input.quantidade} conceitos para o período "${input.periodo}".\n\n` +
         `Responda EXCLUSIVAMENTE com JSON válido no formato:\n` +
-        `{"concepts":[{"titulo":"...","pilar":"...","formato":"Feed|Reels|Stories|Carrossel",` +
+        `{"concepts":[{"titulo":"...","pilar":"...","formato":"Feed|Reels|Story|Carrossel",` +
         `"plataforma":"instagram|tiktok|linkedin|youtube|blog|x","gancho":"...",` +
         `"objetivo":"...","cta":"..."}]}\n` +
-        `A chave raiz DEVE ser exatamente "concepts". Sem markdown, sem comentários.`,
+        `A chave raiz DEVE ser exatamente "concepts". Sem markdown, sem comentários.\n` +
+        `IMPORTANTE: escolha o MELHOR formato por conceito combinando gancho, pilar e comportamento do cohort — Reels para alcance/entretenimento e demos rápidas, Carrossel para educar/listar passos/storytelling, Story para bastidores/enquetes/prova social, Feed para autoridade e posts atemporais. Nunca use o mesmo formato para todos.`,
       schema: PlannerSchema,
       strategic: true,
     });
