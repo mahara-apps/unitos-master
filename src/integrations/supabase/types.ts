@@ -1829,6 +1829,7 @@ export type Database = {
         Args: { _brand_id: string; _user_id: string }
         Returns: boolean
       }
+      reap_stuck_ai_jobs: { Args: never; Returns: number }
     }
     Enums: {
       alert_severity: "info" | "warning" | "critical"
