@@ -43,7 +43,7 @@ type Props = {
 export function PostDetailDialog({ postId, onClose, boardQueryKey }: Props) {
   return (
     <Dialog open={!!postId} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
         {postId ? (
           <PostDetailBody postId={postId} onClose={onClose} boardQueryKey={boardQueryKey} />
         ) : null}
