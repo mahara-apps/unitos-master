@@ -202,17 +202,6 @@ export function BriefingWorkspace({
   // ------------- Gerar estratégia (fase 1 · pipeline de agentes) --------------
   const [regenOpen, setRegenOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const hasStrategy = Boolean(
-    hubQ.data?.voice_card ||
-      (hubQ.data?.personas && hubQ.data.personas.length) ||
-      (hubQ.data?.swot && (
-        (hubQ.data.swot.strengths?.length ?? 0) +
-          (hubQ.data.swot.weaknesses?.length ?? 0) +
-          (hubQ.data.swot.opportunities?.length ?? 0) +
-          (hubQ.data.swot.threats?.length ?? 0)
-        > 0
-      )),
-  );
 
   const buildStrategyBriefing = (): string => {
     if (!form) return "";
