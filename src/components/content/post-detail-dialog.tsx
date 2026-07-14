@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Trash2, Sparkles, Upload, X, ImageIcon, FileText } from "lucide-react";
+import { Loader2, Trash2, Sparkles, Upload, X, ImageIcon, FileText, RotateCcw, CheckCircle2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +25,7 @@ import {
   removePostReferenceMediaFn,
   signPostReferenceMediaFn,
 } from "@/lib/content.functions";
+import { reworkPostFn } from "@/lib/content.functions";
 import { supabase } from "@/integrations/supabase/client";
 
 type Props = {
@@ -58,6 +59,7 @@ function PostDetailBody({
   const getDetail = useServerFn(getPostDetailFn);
   const updatePost = useServerFn(updatePostFn);
   const deletePost = useServerFn(deletePostFn);
+  const reworkPost = useServerFn(reworkPostFn);
   const uploadRef = useServerFn(uploadPostReferenceMediaFn);
   const removeRef = useServerFn(removePostReferenceMediaFn);
   const signRefs = useServerFn(signPostReferenceMediaFn);
@@ -122,6 +124,28 @@ function PostDetailBody({
       toast.success("Post excluído");
       qc.invalidateQueries({ queryKey: boardQueryKey });
       onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const rework = useMutation({
+    mutationFn: (notes: string) => reworkPost({ data: { postId, notes } }),
+    onSuccess: () => {
+      toast.success("Post enviado para refação");
+      qc.invalidateQueries({ queryKey: boardQueryKey });
+      qc.invalidateQueries({ queryKey: ["post-detail", postId] });
+      onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const approveOnly = useMutation({
+    mutationFn: () =>
+      updatePost({ data: { postId, patch: { review_status: "approved" } } }),
+    onSuccess: () => {
+      toast.success("Post aprovado");
+      qc.invalidateQueries({ queryKey: boardQueryKey });
+      qc.invalidateQueries({ queryKey: ["post-detail", postId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -309,6 +333,22 @@ function PostDetailBody({
           <Button variant="outline" onClick={onClose}>
             Fechar
           </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              const notes = window.prompt("Descreva o ajuste solicitado (opcional):") ?? "";
+              rework.mutate(notes);
+            }}
+            disabled={rework.isPending}
+            title="Reabrir para refação"
+          >
+            {rework.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RotateCcw className="mr-2 h-4 w-4" />
+            )}
+            Refazer
+          </Button>
           <Button variant="secondary" onClick={() => save.mutate()} disabled={save.isPending}>
             {save.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Salvar
@@ -317,6 +357,15 @@ function PostDetailBody({
             <Button onClick={handleApproveAndGenerate} disabled={approving}>
               {approving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
               Aprovar & gerar copy
+            </Button>
+          ) : reviewStatus !== "approved" ? (
+            <Button onClick={() => approveOnly.mutate()} disabled={approveOnly.isPending}>
+              {approveOnly.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+              )}
+              Aprovar
             </Button>
           ) : null}
         </div>
