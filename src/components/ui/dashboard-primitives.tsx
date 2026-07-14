@@ -1,4 +1,4 @@
-import type { ComponentPropsWithoutRef, ReactNode } from "react";
+import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -16,19 +16,20 @@ export function DashboardPageShell({
   );
 }
 
-export function DashboardPanelSurface({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+export const DashboardPanelSurface = forwardRef<
+  HTMLDivElement,
+  ComponentPropsWithoutRef<"div">
+>(function DashboardPanelSurface({ children, className, ...props }, ref) {
   return (
-    <div className={cn("overflow-hidden rounded-xl border border-border/60 bg-card", className)}>
+    <div
+      ref={ref}
+      className={cn("overflow-hidden rounded-xl border border-border/60 bg-card", className)}
+      {...props}
+    >
       {children}
     </div>
   );
-}
+});
 
 export function DashboardIconFrame({
   children,
