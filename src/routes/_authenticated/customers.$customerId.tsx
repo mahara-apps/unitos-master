@@ -39,6 +39,7 @@ import {
   TopicsSkeleton,
 } from "@/components/ai-agents/tab-skeletons";
 import { PipelineOnboarding } from "@/components/ai-agents/pipeline-onboarding";
+import { usePageHeader } from "@/hooks/use-page-header";
 import {
   CUSTOMER_QUERY_KEYS,
   customerCoreQuery,
@@ -170,6 +171,34 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
 
   const customer = (customersQ.data ?? []).find((c) => c.id === customerId);
 
+  usePageHeader(
+    {
+      title: customer?.name ?? (customersQ.isLoading ? "Carregando…" : "Cliente"),
+      subtitle: `${customer?.niche ?? "—"} · ${customerId.slice(0, 8)}`,
+      actions: (
+        <div className="flex items-center gap-2">
+          <Badge variant="outline" className="border-cyan-500/30 bg-cyan-500/10 font-mono text-[10px] text-cyan-300">
+            <DollarSign className="mr-1 h-3 w-3" />
+            {cost.toFixed(4)} USD · 30d
+          </Badge>
+          {hasBriefing ? (
+            <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => setRegenOpen(true)}>
+              <RefreshCw className="h-3.5 w-3.5" />
+              Regenerate Strategy
+            </Button>
+          ) : null}
+          <Button asChild size="sm" variant="outline" className="gap-1.5">
+            <Link to="/customers/$customerId/pipeline" params={{ customerId }}>
+              <KanbanSquare className="h-3.5 w-3.5" />
+              Pipeline
+            </Link>
+          </Button>
+        </div>
+      ),
+    },
+    [customer?.name, customer?.niche, customerId, cost, hasBriefing],
+  );
+
   const scope = { brandId, clientId: customerId };
   const invalidateAll = () => {
     qc.invalidateQueries({ queryKey: CUSTOMER_QUERY_KEYS.core(scope) });
@@ -182,51 +211,6 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
   return (
     <ScrollArea className="h-[calc(100vh-3.5rem)] bg-background">
       <div className="w-full space-y-6 px-6 py-6 md:px-8">
-        <header className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div
-              className="flex h-11 w-11 items-center justify-center rounded-lg text-sm font-bold text-white"
-              style={{ background: customer?.color ?? "#6366f1" }}
-            >
-              {(customer?.name ?? "?").slice(0, 2).toUpperCase()}
-            </div>
-            <div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                cliente · workspace
-              </div>
-              <h1 className="mt-0.5 text-2xl font-semibold">
-                {customer?.name ?? (customersQ.isLoading ? "carregando…" : "cliente não encontrado")}
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                {customer?.niche ?? "—"} · <span className="font-mono">{customerId.slice(0, 8)}</span>
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="border-cyan-500/30 bg-cyan-500/10 font-mono text-[10px] text-cyan-300">
-              <DollarSign className="mr-1 h-3 w-3" />
-              {cost.toFixed(4)} USD · 30d
-            </Badge>
-            {hasBriefing ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="gap-1.5 text-muted-foreground hover:text-neutral-100"
-                onClick={() => setRegenOpen(true)}
-              >
-                <RefreshCw className="h-3.5 w-3.5" />
-                Regenerate Strategy
-              </Button>
-            ) : null}
-            <Button asChild size="sm" variant="outline" className="gap-1.5">
-              <Link to="/customers/$customerId/pipeline" params={{ customerId }}>
-                <KanbanSquare className="h-3.5 w-3.5" />
-                Pipeline
-              </Link>
-            </Button>
-          </div>
-        </header>
-
         {customer === undefined && !customersQ.isLoading ? (
           <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-sm text-destructive">
             Este cliente não pertence ao workspace ativo.
