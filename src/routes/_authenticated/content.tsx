@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PanelCard } from "@/components/ui/panel-card";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
+import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 
 export const Route = createFileRoute("/_authenticated/content")({
   validateSearch: (s: Record<string, unknown>) =>
@@ -208,7 +209,7 @@ function ContentReady({
   });
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] min-h-0 flex-col">
+    <DashboardPageShell className="flex h-[calc(100vh-3.5rem)] min-h-0 flex-col space-y-0">
       {effectivePipelineId ? (
         <Suspense fallback={<BoardSkeleton />}>
           <BoardView
@@ -260,7 +261,7 @@ function ContentReady({
           />
         </Suspense>
       ) : null}
-    </div>
+    </DashboardPageShell>
   );
 }
 
@@ -434,14 +435,14 @@ function NewPipelineDialog({
 
 function BoardEmpty({ title, description }: { title: string; description: string }) {
   return (
-    <div className="px-4 py-6 sm:px-6 lg:px-8">
+    <DashboardPageShell>
       <PanelCard title={title} subtitle={description} icon={<Layers className="h-4 w-4" />}>
         <PanelEmptyState
           icon={<Layers className="h-5 w-5" />}
           text="Nenhum conteúdo para exibir com o contexto atual."
         />
       </PanelCard>
-    </div>
+    </DashboardPageShell>
   );
 }
 
@@ -498,14 +499,23 @@ function RenamePipelineDialog({
 
 function BoardSkeleton() {
   return (
-    <div className="flex min-h-0 flex-1 gap-5 overflow-hidden px-6 pt-6 pb-2">
+    <DashboardPanelSurface className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 gap-4 overflow-hidden p-4">
       {Array.from({ length: 6 }).map((_, i) => (
         <div
           key={i}
-          className="h-full w-[300px] shrink-0 animate-pulse rounded-xl border border-border/60 bg-card"
-        />
+          className="h-full w-[304px] shrink-0 rounded-xl border border-border/60 bg-background/60 p-4"
+        >
+          <div className="h-3 w-32 animate-pulse rounded-md bg-muted/50" />
+          <div className="mt-4 space-y-2">
+            <div className="h-24 animate-pulse rounded-lg bg-muted/40" />
+            <div className="h-20 animate-pulse rounded-lg bg-muted/30" />
+            <div className="h-28 animate-pulse rounded-lg bg-muted/40" />
+          </div>
+        </div>
       ))}
-    </div>
+      </div>
+    </DashboardPanelSurface>
   );
 }
 

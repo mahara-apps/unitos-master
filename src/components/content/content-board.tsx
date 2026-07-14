@@ -48,6 +48,12 @@ import {
 import { STAGE_GRADIENT, PRIORITY_STYLES, PRIORITY_LABEL, FORMAT_STYLE, FORMAT_STYLES, CHANNELS, CHANNEL_STYLES } from "./stage-colors";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Clock, Settings2 } from "lucide-react";
+import { PanelEmptyState } from "@/components/ui/panel-empty";
+import {
+  DashboardCountBadge,
+  DashboardMutedPill,
+  DashboardPanelSurface,
+} from "@/components/ui/dashboard-primitives";
 
 const COLOR_MAP: Record<StageColor, string> = {
   muted: "bg-muted-foreground/60",
@@ -93,7 +99,7 @@ function AssigneeChip({ brandId, assigneeId }: { brandId: string; assigneeId: st
           className="h-4 w-4 rounded-full object-cover ring-1 ring-border/60"
         />
       ) : (
-        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[8px] font-semibold text-white">
+        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[8px] font-semibold text-primary-foreground">
           {initials}
         </span>
       )}
@@ -226,7 +232,8 @@ export function ContentBoard({ board, boardQueryKey, onOpenPost, onConfigureColu
       onDragEnd={handleDragEnd}
       onDragCancel={() => setActiveId(null)}
     >
-      <div className="flex min-h-0 flex-1 gap-5 overflow-x-auto overflow-y-hidden px-6 pt-6 pb-2">
+      <DashboardPanelSurface className="flex min-h-0 flex-1">
+        <div className="flex min-h-0 flex-1 gap-4 overflow-x-auto overflow-y-hidden p-4">
         {board.stages.map((stage) => (
           <Column
             key={stage.id}
@@ -251,12 +258,14 @@ export function ContentBoard({ board, boardQueryKey, onOpenPost, onConfigureColu
         ))}
         <button
           type="button"
-          className="flex h-full min-w-[300px] shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 bg-transparent px-3 py-3 text-xs font-medium text-muted-foreground transition hover:border-border hover:bg-card"
+          className="flex h-full min-w-[304px] shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 bg-background/40 px-3 py-3 text-xs font-medium text-muted-foreground transition hover:border-border hover:bg-background/60 hover:text-foreground"
           onClick={() => addStage.mutate()}
           disabled={addStage.isPending}
         >
           <Plus className="h-4 w-4" /> Adicionar coluna
         </button>
+        </div>
+      </DashboardPanelSurface>
       </div>
       <DragOverlay>
         {activePost ? (
@@ -306,11 +315,11 @@ function Column({
   return (
     <div
       ref={setNodeRef}
-      className={`relative flex h-full w-[300px] shrink-0 flex-col overflow-hidden rounded-xl border bg-card px-5 pt-5 pb-4 transition ${
-        isOver ? "border-primary/60 bg-primary/5" : "border-border/60"
+      className={`relative flex h-full w-[304px] shrink-0 flex-col overflow-hidden rounded-xl border px-4 pb-4 pt-4 transition ${
+        isOver ? "border-primary/60 bg-primary/5" : "border-border/60 bg-background/60"
       }`}
     >
-      <div className={`pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${STAGE_GRADIENT[stage.color] ?? STAGE_GRADIENT.muted}`} />
+      <div className={`pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-linear-to-r ${STAGE_GRADIENT[stage.color] ?? STAGE_GRADIENT.muted}`} />
       <div className="mb-3 flex items-center justify-between gap-2 border-b border-border/40 pb-3">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Popover>
@@ -373,16 +382,16 @@ function Column({
               {stage.label}
             </button>
           )}
-          <Badge variant="secondary" className="h-5 shrink-0 px-1.5 text-xs font-normal">
+          <Badge variant="secondary" className="h-5 shrink-0 rounded-md border border-border/60 bg-background/60 px-1.5 font-mono text-xs font-normal tabular-nums">
             {posts.length}
           </Badge>
           {stage.sla_days ? (
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="flex h-5 items-center gap-0.5 rounded-md border border-border/60 px-1.5 text-[10px] text-muted-foreground">
+                  <DashboardMutedPill className="h-5 px-1.5 py-0 text-[10px]">
                     <Clock className="h-2.5 w-2.5" /> {stage.sla_days}d
-                  </span>
+                  </DashboardMutedPill>
                 </TooltipTrigger>
                 <TooltipContent>SLA: {stage.sla_days} dias</TooltipContent>
               </Tooltip>
@@ -415,13 +424,23 @@ function Column({
         </DropdownMenu>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto -mx-1 px-1">
+      <div className="-mx-1 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-1">
         {posts.map((p) => (
           <DraggablePostCard key={p.id} post={p} onOpen={onOpenPost} />
         ))}
 
+        {posts.length === 0 && !creating ? (
+          <div className="flex min-h-40 flex-1 items-center justify-center rounded-lg border border-dashed border-border/60 bg-card/40">
+            <PanelEmptyState
+              icon={<ImageIcon className="h-5 w-5" />}
+              text="Nenhuma tarefa nesta etapa."
+              className="py-8"
+            />
+          </div>
+        ) : null}
+
         {creating ? (
-          <div className="rounded-lg border border-border/70 bg-card p-2">
+          <div className="rounded-lg border border-border/60 bg-card p-2">
             <Input
               autoFocus
               placeholder="Título do post"
@@ -463,7 +482,7 @@ function Column({
         <button
           type="button"
           onClick={onOpenRichCreate ?? onStartCreate}
-          className="mt-3 flex items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-2 text-xs font-medium text-muted-foreground opacity-70 transition hover:border-border/60 hover:bg-background/60 hover:opacity-100"
+          className="mt-3 flex h-9 items-center justify-center gap-1.5 rounded-md border border-border/60 bg-background/60 px-2 text-xs font-medium text-muted-foreground transition hover:border-border hover:text-foreground"
         >
           <Plus className="h-3.5 w-3.5" /> Nova tarefa
         </button>
@@ -512,12 +531,12 @@ function PostCard({
     <button
       type="button"
       onClick={() => onOpen(post.id)}
-      className={`group w-full overflow-hidden rounded-xl border border-border/70 bg-card text-left shadow-[0_1px_0_0_rgba(0,0,0,0.02)] transition hover:border-primary/50 hover:shadow-sm ${
+      className={`group w-full overflow-hidden rounded-lg border border-border/60 bg-card text-left transition hover:border-primary/50 hover:shadow-sm ${
         isOverlay ? "cursor-grabbing shadow-lg" : ""
       }`}
     >
       {/* Visual placeholder / cover */}
-      <div className="relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden border-b border-dashed border-border/60 bg-gradient-to-br from-muted/60 to-muted/20">
+      <div className="relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden border-b border-dashed border-border/60 bg-linear-to-br from-muted/60 to-muted/20">
         {hasCover ? (
           <img src={post.cover_url!} alt="" className="h-full w-full object-cover" />
         ) : (
@@ -578,15 +597,15 @@ function PostCard({
           </div>
         ) : null}
 
-        <div className="mt-2.5 flex items-center justify-between border-t border-border/50 pt-2 text-[11px] text-muted-foreground">
+        <div className="mt-2.5 flex items-center justify-between border-t border-border/40 pt-2 text-[11px] text-muted-foreground">
           <div className="flex items-center gap-2">
             <AssigneeChip brandId={post.brand_id} assigneeId={post.assignee_id} />
           </div>
           <div className="flex items-center gap-2">
             {refCount > 0 ? (
-              <span className="inline-flex items-center gap-0.5" title={`${refCount} anexo(s)`}>
+              <DashboardCountBadge className="inline-flex items-center gap-0.5 px-1.5 py-0 text-[11px] text-muted-foreground" title={`${refCount} anexo(s)`}>
                 <Paperclip className="h-3 w-3" /> {refCount}
-              </span>
+              </DashboardCountBadge>
             ) : null}
             {scheduled ? (
               <span
