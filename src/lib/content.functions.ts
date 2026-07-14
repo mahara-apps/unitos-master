@@ -782,8 +782,16 @@ export const uploadPostReferenceMediaFn = createServerFn({ method: "POST" })
     const current = Array.isArray(post.reference_media)
       ? (post.reference_media as Array<Record<string, unknown>>)
       : [];
+    type MediaEntry = {
+      path: string;
+      name?: string;
+      type?: string;
+      size?: number;
+      thumb_path?: string;
+      originalPath?: string;
+    };
     let next: Array<Record<string, unknown>>;
-    let entry: Record<string, unknown>;
+    let entry: MediaEntry;
     if (data.variant === "thumb" && data.originalPath) {
       // Attach thumb to existing entry identified by originalPath
       next = current.map((r) =>
