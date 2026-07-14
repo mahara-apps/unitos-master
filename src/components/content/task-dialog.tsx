@@ -560,6 +560,11 @@ function EditBody({
               ))}
             </SelectContent>
           </Select>
+          <AssigneeSelect
+            brandId={brandId}
+            value={state.assigneeId}
+            onChange={(id) => setState((p) => ({ ...p, assigneeId: id }))}
+          />
           <div className="ml-auto flex items-center gap-1.5">
             <QuickApprovalLinkButton postId={postId} />
             {reviewStatus === "pending" && aiPhase === "idea" ? (
