@@ -1,84 +1,106 @@
+## Comparativo — Painel de Produção vs. Kiiru
 
-# Painel de Produção (Kiiru) — MVP incremental
+Legenda: ✅ existe · 🟡 parcial · ❌ falta
 
-Escopo desta rodada: transformar `/content` num painel multi-board por cliente, com colunas 100% personalizáveis, filtros laterais, "Minhas tarefas", busca global, geração inline por IA nos campos do card e link público de aprovação por tarefa. Fica de fora (roadmap): notificações email/WhatsApp, dashboard analítico dedicado, recorrência automática, versionamento de mídia, checklist com responsável/prazo, integração de publicação nativa nas redes.
+| Área | Situação |
+|---|---|
+| Seletor de pipeline ("Painel de Produção ▾") | ✅ topo do header |
+| Botão "+ Criar novo quadro" no seletor | 🟡 existe como "Novo pipeline" separado — falta unificar no dropdown |
+| "Minhas tarefas" (filtra cards do usuário atual) | ❌ |
+| "Filtros" (canal, formato, prioridade, prazo, tags, responsável) | ❌ |
+| Toggle Board / Lista | ❌ |
+| Botão "Colunas" (modal de configuração) | 🟡 renome/cor/exclusão inline, sem modal unificado com reorder D&D, "Link Aprovação", "Sumir do portal", "Replicar para outros quadros" |
+| Toggles `enables_approval_link` / `hide_in_portal` | 🟡 já no schema, sem UI |
+| Botão "Tags" (paleta de tags do quadro) | ❌ (campo `tags` existe no post, sem gestão central) |
+| Avatar-filtro (responsável rápido) | ❌ |
+| Botão global "+ Nova" | 🟡 só existe "+" por coluna |
+| Header de coluna com gradiente topo + nome + contagem + info + ⋯ | 🟡 hoje só um bullet colorido |
+| Menu ⋯ da coluna: Adicionar publicação, Renomear, Configurar SLA, Mudar cor, Excluir | 🟡 falta "Configurar SLA" |
+| Modal "Nova tarefa" (Título, Canal, Formato, 4 blocos de briefing, Mídia, Etapa, Painel, Projeto, Responsáveis, Autor, Prazo, Lembrete, Prioridade, Tags, Recorrente, Visível no portal) | ❌ hoje só um input de título inline; todos os campos já existem no schema `posts` e são editáveis apenas no drawer de detalhe |
+| Drag & drop entre colunas | ✅ |
+| Realtime sync | ✅ |
 
-## O que muda no banco (migration única)
+## O que vai ser construído
 
-Hoje já existem `content_pipelines`, `content_pipeline_stages`, `posts`, `activity_events`, `portal_tokens`, `post_approvals`. Vamos estender em vez de recriar:
+### 1. Toolbar do quadro (`src/routes/_authenticated/content.tsx` + novo `content-toolbar.tsx`)
 
-1. `content_pipelines` (= "painéis")
-   - adicionar `color text`, `description text`, `icon text` (para o seletor topo)
-   - manter `client_id` + `is_default` + `position`
-2. `content_pipeline_stages` (= "colunas do Kanban")
-   - adicionar `hide_in_portal boolean default false`
-   - adicionar `enables_approval_link boolean default false`
-   - já tem `color`, `position`, `name`, `is_default`
-3. `posts` (= "tarefas")
-   - adicionar `priority text` (`low|normal|high|urgent`)
-   - adicionar `format text` (feed/story/reels/carrossel/…)
-   - adicionar `channels text[]` (instagram/facebook/tiktok/…)
-   - adicionar `tags text[]`
-   - adicionar `visible_in_portal boolean default true`
-   - adicionar `internal_briefing text`, `client_briefing text`, `script jsonb` (cenas)
-   - adicionar `references jsonb` (até 20 itens: url, título, descrição, imagem, portal)
-   - manter `copy`, `design_brief`, `reference_media`, `stage_id`, `scheduled_at`, `review_status`
-4. Nova tabela `card_approval_tokens`
-   - `id uuid pk`, `post_id fk`, `token text unique`, `expires_at`, `revoked_at`, `created_by`, `created_at`
-   - GRANTs + RLS: leitura por membro da brand; a rota pública valida token server-side e responde via server publishable client + policy `TO anon` estreita (apenas colunas seguras via view).
-5. Nova tabela `card_approval_events`
-   - `id uuid pk`, `post_id`, `token_id`, `verb` (`viewed|approved|rejected|changes_requested|commented`), `comment text`, `ip inet`, `user_agent text`, `created_at`
+Substitui as ações atuais do header por uma toolbar acima do board, espelhando o layout Kiiru:
 
-Realtime já habilitado em `posts` e `content_pipelines`; adicionar `card_approval_events` para atualizar o histórico ao vivo.
+- **Esquerda**: seletor de pipeline com item "+ Criar novo quadro" no fim (remove botão separado); botão "Minhas tarefas" (toggle); botão "Filtros" (popover).
+- **Direita**: toggle Board/Lista; botão "Colunas" (abre modal); botão "Tags" (abre modal); chip de responsável (avatar do usuário atual, toggle rápido); botão "+ Nova" (abre modal de criação completo).
 
-## Backend (server functions + server route público)
+Estado do filtro fica em `useState` local do `ContentReady` e é aplicado no `postsByStage` do `ContentBoard` via prop `filter`.
 
-- `src/lib/boards.functions.ts` — CRUD de painéis (create/rename/duplicate/delete/reorder) e de colunas (com flags `hide_in_portal` e `enables_approval_link`). Reaproveita `content_pipelines`/`content_pipeline_stages` existentes.
-- `src/lib/content.functions.ts` — estender com:
-  - `listBoardTasksFn({ boardId, filters })` (responsável, tags, canal, formato, prioridade, data, portal, aprovação, "minhas tarefas", busca full-text)
-  - `updateTaskFieldsFn` (autosave dos novos campos)
-  - `createApprovalTokenFn({ postId, ttlDays })` / `revokeApprovalTokenFn`
-- `src/lib/ai-copilot-inline.functions.ts` (novo) — 4 wrappers finos que reusam o motor atual (`ai-agents.functions.ts`) e o brand blueprint:
-  - `generateCaption` → `copywriter_senior`
-  - `generateHashtags` / `generateCTA` / `generateTitle` → prompts curtos derivados do mesmo agente
-  - `generateScript` → novo prompt `roteirista_social` inserido em `agent_prompts`
-  - `generateInternalBriefing` → `briefing_extractor`
-  - Todos recebem `postId` + `mode` e devolvem string/JSON, injetando brand context via `buildBrandContextBlueprint`.
-- `src/routes/api/public/approval.$token.ts` — GET (dados do card sanitizados), POST (approve/reject/changes/comment). Rate-limit simples por IP em memória do worker, log em `card_approval_events`, e escrita via `supabaseAdmin` carregado dentro do handler.
+### 2. Modal "Configurar Colunas" (`column-config-dialog.tsx`)
 
-## Frontend
+- Lista de estágios com handle de arrastar (dnd-kit `useSortable`) para reordenar → chama `updateStageFn` com `position`.
+- Nome editável inline, seletor de cor (paleta `STAGE_COLORS`), switches `Link Aprovação` (`enables_approval_link`) e `Sumir do portal` (`hide_in_portal`).
+- Botão "+ Adicionar Coluna" e "Excluir" por linha (respeita `protect_pipeline_delete`).
+- Rodapé: "Replicar para outros quadros" (multi-select de pipelines do mesmo cliente) → nova server fn `replicateStagesFn` que apaga stages não-terminais e recria a partir do template.
+- "Salvar Alterações" e "Cancelar".
 
-- `src/routes/_authenticated/content.tsx` — refactor:
-  - Header com **BoardSwitcher** (Select com cor+nome, "+ Novo painel", "Gerenciar painéis").
-  - Toolbar: busca global (debounced), botão "Minhas tarefas" (toggle), botão "Filtros" (abre Sheet lateral).
-  - Kanban existente (@dnd-kit) passa a ler colunas dinâmicas do board ativo; sem hardcode das 6 stages.
-- `src/components/content/board-manager-dialog.tsx` — CRUD de painéis + colunas (drag reorder, cor, flags portal/aprovação, "duplicar", "replicar para outros painéis do cliente").
-- `src/components/content/filters-sheet.tsx` — filtros laterais persistidos em URL search params.
-- `src/components/content/post-detail-dialog.tsx` — expandir para layout 2 colunas em tela cheia (Sheet full):
-  - Esquerda: abas **Legenda / Briefing interno / Briefing cliente / Roteiro / Mídias / Referências / Comentários / Publicação**. Cada aba de texto tem `AiFieldButton` (✨) que abre popover com {objetivo, tom, persona, qtd, idioma} e insere o resultado no editor (streaming visual via job em background já existente).
-  - Direita: painel de metadados (coluna, painel, projeto, responsáveis, autor, prazo, prioridade, tags, portal on/off, canais, formato, botão **Gerar link de aprovação** quando a coluna atual tem `enables_approval_link`).
-  - Autosave por campo (debounce 600ms via `useMutation`).
-- `src/components/content/references-manager.tsx` — modal com até 20 refs, flag "visível no portal".
-- `src/routes/approval.$token.tsx` — rota pública (fora de `_authenticated`) que consome `/api/public/approval/$token`. Mostra legenda, briefing cliente, roteiro, mídias e refs marcadas como visíveis; ações Aprovar / Reprovar / Solicitar alterações + campo de comentário; registra IP/UA server-side.
+### 3. Modal "Nova tarefa" (`new-post-dialog.tsx`)
 
-## RBAC e multi-tenant
-- Toda query nova filtra por `brand_id` + (quando aplicável) `client_id`, seguindo `use-active-context` e `use-access-role`.
-- Usuários `user` só veem boards dos clientes que possuem (regra já existente em `permissions.ts`).
-- Rota pública `/approval/{token}` é a única exceção: sem auth, mas escopada ao `post_id` do token e limitada a colunas seguras.
+Substitui o input inline por um dialog completo, alimentado pelos campos já existentes no `posts`:
 
-## Fora deste MVP (roadmap explícito)
-- Recorrência automática de tarefas (cron + template).
-- Notificações email/WhatsApp (hoje só in-app via `notifications` + realtime).
-- Publicação nativa em redes sociais.
-- Versionamento de mídia e comentários em mídia.
-- Dashboard analítico dedicado a produtividade/tempo médio (o dashboard atual continua servindo agregados).
-- Checklist com responsável+prazo (fica como checklist simples nesta rodada).
+- Coluna esquerda: Título, seletor de Canal (multi-chip Instagram/TikTok/YouTube/LinkedIn/X/Facebook/Threads/Blog/Material Gráfico), Formato (Feed/Reels/Story/Carrossel), 4 tabs de briefing (Legenda→`copy`, Briefing interno→`internal_briefing`, Briefing do cliente→`client_briefing`, Roteiro→`script`), upload de Mídia (`reference_media`).
+- Coluna direita: Etapa (`stage_id`), Painel (`pipeline_id`), Projeto (`project_id`, opcional), Responsáveis, Autor (auto), Prazo (`scheduled_at`), Lembrete (novo campo `remind_at` — precisa migration), Prioridade (`priority`), Tags (multi), Recorrente (novo campo `recurrence` jsonb — migration), toggle "Visível no portal" (`visible_in_portal`).
+- Reaproveita `createPostFn` estendido com os campos novos + upload posterior via `uploadPostReferenceMediaFn`.
+
+### 4. Modal "Tags do quadro" (`tags-manager-dialog.tsx`)
+
+- Lista de tags únicas usadas nos posts do pipeline (agregação client-side sobre `board.posts.tags`).
+- Permite renomear/excluir em massa (nova server fn `renameTagFn` / `deleteTagFn` que atualiza `posts.tags` do pipeline).
+
+### 5. Coluna do board (`content-board.tsx`)
+
+- Substitui o bullet colorido por uma **faixa de gradiente no topo** (2–3 px, cor do estágio) preservando a UX Vercel/Stripe do projeto.
+- Adiciona ícone `Info` com tooltip mostrando SLA e flags (`Portal oculto` / `Aprovação ativa`).
+- Menu ⋯: adiciona "Configurar SLA" (abre popover: dias-limite → armazenado em `content_pipeline_stages.sla_days`, migration abaixo).
+- Card exibe badge de prioridade + primeiras tags + avatar do responsável.
+
+### 6. Vista Lista
+
+- Componente `content-list-view.tsx`: tabela virtualizada (título, canal, formato, prazo, responsável, etapa, prioridade, tags), ordenável, com clique abrindo o mesmo `PostDetailDialog`.
+
+## Detalhes técnicos
+
+**Migração Supabase** (`supabase--migration`):
+
+```sql
+ALTER TABLE public.content_pipeline_stages
+  ADD COLUMN IF NOT EXISTS sla_days integer;
+
+ALTER TABLE public.posts
+  ADD COLUMN IF NOT EXISTS project_id uuid REFERENCES public.projects(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS remind_at timestamptz,
+  ADD COLUMN IF NOT EXISTS recurrence jsonb,
+  ADD COLUMN IF NOT EXISTS assignees uuid[] DEFAULT '{}'::uuid[];
+```
+
+RLS já herdada de brand/client scope; sem novas policies.
+
+**Server functions novas em `src/lib/content.functions.ts`**:
+- `reorderStagesFn({ pipelineId, order: stageId[] })`
+- `replicateStagesFn({ sourcePipelineId, targetPipelineIds })`
+- `updateStageFn` — aceitar `sla_days`, `enables_approval_link`, `hide_in_portal` no patch (validador já parcialmente existe).
+- `createPostFn` — aceitar todos os campos do modal (priority, format, tags, briefings, script, references, project_id, remind_at, assignees, visible_in_portal, scheduled_at).
+- `renameTagFn` / `deleteTagFn` — bulk update em `posts.tags` do pipeline.
+
+**Filtros e "Minhas tarefas"**: aplicados client-side no `ContentBoard` sobre `postsByStage` sem re-fetch (mantém realtime). Estado persistido em `sessionStorage` por pipeline.
+
+**Padrão visual**: mantém tokens semânticos OKLCH do design system; gradientes de coluna via `bg-[linear-gradient(...)]` derivados de `COLOR_MAP`; nada hardcoded.
+
+**Fora do escopo**: reformulação do `PostDetailDialog` (segue funcional), tela de list-view sem virtualização (tanstack-table simples), analytics agregados por pipeline.
 
 ## Ordem de execução
-1. Migration (extensões + 2 tabelas novas + GRANTs + RLS + realtime).
-2. `boards.functions.ts` + `content.functions.ts` extensões + seed do prompt `roteirista_social` em `agent_prompts`.
-3. Refactor de `content.tsx` (BoardSwitcher, toolbar, colunas dinâmicas) + `board-manager-dialog`.
-4. `post-detail-dialog` novo layout 2 colunas com AiFieldButton inline e autosave.
-5. `filters-sheet` + "Minhas tarefas" + busca global.
-6. Rota pública `/approval/$token` + `card_approval_tokens` UI de geração no card.
-7. Smoke test end-to-end via Playwright (criar board → mover card → gerar caption com IA → gerar link → aprovar como visitante).
+
+1. Migration Supabase (colunas novas).
+2. Estender server functions (`content.functions.ts`).
+3. `column-config-dialog.tsx` + integração no toolbar.
+4. `new-post-dialog.tsx` + integração no toolbar e botão "+ Nova".
+5. Filtros + "Minhas tarefas" + chip de responsável.
+6. Gradiente e SLA nas colunas.
+7. Toggle Board/Lista + `content-list-view.tsx`.
+8. Modal de Tags.
+9. Validação end-to-end com Playwright (criar tarefa → mover → filtrar → aprovar).
