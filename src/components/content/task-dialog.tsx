@@ -20,6 +20,10 @@ import {
   Link2,
   Copy as CopyIcon,
   ShieldX,
+  ChevronLeft,
+  ChevronRight,
+  Play,
+  Images,
 } from "lucide-react";
 import {
   Sheet,
