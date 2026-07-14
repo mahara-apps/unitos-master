@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import {
   Send, Users, Layers, Target, TrendingUp, ShieldAlert, Zap, Sparkles, CheckCircle2,
   Eye, Shield, Clock, BadgeCheck, MessageSquare, ArrowRight, Sprout, AlertTriangle,
-  Lightbulb, Flame, Ban, Check, User,
+  Lightbulb, Flame, Ban, Check, User, Pencil,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,10 @@ import {
   customerPautasQuery,
 } from "@/lib/customer-queries";
 import { ContextSourceBadge } from "./context-source-badge";
+import {
+  VoiceEditor, PersonasEditor, CohortsEditor, SwotEditor,
+  type VoiceState, type PersonaState, type CohortState, type SwotState,
+} from "./strategy-editors";
 
 type Scope = { brandId: string; clientId: string };
 
