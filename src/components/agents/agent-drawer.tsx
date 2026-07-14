@@ -223,7 +223,7 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
         </SheetHeader>
 
         <Tabs defaultValue="prompt" className="flex flex-1 flex-col overflow-hidden">
-          <TabsList className="mx-5 mt-3 grid w-[calc(100%-2.5rem)] grid-cols-3">
+          <TabsList variant="grid" className="mx-5 mt-3 grid w-[calc(100%-2.5rem)] grid-cols-3">
             <TabsTrigger value="prompt">Prompt</TabsTrigger>
             <TabsTrigger value="variables">
               Variáveis {vars.length ? `(${vars.length})` : ""}
