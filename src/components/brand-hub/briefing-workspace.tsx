@@ -204,6 +204,51 @@ export function BriefingWorkspace({
   const [regenOpen, setRegenOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
 
+  // ------------- Gerar ideias (fase 2 · gate humano) --------------
+  const [ideasOpen, setIdeasOpen] = useState(false);
+  const [ideasQty, setIdeasQty] = useState(8);
+  const [ideasPeriod, setIdeasPeriod] = useState("próximos 15 dias");
+  const [genIdeas, setGenIdeas] = useState(false);
+
+  // Strategy artifacts gate — enable "Gerar ideias" only when all four exist.
+  const strategyQ = useQuery({
+    queryKey: ["strategy-gate", brandId, clientId],
+    queryFn: async () => {
+      const [v, p, c, s] = await Promise.all([
+        supabase.from("brand_voice_cards").select("id").eq("brand_id", brandId).eq("client_id", clientId).eq("is_active", true).maybeSingle(),
+        supabase.from("brand_personas").select("id").eq("brand_id", brandId).eq("client_id", clientId).eq("is_active", true).maybeSingle(),
+        supabase.from("brand_cohorts").select("id").eq("brand_id", brandId).eq("client_id", clientId).eq("is_active", true).maybeSingle(),
+        supabase.from("brand_swot").select("id").eq("brand_id", brandId).eq("client_id", clientId).eq("is_active", true).maybeSingle(),
+      ]);
+      return { voice: !!v.data, personas: !!p.data, cohorts: !!c.data, swot: !!s.data };
+    },
+    refetchOnWindowFocus: true,
+  });
+  const strategyReady =
+    !!strategyQ.data && strategyQ.data.voice && strategyQ.data.personas && strategyQ.data.cohorts && strategyQ.data.swot;
+
+  const runIdeas = async () => {
+    setGenIdeas(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) throw new Error("Sessão expirada");
+      const res = await fetch("/api/jobs/generate-ideas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ brandId, clientId, quantidade: ideasQty, periodo: ideasPeriod }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      toast.success("Gerando ideias em segundo plano — acompanhe pelo indicador de IA.");
+      qc.invalidateQueries({ queryKey: ["ai-jobs", "active"] });
+      setIdeasOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao gerar ideias");
+    } finally {
+      setGenIdeas(false);
+    }
+  };
+
   const buildStrategyBriefing = (): string => {
     if (!form) return "";
     const lines: string[] = [];
