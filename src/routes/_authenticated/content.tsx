@@ -287,6 +287,8 @@ function BoardExtras({
   openNewTask,
   setOpenNewTask,
   newTaskStageId,
+  openPostId,
+  setOpenPostId,
 }: {
   brandId: string;
   clientId: string;
@@ -296,6 +298,8 @@ function BoardExtras({
   openNewTask: boolean;
   setOpenNewTask: (v: boolean) => void;
   newTaskStageId: string | null;
+  openPostId: string | null;
+  setOpenPostId: (v: string | null) => void;
 }) {
   const loadBoard = useServerFn(loadBoardFn);
   const queryKey = useMemo(
@@ -315,7 +319,8 @@ function BoardExtras({
         stages={data.stages}
         invalidateKey={queryKey}
       />
-      <NewPostDialog
+      <TaskDialog
+        mode="create"
         open={openNewTask}
         onOpenChange={setOpenNewTask}
         brandId={brandId}
@@ -325,6 +330,19 @@ function BoardExtras({
         defaultStageId={newTaskStageId ?? data.stages[0]?.id}
         invalidateKey={queryKey}
       />
+      {openPostId ? (
+        <TaskDialog
+          mode="edit"
+          open={!!openPostId}
+          onOpenChange={(o) => !o && setOpenPostId(null)}
+          brandId={brandId}
+          clientId={clientId}
+          pipelineId={pipelineId}
+          stages={data.stages}
+          postId={openPostId}
+          invalidateKey={queryKey}
+        />
+      ) : null}
     </>
   );
 }
