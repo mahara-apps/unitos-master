@@ -27,7 +27,6 @@ import {
   StrategyTab,
   TargetTab,
   MarketTab,
-  TopicsTab,
 } from "@/components/ai-agents/strategy-panel";
 import { CustomerDashboard } from "@/components/customer/customer-dashboard";
 import { BasicInfoTab } from "@/components/customer/basic-info-tab";
@@ -36,7 +35,6 @@ import {
   StrategySkeleton,
   TargetSkeleton,
   MarketSkeleton,
-  TopicsSkeleton,
 } from "@/components/ai-agents/tab-skeletons";
 import { PipelineOnboarding } from "@/components/ai-agents/pipeline-onboarding";
 import { usePageHeader } from "@/hooks/use-page-header";
@@ -55,11 +53,10 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
 const TABS = [
   { value: "overview", label: "Visão geral" },
   { value: "basic", label: "Dados básicos" },
+  { value: "briefing", label: "Briefing" },
   { value: "strategy", label: "Estratégia" },
   { value: "target", label: "Público" },
   { value: "market", label: "Mercado" },
-  { value: "topics", label: "Tópicos" },
-  { value: "briefing", label: "Briefing" },
 ] as const;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -145,6 +142,7 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
   const qc = useQueryClient();
   const [regenOpen, setRegenOpen] = useState(false);
   const [forceOnboarding, setForceOnboarding] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("overview");
 
   // Lista de customers do brand ativo — só para nome/cor do header.
   const customersQ = useQuery({
@@ -225,7 +223,7 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
             }}
           />
         ) : (
-          <Tabs defaultValue="overview" className="space-y-4">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <TabsList className="w-full justify-start overflow-x-auto rounded-lg border border-border bg-card p-1">
               {TABS.map((t) => (
                 <TabsTrigger
@@ -242,10 +240,14 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
                 brandId={brandId}
                 clientId={customerId}
                 onRegenerate={() => setRegenOpen(true)}
+                onOpenBriefing={() => setActiveTab("briefing")}
               />
             </TabsContent>
             <TabsContent value="basic">
               <BasicInfoTab brandId={brandId} clientId={customerId} />
+            </TabsContent>
+            <TabsContent value="briefing">
+              <BriefingWorkspace brandId={brandId} clientId={customerId} embedded />
             </TabsContent>
             <TabsContent value="strategy">
               <Suspense fallback={<StrategySkeleton />}>
@@ -261,14 +263,6 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
               <Suspense fallback={<MarketSkeleton />}>
                 <MarketTab brandId={brandId} clientId={customerId} />
               </Suspense>
-            </TabsContent>
-            <TabsContent value="topics">
-              <Suspense fallback={<TopicsSkeleton />}>
-                <TopicsTab brandId={brandId} clientId={customerId} />
-              </Suspense>
-            </TabsContent>
-            <TabsContent value="briefing">
-              <BriefingWorkspace brandId={brandId} clientId={customerId} embedded />
             </TabsContent>
           </Tabs>
         )}

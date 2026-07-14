@@ -33,6 +33,7 @@ import {
   type BrandHubClient,
   type BrandHubData,
 } from "@/lib/brand-hub.functions";
+import { computeBriefingCompletion, briefingProgressLabel } from "@/lib/briefing-progress";
 
 /* ----------------------------- Types / helpers ----------------------------- */
 
@@ -116,41 +117,38 @@ function toForm(client: BrandHubClient): FormState {
   };
 }
 
-const FIELDS_FOR_PROGRESS: Array<(f: FormState) => boolean> = [
-  (f) => f.tone_text.trim().length > 0,
-  (f) => f.mission.trim().length > 0,
-  (f) => f.positioning.trim().length > 0,
-  (f) => f.values.trim().length > 0,
-  (f) => f.offer.trim().length > 0,
-  (f) => f.price_range.trim().length > 0,
-  (f) => f.differentials.trim().length > 0,
-  (f) => f.objections.trim().length > 0,
-  (f) => f.audience.trim().length > 0,
-  (f) => f.journey.trim().length > 0,
-  (f) => f.pain_points.trim().length > 0,
-  (f) => f.desires.trim().length > 0,
-  (f) => f.competitor_handles.length > 0,
-  (f) => f.inspirations.length > 0,
-  (f) => f.hashtags.length > 0,
-  (f) => f.palette.length > 0,
-  (f) => f.do_text.trim().length > 0 || f.dont_text.trim().length > 0,
-  (f) => Object.values(f.volumetry).some((v) => v > 0),
-  (f) => f.goals.trim().length > 0,
-];
-
 function computeCompletion(f: FormState): number {
-  const total = FIELDS_FOR_PROGRESS.length;
-  const filled = FIELDS_FOR_PROGRESS.reduce((acc, fn) => acc + (fn(f) ? 1 : 0), 0);
-  return Math.round((filled / total) * 100);
+  // Mirror the FormState back to a BrandHubData-like shape so the checklist
+  // shared with the dashboard stays the single source of truth.
+  return computeBriefingCompletion({
+    tone_text: f.tone_text,
+    mission: f.mission,
+    positioning: f.positioning,
+    values: f.values,
+    offer: f.offer,
+    price_range: f.price_range,
+    differentials: f.differentials,
+    objections: f.objections,
+    audience: f.audience,
+    journey: f.journey,
+    pain_points: f.pain_points,
+    desires: f.desires,
+    competitors: f.competitor_handles.map((h) => ({
+      id: h,
+      handle: h,
+      platform: "instagram",
+      added_at: "",
+    })),
+    inspirations: f.inspirations,
+    hashtags: f.hashtags,
+    palette: f.palette,
+    do_dont: { do: f.do_text, dont: f.dont_text },
+    volumetry: f.volumetry,
+    goals: f.goals,
+  });
 }
 
-function progressLabel(pct: number): string {
-  if (pct === 0) return "Inicial";
-  if (pct < 40) return "Em progresso";
-  if (pct < 80) return "Avançado";
-  if (pct < 100) return "Quase completo";
-  return "Completo";
-}
+const progressLabel = briefingProgressLabel;
 
 async function fileToBase64(file: File): Promise<string> {
   const buf = new Uint8Array(await file.arrayBuffer());

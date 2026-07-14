@@ -1,63 +1,43 @@
-## Problema
+## Ajustes na tela do Cliente
 
-Hoje temos **dois modais visualmente e funcionalmente distintos** para tarefas no pipeline:
+**Arquivos afetados**
+- `src/routes/_authenticated/customers.$customerId.tsx` — reordenar/remover abas
+- `src/components/customer/customer-dashboard.tsx` — gate do botão "Gerar Plano do Mês"
+- `src/components/customer/monthly-plan-dialog.tsx` — aceitar prop `disabled` + tooltip
+- `src/components/brand-hub/briefing-workspace.tsx` — expor `computeCompletion` (ou replicar cálculo de progresso via query)
 
-| | Modal "Nova tarefa" (`new-post-dialog.tsx`) | Modal "Detalhes do post" (`post-detail-dialog.tsx`) |
-|---|---|---|
-| Layout | 2 colunas (conteúdo + sidebar) | 1 coluna corrida |
-| Canais | Chips selecionáveis | Ausente |
-| Formato | Chips (Feed, Reels…) | Ausente |
-| Abas | Legenda / Briefing interno / Briefing cliente / Roteiro | Só campo "Copy" solto |
-| Prioridade | Select | Ausente |
-| Tags | Editor com chips | Ausente |
-| Lembrete | Sim | Ausente |
-| Portal | Toggle | Ausente |
-| Etapa | Select | Ausente |
-| Mídias de referência | Ausente | Uploader com preview |
-| Timeline / Aprovação / IA inline | Ausente | Presente |
+### 1. Reordenar abas e remover Tópicos
 
-Resultado: ao abrir uma tarefa criada, o usuário perde acesso à maioria dos campos que preencheu.
-
-## Solução
-
-Criar um único componente `TaskDialog` reutilizável com **o mesmo layout do modal "Nova tarefa"** (2 colunas, chips e abas), operando em dois modos:
-
-- **create**: sem `postId`, botão "Criar", chama `createPostFn`.
-- **edit**: com `postId`, carrega via `getPostDetailFn`, botão "Salvar", chama `updatePostFn`. Mantém as seções extras do detalhe (mídias, aprovação, timeline, IA inline, refação, aprovar & gerar).
-
-## Estrutura visual unificada
-
-```text
-┌─ Título ───────────────────────────────┐  ┌─ Etapa ─────┐
-│ [input]                                │  │ [select]    │
-├─ Canais (chips) ───────────────────────┤  ├─ Prazo ─────┤
-│ [instagram] [tiktok] ...               │  │ [datetime]  │
-├─ Formato (chips) ──────────────────────┤  ├─ Lembrete ──┤
-│ [Feed] [Reels] [Stories] ...           │  │ [datetime]  │
-├─ Abas ─────────────────────────────────┤  ├─ Prioridade │
-│ Legenda | Brief interno | Brief cli    │  │ [select]    │
-│         | Roteiro                      │  ├─ Tags ──────┤
-│ [textarea + botões IA no modo edit]    │  │ [chips]     │
-├─ Mídias de referência (só edit) ───────┤  ├─ Portal ────┤
-│ [grid + upload]                        │  │ [switch]    │
-├─ Link de aprovação (só edit) ──────────┤  └─────────────┘
-├─ Histórico (só edit) ──────────────────┤
-└────────────────────────────────────────┘
-Rodapé: Cancelar | (Excluir/Refazer só edit) | Salvar/Criar | Aprovar (só edit)
+Nova ordem em `TABS`:
 ```
+Visão geral · Dados básicos · Briefing · Estratégia · Público · Mercado
+```
+- Remover a entrada `topics` (`TopicsTab`) e o respectivo `<TabsContent value="topics">`.
+- Remover imports não utilizados (`TopicsTab`, `TopicsSkeleton`, `customerPautasQuery` do prefetch caso não seja mais usado em nenhuma outra aba — manter se `StrategyTab`/`MarketTab` dependerem dele).
+- Mover `<TabsContent value="briefing">` para logo após `basic`.
 
-## Detalhes técnicos
+### 2. Gate de geração de conteúdo pelo Briefing
 
-- Novo arquivo `src/components/content/task-dialog.tsx` implementando o layout unificado.
-- Estender `updatePostFn` no `content.functions.ts` para aceitar os campos hoje só existentes em `createPostFn` (`channels`, `format`, `priority`, `tags`, `internal_briefing`, `client_briefing`, `script`, `remind_at`, `visible_in_portal`, `stage_id`, `pipeline_id` já suportados parcialmente — validar e completar).
-- Estender `getPostDetailFn` para retornar esses mesmos campos no `post`.
-- Manter os botões de IA inline, refação, aprovação e uploader **apenas quando** `mode === "edit"`.
-- Substituir os dois consumidores atuais (`content-board.tsx` e o header do `/content`) por `TaskDialog`.
-- Deletar `new-post-dialog.tsx` e `post-detail-dialog.tsx` após a migração.
-- Manter todas as chamadas server-side existentes (nada muda no schema do banco).
+Regra: só liberar "Gerar Plano do Mês" (e o pipeline de conteúdo derivado do briefing) quando o briefing estiver **100% preenchido**.
 
-## Fora de escopo
+Implementação:
+- Exportar a função `computeCompletion` de `briefing-workspace.tsx` (ou mover para `src/lib/briefing-progress.ts`) para ser reutilizada no dashboard do cliente.
+- No `CustomerDashboard`, ler o hub via `getBrandHub` (query já cacheada pelo Briefing) e calcular `completion`.
+- Passar `disabled={completion < 100}` para `MonthlyPlanDialog` e um `reason` textual.
 
-- Mudanças no board Kanban, DnD, SLA ou colunas.
-- Fluxo de IA (pipeline, agentes) — apenas os botões inline continuam iguais.
-- Portal público / aprovação por token — apenas realocados dentro do novo modal.
+Em `monthly-plan-dialog.tsx`:
+- Aceitar props `disabled?: boolean` e `disabledReason?: string`.
+- Quando `disabled`, o botão principal fica desabilitado, com tooltip:
+  > "Complete 100% do briefing para liberar a geração de conteúdo."
+- Adicionar um badge/hint no card do dashboard mostrando `Briefing 62% — complete para liberar` com link direto para a aba Briefing.
+
+### 3. Fluxo pós-liberação (já existente, apenas confirmado)
+
+O endpoint `/api/jobs/monthly-plan` continua sendo o motor:
+- Usa os agentes atuais (temas, headlines, ganchos) cruzando **todo o briefing** (`brand_hub` + `voice` + volumetria).
+- Cria posts no `posts` com `pipeline_id` padrão → aparecem automaticamente no **Kanban de Produção** e no **Calendário** (o Calendar já lê da mesma tabela).
+- Nenhuma mudança de schema necessária.
+
+### Fora de escopo
+- Não mexer no motor de agentes nem em RLS.
+- Não alterar o layout do header do cliente (KPIs, botões Regenerate/Pipeline).
