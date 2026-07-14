@@ -256,6 +256,7 @@ function CreateBody({
           priority: state.priority === "none" ? null : state.priority,
           tags: state.tags.length ? state.tags : undefined,
           visible_in_portal: state.visibleInPortal,
+          assignees: state.assigneeId ? [state.assigneeId] : undefined,
         },
       }),
     onSuccess: () => {
@@ -268,11 +269,32 @@ function CreateBody({
 
   return (
     <>
-      <div className="sticky top-0 z-10 border-b bg-background px-6 py-4">
-        <h2 className="text-base font-semibold tracking-tight">Nova tarefa</h2>
-        <p className="text-xs text-muted-foreground">
-          Preencha os detalhes para adicionar ao pipeline.
-        </p>
+      <div className="sticky top-0 z-10 space-y-3 border-b bg-background px-6 pb-3 pt-4">
+        <div>
+          <h2 className="text-base font-semibold tracking-tight">Nova tarefa</h2>
+          <p className="text-xs text-muted-foreground">
+            Preencha os detalhes para adicionar ao pipeline.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={state.stageId} onValueChange={(v) => setState((p) => ({ ...p, stageId: v }))}>
+            <SelectTrigger className="h-8 w-auto min-w-[140px] gap-1 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {stages.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <AssigneeSelect
+            brandId={brandId}
+            value={state.assigneeId}
+            onChange={(id) => setState((p) => ({ ...p, assigneeId: id }))}
+          />
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto px-6 py-5">
         <TaskLayout
