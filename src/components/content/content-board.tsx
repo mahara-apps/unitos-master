@@ -16,7 +16,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Check, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
-import { Paperclip, ImageIcon, CalendarDays, Sparkles } from "lucide-react";
+import { Paperclip, ImageIcon, CalendarDays, CalendarPlus, UserCircle2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -469,6 +469,7 @@ function PostCard({
     .replace(/\s+/g, " ")
     .trim();
   const scheduled = post.scheduled_at ? new Date(post.scheduled_at) : null;
+  const created = post.created_at ? new Date(post.created_at) : null;
   return (
     <button
       type="button"
@@ -526,15 +527,20 @@ function PostCard({
 
         <div className="mt-2.5 flex items-center justify-between border-t border-border/50 pt-2 text-[11px] text-muted-foreground">
           <div className="flex items-center gap-2">
+            {created ? (
+              <span className="inline-flex items-center gap-0.5 tabular-nums" title={`Criado em ${created.toLocaleDateString("pt-BR")}`}>
+                <CalendarPlus className="h-3 w-3" />
+                {created.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+              </span>
+            ) : null}
+            <span className="inline-flex items-center gap-0.5" title={post.assignee_id ? "Responsável definido" : "Sem responsável"}>
+              <UserCircle2 className={`h-3.5 w-3.5 ${post.assignee_id ? "text-foreground/80" : "opacity-50"}`} />
+            </span>
             {refCount > 0 ? (
               <span className="inline-flex items-center gap-0.5" title={`${refCount} anexo(s)`}>
                 <Paperclip className="h-3 w-3" /> {refCount}
               </span>
-            ) : (
-              <span className="inline-flex items-center gap-0.5 opacity-50" title="Sem anexos">
-                <ImageIcon className="h-3 w-3" />
-              </span>
-            )}
+            ) : null}
           </div>
           <div className="flex items-center gap-1.5">
             {scheduled ? (
