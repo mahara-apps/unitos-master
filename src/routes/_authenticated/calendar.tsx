@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronLeft, ChevronRight, CalendarDays, Loader2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,7 +18,8 @@ import { listScheduledPostsFn, type CalendarPost } from "@/lib/calendar.function
 import { usePageHeader } from "@/hooks/use-page-header";
 import { GeneratePlanDialog } from "@/components/calendar/generate-plan-dialog";
 import { TaskDialog } from "@/components/content/task-dialog";
-import { loadBoardFn } from "@/lib/content.functions";
+import { loadBoardFn, ensureDefaultPipelineFn } from "@/lib/content.functions";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
@@ -43,6 +44,41 @@ function CalendarPage() {
   const qc = useQueryClient();
   const [openPost, setOpenPost] = useState<CalendarPost | null>(null);
   const loadBoard = useServerFn(loadBoardFn);
+  const ensurePipeline = useServerFn(ensureDefaultPipelineFn);
+  const [createCtx, setCreateCtx] = useState<
+    | { date: Date; pipelineId: string; stages: { id: string; label: string }[] }
+    | null
+  >(null);
+  const [creating, setCreating] = useState(false);
+
+  async function handleCreateOnDate(date: Date) {
+    if (!brandId) return;
+    if (!clientId) {
+      toast.error("Selecione um cliente para criar conteúdo manualmente.");
+      return;
+    }
+    if (creating) return;
+    setCreating(true);
+    try {
+      const pipe = await ensurePipeline({ data: { brandId, clientId } });
+      const board = await loadBoard({
+        data: { brandId, clientId, pipelineId: pipe.id },
+      });
+      // Default publish time: 10:00 local on the picked day
+      const scheduled = new Date(date);
+      scheduled.setHours(10, 0, 0, 0);
+      setCreateCtx({
+        date: scheduled,
+        pipelineId: pipe.id,
+        stages: board.stages,
+      });
+    } catch (e) {
+      toast.error((e as Error).message || "Falha ao preparar novo conteúdo");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   const stagesQ = useQuery({
     enabled: !!openPost?.pipeline_id,
     queryKey: ["calendar-stages", openPost?.brand_id, openPost?.client_id, openPost?.pipeline_id],
@@ -183,7 +219,8 @@ function CalendarPage() {
                   key={i}
                   className={cn(
                     "border-b border-r p-2 text-xs transition-colors",
-                    isCurrentMonth ? "" : "bg-muted/20 text-muted-foreground/50",
+                    "group/day relative",
+                    isCurrentMonth ? "hover:bg-muted/30" : "bg-muted/20 text-muted-foreground/50",
                   )}
                 >
                   <div className="mb-1.5 flex items-center justify-between">
@@ -197,11 +234,25 @@ function CalendarPage() {
                     >
                       {day.date.getDate()}
                     </span>
-                    {posts.length > 0 ? (
-                      <span className="text-[10px] font-medium text-muted-foreground">
-                        {posts.length}
-                      </span>
-                    ) : null}
+                    <div className="flex items-center gap-1">
+                      {posts.length > 0 ? (
+                        <span className="text-[10px] font-medium text-muted-foreground">
+                          {posts.length}
+                        </span>
+                      ) : null}
+                      {isCurrentMonth ? (
+                        <button
+                          type="button"
+                          onClick={() => handleCreateOnDate(day.date)}
+                          className="inline-flex h-5 w-5 items-center justify-center rounded-md border border-transparent text-muted-foreground opacity-0 transition-all hover:border-border hover:bg-background hover:text-foreground group-hover/day:opacity-100 focus:opacity-100"
+                          aria-label={`Novo conteúdo em ${day.date.toLocaleDateString("pt-BR")}`}
+                          title="Novo conteúdo neste dia"
+                          disabled={creating}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
                   <div className="space-y-1">
                     {posts.slice(0, 3).map((p) => (
@@ -211,6 +262,16 @@ function CalendarPage() {
                       <span className="block pl-0.5 text-[10px] font-medium text-muted-foreground">
                         +{posts.length - 3} mais
                       </span>
+                    ) : null}
+                    {posts.length === 0 && isCurrentMonth ? (
+                      <button
+                        type="button"
+                        onClick={() => handleCreateOnDate(day.date)}
+                        disabled={creating}
+                        className="flex w-full items-center gap-1 rounded-md border border-dashed border-transparent px-1.5 py-1 text-[10px] text-muted-foreground/70 opacity-0 transition-all hover:border-border hover:text-foreground group-hover/day:opacity-100"
+                      >
+                        <Plus className="h-3 w-3" /> Adicionar
+                      </button>
                     ) : null}
                   </div>
                 </div>
@@ -284,6 +345,22 @@ function CalendarPage() {
           pipelineId={openPost.pipeline_id}
           stages={stagesQ.data.stages}
           postId={openPost.id}
+          invalidateKey={["calendar", brandId, clientId, from, to] as const}
+        />
+      ) : null}
+
+      {createCtx && clientId ? (
+        <TaskDialog
+          mode="create"
+          open={!!createCtx}
+          onOpenChange={(o) => {
+            if (!o) setCreateCtx(null);
+          }}
+          brandId={brandId!}
+          clientId={clientId}
+          pipelineId={createCtx.pipelineId}
+          stages={createCtx.stages}
+          defaultScheduledAt={createCtx.date.toISOString()}
           invalidateKey={["calendar", brandId, clientId, from, to] as const}
         />
       ) : null}
