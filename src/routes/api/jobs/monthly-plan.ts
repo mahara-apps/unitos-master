@@ -420,6 +420,7 @@ async function runOrchestrator(params: {
           title: (r.copy.titulo || r.concept.titulo).slice(0, 160),
           copy: `${captionMd}${tagsBlock}`,
           channels: [channel],
+        format: normalizeFormatKind(r.concept.formato),
           stage: "idea" as const,
           position: nextPos,
           created_by: userId,
