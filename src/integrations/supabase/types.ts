@@ -1710,39 +1710,48 @@ export type Database = {
         Row: {
           brand_id: string
           client_id: string | null
+          color: string | null
           created_at: string
           description: string | null
           due_at: string | null
+          goals: string | null
           id: string
           name: string
           owner_id: string | null
           progress: number
+          start_date: string | null
           status: Database["public"]["Enums"]["project_status"]
           updated_at: string
         }
         Insert: {
           brand_id: string
           client_id?: string | null
+          color?: string | null
           created_at?: string
           description?: string | null
           due_at?: string | null
+          goals?: string | null
           id?: string
           name: string
           owner_id?: string | null
           progress?: number
+          start_date?: string | null
           status?: Database["public"]["Enums"]["project_status"]
           updated_at?: string
         }
         Update: {
           brand_id?: string
           client_id?: string | null
+          color?: string | null
           created_at?: string
           description?: string | null
           due_at?: string | null
+          goals?: string | null
           id?: string
           name?: string
           owner_id?: string | null
           progress?: number
+          start_date?: string | null
           status?: Database["public"]["Enums"]["project_status"]
           updated_at?: string
         }
@@ -1977,7 +1986,13 @@ export type Database = {
         | "approved"
         | "scheduled"
         | "published"
-      project_status: "planning" | "in_progress" | "active" | "paused" | "done"
+      project_status:
+        | "planning"
+        | "in_progress"
+        | "active"
+        | "paused"
+        | "done"
+        | "archived"
       task_priority: "low" | "medium" | "high" | "urgent"
       task_status: "todo" | "in_progress" | "review" | "done"
     }
@@ -2127,7 +2142,14 @@ export const Constants = {
         "scheduled",
         "published",
       ],
-      project_status: ["planning", "in_progress", "active", "paused", "done"],
+      project_status: [
+        "planning",
+        "in_progress",
+        "active",
+        "paused",
+        "done",
+        "archived",
+      ],
       task_priority: ["low", "medium", "high", "urgent"],
       task_status: ["todo", "in_progress", "review", "done"],
     },
