@@ -459,6 +459,20 @@ export const createPostFn = createServerFn({ method: "POST" })
         pipelineId: z.string().uuid(),
         stageId: z.string().uuid(),
         title: z.string().min(1).max(160),
+        copy: z.string().max(6000).nullable().optional(),
+        channels: z.array(z.string().max(40)).max(12).optional(),
+        format: z.string().max(60).nullable().optional(),
+        priority: z.enum(["low", "medium", "high", "urgent"]).nullable().optional(),
+        tags: z.array(z.string().max(40)).max(20).optional(),
+        scheduled_at: z.string().nullable().optional(),
+        remind_at: z.string().nullable().optional(),
+        internal_briefing: z.string().max(8000).nullable().optional(),
+        client_briefing: z.string().max(8000).nullable().optional(),
+        script: z.array(z.any()).nullable().optional(),
+        assignees: z.array(z.string().uuid()).max(20).optional(),
+        project_id: z.string().uuid().nullable().optional(),
+        visible_in_portal: z.boolean().optional(),
+        recurrence: z.any().nullable().optional(),
       })
       .parse(i),
   )
@@ -471,18 +485,28 @@ export const createPostFn = createServerFn({ method: "POST" })
       .limit(1);
     const nextPos = ((maxRow?.[0]?.position ?? -1) as number) + 1024;
 
+    const insertRow: Record<string, unknown> = {
+      brand_id: data.brandId,
+      client_id: data.clientId,
+      pipeline_id: data.pipelineId,
+      stage_id: data.stageId,
+      title: data.title.trim(),
+      stage: "idea",
+      position: nextPos,
+      created_by: context.userId,
+    };
+    const optional: Array<keyof typeof data> = [
+      "copy", "channels", "format", "priority", "tags", "scheduled_at",
+      "remind_at", "internal_briefing", "client_briefing", "script",
+      "assignees", "project_id", "visible_in_portal", "recurrence",
+    ];
+    for (const k of optional) {
+      if (data[k] !== undefined) insertRow[k as string] = data[k];
+    }
+
     const { data: post, error } = await context.supabase
       .from("posts")
-      .insert({
-        brand_id: data.brandId,
-        client_id: data.clientId,
-        pipeline_id: data.pipelineId,
-        stage_id: data.stageId,
-        title: data.title.trim(),
-        stage: "idea",
-        position: nextPos,
-        created_by: context.userId,
-      })
+      .insert(insertRow as never)
       .select(
         "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id",
       )
