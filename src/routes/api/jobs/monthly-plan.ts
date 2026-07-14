@@ -208,6 +208,9 @@ async function runOrchestrator(params: {
     const mixInstruction = mixLines
       ? `\n\nDISTRIBUIÇÃO OBRIGATÓRIA POR CANAL (total = ${input.quantidade}):\n${mixLines}\nRespeite estritamente essa cota por plataforma — não gere mais peças por canal do que o indicado.`
       : "";
+    const steerInstruction = input.direcionamento?.trim()
+      ? `\n\nDIRECIONAMENTO EXTRA DO USUÁRIO (prioridade máxima ao interpretar temas):\n"""${input.direcionamento.trim()}"""`
+      : "";
     const plannerSys = fillTemplate(plannerPrompt, {
       CONTEXT: blueprint,
       PERSONAS: personasStr,
@@ -216,7 +219,7 @@ async function runOrchestrator(params: {
       QUANTIDADE: String(input.quantidade),
       PERIODO: input.periodo,
       CHANNEL_MIX: mixLines || "(livre — escolha o melhor mix)",
-    }) + mixInstruction;
+    }) + mixInstruction + steerInstruction;
     const planned = await runStructured({
       system: plannerSys,
       prompt: `Gere ${input.quantidade} conceitos para o período "${input.periodo}".`,
