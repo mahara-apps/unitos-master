@@ -449,7 +449,7 @@ function HeaderRegister({ subtitle, onCreate }: { subtitle: string; onCreate: ()
         <Button
           size="sm"
           onClick={onCreate}
-          className="gap-1.5 bg-indigo-600 text-white hover:bg-indigo-500 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
+          className="h-9 gap-1.5"
         >
           <Plus className="h-3.5 w-3.5" /> Novo cliente
         </Button>
@@ -671,7 +671,6 @@ function CustomerFormDialog({
           <Button
             onClick={submit}
             disabled={submitting}
-            className="bg-indigo-600 text-white hover:bg-indigo-500 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200"
           >
             {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Salvar
