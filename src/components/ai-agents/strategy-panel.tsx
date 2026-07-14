@@ -524,48 +524,55 @@ export function TargetTab({ brandId, clientId }: Scope) {
   const { data: target } = useSuspenseQuery(customerTargetQuery({ brandId, clientId }));
   const personas = normalizePersonas(target.personas?.data);
   const cohorts = normalizeCohorts(target.cohorts?.data);
+  const [selected, setSelected] = useState<NormalizedPersona | null>(null);
+
+  // Diagnóstico global — agrega as personas
+  const diagnostic = summarizeDiagnostic(personas);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Diagnóstico global */}
+      <div className="grid gap-3 md:grid-cols-3">
+        <DiagnosticCard
+          icon={Eye}
+          label="Nível de consciência"
+          value={diagnostic.consciencia}
+          className="bg-rose-50/70 border-rose-100 dark:bg-rose-950/20 dark:border-rose-900/40"
+          iconClass="text-rose-500"
+        />
+        <DiagnosticCard
+          icon={Shield}
+          label="Barreira principal"
+          value={diagnostic.barreira}
+          className="bg-amber-50/70 border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/40"
+          iconClass="text-amber-500"
+        />
+        <DiagnosticCard
+          icon={Clock}
+          label="Ciclo de compra"
+          value={diagnostic.ciclo}
+          className="bg-emerald-50/70 border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/40"
+          iconClass="text-emerald-500"
+        />
+      </div>
+
+      {/* Personas */}
       <div>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-foreground">
-            <Users className="h-4 w-4 text-primary" /> Personas
-          </h3>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Users className="h-4 w-4 text-primary" /> Personas
+            </h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Clique em um card para abrir o dossiê psicológico completo.
+            </p>
+          </div>
           <ContextSourceBadge source="persona" />
         </div>
         {personas.length ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {personas.map((p, i) => (
-              <div key={i} className="rounded-xl border border-border bg-card p-4">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary/30 to-primary/10 text-[11px] font-bold text-primary-foreground">
-                    {p.nome?.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="text-sm font-semibold">{p.nome}</div>
-                </div>
-                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{p.descricao}</p>
-                {p.dores?.length ? (
-                  <div className="mt-3">
-                    <div className="text-[10px] font-medium uppercase tracking-wide text-destructive">Dores</div>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {p.dores.slice(0, 4).map((d, j) => (
-                        <Chip key={j} tone="danger">{d}</Chip>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-                {p.canais_preferidos?.length ? (
-                  <div className="mt-2">
-                    <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Canais</div>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {p.canais_preferidos.map((c, j) => (
-                        <Chip key={j}>{c}</Chip>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
+              <PersonaCard key={i} persona={p} onOpen={() => setSelected(p)} />
             ))}
           </div>
         ) : (
@@ -573,47 +580,305 @@ export function TargetTab({ brandId, clientId }: Scope) {
         )}
       </div>
 
+      {/* Cohorts */}
       <div>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-foreground">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Layers className="h-4 w-4 text-primary" /> Cohorts comportamentais
           </h3>
           <ContextSourceBadge source="persona" />
         </div>
         {cohorts.length ? (
-          <div className="space-y-2">
+          <div className="grid gap-3 md:grid-cols-2">
             {cohorts.map((c, i) => (
-              <div key={i} className="rounded-xl border border-border bg-card p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-sm font-semibold text-foreground">{c.name}</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(c.target_personas ?? []).map((tp, j) => (
-                      <Chip key={j} tone="info">{tp}</Chip>
-                    ))}
+              <Card key={i} className="shadow-none">
+                <CardContent className="p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-sm font-semibold text-foreground">{c.name}</div>
+                    <div className="flex flex-wrap gap-1">
+                      {(c.target_personas ?? []).map((tp, j) => (
+                        <Badge key={j} variant="secondary" className="rounded-full font-normal">{tp}</Badge>
+                      ))}
+                    </div>
                   </div>
-                </div>
-                <div className="mt-2 grid gap-2 text-xs md:grid-cols-3">
-                  <div>
-                    <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Behavioral traits</div>
-                    <p className="mt-1 text-muted-foreground">{c.behavioral_traits}</p>
-                  </div>
-                  <div>
-                    <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Content strategy</div>
-                    <p className="mt-1 text-muted-foreground">{c.content_strategy}</p>
-                  </div>
-                  <div>
-                    <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Conversion criteria</div>
-                    <p className="mt-1 text-muted-foreground">{c.conversion_criteria}</p>
-                  </div>
-                </div>
-              </div>
+                  <Separator className="my-4" />
+                  <dl className="space-y-3 text-xs">
+                    {c.behavioral_traits ? (
+                      <div>
+                        <dt className="font-medium text-foreground">Comportamento</dt>
+                        <dd className="mt-0.5 text-muted-foreground">{c.behavioral_traits}</dd>
+                      </div>
+                    ) : null}
+                    {c.content_strategy ? (
+                      <div>
+                        <dt className="font-medium text-foreground">Estratégia de conteúdo</dt>
+                        <dd className="mt-0.5 text-muted-foreground">{c.content_strategy}</dd>
+                      </div>
+                    ) : null}
+                    {c.conversion_criteria ? (
+                      <div>
+                        <dt className="font-medium text-foreground">Critério de conversão</dt>
+                        <dd className="mt-0.5 text-muted-foreground">{c.conversion_criteria}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                </CardContent>
+              </Card>
             ))}
           </div>
         ) : (
           <EmptyHint text="Cohorts ainda não gerados." />
         )}
       </div>
+
+      <PersonaDrawer persona={selected} onClose={() => setSelected(null)} />
     </div>
+  );
+}
+
+function DiagnosticCard({
+  icon: Icon, label, value, className, iconClass,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  className?: string;
+  iconClass?: string;
+}) {
+  return (
+    <div className={`rounded-xl border p-5 ${className ?? ""}`}>
+      <div className="flex items-center gap-2">
+        <div className={`flex h-8 w-8 items-center justify-center rounded-full bg-white/70 dark:bg-background/40 ${iconClass ?? ""}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">{label}</div>
+      </div>
+      <p className="mt-3 text-sm font-medium leading-snug text-foreground">
+        {value || <span className="text-muted-foreground">—</span>}
+      </p>
+    </div>
+  );
+}
+
+function summarizeDiagnostic(personas: NormalizedPersona[]) {
+  const first = (fn: (p: NormalizedPersona) => string): string => {
+    for (const p of personas) {
+      const v = fn(p).trim();
+      if (v) return v;
+    }
+    return "";
+  };
+  return {
+    consciencia: first((p) => p.nivel_consciencia) || (personas.length ? "Consciência do problema" : ""),
+    barreira: first((p) => p.objecao_dominante) || first((p) => p.dor_principal),
+    ciclo: first((p) => p.ciclo_compra) || (personas.length ? "Decisão considerada" : ""),
+  };
+}
+
+function personaInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+}
+
+function PersonaCard({ persona, onOpen }: { persona: NormalizedPersona; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="group flex h-full flex-col rounded-xl border border-border bg-card p-5 text-left transition-all hover:border-primary/40 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-primary/5 text-xs font-semibold text-primary">
+          {personaInitials(persona.nome) || <User className="h-4 w-4" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold text-foreground">{persona.nome}</div>
+          {persona.arquetipo ? (
+            <Badge variant="secondary" className="mt-1 rounded-full border border-sky-200 bg-sky-50 font-normal text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300">
+              {persona.arquetipo}
+            </Badge>
+          ) : null}
+        </div>
+      </div>
+
+      {persona.motivacao || persona.descricao ? (
+        <div className="mt-4">
+          <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Motivação</div>
+          <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-foreground/80">
+            {persona.motivacao || persona.descricao}
+          </p>
+        </div>
+      ) : null}
+
+      {persona.dor_principal || persona.dores[0] ? (
+        <div className="mt-3">
+          <div className="text-[10px] font-medium uppercase tracking-widest text-rose-500">Dor principal</div>
+          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-foreground/80">
+            {persona.dor_principal || persona.dores[0]}
+          </p>
+        </div>
+      ) : null}
+
+      <div className="mt-auto pt-4">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-sky-600 group-hover:text-sky-700 dark:text-sky-400">
+          Ver detalhamento completo <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function DrawerSection({
+  icon: Icon, label, iconClass, children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  iconClass?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2">
+        <Icon className={`h-3.5 w-3.5 ${iconClass ?? "text-primary"}`} />
+        <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{label}</div>
+      </div>
+      <div className="mt-2 text-sm leading-relaxed text-foreground/90">{children}</div>
+    </div>
+  );
+}
+
+function PersonaDrawer({ persona, onClose }: { persona: NormalizedPersona | null; onClose: () => void }) {
+  const open = !!persona;
+  return (
+    <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+        {persona ? (
+          <>
+            <SheetHeader className="space-y-3 text-left">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-primary/5 text-sm font-semibold text-primary">
+                  {personaInitials(persona.nome) || <User className="h-5 w-5" />}
+                </div>
+                <div className="min-w-0">
+                  <SheetTitle className="truncate text-lg">{persona.nome}</SheetTitle>
+                  {persona.arquetipo ? (
+                    <SheetDescription>
+                      Arquétipo:{" "}
+                      <Badge variant="secondary" className="rounded-full border border-sky-200 bg-sky-50 font-normal text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300">
+                        {persona.arquetipo}
+                      </Badge>
+                    </SheetDescription>
+                  ) : (
+                    <SheetDescription>Dossiê psicológico da persona.</SheetDescription>
+                  )}
+                </div>
+              </div>
+            </SheetHeader>
+
+            <div className="mt-6 space-y-5">
+              {persona.logica_compra ? (
+                <blockquote className="rounded-r-md border-l-4 border-primary/60 bg-primary/5 px-4 py-3 text-sm italic leading-relaxed text-foreground/90">
+                  “{persona.logica_compra}”
+                  <footer className="mt-1 text-[11px] not-italic uppercase tracking-widest text-muted-foreground">
+                    Lógica de compra
+                  </footer>
+                </blockquote>
+              ) : null}
+
+              {persona.descricao || persona.motivacao ? (
+                <DrawerSection icon={Sparkles} label="Perfil & motivação" iconClass="text-primary">
+                  <p>{persona.motivacao || persona.descricao}</p>
+                </DrawerSection>
+              ) : null}
+
+              <Separator />
+
+              <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Psicologia da compra
+              </div>
+
+              {persona.fator_confianca ? (
+                <DrawerSection icon={BadgeCheck} label="Fator de confiança" iconClass="text-emerald-500">
+                  <p>{persona.fator_confianca}</p>
+                </DrawerSection>
+              ) : null}
+
+              {persona.como_decide ? (
+                <DrawerSection icon={Target} label="Como decide" iconClass="text-sky-500">
+                  <p>{persona.como_decide}</p>
+                </DrawerSection>
+              ) : null}
+
+              {persona.objecao_dominante ? (
+                <DrawerSection icon={AlertTriangle} label="Objeção dominante" iconClass="text-amber-500">
+                  <p>{persona.objecao_dominante}</p>
+                </DrawerSection>
+              ) : null}
+
+              {persona.estilo_comunicacao ? (
+                <DrawerSection icon={MessageSquare} label="Estilo de comunicação esperado" iconClass="text-violet-500">
+                  <p>{persona.estilo_comunicacao}</p>
+                </DrawerSection>
+              ) : null}
+
+              {(persona.dores.length || persona.dor_principal) ? (
+                <>
+                  <Separator />
+                  <DrawerSection icon={Flame} label="Dores mapeadas" iconClass="text-rose-500">
+                    <ul className="space-y-1.5">
+                      {(persona.dores.length ? persona.dores : [persona.dor_principal]).map((d, i) => (
+                        <li key={i} className="flex gap-2 text-sm">
+                          <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-rose-400" />
+                          <span>{d}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </DrawerSection>
+                </>
+              ) : null}
+
+              {persona.canais_preferidos.length ? (
+                <DrawerSection icon={Layers} label="Canais preferidos" iconClass="text-muted-foreground">
+                  <div className="flex flex-wrap gap-1.5">
+                    {persona.canais_preferidos.map((c, i) => (
+                      <Badge key={i} variant="outline" className="rounded-full font-normal">{c}</Badge>
+                    ))}
+                  </div>
+                </DrawerSection>
+              ) : null}
+
+              {(persona.nivel_consciencia || persona.ciclo_compra) ? (
+                <>
+                  <Separator />
+                  <div className="grid grid-cols-2 gap-3">
+                    {persona.nivel_consciencia ? (
+                      <div className="rounded-lg border border-border bg-muted/40 p-3">
+                        <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                          <Eye className="h-3 w-3" /> Consciência
+                        </div>
+                        <p className="mt-1 text-xs text-foreground">{persona.nivel_consciencia}</p>
+                      </div>
+                    ) : null}
+                    {persona.ciclo_compra ? (
+                      <div className="rounded-lg border border-border bg-muted/40 p-3">
+                        <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                          <Clock className="h-3 w-3" /> Ciclo
+                        </div>
+                        <p className="mt-1 text-xs text-foreground">{persona.ciclo_compra}</p>
+                      </div>
+                    ) : null}
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </>
+        ) : null}
+      </SheetContent>
+    </Sheet>
   );
 }
 
