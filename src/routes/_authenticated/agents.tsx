@@ -1,18 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import {
-  Brain,
-  Sparkles,
-  Loader2,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Activity,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Sparkles, Loader2, Activity, Brain } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -21,9 +12,14 @@ import {
   listAgentPromptsFn,
   listAgentJobsFn,
   getBrandVolumetryFn,
+  type AgentPromptRow,
 } from "@/lib/agents.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { usePageHeader } from "@/hooks/use-page-header";
+import { AgentCard } from "@/components/agents/agent-card";
+import { AgentDrawer } from "@/components/agents/agent-drawer";
+import { JobsTable } from "@/components/agents/jobs-table";
+import { getAgentMeta } from "@/components/agents/agent-meta";
 
 export const Route = createFileRoute("/_authenticated/agents")({
   component: AgentsPage,
@@ -55,6 +51,23 @@ function AgentsPage() {
   });
 
   const [running, setRunning] = useState(false);
+  const [selected, setSelected] = useState<AgentPromptRow | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const openAgent = (a: AgentPromptRow) => {
+    setSelected(a);
+    setDrawerOpen(true);
+  };
+
+  const categoryCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const a of prompts.data ?? []) {
+      const c = getAgentMeta(a.agent_id, a.agent_name).categoryLabel;
+      map.set(c, (map.get(c) ?? 0) + 1);
+    }
+    return [...map.entries()];
+  }, [prompts.data]);
+
   const runMonthlyPlan = useMutation({
     mutationFn: async () => {
       if (!brandId || !clientId) throw new Error("Selecione um cliente.");
@@ -118,33 +131,39 @@ function AgentsPage() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-6 p-6">
+    <div className="flex h-full flex-col gap-8 p-6">
       <section>
-        <h2 className="mb-3 flex items-center gap-2 text-sm font-medium">
-          <Brain className="h-4 w-4" /> Agentes disponíveis
-        </h2>
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Brain className="h-4 w-4" /> Agentes disponíveis
+            <span className="text-muted-foreground">
+              · {prompts.data?.length ?? 0}
+            </span>
+          </div>
+          <div className="hidden gap-1.5 md:flex">
+            {categoryCounts.map(([label, n]) => (
+              <Badge key={label} variant="outline" className="h-5 text-[10px]">
+                {label} · {n}
+              </Badge>
+            ))}
+          </div>
+        </div>
         {prompts.isLoading ? (
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-40 animate-pulse rounded-lg border bg-muted/30"
+              />
+            ))}
+          </div>
+        ) : (prompts.data ?? []).length === 0 ? (
+          <p className="text-sm text-muted-foreground">Nenhum agente cadastrado.</p>
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {(prompts.data ?? []).map((a) => (
-              <Card key={a.agent_id} className="h-full">
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-sm font-medium">{a.agent_name}</CardTitle>
-                    <Badge variant="secondary" className="font-mono text-[10px]">
-                      {a.agent_id}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="text-xs text-muted-foreground">
-                  <p className="line-clamp-4">{a.system_prompt.slice(0, 280)}…</p>
-                </CardContent>
-              </Card>
+              <AgentCard key={a.agent_id} agent={a} onOpen={openAgent} />
             ))}
-            {(prompts.data ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum agente cadastrado.</p>
-            ) : null}
           </div>
         )}
       </section>
@@ -166,44 +185,15 @@ function AgentsPage() {
             ou acione a pauta do mês acima.
           </p>
         ) : (
-          <ul className="divide-y rounded-md border">
-            {(jobs.data ?? []).map((j) => (
-              <li key={j.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    {statusIcon(j.status)}
-                    <span className="truncate font-medium">
-                      {j.title ?? j.kind}
-                    </span>
-                  </div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {j.step_label ?? j.kind} ·{" "}
-                    {new Date(j.created_at).toLocaleString("pt-BR")}
-                    {j.error ? ` · ${j.error}` : ""}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {j.progress != null ? (
-                    <span className="text-xs tabular-nums text-muted-foreground">
-                      {j.progress}%
-                    </span>
-                  ) : null}
-                  <Badge variant="outline" className="capitalize">
-                    {j.status}
-                  </Badge>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <JobsTable jobs={jobs.data ?? []} />
         )}
       </section>
+
+      <AgentDrawer
+        agent={selected}
+        open={drawerOpen}
+        onOpenChange={setDrawerOpen}
+      />
     </div>
   );
-}
-
-function statusIcon(status: string) {
-  if (status === "succeeded") return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
-  if (status === "failed") return <XCircle className="h-4 w-4 text-destructive" />;
-  if (status === "running") return <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />;
-  return <Clock className="h-4 w-4 text-muted-foreground" />;
 }
