@@ -211,6 +211,11 @@ export function BriefingWorkspace({
     if (hubQ.data && !form) setForm(toForm(hubQ.data));
   }, [hubQ.data, form]);
 
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  useEffect(() => {
+    if (hubQ.data?.updated_at && !savedAt) setSavedAt(hubQ.data.updated_at);
+  }, [hubQ.data?.updated_at, savedAt]);
+
   const completion = useMemo(() => (form ? computeCompletion(form) : 0), [form]);
 
   // ------------- Gerar estratégia (fase 1 · pipeline de agentes) --------------
