@@ -1,48 +1,53 @@
-## Diagnóstico
+## Objetivo
 
-Rodei a Fase 1 no cliente **Café Aurora** e confirmei os sintomas contra o Supabase:
+Separar o fluxo atual em **duas fases distintas com gate de revisão humana** entre elas:
 
-- Job `customer_pipeline_phase1` concluiu com sucesso em ~2 min 5 s (17:23 → 17:25).
-- As linhas `brand_voice_cards`, `brand_personas`, `brand_cohorts`, `brand_swot` foram inseridas — mas o **shape do JSON não bate com o que a UI lê**.
-  - Voice card salvo tem chaves `versao / persona / tom_de_voz / guia_de_hashtags`. `strategy-panel.tsx` lê `data.voice_card.brand_personality`.
-  - Personas salvas são array direto de `{ nome_persona, biografia, dores, ... }`. UI lê `data.personas[].nome`.
-  - Cohorts idem — vem `array` sem envelope `{ cohorts: [...] }` e sem os campos `behavioral_traits/content_strategy/conversion_criteria`.
-  - SWOT vem sem `swot_analysis` e sem `competitive_matrix`.
+1. **Fase Estratégia** (IA): gera briefing estruturado, voice card, personas, cohorts e SWOT. **NÃO gera pautas/ideias.**
+2. **Gate de Revisão**: usuário revisa e edita (CRUD) o que a IA produziu.
+3. **Fase Ideias** (IA, disparo manual): gera as pautas e injeta como cards "idea" no pipeline.
 
-Causa raiz: para agentes "estratégicos" (`voice/personas/cohorts/swot`) o provider é criado com `structuredOutputs: false` (Gemini 2.5 Pro), então o schema Zod **não é enforçado** pelo provider. Quando o modelo devolve JSON em PT-BR livre, o `Output.object` do AI SDK cai no `NoObjectGeneratedError`, o `catch` extrai `err.text` e persiste **exatamente** o JSON bruto do modelo — sem validação/normalização. Resultado: shape divergente e telas em branco.
+## Mudanças
 
-Além disso: 4 chamadas sequenciais em Gemini 2.5 Pro custam ~90 s do tempo total.
+### 1. Backend — `src/routes/api/jobs/customer-pipeline.ts`
+- Renomear job para `customer_strategy` (kind + título "Estratégia do cliente").
+- Remover das etapas: geração de `pautas`, persistência em `brand_pautas`, resolução de pipeline/stage e injeção em `posts`.
+- Ao concluir, marcar `status='succeeded'` com `result.title = "Estratégia pronta para revisão"`, `target_route = /app/customers/{id}/briefing` (aba Estratégia) e progresso 100.
+- Disparar `notifications` (INSERT via user client) com tipo `strategy_ready`, título "Estratégia gerada — revise antes de criar ideias", link para a rota acima. Isso alimenta o sino já existente em tempo real.
 
-## Escopo da correção — apenas `src/routes/api/jobs/customer-pipeline.ts` (backend) + leitores da UI
+### 2. Backend — Nova rota `src/routes/api/jobs/generate-ideas.ts`
+- Novo `createFileRoute("/api/jobs/generate-ideas")` (POST, bearer + `auth.getClaims`).
+- Body: `{ brandId, clientId, pipelineId?, quantidade, periodo }`.
+- Carrega os artefatos ativos mais recentes: `brand_briefings`, `brand_voice_cards`, `brand_personas`, `brand_cohorts`, `brand_swot` do par `(brand_id, client_id)`.
+- Se **qualquer um estiver ausente**, retorna 409 com mensagem "Gere a estratégia antes de criar ideias".
+- Roda apenas o step de pautas (mesmo `PautasSchema`/prompt de hoje) usando os artefatos como contexto.
+- Persiste em `brand_pautas` + injeta cards em `posts` (mesma lógica de resolução de pipeline/stage/position que existe hoje em `runPhase1`).
+- Emite `ai_jobs` do tipo `generate_ideas` para aparecer no indicador global. Ao final, `notifications` "N ideias adicionadas ao pipeline" com `target_route=/content`.
 
-### 1. Prompt + persistência canônica (backend)
+### 3. Frontend — `src/components/brand-hub/briefing-workspace.tsx`
+- Renomear o botão atual "Gerar estratégia com IA" (mantém o `AlertDialog` de confirmação) — já dispara o endpoint acima.
+- Adicionar **novo botão "Gerar ideias de conteúdo"** ao lado, com estados:
+  - **Disabled** (com tooltip "Gere a estratégia primeiro") quando qualquer artefato estratégico estiver faltando.
+  - **Enabled** quando existem: voice_card + personas + cohorts + swot ativos.
+- Ao clicar: `AlertDialog` "Isso vai criar N pautas no pipeline em /content. Confirmar?" com input de quantidade (default 8) e período (default "próximos 15 dias"). Dispara a nova rota.
+- Ambos os botões abrem o indicador de jobs para acompanhamento.
 
-- Reforçar em cada `system` prompt: **"Use EXATAMENTE as chaves em inglês listadas no schema. Não traduza nomes de campos."** Incluir mini exemplo de shape esperado no `prompt`.
-- Depois do `runStructured`, aplicar um **normalizador** que aceita tanto o shape canônico quanto os aliases em PT-BR mais comuns e devolve o shape canônico antes do `insert`:
-  - Voice: mapear `persona.arquetipo → brand_personality`, `tom_de_voz.principais → tone_characteristics`, `guia_linguistico.vocabulario_usar/evitar → vocabulary_rules.words_to_use/avoid`, `exemplos_praticos.*_certo → brand_phrases_examples`.
-  - Personas: aceitar `array` cru **ou** `{ personas: [...] }`; mapear `nome_persona → nome`, `biografia → descricao`, `objetivos → desejos`, `demografia → gatilhos_de_decisao` (fallback vazio), garantindo os campos exigidos.
-  - Cohorts: aceitar `array` cru **ou** `{ cohorts: [...] }`; derivar `behavioral_traits/content_strategy/conversion_criteria` a partir de aliases (`comportamento`, `estrategia_conteudo`, `criterio_conversao`) e envelopar em `{ cohorts: [...] }`.
-  - SWOT: envelopar em `{ swot_analysis: {...}, competitive_matrix: [...] }`, mapeando `forcas/fraquezas/oportunidades/ameacas` quando presentes.
-- Se o normalizador não conseguir preencher o mínimo (ex: 0 personas), marcar o job como `failed` com mensagem clara em vez de gravar dados vazios.
+### 4. Frontend — `src/components/customer/customer-dashboard.tsx`
+- Ajustar o CTA "Gerar Plano do Mês" para respeitar o mesmo gate: exige artefatos estratégicos (não apenas briefing preenchido).
+- Adicionar um card/banner discreto quando estratégia foi gerada mas ainda não houve ideias: "Estratégia pronta — revise em Briefing → Estratégia e clique em Gerar ideias".
 
-### 2. Redução de latência (backend)
+### 5. Frontend — Strategy Panel (`src/components/ai-agents/strategy-panel.tsx`)
+- Já tem leitores tolerantes. Confirmar que cada aba (Voice, Personas, Cohorts, SWOT) expõe ação **Editar** que persiste via as functions existentes em `src/lib/ai-agents.functions.ts` (ou criar `updateVoiceFn`/`updatePersonasFn`/`updateCohortsFn`/`updateSwotFn` caso ainda não existam, gravando `data` + `is_active=true` e desativando o anterior).
 
-- Rodar **personas** e **voice** em paralelo (independentes do briefing estruturado).
-- Rebaixar `voice` e `cohorts` para `gemini-2.5-flash` (mantém `pro` só em `personas` e `swot`, onde qualidade compensa).
-- Meta: cair de ~2 min para ~45–60 s.
+### 6. Notificações
+- Nenhuma migração necessária — a tabela `notifications` e o realtime já estão ativos. Apenas usar os tipos novos `strategy_ready` e `ideas_ready` no payload.
 
-### 3. Leitores tolerantes (UI, defensivo)
+## O que **não** muda
 
-Em `src/components/ai-agents/strategy-panel.tsx`, ampliar os normalizadores existentes (`normalizePersonas`, `normalizeCohorts` e leitura de `voice_card` / `swot_analysis`) para reconhecer os mesmos aliases PT-BR, garantindo que dados legados já gravados (como o mock seed do Café Aurora) apareçam sem precisar regerar.
+- Schema do banco.
+- Fluxo de aprovação de posts (`/content`).
+- Monthly plan (`monthly-plan.ts`) continua independente para o plano mensal automatizado por volumetria.
 
-### 4. Fora de escopo
+## Resultado
 
-- Nada no schema do Supabase muda.
-- Nada nos agentes individuais (`agent-tabs.tsx`) muda — eles já usam prompts próprios.
-- Prompts do `monthly-plan` e `copilot` não são tocados.
-
-## Resultado esperado
-
-- Voice Card, Personas (com nome), Cohorts (com traits/estratégia/critério) e Mercado (SWOT + matriz) passam a renderizar imediatamente após a geração.
-- Dados antigos do Café Aurora aparecem sem precisar rodar de novo, graças aos leitores tolerantes.
-- Geração da Fase 1 fica visivelmente mais rápida.
+- Clique 1 → IA monta a estratégia → notificação → usuário revisa/edita.
+- Clique 2 (manual, após revisão) → IA gera ideias já contextualizadas pela versão editada da estratégia → cards aparecem em `/content` para aprovação.
