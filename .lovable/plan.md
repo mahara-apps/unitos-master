@@ -1,36 +1,40 @@
 ## Objetivo
-Fazer o "Plano do Mês" respeitar automaticamente a **Volumetria semanal por canal** definida no Briefing (aba Volumetria & Metas), em vez de pedir um número genérico de peças.
+Tornar o "Plano do Mês" 100% textual (headlines + legendas) e distribuir as peças no calendário conforme a volumetria mensal do briefing.
+
+## Diagnóstico
+- O pipeline atual **já não gera imagens** — a etapa "Direção de arte" produz apenas um `design_brief` em texto anexado à copy. O nome está gerando confusão.
+- As peças são inseridas no pipeline (`stage_id = idea`), mas **sem `scheduled_at`**, então não aparecem no calendário (`/calendar`) — só no kanban `/content`.
 
 ## Mudanças
 
-### 1. `src/components/customer/monthly-plan-dialog.tsx`
-- Carregar `clients.brand_hub.volumetry` (via `useQuery` no `brand-hub.functions`) para o `clientId`.
-- Calcular automaticamente: `pecasPorMes = Σ (volumetry[canal] * 4.33 semanas)` arredondado.
-- Substituir o input "Peças por mês" por um **breakdown read-only por canal**:
-  ```
-  Instagram   20/sem → 87/mês
-  TikTok       8/sem → 35/mês
-  LinkedIn     4/sem → 17/mês
-  ─────────────────────────────
-  Total: 139 peças/mês  ·  Multiplicado por N meses = X
-  ```
-- Manter o seletor "Quantidade de meses" (1–6).
-- Se a volumetria estiver zerada, exibir alerta com link para `/customers/$id/briefing` e desabilitar o botão.
-- Permitir um toggle "Ajustar manualmente" que reabre o input numérico (fallback), preservando a UX atual como escape.
+### 1. Remover a etapa "Direção de arte" (`src/routes/api/jobs/monthly-plan.ts`)
+- Eliminar a chamada ao `briefPrompt` / `BriefSchema` no `Promise.all` por conceito.
+- Remover o `design brief` anexado ao campo `copy` do post.
+- Atualizar labels e mensagens:
+  - `step_label`: "Copywriter (N peças)" e "Planejador estratégico — gerando conceitos".
+  - Notificação final: "Planejador + Copywriter concluídos para <período>".
+  - Subtítulo do job: "Planejador → Copywriter · N peças".
+- Manter os agentes seed apenas de planejamento e copywriting em uso (não apagar os demais registros).
 
-### 2. `src/routes/api/jobs/monthly-plan.ts`
-- Estender o `BodySchema` com um campo opcional `channelMix: Record<channel, number>` (peças por canal no período total).
-- Passar esse mix ao **planner_strategic** via novas variáveis de template: `{{CHANNEL_MIX}}` e `{{TOTAL_PECAS}}`.
-- Ao inserir posts, respeitar a distribuição: se o planner retornar plataforma diferente da cota, forçar `channels` do primeiro canal com cota restante (round-robin por cota).
-- Fallback: se `channelMix` ausente, comportamento atual (quantidade × período).
+### 2. Distribuir peças no calendário
+Ao montar os `rows` para insert em `posts`, calcular `scheduled_at` para cada peça:
+- Determinar o mês/ano do `input.periodo` (formato usual "YYYY-MM" ou nome do mês) — fallback para o mês corrente.
+- Listar os dias úteis (seg–sex) do mês.
+- Distribuir as N peças uniformemente pelos dias úteis (round-robin), horário padrão `10:00` local (UTC-3 armazenado como ISO UTC).
+- Se houver mais peças que dias úteis, permitir múltiplas no mesmo dia com horários escalonados (10:00, 14:00, 17:00).
+- Preencher `posts.scheduled_at` com o ISO resultante.
 
-### 3. `agent_prompts` (planner_strategic)
-- Atualizar o system prompt (via `supabase--migration`) para instruir explicitamente:
-  > "Distribua os N conceitos respeitando a cota por canal em CHANNEL_MIX. Não gere mais peças por plataforma do que o cota indica."
+### 3. Ajustar textos no cliente
+- `src/components/customer/monthly-plan-dialog.tsx`: descrição do fluxo passa a "Planejador estratégico gera os conceitos e o copywriter escreve as headlines/legendas — as peças caem no pipeline e no calendário".
+- Sem mudanças em outros componentes.
 
-### 4. Sem alterações em
-- Schema do banco (a volumetria já vive em `clients.brand_hub.volumetry`).
-- Pipeline/stages/posts insert logic (só o preenchimento de `channels` muda).
+## Fora de escopo
+- Não mexer nos agentes/prompts de Brief Visual (ficam no banco, apenas não são chamados aqui).
+- Não alterar a UI do calendário nem a de kanban.
+- Não gerar imagens em nenhum ponto.
 
-## Resultado
-O usuário abre "Gerar Plano do Mês", vê o volume derivado do briefing, escolhe apenas quantos meses gerar, e o pipeline recebe as peças na proporção correta por canal.
+## Verificação
+1. Rodar "Gerar Plano do Mês" no cliente Café Aurora.
+2. Confirmar no `/content` que as peças foram criadas sem bloco "Design brief" na copy.
+3. Confirmar no `/calendar` que as peças aparecem espalhadas nos dias úteis do mês.
+4. Verificar via `supabase--read_query` que `posts.scheduled_at` está preenchido para os novos registros.
