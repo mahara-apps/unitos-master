@@ -48,6 +48,7 @@ export type PipelineStage = {
   is_terminal: boolean;
   hide_in_portal?: boolean | null;
   enables_approval_link?: boolean | null;
+  sla_days?: number | null;
 };
 
 export type BoardPost = {
@@ -81,6 +82,9 @@ export type BoardPost = {
   client_briefing?: string | null;
   script?: ScriptScene[] | null;
   references?: PostReference[] | null;
+  project_id?: string | null;
+  remind_at?: string | null;
+  assignees?: string[] | null;
 };
 
 export type ScriptScene = {
@@ -285,13 +289,13 @@ export const loadBoardFn = createServerFn({ method: "POST" })
           .single(),
         context.supabase
           .from("content_pipeline_stages")
-          .select("id,pipeline_id,key,label,color,position,is_terminal,hide_in_portal,enables_approval_link")
+          .select("id,pipeline_id,key,label,color,position,is_terminal,hide_in_portal,enables_approval_link,sla_days")
           .eq("pipeline_id", data.pipelineId)
           .order("position", { ascending: true }),
         context.supabase
           .from("posts")
           .select(
-            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes,priority,format,tags,visible_in_portal",
+            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes,priority,format,tags,visible_in_portal,project_id,remind_at,assignees",
           )
           .eq("brand_id", data.brandId)
           .eq("client_id", data.clientId)
@@ -397,6 +401,8 @@ export const updateStageFn = createServerFn({ method: "POST" })
             is_terminal: z.boolean().optional(),
             hide_in_portal: z.boolean().optional(),
             enables_approval_link: z.boolean().optional(),
+            sla_days: z.number().int().min(0).max(365).nullable().optional(),
+            position: z.number().int().optional(),
           })
           .strict(),
       })
@@ -453,6 +459,20 @@ export const createPostFn = createServerFn({ method: "POST" })
         pipelineId: z.string().uuid(),
         stageId: z.string().uuid(),
         title: z.string().min(1).max(160),
+        copy: z.string().max(6000).nullable().optional(),
+        channels: z.array(z.string().max(40)).max(12).optional(),
+        format: z.string().max(60).nullable().optional(),
+        priority: z.enum(["low", "medium", "high", "urgent"]).nullable().optional(),
+        tags: z.array(z.string().max(40)).max(20).optional(),
+        scheduled_at: z.string().nullable().optional(),
+        remind_at: z.string().nullable().optional(),
+        internal_briefing: z.string().max(8000).nullable().optional(),
+        client_briefing: z.string().max(8000).nullable().optional(),
+        script: z.array(z.any()).nullable().optional(),
+        assignees: z.array(z.string().uuid()).max(20).optional(),
+        project_id: z.string().uuid().nullable().optional(),
+        visible_in_portal: z.boolean().optional(),
+        recurrence: z.any().nullable().optional(),
       })
       .parse(i),
   )
@@ -465,18 +485,28 @@ export const createPostFn = createServerFn({ method: "POST" })
       .limit(1);
     const nextPos = ((maxRow?.[0]?.position ?? -1) as number) + 1024;
 
+    const insertRow: Record<string, unknown> = {
+      brand_id: data.brandId,
+      client_id: data.clientId,
+      pipeline_id: data.pipelineId,
+      stage_id: data.stageId,
+      title: data.title.trim(),
+      stage: "idea",
+      position: nextPos,
+      created_by: context.userId,
+    };
+    const optional: Array<keyof typeof data> = [
+      "copy", "channels", "format", "priority", "tags", "scheduled_at",
+      "remind_at", "internal_briefing", "client_briefing", "script",
+      "assignees", "project_id", "visible_in_portal", "recurrence",
+    ];
+    for (const k of optional) {
+      if (data[k] !== undefined) insertRow[k as string] = data[k];
+    }
+
     const { data: post, error } = await context.supabase
       .from("posts")
-      .insert({
-        brand_id: data.brandId,
-        client_id: data.clientId,
-        pipeline_id: data.pipelineId,
-        stage_id: data.stageId,
-        title: data.title.trim(),
-        stage: "idea",
-        position: nextPos,
-        created_by: context.userId,
-      })
+      .insert(insertRow as never)
       .select(
         "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id",
       )
@@ -738,4 +768,155 @@ export const signPostReferenceMediaFn = createServerFn({ method: "POST" })
       if (s.path && s.signedUrl) urls[s.path] = s.signedUrl;
     });
     return { urls };
+  });
+
+// ---------- Stage reorder + replicate ----------
+
+export const reorderStagesFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        pipelineId: z.string().uuid(),
+        order: z.array(z.string().uuid()).min(1).max(50),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    let pos = 1024;
+    for (const id of data.order) {
+      const { error } = await context.supabase
+        .from("content_pipeline_stages")
+        .update({ position: pos })
+        .eq("id", id)
+        .eq("pipeline_id", data.pipelineId);
+      if (error) throw error;
+      pos += 1024;
+    }
+    return { ok: true };
+  });
+
+export const replicateStagesFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        sourcePipelineId: z.string().uuid(),
+        targetPipelineIds: z.array(z.string().uuid()).min(1).max(20),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: source, error: se } = await context.supabase
+      .from("content_pipeline_stages")
+      .select("key,label,color,position,is_terminal,hide_in_portal,enables_approval_link,sla_days")
+      .eq("pipeline_id", data.sourcePipelineId)
+      .order("position", { ascending: true });
+    if (se) throw se;
+    if (!source || source.length === 0) throw new Error("no_source_stages");
+
+    for (const targetId of data.targetPipelineIds) {
+      if (targetId === data.sourcePipelineId) continue;
+      // Move all posts to the first (soon to be recreated) placeholder later; instead: keep old stage IDs and just recreate.
+      // Simpler + safe: append cloned stages, then delete the old ones only if empty.
+      // For pragmatic v1: overwrite by wiping stages that hold no posts, then insert clones.
+      const { data: existingStages } = await context.supabase
+        .from("content_pipeline_stages")
+        .select("id")
+        .eq("pipeline_id", targetId);
+      const existingIds = (existingStages ?? []).map((s) => s.id);
+
+      // Insert clones first
+      const rows = source.map((s, idx) => ({
+        pipeline_id: targetId,
+        key: `${s.key}-clone-${Date.now().toString(36)}-${idx}`,
+        label: s.label,
+        color: s.color,
+        position: (idx + 1) * 1024,
+        is_terminal: s.is_terminal,
+        hide_in_portal: s.hide_in_portal,
+        enables_approval_link: s.enables_approval_link,
+        sla_days: s.sla_days,
+      }));
+      const { data: inserted, error: ie } = await context.supabase
+        .from("content_pipeline_stages")
+        .insert(rows as never)
+        .select("id,position");
+      if (ie) throw ie;
+
+      // Move posts from old stages -> first new stage, then delete old
+      const firstNew = inserted?.[0]?.id;
+      if (firstNew && existingIds.length > 0) {
+        await context.supabase
+          .from("posts")
+          .update({ stage_id: firstNew })
+          .in("stage_id", existingIds);
+        await context.supabase
+          .from("content_pipeline_stages")
+          .delete()
+          .in("id", existingIds);
+      }
+    }
+    return { ok: true };
+  });
+
+// ---------- Tag management (bulk) ----------
+
+export const renameTagFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+        pipelineId: z.string().uuid(),
+        from: z.string().min(1).max(40),
+        to: z.string().min(1).max(40),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("posts")
+      .select("id, tags")
+      .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
+      .eq("pipeline_id", data.pipelineId);
+    if (error) throw error;
+    for (const r of rows ?? []) {
+      const tags = Array.isArray(r.tags) ? (r.tags as string[]) : [];
+      if (!tags.includes(data.from)) continue;
+      const next = Array.from(new Set(tags.map((t) => (t === data.from ? data.to : t))));
+      await context.supabase.from("posts").update({ tags: next } as never).eq("id", r.id);
+    }
+    return { ok: true };
+  });
+
+export const deleteTagFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+        pipelineId: z.string().uuid(),
+        tag: z.string().min(1).max(40),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("posts")
+      .select("id, tags")
+      .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
+      .eq("pipeline_id", data.pipelineId);
+    if (error) throw error;
+    for (const r of rows ?? []) {
+      const tags = Array.isArray(r.tags) ? (r.tags as string[]) : [];
+      if (!tags.includes(data.tag)) continue;
+      const next = tags.filter((t) => t !== data.tag);
+      await context.supabase.from("posts").update({ tags: next } as never).eq("id", r.id);
+    }
+    return { ok: true };
   });

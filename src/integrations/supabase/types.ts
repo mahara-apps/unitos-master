@@ -1238,6 +1238,7 @@ export type Database = {
           label: string
           pipeline_id: string
           position: number
+          sla_days: number | null
           updated_at: string
         }
         Insert: {
@@ -1251,6 +1252,7 @@ export type Database = {
           label: string
           pipeline_id: string
           position?: number
+          sla_days?: number | null
           updated_at?: string
         }
         Update: {
@@ -1264,6 +1266,7 @@ export type Database = {
           label?: string
           pipeline_id?: string
           position?: number
+          sla_days?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -1477,6 +1480,7 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           assignee_id: string | null
+          assignees: string[]
           brand_id: string
           channels: Database["public"]["Enums"]["post_channel"][]
           client_briefing: string | null
@@ -1495,8 +1499,10 @@ export type Database = {
           priority: string
           project_id: string | null
           published_at: string | null
+          recurrence: Json | null
           reference_media: Json
           references: Json
+          remind_at: string | null
           review_status: string
           rework_notes: string | null
           scheduled_at: string | null
@@ -1513,6 +1519,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           assignee_id?: string | null
+          assignees?: string[]
           brand_id: string
           channels?: Database["public"]["Enums"]["post_channel"][]
           client_briefing?: string | null
@@ -1531,8 +1538,10 @@ export type Database = {
           priority?: string
           project_id?: string | null
           published_at?: string | null
+          recurrence?: Json | null
           reference_media?: Json
           references?: Json
+          remind_at?: string | null
           review_status?: string
           rework_notes?: string | null
           scheduled_at?: string | null
@@ -1549,6 +1558,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           assignee_id?: string | null
+          assignees?: string[]
           brand_id?: string
           channels?: Database["public"]["Enums"]["post_channel"][]
           client_briefing?: string | null
@@ -1567,8 +1577,10 @@ export type Database = {
           priority?: string
           project_id?: string | null
           published_at?: string | null
+          recurrence?: Json | null
           reference_media?: Json
           references?: Json
+          remind_at?: string | null
           review_status?: string
           rework_notes?: string | null
           scheduled_at?: string | null
