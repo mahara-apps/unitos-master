@@ -556,6 +556,10 @@ export function TargetTab({ brandId, clientId }: Scope) {
   const personas = normalizePersonas(target.personas?.data);
   const cohorts = normalizeCohorts(target.cohorts?.data);
   const [selected, setSelected] = useState<NormalizedPersona | null>(null);
+  const personasId = (target.personas as { id?: string } | null | undefined)?.id;
+  const cohortsId = (target.cohorts as { id?: string } | null | undefined)?.id;
+  const [personasOpen, setPersonasOpen] = useState(false);
+  const [cohortsOpen, setCohortsOpen] = useState(false);
 
   // Diagnóstico global — agrega as personas
   const diagnostic = summarizeDiagnostic(personas);
@@ -598,7 +602,12 @@ export function TargetTab({ brandId, clientId }: Scope) {
               Clique em um card para abrir o dossiê psicológico completo.
             </p>
           </div>
-          <ContextSourceBadge source="persona" />
+          <div className="flex items-center gap-2">
+            <ContextSourceBadge source="persona" />
+            <Button variant="outline" size="sm" onClick={() => setPersonasOpen(true)} disabled={!personasId} className="h-8 gap-1.5">
+              <Pencil className="h-3.5 w-3.5" /> Editar
+            </Button>
+          </div>
         </div>
         {personas.length ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -617,7 +626,12 @@ export function TargetTab({ brandId, clientId }: Scope) {
           <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Layers className="h-4 w-4 text-primary" /> Cohorts comportamentais
           </h3>
-          <ContextSourceBadge source="persona" />
+          <div className="flex items-center gap-2">
+            <ContextSourceBadge source="persona" />
+            <Button variant="outline" size="sm" onClick={() => setCohortsOpen(true)} disabled={!cohortsId} className="h-8 gap-1.5">
+              <Pencil className="h-3.5 w-3.5" /> Editar
+            </Button>
+          </div>
         </div>
         {cohorts.length ? (
           <div className="grid gap-3 md:grid-cols-2">
@@ -663,6 +677,21 @@ export function TargetTab({ brandId, clientId }: Scope) {
       </div>
 
       <PersonaDrawer persona={selected} onClose={() => setSelected(null)} />
+
+      <PersonasEditor
+        open={personasOpen}
+        onClose={() => setPersonasOpen(false)}
+        scope={{ brandId, clientId }}
+        entityId={personasId}
+        initial={personas as PersonaState[]}
+      />
+      <CohortsEditor
+        open={cohortsOpen}
+        onClose={() => setCohortsOpen(false)}
+        scope={{ brandId, clientId }}
+        entityId={cohortsId}
+        initial={cohorts as CohortState[]}
+      />
     </div>
   );
 }
