@@ -406,7 +406,7 @@ export function StrategyTab({ brandId, clientId }: Scope) {
 
       {/* Tom de voz e personalidade */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card className="border-border/60 bg-slate-50 dark:bg-muted/30 shadow-none">
+        <Card className="border-border/60 bg-slate-50 dark:bg-muted/30">
           <CardContent className="p-6">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               <Sparkles className="h-3.5 w-3.5" /> Personalidade da marca
@@ -424,7 +424,7 @@ export function StrategyTab({ brandId, clientId }: Scope) {
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 bg-slate-50 dark:bg-muted/30 shadow-none">
+        <Card className="border-border/60 bg-slate-50 dark:bg-muted/30">
           <CardContent className="p-6">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               <MessageSquare className="h-3.5 w-3.5" /> Frases assinatura
