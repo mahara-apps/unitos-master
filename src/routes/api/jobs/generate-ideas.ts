@@ -65,7 +65,7 @@ async function runIdeas(params: {
   try {
     await patch({ status: "running", started_at: new Date().toISOString(), progress: 10, step_label: "Carregando estratégia" });
 
-    const [briefingR, voiceR, personasR, cohortsR, swotR] = await Promise.all([
+    const [briefingR, voiceR, personasR, cohortsR, swotR, hubR] = await Promise.all([
       supabase
         .from("brand_briefings")
         .select("data")
@@ -102,17 +102,56 @@ async function runIdeas(params: {
         .eq("client_id", input.clientId)
         .eq("is_active", true)
         .maybeSingle(),
+      supabase
+        .from("clients")
+        .select("brand_hub")
+        .eq("id", input.clientId)
+        .eq("brand_id", input.brandId)
+        .maybeSingle(),
     ]);
 
     if (!voiceR.data || !personasR.data || !cohortsR.data || !swotR.data) {
       throw new Error("Estratégia incompleta — gere a estratégia antes de criar ideias.");
     }
 
+    // ---- Volumetria (posts/semana por canal) ---------------------------------
+    const hub = ((hubR.data as { brand_hub?: Record<string, unknown> } | null)?.brand_hub ?? {}) as {
+      volumetry?: Record<string, number>;
+    };
+    const CHANNELS = ["instagram", "tiktok", "linkedin", "youtube", "facebook"] as const;
+    const perWeek: Record<string, number> = {};
+    let weeklyTotal = 0;
+    for (const c of CHANNELS) {
+      const v = Math.max(0, Math.floor(Number(hub.volumetry?.[c] ?? 0)));
+      perWeek[c] = v;
+      weeklyTotal += v;
+    }
+    // Alocação por canal (largest remainder) para as N ideias.
+    const channelAllocation: string[] = [];
+    if (weeklyTotal > 0) {
+      const raw = CHANNELS.map((c) => ({ c, exact: (perWeek[c] / weeklyTotal) * input.quantidade }));
+      const base = raw.map((r) => ({ c: r.c, n: Math.floor(r.exact), rem: r.exact - Math.floor(r.exact) }));
+      let remaining = input.quantidade - base.reduce((s, r) => s + r.n, 0);
+      base.sort((a, b) => b.rem - a.rem);
+      for (let i = 0; i < base.length && remaining > 0; i++, remaining--) base[i].n += 1;
+      for (const b of base) for (let i = 0; i < b.n; i++) channelAllocation.push(b.c);
+    }
+    // Janela: quantas semanas úteis são necessárias respeitando a volumetria.
+    const weeksNeeded = weeklyTotal > 0 ? Math.max(1, Math.ceil(input.quantidade / weeklyTotal)) : 1;
+    const businessDaysNeeded = Math.max(1, weeksNeeded * 5);
+
     await patch({ progress: 35, step_label: "Gerando pautas" });
 
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("Missing LOVABLE_API_KEY");
     const gateway = createLovableAiGatewayProvider(key, undefined, { structuredOutputs: true });
+
+    const volumetriaBlock =
+      weeklyTotal > 0
+        ? `Volumetria semanal (respeitar proporção): ${CHANNELS.filter((c) => perWeek[c] > 0)
+            .map((c) => `${c}=${perWeek[c]}/sem`)
+            .join(", ")}. Total ${weeklyTotal}/semana, janela ~${weeksNeeded} semana(s).`
+        : "Volumetria não definida — diversifique canais livremente.";
 
     let pautas: z.infer<typeof PautasSchema>;
     try {
@@ -128,6 +167,7 @@ async function runIdeas(params: {
           `SWOT: ${JSON.stringify(swotR.data.data)}`,
           `Quantidade: ${input.quantidade}`,
           `Período: ${input.periodo}`,
+          volumetriaBlock,
         ].join("\n"),
         output: Output.object({ schema: PautasSchema }),
       });
@@ -197,9 +237,35 @@ async function runIdeas(params: {
         .order("position", { ascending: false })
         .limit(1);
       let nextPos = ((maxRow?.[0]?.position ?? -1) as number) + 1024;
-      const rows = pautas.pautas.map((p) => {
-        const platform = (p.plataforma ?? "").toLowerCase().trim();
-        const channel = CHANNEL_MAP[platform] ?? "instagram";
+
+      // ---- Distribuição no calendário (dias úteis, 10/14/17 BRT) -------------
+      const businessDays: Date[] = [];
+      const cursor = new Date();
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+      cursor.setUTCHours(13, 0, 0, 0);
+      while (businessDays.length < businessDaysNeeded) {
+        const dow = cursor.getUTCDay();
+        if (dow !== 0 && dow !== 6) businessDays.push(new Date(cursor));
+        cursor.setUTCDate(cursor.getUTCDate() + 1);
+      }
+      const slotHours = [13, 17, 20]; // 10h / 14h / 17h BRT
+      const N = pautas.pautas.length;
+      const perDay = Math.max(1, Math.ceil(N / businessDays.length));
+      const scheduleFor = (index: number) => {
+        const dayIdx = Math.min(businessDays.length - 1, Math.floor(index / perDay));
+        const slotIdx = index % perDay;
+        const d = new Date(businessDays[dayIdx]);
+        d.setUTCHours(slotHours[slotIdx % slotHours.length], 0, 0, 0);
+        return d.toISOString();
+      };
+
+      const rows = pautas.pautas.map((p, idx) => {
+        // Canal: se houver volumetria, respeita a alocação proporcional;
+        // caso contrário, cai na plataforma sugerida pelo LLM.
+        const fromAlloc = channelAllocation[idx];
+        const platform = (fromAlloc ?? p.plataforma ?? "").toLowerCase().trim();
+        const channel =
+          CHANNEL_MAP[platform] ?? (platform === "facebook" ? ("facebook" as const) : "instagram");
         const row = {
           brand_id: input.brandId,
           client_id: input.clientId,
@@ -213,6 +279,7 @@ async function runIdeas(params: {
           created_by: userId,
           review_status: "pending",
           ai_phase: "idea",
+          scheduled_at: scheduleFor(idx),
         };
         nextPos += 1024;
         return row;

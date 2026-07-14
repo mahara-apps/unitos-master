@@ -673,7 +673,8 @@ export function BriefingWorkspace({
             <DialogTitle>Gerar ideias de conteúdo</DialogTitle>
             <DialogDescription>
               As pautas serão criadas a partir da estratégia revisada (voice, personas, cohorts e SWOT)
-              e injetadas no pipeline como ideias aguardando aprovação.
+              e injetadas no pipeline como ideias aguardando aprovação. A distribuição por canal e o agendamento
+              no calendário respeitam a volumetria semanal definida no briefing (posts/semana por canal).
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">
@@ -1549,7 +1550,8 @@ function StackedBrainLayout(props: StackedProps) {
           <DialogHeader>
             <DialogTitle>Gerar ideias de conteúdo</DialogTitle>
             <DialogDescription>
-              Pautas geradas a partir da estratégia revisada e injetadas no pipeline.
+              Pautas geradas a partir da estratégia revisada, distribuídas por canal e agendadas no calendário
+              respeitando a volumetria semanal (posts/semana por canal) do briefing.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">
