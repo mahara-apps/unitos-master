@@ -392,7 +392,7 @@ function CalendarPage() {
           clientId={openPost.client_id}
           pipelineId={openPost.pipeline_id}
           stages={stagesQ.data.stages}
-          postId={openPost.id}
+          postId={openPost.post_id}
           invalidateKey={["calendar", brandId, clientId, from, to] as const}
         />
       ) : null}
