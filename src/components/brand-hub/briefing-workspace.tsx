@@ -7,6 +7,7 @@ import {
   FileUp,
   ImageIcon,
   Loader2,
+  Lightbulb,
   Plus,
   Save,
   Sparkles,

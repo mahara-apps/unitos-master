@@ -32,6 +32,7 @@ import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authe
 import { Route as PBriefingTokenRouteImport } from './routes/p.briefing.$token'
 import { Route as ApiJobsPostPhase2RouteImport } from './routes/api/jobs/post-phase2'
 import { Route as ApiJobsMonthlyPlanRouteImport } from './routes/api/jobs/monthly-plan'
+import { Route as ApiJobsGenerateIdeasRouteImport } from './routes/api/jobs/generate-ideas'
 import { Route as ApiJobsCustomerPipelineRouteImport } from './routes/api/jobs/customer-pipeline'
 import { Route as ApiJobsCopilotRouteImport } from './routes/api/jobs/copilot'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
@@ -159,6 +160,11 @@ const ApiJobsMonthlyPlanRoute = ApiJobsMonthlyPlanRouteImport.update({
   path: '/api/jobs/monthly-plan',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiJobsGenerateIdeasRoute = ApiJobsGenerateIdeasRouteImport.update({
+  id: '/api/jobs/generate-ideas',
+  path: '/api/jobs/generate-ideas',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiJobsCustomerPipelineRoute = ApiJobsCustomerPipelineRouteImport.update({
   id: '/api/jobs/customer-pipeline',
   path: '/api/jobs/customer-pipeline',
@@ -233,6 +239,7 @@ export interface FileRoutesByFullPath {
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
+  '/api/jobs/generate-ideas': typeof ApiJobsGenerateIdeasRoute
   '/api/jobs/monthly-plan': typeof ApiJobsMonthlyPlanRoute
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
   '/p/briefing/$token': typeof PBriefingTokenRoute
@@ -265,6 +272,7 @@ export interface FileRoutesByTo {
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
+  '/api/jobs/generate-ideas': typeof ApiJobsGenerateIdeasRoute
   '/api/jobs/monthly-plan': typeof ApiJobsMonthlyPlanRoute
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
   '/p/briefing/$token': typeof PBriefingTokenRoute
@@ -300,6 +308,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
+  '/api/jobs/generate-ideas': typeof ApiJobsGenerateIdeasRoute
   '/api/jobs/monthly-plan': typeof ApiJobsMonthlyPlanRoute
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
   '/p/briefing/$token': typeof PBriefingTokenRoute
@@ -335,6 +344,7 @@ export interface FileRouteTypes {
     | '/settings/team'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
+    | '/api/jobs/generate-ideas'
     | '/api/jobs/monthly-plan'
     | '/api/jobs/post-phase2'
     | '/p/briefing/$token'
@@ -367,6 +377,7 @@ export interface FileRouteTypes {
     | '/settings/team'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
+    | '/api/jobs/generate-ideas'
     | '/api/jobs/monthly-plan'
     | '/api/jobs/post-phase2'
     | '/p/briefing/$token'
@@ -401,6 +412,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/team'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
+    | '/api/jobs/generate-ideas'
     | '/api/jobs/monthly-plan'
     | '/api/jobs/post-phase2'
     | '/p/briefing/$token'
@@ -421,6 +433,7 @@ export interface RootRouteChildren {
   PortalTokenRoute: typeof PortalTokenRoute
   ApiJobsCopilotRoute: typeof ApiJobsCopilotRoute
   ApiJobsCustomerPipelineRoute: typeof ApiJobsCustomerPipelineRoute
+  ApiJobsGenerateIdeasRoute: typeof ApiJobsGenerateIdeasRoute
   ApiJobsMonthlyPlanRoute: typeof ApiJobsMonthlyPlanRoute
   ApiJobsPostPhase2Route: typeof ApiJobsPostPhase2Route
   PBriefingTokenRoute: typeof PBriefingTokenRoute
@@ -591,6 +604,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiJobsMonthlyPlanRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/jobs/generate-ideas': {
+      id: '/api/jobs/generate-ideas'
+      path: '/api/jobs/generate-ideas'
+      fullPath: '/api/jobs/generate-ideas'
+      preLoaderRoute: typeof ApiJobsGenerateIdeasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/jobs/customer-pipeline': {
       id: '/api/jobs/customer-pipeline'
       path: '/api/jobs/customer-pipeline'
@@ -750,6 +770,7 @@ const rootRouteChildren: RootRouteChildren = {
   PortalTokenRoute: PortalTokenRoute,
   ApiJobsCopilotRoute: ApiJobsCopilotRoute,
   ApiJobsCustomerPipelineRoute: ApiJobsCustomerPipelineRoute,
+  ApiJobsGenerateIdeasRoute: ApiJobsGenerateIdeasRoute,
   ApiJobsMonthlyPlanRoute: ApiJobsMonthlyPlanRoute,
   ApiJobsPostPhase2Route: ApiJobsPostPhase2Route,
   PBriefingTokenRoute: PBriefingTokenRoute,
