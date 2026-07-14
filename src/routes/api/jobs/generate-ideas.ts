@@ -5,6 +5,7 @@ import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
+import { buildSlotScheduler, extractBestHoursFromChannels } from "@/lib/scheduling";
 
 // Phase 2 — Human-gated idea generation.
 // Runs ONLY after the strategy artifacts (voice/personas/cohorts/swot) exist
@@ -238,26 +239,24 @@ async function runIdeas(params: {
         .limit(1);
       let nextPos = ((maxRow?.[0]?.position ?? -1) as number) + 1024;
 
-      // ---- Distribuição no calendário (dias úteis, 10/14/17 BRT) -------------
+      // ---- Distribuição no calendário (dias úteis) --------------------------
+      // Horários preferenciais: Instagram Insights (se conectado) OU +6h padrão.
+      const { data: connRow } = await supabase
+        .from("brand_connections")
+        .select("channels")
+        .eq("brand_id", input.brandId)
+        .maybeSingle();
+      const bestHoursBRT = extractBestHoursFromChannels(connRow?.channels);
       const businessDays: Date[] = [];
       const cursor = new Date();
       cursor.setUTCDate(cursor.getUTCDate() + 1);
-      cursor.setUTCHours(13, 0, 0, 0);
+      cursor.setUTCHours(12, 0, 0, 0);
       while (businessDays.length < businessDaysNeeded) {
         const dow = cursor.getUTCDay();
         if (dow !== 0 && dow !== 6) businessDays.push(new Date(cursor));
         cursor.setUTCDate(cursor.getUTCDate() + 1);
       }
-      const slotHours = [13, 17, 20]; // 10h / 14h / 17h BRT
-      const N = pautas.pautas.length;
-      const perDay = Math.max(1, Math.ceil(N / businessDays.length));
-      const scheduleFor = (index: number) => {
-        const dayIdx = Math.min(businessDays.length - 1, Math.floor(index / perDay));
-        const slotIdx = index % perDay;
-        const d = new Date(businessDays[dayIdx]);
-        d.setUTCHours(slotHours[slotIdx % slotHours.length], 0, 0, 0);
-        return d.toISOString();
-      };
+      const scheduleFor = buildSlotScheduler(businessDays, pautas.pautas.length, bestHoursBRT);
 
       const rows = pautas.pautas.map((p, idx) => {
         // Canal: se houver volumetria, respeita a alocação proporcional;
