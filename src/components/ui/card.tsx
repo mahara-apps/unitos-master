@@ -2,11 +2,23 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
-const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  /**
+   * Aplica o padrão "Cérebro de Agentes": flat + hover-lift (border-foreground/20 + shadow-sm).
+   * Use em cards clicáveis/listagens; em containers puros deixe `false` (default).
+   */
+  interactive?: boolean;
+}
+
+const Card = React.forwardRef<HTMLDivElement, CardProps>(
+  ({ className, interactive = false, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn("rounded-xl border bg-card text-card-foreground shadow", className)}
+      className={cn(
+        "rounded-xl border bg-card text-card-foreground transition-all",
+        interactive && "cursor-pointer hover:border-foreground/20 hover:shadow-sm",
+        className,
+      )}
       {...props}
     />
   ),

@@ -100,7 +100,7 @@ export function LoginForm() {
         )}
       >
         <Tabs value={tab} onValueChange={(v) => setTab(v as "signin" | "signup")}>
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList variant="grid" className="grid w-full grid-cols-2">
             <TabsTrigger value="signin">Entrar</TabsTrigger>
             <TabsTrigger value="signup">Criar conta</TabsTrigger>
           </TabsList>

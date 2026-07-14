@@ -11,19 +11,19 @@ import type { AgentJobRow } from "@/lib/agents.functions";
 function statusBadge(status: string) {
   if (status === "succeeded")
     return (
-      <Badge className="gap-1 border-emerald-500/20 bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/10 dark:text-emerald-300">
+      <Badge tone="emerald" className="gap-1">
         <CheckCircle2 className="h-3 w-3" /> Succeeded
       </Badge>
     );
   if (status === "failed")
     return (
-      <Badge className="gap-1 border-red-500/20 bg-red-500/10 text-red-600 hover:bg-red-500/10 dark:text-red-300">
+      <Badge tone="red" className="gap-1">
         <XCircle className="h-3 w-3" /> Failed
       </Badge>
     );
   if (status === "running")
     return (
-      <Badge className="gap-1 border-amber-500/30 bg-amber-500/10 text-amber-600 hover:bg-amber-500/10 dark:text-amber-300">
+      <Badge tone="amber" className="gap-1">
         <Loader2 className="h-3 w-3 animate-spin" />
         <span className="animate-pulse">Running</span>
       </Badge>

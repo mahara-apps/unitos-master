@@ -108,11 +108,11 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
           </p>
         </div>
         {canEdit ? (
-          <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-300">
+          <Badge tone="emerald">
             Edição liberada
           </Badge>
         ) : (
-          <Badge variant="outline" className="gap-1 border-amber-500/30 bg-amber-500/10 text-amber-300">
+          <Badge tone="amber" className="gap-1">
             <Lock className="h-3 w-3" /> Somente leitura
           </Badge>
         )}

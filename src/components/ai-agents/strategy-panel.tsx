@@ -406,7 +406,7 @@ export function StrategyTab({ brandId, clientId }: Scope) {
 
       {/* Tom de voz e personalidade */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card className="border-border/60 bg-slate-50 dark:bg-muted/30 shadow-none">
+        <Card className="border-border/60 bg-slate-50 dark:bg-muted/30">
           <CardContent className="p-6">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               <Sparkles className="h-3.5 w-3.5" /> Personalidade da marca
@@ -424,7 +424,7 @@ export function StrategyTab({ brandId, clientId }: Scope) {
           </CardContent>
         </Card>
 
-        <Card className="border-border/60 bg-slate-50 dark:bg-muted/30 shadow-none">
+        <Card className="border-border/60 bg-slate-50 dark:bg-muted/30">
           <CardContent className="p-6">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               <MessageSquare className="h-3.5 w-3.5" /> Frases assinatura
@@ -446,7 +446,7 @@ export function StrategyTab({ brandId, clientId }: Scope) {
 
       {/* Diretrizes de marca — tags */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card className="shadow-none">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
               <Check className="h-3.5 w-3.5" /> Termos preferidos
@@ -462,7 +462,7 @@ export function StrategyTab({ brandId, clientId }: Scope) {
           </CardContent>
         </Card>
 
-        <Card className="shadow-none">
+        <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-rose-700 dark:text-rose-400">
               <Ban className="h-3.5 w-3.5" /> Palavras proibidas
@@ -483,7 +483,7 @@ export function StrategyTab({ brandId, clientId }: Scope) {
       {(diferenciais.length || hashtags.length) ? (
         <div className="grid gap-4 md:grid-cols-2">
           {diferenciais.length ? (
-            <Card className="shadow-none">
+            <Card>
               <CardContent className="p-6">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   <Sprout className="h-3.5 w-3.5" /> Diferenciais competitivos
@@ -497,7 +497,7 @@ export function StrategyTab({ brandId, clientId }: Scope) {
             </Card>
           ) : null}
           {hashtags.length ? (
-            <Card className="shadow-none">
+            <Card>
               <CardContent className="p-6">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                   <Flame className="h-3.5 w-3.5" /> Hashtags recomendadas
@@ -591,7 +591,7 @@ export function TargetTab({ brandId, clientId }: Scope) {
         {cohorts.length ? (
           <div className="grid gap-3 md:grid-cols-2">
             {cohorts.map((c, i) => (
-              <Card key={i} className="shadow-none">
+              <Card key={i}>
                 <CardContent className="p-5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="text-sm font-semibold text-foreground">{c.name}</div>
@@ -971,7 +971,7 @@ export function MarketTab({ brandId, clientId }: Scope) {
         ))}
       </div>
 
-      <Card className="shadow-none">
+      <Card>
         <CardContent className="p-6">
           <div className="mb-4 flex items-center justify-between">
             <div>

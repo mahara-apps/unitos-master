@@ -26,17 +26,17 @@ export function BrandHub({ brandId, clientId }: { brandId: string; clientId: str
 
   return (
     <Tabs defaultValue="briefing" className="space-y-4">
-      <TabsList className="w-full justify-start rounded-lg border border-border bg-card p-1">
-        <TabsTrigger value="briefing" className="gap-1.5 text-xs">
+      <TabsList variant="bordered">
+        <TabsTrigger value="briefing">
           <BrainCircuit className="h-3.5 w-3.5" /> Persona & Briefing
         </TabsTrigger>
-        <TabsTrigger value="visual" className="gap-1.5 text-xs">
+        <TabsTrigger value="visual">
           <Palette className="h-3.5 w-3.5" /> Visual Identity
         </TabsTrigger>
-        <TabsTrigger value="competitors" className="gap-1.5 text-xs">
+        <TabsTrigger value="competitors">
           <TrendingUp className="h-3.5 w-3.5" /> Competitors
         </TabsTrigger>
-        <TabsTrigger value="docs" className="gap-1.5 text-xs">
+        <TabsTrigger value="docs">
           <FileText className="h-3.5 w-3.5" /> Knowledge Base
         </TabsTrigger>
       </TabsList>

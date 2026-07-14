@@ -577,9 +577,9 @@ export function BriefingWorkspace({
 
         {/* Tabs */}
         <Tabs defaultValue="identidade" className="space-y-4">
-          <TabsList className="w-full justify-start overflow-x-auto rounded-lg border border-border bg-card p-1">
+          <TabsList variant="bordered">
             {TABS.map((t) => (
-              <TabsTrigger key={t.value} value={t.value} className="text-xs">
+              <TabsTrigger key={t.value} value={t.value}>
                 {t.label}
               </TabsTrigger>
             ))}
