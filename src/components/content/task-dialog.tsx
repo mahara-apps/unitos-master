@@ -252,6 +252,54 @@ function AssigneeSelect({
 
 // ----------------- Create -----------------
 
+function ProjectSelect({
+  brandId,
+  clientId,
+  value,
+  onChange,
+}: {
+  brandId: string;
+  clientId: string;
+  value: string | null;
+  onChange: (id: string | null) => void;
+}) {
+  const fetchProjects = useServerFn(listProjects);
+  const { data } = useQuery({
+    queryKey: ["projects", brandId, clientId, "picker"],
+    queryFn: () => fetchProjects({ data: { brandId, clientId } }),
+    staleTime: 60_000,
+    enabled: !!brandId && !!clientId,
+  });
+  const projects = (data?.projects ?? []) as Array<{ id: string; name: string; color: string | null; status: string }>;
+  return (
+    <Select
+      value={value ?? "none"}
+      onValueChange={(v) => onChange(v === "none" ? null : v)}
+    >
+      <SelectTrigger className="h-8 w-auto min-w-[160px] gap-1 text-xs">
+        <FolderKanban className="mr-1 h-3.5 w-3.5 text-muted-foreground" />
+        <SelectValue placeholder="Sem projeto" />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="none">Sem projeto</SelectItem>
+        {projects
+          .filter((p) => p.status !== "archived")
+          .map((p) => (
+            <SelectItem key={p.id} value={p.id}>
+              <span className="inline-flex items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ background: p.color ?? "#8b5cf6" }}
+                />
+                {p.name}
+              </span>
+            </SelectItem>
+          ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function CreateBody({
   onOpenChange,
   brandId,
