@@ -390,100 +390,130 @@ export function StrategyTab({ brandId, clientId }: Scope) {
   const briefing = (core.briefing?.data ?? {}) as Record<string, unknown>;
   const voice = normalizeVoice(core.voice?.data);
 
-  const rows: Array<[string, unknown]> = [
-    ["Público-alvo", briefing.publico_alvo],
-    ["Tom de voz", briefing.tom_de_voz],
-    ["Dores do cliente final", briefing.dores_do_cliente_final],
-    ["Diferenciais", briefing.diferenciais],
-    ["Hashtags sugeridas", briefing.hashtags_sugeridas],
-    ["Concorrentes citados", briefing.concorrentes_mencionados],
-  ];
+  const wordsUse = voice?.vocabulary_rules?.words_to_use ?? [];
+  const wordsAvoid = voice?.vocabulary_rules?.words_to_avoid ?? [];
+  const tone = voice?.tone_characteristics ?? [];
+  const personality = voice?.brand_personality ?? "";
+  const phrases = voice?.brand_phrases_examples ?? [];
+  const diferenciais = Array.isArray(briefing.diferenciais) ? (briefing.diferenciais as string[]) : [];
+  const hashtags = Array.isArray(briefing.hashtags_sugeridas) ? (briefing.hashtags_sugeridas as string[]) : [];
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <SectionCard title="Briefing estruturado" icon={Target}>
-        <div className="mb-3">
-          <ContextSourceBadge source="persona" />
-        </div>
-        <dl className="space-y-3">
-          {rows.map(([label, value]) => (
-            <div key={label}>
-              <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
-              <dd className="mt-1 text-sm text-foreground">
-                {Array.isArray(value) ? (
-                  value.length ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {(value as string[]).map((v, i) => (
-                        <Chip key={i}>{v}</Chip>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )
-                ) : (
-                  (value as string) || <span className="text-muted-foreground">—</span>
-                )}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </SectionCard>
+    <div className="space-y-6">
+      <div className="flex justify-end">
+        <ContextSourceBadge source="persona" />
+      </div>
 
-      <SectionCard title="Voice Card" icon={Sparkles}>
-        <div className="mb-3">
-          <ContextSourceBadge source="persona" />
+      {/* Tom de voz e personalidade */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="border-border/60 bg-slate-50 dark:bg-muted/30 shadow-none">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <Sparkles className="h-3.5 w-3.5" /> Personalidade da marca
+            </div>
+            <p className="mt-3 text-sm leading-relaxed text-foreground">
+              {personality || <span className="text-muted-foreground">Voice card ainda não gerado.</span>}
+            </p>
+            {tone.length ? (
+              <div className="mt-4 flex flex-wrap gap-1.5">
+                {tone.map((t, i) => (
+                  <Badge key={i} variant="secondary" className="rounded-full font-normal">{t}</Badge>
+                ))}
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/60 bg-slate-50 dark:bg-muted/30 shadow-none">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <MessageSquare className="h-3.5 w-3.5" /> Frases assinatura
+            </div>
+            {phrases.length ? (
+              <ul className="mt-3 space-y-2">
+                {phrases.map((p, i) => (
+                  <li key={i} className="border-l-2 border-primary/50 pl-3 text-sm italic text-foreground/90">
+                    “{p}”
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">Nenhuma frase-exemplo gerada.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Diretrizes de marca — tags */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="shadow-none">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+              <Check className="h-3.5 w-3.5" /> Termos preferidos
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Vocabulário que reforça o posicionamento.</p>
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {wordsUse.length ? wordsUse.map((w, i) => (
+                <Badge key={i} className="rounded-full border border-emerald-200 bg-emerald-50 font-normal text-emerald-800 hover:bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300">
+                  <Check className="mr-1 h-3 w-3" /> {w}
+                </Badge>
+              )) : <span className="text-xs text-muted-foreground">—</span>}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-none">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-rose-700 dark:text-rose-400">
+              <Ban className="h-3.5 w-3.5" /> Palavras proibidas
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Termos que devem ser evitados na comunicação.</p>
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {wordsAvoid.length ? wordsAvoid.map((w, i) => (
+                <Badge key={i} className="rounded-full border border-rose-200 bg-rose-50 font-normal text-rose-800 hover:bg-rose-50 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+                  <Ban className="mr-1 h-3 w-3" /> {w}
+                </Badge>
+              )) : <span className="text-xs text-muted-foreground">—</span>}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Diferenciais + Hashtags */}
+      {(diferenciais.length || hashtags.length) ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          {diferenciais.length ? (
+            <Card className="shadow-none">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  <Sprout className="h-3.5 w-3.5" /> Diferenciais competitivos
+                </div>
+                <div className="mt-4 flex flex-wrap gap-1.5">
+                  {diferenciais.map((d, i) => (
+                    <Badge key={i} variant="outline" className="rounded-full font-normal">{d}</Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+          {hashtags.length ? (
+            <Card className="shadow-none">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  <Flame className="h-3.5 w-3.5" /> Hashtags recomendadas
+                </div>
+                <div className="mt-4 flex flex-wrap gap-1.5">
+                  {hashtags.map((h, i) => (
+                    <Badge key={i} variant="secondary" className="rounded-full font-mono text-[11px] font-normal">
+                      {h.startsWith("#") ? h : `#${h}`}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
-        {voice ? (
-          <div className="space-y-4">
-            <div>
-              <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Brand personality</div>
-              <p className="mt-1 text-sm leading-relaxed text-foreground">{voice.brand_personality}</p>
-            </div>
-            {voice.tone_characteristics?.length ? (
-              <div>
-                <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Tone characteristics</div>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {voice.tone_characteristics.map((t, i) => (
-                    <Chip key={i} tone="info">{t}</Chip>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            <div className="grid gap-3 md:grid-cols-2">
-              <div>
-                <div className="text-[11px] font-medium uppercase tracking-wide text-[color:var(--health-good)]">Palavras a usar</div>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {(voice.vocabulary_rules?.words_to_use ?? []).map((w, i) => (
-                    <Chip key={i} tone="success">{w}</Chip>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div className="text-[11px] font-medium uppercase tracking-wide text-destructive">Palavras a evitar</div>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {(voice.vocabulary_rules?.words_to_avoid ?? []).map((w, i) => (
-                    <Chip key={i} tone="danger">{w}</Chip>
-                  ))}
-                </div>
-              </div>
-            </div>
-            {voice.brand_phrases_examples?.length ? (
-              <div>
-                <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Frases-exemplo</div>
-                <ul className="mt-1.5 space-y-1.5">
-                  {voice.brand_phrases_examples.map((p, i) => (
-                    <li key={i} className="rounded-md border border-border bg-muted px-2.5 py-1.5 text-xs text-foreground">
-                      “{p}”
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <EmptyHint text="Voice card ainda não gerado." />
-        )}
-      </SectionCard>
+      ) : null}
     </div>
   );
 }
