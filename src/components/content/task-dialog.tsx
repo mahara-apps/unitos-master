@@ -414,6 +414,7 @@ function EditBody({
       toast.success("Tarefa atualizada");
       qc.invalidateQueries({ queryKey: invalidateKey });
       qc.invalidateQueries({ queryKey: ["post-detail", postId] });
+      onOpenChange(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
