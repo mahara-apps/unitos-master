@@ -33,6 +33,9 @@ export type Pipeline = {
   is_default: boolean;
   position: number;
   post_count: number;
+  color?: string | null;
+  description?: string | null;
+  icon?: string | null;
 };
 
 export type PipelineStage = {
@@ -43,6 +46,8 @@ export type PipelineStage = {
   color: StageColor;
   position: number;
   is_terminal: boolean;
+  hide_in_portal?: boolean | null;
+  enables_approval_link?: boolean | null;
 };
 
 export type BoardPost = {
@@ -280,13 +285,13 @@ export const loadBoardFn = createServerFn({ method: "POST" })
           .single(),
         context.supabase
           .from("content_pipeline_stages")
-          .select("id,pipeline_id,key,label,color,position,is_terminal")
+          .select("id,pipeline_id,key,label,color,position,is_terminal,hide_in_portal,enables_approval_link")
           .eq("pipeline_id", data.pipelineId)
           .order("position", { ascending: true }),
         context.supabase
           .from("posts")
           .select(
-            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes",
+            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes,priority,format,tags,visible_in_portal",
           )
           .eq("brand_id", data.brandId)
           .eq("client_id", data.clientId)
