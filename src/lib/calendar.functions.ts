@@ -62,22 +62,3 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
       author: created_by ? authors.get(created_by) ?? null : null,
     }));
   });
-
-export const rescheduleFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) =>
-    z
-      .object({
-        postId: z.string().uuid(),
-        scheduledAt: z.string().nullable(),
-      })
-      .parse(i),
-  )
-  .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
-      .from("posts")
-      .update({ scheduled_at: data.scheduledAt } as never)
-      .eq("id", data.postId);
-    if (error) throw error;
-    return { ok: true };
-  });
