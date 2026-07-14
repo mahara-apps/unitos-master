@@ -387,6 +387,7 @@ export function BriefingWorkspace({
     },
     onSuccess: () => {
       toast.success("Briefing salvo");
+      setSavedAt(new Date().toISOString());
       qc.invalidateQueries({ queryKey: ["brand-hub", brandId, clientId] });
     },
     onError: (e: Error) => toast.error(e.message || "Falha ao salvar"),
