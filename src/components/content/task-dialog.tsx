@@ -764,17 +764,19 @@ function TaskLayout({
           <div className="flex flex-wrap gap-1.5">
             {CHANNELS.map((c) => {
               const active = state.channels.includes(c.id);
+              const Icon = c.icon;
               return (
                 <button
                   key={c.id}
                   type="button"
                   onClick={() => toggleChannel(c.id)}
-                  className={`rounded-full border px-3 py-1 text-xs transition ${
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition ${
                     active
                       ? "border-primary bg-primary/10 text-foreground"
                       : "border-border/60 text-muted-foreground hover:border-border"
                   }`}
                 >
+                  <Icon className="h-3.5 w-3.5" />
                   {c.label}
                 </button>
               );

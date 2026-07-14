@@ -40,16 +40,29 @@ export const PRIORITY_LABEL: Record<string, string> = {
   urgent: "Urgente",
 };
 
-export const CHANNELS: Array<{ id: string; label: string }> = [
-  { id: "instagram", label: "Instagram" },
-  { id: "tiktok", label: "TikTok" },
-  { id: "youtube", label: "YouTube" },
-  { id: "linkedin", label: "LinkedIn" },
-  { id: "x", label: "Twitter/X" },
-  { id: "facebook", label: "Facebook" },
-  { id: "threads", label: "Threads" },
-  { id: "blog", label: "Blog" },
-  { id: "graphic", label: "Material Gráfico" },
+import {
+  Instagram,
+  Music2,
+  Youtube,
+  Linkedin,
+  Twitter,
+  Facebook,
+  AtSign,
+  FileText,
+  Image as ImageIcon,
+  type LucideIcon,
+} from "lucide-react";
+
+export const CHANNELS: Array<{ id: string; label: string; icon: LucideIcon }> = [
+  { id: "instagram", label: "Instagram", icon: Instagram },
+  { id: "tiktok", label: "TikTok", icon: Music2 },
+  { id: "youtube", label: "YouTube", icon: Youtube },
+  { id: "linkedin", label: "LinkedIn", icon: Linkedin },
+  { id: "x", label: "Twitter/X", icon: Twitter },
+  { id: "facebook", label: "Facebook", icon: Facebook },
+  { id: "threads", label: "Threads", icon: AtSign },
+  { id: "blog", label: "Blog", icon: FileText },
+  { id: "graphic", label: "Material Gráfico", icon: ImageIcon },
 ];
 
 export const FORMATS = ["Feed", "Reels", "Story", "Carrossel"] as const;
