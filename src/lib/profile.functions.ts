@@ -62,6 +62,17 @@ export const updateMyProfile = createServerFn({ method: "POST" })
       .update(payload as any)
       .eq("id", context.userId);
     if (error) throw error;
+    // Keep auth.user_metadata in sync so UI reading `user_metadata.full_name`
+    // (sidebar, cards, etc.) reflects updates immediately after next getUser().
+    await context.supabase.auth.updateUser({
+      data: {
+        full_name: data.full_name,
+        name: data.full_name,
+        avatar_url: data.avatar_url ?? null,
+        phone: data.phone ?? null,
+        job_title: data.job_title ?? null,
+      },
+    });
     return { ok: true };
   });
 

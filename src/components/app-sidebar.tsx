@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { getMyProfile } from "@/lib/profile.functions";
 import {
   LayoutDashboard,
   Bell,
@@ -116,19 +118,15 @@ export function AppSidebar() {
 
 function UserProfileMenu() {
   useSidebar();
-  const [user, setUser] = useState<{ email?: string; name?: string } | null>(null);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      const u = data.user;
-      if (!u) return;
-      const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
-      setUser({
-        email: u.email ?? undefined,
-        name: (meta.full_name as string) || (meta.name as string) || undefined,
-      });
-    });
-  }, []);
+  const fetchProfile = useServerFn(getMyProfile);
+  const { data: profile } = useQuery({
+    queryKey: ["me", "profile"],
+    queryFn: () => fetchProfile(),
+    staleTime: 30_000,
+  });
+  const user = profile
+    ? { email: profile.email ?? undefined, name: profile.full_name || undefined }
+    : null;
 
   const label = user?.name || user?.email || "Minha conta";
   const initials = (user?.name || user?.email || "?")
