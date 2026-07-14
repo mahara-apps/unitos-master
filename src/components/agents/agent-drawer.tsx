@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
@@ -34,14 +34,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Play, Circle, RotateCcw, Save, Eye, Pencil } from "lucide-react";
+import { Loader2, Play, Circle, RotateCcw, Save, Eye, Pencil, CheckCircle2, AlertTriangle, HelpCircle } from "lucide-react";
 import type { AgentPromptRow } from "@/lib/agents.functions";
-import { updateAgentPromptFn, resetAgentPromptFn } from "@/lib/agents.functions";
+import { updateAgentPromptFn, resetAgentPromptFn, runAgentPlaygroundFn } from "@/lib/agents.functions";
+import { getAgentMeta, toTitleCase } from "./agent-meta";
 import {
+  AGENT_VARIABLE_CATALOG,
+  CATEGORY_LABEL,
   extractPromptVariables,
-  getAgentMeta,
-  toTitleCase,
-} from "./agent-meta";
+  type ResolvedVariableMap,
+} from "@/lib/agent-variables";
+import { resolveAgentVariablesFn } from "@/lib/agent-variables.functions";
 
 const MODELS = [
   "gemini-2.5-flash",
@@ -55,21 +58,33 @@ type Props = {
   agent: AgentPromptRow | null;
   open: boolean;
   onOpenChange: (o: boolean) => void;
+  brandId: string | null;
+  clientId: string | null;
 };
 
-export function AgentDrawer({ agent, open, onOpenChange }: Props) {
-  const [model, setModel] = useState<string>("gemini-2.5-flash");
+export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Props) {
+  const [model, setModel] = useState<string>("google/gemini-2.5-flash");
   const [active, setActive] = useState(true);
   const [testInput, setTestInput] = useState("");
-  const [testing, setTesting] = useState(false);
   const [testOutput, setTestOutput] = useState<string | null>(null);
-  const [variables, setVariables] = useState<Record<string, string>>({});
+  const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState(false);
   const [draftPrompt, setDraftPrompt] = useState("");
 
   const qc = useQueryClient();
   const updateFn = useServerFn(updateAgentPromptFn);
   const resetFn = useServerFn(resetAgentPromptFn);
+  const runFn = useServerFn(runAgentPlaygroundFn);
+  const resolveFn = useServerFn(resolveAgentVariablesFn);
+
+  const resolvedQuery = useQuery({
+    enabled: open && !!brandId && !!clientId,
+    queryKey: ["agent-variables", brandId, clientId],
+    queryFn: () =>
+      resolveFn({ data: { brandId: brandId!, clientId: clientId! } }),
+    staleTime: 60_000,
+  });
+  const resolved: ResolvedVariableMap = resolvedQuery.data ?? {};
 
   const vars = useMemo(
     () => (agent ? extractPromptVariables(editing ? draftPrompt : agent.system_prompt) : []),
@@ -81,7 +96,7 @@ export function AgentDrawer({ agent, open, onOpenChange }: Props) {
     setTestInput("");
     setEditing(false);
     setDraftPrompt(agent?.system_prompt ?? "");
-    setVariables(Object.fromEntries(vars.map((v) => [v, ""])));
+    setOverrides({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent]);
 
@@ -112,32 +127,47 @@ export function AgentDrawer({ agent, open, onOpenChange }: Props) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const runMutation = useMutation({
+    mutationFn: async () => {
+      if (!agent) return null;
+      const values: Record<string, string> = {};
+      for (const key of vars) {
+        if (overrides[key]) values[key] = overrides[key];
+        else if (resolved[key]?.value) values[key] = resolved[key].value;
+      }
+      return await runFn({
+        data: {
+          agentId: agent.agent_id,
+          userInput: testInput,
+          variables: values,
+          model,
+        },
+      });
+    },
+    onSuccess: (res) => {
+      if (!res) return;
+      setTestOutput(
+        `// ${res.model} · ${res.ms}ms\n\n${res.output || "(sem resposta)"}`,
+      );
+    },
+    onError: (e: Error) => {
+      setTestOutput(`// erro\n${e.message}`);
+      toast.error(e.message);
+    },
+  });
+
   if (!agent) return null;
   const meta = getAgentMeta(agent.agent_id, agent.agent_name);
   const Icon = meta.icon;
   const isDirty = draftPrompt !== agent.system_prompt;
   const isCustomized = agent.system_prompt !== agent.default_prompt;
-
-  const runTest = async () => {
-    setTesting(true);
-    setTestOutput(null);
-    await new Promise((r) => setTimeout(r, 900));
-    setTestOutput(
-      JSON.stringify(
-        {
-          agent: agent.agent_id,
-          model,
-          input: testInput || "(vazio)",
-          variables,
-          output:
-            "Simulação de resposta. Conecte este playground ao gateway para execução real.",
-        },
-        null,
-        2,
-      ),
-    );
-    setTesting(false);
-  };
+  const testing = runMutation.isPending;
+  const unresolvedCount = vars.filter(
+    (v) =>
+      AGENT_VARIABLE_CATALOG[v] &&
+      !AGENT_VARIABLE_CATALOG[v].runtimeProvided &&
+      !resolved[v]?.resolved,
+  ).length;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -198,6 +228,11 @@ export function AgentDrawer({ agent, open, onOpenChange }: Props) {
             <TabsTrigger value="prompt">Prompt</TabsTrigger>
             <TabsTrigger value="variables">
               Variáveis {vars.length ? `(${vars.length})` : ""}
+              {unresolvedCount > 0 && (
+                <span className="ml-1 rounded-full bg-amber-500/15 px-1.5 text-[10px] text-amber-600 dark:text-amber-400">
+                  {unresolvedCount}
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="playground">Playground</TabsTrigger>
           </TabsList>
@@ -305,26 +340,14 @@ export function AgentDrawer({ agent, open, onOpenChange }: Props) {
           </TabsContent>
 
           <TabsContent value="variables" className="flex-1 overflow-auto p-5 pt-3">
-            {vars.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Este prompt não declara variáveis dinâmicas.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {vars.map((v) => (
-                  <div key={v} className="space-y-1.5">
-                    <Label className="font-mono text-xs">{`{{${v}}}`}</Label>
-                    <Input
-                      value={variables[v] ?? ""}
-                      onChange={(e) =>
-                        setVariables((s) => ({ ...s, [v]: e.target.value }))
-                      }
-                      placeholder={`Valor para ${v.toLowerCase()}`}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
+            <VariablesPanel
+              vars={vars}
+              resolved={resolved}
+              overrides={overrides}
+              setOverrides={setOverrides}
+              loading={resolvedQuery.isFetching}
+              hasContext={!!brandId && !!clientId}
+            />
           </TabsContent>
 
           <TabsContent
@@ -332,21 +355,27 @@ export function AgentDrawer({ agent, open, onOpenChange }: Props) {
             className="flex flex-1 flex-col gap-3 overflow-hidden p-5 pt-3"
           >
             <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">Input do teste</Label>
+              <Label className="text-xs text-muted-foreground">
+                Instrução do usuário (opcional) — o prompt do agente é usado como system.
+              </Label>
               <Textarea
                 value={testInput}
                 onChange={(e) => setTestInput(e.target.value)}
-                placeholder="Descreva o cenário para o agente responder…"
+                placeholder="Ex.: gere 3 ideias focadas em conversão para a próxima semana…"
                 className="min-h-24"
               />
             </div>
-            <Button onClick={runTest} disabled={testing} className="w-full gap-2">
+            <Button
+              onClick={() => runMutation.mutate()}
+              disabled={testing || (!brandId && vars.length > 0)}
+              className="w-full gap-2"
+            >
               {testing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Play className="h-4 w-4" />
               )}
-              Executar teste
+              Executar no {model}
             </Button>
             <div className="flex-1 overflow-hidden rounded-md border bg-zinc-950">
               <ScrollArea className="h-full">
