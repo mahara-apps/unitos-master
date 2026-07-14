@@ -322,6 +322,7 @@ function BoardExtras({
   openNewTask,
   setOpenNewTask,
   newTaskStageId,
+  defaultProjectId,
   openPostId,
   setOpenPostId,
 }: {
@@ -333,6 +334,7 @@ function BoardExtras({
   openNewTask: boolean;
   setOpenNewTask: (v: boolean) => void;
   newTaskStageId: string | null;
+  defaultProjectId?: string | null;
   openPostId: string | null;
   setOpenPostId: (v: string | null) => void;
 }) {
@@ -363,6 +365,7 @@ function BoardExtras({
         pipelineId={pipelineId}
         stages={data.stages}
         defaultStageId={newTaskStageId ?? data.stages[0]?.id}
+        defaultProjectId={defaultProjectId ?? null}
         invalidateKey={queryKey}
       />
       {openPostId ? (
