@@ -387,6 +387,8 @@ function EditBody({
   const removeRef = useServerFn(removePostReferenceMediaFn);
   const signRefs = useServerFn(signPostReferenceMediaFn);
   const generateRefImage = useServerFn(generatePostReferenceImageFn);
+  const listPlacements = useServerFn(listPlacementsFn);
+  const savePlacements = useServerFn(savePlacementsFn);
 
   const { data } = useSuspenseQuery({
     queryKey: ["post-detail", postId],
@@ -398,6 +400,27 @@ function EditBody({
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [approving, setApproving] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  // Multi-placement state: array of extra placements (beyond the primary one
+  // represented by state.format + state.scheduledAt).
+  type ExtraPlacement = { format: PlacementFormat; scheduled_at: string };
+  const [extras, setExtras] = useState<ExtraPlacement[]>([]);
+  const placementsQ = useQuery({
+    queryKey: ["post-placements", postId],
+    queryFn: () => listPlacements({ data: { postId } }),
+  });
+  useEffect(() => {
+    if (!placementsQ.data) return;
+    const primary = toEnum(state.format || post.format);
+    const seeded = placementsQ.data
+      .filter((p) => p.format !== primary)
+      .map((p) => ({
+        format: p.format,
+        scheduled_at: p.scheduled_at ? toLocalInputValue(p.scheduled_at) : "",
+      }));
+    setExtras(seeded);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placementsQ.data, postId]);
 
   useEffect(() => {
     setState(stateFromPost(post, stages));
