@@ -333,7 +333,7 @@ export function TargetTab({ brandId, clientId }: Scope) {
             {personas.map((p, i) => (
               <div key={i} className="rounded-xl border border-border bg-card p-4">
                 <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500/30 to-indigo-500/30 text-[11px] font-bold text-primary-foreground">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary/30 to-primary/10 text-[11px] font-bold text-primary-foreground">
                     {p.nome?.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="text-sm font-semibold">{p.nome}</div>
@@ -425,7 +425,7 @@ export function MarketTab({ brandId, clientId }: Scope) {
   const quadrants = [
     { key: "strengths", label: "Strengths", items: analysis?.strengths ?? [], icon: TrendingUp, tone: "border-[color:var(--health-good)]/40 bg-[color:var(--health-good)]/10", accent: "text-[color:var(--health-good)]" },
     { key: "weaknesses", label: "Weaknesses", items: analysis?.weaknesses ?? [], icon: ShieldAlert, tone: "border-[color:var(--severity-warning)]/40 bg-[color:var(--severity-warning)]/10", accent: "text-[color:var(--severity-warning)]" },
-    { key: "opportunities", label: "Opportunities", items: analysis?.opportunities ?? [], icon: Zap, tone: "border-primary/30 bg-primary/10", accent: "text-cyan-300" },
+    { key: "opportunities", label: "Opportunities", items: analysis?.opportunities ?? [], icon: Zap, tone: "border-primary/30 bg-primary/10", accent: "text-primary" },
     { key: "threats", label: "Threats", items: analysis?.threats ?? [], icon: ShieldAlert, tone: "border-destructive/40 bg-destructive/10", accent: "text-destructive" },
   ];
 
