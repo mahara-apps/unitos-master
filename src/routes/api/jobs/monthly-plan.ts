@@ -274,12 +274,27 @@ async function runOrchestrator(params: {
     }) + mixInstruction + (input.direction ? `\n\nDIRECIONAMENTO EXTRA DO USUÁRIO (prioridade máxima):\n${input.direction}` : "");
     const planned = await runStructured({
       system: plannerSys,
-      prompt: `Gere ${input.quantidade} conceitos para o período "${input.periodo}".`,
+      prompt:
+        `Gere ${input.quantidade} conceitos para o período "${input.periodo}".\n\n` +
+        `Responda EXCLUSIVAMENTE com JSON válido no formato:\n` +
+        `{"concepts":[{"titulo":"...","pilar":"...","formato":"Feed|Reels|Stories|Carrossel",` +
+        `"plataforma":"instagram|tiktok|linkedin|youtube|blog|x","gancho":"...",` +
+        `"objetivo":"...","cta":"..."}]}\n` +
+        `A chave raiz DEVE ser exatamente "concepts". Sem markdown, sem comentários.`,
       schema: PlannerSchema,
       strategic: true,
     });
-    const concepts = (planned.concepts ?? []).slice(0, input.quantidade);
-    if (!concepts.length) throw new Error("Planejador não retornou conceitos.");
+    const rawConcepts = extractConcepts(planned.output);
+    const concepts = rawConcepts
+      .map(normalizeConcept)
+      .filter((c): c is NonNullable<ReturnType<typeof normalizeConcept>> => c !== null)
+      .slice(0, input.quantidade);
+    if (!concepts.length) {
+      const sample = (planned.raw ?? JSON.stringify(planned.output ?? {})).slice(0, 400);
+      throw new Error(
+        `Planejador não retornou conceitos válidos. Amostra da resposta: ${sample}`,
+      );
+    }
 
     // Aplica a cota por canal caso o planner tenha desviado.
     if (input.channelMix) {
