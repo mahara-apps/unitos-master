@@ -260,11 +260,13 @@ function ProjectSelect({
   clientId,
   value,
   onChange,
+  className,
 }: {
   brandId: string;
   clientId: string;
   value: string | null;
   onChange: (id: string | null) => void;
+  className?: string;
 }) {
   const fetchProjects = useServerFn(listProjects);
   const { data } = useQuery({
@@ -279,7 +281,7 @@ function ProjectSelect({
       value={value ?? "none"}
       onValueChange={(v) => onChange(v === "none" ? null : v)}
     >
-      <SelectTrigger className="h-8 w-auto min-w-[160px] gap-1 text-xs">
+      <SelectTrigger className={cn("h-8 w-full min-w-0 gap-1 text-xs", className)}>
         <FolderKanban className="mr-1 h-3.5 w-3.5 text-muted-foreground" />
         <SelectValue placeholder="Sem projeto" />
       </SelectTrigger>
