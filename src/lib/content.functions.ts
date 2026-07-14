@@ -503,7 +503,67 @@ export const deletePostFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ postId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("posts").delete().eq("id", data.postId);
+    const { error } = await context.supabase
+      .from("posts")
+      .update({ deleted_at: new Date().toISOString() } as never)
+      .eq("id", data.postId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+// ---------- Rework: reset status, move card back to review stage ----------
+
+export const reworkPostFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        postId: z.string().uuid(),
+        notes: z.string().max(2000).optional(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: post, error: pe } = await context.supabase
+      .from("posts")
+      .select("id, pipeline_id, stage_id")
+      .eq("id", data.postId)
+      .maybeSingle();
+    if (pe) throw pe;
+    if (!post) throw new Error("post_not_found");
+
+    // Find a "review"-ish stage (fallback to first stage of same pipeline)
+    let targetStageId: string | null = null;
+    if (post.pipeline_id) {
+      const { data: stages } = await context.supabase
+        .from("content_pipeline_stages")
+        .select("id, key, label, position")
+        .eq("pipeline_id", post.pipeline_id)
+        .order("position", { ascending: true });
+      const list = stages ?? [];
+      const review = list.find(
+        (s) =>
+          s.key?.toLowerCase() === "review" ||
+          /revis|reason|rewrit/i.test(s.label ?? ""),
+      );
+      targetStageId = review?.id ?? list[0]?.id ?? post.stage_id ?? null;
+    }
+
+    const patch: Record<string, unknown> = {
+      review_status: "rework",
+      approved_at: null,
+      approved_by: null,
+      ai_phase: "idea",
+      rework_notes: data.notes ?? null,
+    };
+    if (targetStageId && targetStageId !== post.stage_id) {
+      patch.stage_id = targetStageId;
+    }
+
+    const { error } = await context.supabase
+      .from("posts")
+      .update(patch as never)
+      .eq("id", data.postId);
     if (error) throw error;
     return { ok: true };
   });
