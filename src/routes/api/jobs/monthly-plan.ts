@@ -24,6 +24,7 @@ const BodySchema = z.object({
   quantidade: z.number().int().min(3).max(180).default(12),
   periodo: z.string().default("próximo mês"),
   meses: z.number().int().min(1).max(6).optional(),
+  channelMix: z.record(z.string(), z.number().int().min(0).max(180)).optional(),
 });
 
 const STRATEGIC_MODEL = "google/gemini-2.5-pro";
@@ -59,6 +60,12 @@ const CHANNEL_MAP: Record<string, "instagram" | "tiktok" | "linkedin" | "x" | "y
   youtube: "youtube",
   blog: "blog",
 };
+
+// Volumetria pode incluir "facebook" — mantemos como valor livre ao gravar.
+function normalizeChannel(raw: string): string {
+  const k = (raw ?? "").toLowerCase().trim();
+  return CHANNEL_MAP[k] ?? (k === "facebook" ? "facebook" : "instagram");
+}
 
 function buildUserClient(token: string) {
   const url = process.env.SUPABASE_URL!;
@@ -194,6 +201,15 @@ async function runOrchestrator(params: {
 
     // 3) Planner
     await patch({ progress: 20, step_label: "Planejador estratégico — gerando conceitos" });
+    const mixLines = input.channelMix
+      ? Object.entries(input.channelMix)
+          .filter(([, n]) => (n ?? 0) > 0)
+          .map(([ch, n]) => `- ${ch}: ${n} peças`)
+          .join("\n")
+      : "";
+    const mixInstruction = mixLines
+      ? `\n\nDISTRIBUIÇÃO OBRIGATÓRIA POR CANAL (total = ${input.quantidade}):\n${mixLines}\nRespeite estritamente essa cota por plataforma — não gere mais peças por canal do que o indicado.`
+      : "";
     const plannerSys = fillTemplate(plannerPrompt, {
       CONTEXT: blueprint,
       PERSONAS: personasStr,
@@ -201,7 +217,8 @@ async function runOrchestrator(params: {
       PRIMARY_COLORS: primaryColors,
       QUANTIDADE: String(input.quantidade),
       PERIODO: input.periodo,
-    });
+      CHANNEL_MIX: mixLines || "(livre — escolha o melhor mix)",
+    }) + mixInstruction;
     const planned = await runStructured({
       system: plannerSys,
       prompt: `Gere ${input.quantidade} conceitos para o período "${input.periodo}".`,
@@ -210,6 +227,24 @@ async function runOrchestrator(params: {
     });
     const concepts = (planned.concepts ?? []).slice(0, input.quantidade);
     if (!concepts.length) throw new Error("Planejador não retornou conceitos.");
+
+    // Aplica a cota por canal caso o planner tenha desviado.
+    if (input.channelMix) {
+      const remaining: Record<string, number> = { ...input.channelMix };
+      for (const c of concepts) {
+        const desired = normalizeChannel(c.plataforma ?? "");
+        if ((remaining[desired] ?? 0) > 0) {
+          remaining[desired] -= 1;
+          c.plataforma = desired;
+        } else {
+          const fallback = Object.entries(remaining).find(([, n]) => (n ?? 0) > 0)?.[0];
+          if (fallback) {
+            remaining[fallback] -= 1;
+            c.plataforma = fallback;
+          }
+        }
+      }
+    }
 
     // 4) Copywriter + Art Director in parallel per concept
     await patch({
@@ -310,8 +345,7 @@ async function runOrchestrator(params: {
         .limit(1);
       let nextPos = ((maxRow?.[0]?.position ?? -1) as number) + 1024;
       const rows = results.map((r) => {
-        const platform = (r.concept.plataforma ?? "").toLowerCase().trim();
-        const channel = CHANNEL_MAP[platform] ?? "instagram";
+        const channel = normalizeChannel(r.concept.plataforma ?? "");
         const captionMd = r.copy.caption ?? "";
         const briefBlock = r.brief ? `\n\n---\n\n### Design brief\n${r.brief}` : "";
         const tagsBlock = r.copy.hashtags?.length
