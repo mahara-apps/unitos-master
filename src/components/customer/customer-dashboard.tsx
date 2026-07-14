@@ -402,7 +402,9 @@ function ActivityRow({ event }: { event: CustomerDashboardData["activity"][numbe
   const meta = useMemo(() => activityDescriptor(event), [event]);
   const when = useMemo(() => {
     try {
-      return formatDistanceToNow(new Date(event.created_at as string), { addSuffix: true });
+      const d = new Date(event.created_at as string);
+      const safe = Date.now() - d.getTime() < 0 ? new Date() : d;
+      return formatDistanceToNow(safe, { addSuffix: true });
     } catch {
       return "";
     }
