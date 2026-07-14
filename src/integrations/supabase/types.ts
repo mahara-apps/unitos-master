@@ -70,6 +70,7 @@ export type Database = {
           agent_id: string
           agent_name: string
           created_at: string
+          default_prompt: string
           required_fields: Json
           system_prompt: string
           updated_at: string
@@ -78,6 +79,7 @@ export type Database = {
           agent_id: string
           agent_name: string
           created_at?: string
+          default_prompt: string
           required_fields?: Json
           system_prompt: string
           updated_at?: string
@@ -86,6 +88,7 @@ export type Database = {
           agent_id?: string
           agent_name?: string
           created_at?: string
+          default_prompt?: string
           required_fields?: Json
           system_prompt?: string
           updated_at?: string
