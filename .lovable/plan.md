@@ -1,64 +1,52 @@
 ## Objetivo
 
-Criar `/analytics` com 4 abas (Redes Sociais · Produção · Equipe · Clientes), inspirada nas referências, com dados **reais** vindos do Supabase (posts, tasks, aprovações, conexões, projetos e membros).
+Alinhar visualmente o módulo **Produção** (`/content`) à linguagem do Dashboard, sem tocar em regra de negócio, dados, hooks, queries, rotas ou fluxos. Apenas UI/UX.
 
-## Escopo dos dados
+## Passo 1 — Extrair primitivos do Dashboard (sem alterar o Dashboard)
 
-Todas as métricas são calculadas server-side em `src/lib/analytics.functions.ts`, escopadas por `brandId` + `clientId` opcional + intervalo de datas.
+Hoje o Dashboard define, no próprio arquivo, três primitivos que são a base do design system: `Card` (container branco com header/ícone/ação), `SkeletonList` e `EmptyState`. Movê-los para módulos compartilhados para poder reutilizar em todo o app:
 
-### Aba Redes Sociais
-- **KPIs**: Posts publicados, Engajamento médio/post, Crescimento líquido (deltas por período), Plataformas conectadas (via `brand_connections`).
-- **Comparativo por plataforma**: contagem de posts publicados por canal, agrupado a partir de `posts.channels`.
-- **Melhor momento pra postar**: agrupa `posts.published_at` por dia da semana × hora (usa `posts` publicados). Se < 5 publicados, mostra empty state igual à referência.
-- **Performance por formato**: contagem por tipo (feed/reels/story/carrossel) via `posts.format` e `post_placements`.
-- **Top posts**: lista de publicados mais recentes.
-- *Nota de honestidade*: seguidores, alcance e taxa de engajamento **reais** exigem integração Instagram Graph API que ainda não existe. Vou mostrar cards com estado "Conecte uma rede para ver" quando não houver métricas persistidas, em vez de inventar números.
+- `src/components/ui/panel-card.tsx` → exporta `PanelCard` (o `Card` do Dashboard).
+- `src/components/ui/panel-empty.tsx` → exporta `PanelEmptyState`.
+- `src/components/ui/panel-skeleton.tsx` → exporta `PanelSkeletonList`.
 
-### Aba Produção
-- **KPI cards**: Entregues no prazo, Atrasadas, Aguardando aprovação (posts com `stage=review`).
-- **Funil de produção**: contagem de posts por `stage` (ideia → em produção → em revisão → aguardando aprovação → aprovado → agendado → publicado).
-- **Por canal**: barras horizontais com posts por canal.
-- **Velocidade média**: média `published_at - created_at` para posts publicados no período.
-- **Por tipo de conteúdo**: barras por `posts.format`.
-- **Produção ao longo do tempo**: linha (criadas × concluídas × aprovadas) por dia usando `posts.created_at`, `published_at`, `post_approvals`.
+Depois, refatorar `src/routes/_authenticated/dashboard.tsx` para importar esses três em vez de manter cópias locais. **Nenhum pixel muda no Dashboard** — é literalmente o mesmo JSX movido de arquivo.
 
-### Aba Equipe
-- **Visão geral**: por membro (`brand_members` + `user_profiles`) — abertas, atrasadas, velocidade média (`done_at - created_at`), % no prazo, % retrabalho (tasks reabertas contando `activity_events`).
-- **Onde tá travando por pessoa**: agrupa tasks abertas por `status` por membro.
-- **Resumo da equipe**: KPIs agregados (velocidade média, pontualidade geral, taxa de retrabalho, dependência do maior membro).
+Primitivos já compartilhados que continuam onde estão: `Sparkline`, `HealthBar`, `KpiCard` inline (vamos manter no Dashboard por ora — só o módulo Produção não pede KPI card).
 
-### Aba Clientes
-- **Saúde por marca**: por cliente (`clients`) — dias médios de aprovação, número de ajustes (comentários), frequência de posts, score composto 0-100.
-- **Alertas**: heurística — pendentes > 3 dias, atrasos > 0, sem publicações há 14 dias.
-- **Gargalos de aprovação**: lista de posts em `review` há mais tempo.
-- **Taxa de aprovação no prazo**: % aprovados antes da `scheduled_at`.
+## Passo 2 — Alinhar o módulo Produção ao design system
 
-## Filtros globais (header)
-- Range: Últimos 7 / 30 / 90 dias / Personalizado (persistido em `search params` com `zodValidator`).
-- Sheet "Filtros": Painel de Produção (pipeline), Marcas (cliente), Responsável, Projeto, Tags, Tipo de conteúdo, Canais.
-- Chip "Limpar" reseta filtros.
-- Botão "Exportar PDF" usa `window.print()` com CSS `@media print` na primeira versão (funcional, sem lib externa).
+**`src/routes/_authenticated/content.tsx`**
+- Substituir o `EmptyState` local (borda pontilhada, min-h 60vh) pelo padrão do Dashboard: usar `PanelCard` como wrapper e `PanelEmptyState` no corpo, mantendo o mesmo `h-[calc(100vh-3.5rem)]` do shell.
+- `BoardSkeleton`: trocar por skeleton no mesmo tom do Dashboard (`bg-muted/40`, `rounded-xl`, `border-border/60`), mantendo o layout horizontal de 6 colunas.
+- Diálogos "Novo pipeline" / "Renomear pipeline": nenhuma mudança estrutural (já usam shadcn `Dialog`), só garantir tipografia coerente (`DialogTitle` já usa tokens).
 
-## Estrutura de arquivos
+**`src/components/content/content-board.tsx`**
+- Colunas: trocar `bg-muted/30` por `bg-card` para bater com os cards do Dashboard; manter `rounded-xl border border-border/60`. A barra de gradiente no topo permanece.
+- Header da coluna: padronizar tipografia (`text-sm font-medium tracking-tight`) e badge de contagem (`Badge variant="secondary"` já OK).
+- Botão "Adicionar coluna" e "Nova tarefa": manter borda tracejada `border-border/60`, adotar o mesmo `text-xs text-muted-foreground` do Dashboard e altura `h-9` consistente.
+- `PostCard`: manter o layout atual (é premium e já bate com o vocabulário do Dashboard: `rounded-xl border border-border/70 bg-card`, badges pill, `text-[11px] text-muted-foreground` no rodapé). Apenas normalizar sombra para `shadow-sm` no hover (padrão do resto do app) em vez de `shadow-md`.
 
-```text
-src/lib/analytics.functions.ts        # 4 server fns: getSocialAnalytics, getProductionAnalytics, getTeamAnalytics, getClientsAnalytics
-src/routes/_authenticated/analytics.tsx           # layout + validateSearch + tabs
-src/components/analytics/
-  ├── filters-bar.tsx                 # tabs + range + filtros sheet
-  ├── kpi-card.tsx                    # cards coloridos gradient
-  ├── social-tab.tsx
-  ├── production-tab.tsx
-  ├── team-tab.tsx
-  └── clients-tab.tsx
-```
+**Toolbar do header da página (via `usePageHeader`)**
+- Manter os componentes shadcn atuais (`Select`, `Button`, `DropdownMenu`); só padronizar altura de todos os controles para `h-9` (hoje o `SelectTrigger` já é `h-9`, o `Button size="sm"` vira `h-9` também para bater com o Select).
 
-## Padrões técnicos
-- Server fns com `requireSupabaseAuth`, `zod` no `inputValidator`, retornam DTOs simples.
-- `queryOptions` + `ensureQueryData` no loader do route, `useSuspenseQuery` nas tabs, Suspense skeletons.
-- Charts com `recharts` (já usado). Cards seguem tokens semânticos.
-- Header dinâmico via `PageHeaderProvider` (título "Analytics", ação "Exportar PDF").
-- Sidebar já tem link `/analytics` — só criar a rota.
+## Fora de escopo neste passo
 
-## Fora de escopo (marcado como "requer conexão")
-- Seguidores reais / alcance real do Instagram (não há tabela de insights). Vou deixar cards prontos que passam a mostrar dados quando integrarmos Instagram Graph API — não vou fabricar números.
+- Task drawer (`task-dialog.tsx`), calendar dialog, projects, analytics, settings — só entram nos passos seguintes, um módulo por vez.
+- Qualquer mudança em `content.functions.ts`, `stage-colors.ts`, permissions, realtime, D&D.
+
+## Detalhes técnicos
+
+Arquivos criados:
+- `src/components/ui/panel-card.tsx`
+- `src/components/ui/panel-empty.tsx`
+- `src/components/ui/panel-skeleton.tsx`
+
+Arquivos editados (apenas visual):
+- `src/routes/_authenticated/dashboard.tsx` — trocar `Card`/`EmptyState`/`SkeletonList` locais por imports dos novos módulos (JSX idêntico).
+- `src/routes/_authenticated/content.tsx` — usar `PanelCard`/`PanelEmptyState`, refinar `BoardSkeleton`, padronizar altura da toolbar.
+- `src/components/content/content-board.tsx` — coluna com `bg-card`, sombras/altura de botões alinhadas ao DS.
+
+## Entrega
+
+Ao concluir, envio um resumo com prints/diffs e aguardo aprovação antes de seguir para o próximo módulo (sugestão de ordem: Calendário → Clientes/Customers → Projects → Analytics → Tasks → Settings → Connections → Agents/Brand Hub).
