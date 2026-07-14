@@ -187,12 +187,12 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
           </div>
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className="w-full justify-start overflow-x-auto rounded-lg border border-border bg-card p-1">
+            <TabsList variant="bordered">
               {TABS.map((t) => (
                 <TabsTrigger
                   key={t.value}
                   value={t.value}
-                  className="text-xs data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
+                  className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
                 >
                   {t.label}
                 </TabsTrigger>
