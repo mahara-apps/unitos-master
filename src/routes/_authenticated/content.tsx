@@ -498,7 +498,7 @@ function RenamePipelineDialog({
 
 function BoardSkeleton() {
   return (
-    <div className="flex min-h-0 flex-1 gap-5 overflow-hidden p-[5px]">
+    <div className="flex min-h-0 flex-1 gap-5 overflow-hidden px-6 pt-6 pb-2">
       {Array.from({ length: 6 }).map((_, i) => (
         <div
           key={i}
