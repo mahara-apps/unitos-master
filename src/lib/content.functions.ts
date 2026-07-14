@@ -254,18 +254,6 @@ export const renamePipelineFn = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const deletePipelineFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => z.object({ pipelineId: z.string().uuid() }).parse(i))
-  .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
-      .from("content_pipelines")
-      .delete()
-      .eq("id", data.pipelineId);
-    if (error) throw error;
-    return { ok: true };
-  });
-
 // ---------- Board ----------
 
 export const loadBoardFn = createServerFn({ method: "POST" })
