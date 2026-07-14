@@ -1,64 +1,98 @@
-## Objetivo
+# Multi-Placement em um Único Card
 
-Habilitar edição manual (create / update / delete) em **todos** os campos da estratégia gerada por IA nas abas **Estratégia**, **Público** e **Mercado** do Cérebro da Marca, para que o time possa corrigir/complementar o output da IA sem depender de re-geração.
+## Problema
+Hoje cada card = 1 formato. Se o usuário quer publicar o mesmo conceito em **Feed + Stories** (ou Reels + Stories), precisa duplicar cards, duplicar mídias, duplicar aprovações. Ineficiente e polui o calendário.
 
-## Escopo dos artefatos editáveis
+## Estratégia
+Transformar `format` (single) em **placements[]** (multi), preservando 1 card = 1 conceito criativo, mas com N destinos de publicação, cada um com sua própria regra (horário, mídia adaptada, copy adaptada, status de publicação).
 
-| Aba | Artefato | Tabela / campo | Ação |
-|---|---|---|---|
-| Estratégia | Voice Card (personalidade, tom, palavras preferidas/proibidas, do/don't, mensagens-chave) | `brand_voice_cards.data` | update |
-| Público | Personas (nome, arquétipo, dores, canais, lógica/psicologia de compra, objeções…) | `brand_personas` (linha por persona, `data`) | create / update / delete / toggle `is_active` |
-| Público | Cohorts (nome, traits, estratégia, critérios de conversão) | `brand_cohorts.data` | update (array) |
-| Mercado | SWOT (forças/fraquezas/oportunidades/ameaças) | `brand_swot.data.analysis` | update |
-| Mercado | Competitors (handle, posicionamento, sentimento, notas) | `brand_competitors` | create / update / delete |
+Não é obrigatório — usuário continua podendo criar card single-format. Multi-placement é **opt-in**.
 
-Briefing (aba Cérebro da Marca) já tem edição — fora do escopo.
+## Regras de negócio
 
-## UX
+**Combinações válidas** (o "cérebro" da regra):
+- ✅ `Feed + Stories` → mais comum (post principal + teaser 24h)
+- ✅ `Reels + Stories` → reels compartilhado no story
+- ✅ `Carrossel + Stories` → divulgação do carrossel
+- ❌ `Feed + Reels` → conflita (Reels já ocupa grid); bloqueado com aviso
+- ❌ `Feed + Carrossel` → mesmo espaço; bloqueado
 
-- Cada `SectionCard` ganha botão **Editar** no canto superior direito (ícone `Pencil`).
-- Ao entrar em modo edição, os textos viram `Input` / `Textarea` e chips viram `TagInput` (add/remove). Ações **Salvar** / **Cancelar** aparecem no rodapé do card.
-- Personas e Competitors: lista com botão **+ Adicionar** e ícone lixeira por item; abre em um `PersonaDrawer` / `CompetitorDialog` (reuso do drawer existente com campos editáveis).
-- SWOT: grid 2x2 vira formulário de 4 `TagInput` (um por quadrante).
-- Salvamento otimista com `useMutation` + `invalidateQueries` nas queries `customerCoreQuery` / `customerTargetQuery` / `customerMarketQuery`.
-- Validação leve com Zod (limites de caracteres, arrays sem vazios).
-- Somente `owner/admin/editor` conseguem editar (`use-access-role` já disponível); demais veem os campos read-only.
+**Aproveitamento de mídia por placement**:
+- Feed/Carrossel: 1:1 ou 4:5
+- Stories/Reels: 9:16
+- Se usuário só enviou 1:1 e adicionou Stories → sistema mostra aviso "adapte a mídia 9:16" (não bloqueia; permite salvar como pendência)
+- Opcional futuro: auto-crop com IA (fora do escopo desta fase)
 
-## Backend (novos server functions em `src/lib/brand-strategy.functions.ts`)
+**Copy por placement**:
+- Compartilhada por padrão (hook/headline/copy/CTA/hashtags únicos)
+- Override opcional por placement (ex.: Stories usa só hook + sticker CTA)
+- UI: toggle "Personalizar copy para Stories"
 
-Todos com `.middleware([requireSupabaseAuth])` + checagem `is_brand_member` + validação Zod:
+**Agendamento por placement**:
+- Cada placement tem seu `scheduled_at` independente
+- Default inteligente: Feed no horário principal; Stories +2h depois; Reels em horário de pico de vídeo
+- Reaproveita o motor `src/lib/scheduling.ts` (best_times por formato)
 
-- `updateVoiceCardFn({ clientId, data })` → upsert em `brand_voice_cards` por `client_id`.
-- `upsertPersonaFn({ clientId, personaId?, data, isActive })` → insert ou update em `brand_personas`.
-- `deletePersonaFn({ personaId })`.
-- `updateCohortsFn({ clientId, data })` → upsert do array em `brand_cohorts`.
-- `updateSwotFn({ clientId, analysis })` → upsert em `brand_swot`.
-- `upsertCompetitorFn({ clientId, competitorId?, handle, ... })` / `deleteCompetitorFn`.
+**Aprovação**:
+- 1 aprovação = aprova todos os placements do card (mesmo conceito)
+- Rejeição pode ser granular ("rejeitar só Stories") — fase 2
 
-Cada handler grava também `updated_at = now()` e um registro em `activity_events` (`verb = 'edited_manually'`) para audit trail.
+**Publicação**:
+- Status independente por placement (`draft/scheduled/published/failed`)
+- Card só entra em "Publicado" quando todos placements publicaram
 
-## Frontend
+## Modelo de dados
 
-Arquivos novos:
-- `src/components/ai-agents/edit/voice-card-editor.tsx`
-- `src/components/ai-agents/edit/persona-editor.tsx` (usado dentro do `PersonaDrawer`)
-- `src/components/ai-agents/edit/cohort-editor.tsx`
-- `src/components/ai-agents/edit/swot-editor.tsx`
-- `src/components/ai-agents/edit/competitor-editor.tsx`
-- `src/components/ui/tag-input.tsx` (chip input reutilizável — se ainda não existir)
+Nova tabela `post_placements` (1-N com `posts`):
+```
+post_placements
+- id uuid pk
+- post_id uuid fk posts(id) cascade
+- brand_id, client_id (denormalizado p/ RLS)
+- format text ('feed'|'stories'|'reels'|'carrossel')
+- scheduled_at timestamptz
+- copy_override jsonb null   -- {hook,headline,copy,cta,hashtags} quando personalizado
+- media jsonb default '[]'   -- refs de mídia específicas deste placement (fallback: mídia do post)
+- status text default 'draft'
+- published_at timestamptz null
+- external_ref text null     -- id retornado pela API do Instagram
+- created_at/updated_at
+```
 
-Alterações:
-- `src/components/ai-agents/strategy-panel.tsx`: cada `SectionCard` recebe prop opcional `onEdit`; ao clicar troca conteúdo pelo editor correspondente. `PersonaDrawer` passa a ter modo edição inline. Grid do SWOT e tabela de competitors ganham CTAs.
+Migração de dados existente: cada post atual vira 1 placement com seu `format` e `scheduled_at` atuais. Coluna `posts.format` mantida como "formato primário" para compat + KPIs rápidos.
 
-## Fora de escopo (não mexer agora)
+RLS + GRANT via helper `is_brand_member` já existente.
 
-- Regenerar via IA a partir da edição manual.
-- Versionamento/histórico de mudanças (fica só o `activity_events`).
-- Edição em massa por CSV.
+## UI/UX
 
-## Detalhes técnicos
+**Card TaskDialog**:
+- Novo bloco "Placements" no topo (abaixo do estágio/responsável)
+- Chips selecionáveis: `[✓ Feed] [+ Stories] [+ Reels] [+ Carrossel]`
+- Ao adicionar placement inválido → toast explicando a regra
+- Cada placement expande accordion com: data/hora, mídia (herda ou override), toggle "personalizar copy"
 
-- Persistência: usar `context.supabase` do middleware (respeita RLS) — não usar `supabaseAdmin`.
-- Zod schemas partilhados entre client e server em `src/lib/brand-strategy.schemas.ts`.
-- Invalidação: após cada mutação, `qc.invalidateQueries({ queryKey: ["customer", clientId] })` (raiz comum das três queries) e `queryClient.setQueryData` otimista quando trivial.
-- Manter os normalizers atuais funcionando — os editores gravam já no formato canônico esperado pelos normalizers (chaves PT-BR), evitando divergência com output da IA.
+**Calendário**:
+- Um card com 2 placements aparece **2x** no calendário (uma por data/hora), com badge visual `↳ do mesmo conceito` linkando ao card mestre
+- KPIs (Feed/Stories/Reels/Carrossel) contam **placements**, não cards → números refletem a realidade da publicação
+- Filtros por formato continuam funcionando (filtram placements)
+
+**Board (`/content`)**:
+- Card mostra badges de todos os placements: `Feed · Stories`
+- Preview usa a mídia do formato primário
+
+## AI Engine
+- Prompt do gerador de ideias ganha campo `suggested_placements[]`
+- Heurística: hook educativo longo → Feed+Stories; hook viral curto → Reels+Stories; produto → Carrossel+Stories
+- Persistência: cria post + N placements na mesma transação
+
+## Rollout (fases)
+1. **DB + migração** (posts existentes → 1 placement cada)
+2. **CRUD de placements** em `task-dialog.tsx` (opt-in, começa com Feed+Stories)
+3. **Calendário e KPIs** consumindo placements
+4. **AI** sugerindo combinações
+5. **Publicação real** via Instagram Graph (fase futura — hoje é mock)
+
+## Fora do escopo desta fase
+- Auto-crop 1:1 → 9:16
+- Aprovação granular por placement
+- Cross-posting para outros canais (TikTok, LinkedIn)
