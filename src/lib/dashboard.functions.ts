@@ -594,11 +594,6 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
   return { counts, sparkline, alerts, healths, approvalsQueue, upcoming, heatmap };
 }
 
-export const getAgencyDashboard = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ brandId: z.string().uuid() }).parse(input))
-  .handler(async ({ data, context }) => computeAgency(context, data.brandId));
-
 // ==================== AI Insights ====================
 
 export type DashboardInsights = {
