@@ -12,7 +12,7 @@ import {
   type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Check, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
@@ -38,6 +38,7 @@ import {
   deleteStageFn,
   createPostFn,
   movePostFn,
+  listBrandAssigneesFn,
   STAGE_COLORS,
   type Board,
   type BoardPost,
@@ -528,9 +529,7 @@ function PostCard({
                 {created.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
               </span>
             ) : null}
-            <span className="inline-flex items-center gap-0.5" title={post.assignee_id ? "Responsável definido" : "Sem responsável"}>
-              <UserCircle2 className={`h-3.5 w-3.5 ${post.assignee_id ? "text-foreground/80" : "opacity-50"}`} />
-            </span>
+            <AssigneeChip brandId={post.brand_id} assigneeId={post.assignee_id} />
             {refCount > 0 ? (
               <span className="inline-flex items-center gap-0.5" title={`${refCount} anexo(s)`}>
                 <Paperclip className="h-3 w-3" /> {refCount}
