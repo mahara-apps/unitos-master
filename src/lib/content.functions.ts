@@ -479,7 +479,7 @@ export const updatePostFn = createServerFn({ method: "POST" })
               )
               .optional(),
             design_brief: z.string().max(8000).nullable().optional(),
-            review_status: z.enum(["pending", "approved", "rejected"]).optional(),
+            review_status: z.enum(["pending", "approved", "rejected", "rework"]).optional(),
           })
           .strict(),
       })
