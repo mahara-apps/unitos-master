@@ -55,6 +55,7 @@ import {
   uploadPostReferenceMediaFn,
   removePostReferenceMediaFn,
   signPostReferenceMediaFn,
+  generatePostReferenceImageFn,
   listBrandAssigneesFn,
   type PipelineStage,
   type BoardPost,
@@ -341,6 +342,7 @@ function EditBody({
   const uploadRef = useServerFn(uploadPostReferenceMediaFn);
   const removeRef = useServerFn(removePostReferenceMediaFn);
   const signRefs = useServerFn(signPostReferenceMediaFn);
+  const generateRefImage = useServerFn(generatePostReferenceImageFn);
 
   const { data } = useSuspenseQuery({
     queryKey: ["post-detail", postId],
@@ -475,6 +477,15 @@ function EditBody({
   const removeMedia = useMutation({
     mutationFn: (path: string) => removeRef({ data: { postId, path } }),
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["post-detail", postId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const generateMedia = useMutation({
+    mutationFn: () => generateRefImage({ data: { postId } }),
+    onSuccess: () => {
+      toast.success("Imagem gerada pela IA");
       qc.invalidateQueries({ queryKey: ["post-detail", postId] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -658,19 +669,35 @@ function EditBody({
                   e.target.value = "";
                 }}
               />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => fileInput.current?.click()}
-                disabled={upload.isPending}
-              >
-                {upload.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Upload className="mr-2 h-4 w-4" />
-                )}
-                Anexar
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => generateMedia.mutate()}
+                  disabled={generateMedia.isPending}
+                  title="Gerar imagem de referência usando o hook, headline e copy"
+                >
+                  {generateMedia.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="mr-2 h-4 w-4" />
+                  )}
+                  Gerar com IA
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInput.current?.click()}
+                  disabled={upload.isPending}
+                >
+                  {upload.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Upload className="mr-2 h-4 w-4" />
+                  )}
+                  Anexar
+                </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -1055,6 +1082,46 @@ function TaskLayout({
 
 // ----------------- Sub-sections (edit only) -----------------
 
+const VERB_LABELS: Record<string, string> = {
+  created: "Criado",
+  updated: "Atualizado",
+  stage_changed: "Estágio alterado",
+  approved: "Aprovado",
+  rework_requested: "Refação solicitada",
+  media_uploaded: "Mídia anexada",
+  media_removed: "Mídia removida",
+  media_generated: "Mídia gerada por IA",
+  assignee_changed: "Responsável alterado",
+  scheduled: "Agendado",
+  published: "Publicado",
+  copy_generated: "Copy gerada",
+  design_generated: "Design gerado",
+  ai_phase_started: "Fase de IA iniciada",
+  ai_phase_completed: "Fase de IA concluída",
+  comment_added: "Comentário adicionado",
+  approval_link_created: "Link de aprovação criado",
+  approval_link_revoked: "Link de aprovação revogado",
+  client_approved: "Aprovado pelo cliente",
+  client_rejected: "Rejeitado pelo cliente",
+};
+
+function translateVerb(v: string): string {
+  return (
+    VERB_LABELS[v] ??
+    v.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
+  );
+}
+
+function initialsOf(name: string | null): string {
+  if (!name) return "?";
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("") || "?";
+}
+
 function Timeline({ items }: { items: PostTimelineEvent[] }) {
   if (items.length === 0) {
     return (
@@ -1067,16 +1134,44 @@ function Timeline({ items }: { items: PostTimelineEvent[] }) {
         Histórico
       </p>
       <ul className="space-y-2 text-sm">
-        {items.map((ev) => (
-          <li key={ev.id} className="flex items-start gap-2">
-            <Badge variant="secondary" className="mt-0.5 shrink-0 font-normal">
-              {ev.verb}
-            </Badge>
-            <span className="text-muted-foreground">
-              {new Date(ev.created_at).toLocaleString("pt-BR")}
-            </span>
-          </li>
-        ))}
+        {items.map((ev) => {
+          const when = new Date(ev.created_at).toLocaleString("pt-BR", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+          return (
+            <li key={ev.id} className="flex items-start gap-2">
+              <Badge variant="secondary" className="mt-0.5 shrink-0 font-normal">
+                {translateVerb(ev.verb)}
+              </Badge>
+              <div className="flex min-w-0 flex-1 items-center gap-2 text-muted-foreground">
+                {ev.actor_avatar ? (
+                  <img
+                    src={ev.actor_avatar}
+                    alt={ev.actor_name ?? ""}
+                    className="h-5 w-5 shrink-0 rounded-full object-cover"
+                  />
+                ) : ev.actor_name ? (
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-foreground">
+                    {initialsOf(ev.actor_name)}
+                  </span>
+                ) : null}
+                <span className="truncate">
+                  {ev.actor_name ? (
+                    <>
+                      <span className="text-foreground">{ev.actor_name}</span>
+                      {" · "}
+                    </>
+                  ) : null}
+                  {when}
+                </span>
+              </div>
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
