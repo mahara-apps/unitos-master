@@ -649,6 +649,7 @@ function EditBody({
 type TaskState = {
   title: string;
   stageId: string;
+  assigneeId: string | null;
   channels: string[];
   format: string;
   copy: string;
@@ -666,6 +667,7 @@ function emptyState(stageId: string): TaskState {
   return {
     title: "",
     stageId,
+    assigneeId: null,
     channels: ["instagram"],
     format: "Feed",
     copy: "",
@@ -691,6 +693,7 @@ function stateFromPost(post: BoardPost, stages: PipelineStage[]): TaskState {
   return {
     title: post.title ?? "",
     stageId: post.stage_id ?? stages[0]?.id ?? "",
+    assigneeId: (post.assignee_id ?? null) as string | null,
     channels: (post.channels ?? []) as string[],
     format: post.format ?? "",
     copy: post.copy ?? "",
