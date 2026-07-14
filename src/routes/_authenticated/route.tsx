@@ -31,7 +31,6 @@ const fallbackTitles: Record<string, string> = {
 };
 
 export const Route = createFileRoute("/_authenticated")({
-  ssr: false,
   component: AppShell,
 });
 
