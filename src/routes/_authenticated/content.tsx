@@ -31,9 +31,8 @@ import {
   renamePipelineFn,
 } from "@/lib/content.functions";
 import { ContentBoard } from "@/components/content/content-board";
-import { PostDetailDialog } from "@/components/content/post-detail-dialog";
 import { ColumnConfigDialog } from "@/components/content/column-config-dialog";
-import { NewPostDialog } from "@/components/content/new-post-dialog";
+import { TaskDialog } from "@/components/content/task-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import {
   DropdownMenu,
@@ -208,16 +207,6 @@ function ContentReady({ brandId, clientId }: { brandId: string; clientId: string
         pending={renameMutation.isPending}
       />
 
-      {effectivePipelineId && openPostId ? (
-        <Suspense fallback={null}>
-          <PostDetailDialog
-            postId={openPostId}
-            onClose={() => setOpenPostId(null)}
-            boardQueryKey={["content-board", brandId, clientId, effectivePipelineId] as const}
-          />
-        </Suspense>
-      ) : null}
-
       {effectivePipelineId ? (
         <Suspense fallback={null}>
           <BoardExtras
@@ -229,6 +218,8 @@ function ContentReady({ brandId, clientId }: { brandId: string; clientId: string
             openNewTask={openNewTask}
             setOpenNewTask={setOpenNewTask}
             newTaskStageId={newTaskStageId}
+            openPostId={openPostId}
+            setOpenPostId={setOpenPostId}
           />
         </Suspense>
       ) : null}
