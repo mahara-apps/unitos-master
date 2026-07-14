@@ -86,6 +86,7 @@ type CommonProps = {
 type CreateProps = CommonProps & {
   mode: "create";
   defaultStageId?: string;
+  defaultScheduledAt?: string; // ISO string; pre-fills scheduled date/time
   postId?: never;
 };
 
@@ -219,17 +220,24 @@ function CreateBody({
   pipelineId,
   stages,
   defaultStageId,
+  defaultScheduledAt,
   invalidateKey,
 }: CreateProps) {
   const qc = useQueryClient();
   const createPost = useServerFn(createPostFn);
 
-  const [state, setState] = useState(() => emptyState(defaultStageId ?? stages[0]?.id ?? ""));
+  const [state, setState] = useState(() => {
+    const s = emptyState(defaultStageId ?? stages[0]?.id ?? "");
+    if (defaultScheduledAt) s.scheduledAt = toLocalInputValue(defaultScheduledAt);
+    return s;
+  });
 
   useEffect(() => {
-    setState(emptyState(defaultStageId ?? stages[0]?.id ?? ""));
+    const s = emptyState(defaultStageId ?? stages[0]?.id ?? "");
+    if (defaultScheduledAt) s.scheduledAt = toLocalInputValue(defaultScheduledAt);
+    setState(s);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultStageId, stages.length]);
+  }, [defaultStageId, stages.length, defaultScheduledAt]);
 
   const create = useMutation({
     mutationFn: async () =>
