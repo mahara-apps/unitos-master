@@ -7,16 +7,6 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { FALLBACK_ROUTE } from "@/lib/permissions";
@@ -35,7 +25,6 @@ import {
   TargetSkeleton,
   MarketSkeleton,
 } from "@/components/ai-agents/tab-skeletons";
-import { PipelineOnboarding } from "@/components/ai-agents/pipeline-onboarding";
 import { usePageHeader } from "@/hooks/use-page-header";
 import {
   CUSTOMER_QUERY_KEYS,
