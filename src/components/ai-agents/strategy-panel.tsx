@@ -947,6 +947,15 @@ function PersonaDrawer({ persona, onClose }: { persona: NormalizedPersona | null
 export function MarketTab({ brandId, clientId }: Scope) {
   const { data: market } = useSuspenseQuery(customerMarketQuery({ brandId, clientId }));
   const { analysis, matrix } = normalizeSwot(market.swot?.data);
+  const swotId = (market.swot as { id?: string } | null | undefined)?.id;
+  const [swotOpen, setSwotOpen] = useState(false);
+  const swotInitial: SwotState = {
+    strengths: analysis.strengths,
+    weaknesses: analysis.weaknesses,
+    opportunities: analysis.opportunities,
+    threats: analysis.threats,
+    matrix,
+  };
 
   const quadrants = [
     {
@@ -1004,7 +1013,12 @@ export function MarketTab({ brandId, clientId }: Scope) {
             Diagnóstico estratégico dos quatro vetores competitivos.
           </p>
         </div>
-        <ContextSourceBadge source="competitors" />
+        <div className="flex items-center gap-2">
+          <ContextSourceBadge source="competitors" />
+          <Button variant="outline" size="sm" onClick={() => setSwotOpen(true)} disabled={!swotId} className="h-8 gap-1.5">
+            <Pencil className="h-3.5 w-3.5" /> Editar SWOT
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
@@ -1093,6 +1107,14 @@ export function MarketTab({ brandId, clientId }: Scope) {
           )}
         </CardContent>
       </Card>
+
+      <SwotEditor
+        open={swotOpen}
+        onClose={() => setSwotOpen(false)}
+        scope={{ brandId, clientId }}
+        entityId={swotId}
+        initial={swotInitial}
+      />
     </div>
   );
 }
