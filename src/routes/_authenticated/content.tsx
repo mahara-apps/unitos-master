@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Plus, Sparkles } from "lucide-react";
+import { Loader2, Plus, Settings2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -32,6 +32,8 @@ import {
 import { ContentBoard } from "@/components/content/content-board";
 import { PostDetailDialog } from "@/components/content/post-detail-dialog";
 import { AiCopilotSheet } from "@/components/content/ai-copilot-sheet";
+import { ColumnConfigDialog } from "@/components/content/column-config-dialog";
+import { NewPostDialog } from "@/components/content/new-post-dialog";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/content")({
@@ -83,6 +85,9 @@ function ContentReady({ brandId, clientId }: { brandId: string; clientId: string
   const [openNewPipeline, setOpenNewPipeline] = useState(false);
   const [openPostId, setOpenPostId] = useState<string | null>(null);
   const [openCopilot, setOpenCopilot] = useState(false);
+  const [openColumnConfig, setOpenColumnConfig] = useState(false);
+  const [newTaskStageId, setNewTaskStageId] = useState<string | null>(null);
+  const [openNewTask, setOpenNewTask] = useState(false);
 
   const pipelines = pipelinesQuery.data;
   const effectivePipelineId = activePipelineId ?? pipelines[0]?.id ?? null;
@@ -110,6 +115,12 @@ function ContentReady({ brandId, clientId }: { brandId: string; clientId: string
           </Select>
           <Button variant="outline" size="sm" onClick={() => setOpenNewPipeline(true)}>
             <Plus className="mr-1.5 h-4 w-4" /> Novo pipeline
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setOpenColumnConfig(true)}>
+            <Settings2 className="mr-1.5 h-4 w-4" /> Colunas
+          </Button>
+          <Button size="sm" onClick={() => { setNewTaskStageId(null); setOpenNewTask(true); }}>
+            <Plus className="mr-1.5 h-4 w-4" /> Nova tarefa
           </Button>
           <Button
             size="sm"
@@ -144,6 +155,11 @@ function ContentReady({ brandId, clientId }: { brandId: string; clientId: string
             clientId={clientId}
             pipelineId={effectivePipelineId}
             onOpenPost={setOpenPostId}
+            onConfigureColumns={() => setOpenColumnConfig(true)}
+            onNewTask={(stageId) => {
+              setNewTaskStageId(stageId ?? null);
+              setOpenNewTask(true);
+            }}
           />
         </Suspense>
       ) : null}
@@ -178,6 +194,21 @@ function ContentReady({ brandId, clientId }: { brandId: string; clientId: string
             : [["content-pipelines", brandId, clientId] as const]
         }
       />
+
+      {effectivePipelineId ? (
+        <Suspense fallback={null}>
+          <BoardExtras
+            brandId={brandId}
+            clientId={clientId}
+            pipelineId={effectivePipelineId}
+            openColumnConfig={openColumnConfig}
+            setOpenColumnConfig={setOpenColumnConfig}
+            openNewTask={openNewTask}
+            setOpenNewTask={setOpenNewTask}
+            newTaskStageId={newTaskStageId}
+          />
+        </Suspense>
+      ) : null}
     </div>
   );
 }
@@ -187,11 +218,15 @@ function BoardView({
   clientId,
   pipelineId,
   onOpenPost,
+  onConfigureColumns,
+  onNewTask,
 }: {
   brandId: string;
   clientId: string;
   pipelineId: string;
   onOpenPost: (id: string) => void;
+  onConfigureColumns?: () => void;
+  onNewTask?: (stageId?: string) => void;
 }) {
   const loadBoard = useServerFn(loadBoardFn);
   const queryKey = useMemo(
@@ -218,7 +253,66 @@ function BoardView({
       supabase.removeChannel(channel);
     };
   }, [pipelineId, qc, queryKey]);
-  return <ContentBoard board={data} boardQueryKey={queryKey} onOpenPost={onOpenPost} />;
+  return (
+    <ContentBoard
+      board={data}
+      boardQueryKey={queryKey}
+      onOpenPost={onOpenPost}
+      onConfigureColumns={onConfigureColumns}
+      onNewTask={onNewTask}
+    />
+  );
+}
+
+function BoardExtras({
+  brandId,
+  clientId,
+  pipelineId,
+  openColumnConfig,
+  setOpenColumnConfig,
+  openNewTask,
+  setOpenNewTask,
+  newTaskStageId,
+}: {
+  brandId: string;
+  clientId: string;
+  pipelineId: string;
+  openColumnConfig: boolean;
+  setOpenColumnConfig: (v: boolean) => void;
+  openNewTask: boolean;
+  setOpenNewTask: (v: boolean) => void;
+  newTaskStageId: string | null;
+}) {
+  const loadBoard = useServerFn(loadBoardFn);
+  const queryKey = useMemo(
+    () => ["content-board", brandId, clientId, pipelineId] as const,
+    [brandId, clientId, pipelineId],
+  );
+  const { data } = useSuspenseQuery({
+    queryKey,
+    queryFn: () => loadBoard({ data: { brandId, clientId, pipelineId } }),
+  });
+  return (
+    <>
+      <ColumnConfigDialog
+        open={openColumnConfig}
+        onOpenChange={setOpenColumnConfig}
+        pipelineId={pipelineId}
+        stages={data.stages}
+        invalidateKey={queryKey}
+      />
+      <NewPostDialog
+        open={openNewTask}
+        onOpenChange={setOpenNewTask}
+        brandId={brandId}
+        clientId={clientId}
+        pipelineId={pipelineId}
+        stages={data.stages}
+        defaultStageId={newTaskStageId ?? data.stages[0]?.id}
+        invalidateKey={queryKey}
+      />
+    </>
+  );
 }
 
 function NewPipelineDialog({
