@@ -68,7 +68,56 @@ export type DashboardStats = {
   }>;
   sparkline: number[];
   recentActivity: ActivityEvent[];
+  channelCounts: Record<string, number>;
+  publishTrend14d: number[];
+  avgLeadTimeDays: number | null;
+  aiUsage: AiUsageSummary;
 };
+
+export type AiUsageSummary = {
+  cost30d: number;
+  cost7d: number;
+  jobs30d: number;
+  spark14d: number[];
+  byAgent: Array<{ agent: string; cost: number; jobs: number }>;
+};
+
+async function computeAiUsage(
+  supabase: SupabaseClient<Database>,
+  brandId: string,
+): Promise<AiUsageSummary> {
+  const res = await ignore(
+    supabase
+      .from("brand_ai_usage")
+      .select("agent,cost_usd,created_at")
+      .eq("brand_id", brandId)
+      .gte("created_at", sinceIso(30)),
+  );
+  const rows = ((res?.data ?? []) as Array<{ agent: string | null; cost_usd: number | string | null; created_at: string }>).map(
+    (r) => ({ agent: r.agent ?? "outros", cost: Number(r.cost_usd ?? 0), at: new Date(r.created_at).getTime() }),
+  );
+  const now = Date.now();
+  const cost30d = rows.reduce((s, r) => s + r.cost, 0);
+  const cost7d = rows.filter((r) => r.at > now - 7 * 86_400_000).reduce((s, r) => s + r.cost, 0);
+  const jobs30d = rows.length;
+  const spark14d = Array.from({ length: 14 }, (_, i) => {
+    const start = now - (13 - i) * 86_400_000;
+    const end = start + 86_400_000;
+    return rows.filter((r) => r.at >= start && r.at < end).reduce((s, r) => s + r.cost, 0);
+  });
+  const agg = new Map<string, { cost: number; jobs: number }>();
+  for (const r of rows) {
+    const cur = agg.get(r.agent) ?? { cost: 0, jobs: 0 };
+    cur.cost += r.cost;
+    cur.jobs += 1;
+    agg.set(r.agent, cur);
+  }
+  const byAgent = Array.from(agg.entries())
+    .map(([agent, v]) => ({ agent, cost: v.cost, jobs: v.jobs }))
+    .sort((a, b) => b.cost - a.cost)
+    .slice(0, 6);
+  return { cost30d, cost7d, jobs30d, spark14d, byAgent };
+}
 
 async function computeStats(
   ctx: SupaCtx,
@@ -96,6 +145,8 @@ async function computeStats(
     tasksStatusRes,
     postsStageRes,
     postsApproved30dRes,
+    postsFullRes,
+    aiUsage,
   ] = await Promise.all([
     ignore(
       supabase
@@ -209,6 +260,16 @@ async function computeStats(
           .gte("updated_at", sinceIso(30)),
       ),
     ),
+    ignore(
+      scope(
+        supabase
+          .from("posts")
+          .select("id,channels,created_at,published_at")
+          .eq("brand_id", brandId)
+          .gte("created_at", sinceIso(60)),
+      ),
+    ),
+    computeAiUsage(supabase, brandId),
   ]);
 
   const activityAll = (activityRes?.data ?? []) as ActivityEvent[];
@@ -236,6 +297,38 @@ async function computeStats(
     return acc;
   }, {});
 
+  const postsFull = (postsFullRes?.data ?? []) as Array<{
+    id: string;
+    channels: string[] | null;
+    created_at: string;
+    published_at: string | null;
+  }>;
+  const channelCounts: Record<string, number> = {};
+  for (const p of postsFull) {
+    for (const ch of p.channels ?? []) channelCounts[ch] = (channelCounts[ch] ?? 0) + 1;
+  }
+  const nowMs = Date.now();
+  const publishTrend14d = Array.from({ length: 14 }, (_, i) => {
+    const start = nowMs - (13 - i) * 86_400_000;
+    const end = start + 86_400_000;
+    return postsFull.filter((p) => {
+      if (!p.published_at) return false;
+      const t = new Date(p.published_at).getTime();
+      return t >= start && t < end;
+    }).length;
+  });
+  const publishedWithLead = postsFull.filter((p) => p.published_at);
+  const avgLeadTimeDays =
+    publishedWithLead.length === 0
+      ? null
+      : publishedWithLead.reduce(
+          (s, p) =>
+            s +
+            (new Date(p.published_at as string).getTime() - new Date(p.created_at).getTime()) /
+              86_400_000,
+          0,
+        ) / publishedWithLead.length;
+
   return {
     counts: {
       clients: clientsRes?.count ?? 0,
@@ -253,6 +346,10 @@ async function computeStats(
     upcomingPosts: (upcomingPostsRes?.data ?? []) as DashboardStats["upcomingPosts"],
     sparkline,
     recentActivity: activity.slice(0, 20),
+    channelCounts,
+    publishTrend14d,
+    avgLeadTimeDays,
+    aiUsage,
   };
 }
 
@@ -308,11 +405,16 @@ export type AgencyDashboard = {
     client_name: string | null;
   }>;
   heatmap: number[];
+  postsByStage: Record<string, number>;
+  publishTrend14d: number[];
+  aiUsage: AiUsageSummary;
+  avgLeadTimeDays: number | null;
+  topChannels: Array<{ channel: string; count: number }>;
 };
 
 async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashboard> {
   const { supabase } = ctx;
-  const [clientsRes, tasksRes, postsRes, briefingsRes, activityRes, upcomingRes, approvalsRes] =
+  const [clientsRes, tasksRes, postsRes, briefingsRes, activityRes, upcomingRes, approvalsRes, aiUsage] =
     await Promise.all([
       ignore(
         supabase
@@ -363,6 +465,7 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
           .order("updated_at", { ascending: true })
           .limit(12),
       ),
+      computeAiUsage(supabase, brandId),
     ]);
 
   const clients = (clientsRes?.data ?? []) as Array<{ id: string; name: string; color: string | null }>;
@@ -591,8 +694,59 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
     .sort((a, b) => new Date(a.when).getTime() - new Date(b.when).getTime())
     .slice(0, 12);
 
-  return { counts, sparkline, alerts, healths, approvalsQueue, upcoming, heatmap };
+  const postsByStage: Record<string, number> = {};
+  for (const p of posts) postsByStage[p.stage] = (postsByStage[p.stage] ?? 0) + 1;
+
+  const publishTrend14d = Array.from({ length: 14 }, (_, i) => {
+    const start = now - (13 - i) * 86_400_000;
+    const end = start + 86_400_000;
+    return posts.filter((p) => {
+      if (!p.published_at) return false;
+      const t = new Date(p.published_at).getTime();
+      return t >= start && t < end;
+    }).length;
+  });
+
+  const channelAgg = new Map<string, number>();
+  for (const p of posts) {
+    for (const ch of p.channels ?? []) channelAgg.set(ch, (channelAgg.get(ch) ?? 0) + 1);
+  }
+  const topChannels = Array.from(channelAgg.entries())
+    .map(([channel, count]) => ({ channel, count }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6);
+
+  const publishedPosts = posts.filter((p) => p.published_at);
+  // posts rows include updated_at not created_at; approximate lead time via updated_at vs published_at
+  const avgLeadTimeDays =
+    publishedPosts.length === 0
+      ? null
+      : publishedPosts.reduce((s, p) => {
+          const start = p.updated_at ? new Date(p.updated_at).getTime() : new Date(p.published_at as string).getTime();
+          const end = new Date(p.published_at as string).getTime();
+          return s + Math.max(0, (end - start) / 86_400_000);
+        }, 0) / publishedPosts.length;
+
+  return {
+    counts,
+    sparkline,
+    alerts,
+    healths,
+    approvalsQueue,
+    upcoming,
+    heatmap,
+    postsByStage,
+    publishTrend14d,
+    aiUsage,
+    avgLeadTimeDays,
+    topChannels,
+  };
 }
+
+export const getAgencyDashboardFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ brandId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => computeAgency(context, data.brandId));
 
 // ==================== AI Insights ====================
 
