@@ -17,6 +17,8 @@ import { useActiveContext } from "@/hooks/use-active-context";
 import { listScheduledPostsFn, type CalendarPost } from "@/lib/calendar.functions";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { GeneratePlanDialog } from "@/components/calendar/generate-plan-dialog";
+import { TaskDialog } from "@/components/content/task-dialog";
+import { loadBoardFn } from "@/lib/content.functions";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
@@ -38,6 +40,20 @@ function CalendarPage() {
   const [cursor, setCursor] = useState(() => startOfMonth(new Date()));
   const list = useServerFn(listScheduledPostsFn);
   const qc = useQueryClient();
+  const [openPost, setOpenPost] = useState<CalendarPost | null>(null);
+  const loadBoard = useServerFn(loadBoardFn);
+  const stagesQ = useQuery({
+    enabled: !!openPost?.pipeline_id,
+    queryKey: ["calendar-stages", openPost?.brand_id, openPost?.client_id, openPost?.pipeline_id],
+    queryFn: () =>
+      loadBoard({
+        data: {
+          brandId: openPost!.brand_id,
+          clientId: openPost!.client_id,
+          pipelineId: openPost!.pipeline_id!,
+        },
+      }),
+  });
 
   const from = startOfMonth(cursor).toISOString();
   const to = endOfMonth(cursor).toISOString();
@@ -167,7 +183,7 @@ function CalendarPage() {
                   </div>
                   <div className="space-y-1">
                     {posts.slice(0, 3).map((p) => (
-                      <PostChip key={p.id} post={p} />
+                      <PostChip key={p.id} post={p} onOpen={setOpenPost} />
                     ))}
                     {posts.length > 3 ? (
                       <span className="block pl-0.5 text-[10px] font-medium text-muted-foreground">
@@ -197,7 +213,12 @@ function CalendarPage() {
         ) : (
           <ul className="divide-y rounded-md border">
             {(q.data ?? []).slice(0, 8).map((p) => (
-              <li key={p.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onClick={() => setOpenPost(p)}
+                  className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
+                >
                 <div className="min-w-0">
                   <div className="truncate font-medium">{p.title}</div>
                   <div className="truncate text-xs text-muted-foreground">
@@ -207,18 +228,35 @@ function CalendarPage() {
                 <Badge variant="outline" className="capitalize">
                   {p.review_status ?? "pendente"}
                 </Badge>
+                </button>
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      {openPost && openPost.pipeline_id && stagesQ.data ? (
+        <TaskDialog
+          mode="edit"
+          open={!!openPost}
+          onOpenChange={(o) => {
+            if (!o) setOpenPost(null);
+          }}
+          brandId={openPost.brand_id}
+          clientId={openPost.client_id}
+          pipelineId={openPost.pipeline_id}
+          stages={stagesQ.data.stages}
+          postId={openPost.id}
+          invalidateKey={["calendar", brandId, clientId, from, to] as const}
+        />
+      ) : null}
     </div>
     </TooltipProvider>
   );
 }
 
 // -- Chip ---------------------------------------------------------------
-function PostChip({ post }: { post: CalendarPost }) {
+function PostChip({ post, onOpen }: { post: CalendarPost; onOpen: (p: CalendarPost) => void }) {
   const kind = classifyChannel(post.channels?.[0] ?? "");
   const t = new Date(post.scheduled_at).toLocaleTimeString("pt-BR", {
     hour: "2-digit",
@@ -227,10 +265,11 @@ function PostChip({ post }: { post: CalendarPost }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Link
-          to="/content"
+        <button
+          type="button"
+          onClick={() => onOpen(post)}
           className={cn(
-            "flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] transition-all hover:-translate-y-px hover:shadow-sm",
+            "flex w-full items-center gap-1.5 rounded-full border px-2 py-1 text-left text-[11px] transition-all hover:-translate-y-px hover:shadow-sm",
             kind.chip,
           )}
           title={post.title}
@@ -247,7 +286,7 @@ function PostChip({ post }: { post: CalendarPost }) {
               </AvatarFallback>
             </Avatar>
           ) : null}
-        </Link>
+        </button>
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-xs text-xs">
         <div className="font-medium">{post.title}</div>
