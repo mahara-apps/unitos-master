@@ -98,7 +98,14 @@ export type BoardPost = {
   brand_id: string;
   client_id: string;
   review_status?: string | null;
-  reference_media?: Array<{ path: string; name?: string; type?: string; size?: number }> | null;
+  reference_media?: Array<{
+    path: string;
+    name?: string;
+    type?: string;
+    size?: number;
+    thumb_path?: string | null;
+    pruned?: boolean | null;
+  }> | null;
   design_brief?: string | null;
   ai_phase?: string | null;
   approved_at?: string | null;
