@@ -57,7 +57,38 @@ function extractRaw<T = unknown>(data: unknown): T | null {
 }
 
 type RawPersona = Record<string, unknown>;
-type NormalizedPersona = { nome: string; descricao: string; dores: string[]; canais_preferidos: string[] };
+type NormalizedPersona = {
+  nome: string;
+  arquetipo: string;
+  descricao: string;
+  motivacao: string;
+  dor_principal: string;
+  dores: string[];
+  canais_preferidos: string[];
+  logica_compra: string;
+  fator_confianca: string;
+  como_decide: string;
+  objecao_dominante: string;
+  estilo_comunicacao: string;
+  ciclo_compra: string;
+  nivel_consciencia: string;
+};
+
+function pickString(o: Record<string, unknown>, keys: string[]): string {
+  for (const k of keys) {
+    const v = o[k];
+    if (typeof v === "string" && v.trim()) return v;
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+      // nested descriptor object
+      const nested = v as Record<string, unknown>;
+      for (const nk of ["descricao", "texto", "value", "resumo"]) {
+        const nv = nested[nk];
+        if (typeof nv === "string" && nv.trim()) return nv;
+      }
+    }
+  }
+  return "";
+}
 
 function normalizePersonas(data: unknown): NormalizedPersona[] {
   const parsed = extractRaw<unknown>(data);
@@ -68,26 +99,33 @@ function normalizePersonas(data: unknown): NormalizedPersona[] {
       ? ((parsed as { personas: RawPersona[] }).personas)
       : [];
   return arr.map((p) => {
-    const dorPrincipal = p.dor_principal as string | undefined;
-    const dores = Array.isArray(p.dores) ? (p.dores as string[]) : dorPrincipal ? [dorPrincipal] : [];
+    const dorPrincipal = pickString(p, ["dor_principal", "dor", "main_pain"]);
+    const dores = Array.isArray(p.dores)
+      ? (p.dores as string[])
+      : Array.isArray(p.pain_points)
+        ? (p.pain_points as string[])
+        : dorPrincipal ? [dorPrincipal] : [];
     return {
-      nome:
-        (p.nome as string) ??
-        (p.nome_persona as string) ??
-        (p.name as string) ??
-        "Persona",
-      descricao:
-        (p.perfil as string) ??
-        (p.descricao as string) ??
-        (p.biografia as string) ??
-        (p.description as string) ??
-        "",
+      nome: pickString(p, ["nome", "nome_persona", "name"]) || "Persona",
+      arquetipo: pickString(p, ["arquetipo", "archetype", "arquétipo"]),
+      descricao: pickString(p, ["perfil", "descricao", "biografia", "description", "resumo"]),
+      motivacao: pickString(p, ["motivacao", "motivation", "desejo", "desejo_principal", "aspiracao"]),
+      dor_principal: dorPrincipal,
       dores,
       canais_preferidos: Array.isArray(p.canais_preferidos)
         ? (p.canais_preferidos as string[])
         : Array.isArray(p.canais)
           ? (p.canais as string[])
-          : [],
+          : Array.isArray(p.channels)
+            ? (p.channels as string[])
+            : [],
+      logica_compra: pickString(p, ["logica_compra", "logica_de_compra", "buying_logic", "raciocinio_compra"]),
+      fator_confianca: pickString(p, ["fator_confianca", "trust_factor", "confianca", "gatilho_confianca"]),
+      como_decide: pickString(p, ["como_decide", "decision_process", "processo_decisao", "processo_decisorio"]),
+      objecao_dominante: pickString(p, ["objecao_dominante", "objecao", "main_objection", "objecao_principal"]),
+      estilo_comunicacao: pickString(p, ["estilo_comunicacao", "communication_style", "estilo_de_comunicacao", "tom_esperado"]),
+      ciclo_compra: pickString(p, ["ciclo_compra", "ciclo_de_compra", "buying_cycle", "tempo_decisao"]),
+      nivel_consciencia: pickString(p, ["nivel_consciencia", "nivel_de_consciencia", "awareness_level", "consciencia"]),
     };
   });
 }
