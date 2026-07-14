@@ -698,7 +698,9 @@ function stateFromPost(post: BoardPost, stages: PipelineStage[]): TaskState {
     script: scriptText,
     scheduledAt: post.scheduled_at ? post.scheduled_at.slice(0, 16) : "",
     remindAt: post.remind_at ? post.remind_at.slice(0, 16) : "",
-    priority: (post.priority as Priority) ?? "none",
+    priority: (["low", "medium", "high", "urgent"].includes(post.priority ?? "")
+      ? (post.priority as Priority)
+      : "none"),
     tags: (post.tags ?? []) as string[],
     visibleInPortal: !!post.visible_in_portal,
   };
