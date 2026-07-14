@@ -289,13 +289,13 @@ export const loadBoardFn = createServerFn({ method: "POST" })
           .single(),
         context.supabase
           .from("content_pipeline_stages")
-          .select("id,pipeline_id,key,label,color,position,is_terminal,hide_in_portal,enables_approval_link")
+          .select("id,pipeline_id,key,label,color,position,is_terminal,hide_in_portal,enables_approval_link,sla_days")
           .eq("pipeline_id", data.pipelineId)
           .order("position", { ascending: true }),
         context.supabase
           .from("posts")
           .select(
-            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes,priority,format,tags,visible_in_portal",
+            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes,priority,format,tags,visible_in_portal,project_id,remind_at,assignees",
           )
           .eq("brand_id", data.brandId)
           .eq("client_id", data.clientId)
