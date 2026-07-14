@@ -353,6 +353,8 @@ function PostDetailBody({
           />
         </div>
         <Separator />
+        <ApprovalLinkSection postId={postId} />
+        <Separator />
         <Timeline items={data.timeline} />
       </div>
       <DialogFooter className="gap-2 sm:justify-between">
