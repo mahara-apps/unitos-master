@@ -251,7 +251,7 @@ export function ContentBoard({ board, boardQueryKey, onOpenPost, onConfigureColu
         ))}
         <button
           type="button"
-          className="flex h-full min-w-[300px] shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 bg-transparent px-3 py-3 text-sm text-muted-foreground transition hover:border-border hover:bg-muted/40"
+          className="flex h-full min-w-[300px] shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 bg-transparent px-3 py-3 text-xs font-medium text-muted-foreground transition hover:border-border hover:bg-card"
           onClick={() => addStage.mutate()}
           disabled={addStage.isPending}
         >
