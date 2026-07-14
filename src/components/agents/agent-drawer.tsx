@@ -47,11 +47,10 @@ import {
 import { resolveAgentVariablesFn } from "@/lib/agent-variables.functions";
 
 const MODELS = [
-  "gemini-2.5-flash",
-  "gemini-2.5-pro",
-  "gpt-4o-mini",
-  "gpt-4o",
-  "claude-3.5-sonnet",
+  "google/gemini-2.5-flash",
+  "google/gemini-2.5-pro",
+  "openai/gpt-5.4-mini",
+  "openai/gpt-5.4",
 ];
 
 type Props = {
@@ -416,5 +415,131 @@ function highlightVars(text: string) {
     ) : (
       <span key={i}>{p}</span>
     ),
+  );
+}
+
+function VariablesPanel({
+  vars,
+  resolved,
+  overrides,
+  setOverrides,
+  loading,
+  hasContext,
+}: {
+  vars: string[];
+  resolved: ResolvedVariableMap;
+  overrides: Record<string, string>;
+  setOverrides: (fn: (s: Record<string, string>) => Record<string, string>) => void;
+  loading: boolean;
+  hasContext: boolean;
+}) {
+  if (vars.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Este prompt não declara variáveis dinâmicas.
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-4">
+      {!hasContext && (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
+          Selecione um cliente na barra lateral para hidratar as variáveis com dados reais.
+        </div>
+      )}
+      {loading && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" /> Resolvendo variáveis…
+        </div>
+      )}
+      {vars.map((v) => {
+        const spec = AGENT_VARIABLE_CATALOG[v];
+        const r = resolved[v];
+        const isRuntime = spec?.runtimeProvided;
+        const isResolved = spec ? (isRuntime ? true : !!r?.resolved) : false;
+        const StatusIcon = !spec
+          ? HelpCircle
+          : isRuntime
+            ? Circle
+            : isResolved
+              ? CheckCircle2
+              : AlertTriangle;
+        const statusClass = !spec
+          ? "text-muted-foreground"
+          : isRuntime
+            ? "text-sky-500"
+            : isResolved
+              ? "text-emerald-500"
+              : "text-amber-500";
+        return (
+          <div key={v} className="rounded-lg border bg-muted/30 p-3">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <StatusIcon className={`h-3.5 w-3.5 ${statusClass}`} />
+                  <code className="font-mono text-xs">{`{{${v}}}`}</code>
+                  {spec && (
+                    <Badge
+                      variant="outline"
+                      className="h-4 rounded-sm px-1 text-[10px] font-normal"
+                    >
+                      {CATEGORY_LABEL[spec.category]}
+                    </Badge>
+                  )}
+                  {!spec && (
+                    <Badge
+                      variant="destructive"
+                      className="h-4 rounded-sm px-1 text-[10px] font-normal"
+                    >
+                      desconhecida
+                    </Badge>
+                  )}
+                </div>
+                <p className="mt-1 text-xs leading-snug text-muted-foreground">
+                  {spec?.description ??
+                    "Não catalogada. Cadastre em src/lib/agent-variables.ts para que a execução real a hidrate."}
+                </p>
+                {spec && (
+                  <p className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground/70">
+                    Fonte: {spec.source}
+                  </p>
+                )}
+              </div>
+            </div>
+            {spec && !isRuntime && (
+              <div className="mt-2">
+                <Label className="text-[10px] uppercase text-muted-foreground">
+                  Valor atual
+                </Label>
+                <div className="mt-1 max-h-24 overflow-auto rounded border bg-background p-2 font-mono text-[11px] leading-relaxed">
+                  {r?.value ? (
+                    <span>{r.value.slice(0, 600)}{r.value.length > 600 ? "…" : ""}</span>
+                  ) : (
+                    <span className="text-amber-600 dark:text-amber-400">
+                      (vazio — preencha no briefing/brand hub)
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            <div className="mt-2">
+              <Label className="text-[10px] uppercase text-muted-foreground">
+                Override para o playground
+              </Label>
+              <Input
+                className="mt-1 h-8 text-xs"
+                value={overrides[v] ?? ""}
+                onChange={(e) =>
+                  setOverrides((s) => ({ ...s, [v]: e.target.value }))
+                }
+                placeholder={
+                  isRuntime ? "Informe um valor para testar" : "Sobrescrever valor resolvido"
+                }
+              />
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
