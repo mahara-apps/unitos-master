@@ -498,6 +498,7 @@ function EditBody({
               : null,
             stage_id: state.stageId || null,
             assignee_id: state.assigneeId,
+            project_id: state.projectId,
           },
         },
       });
@@ -526,6 +527,8 @@ function EditBody({
       qc.invalidateQueries({ queryKey: invalidateKey });
       qc.invalidateQueries({ queryKey: ["post-detail", postId] });
       qc.invalidateQueries({ queryKey: ["post-placements", postId] });
+      qc.invalidateQueries({ queryKey: ["projects", brandId] });
+      if (state.projectId) qc.invalidateQueries({ queryKey: ["project", brandId, state.projectId] });
       onOpenChange(false);
     },
     onError: (e: Error) => toast.error(e.message),
