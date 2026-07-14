@@ -1487,15 +1487,16 @@ function ApprovalLinkSection({ postId }: { postId: string }) {
   );
 
   return (
-    <div className="space-y-2">
+    <DashboardPanelSurface className="space-y-3 p-4">
       <div className="flex items-center justify-between">
-        <Label className="flex items-center gap-1.5">
+        <Label className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
           <Link2 className="h-3.5 w-3.5" /> Aprovação externa
         </Label>
         <Button
           type="button"
           size="sm"
           variant="outline"
+          className="h-9"
           onClick={() => create.mutate()}
           disabled={create.isPending}
         >
@@ -1508,7 +1509,7 @@ function ApprovalLinkSection({ postId }: { postId: string }) {
         </Button>
       </div>
       {active.length === 0 ? (
-        <p className="text-xs text-muted-foreground">
+        <p className="rounded-lg border border-dashed border-border/60 bg-card/40 px-3 py-4 text-xs text-muted-foreground">
           Nenhum link ativo. Gere um link seguro para envio ao cliente aprovar
           sem login.
         </p>
@@ -1522,12 +1523,12 @@ function ApprovalLinkSection({ postId }: { postId: string }) {
             return (
               <li
                 key={t.id}
-                className="flex items-center gap-2 rounded-md border bg-muted/40 px-2 py-1.5 text-xs"
+                className="flex items-center gap-2 rounded-md border border-border/60 bg-background/60 px-2 py-1.5 text-xs"
               >
                 <code className="flex-1 truncate font-mono">{url}</code>
                 <button
                   type="button"
-                  className="rounded p-1 hover:bg-muted"
+                  className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
                   onClick={() => {
                     void navigator.clipboard.writeText(url);
                     toast.success("Link copiado");
@@ -1538,7 +1539,7 @@ function ApprovalLinkSection({ postId }: { postId: string }) {
                 </button>
                 <button
                   type="button"
-                  className="rounded p-1 text-destructive hover:bg-destructive/10"
+                  className="rounded-md p-1 text-destructive hover:bg-destructive/10"
                   onClick={() => revoke.mutate(t.id)}
                   title="Revogar"
                 >
@@ -1549,7 +1550,7 @@ function ApprovalLinkSection({ postId }: { postId: string }) {
           })}
         </ul>
       )}
-    </div>
+    </DashboardPanelSurface>
   );
 }
 
@@ -1629,15 +1630,15 @@ function CopyEditor({
   };
 
   return (
-    <Tabs defaultValue={COPY_FIELDS[0].key} className="rounded-lg border border-border/60 bg-background">
-      <TabsList className="h-9 w-full justify-start gap-1 rounded-none rounded-t-lg border-b border-border/60 bg-muted/30 px-2">
+    <Tabs defaultValue={COPY_FIELDS[0].key} className="overflow-hidden rounded-xl border border-border/60 bg-card">
+      <TabsList className="h-10 w-full justify-start gap-1 rounded-none border-b border-border/60 bg-background/60 px-2">
         {COPY_FIELDS.map((f) => {
           const filled = sections[f.key].trim().length > 0;
           return (
             <TabsTrigger
               key={f.key}
               value={f.key}
-              className="h-7 gap-1.5 px-2.5 text-[11px] font-semibold uppercase tracking-[0.1em]"
+              className="h-7 gap-1.5 px-2.5 text-[11px] font-semibold uppercase tracking-widest"
             >
               {f.label}
               {filled ? (
@@ -1650,7 +1651,7 @@ function CopyEditor({
       {COPY_FIELDS.map((f) => (
         <TabsContent key={f.key} value={f.key} className="mt-0 px-3 py-3">
           <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            <span className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
               {f.label}
             </span>
             <div className="flex items-center gap-1">
@@ -1717,7 +1718,7 @@ function MicroAiButton({
       aria-label={tooltip}
       onClick={() => m.mutate()}
       disabled={m.isPending}
-      className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-violet-500/30 bg-violet-500/10 text-violet-600 transition hover:bg-violet-500/20 disabled:opacity-60 dark:text-violet-300"
+      className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-background/60 text-muted-foreground transition hover:border-border hover:text-foreground disabled:opacity-60"
     >
       {m.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Icon className="h-3 w-3" />}
     </button>
@@ -1851,7 +1852,7 @@ function InstagramPreview({
 
   return (
     <div className="space-y-2">
-      <div className="relative mx-auto w-full max-w-sm overflow-hidden rounded-xl border bg-black">
+      <div className="relative mx-auto w-full max-w-sm overflow-hidden rounded-xl border border-border/60 bg-foreground">
         <div className="relative aspect-square w-full">
           {displayUrl ? (
             isVideo && !current.pruned ? (
@@ -1877,21 +1878,21 @@ function InstagramPreview({
           )}
 
           {isVideo && current.pruned ? (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/40">
-              <Play className="h-10 w-10 text-white/90" />
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-foreground/40">
+              <Play className="h-10 w-10 text-background/90" />
             </div>
           ) : null}
 
           {refs.length > 1 ? (
             <>
-              <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-medium text-white">
+              <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-md bg-foreground/70 px-2 py-0.5 text-[11px] font-medium text-background">
                 <Images className="h-3 w-3" /> {idx + 1}/{refs.length}
               </span>
               {idx > 0 ? (
                 <button
                   type="button"
                   onClick={() => setIdx((i) => Math.max(0, i - 1))}
-                  className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-1 text-white transition hover:bg-black/70"
+                  className="absolute left-2 top-1/2 -translate-y-1/2 rounded-md bg-foreground/60 p-1 text-background transition hover:bg-foreground/80"
                   aria-label="Anterior"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -1903,7 +1904,7 @@ function InstagramPreview({
                   onClick={() =>
                     setIdx((i) => Math.min(refs.length - 1, i + 1))
                   }
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-1 text-white transition hover:bg-black/70"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-foreground/60 p-1 text-background transition hover:bg-foreground/80"
                   aria-label="Próximo"
                 >
                   <ChevronRight className="h-4 w-4" />
@@ -1916,21 +1917,21 @@ function InstagramPreview({
             type="button"
             onClick={() => onRemove(current.path)}
             title="Remover mídia"
-            className="absolute left-2 top-2 rounded-full bg-black/60 p-1 text-white transition hover:bg-red-500/90"
+            className="absolute left-2 top-2 rounded-md bg-foreground/70 p-1 text-background transition hover:bg-destructive hover:text-destructive-foreground"
           >
             <X className="h-3.5 w-3.5" />
           </button>
         </div>
 
         {refs.length > 1 ? (
-          <div className="flex items-center justify-center gap-1 bg-black/80 py-2">
+          <div className="flex items-center justify-center gap-1 bg-foreground/80 py-2">
             {refs.map((_, i) => (
               <button
                 key={i}
                 type="button"
                 onClick={() => setIdx(i)}
                 className={`h-1.5 rounded-full transition-all ${
-                  i === idx ? "w-4 bg-white" : "w-1.5 bg-white/40"
+                  i === idx ? "w-4 bg-background" : "w-1.5 bg-background/40"
                 }`}
                 aria-label={`Ir para ${i + 1}`}
               />
@@ -1949,7 +1950,7 @@ function InstagramPreview({
                 key={r.path}
                 type="button"
                 onClick={() => setIdx(i)}
-                className={`relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-md border transition ${
+                className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-border/60 transition ${
                   i === idx ? "ring-2 ring-primary" : "opacity-70 hover:opacity-100"
                 }`}
               >
@@ -1959,8 +1960,8 @@ function InstagramPreview({
                   <div className="h-full w-full bg-muted" />
                 )}
                 {isVid ? (
-                  <span className="absolute inset-0 flex items-center justify-center bg-black/30">
-                    <Play className="h-3.5 w-3.5 text-white" />
+                  <span className="absolute inset-0 flex items-center justify-center bg-foreground/30">
+                    <Play className="h-3.5 w-3.5 text-background" />
                   </span>
                 ) : null}
               </button>
