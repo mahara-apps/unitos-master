@@ -6,6 +6,7 @@ import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
 import { buildBrandContextBlueprint } from "@/lib/ai-agents.functions";
+import { buildSlotScheduler, extractBestHoursFromChannels } from "@/lib/scheduling";
 
 // One-Click Monthly Plan Orchestrator
 // -----------------------------------------------------------------------------
@@ -377,7 +378,7 @@ async function runOrchestrator(params: {
         start.setUTCDate(1);
         start.setUTCMonth(start.getUTCMonth() + 1);
       }
-      start.setUTCHours(13, 0, 0, 0); // 10:00 BRT (UTC-3)
+      start.setUTCHours(12, 0, 0, 0); // base do cursor de dias úteis
       const businessDays: Date[] = [];
       const cursor = new Date(start);
       for (let m = 0; m < totalMeses; m++) {
@@ -388,16 +389,14 @@ async function runOrchestrator(params: {
           cursor.setUTCDate(cursor.getUTCDate() + 1);
         }
       }
-      const slotHours = [13, 17, 20]; // 10h/14h/17h BRT
-      const scheduleFor = (index: number): string => {
-        if (!businessDays.length) return new Date().toISOString();
-        const perDay = Math.max(1, Math.ceil(results.length / businessDays.length));
-        const dayIdx = Math.min(businessDays.length - 1, Math.floor(index / perDay));
-        const slotIdx = index % perDay;
-        const d = new Date(businessDays[dayIdx]);
-        d.setUTCHours(slotHours[slotIdx % slotHours.length], 0, 0, 0);
-        return d.toISOString();
-      };
+      // Horários preferenciais: Instagram Insights (se conectado) OU +6h padrão.
+      const { data: connRow } = await supabase
+        .from("brand_connections")
+        .select("channels")
+        .eq("brand_id", input.brandId)
+        .maybeSingle();
+      const bestHoursBRT = extractBestHoursFromChannels(connRow?.channels);
+      const scheduleFor = buildSlotScheduler(businessDays, results.length, bestHoursBRT);
       const rows = results.map((r, idx) => {
         const channel = normalizeChannel(r.concept.plataforma ?? "");
         const captionMd = r.copy.caption ?? "";
