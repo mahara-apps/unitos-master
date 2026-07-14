@@ -83,7 +83,7 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
   prompt: string;
   schema: T;
   strategic: boolean;
-}): Promise<z.infer<T>> {
+}): Promise<{ output: z.infer<T>; raw?: string }> {
   const key = process.env.LOVABLE_API_KEY;
   if (!key) throw new Error("Missing LOVABLE_API_KEY");
   const gateway = createLovableAiGatewayProvider(key, undefined, {
@@ -97,17 +97,71 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
       prompt: opts.prompt,
       output: Output.object({ schema: opts.schema }),
     });
-    return res.output as z.infer<T>;
+    return { output: res.output as z.infer<T>, raw: res.text };
   } catch (err) {
     if (NoObjectGeneratedError.isInstance(err)) {
       const raw = (err.text ?? "")
         .replace(/^```(?:json)?\s*/i, "")
         .replace(/```\s*$/i, "")
         .trim();
-      return JSON.parse(raw) as z.infer<T>;
+      try {
+        return { output: JSON.parse(raw) as z.infer<T>, raw };
+      } catch {
+        return { output: {} as z.infer<T>, raw };
+      }
     }
     throw err;
   }
+}
+
+// Extrai um array de conceitos aceitando chaves alternativas que o modelo
+// eventualmente devolve quando structuredOutputs está desligado.
+function extractConcepts(raw: unknown): unknown[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    const candidates = [
+      "concepts", "conceitos", "calendario", "calendar",
+      "posts", "pautas", "ideias", "ideas", "items", "itens", "content",
+    ];
+    for (const k of candidates) {
+      const v = obj[k];
+      if (Array.isArray(v)) return v;
+    }
+    // fallback: primeiro valor array encontrado
+    for (const v of Object.values(obj)) {
+      if (Array.isArray(v)) return v;
+    }
+  }
+  return [];
+}
+
+function normalizeConcept(c: unknown): {
+  titulo: string; pilar: string; formato: string; plataforma: string;
+  gancho: string; objetivo: string; cta: string;
+} | null {
+  if (!c || typeof c !== "object") return null;
+  const r = c as Record<string, unknown>;
+  const pick = (...ks: string[]) => {
+    for (const k of ks) {
+      const v = r[k];
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+    return "";
+  };
+  const titulo = pick("titulo", "title", "headline", "tema");
+  const gancho = pick("gancho", "hook", "abertura");
+  if (!titulo && !gancho) return null;
+  return {
+    titulo: titulo || gancho,
+    pilar: pick("pilar", "pillar", "categoria", "tema"),
+    formato: pick("formato", "format", "tipo") || "Feed",
+    plataforma: pick("plataforma", "canal", "platform", "channel") || "instagram",
+    gancho: gancho || titulo,
+    objetivo: pick("objetivo", "goal", "objective"),
+    cta: pick("cta", "call_to_action", "acao"),
+  };
 }
 
 function fillTemplate(template: string, vars: Record<string, string>): string {
