@@ -24,11 +24,14 @@ export const STAGE_GRADIENT: Record<StageColor, string> = {
 };
 
 export const PRIORITY_STYLES: Record<string, string> = {
-  low: "border-zinc-500/30 bg-zinc-500/10 text-zinc-300",
-  medium: "border-sky-500/30 bg-sky-500/10 text-sky-300",
-  high: "border-amber-500/30 bg-amber-500/10 text-amber-300",
-  urgent: "border-rose-500/30 bg-rose-500/10 text-rose-300",
+  low: "border-slate-500/20 bg-slate-500/10 text-slate-600 dark:text-slate-300",
+  medium: "border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-300",
+  high: "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-300",
+  urgent: "border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-300",
 };
+
+export const FORMAT_STYLE =
+  "border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-300";
 
 export const PRIORITY_LABEL: Record<string, string> = {
   low: "Baixa",
