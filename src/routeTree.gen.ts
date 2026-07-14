@@ -40,6 +40,7 @@ import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authent
 import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_authenticated/settings.profile'
 import { Route as AuthenticatedSettingsLogsRouteImport } from './routes/_authenticated/settings.logs'
 import { Route as AuthenticatedSettingsAiRouteImport } from './routes/_authenticated/settings.ai'
+import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_authenticated/projects.$projectId'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 import { Route as ApiPublicMediaPruneRouteImport } from './routes/api/public/media/prune'
 import { Route as ApiPublicApprovalTokenRouteImport } from './routes/api/public/approval.$token'
@@ -207,6 +208,12 @@ const AuthenticatedSettingsAiRoute = AuthenticatedSettingsAiRouteImport.update({
   path: '/ai',
   getParentRoute: () => AuthenticatedSettingsRoute,
 } as any)
+const AuthenticatedProjectsProjectIdRoute =
+  AuthenticatedProjectsProjectIdRouteImport.update({
+    id: '/$projectId',
+    path: '/$projectId',
+    getParentRoute: () => AuthenticatedProjectsRoute,
+  } as any)
 const AuthenticatedCustomersCustomerIdRoute =
   AuthenticatedCustomersCustomerIdRouteImport.update({
     id: '/$customerId',
@@ -249,6 +256,7 @@ export interface FileRoutesByFullPath {
   '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
+  '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
   '/settings/logs': typeof AuthenticatedSettingsLogsRoute
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
@@ -282,6 +290,7 @@ export interface FileRoutesByTo {
   '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
+  '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
   '/settings/logs': typeof AuthenticatedSettingsLogsRoute
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
@@ -320,6 +329,7 @@ export interface FileRoutesById {
   '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
   '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
+  '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/_authenticated/settings/ai': typeof AuthenticatedSettingsAiRoute
   '/_authenticated/settings/logs': typeof AuthenticatedSettingsLogsRoute
   '/_authenticated/settings/profile': typeof AuthenticatedSettingsProfileRoute
@@ -358,6 +368,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/portal/$token'
     | '/customers/$customerId'
+    | '/projects/$projectId'
     | '/settings/ai'
     | '/settings/logs'
     | '/settings/profile'
@@ -391,6 +402,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/portal/$token'
     | '/customers/$customerId'
+    | '/projects/$projectId'
     | '/settings/ai'
     | '/settings/logs'
     | '/settings/profile'
@@ -428,6 +440,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/portal/$token'
     | '/_authenticated/customers/$customerId'
+    | '/_authenticated/projects/$projectId'
     | '/_authenticated/settings/ai'
     | '/_authenticated/settings/logs'
     | '/_authenticated/settings/profile'
@@ -684,6 +697,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsAiRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/projects/$projectId': {
+      id: '/_authenticated/projects/$projectId'
+      path: '/$projectId'
+      fullPath: '/projects/$projectId'
+      preLoaderRoute: typeof AuthenticatedProjectsProjectIdRouteImport
+      parentRoute: typeof AuthenticatedProjectsRoute
+    }
     '/_authenticated/customers/$customerId': {
       id: '/_authenticated/customers/$customerId'
       path: '/$customerId'
@@ -748,10 +768,12 @@ const AuthenticatedCustomersRouteWithChildren =
   )
 
 interface AuthenticatedProjectsRouteChildren {
+  AuthenticatedProjectsProjectIdRoute: typeof AuthenticatedProjectsProjectIdRoute
   AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
 }
 
 const AuthenticatedProjectsRouteChildren: AuthenticatedProjectsRouteChildren = {
+  AuthenticatedProjectsProjectIdRoute: AuthenticatedProjectsProjectIdRoute,
   AuthenticatedProjectsIndexRoute: AuthenticatedProjectsIndexRoute,
 }
 
