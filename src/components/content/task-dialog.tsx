@@ -685,54 +685,26 @@ function EditBody({
           <div className="rounded-md border p-2">
             {refs.length === 0 ? (
               <p className="px-1 py-2 text-xs text-muted-foreground">
-                Anexe imagens que a IA usará como referência visual na Fase 2.
+                Anexe imagens ou vídeos. Ao inserir 2 ou mais, o post vira
+                automaticamente um Carrossel.
               </p>
             ) : (
-              <div className="grid grid-cols-4 gap-2">
-                {refs.map((r) => {
-                  const url = signedUrls[r.path];
-                  const isImg = (r.type ?? "").startsWith("image/");
-                  return (
-                    <div
-                      key={r.path}
-                      className="group relative aspect-square overflow-hidden rounded-md border bg-muted"
-                    >
-                      {isImg && url ? (
-                        <img
-                          src={url}
-                          alt={r.name ?? r.path}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full flex-col items-center justify-center p-1 text-center">
-                          <FileText className="h-6 w-6 text-muted-foreground" />
-                          <span className="mt-1 line-clamp-2 text-[10px] text-muted-foreground">
-                            {r.name}
-                          </span>
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        className="absolute right-1 top-1 rounded-full bg-background/90 p-1 opacity-0 shadow transition group-hover:opacity-100"
-                        onClick={() => removeMedia.mutate(r.path)}
-                        title="Remover"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
+              <InstagramPreview
+                refs={refs}
+                urls={signedUrls}
+                onRemove={(p) => removeMedia.mutate(p)}
+              />
             )}
             <div className="mt-2 flex justify-end">
               <input
                 ref={fileInput}
                 type="file"
+                multiple
                 className="hidden"
-                accept="image/*,application/pdf"
+                accept="image/*,video/*"
                 onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) upload.mutate(f);
+                  const fs = Array.from(e.target.files ?? []);
+                  if (fs.length > 0) upload.mutate(fs);
                   e.target.value = "";
                 }}
               />
