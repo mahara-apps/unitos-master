@@ -287,6 +287,7 @@ async function runIdeas(params: {
           title: p.titulo.slice(0, 160),
           copy: p.gancho,
           channels: [channel],
+          format: normalizeFormat(p.formato),
           stage: "idea" as const,
           position: nextPos,
           created_by: userId,
