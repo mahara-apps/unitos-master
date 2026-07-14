@@ -13,6 +13,8 @@ export type CalendarPost = {
   stage_id: string | null;
   review_status: string | null;
   ai_phase: string | null;
+  format: string | null;
+  assignee: { id: string; full_name: string | null; avatar_url: string | null } | null;
 };
 
 export const listScheduledPostsFn = createServerFn({ method: "POST" })
@@ -31,7 +33,7 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
     let q = context.supabase
       .from("posts")
       .select(
-        "id,title,scheduled_at,channels,cover_url,client_id,brand_id,stage_id,review_status,ai_phase",
+        "id,title,scheduled_at,channels,cover_url,client_id,brand_id,stage_id,review_status,ai_phase,format,assignee_id",
       )
       .eq("brand_id", data.brandId)
       .is("deleted_at", null)
@@ -42,7 +44,33 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
     if (data.clientId) q = q.eq("client_id", data.clientId);
     const { data: rows, error } = await q;
     if (error) throw error;
-    return (rows ?? []) as CalendarPost[];
+    const list = rows ?? [];
+    const ids = Array.from(
+      new Set(list.map((r) => r.assignee_id).filter((v): v is string => !!v)),
+    );
+    const profiles = ids.length
+      ? (
+          await context.supabase
+            .from("user_profiles")
+            .select("id, full_name, avatar_url")
+            .in("id", ids)
+        ).data ?? []
+      : [];
+    const map = new Map(profiles.map((p) => [p.id, p]));
+    return list.map((r) => ({
+      id: r.id,
+      title: r.title,
+      scheduled_at: r.scheduled_at as string,
+      channels: (r.channels ?? []) as string[],
+      cover_url: r.cover_url,
+      client_id: r.client_id,
+      brand_id: r.brand_id,
+      stage_id: r.stage_id,
+      review_status: r.review_status,
+      ai_phase: r.ai_phase,
+      format: r.format,
+      assignee: r.assignee_id ? map.get(r.assignee_id) ?? null : null,
+    }));
   });
 
 export const rescheduleFn = createServerFn({ method: "POST" })
