@@ -74,8 +74,25 @@ export type BoardPost = {
   visible_in_portal?: boolean | null;
   internal_briefing?: string | null;
   client_briefing?: string | null;
-  script?: unknown;
-  references?: unknown;
+  script?: ScriptScene[] | null;
+  references?: PostReference[] | null;
+};
+
+export type ScriptScene = {
+  cena: number;
+  tempo?: string;
+  narrador?: string;
+  fala?: string;
+  observacao?: string;
+};
+
+export type PostReference = {
+  id: string;
+  url?: string;
+  title?: string;
+  description?: string;
+  image?: string;
+  visible_in_portal?: boolean;
 };
 
 export type Board = {
