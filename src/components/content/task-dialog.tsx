@@ -55,6 +55,7 @@ import {
   uploadPostReferenceMediaFn,
   removePostReferenceMediaFn,
   signPostReferenceMediaFn,
+  generatePostReferenceImageFn,
   listBrandAssigneesFn,
   type PipelineStage,
   type BoardPost,
