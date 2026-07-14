@@ -739,19 +739,21 @@ function TaskLayout({
     setState((prev) => ({ ...prev, tags: prev.tags.filter((x) => x !== t) }));
 
   return (
-    <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_260px]">
+    <div className="space-y-6">
       <div className="space-y-5">
-        <div className="space-y-1.5">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-            Título *
-          </Label>
-          <Input
-            value={state.title}
-            onChange={(e) => set("title", e.target.value)}
-            placeholder="Nome da tarefa..."
-            autoFocus={mode === "create"}
-          />
-        </div>
+        {mode === "create" ? (
+          <div className="space-y-1.5">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              Título *
+            </Label>
+            <Input
+              value={state.title}
+              onChange={(e) => set("title", e.target.value)}
+              placeholder="Nome da tarefa..."
+              autoFocus
+            />
+          </div>
+        ) : null}
 
         <div className="space-y-2">
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -800,55 +802,18 @@ function TaskLayout({
           </div>
         </div>
 
-        <Tabs defaultValue="copy" className="w-full">
-          <TabsList variant="grid" className="grid w-full grid-cols-4">
-            <TabsTrigger value="copy">Legenda</TabsTrigger>
+        <CopyEditor
+          value={state.copy}
+          onChange={(v) => set("copy", v)}
+          postId={mode === "edit" ? postId : undefined}
+        />
+
+        <Tabs defaultValue="internal" className="w-full">
+          <TabsList variant="grid" className="grid w-full grid-cols-3">
             <TabsTrigger value="internal">Briefing interno</TabsTrigger>
             <TabsTrigger value="client">Briefing cliente</TabsTrigger>
             <TabsTrigger value="script">Roteiro</TabsTrigger>
           </TabsList>
-          <TabsContent value="copy" className="space-y-2">
-            <Textarea
-              value={state.copy}
-              onChange={(e) => set("copy", e.target.value)}
-              rows={5}
-              placeholder="Caption do post..."
-            />
-            {mode === "edit" && postId ? (
-              <div className="flex flex-wrap gap-1.5">
-                <AiFieldButton
-                  postId={postId}
-                  field="copy"
-                  label="Gerar copy"
-                  onText={(t) => set("copy", t)}
-                />
-                <AiFieldButton
-                  postId={postId}
-                  field="hashtags"
-                  label="Hashtags"
-                  size="xs"
-                  onText={(t) =>
-                    setState((p) => ({
-                      ...p,
-                      copy: `${p.copy.trimEnd()}\n\n${t}`.trim(),
-                    }))
-                  }
-                />
-                <AiFieldButton
-                  postId={postId}
-                  field="cta"
-                  label="CTA"
-                  size="xs"
-                  onText={(t) =>
-                    setState((p) => ({
-                      ...p,
-                      copy: `${p.copy.trimEnd()}\n\n${t}`.trim(),
-                    }))
-                  }
-                />
-              </div>
-            ) : null}
-          </TabsContent>
           <TabsContent value="internal">
             <Textarea
               value={state.internalBriefing}
@@ -885,24 +850,26 @@ function TaskLayout({
         </Tabs>
       </div>
 
-      <div className="space-y-4">
-        <div className="space-y-1.5">
-          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-            Etapa
-          </Label>
-          <Select value={state.stageId} onValueChange={(v) => set("stageId", v)}>
-            <SelectTrigger className="h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {stages.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="grid grid-cols-2 gap-3 border-t border-border/50 pt-5">
+        {mode === "create" ? (
+          <div className="space-y-1.5">
+            <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+              Etapa
+            </Label>
+            <Select value={state.stageId} onValueChange={(v) => set("stageId", v)}>
+              <SelectTrigger className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {stages.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
 
         <div className="space-y-1.5">
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -947,7 +914,7 @@ function TaskLayout({
           </Select>
         </div>
 
-        <div className="space-y-1.5">
+        <div className="col-span-2 space-y-1.5">
           <Label className="text-xs uppercase tracking-wide text-muted-foreground">
             Tags
           </Label>
@@ -982,7 +949,7 @@ function TaskLayout({
           </div>
         </div>
 
-        <div className="flex items-center justify-between rounded-md border border-border/60 px-3 py-2">
+        <div className="col-span-2 flex items-center justify-between rounded-md border border-border/60 px-3 py-2">
           <Label className="text-xs">Visível no portal</Label>
           <Switch
             checked={state.visibleInPortal}
