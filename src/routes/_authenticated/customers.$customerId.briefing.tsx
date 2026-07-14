@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AlertTriangle } from "lucide-react";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { BriefingWorkspace } from "@/components/brand-hub/briefing-workspace";
+import { usePageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/customers/$customerId/briefing")({
   component: CustomerBriefingRoute,
@@ -12,6 +13,14 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 function CustomerBriefingRoute() {
   const { customerId } = Route.useParams();
   const { brandId } = useActiveContext();
+
+  usePageHeader(
+    {
+      title: "Briefing",
+      subtitle: "Estratégia, público e mercado do cliente.",
+    },
+    [customerId],
+  );
 
   if (!brandId || !UUID_RE.test(brandId) || !UUID_RE.test(customerId)) {
     return (
