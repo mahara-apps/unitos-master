@@ -1477,6 +1477,79 @@ export type Database = {
           },
         ]
       }
+      post_placements: {
+        Row: {
+          brand_id: string
+          client_id: string
+          copy_override: Json | null
+          created_at: string
+          external_ref: string | null
+          format: string
+          id: string
+          is_primary: boolean
+          media: Json
+          post_id: string
+          published_at: string | null
+          scheduled_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          client_id: string
+          copy_override?: Json | null
+          created_at?: string
+          external_ref?: string | null
+          format: string
+          id?: string
+          is_primary?: boolean
+          media?: Json
+          post_id: string
+          published_at?: string | null
+          scheduled_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          client_id?: string
+          copy_override?: Json | null
+          created_at?: string
+          external_ref?: string | null
+          format?: string
+          id?: string
+          is_primary?: boolean
+          media?: Json
+          post_id?: string
+          published_at?: string | null
+          scheduled_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_placements_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_placements_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_placements_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       posts: {
         Row: {
           ai_phase: string
