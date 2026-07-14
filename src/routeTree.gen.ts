@@ -16,6 +16,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as ApprovalTokenRouteImport } from './routes/approval.$token'
 import { Route as AuthenticatedWorkRouteImport } from './routes/_authenticated/work'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedReportsRouteImport } from './routes/_authenticated/reports'
@@ -79,6 +80,11 @@ const PortalTokenRoute = PortalTokenRouteImport.update({
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApprovalTokenRoute = ApprovalTokenRouteImport.update({
+  id: '/approval/$token',
+  path: '/approval/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedWorkRoute = AuthenticatedWorkRouteImport.update({
@@ -261,6 +267,7 @@ export interface FileRoutesByFullPath {
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/work': typeof AuthenticatedWorkRoute
+  '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
@@ -297,6 +304,7 @@ export interface FileRoutesByTo {
   '/reports': typeof AuthenticatedReportsRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/work': typeof AuthenticatedWorkRoute
+  '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
   '/': typeof AuthenticatedIndexRoute
@@ -337,6 +345,7 @@ export interface FileRoutesById {
   '/_authenticated/reports': typeof AuthenticatedReportsRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/work': typeof AuthenticatedWorkRoute
+  '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -378,6 +387,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/settings'
     | '/work'
+    | '/approval/$token'
     | '/invite/$token'
     | '/portal/$token'
     | '/customers/$customerId'
@@ -414,6 +424,7 @@ export interface FileRouteTypes {
     | '/reports'
     | '/settings'
     | '/work'
+    | '/approval/$token'
     | '/invite/$token'
     | '/portal/$token'
     | '/'
@@ -453,6 +464,7 @@ export interface FileRouteTypes {
     | '/_authenticated/reports'
     | '/_authenticated/settings'
     | '/_authenticated/work'
+    | '/approval/$token'
     | '/invite/$token'
     | '/portal/$token'
     | '/_authenticated/'
@@ -477,6 +489,7 @@ export interface RootRouteChildren {
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  ApprovalTokenRoute: typeof ApprovalTokenRoute
   InviteTokenRoute: typeof InviteTokenRoute
   PortalTokenRoute: typeof PortalTokenRoute
   ApiJobsCopilotRoute: typeof ApiJobsCopilotRoute
@@ -537,6 +550,13 @@ declare module '@tanstack/react-router' {
       path: '/invite/$token'
       fullPath: '/invite/$token'
       preLoaderRoute: typeof InviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/approval/$token': {
+      id: '/approval/$token'
+      path: '/approval/$token'
+      fullPath: '/approval/$token'
+      preLoaderRoute: typeof ApprovalTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/work': {
@@ -852,6 +872,7 @@ const rootRouteChildren: RootRouteChildren = {
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  ApprovalTokenRoute: ApprovalTokenRoute,
   InviteTokenRoute: InviteTokenRoute,
   PortalTokenRoute: PortalTokenRoute,
   ApiJobsCopilotRoute: ApiJobsCopilotRoute,
