@@ -12,7 +12,7 @@ import {
   type DragOverEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Check, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
@@ -38,6 +38,7 @@ import {
   deleteStageFn,
   createPostFn,
   movePostFn,
+  listBrandAssigneesFn,
   STAGE_COLORS,
   type Board,
   type BoardPost,
@@ -58,6 +59,48 @@ const COLOR_MAP: Record<StageColor, string> = {
   rose: "bg-rose-500",
   cyan: "bg-cyan-500",
 };
+
+function AssigneeChip({ brandId, assigneeId }: { brandId: string; assigneeId: string | null }) {
+  const fetchMembers = useServerFn(listBrandAssigneesFn);
+  const { data: members } = useQuery({
+    queryKey: ["brand-assignees", brandId],
+    queryFn: () => fetchMembers({ data: { brandId } }),
+    staleTime: 60_000,
+    enabled: !!brandId,
+  });
+  if (!assigneeId) {
+    return (
+      <span className="inline-flex items-center gap-1 text-muted-foreground/70" title="Sem responsável">
+        <UserCircle2 className="h-3.5 w-3.5 opacity-60" />
+      </span>
+    );
+  }
+  const m = members?.find((x) => x.id === assigneeId);
+  const name = m?.name ?? "Responsável";
+  const initials =
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((s) => s[0]?.toUpperCase() ?? "")
+      .join("") || "?";
+  return (
+    <span className="inline-flex items-center gap-1" title={name}>
+      {m?.avatar_url ? (
+        <img
+          src={m.avatar_url}
+          alt={name}
+          className="h-4 w-4 rounded-full object-cover ring-1 ring-border/60"
+        />
+      ) : (
+        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[8px] font-semibold text-white">
+          {initials}
+        </span>
+      )}
+      <span className="max-w-[90px] truncate text-[11px] text-foreground/80">{name}</span>
+    </span>
+  );
+}
 
 type Props = {
   board: Board;
@@ -528,9 +571,7 @@ function PostCard({
                 {created.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
               </span>
             ) : null}
-            <span className="inline-flex items-center gap-0.5" title={post.assignee_id ? "Responsável definido" : "Sem responsável"}>
-              <UserCircle2 className={`h-3.5 w-3.5 ${post.assignee_id ? "text-foreground/80" : "opacity-50"}`} />
-            </span>
+            <AssigneeChip brandId={post.brand_id} assigneeId={post.assignee_id} />
             {refCount > 0 ? (
               <span className="inline-flex items-center gap-0.5" title={`${refCount} anexo(s)`}>
                 <Paperclip className="h-3 w-3" /> {refCount}
