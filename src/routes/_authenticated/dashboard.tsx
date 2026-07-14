@@ -1126,54 +1126,6 @@ function RecentActivityCard({
 // ============================================================================
 // Shared primitives
 // ============================================================================
-
-function Card({
-  title,
-  subtitle,
-  icon,
-  action,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  icon?: React.ReactNode;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
-      <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2">
-          {icon && <span className="text-muted-foreground">{icon}</span>}
-          <div className="min-w-0">
-            <div className="truncate text-sm font-medium">{title}</div>
-            {subtitle && <div className="truncate text-[11px] text-muted-foreground">{subtitle}</div>}
-          </div>
-        </div>
-        {action}
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function SkeletonList() {
-  return (
-    <div className="space-y-2 p-4">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="h-8 animate-pulse rounded-md bg-muted/40" />
-      ))}
-    </div>
-  );
-}
-
-function EmptyState({ icon, text }: { icon: React.ReactNode; text: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center">
-      <div className="grid h-10 w-10 place-items-center rounded-full border border-border/60 bg-background/40 text-muted-foreground">
-        {icon}
-      </div>
-      <div className="text-xs text-muted-foreground">{text}</div>
-    </div>
-  );
-}
+// Shared primitives now live in `@/components/ui/panel-card`,
+// `@/components/ui/panel-empty`, and `@/components/ui/panel-skeleton`
+// so every module can reuse the exact Dashboard shell.
