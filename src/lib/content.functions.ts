@@ -395,6 +395,8 @@ export const updateStageFn = createServerFn({ method: "POST" })
             label: z.string().min(1).max(40).optional(),
             color: z.enum(STAGE_COLORS).optional(),
             is_terminal: z.boolean().optional(),
+            hide_in_portal: z.boolean().optional(),
+            enables_approval_link: z.boolean().optional(),
           })
           .strict(),
       })
