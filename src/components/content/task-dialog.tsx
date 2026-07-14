@@ -451,7 +451,7 @@ function EditBody({
             </SelectContent>
           </Select>
           <div className="ml-auto flex items-center gap-1.5">
-            <ApprovalLinkButton postId={postId} />
+            <QuickApprovalLinkButton postId={postId} />
             {reviewStatus === "pending" && aiPhase === "idea" ? (
               <Button size="sm" onClick={handleApproveAndGenerate} disabled={approving}>
                 {approving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
