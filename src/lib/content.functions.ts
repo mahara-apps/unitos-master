@@ -494,7 +494,9 @@ export const createPostFn = createServerFn({ method: "POST" })
 
     // Fallback: if no assignee provided, attribute to brand owner (admin).
     const hasAssignees = Array.isArray(data.assignees) && data.assignees.length > 0;
-    if (!hasAssignees) {
+    if (hasAssignees) {
+      insertRow.assignee_id = data.assignees![0];
+    } else {
       const { data: ownerRow } = await context.supabase
         .from("brand_members")
         .select("user_id")
