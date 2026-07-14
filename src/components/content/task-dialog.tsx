@@ -605,6 +605,7 @@ function EditBody({
           stages={stages}
           mode="edit"
           postId={postId}
+          createdAt={post.created_at}
         />
 
         <div className="mt-6 space-y-5">
