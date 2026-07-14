@@ -1506,7 +1506,7 @@ export type Database = {
           review_status: string
           rework_notes: string | null
           scheduled_at: string | null
-          script: Json
+          script: Json | null
           stage: Database["public"]["Enums"]["post_stage"]
           stage_id: string | null
           tags: string[]
@@ -1545,7 +1545,7 @@ export type Database = {
           review_status?: string
           rework_notes?: string | null
           scheduled_at?: string | null
-          script?: Json
+          script?: Json | null
           stage?: Database["public"]["Enums"]["post_stage"]
           stage_id?: string | null
           tags?: string[]
@@ -1584,7 +1584,7 @@ export type Database = {
           review_status?: string
           rework_notes?: string | null
           scheduled_at?: string | null
-          script?: Json
+          script?: Json | null
           stage?: Database["public"]["Enums"]["post_stage"]
           stage_id?: string | null
           tags?: string[]
