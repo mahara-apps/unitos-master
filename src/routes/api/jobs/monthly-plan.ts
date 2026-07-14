@@ -13,9 +13,10 @@ import { buildBrandContextBlueprint } from "@/lib/ai-agents.functions";
 // Blueprint, then runs:
 //   1) planner_strategic  -> N concepts
 //   2) copywriter_senior  -> caption per concept (parallel)
-//   3) art_director_social-> design brief per concept (parallel)
-// Each concept is inserted into `posts` at stage "idea" of the client's default
-// (or explicitly chosen) pipeline. Returns 202 with the ai_jobs id.
+// Each concept é inserido em `posts` no stage "idea" do pipeline padrão (ou
+// escolhido) do cliente, e com `scheduled_at` distribuído nos dias úteis do
+// período — garantindo aparição imediata no calendário editorial.
+// Retorna 202 com o id do ai_jobs.
 
 const BodySchema = z.object({
   brandId: z.string().uuid(),
@@ -49,7 +50,6 @@ const CopySchema = z.object({
   hook: z.string(),
   hashtags: z.array(z.string()),
 });
-const BriefSchema = z.object({ design_brief: z.string() });
 
 const CHANNEL_MAP: Record<string, "instagram" | "tiktok" | "linkedin" | "x" | "youtube" | "blog"> = {
   instagram: "instagram",
