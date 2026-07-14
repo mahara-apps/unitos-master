@@ -513,6 +513,32 @@ export function BriefingWorkspace({
           </Button>
         </div>
       </div>
+
+      <AlertDialog open={regenOpen} onOpenChange={setRegenOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Gerar estratégia com IA?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Os agentes vão ler os campos deste briefing e gerar <b>Voice Card</b>,
+              <b> Personas</b>, <b>Cohorts</b>, <b>SWOT</b> e um lote de <b>pautas</b> no pipeline.
+              Artefatos anteriores permanecem no histórico — os novos passam a ser a versão ativa.
+              O processo roda em segundo plano.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={generating}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                void runStrategy();
+              }}
+              disabled={generating}
+            >
+              {generating ? "Iniciando…" : "Gerar estratégia"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 
