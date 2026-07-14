@@ -238,7 +238,15 @@ function PostDetailBody({
           <Input id="pd-title" value={title} onChange={(e) => setTitle(e.target.value)} />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="pd-copy">Copy</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="pd-copy">Copy</Label>
+            <AiFieldButton
+              postId={postId}
+              field="copy"
+              label="Gerar copy"
+              onText={(t) => setCopy(t)}
+            />
+          </div>
           <Textarea
             id="pd-copy"
             rows={6}
@@ -246,6 +254,29 @@ function PostDetailBody({
             onChange={(e) => setCopy(e.target.value)}
             placeholder="Escreva o texto do post…"
           />
+          <div className="flex flex-wrap gap-1.5 pt-1">
+            <AiFieldButton
+              postId={postId}
+              field="hashtags"
+              label="Hashtags"
+              size="xs"
+              onText={(t) => setCopy((prev) => `${prev.trimEnd()}\n\n${t}`.trim())}
+            />
+            <AiFieldButton
+              postId={postId}
+              field="cta"
+              label="CTA"
+              size="xs"
+              onText={(t) => setCopy((prev) => `${prev.trimEnd()}\n\n${t}`.trim())}
+            />
+            <AiFieldButton
+              postId={postId}
+              field="script"
+              label="Roteiro"
+              size="xs"
+              onText={(t) => setCopy((prev) => `${prev.trimEnd()}\n\n${t}`.trim())}
+            />
+          </div>
         </div>
         {data.post.design_brief ? (
           <div className="space-y-1.5">
