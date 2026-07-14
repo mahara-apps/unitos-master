@@ -1,9 +1,22 @@
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Send, Users, Layers, Target, TrendingUp, ShieldAlert, Zap, Sparkles, CheckCircle2 } from "lucide-react";
+import {
+  Send, Users, Layers, Target, TrendingUp, ShieldAlert, Zap, Sparkles, CheckCircle2,
+  Eye, Shield, Clock, BadgeCheck, MessageSquare, ArrowRight, Sprout, AlertTriangle,
+  Lightbulb, Flame, Ban, Check, User,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from "@/components/ui/sheet";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import { useState } from "react";
 import {
   sendPautaToContentFn,
 } from "@/lib/ai-agents.functions";
@@ -44,7 +57,38 @@ function extractRaw<T = unknown>(data: unknown): T | null {
 }
 
 type RawPersona = Record<string, unknown>;
-type NormalizedPersona = { nome: string; descricao: string; dores: string[]; canais_preferidos: string[] };
+type NormalizedPersona = {
+  nome: string;
+  arquetipo: string;
+  descricao: string;
+  motivacao: string;
+  dor_principal: string;
+  dores: string[];
+  canais_preferidos: string[];
+  logica_compra: string;
+  fator_confianca: string;
+  como_decide: string;
+  objecao_dominante: string;
+  estilo_comunicacao: string;
+  ciclo_compra: string;
+  nivel_consciencia: string;
+};
+
+function pickString(o: Record<string, unknown>, keys: string[]): string {
+  for (const k of keys) {
+    const v = o[k];
+    if (typeof v === "string" && v.trim()) return v;
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+      // nested descriptor object
+      const nested = v as Record<string, unknown>;
+      for (const nk of ["descricao", "texto", "value", "resumo"]) {
+        const nv = nested[nk];
+        if (typeof nv === "string" && nv.trim()) return nv;
+      }
+    }
+  }
+  return "";
+}
 
 function normalizePersonas(data: unknown): NormalizedPersona[] {
   const parsed = extractRaw<unknown>(data);
@@ -55,26 +99,33 @@ function normalizePersonas(data: unknown): NormalizedPersona[] {
       ? ((parsed as { personas: RawPersona[] }).personas)
       : [];
   return arr.map((p) => {
-    const dorPrincipal = p.dor_principal as string | undefined;
-    const dores = Array.isArray(p.dores) ? (p.dores as string[]) : dorPrincipal ? [dorPrincipal] : [];
+    const dorPrincipal = pickString(p, ["dor_principal", "dor", "main_pain"]);
+    const dores = Array.isArray(p.dores)
+      ? (p.dores as string[])
+      : Array.isArray(p.pain_points)
+        ? (p.pain_points as string[])
+        : dorPrincipal ? [dorPrincipal] : [];
     return {
-      nome:
-        (p.nome as string) ??
-        (p.nome_persona as string) ??
-        (p.name as string) ??
-        "Persona",
-      descricao:
-        (p.perfil as string) ??
-        (p.descricao as string) ??
-        (p.biografia as string) ??
-        (p.description as string) ??
-        "",
+      nome: pickString(p, ["nome", "nome_persona", "name"]) || "Persona",
+      arquetipo: pickString(p, ["arquetipo", "archetype", "arquétipo"]),
+      descricao: pickString(p, ["perfil", "descricao", "biografia", "description", "resumo"]),
+      motivacao: pickString(p, ["motivacao", "motivation", "desejo", "desejo_principal", "aspiracao"]),
+      dor_principal: dorPrincipal,
       dores,
       canais_preferidos: Array.isArray(p.canais_preferidos)
         ? (p.canais_preferidos as string[])
         : Array.isArray(p.canais)
           ? (p.canais as string[])
-          : [],
+          : Array.isArray(p.channels)
+            ? (p.channels as string[])
+            : [],
+      logica_compra: pickString(p, ["logica_compra", "logica_de_compra", "buying_logic", "raciocinio_compra"]),
+      fator_confianca: pickString(p, ["fator_confianca", "trust_factor", "confianca", "gatilho_confianca"]),
+      como_decide: pickString(p, ["como_decide", "decision_process", "processo_decisao", "processo_decisorio"]),
+      objecao_dominante: pickString(p, ["objecao_dominante", "objecao", "main_objection", "objecao_principal"]),
+      estilo_comunicacao: pickString(p, ["estilo_comunicacao", "communication_style", "estilo_de_comunicacao", "tom_esperado"]),
+      ciclo_compra: pickString(p, ["ciclo_compra", "ciclo_de_compra", "buying_cycle", "tempo_decisao"]),
+      nivel_consciencia: pickString(p, ["nivel_consciencia", "nivel_de_consciencia", "awareness_level", "consciencia"]),
     };
   });
 }
@@ -339,100 +390,130 @@ export function StrategyTab({ brandId, clientId }: Scope) {
   const briefing = (core.briefing?.data ?? {}) as Record<string, unknown>;
   const voice = normalizeVoice(core.voice?.data);
 
-  const rows: Array<[string, unknown]> = [
-    ["Público-alvo", briefing.publico_alvo],
-    ["Tom de voz", briefing.tom_de_voz],
-    ["Dores do cliente final", briefing.dores_do_cliente_final],
-    ["Diferenciais", briefing.diferenciais],
-    ["Hashtags sugeridas", briefing.hashtags_sugeridas],
-    ["Concorrentes citados", briefing.concorrentes_mencionados],
-  ];
+  const wordsUse = voice?.vocabulary_rules?.words_to_use ?? [];
+  const wordsAvoid = voice?.vocabulary_rules?.words_to_avoid ?? [];
+  const tone = voice?.tone_characteristics ?? [];
+  const personality = voice?.brand_personality ?? "";
+  const phrases = voice?.brand_phrases_examples ?? [];
+  const diferenciais = Array.isArray(briefing.diferenciais) ? (briefing.diferenciais as string[]) : [];
+  const hashtags = Array.isArray(briefing.hashtags_sugeridas) ? (briefing.hashtags_sugeridas as string[]) : [];
 
   return (
-    <div className="grid gap-4 lg:grid-cols-2">
-      <SectionCard title="Briefing estruturado" icon={Target}>
-        <div className="mb-3">
-          <ContextSourceBadge source="persona" />
-        </div>
-        <dl className="space-y-3">
-          {rows.map(([label, value]) => (
-            <div key={label}>
-              <dt className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
-              <dd className="mt-1 text-sm text-foreground">
-                {Array.isArray(value) ? (
-                  value.length ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {(value as string[]).map((v, i) => (
-                        <Chip key={i}>{v}</Chip>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )
-                ) : (
-                  (value as string) || <span className="text-muted-foreground">—</span>
-                )}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      </SectionCard>
+    <div className="space-y-6">
+      <div className="flex justify-end">
+        <ContextSourceBadge source="persona" />
+      </div>
 
-      <SectionCard title="Voice Card" icon={Sparkles}>
-        <div className="mb-3">
-          <ContextSourceBadge source="persona" />
+      {/* Tom de voz e personalidade */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="border-border/60 bg-slate-50 dark:bg-muted/30 shadow-none">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <Sparkles className="h-3.5 w-3.5" /> Personalidade da marca
+            </div>
+            <p className="mt-3 text-sm leading-relaxed text-foreground">
+              {personality || <span className="text-muted-foreground">Voice card ainda não gerado.</span>}
+            </p>
+            {tone.length ? (
+              <div className="mt-4 flex flex-wrap gap-1.5">
+                {tone.map((t, i) => (
+                  <Badge key={i} variant="secondary" className="rounded-full font-normal">{t}</Badge>
+                ))}
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/60 bg-slate-50 dark:bg-muted/30 shadow-none">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <MessageSquare className="h-3.5 w-3.5" /> Frases assinatura
+            </div>
+            {phrases.length ? (
+              <ul className="mt-3 space-y-2">
+                {phrases.map((p, i) => (
+                  <li key={i} className="border-l-2 border-primary/50 pl-3 text-sm italic text-foreground/90">
+                    “{p}”
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-sm text-muted-foreground">Nenhuma frase-exemplo gerada.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Diretrizes de marca — tags */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="shadow-none">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+              <Check className="h-3.5 w-3.5" /> Termos preferidos
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Vocabulário que reforça o posicionamento.</p>
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {wordsUse.length ? wordsUse.map((w, i) => (
+                <Badge key={i} className="rounded-full border border-emerald-200 bg-emerald-50 font-normal text-emerald-800 hover:bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300">
+                  <Check className="mr-1 h-3 w-3" /> {w}
+                </Badge>
+              )) : <span className="text-xs text-muted-foreground">—</span>}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-none">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-rose-700 dark:text-rose-400">
+              <Ban className="h-3.5 w-3.5" /> Palavras proibidas
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Termos que devem ser evitados na comunicação.</p>
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {wordsAvoid.length ? wordsAvoid.map((w, i) => (
+                <Badge key={i} className="rounded-full border border-rose-200 bg-rose-50 font-normal text-rose-800 hover:bg-rose-50 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
+                  <Ban className="mr-1 h-3 w-3" /> {w}
+                </Badge>
+              )) : <span className="text-xs text-muted-foreground">—</span>}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Diferenciais + Hashtags */}
+      {(diferenciais.length || hashtags.length) ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          {diferenciais.length ? (
+            <Card className="shadow-none">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  <Sprout className="h-3.5 w-3.5" /> Diferenciais competitivos
+                </div>
+                <div className="mt-4 flex flex-wrap gap-1.5">
+                  {diferenciais.map((d, i) => (
+                    <Badge key={i} variant="outline" className="rounded-full font-normal">{d}</Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+          {hashtags.length ? (
+            <Card className="shadow-none">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  <Flame className="h-3.5 w-3.5" /> Hashtags recomendadas
+                </div>
+                <div className="mt-4 flex flex-wrap gap-1.5">
+                  {hashtags.map((h, i) => (
+                    <Badge key={i} variant="secondary" className="rounded-full font-mono text-[11px] font-normal">
+                      {h.startsWith("#") ? h : `#${h}`}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
         </div>
-        {voice ? (
-          <div className="space-y-4">
-            <div>
-              <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Brand personality</div>
-              <p className="mt-1 text-sm leading-relaxed text-foreground">{voice.brand_personality}</p>
-            </div>
-            {voice.tone_characteristics?.length ? (
-              <div>
-                <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Tone characteristics</div>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {voice.tone_characteristics.map((t, i) => (
-                    <Chip key={i} tone="info">{t}</Chip>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            <div className="grid gap-3 md:grid-cols-2">
-              <div>
-                <div className="text-[11px] font-medium uppercase tracking-wide text-[color:var(--health-good)]">Palavras a usar</div>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {(voice.vocabulary_rules?.words_to_use ?? []).map((w, i) => (
-                    <Chip key={i} tone="success">{w}</Chip>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <div className="text-[11px] font-medium uppercase tracking-wide text-destructive">Palavras a evitar</div>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {(voice.vocabulary_rules?.words_to_avoid ?? []).map((w, i) => (
-                    <Chip key={i} tone="danger">{w}</Chip>
-                  ))}
-                </div>
-              </div>
-            </div>
-            {voice.brand_phrases_examples?.length ? (
-              <div>
-                <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Frases-exemplo</div>
-                <ul className="mt-1.5 space-y-1.5">
-                  {voice.brand_phrases_examples.map((p, i) => (
-                    <li key={i} className="rounded-md border border-border bg-muted px-2.5 py-1.5 text-xs text-foreground">
-                      “{p}”
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <EmptyHint text="Voice card ainda não gerado." />
-        )}
-      </SectionCard>
+      ) : null}
     </div>
   );
 }
@@ -443,48 +524,55 @@ export function TargetTab({ brandId, clientId }: Scope) {
   const { data: target } = useSuspenseQuery(customerTargetQuery({ brandId, clientId }));
   const personas = normalizePersonas(target.personas?.data);
   const cohorts = normalizeCohorts(target.cohorts?.data);
+  const [selected, setSelected] = useState<NormalizedPersona | null>(null);
+
+  // Diagnóstico global — agrega as personas
+  const diagnostic = summarizeDiagnostic(personas);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
+      {/* Diagnóstico global */}
+      <div className="grid gap-3 md:grid-cols-3">
+        <DiagnosticCard
+          icon={Eye}
+          label="Nível de consciência"
+          value={diagnostic.consciencia}
+          className="bg-rose-50/70 border-rose-100 dark:bg-rose-950/20 dark:border-rose-900/40"
+          iconClass="text-rose-500"
+        />
+        <DiagnosticCard
+          icon={Shield}
+          label="Barreira principal"
+          value={diagnostic.barreira}
+          className="bg-amber-50/70 border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/40"
+          iconClass="text-amber-500"
+        />
+        <DiagnosticCard
+          icon={Clock}
+          label="Ciclo de compra"
+          value={diagnostic.ciclo}
+          className="bg-emerald-50/70 border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/40"
+          iconClass="text-emerald-500"
+        />
+      </div>
+
+      {/* Personas */}
       <div>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-foreground">
-            <Users className="h-4 w-4 text-primary" /> Personas
-          </h3>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Users className="h-4 w-4 text-primary" /> Personas
+            </h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Clique em um card para abrir o dossiê psicológico completo.
+            </p>
+          </div>
           <ContextSourceBadge source="persona" />
         </div>
         {personas.length ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {personas.map((p, i) => (
-              <div key={i} className="rounded-xl border border-border bg-card p-4">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-primary/30 to-primary/10 text-[11px] font-bold text-primary-foreground">
-                    {p.nome?.slice(0, 2).toUpperCase()}
-                  </div>
-                  <div className="text-sm font-semibold">{p.nome}</div>
-                </div>
-                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{p.descricao}</p>
-                {p.dores?.length ? (
-                  <div className="mt-3">
-                    <div className="text-[10px] font-medium uppercase tracking-wide text-destructive">Dores</div>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {p.dores.slice(0, 4).map((d, j) => (
-                        <Chip key={j} tone="danger">{d}</Chip>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-                {p.canais_preferidos?.length ? (
-                  <div className="mt-2">
-                    <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Canais</div>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {p.canais_preferidos.map((c, j) => (
-                        <Chip key={j}>{c}</Chip>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
+              <PersonaCard key={i} persona={p} onOpen={() => setSelected(p)} />
             ))}
           </div>
         ) : (
@@ -492,47 +580,305 @@ export function TargetTab({ brandId, clientId }: Scope) {
         )}
       </div>
 
+      {/* Cohorts */}
       <div>
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-foreground">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
             <Layers className="h-4 w-4 text-primary" /> Cohorts comportamentais
           </h3>
           <ContextSourceBadge source="persona" />
         </div>
         {cohorts.length ? (
-          <div className="space-y-2">
+          <div className="grid gap-3 md:grid-cols-2">
             {cohorts.map((c, i) => (
-              <div key={i} className="rounded-xl border border-border bg-card p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="text-sm font-semibold text-foreground">{c.name}</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(c.target_personas ?? []).map((tp, j) => (
-                      <Chip key={j} tone="info">{tp}</Chip>
-                    ))}
+              <Card key={i} className="shadow-none">
+                <CardContent className="p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-sm font-semibold text-foreground">{c.name}</div>
+                    <div className="flex flex-wrap gap-1">
+                      {(c.target_personas ?? []).map((tp, j) => (
+                        <Badge key={j} variant="secondary" className="rounded-full font-normal">{tp}</Badge>
+                      ))}
+                    </div>
                   </div>
-                </div>
-                <div className="mt-2 grid gap-2 text-xs md:grid-cols-3">
-                  <div>
-                    <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Behavioral traits</div>
-                    <p className="mt-1 text-muted-foreground">{c.behavioral_traits}</p>
-                  </div>
-                  <div>
-                    <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Content strategy</div>
-                    <p className="mt-1 text-muted-foreground">{c.content_strategy}</p>
-                  </div>
-                  <div>
-                    <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Conversion criteria</div>
-                    <p className="mt-1 text-muted-foreground">{c.conversion_criteria}</p>
-                  </div>
-                </div>
-              </div>
+                  <Separator className="my-4" />
+                  <dl className="space-y-3 text-xs">
+                    {c.behavioral_traits ? (
+                      <div>
+                        <dt className="font-medium text-foreground">Comportamento</dt>
+                        <dd className="mt-0.5 text-muted-foreground">{c.behavioral_traits}</dd>
+                      </div>
+                    ) : null}
+                    {c.content_strategy ? (
+                      <div>
+                        <dt className="font-medium text-foreground">Estratégia de conteúdo</dt>
+                        <dd className="mt-0.5 text-muted-foreground">{c.content_strategy}</dd>
+                      </div>
+                    ) : null}
+                    {c.conversion_criteria ? (
+                      <div>
+                        <dt className="font-medium text-foreground">Critério de conversão</dt>
+                        <dd className="mt-0.5 text-muted-foreground">{c.conversion_criteria}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                </CardContent>
+              </Card>
             ))}
           </div>
         ) : (
           <EmptyHint text="Cohorts ainda não gerados." />
         )}
       </div>
+
+      <PersonaDrawer persona={selected} onClose={() => setSelected(null)} />
     </div>
+  );
+}
+
+function DiagnosticCard({
+  icon: Icon, label, value, className, iconClass,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+  className?: string;
+  iconClass?: string;
+}) {
+  return (
+    <div className={`rounded-xl border p-5 ${className ?? ""}`}>
+      <div className="flex items-center gap-2">
+        <div className={`flex h-8 w-8 items-center justify-center rounded-full bg-white/70 dark:bg-background/40 ${iconClass ?? ""}`}>
+          <Icon className="h-4 w-4" />
+        </div>
+        <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">{label}</div>
+      </div>
+      <p className="mt-3 text-sm font-medium leading-snug text-foreground">
+        {value || <span className="text-muted-foreground">—</span>}
+      </p>
+    </div>
+  );
+}
+
+function summarizeDiagnostic(personas: NormalizedPersona[]) {
+  const first = (fn: (p: NormalizedPersona) => string): string => {
+    for (const p of personas) {
+      const v = fn(p).trim();
+      if (v) return v;
+    }
+    return "";
+  };
+  return {
+    consciencia: first((p) => p.nivel_consciencia) || (personas.length ? "Consciência do problema" : ""),
+    barreira: first((p) => p.objecao_dominante) || first((p) => p.dor_principal),
+    ciclo: first((p) => p.ciclo_compra) || (personas.length ? "Decisão considerada" : ""),
+  };
+}
+
+function personaInitials(name: string): string {
+  return name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+}
+
+function PersonaCard({ persona, onOpen }: { persona: NormalizedPersona; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="group flex h-full flex-col rounded-xl border border-border bg-card p-5 text-left transition-all hover:border-primary/40 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+    >
+      <div className="flex items-start gap-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-primary/5 text-xs font-semibold text-primary">
+          {personaInitials(persona.nome) || <User className="h-4 w-4" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold text-foreground">{persona.nome}</div>
+          {persona.arquetipo ? (
+            <Badge variant="secondary" className="mt-1 rounded-full border border-sky-200 bg-sky-50 font-normal text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300">
+              {persona.arquetipo}
+            </Badge>
+          ) : null}
+        </div>
+      </div>
+
+      {persona.motivacao || persona.descricao ? (
+        <div className="mt-4">
+          <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Motivação</div>
+          <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-foreground/80">
+            {persona.motivacao || persona.descricao}
+          </p>
+        </div>
+      ) : null}
+
+      {persona.dor_principal || persona.dores[0] ? (
+        <div className="mt-3">
+          <div className="text-[10px] font-medium uppercase tracking-widest text-rose-500">Dor principal</div>
+          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-foreground/80">
+            {persona.dor_principal || persona.dores[0]}
+          </p>
+        </div>
+      ) : null}
+
+      <div className="mt-auto pt-4">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-sky-600 group-hover:text-sky-700 dark:text-sky-400">
+          Ver detalhamento completo <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function DrawerSection({
+  icon: Icon, label, iconClass, children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  iconClass?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2">
+        <Icon className={`h-3.5 w-3.5 ${iconClass ?? "text-primary"}`} />
+        <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{label}</div>
+      </div>
+      <div className="mt-2 text-sm leading-relaxed text-foreground/90">{children}</div>
+    </div>
+  );
+}
+
+function PersonaDrawer({ persona, onClose }: { persona: NormalizedPersona | null; onClose: () => void }) {
+  const open = !!persona;
+  return (
+    <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+        {persona ? (
+          <>
+            <SheetHeader className="space-y-3 text-left">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-primary/5 text-sm font-semibold text-primary">
+                  {personaInitials(persona.nome) || <User className="h-5 w-5" />}
+                </div>
+                <div className="min-w-0">
+                  <SheetTitle className="truncate text-lg">{persona.nome}</SheetTitle>
+                  {persona.arquetipo ? (
+                    <SheetDescription>
+                      Arquétipo:{" "}
+                      <Badge variant="secondary" className="rounded-full border border-sky-200 bg-sky-50 font-normal text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300">
+                        {persona.arquetipo}
+                      </Badge>
+                    </SheetDescription>
+                  ) : (
+                    <SheetDescription>Dossiê psicológico da persona.</SheetDescription>
+                  )}
+                </div>
+              </div>
+            </SheetHeader>
+
+            <div className="mt-6 space-y-5">
+              {persona.logica_compra ? (
+                <blockquote className="rounded-r-md border-l-4 border-primary/60 bg-primary/5 px-4 py-3 text-sm italic leading-relaxed text-foreground/90">
+                  “{persona.logica_compra}”
+                  <footer className="mt-1 text-[11px] not-italic uppercase tracking-widest text-muted-foreground">
+                    Lógica de compra
+                  </footer>
+                </blockquote>
+              ) : null}
+
+              {persona.descricao || persona.motivacao ? (
+                <DrawerSection icon={Sparkles} label="Perfil & motivação" iconClass="text-primary">
+                  <p>{persona.motivacao || persona.descricao}</p>
+                </DrawerSection>
+              ) : null}
+
+              <Separator />
+
+              <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Psicologia da compra
+              </div>
+
+              {persona.fator_confianca ? (
+                <DrawerSection icon={BadgeCheck} label="Fator de confiança" iconClass="text-emerald-500">
+                  <p>{persona.fator_confianca}</p>
+                </DrawerSection>
+              ) : null}
+
+              {persona.como_decide ? (
+                <DrawerSection icon={Target} label="Como decide" iconClass="text-sky-500">
+                  <p>{persona.como_decide}</p>
+                </DrawerSection>
+              ) : null}
+
+              {persona.objecao_dominante ? (
+                <DrawerSection icon={AlertTriangle} label="Objeção dominante" iconClass="text-amber-500">
+                  <p>{persona.objecao_dominante}</p>
+                </DrawerSection>
+              ) : null}
+
+              {persona.estilo_comunicacao ? (
+                <DrawerSection icon={MessageSquare} label="Estilo de comunicação esperado" iconClass="text-violet-500">
+                  <p>{persona.estilo_comunicacao}</p>
+                </DrawerSection>
+              ) : null}
+
+              {(persona.dores.length || persona.dor_principal) ? (
+                <>
+                  <Separator />
+                  <DrawerSection icon={Flame} label="Dores mapeadas" iconClass="text-rose-500">
+                    <ul className="space-y-1.5">
+                      {(persona.dores.length ? persona.dores : [persona.dor_principal]).map((d, i) => (
+                        <li key={i} className="flex gap-2 text-sm">
+                          <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-rose-400" />
+                          <span>{d}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </DrawerSection>
+                </>
+              ) : null}
+
+              {persona.canais_preferidos.length ? (
+                <DrawerSection icon={Layers} label="Canais preferidos" iconClass="text-muted-foreground">
+                  <div className="flex flex-wrap gap-1.5">
+                    {persona.canais_preferidos.map((c, i) => (
+                      <Badge key={i} variant="outline" className="rounded-full font-normal">{c}</Badge>
+                    ))}
+                  </div>
+                </DrawerSection>
+              ) : null}
+
+              {(persona.nivel_consciencia || persona.ciclo_compra) ? (
+                <>
+                  <Separator />
+                  <div className="grid grid-cols-2 gap-3">
+                    {persona.nivel_consciencia ? (
+                      <div className="rounded-lg border border-border bg-muted/40 p-3">
+                        <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                          <Eye className="h-3 w-3" /> Consciência
+                        </div>
+                        <p className="mt-1 text-xs text-foreground">{persona.nivel_consciencia}</p>
+                      </div>
+                    ) : null}
+                    {persona.ciclo_compra ? (
+                      <div className="rounded-lg border border-border bg-muted/40 p-3">
+                        <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                          <Clock className="h-3 w-3" /> Ciclo
+                        </div>
+                        <p className="mt-1 text-xs text-foreground">{persona.ciclo_compra}</p>
+                      </div>
+                    ) : null}
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </>
+        ) : null}
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -543,28 +889,79 @@ export function MarketTab({ brandId, clientId }: Scope) {
   const { analysis, matrix } = normalizeSwot(market.swot?.data);
 
   const quadrants = [
-    { key: "strengths", label: "Strengths", items: analysis.strengths, icon: TrendingUp, tone: "border-[color:var(--health-good)]/40 bg-[color:var(--health-good)]/10", accent: "text-[color:var(--health-good)]" },
-    { key: "weaknesses", label: "Weaknesses", items: analysis.weaknesses, icon: ShieldAlert, tone: "border-[color:var(--severity-warning)]/40 bg-[color:var(--severity-warning)]/10", accent: "text-[color:var(--severity-warning)]" },
-    { key: "opportunities", label: "Opportunities", items: analysis.opportunities, icon: Zap, tone: "border-primary/30 bg-primary/10", accent: "text-primary" },
-    { key: "threats", label: "Threats", items: analysis.threats, icon: ShieldAlert, tone: "border-destructive/40 bg-destructive/10", accent: "text-destructive" },
+    {
+      key: "strengths",
+      label: "Forças",
+      hint: "O que nos diferencia hoje",
+      items: analysis.strengths,
+      icon: TrendingUp,
+      bullet: Check,
+      tone: "bg-emerald-50 border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/40",
+      accent: "text-emerald-700 dark:text-emerald-400",
+      bulletTone: "text-emerald-500",
+    },
+    {
+      key: "weaknesses",
+      label: "Fraquezas",
+      hint: "Onde ainda estamos vulneráveis",
+      items: analysis.weaknesses,
+      icon: ShieldAlert,
+      bullet: AlertTriangle,
+      tone: "bg-amber-50 border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/40",
+      accent: "text-amber-700 dark:text-amber-400",
+      bulletTone: "text-amber-500",
+    },
+    {
+      key: "opportunities",
+      label: "Oportunidades",
+      hint: "Movimentos possíveis no mercado",
+      items: analysis.opportunities,
+      icon: Zap,
+      bullet: Lightbulb,
+      tone: "bg-sky-50 border-sky-100 dark:bg-sky-950/20 dark:border-sky-900/40",
+      accent: "text-sky-700 dark:text-sky-400",
+      bulletTone: "text-sky-500",
+    },
+    {
+      key: "threats",
+      label: "Ameaças",
+      hint: "Riscos externos a monitorar",
+      items: analysis.threats,
+      icon: Flame,
+      bullet: Flame,
+      tone: "bg-rose-50 border-rose-100 dark:bg-rose-950/20 dark:border-rose-900/40",
+      accent: "text-rose-700 dark:text-rose-400",
+      bulletTone: "text-rose-500",
+    },
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-end">
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">Matriz SWOT</h3>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Diagnóstico estratégico dos quatro vetores competitivos.
+          </p>
+        </div>
         <ContextSourceBadge source="competitors" />
       </div>
+
       <div className="grid gap-3 md:grid-cols-2">
         {quadrants.map((q) => (
           <div key={q.key} className={`rounded-xl border p-5 ${q.tone}`}>
             <div className={`flex items-center gap-2 ${q.accent}`}>
               <q.icon className="h-4 w-4" />
-              <h4 className="text-sm font-semibold uppercase tracking-wide">{q.label}</h4>
+              <h4 className="text-sm font-semibold">{q.label}</h4>
             </div>
-            <ul className="mt-3 space-y-1.5">
+            <p className="mt-0.5 text-[11px] text-muted-foreground">{q.hint}</p>
+            <ul className="mt-4 space-y-2">
               {q.items.length ? (
                 q.items.map((it, i) => (
-                  <li key={i} className="text-xs leading-relaxed text-foreground">• {it}</li>
+                  <li key={i} className="flex items-start gap-2 text-xs leading-relaxed text-foreground/90">
+                    <q.bullet className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${q.bulletTone}`} />
+                    <span>{it}</span>
+                  </li>
                 ))
               ) : (
                 <li className="text-xs text-muted-foreground">—</li>
@@ -574,37 +971,81 @@ export function MarketTab({ brandId, clientId }: Scope) {
         ))}
       </div>
 
-      <SectionCard title="Competitive matrix" icon={ShieldAlert}>
-        <div className="mb-3">
-          <ContextSourceBadge source="competitors" />
-        </div>
-        {matrix.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-border text-[10px] uppercase tracking-widest text-muted-foreground">
-                <tr>
-                  <th className="py-2 pr-3 font-medium">Competitor</th>
-                  <th className="py-2 pr-3 font-medium text-[color:var(--health-good)]">Our advantages</th>
-                  <th className="py-2 pr-3 font-medium text-destructive">Vulnerabilities</th>
-                </tr>
-              </thead>
-              <tbody>
-                {matrix.map((c, i) => (
-                  <tr key={i} className="border-b border-border/60 last:border-0">
-                    <td className="py-2.5 pr-3 font-medium text-foreground">{c.competitor_name}</td>
-                    <td className="py-2.5 pr-3 text-muted-foreground">{c.our_advantages}</td>
-                    <td className="py-2.5 pr-3 text-muted-foreground">{c.vulnerabilities}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <Card className="shadow-none">
+        <CardContent className="p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <ShieldAlert className="h-4 w-4 text-primary" /> Matriz competitiva
+              </h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Comparativo direto com concorrentes estruturados.
+              </p>
+            </div>
           </div>
-        ) : (
-          <EmptyHint text="Nenhum concorrente estruturado ainda." />
-        )}
-      </SectionCard>
+          {matrix.length ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[28%]">Concorrente</TableHead>
+                    <TableHead>Nossas vantagens</TableHead>
+                    <TableHead>Vulnerabilidades deles</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {matrix.map((c, i) => (
+                    <TableRow key={i}>
+                      <TableCell className="align-top font-medium text-foreground">
+                        {c.competitor_name}
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <div className="flex flex-wrap gap-1">
+                          {splitBullets(c.our_advantages).map((v, j) => (
+                            <Badge
+                              key={j}
+                              className="rounded-full border border-emerald-200 bg-emerald-50 font-normal text-emerald-800 hover:bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300"
+                            >
+                              {v}
+                            </Badge>
+                          )) || <span className="text-xs text-muted-foreground">—</span>}
+                        </div>
+                      </TableCell>
+                      <TableCell className="align-top">
+                        <div className="flex flex-wrap gap-1">
+                          {splitBullets(c.vulnerabilities).map((v, j) => (
+                            <Badge
+                              key={j}
+                              className="rounded-full border border-rose-200 bg-rose-50 font-normal text-rose-800 hover:bg-rose-50 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300"
+                            >
+                              {v}
+                            </Badge>
+                          )) || <span className="text-xs text-muted-foreground">—</span>}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <EmptyHint text="Nenhum concorrente estruturado ainda." />
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
+}
+
+function splitBullets(input: string): string[] {
+  if (!input || !input.trim()) return [];
+  // Split on common bullet separators, keeping items concise
+  const parts = input
+    .split(/[;•\n]|(?:\s-\s)|(?:\s\|\s)|(?:,\s(?=[A-ZÀ-Ú]))/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (parts.length > 1) return parts.slice(0, 5);
+  return [input.trim()];
 }
 
 // ---------- TOPICS ----------
