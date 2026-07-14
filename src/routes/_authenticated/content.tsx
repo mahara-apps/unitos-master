@@ -392,6 +392,66 @@ function EmptyState({ title, description }: { title: string; description: string
   );
 }
 
+function RenamePipelineDialog({
+  open,
+  onOpenChange,
+  currentName,
+  onSubmit,
+  pending,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  currentName: string;
+  onSubmit: (name: string) => void;
+  pending: boolean;
+}) {
+  const [name, setName] = useState(currentName);
+  useEffect(() => {
+    if (open) setName(currentName);
+  }, [open, currentName]);
+  const trimmed = name.trim();
+  const unchanged = trimmed === currentName.trim();
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Renomear pipeline</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-2">
+          <Label htmlFor="pipe-rename">Nome</Label>
+          <Input
+            id="pipe-rename"
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={() => onSubmit(trimmed)}
+            disabled={pending || !trimmed || unchanged}
+          >
+            {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Salvar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EmptyStateDuplicate({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="flex min-h-[60vh] flex-col items-center justify-center rounded-lg border border-dashed border-border/60 p-10 text-center">
+      <h2 className="text-lg font-medium">{title}</h2>
+      <p className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
 function BoardSkeleton() {
   return (
     <div className="flex gap-3">
