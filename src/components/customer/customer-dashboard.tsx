@@ -128,12 +128,6 @@ function DashboardReady({
         </div>
         <div className="flex items-center gap-2">
           <MonthlyPlanDialog brandId={brandId} clientId={clientId} />
-          {onRegenerate ? (
-            <Button size="sm" variant="ghost" onClick={onRegenerate} className="gap-1.5 text-muted-foreground hover:text-foreground">
-              <RefreshCw className="h-3.5 w-3.5" />
-              Regerar estratégia
-            </Button>
-          ) : null}
         </div>
       </div>
 
