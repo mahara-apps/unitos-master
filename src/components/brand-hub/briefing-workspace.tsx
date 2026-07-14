@@ -188,6 +188,25 @@ export function BriefingWorkspace({
   const save = useMutation({
     mutationFn: async () => {
       if (!form) return;
+      const existing = hubQ.data?.brand_hub?.competitors ?? [];
+      const byHandle = new Map(
+        existing.map((c) => [c.handle.replace(/^@/, "").toLowerCase(), c]),
+      );
+      const competitors = form.competitor_handles.map((raw) => {
+        const handle = raw.replace(/^@/, "");
+        const prev = byHandle.get(handle.toLowerCase());
+        return (
+          prev ?? {
+            id:
+              typeof crypto !== "undefined" && "randomUUID" in crypto
+                ? crypto.randomUUID()
+                : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            handle,
+            platform: "instagram" as const,
+            added_at: new Date().toISOString(),
+          }
+        );
+      });
       return saveHub({
         data: {
           brandId,
@@ -211,6 +230,7 @@ export function BriefingWorkspace({
             do_dont: { do: form.do_text, dont: form.dont_text },
             volumetry: form.volumetry,
             goals: form.goals,
+            competitors,
           },
         },
       });
