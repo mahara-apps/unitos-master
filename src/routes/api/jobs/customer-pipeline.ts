@@ -312,13 +312,27 @@ async function runPhase1(params: {
       created_by: userId,
     });
 
-    await patch({ progress: 20, step_label: "Modelando tom de voz" });
-    const voice = await runStructured({
-      system: P.voice,
-      prompt: `Briefing estruturado:\n${JSON.stringify(briefing, null, 2)}`,
-      schema: VoiceSchema,
-      strategic: true,
-    });
+    // Voice + Personas run in parallel (both depend only on the briefing).
+    await patch({ progress: 20, step_label: "Modelando voz e personas" });
+    const [voiceRaw, personasRaw] = await Promise.all([
+      runStructured({
+        system: P.voice,
+        prompt: `Briefing estruturado:\n${JSON.stringify(briefing, null, 2)}`,
+        schema: VoiceSchema,
+        strategic: true,
+        modelOverride: OPERATIONAL_MODEL, // flash is enough for voice card
+      }),
+      runStructured({
+        system: P.personas,
+        prompt: `Briefing:\n${JSON.stringify(briefing, null, 2)}`,
+        schema: PersonasSchema,
+        strategic: true,
+      }),
+    ]);
+    const voice = normalizeVoicePayload(voiceRaw);
+    const personas = normalizePersonasPayload(personasRaw);
+    if (!personas.personas.length) throw new Error("Nenhuma persona gerada — tente novamente.");
+
     await supabase
       .from("brand_voice_cards")
       .update({ is_active: false })
@@ -330,14 +344,6 @@ async function runPhase1(params: {
       client_id: input.clientId,
       data: voice,
       created_by: userId,
-    });
-
-    await patch({ progress: 35, step_label: "Mapeando personas" });
-    const personas = await runStructured({
-      system: P.personas,
-      prompt: `Briefing:\n${JSON.stringify(briefing, null, 2)}`,
-      schema: PersonasSchema,
-      strategic: true,
     });
     await supabase
       .from("brand_personas")
@@ -352,13 +358,15 @@ async function runPhase1(params: {
       created_by: userId,
     });
 
-    await patch({ progress: 50, step_label: "Construindo cohorts" });
-    const cohorts = await runStructured({
+    await patch({ progress: 55, step_label: "Construindo cohorts" });
+    const cohortsRaw = await runStructured({
       system: P.cohorts,
       prompt: `Briefing:\n${JSON.stringify(briefing, null, 2)}\n\nPersonas:\n${JSON.stringify(personas, null, 2)}`,
       schema: CohortsSchema,
       strategic: true,
+      modelOverride: OPERATIONAL_MODEL, // flash — cheap + fast
     });
+    const cohorts = normalizeCohortsPayload(cohortsRaw);
     await supabase
       .from("brand_cohorts")
       .update({ is_active: false })
@@ -372,8 +380,8 @@ async function runPhase1(params: {
       created_by: userId,
     });
 
-    await patch({ progress: 65, step_label: "Analisando SWOT" });
-    const swot = await runStructured({
+    await patch({ progress: 70, step_label: "Analisando SWOT" });
+    const swotRaw = await runStructured({
       system: P.swot,
       prompt: [
         `Briefing:\n${JSON.stringify(briefing, null, 2)}`,
@@ -383,6 +391,7 @@ async function runPhase1(params: {
       schema: SwotSchema,
       strategic: true,
     });
+    const swot = normalizeSwotPayload(swotRaw);
     await supabase
       .from("brand_swot")
       .update({ is_active: false })
