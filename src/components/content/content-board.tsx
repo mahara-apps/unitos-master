@@ -60,6 +60,48 @@ const COLOR_MAP: Record<StageColor, string> = {
   cyan: "bg-cyan-500",
 };
 
+function AssigneeChip({ brandId, assigneeId }: { brandId: string; assigneeId: string | null }) {
+  const fetchMembers = useServerFn(listBrandAssigneesFn);
+  const { data: members } = useQuery({
+    queryKey: ["brand-assignees", brandId],
+    queryFn: () => fetchMembers({ data: { brandId } }),
+    staleTime: 60_000,
+    enabled: !!brandId,
+  });
+  if (!assigneeId) {
+    return (
+      <span className="inline-flex items-center gap-1 text-muted-foreground/70" title="Sem responsável">
+        <UserCircle2 className="h-3.5 w-3.5 opacity-60" />
+      </span>
+    );
+  }
+  const m = members?.find((x) => x.id === assigneeId);
+  const name = m?.name ?? "Responsável";
+  const initials =
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((s) => s[0]?.toUpperCase() ?? "")
+      .join("") || "?";
+  return (
+    <span className="inline-flex items-center gap-1" title={name}>
+      {m?.avatar_url ? (
+        <img
+          src={m.avatar_url}
+          alt={name}
+          className="h-4 w-4 rounded-full object-cover ring-1 ring-border/60"
+        />
+      ) : (
+        <span className="flex h-4 w-4 items-center justify-center rounded-full bg-indigo-600 text-[8px] font-semibold text-white">
+          {initials}
+        </span>
+      )}
+      <span className="max-w-[90px] truncate text-[11px] text-foreground/80">{name}</span>
+    </span>
+  );
+}
+
 type Props = {
   board: Board;
   boardQueryKey: readonly unknown[];
