@@ -48,6 +48,7 @@ export type PipelineStage = {
   is_terminal: boolean;
   hide_in_portal?: boolean | null;
   enables_approval_link?: boolean | null;
+  sla_days?: number | null;
 };
 
 export type BoardPost = {
@@ -81,6 +82,9 @@ export type BoardPost = {
   client_briefing?: string | null;
   script?: ScriptScene[] | null;
   references?: PostReference[] | null;
+  project_id?: string | null;
+  remind_at?: string | null;
+  assignees?: string[] | null;
 };
 
 export type ScriptScene = {
