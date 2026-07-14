@@ -20,6 +20,10 @@ import {
   Link2,
   Copy as CopyIcon,
   ShieldX,
+  ChevronLeft,
+  ChevronRight,
+  Play,
+  Images,
 } from "lucide-react";
 import {
   Sheet,
@@ -460,24 +464,77 @@ function EditBody({
   });
 
   const upload = useMutation({
-    mutationFn: async (file: File) => {
-      const buf = await file.arrayBuffer();
-      let binary = "";
-      const bytes = new Uint8Array(buf);
-      for (let i = 0; i < bytes.byteLength; i++)
-        binary += String.fromCharCode(bytes[i]);
-      const base64 = btoa(binary);
-      return uploadRef({
-        data: {
-          postId,
-          filename: file.name,
-          contentType: file.type || "application/octet-stream",
-          base64,
-        },
-      });
+    mutationFn: async (files: File[]) => {
+      const isImage = (f: File) => f.type.startsWith("image/");
+      const isVideo = (f: File) => f.type.startsWith("video/");
+      const existingCount = refs.length;
+      let uploaded = 0;
+      for (const file of files) {
+        // Size guard on the client (server also enforces).
+        const max = isVideo(file) ? 100 * 1024 * 1024 : 25 * 1024 * 1024;
+        if (file.size > max) {
+          toast.error(
+            `${file.name}: excede o limite (${isVideo(file) ? "100 MB" : "25 MB"})`,
+          );
+          continue;
+        }
+        if (!isImage(file) && !isVideo(file)) {
+          toast.error(`${file.name}: formato não suportado`);
+          continue;
+        }
+        try {
+          const base64 = await fileToBase64(file);
+          const res = await uploadRef({
+            data: {
+              postId,
+              filename: file.name,
+              contentType: file.type || "application/octet-stream",
+              base64,
+            },
+          });
+          uploaded += 1;
+          // Generate thumbnail (best-effort) and attach to the same entry.
+          try {
+            const thumb = await generateThumbnail(file);
+            if (thumb) {
+              const thumbB64 = await blobToBase64(thumb);
+              await uploadRef({
+                data: {
+                  postId,
+                  filename: `thumb-${file.name.replace(/\.[^.]+$/, "")}.webp`,
+                  contentType: "image/webp",
+                  base64: thumbB64,
+                  variant: "thumb",
+                  originalPath: res.path,
+                },
+              });
+            }
+          } catch (thumbErr) {
+            console.warn("thumb failed", thumbErr);
+          }
+        } catch (err) {
+          toast.error(
+            `${file.name}: ${(err as Error).message ?? "falha ao enviar"}`,
+          );
+        }
+      }
+      return { uploaded, totalAfter: existingCount + uploaded };
     },
-    onSuccess: () => {
-      toast.success("Mídia anexada");
+    onSuccess: (r) => {
+      if (r.uploaded > 0) {
+        toast.success(
+          r.uploaded === 1 ? "Mídia anexada" : `${r.uploaded} mídias anexadas`,
+        );
+        // Auto-carrossel when ending with 2+ media (except Story format).
+        if (r.totalAfter >= 2 && state.format !== "Story") {
+          if (state.format !== "Carrossel") {
+            setState((s) => ({ ...s, format: "Carrossel" }));
+            toast.info("Formato ajustado para Carrossel");
+          }
+        } else if (r.totalAfter <= 1 && state.format === "Carrossel") {
+          setState((s) => ({ ...s, format: "Feed" }));
+        }
+      }
       qc.invalidateQueries({ queryKey: ["post-detail", postId] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -628,54 +685,26 @@ function EditBody({
           <div className="rounded-md border p-2">
             {refs.length === 0 ? (
               <p className="px-1 py-2 text-xs text-muted-foreground">
-                Anexe imagens que a IA usará como referência visual na Fase 2.
+                Anexe imagens ou vídeos. Ao inserir 2 ou mais, o post vira
+                automaticamente um Carrossel.
               </p>
             ) : (
-              <div className="grid grid-cols-4 gap-2">
-                {refs.map((r) => {
-                  const url = signedUrls[r.path];
-                  const isImg = (r.type ?? "").startsWith("image/");
-                  return (
-                    <div
-                      key={r.path}
-                      className="group relative aspect-square overflow-hidden rounded-md border bg-muted"
-                    >
-                      {isImg && url ? (
-                        <img
-                          src={url}
-                          alt={r.name ?? r.path}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full flex-col items-center justify-center p-1 text-center">
-                          <FileText className="h-6 w-6 text-muted-foreground" />
-                          <span className="mt-1 line-clamp-2 text-[10px] text-muted-foreground">
-                            {r.name}
-                          </span>
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        className="absolute right-1 top-1 rounded-full bg-background/90 p-1 opacity-0 shadow transition group-hover:opacity-100"
-                        onClick={() => removeMedia.mutate(r.path)}
-                        title="Remover"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
+              <InstagramPreview
+                refs={refs}
+                urls={signedUrls}
+                onRemove={(p) => removeMedia.mutate(p)}
+              />
             )}
             <div className="mt-2 flex justify-end">
               <input
                 ref={fileInput}
                 type="file"
+                multiple
                 className="hidden"
-                accept="image/*,application/pdf"
+                accept="image/*,video/*"
                 onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) upload.mutate(f);
+                  const fs = Array.from(e.target.files ?? []);
+                  if (fs.length > 0) upload.mutate(fs);
                   e.target.value = "";
                 }}
               />
@@ -1520,5 +1549,259 @@ function MicroAiButton({
     >
       {m.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Icon className="h-3 w-3" />}
     </button>
+  );
+}
+
+// ---------------- Media helpers ----------------
+
+async function fileToBase64(file: File): Promise<string> {
+  const buf = await file.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(
+      null,
+      Array.from(bytes.subarray(i, i + chunk)),
+    );
+  }
+  return btoa(binary);
+}
+
+async function blobToBase64(blob: Blob): Promise<string> {
+  const buf = await blob.arrayBuffer();
+  const bytes = new Uint8Array(buf);
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(
+      null,
+      Array.from(bytes.subarray(i, i + chunk)),
+    );
+  }
+  return btoa(binary);
+}
+
+// Produces a ~640px square-fit WebP thumbnail from an image or a video's
+// first frame. Returns null on any failure (best-effort).
+async function generateThumbnail(file: File): Promise<Blob | null> {
+  const isVideo = file.type.startsWith("video/");
+  const isImage = file.type.startsWith("image/");
+  if (!isVideo && !isImage) return null;
+
+  const targetMax = 640;
+
+  const drawToCanvas = (
+    source: HTMLImageElement | HTMLVideoElement,
+    w: number,
+    h: number,
+  ): Promise<Blob | null> => {
+    const scale = Math.min(1, targetMax / Math.max(w, h));
+    const cw = Math.max(1, Math.round(w * scale));
+    const ch = Math.max(1, Math.round(h * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = cw;
+    canvas.height = ch;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return Promise.resolve(null);
+    ctx.drawImage(source, 0, 0, cw, ch);
+    return new Promise((resolve) =>
+      canvas.toBlob((b) => resolve(b), "image/webp", 0.8),
+    );
+  };
+
+  const url = URL.createObjectURL(file);
+  try {
+    if (isImage) {
+      const img = new Image();
+      img.src = url;
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("image load failed"));
+      });
+      return await drawToCanvas(img, img.naturalWidth, img.naturalHeight);
+    }
+    // Video: capture the first frame
+    const video = document.createElement("video");
+    video.src = url;
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    await new Promise<void>((resolve, reject) => {
+      video.onloadedmetadata = () => {
+        try {
+          video.currentTime = Math.min(0.1, video.duration || 0.1);
+        } catch {
+          resolve();
+        }
+      };
+      video.onseeked = () => resolve();
+      video.onerror = () => reject(new Error("video load failed"));
+    });
+    return await drawToCanvas(video, video.videoWidth, video.videoHeight);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+// ---------------- Instagram-style carousel preview ----------------
+
+type RefEntry = {
+  path: string;
+  name?: string;
+  type?: string;
+  size?: number;
+  thumb_path?: string | null;
+  pruned?: boolean | null;
+};
+
+function InstagramPreview({
+  refs,
+  urls,
+  onRemove,
+}: {
+  refs: RefEntry[];
+  urls: Record<string, string>;
+  onRemove: (path: string) => void;
+}) {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    if (idx > refs.length - 1) setIdx(Math.max(0, refs.length - 1));
+  }, [refs.length, idx]);
+
+  if (refs.length === 0) return null;
+  const current = refs[idx];
+  const isVideo = (current.type ?? "").startsWith("video/");
+  const originalUrl = urls[current.path];
+  const thumbUrl = current.thumb_path ? urls[current.thumb_path] : null;
+  const displayUrl =
+    current.pruned && thumbUrl ? thumbUrl : originalUrl ?? thumbUrl ?? null;
+
+  return (
+    <div className="space-y-2">
+      <div className="relative mx-auto w-full max-w-sm overflow-hidden rounded-xl border bg-black">
+        <div className="relative aspect-square w-full">
+          {displayUrl ? (
+            isVideo && !current.pruned ? (
+              <video
+                key={current.path}
+                src={displayUrl}
+                controls
+                playsInline
+                className="h-full w-full object-cover"
+                poster={thumbUrl ?? undefined}
+              />
+            ) : (
+              <img
+                src={displayUrl}
+                alt={current.name ?? current.path}
+                className="h-full w-full object-cover"
+              />
+            )
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+            </div>
+          )}
+
+          {isVideo && current.pruned ? (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/40">
+              <Play className="h-10 w-10 text-white/90" />
+            </div>
+          ) : null}
+
+          {refs.length > 1 ? (
+            <>
+              <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-medium text-white">
+                <Images className="h-3 w-3" /> {idx + 1}/{refs.length}
+              </span>
+              {idx > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setIdx((i) => Math.max(0, i - 1))}
+                  className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-1 text-white transition hover:bg-black/70"
+                  aria-label="Anterior"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+              ) : null}
+              {idx < refs.length - 1 ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setIdx((i) => Math.min(refs.length - 1, i + 1))
+                  }
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-1 text-white transition hover:bg-black/70"
+                  aria-label="Próximo"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              ) : null}
+            </>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => onRemove(current.path)}
+            title="Remover mídia"
+            className="absolute left-2 top-2 rounded-full bg-black/60 p-1 text-white transition hover:bg-red-500/90"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        {refs.length > 1 ? (
+          <div className="flex items-center justify-center gap-1 bg-black/80 py-2">
+            {refs.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setIdx(i)}
+                className={`h-1.5 rounded-full transition-all ${
+                  i === idx ? "w-4 bg-white" : "w-1.5 bg-white/40"
+                }`}
+                aria-label={`Ir para ${i + 1}`}
+              />
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      {refs.length > 1 ? (
+        <div className="mx-auto flex max-w-sm gap-1.5 overflow-x-auto pb-1">
+          {refs.map((r, i) => {
+            const t = r.thumb_path ? urls[r.thumb_path] : urls[r.path];
+            const isVid = (r.type ?? "").startsWith("video/");
+            return (
+              <button
+                key={r.path}
+                type="button"
+                onClick={() => setIdx(i)}
+                className={`relative h-14 w-14 flex-shrink-0 overflow-hidden rounded-md border transition ${
+                  i === idx ? "ring-2 ring-primary" : "opacity-70 hover:opacity-100"
+                }`}
+              >
+                {t ? (
+                  <img src={t} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-muted" />
+                )}
+                {isVid ? (
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <Play className="h-3.5 w-3.5 text-white" />
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <p className="text-center text-[11px] text-muted-foreground">
+        {refs.length === 1
+          ? "Preview estilo Instagram · adicione mais para virar Carrossel"
+          : `Carrossel de ${refs.length} · arquivos originais mantidos por 30 dias após publicação`}
+      </p>
+    </div>
   );
 }

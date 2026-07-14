@@ -98,7 +98,14 @@ export type BoardPost = {
   brand_id: string;
   client_id: string;
   review_status?: string | null;
-  reference_media?: Array<{ path: string; name?: string; type?: string; size?: number }> | null;
+  reference_media?: Array<{
+    path: string;
+    name?: string;
+    type?: string;
+    size?: number;
+    thumb_path?: string | null;
+    pruned?: boolean | null;
+  }> | null;
   design_brief?: string | null;
   ai_phase?: string | null;
   approved_at?: string | null;
@@ -747,6 +754,8 @@ export const uploadPostReferenceMediaFn = createServerFn({ method: "POST" })
         filename: z.string().min(1).max(200),
         contentType: z.string().max(120),
         base64: z.string().min(1),
+        variant: z.enum(["original", "thumb"]).optional().default("original"),
+        originalPath: z.string().optional(),
       })
       .parse(i),
   )
@@ -759,19 +768,40 @@ export const uploadPostReferenceMediaFn = createServerFn({ method: "POST" })
     if (pe || !post) throw pe ?? new Error("Post not found");
 
     const bin = Uint8Array.from(atob(data.base64), (c) => c.charCodeAt(0));
-    if (bin.byteLength > 15 * 1024 * 1024) throw new Error("file_too_large");
+    const isVideo = data.contentType.startsWith("video/");
+    const maxBytes = isVideo ? 100 * 1024 * 1024 : 25 * 1024 * 1024;
+    if (bin.byteLength > maxBytes) throw new Error("file_too_large");
     const safeName = data.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const path = `${post.brand_id}/${post.client_id}/posts/${post.id}/${Date.now()}-${safeName}`;
+    const subdir = data.variant === "thumb" ? "thumbs/" : "";
+    const path = `${post.brand_id}/${post.client_id}/posts/${post.id}/${subdir}${Date.now()}-${safeName}`;
     const { error: ue } = await context.supabase.storage
       .from("brand-assets")
       .upload(path, bin, { contentType: data.contentType, upsert: false });
     if (ue) throw ue;
 
-    const entry = { path, name: data.filename, type: data.contentType, size: bin.byteLength };
     const current = Array.isArray(post.reference_media)
       ? (post.reference_media as Array<Record<string, unknown>>)
       : [];
-    const next = [...current, entry];
+    type MediaEntry = {
+      path: string;
+      name?: string;
+      type?: string;
+      size?: number;
+      thumb_path?: string;
+      originalPath?: string;
+    };
+    let next: Array<Record<string, unknown>>;
+    let entry: MediaEntry;
+    if (data.variant === "thumb" && data.originalPath) {
+      // Attach thumb to existing entry identified by originalPath
+      next = current.map((r) =>
+        r?.path === data.originalPath ? { ...r, thumb_path: path } : r,
+      );
+      entry = { path, thumb_path: path, originalPath: data.originalPath };
+    } else {
+      entry = { path, name: data.filename, type: data.contentType, size: bin.byteLength };
+      next = [...current, entry];
+    }
     const { error: upErr } = await context.supabase
       .from("posts")
       .update({ reference_media: next } as never)
