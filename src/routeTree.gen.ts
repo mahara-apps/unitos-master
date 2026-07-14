@@ -25,6 +25,7 @@ import { Route as AuthenticatedContentRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedConnectionsRouteImport } from './routes/_authenticated/connections'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
+import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
 import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authenticated/customers.index'
 import { Route as PBriefingTokenRouteImport } from './routes/p.briefing.$token'
 import { Route as ApiJobsPostPhase2RouteImport } from './routes/api/jobs/post-phase2'
@@ -120,6 +121,12 @@ const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
   path: '/agents',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSettingsIndexRoute =
+  AuthenticatedSettingsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedCustomersIndexRoute =
   AuthenticatedCustomersIndexRouteImport.update({
     id: '/',
@@ -216,6 +223,7 @@ export interface FileRoutesByFullPath {
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/customers/': typeof AuthenticatedCustomersIndexRoute
+  '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/jobs/reap': typeof ApiPublicJobsReapRoute
@@ -230,7 +238,6 @@ export interface FileRoutesByTo {
   '/content': typeof AuthenticatedContentRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
-  '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
@@ -245,6 +252,7 @@ export interface FileRoutesByTo {
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/customers': typeof AuthenticatedCustomersIndexRoute
+  '/settings': typeof AuthenticatedSettingsIndexRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/jobs/reap': typeof ApiPublicJobsReapRoute
@@ -277,6 +285,7 @@ export interface FileRoutesById {
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
+  '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/jobs/reap': typeof ApiPublicJobsReapRoute
@@ -309,6 +318,7 @@ export interface FileRouteTypes {
     | '/api/jobs/post-phase2'
     | '/p/briefing/$token'
     | '/customers/'
+    | '/settings/'
     | '/customers/$customerId/briefing'
     | '/api/public/approval/$token'
     | '/api/public/jobs/reap'
@@ -323,7 +333,6 @@ export interface FileRouteTypes {
     | '/content'
     | '/dashboard'
     | '/notifications'
-    | '/settings'
     | '/approval/$token'
     | '/invite/$token'
     | '/portal/$token'
@@ -338,6 +347,7 @@ export interface FileRouteTypes {
     | '/api/jobs/post-phase2'
     | '/p/briefing/$token'
     | '/customers'
+    | '/settings'
     | '/customers/$customerId/briefing'
     | '/api/public/approval/$token'
     | '/api/public/jobs/reap'
@@ -369,6 +379,7 @@ export interface FileRouteTypes {
     | '/api/jobs/post-phase2'
     | '/p/briefing/$token'
     | '/_authenticated/customers/'
+    | '/_authenticated/settings/'
     | '/_authenticated/customers/$customerId/briefing'
     | '/api/public/approval/$token'
     | '/api/public/jobs/reap'
@@ -506,6 +517,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgentsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/settings/': {
+      id: '/_authenticated/settings/'
+      path: '/'
+      fullPath: '/settings/'
+      preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/customers/': {
       id: '/_authenticated/customers/'
       path: '/'
@@ -635,11 +653,13 @@ const AuthenticatedCustomersRouteWithChildren =
 interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsAiRoute: typeof AuthenticatedSettingsAiRoute
   AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
+  AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
 }
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsAiRoute: AuthenticatedSettingsAiRoute,
   AuthenticatedSettingsTeamRoute: AuthenticatedSettingsTeamRoute,
+  AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
 }
 
 const AuthenticatedSettingsRouteWithChildren =
