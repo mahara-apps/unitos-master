@@ -67,7 +67,7 @@ import {
   revokeApprovalTokenFn,
 } from "@/lib/approval.functions";
 import { supabase } from "@/integrations/supabase/client";
-import { CHANNELS, FORMATS } from "./stage-colors";
+import { CHANNELS, CHANNEL_STYLES, FORMATS, FORMAT_STYLES, PRIORITY_STYLES } from "./stage-colors";
 
 type Priority = "low" | "medium" | "high" | "urgent";
 
@@ -772,7 +772,7 @@ function TaskLayout({
                   onClick={() => toggleChannel(c.id)}
                   className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition ${
                     active
-                      ? "border-primary bg-primary/10 text-foreground"
+                      ? CHANNEL_STYLES[c.id] ?? "border-primary bg-primary/10 text-foreground"
                       : "border-border/60 text-muted-foreground hover:border-border"
                   }`}
                 >
@@ -796,7 +796,7 @@ function TaskLayout({
                 onClick={() => set("format", f)}
                 className={`rounded-full border px-3 py-1 text-xs transition ${
                   state.format === f
-                    ? "border-primary bg-primary/10 text-foreground"
+                    ? FORMAT_STYLES[f] ?? "border-primary bg-primary/10 text-foreground"
                     : "border-border/60 text-muted-foreground hover:border-border"
                 }`}
               >
@@ -909,11 +909,11 @@ function TaskLayout({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">Sem prioridade</SelectItem>
-              <SelectItem value="low">Baixa</SelectItem>
-              <SelectItem value="medium">Média</SelectItem>
-              <SelectItem value="high">Alta</SelectItem>
-              <SelectItem value="urgent">Urgente</SelectItem>
+              <SelectItem value="none"><span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-zinc-400" />Sem prioridade</span></SelectItem>
+              <SelectItem value="low"><span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-blue-500" />Baixa</span></SelectItem>
+              <SelectItem value="medium"><span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-amber-500" />Média</span></SelectItem>
+              <SelectItem value="high"><span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-orange-500" />Alta</span></SelectItem>
+              <SelectItem value="urgent"><span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-red-600" />Urgente</span></SelectItem>
             </SelectContent>
           </Select>
         </div>
