@@ -211,6 +211,11 @@ export function BriefingWorkspace({
     if (hubQ.data && !form) setForm(toForm(hubQ.data));
   }, [hubQ.data, form]);
 
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  useEffect(() => {
+    if (hubQ.data?.updated_at && !savedAt) setSavedAt(hubQ.data.updated_at);
+  }, [hubQ.data?.updated_at, savedAt]);
+
   const completion = useMemo(() => (form ? computeCompletion(form) : 0), [form]);
 
   // ------------- Gerar estratégia (fase 1 · pipeline de agentes) --------------
@@ -387,6 +392,7 @@ export function BriefingWorkspace({
     },
     onSuccess: () => {
       toast.success("Briefing salvo");
+      setSavedAt(new Date().toISOString());
       qc.invalidateQueries({ queryKey: ["brand-hub", brandId, clientId] });
     },
     onError: (e: Error) => toast.error(e.message || "Falha ao salvar"),
@@ -428,6 +434,7 @@ export function BriefingWorkspace({
         completion={completion}
         onSave={() => save.mutate()}
         saving={save.isPending}
+        savedAt={savedAt}
         onGenerateStrategy={() => setRegenOpen(true)}
         onGenerateIdeas={() => setIdeasOpen(true)}
         strategyReady={strategyReady}
@@ -1357,6 +1364,7 @@ type StackedProps = {
   completion: number;
   onSave: () => void;
   saving: boolean;
+  savedAt: string | null;
   onGenerateStrategy: () => void;
   onGenerateIdeas: () => void;
   strategyReady: boolean;
@@ -1378,7 +1386,7 @@ type StackedProps = {
 function StackedBrainLayout(props: StackedProps) {
   const {
     brandId, clientId, client, form, setForm, completion,
-    onSave, saving, onGenerateStrategy, generating, appendSlot,
+    onSave, saving, savedAt, onGenerateStrategy, generating, appendSlot,
     regenOpen, setRegenOpen, runStrategy,
     ideasOpen, setIdeasOpen, ideasQty, setIdeasQty, ideasPeriod, setIdeasPeriod,
     genIdeas, runIdeas,
@@ -1419,9 +1427,18 @@ function StackedBrainLayout(props: StackedProps) {
               </div>
               <Progress value={completion} className="h-1.5" />
             </div>
-            <span className="hidden text-[11px] text-muted-foreground md:inline">
-              Salvo há poucos segundos
-            </span>
+            {savedAt ? (
+              <span className="hidden text-[11px] text-muted-foreground md:inline">
+                Salvo em{" "}
+                {new Intl.DateTimeFormat("pt-BR", {
+                  day: "2-digit",
+                  month: "2-digit",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                }).format(new Date(savedAt))}
+              </span>
+            ) : null}
           </div>
           <Button
             size="sm"
