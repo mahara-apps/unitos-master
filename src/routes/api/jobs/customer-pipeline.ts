@@ -257,16 +257,6 @@ function normalizeSwotPayload(raw: unknown): z.infer<typeof SwotSchema> {
   };
 }
 
-const CHANNEL_MAP: Record<string, "instagram" | "tiktok" | "linkedin" | "x" | "youtube" | "blog"> = {
-  instagram: "instagram",
-  tiktok: "tiktok",
-  linkedin: "linkedin",
-  x: "x",
-  twitter: "x",
-  youtube: "youtube",
-  blog: "blog",
-};
-
 async function runPhase1(params: {
   jobId: string;
   token: string;
