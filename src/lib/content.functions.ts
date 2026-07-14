@@ -510,6 +510,14 @@ export const updatePostFn = createServerFn({ method: "POST" })
               .optional(),
             design_brief: z.string().max(8000).nullable().optional(),
             review_status: z.enum(["pending", "approved", "rejected", "rework"]).optional(),
+            priority: z.enum(["low", "medium", "high", "urgent"]).nullable().optional(),
+            format: z.string().max(60).nullable().optional(),
+            tags: z.array(z.string().max(40)).max(20).optional(),
+            visible_in_portal: z.boolean().optional(),
+            internal_briefing: z.string().max(8000).nullable().optional(),
+            client_briefing: z.string().max(8000).nullable().optional(),
+            script: z.array(z.any()).nullable().optional(),
+            references: z.array(z.any()).nullable().optional(),
           })
           .strict(),
       })
