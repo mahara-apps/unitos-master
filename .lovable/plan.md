@@ -1,80 +1,84 @@
-# Painel de Produção Unificado — Kanban + Calendário + Cérebro de Agentes
 
-## Diagnóstico do que já existe
+# Painel de Produção (Kiiru) — MVP incremental
 
-- **Kanban** (`/content`): funcional, com 6 estágios, drag-and-drop, criação de posts, edição em drawer, aprovação (`review_status = approved`). Faltam ações explícitas de **refazer** e **excluir** no cartão, e o botão de aprovar dispara Fase 2 do pipeline mas não sinaliza claramente o estado.
-- **Calendário** (`/calendar`): apenas placeholder "Em breve".
-- **Agentes IA** (`/agents`): apenas placeholder. Já existem 9 prompts em `agent_prompts` e o orquestrador `monthly-plan` gera pauta, mas não há tela para visualizar/executar/monitorar os agentes nem para gerar pauta conforme volume mensal do cliente.
-- **Volume mensal**: campo `brand_hub.volumetria` já existe no briefing, mas o Planner não recebe explicitamente "gerar N posts".
-- **Posts** têm `scheduled_at` e `published_at` no schema — base pronta para o calendário.
+Escopo desta rodada: transformar `/content` num painel multi-board por cliente, com colunas 100% personalizáveis, filtros laterais, "Minhas tarefas", busca global, geração inline por IA nos campos do card e link público de aprovação por tarefa. Fica de fora (roadmap): notificações email/WhatsApp, dashboard analítico dedicado, recorrência automática, versionamento de mídia, checklist com responsável/prazo, integração de publicação nativa nas redes.
 
-## O que vou construir
+## O que muda no banco (migration única)
 
-### 1. Kanban de produção — reforço de ações
-Adicionar ao `PostCard` e ao `PostDetailDialog`:
-- **Aprovar** (já existe, tornar botão primário visível no cartão em hover).
-- **Refazer**: reseta `review_status → 'rework'`, move card de volta ao estágio "Em revisão" e dispara nova execução do Copywriter+Art Director (Fase 2) com feedback opcional em campo de texto.
-- **Excluir**: soft-delete com confirmação.
-- Badge de status (`pending` / `approved` / `rework` / `published`) no canto do card.
+Hoje já existem `content_pipelines`, `content_pipeline_stages`, `posts`, `activity_events`, `portal_tokens`, `post_approvals`. Vamos estender em vez de recriar:
 
-### 2. Calendário editorial (`/calendar`)
-Nova tela substituindo o placeholder:
-- Visão **mês / semana / lista** (react-day-picker + grid custom).
-- Fetch de posts com `scheduled_at` no intervalo visível, agrupados por dia.
-- Filtros: cliente (usa switcher global), canal (Instagram/LinkedIn/etc.), status.
-- Cada evento mostra: capa, título, canal, badge de status.
-- Clique → abre o mesmo `PostDetailDialog` do Kanban (aprovar/refazer/excluir/editar `scheduled_at`).
-- Arrastar evento entre dias → atualiza `scheduled_at` (mutation otimista).
-- Botão "+ Agendar post" abre criação rápida no dia selecionado.
+1. `content_pipelines` (= "painéis")
+   - adicionar `color text`, `description text`, `icon text` (para o seletor topo)
+   - manter `client_id` + `is_default` + `position`
+2. `content_pipeline_stages` (= "colunas do Kanban")
+   - adicionar `hide_in_portal boolean default false`
+   - adicionar `enables_approval_link boolean default false`
+   - já tem `color`, `position`, `name`, `is_default`
+3. `posts` (= "tarefas")
+   - adicionar `priority text` (`low|normal|high|urgent`)
+   - adicionar `format text` (feed/story/reels/carrossel/…)
+   - adicionar `channels text[]` (instagram/facebook/tiktok/…)
+   - adicionar `tags text[]`
+   - adicionar `visible_in_portal boolean default true`
+   - adicionar `internal_briefing text`, `client_briefing text`, `script jsonb` (cenas)
+   - adicionar `references jsonb` (até 20 itens: url, título, descrição, imagem, portal)
+   - manter `copy`, `design_brief`, `reference_media`, `stage_id`, `scheduled_at`, `review_status`
+4. Nova tabela `card_approval_tokens`
+   - `id uuid pk`, `post_id fk`, `token text unique`, `expires_at`, `revoked_at`, `created_by`, `created_at`
+   - GRANTs + RLS: leitura por membro da brand; a rota pública valida token server-side e responde via server publishable client + policy `TO anon` estreita (apenas colunas seguras via view).
+5. Nova tabela `card_approval_events`
+   - `id uuid pk`, `post_id`, `token_id`, `verb` (`viewed|approved|rejected|changes_requested|commented`), `comment text`, `ip inet`, `user_agent text`, `created_at`
 
-### 3. Cérebro de Agentes (`/agents`)
-Nova tela consolidando o vault de `agent_prompts`:
-- **Grid de agentes** (9 já cadastrados): card por agente com nome, descrição, modelo, últimas execuções (do `ai_jobs`).
-- Cada card: ver prompt (read-only), ver histórico de runs, botão "Executar" para agentes standalone (Cérebro de Marca, Analista de Instagram, etc.) com seletor de cliente.
-- **Painel "Sugerir pauta mensal"** no topo:
-  - Seletor de cliente (ou usa contexto global).
-  - Lê `brand_hub.volumetria` (posts/mês) — editável inline.
-  - Distribui em canais conforme `brand_hub.canais`.
-  - Botão **"✨ Gerar N posts do mês"** dispara `monthly-plan` já existente, agora passando `postsCount` explícito para o Planner (hoje é implícito).
-  - Após execução: pauta aparece com propostas de `scheduled_at` sugeridas (distribuição uniforme no mês) → usuário aprova em lote e cards entram no Kanban + Calendário.
+Realtime já habilitado em `posts` e `content_pipelines`; adicionar `card_approval_events` para atualizar o histórico ao vivo.
 
-### 4. Ajustes de backend
-- **Migration**: adicionar valor `'rework'` ao enum/coluna `review_status` (se ainda não existir) + coluna `deleted_at` para soft delete em `posts`.
-- **Server fn** `reworkPost` em `content.functions.ts`: seta status, move de estágio, enfileira novo job Fase 2.
-- **Server fn** `softDeletePost` (filtrar `deleted_at IS NULL` nos SELECTs existentes).
-- **Server fn** `listScheduledPosts({ from, to, clientId? })` para o calendário.
-- **Server fn** `runAgent({ agentId, clientId, input })` genérica que resolve prompt do vault + Brand Blueprint + roda via gateway.
-- **Orquestrador** `monthly-plan`: aceitar `postsCount` e `distributionHint` (canais/frequência) no payload; distribuir `scheduled_at` sugeridos ao inserir posts.
+## Backend (server functions + server route público)
 
-### 5. Navegação (sidebar)
-- Manter grupo **Operação**: Dashboard, Produção (Kanban), **Calendário** (ativo), Projetos, Tarefas.
-- Manter grupo **Inteligência**: **Agentes IA** (ativo), Analytics, Relatórios.
+- `src/lib/boards.functions.ts` — CRUD de painéis (create/rename/duplicate/delete/reorder) e de colunas (com flags `hide_in_portal` e `enables_approval_link`). Reaproveita `content_pipelines`/`content_pipeline_stages` existentes.
+- `src/lib/content.functions.ts` — estender com:
+  - `listBoardTasksFn({ boardId, filters })` (responsável, tags, canal, formato, prioridade, data, portal, aprovação, "minhas tarefas", busca full-text)
+  - `updateTaskFieldsFn` (autosave dos novos campos)
+  - `createApprovalTokenFn({ postId, ttlDays })` / `revokeApprovalTokenFn`
+- `src/lib/ai-copilot-inline.functions.ts` (novo) — 4 wrappers finos que reusam o motor atual (`ai-agents.functions.ts`) e o brand blueprint:
+  - `generateCaption` → `copywriter_senior`
+  - `generateHashtags` / `generateCTA` / `generateTitle` → prompts curtos derivados do mesmo agente
+  - `generateScript` → novo prompt `roteirista_social` inserido em `agent_prompts`
+  - `generateInternalBriefing` → `briefing_extractor`
+  - Todos recebem `postId` + `mode` e devolvem string/JSON, injetando brand context via `buildBrandContextBlueprint`.
+- `src/routes/api/public/approval.$token.ts` — GET (dados do card sanitizados), POST (approve/reject/changes/comment). Rate-limit simples por IP em memória do worker, log em `card_approval_events`, e escrita via `supabaseAdmin` carregado dentro do handler.
 
-## Detalhes técnicos
+## Frontend
 
-**Arquivos criados**
-- `src/routes/_authenticated/calendar.tsx` — layout + tabs mês/semana/lista.
-- `src/components/calendar/editorial-calendar.tsx` — grid + DnD.
-- `src/components/calendar/day-cell.tsx` + `post-event-chip.tsx`.
-- `src/routes/_authenticated/agents.tsx` — grid + painel de pauta mensal.
-- `src/components/ai-agents/agent-card.tsx`, `agent-run-history.tsx`, `monthly-plan-generator.tsx`.
-- `src/lib/calendar.functions.ts`, `src/lib/agents.functions.ts`.
-- `supabase/migrations/*_posts_rework_and_softdelete.sql`.
+- `src/routes/_authenticated/content.tsx` — refactor:
+  - Header com **BoardSwitcher** (Select com cor+nome, "+ Novo painel", "Gerenciar painéis").
+  - Toolbar: busca global (debounced), botão "Minhas tarefas" (toggle), botão "Filtros" (abre Sheet lateral).
+  - Kanban existente (@dnd-kit) passa a ler colunas dinâmicas do board ativo; sem hardcode das 6 stages.
+- `src/components/content/board-manager-dialog.tsx` — CRUD de painéis + colunas (drag reorder, cor, flags portal/aprovação, "duplicar", "replicar para outros painéis do cliente").
+- `src/components/content/filters-sheet.tsx` — filtros laterais persistidos em URL search params.
+- `src/components/content/post-detail-dialog.tsx` — expandir para layout 2 colunas em tela cheia (Sheet full):
+  - Esquerda: abas **Legenda / Briefing interno / Briefing cliente / Roteiro / Mídias / Referências / Comentários / Publicação**. Cada aba de texto tem `AiFieldButton` (✨) que abre popover com {objetivo, tom, persona, qtd, idioma} e insere o resultado no editor (streaming visual via job em background já existente).
+  - Direita: painel de metadados (coluna, painel, projeto, responsáveis, autor, prazo, prioridade, tags, portal on/off, canais, formato, botão **Gerar link de aprovação** quando a coluna atual tem `enables_approval_link`).
+  - Autosave por campo (debounce 600ms via `useMutation`).
+- `src/components/content/references-manager.tsx` — modal com até 20 refs, flag "visível no portal".
+- `src/routes/approval.$token.tsx` — rota pública (fora de `_authenticated`) que consome `/api/public/approval/$token`. Mostra legenda, briefing cliente, roteiro, mídias e refs marcadas como visíveis; ações Aprovar / Reprovar / Solicitar alterações + campo de comentário; registra IP/UA server-side.
 
-**Arquivos editados**
-- `src/components/content/content-board.tsx` — botões Aprovar/Refazer/Excluir no card + badge de status.
-- `src/components/content/post-detail-dialog.tsx` — ação Refazer com campo de feedback + Excluir.
-- `src/lib/content.functions.ts` — filtro `deleted_at IS NULL`, novas mutations `reworkPost`, `softDeletePost`, `updateScheduledAt`.
-- `src/routes/api/jobs/monthly-plan.ts` — aceitar `postsCount` + gerar `scheduled_at`.
-- `src/components/app-sidebar.tsx` — apenas garantir ícones/rótulos dos itens já existentes.
+## RBAC e multi-tenant
+- Toda query nova filtra por `brand_id` + (quando aplicável) `client_id`, seguindo `use-active-context` e `use-access-role`.
+- Usuários `user` só veem boards dos clientes que possuem (regra já existente em `permissions.ts`).
+- Rota pública `/approval/{token}` é a única exceção: sem auth, mas escopada ao `post_id` do token e limitada a colunas seguras.
 
-**Dependências**: nenhuma nova (usa `@dnd-kit`, `date-fns`, `react-day-picker`, shadcn já presentes).
+## Fora deste MVP (roadmap explícito)
+- Recorrência automática de tarefas (cron + template).
+- Notificações email/WhatsApp (hoje só in-app via `notifications` + realtime).
+- Publicação nativa em redes sociais.
+- Versionamento de mídia e comentários em mídia.
+- Dashboard analítico dedicado a produtividade/tempo médio (o dashboard atual continua servindo agregados).
+- Checklist com responsável+prazo (fica como checklist simples nesta rodada).
 
-**Segurança/RLS**: novas fns usam `requireSupabaseAuth` + `is_brand_member`; soft-delete e rework respeitam escopo por `client_id`.
-
-## Fora do escopo (fica para próxima iteração)
-- Publicação real em redes sociais (integração Meta/LinkedIn API).
-- Notificações push por evento de calendário.
-- Aprovação externa via portal do cliente (portal já foi removido conforme decisão anterior).
-
-Posso implementar? Se sim, sigo pela ordem: migration → backend fns → calendário → ações do kanban → tela de agentes.
+## Ordem de execução
+1. Migration (extensões + 2 tabelas novas + GRANTs + RLS + realtime).
+2. `boards.functions.ts` + `content.functions.ts` extensões + seed do prompt `roteirista_social` em `agent_prompts`.
+3. Refactor de `content.tsx` (BoardSwitcher, toolbar, colunas dinâmicas) + `board-manager-dialog`.
+4. `post-detail-dialog` novo layout 2 colunas com AiFieldButton inline e autosave.
+5. `filters-sheet` + "Minhas tarefas" + busca global.
+6. Rota pública `/approval/$token` + `card_approval_tokens` UI de geração no card.
+7. Smoke test end-to-end via Playwright (criar board → mover card → gerar caption com IA → gerar link → aprovar como visitante).
