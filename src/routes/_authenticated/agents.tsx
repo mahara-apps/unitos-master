@@ -23,6 +23,7 @@ import {
   getBrandVolumetryFn,
 } from "@/lib/agents.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { usePageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/agents")({
   component: AgentsPage,
@@ -81,6 +82,33 @@ function AgentsPage() {
     onSettled: () => setRunning(false),
   });
 
+  const monthlyAction = clientId ? (
+    <Button
+      size="sm"
+      onClick={() => runMonthlyPlan.mutate()}
+      disabled={running || runMonthlyPlan.isPending}
+      className="gap-2"
+    >
+      {running || runMonthlyPlan.isPending ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <Sparkles className="h-4 w-4" />
+      )}
+      Sugerir pauta do mês ({vol.data?.postsPerMonth ?? 12} posts)
+    </Button>
+  ) : (
+    <Badge variant="outline">Selecione um cliente para acionar a pauta</Badge>
+  );
+
+  usePageHeader(
+    {
+      title: "Cérebro de Agentes",
+      subtitle: "Especialistas de IA orquestrados a partir do briefing da marca.",
+      actions: monthlyAction,
+    },
+    [clientId, running, runMonthlyPlan.isPending, vol.data?.postsPerMonth],
+  );
+
   if (!brandId) {
     return (
       <div className="p-8 text-sm text-muted-foreground">
@@ -91,31 +119,6 @@ function AgentsPage() {
 
   return (
     <div className="flex h-full flex-col gap-6 p-6">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Cérebro de Agentes</h1>
-          <p className="text-sm text-muted-foreground">
-            Especialistas de IA orquestrados a partir do briefing da marca.
-          </p>
-        </div>
-        {clientId ? (
-          <Button
-            onClick={() => runMonthlyPlan.mutate()}
-            disabled={running || runMonthlyPlan.isPending}
-            className="gap-2"
-          >
-            {running || runMonthlyPlan.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Sparkles className="h-4 w-4" />
-            )}
-            Sugerir pauta do mês ({vol.data?.postsPerMonth ?? 12} posts)
-          </Button>
-        ) : (
-          <Badge variant="outline">Selecione um cliente para acionar a pauta</Badge>
-        )}
-      </header>
-
       <section>
         <h2 className="mb-3 flex items-center gap-2 text-sm font-medium">
           <Brain className="h-4 w-4" /> Agentes disponíveis

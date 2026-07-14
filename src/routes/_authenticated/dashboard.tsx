@@ -56,7 +56,6 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function DashboardPage() {
   const { brandId, clientId } = useActiveContext();
-  usePageHeader({ title: "" }, []);
 
   if (!brandId) {
     return (
@@ -105,25 +104,16 @@ function DashboardContent({ brandId, clientId }: { brandId: string; clientId: st
   const scopeLabel = clientName ?? "Agência";
   const greeting = userName ? `Olá, ${userName}!` : "Olá!";
 
+  usePageHeader(
+    {
+      title: greeting,
+      subtitle: `Visão de ${scopeLabel} · tudo o que está acontecendo agora`,
+    },
+    [greeting, scopeLabel],
+  );
+
   return (
     <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      {/* Header */}
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-baseline gap-2">
-            <h1 className="truncate text-2xl font-semibold tracking-tight text-foreground">
-              {greeting}
-            </h1>
-            <span className="text-sm text-muted-foreground">
-              Visão de <span className="text-foreground/80 font-medium">{scopeLabel}</span>
-            </span>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Tudo o que está acontecendo na sua operação agora.
-          </p>
-        </div>
-      </header>
-
       {/* Ações rápidas */}
       <section>
         <SectionHeading title="Ações rápidas" />

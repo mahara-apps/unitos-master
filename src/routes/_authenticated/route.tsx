@@ -17,9 +17,15 @@ import { AiJobsDock } from "@/components/ai-jobs/ai-jobs-dock";
 const fallbackTitles: Record<string, string> = {
   "/dashboard": "Painel",
   "/content": "Conteúdo",
+  "/calendar": "Calendário",
+  "/work": "Tarefas",
+  "/projects": "Projetos",
   "/customers": "Clientes",
+  "/agents": "Cérebro de Agentes",
   "/connections": "Conexões",
   "/settings/team": "Equipe",
+  "/settings/ai": "Governança de IA",
+  "/settings": "Configurações",
   "/analytics": "Análises",
   "/notifications": "Notificações",
 };

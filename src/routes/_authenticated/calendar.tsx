@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { listScheduledPostsFn, type CalendarPost } from "@/lib/calendar.functions";
+import { usePageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   component: CalendarPage,
@@ -51,23 +52,11 @@ function CalendarPage() {
   const grid = useMemo(() => buildMonthGrid(cursor), [cursor]);
   const monthLabel = cursor.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
-  if (!brandId) {
-    return (
-      <div className="p-8 text-sm text-muted-foreground">
-        Selecione um workspace para visualizar o calendário editorial.
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex h-full flex-col gap-4 p-6">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight capitalize">{monthLabel}</h1>
-          <p className="text-sm text-muted-foreground">
-            Publicações agendadas · {q.data?.length ?? 0} posts no mês
-          </p>
-        </div>
+  usePageHeader(
+    {
+      title: monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1),
+      subtitle: `Publicações agendadas · ${q.data?.length ?? 0} posts no mês`,
+      actions: (
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={() => setCursor((d) => addMonths(d, -1))}>
             <ChevronLeft className="h-4 w-4" />
@@ -79,8 +68,21 @@ function CalendarPage() {
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-      </header>
+      ),
+    },
+    [monthLabel, q.data?.length],
+  );
 
+  if (!brandId) {
+    return (
+      <div className="p-8 text-sm text-muted-foreground">
+        Selecione um workspace para visualizar o calendário editorial.
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-full flex-col gap-4 p-6">
       <Card className="flex-1 overflow-hidden">
         <CardContent className="p-0">
           <div className="grid grid-cols-7 border-b bg-muted/40 text-xs font-medium uppercase tracking-wide text-muted-foreground">
