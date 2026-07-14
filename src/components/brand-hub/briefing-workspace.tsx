@@ -175,10 +175,12 @@ export function BriefingWorkspace({
   brandId,
   clientId,
   embedded = false,
+  onStrategyGenerated,
 }: {
   brandId: string;
   clientId: string;
   embedded?: boolean;
+  onStrategyGenerated?: () => void;
 }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -196,6 +198,94 @@ export function BriefingWorkspace({
   }, [hubQ.data, form]);
 
   const completion = useMemo(() => (form ? computeCompletion(form) : 0), [form]);
+
+  // ------------- Gerar estratégia (fase 1 · pipeline de agentes) --------------
+  const [regenOpen, setRegenOpen] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const hasStrategy = Boolean(
+    hubQ.data?.voice_card ||
+      (hubQ.data?.personas && hubQ.data.personas.length) ||
+      (hubQ.data?.swot && (
+        (hubQ.data.swot.strengths?.length ?? 0) +
+          (hubQ.data.swot.weaknesses?.length ?? 0) +
+          (hubQ.data.swot.opportunities?.length ?? 0) +
+          (hubQ.data.swot.threats?.length ?? 0)
+        > 0
+      )),
+  );
+
+  const buildStrategyBriefing = (): string => {
+    if (!form) return "";
+    const lines: string[] = [];
+    const push = (label: string, value?: string | null) => {
+      const v = (value ?? "").trim();
+      if (v) lines.push(`${label}: ${v}`);
+    };
+    push("Marca", hubQ.data?.name);
+    push("Nicho", hubQ.data?.niche);
+    push("Missão", form.mission);
+    push("Posicionamento", form.positioning);
+    push("Valores", form.values);
+    push("Tom de voz", form.tone_text);
+    push("Oferta / produtos", form.offer);
+    push("Faixa de preço", form.price_range);
+    push("Diferenciais", form.differentials);
+    push("Objeções", form.objections);
+    push("Público", form.audience);
+    push("Jornada", form.journey);
+    push("Dores", form.pain_points);
+    push("Desejos", form.desires);
+    push("Concorrentes / referências", form.competitor_handles.join(", "));
+    push("Inspirações", form.inspirations.join(", "));
+    push("Hashtags", form.hashtags.join(" "));
+    push("Do", form.do_text);
+    push("Don't", form.dont_text);
+    push("Metas", form.goals);
+    const vol = Object.entries(form.volumetry)
+      .filter(([, n]) => n > 0)
+      .map(([k, n]) => `${k}: ${n}/sem`)
+      .join(", ");
+    push("Volumetria semanal", vol);
+    return lines.join("\n");
+  };
+
+  const runStrategy = async () => {
+    const briefing = buildStrategyBriefing();
+    if (briefing.length < 40) {
+      toast.error("Preencha o briefing antes de gerar a estratégia.");
+      return;
+    }
+    setGenerating(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) throw new Error("Sessão expirada");
+      const res = await fetch("/api/jobs/customer-pipeline", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          brandId,
+          clientId,
+          texto: briefing,
+          pautasQuantidade: 8,
+          pautasPeriodo: "próximos 15 dias",
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      toast.success("Estratégia rodando em segundo plano — acompanhe pelo indicador de IA no topo.");
+      qc.invalidateQueries({ queryKey: ["ai-jobs", "active"] });
+      qc.invalidateQueries({ queryKey: ["brand-hub", brandId, clientId] });
+      setRegenOpen(false);
+      onStrategyGenerated?.();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao iniciar a estratégia");
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const save = useMutation({
     mutationFn: async () => {
