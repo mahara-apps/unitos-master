@@ -1192,7 +1192,7 @@ const COPY_FIELDS: Array<{
   rows: number;
   aiField?: "copy" | "hashtags" | "cta";
 }> = [
-  { key: "gancho", label: "Gancho", placeholder: "Primeira linha que segura o scroll…", rows: 2 },
+  { key: "gancho", label: "HOOK", placeholder: "Primeira linha que segura o scroll…", rows: 2 },
   { key: "headline", label: "Headline", placeholder: "Ideia central em uma frase…", rows: 2 },
   { key: "body", label: "Copy principal", placeholder: "Desenvolva o argumento…", rows: 6, aiField: "copy" },
   { key: "cta", label: "CTA", placeholder: "Chamada para ação…", rows: 2, aiField: "cta" },
