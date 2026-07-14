@@ -21,8 +21,12 @@ import { TaskDialog } from "@/components/content/task-dialog";
 import { loadBoardFn, ensureDefaultPipelineFn, type PipelineStage } from "@/lib/content.functions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { PanelCard } from "@/components/ui/panel-card";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
+import {
+  DashboardPageShell,
+  DashboardPanelSurface,
+  DashboardIconFrame,
+} from "@/components/ui/dashboard-primitives";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   component: CalendarPage,
@@ -178,24 +182,31 @@ function CalendarPage() {
 
   if (!brandId) {
     return (
-      <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
-        <PanelCard
-          title="Selecione um workspace"
-          subtitle="O calendário editorial é organizado por workspace."
-          icon={<CalendarDays className="h-4 w-4" />}
-        >
+      <DashboardPageShell>
+        <DashboardPanelSurface>
+          <div className="flex items-center gap-3 border-b border-border/60 px-5 py-4">
+            <DashboardIconFrame>
+              <CalendarDays className="h-4 w-4" />
+            </DashboardIconFrame>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold tracking-tight">Selecione um workspace</div>
+              <div className="text-xs text-muted-foreground">
+                O calendário editorial é organizado por workspace.
+              </div>
+            </div>
+          </div>
           <PanelEmptyState
             icon={<CalendarDays className="h-5 w-5" />}
             text="Escolha um workspace na barra lateral para visualizar as publicações agendadas."
           />
-        </PanelCard>
-      </div>
+        </DashboardPanelSurface>
+      </DashboardPageShell>
     );
   }
 
   return (
     <TooltipProvider delayDuration={200}>
-    <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+    <DashboardPageShell>
       {/* Volumetria */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {volumetry.map((v) => (
@@ -214,13 +225,13 @@ function CalendarPage() {
             )}
           >
             <div className={cn("absolute inset-x-0 top-0 h-0.5", v.bar)} />
-            <div className="flex items-center justify-between gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <div className="flex items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
               <span className="flex items-center gap-2">
                 <span className={cn("h-2 w-2 rounded-full", v.dot)} />
                 {v.label}
               </span>
               {formatFilter === v.key ? (
-                <span className="text-[9px] font-semibold text-foreground/70">FILTRO ATIVO</span>
+                <span className="text-[9px] font-semibold text-foreground/70">Filtro ativo</span>
               ) : null}
             </div>
             <div className="mt-2 flex items-baseline gap-1.5">
@@ -231,7 +242,7 @@ function CalendarPage() {
         ))}
       </section>
 
-      <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
+      <DashboardPanelSurface>
           <div className="grid grid-cols-7 border-b border-border/60 bg-muted/40 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
               <div key={d} className="px-3 py-3 text-center">
@@ -335,14 +346,22 @@ function CalendarPage() {
               );
             })}
           </div>
-      </div>
+      </DashboardPanelSurface>
 
-      <PanelCard
-        title="Próximas publicações"
-        subtitle={`${filteredPosts.length} ${filteredPosts.length === 1 ? "publicação" : "publicações"} no mês`}
-        icon={<CalendarDays className="h-4 w-4" />}
-        action={
-          formatFilter ? (
+      <DashboardPanelSurface>
+        <div className="flex items-center justify-between gap-3 border-b border-border/60 px-5 py-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <DashboardIconFrame>
+              <CalendarDays className="h-4 w-4" />
+            </DashboardIconFrame>
+            <div className="min-w-0">
+              <div className="text-sm font-semibold tracking-tight">Próximas publicações</div>
+              <div className="text-xs text-muted-foreground">
+                {filteredPosts.length} {filteredPosts.length === 1 ? "publicação" : "publicações"} no mês
+              </div>
+            </div>
+          </div>
+          {formatFilter ? (
             <Badge variant="secondary" className="text-[10px] capitalize">
               {formatFilter}
               <button
@@ -354,9 +373,8 @@ function CalendarPage() {
                 ×
               </button>
             </Badge>
-          ) : null
-        }
-      >
+          ) : null}
+        </div>
         {q.isLoading ? (
           <div className="flex items-center gap-2 px-4 py-6 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
@@ -393,7 +411,7 @@ function CalendarPage() {
             ))}
           </ul>
         )}
-      </PanelCard>
+      </DashboardPanelSurface>
 
       {openPost && openPost.pipeline_id && stagesQ.data ? (
         <TaskDialog
@@ -426,7 +444,7 @@ function CalendarPage() {
           invalidateKey={["calendar", brandId, clientId, from, to] as const}
         />
       ) : null}
-    </div>
+    </DashboardPageShell>
     </TooltipProvider>
   );
 }
