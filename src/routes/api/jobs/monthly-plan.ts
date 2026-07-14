@@ -83,7 +83,7 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
   prompt: string;
   schema: T;
   strategic: boolean;
-}): Promise<z.infer<T>> {
+}): Promise<{ output: z.infer<T>; raw?: string }> {
   const key = process.env.LOVABLE_API_KEY;
   if (!key) throw new Error("Missing LOVABLE_API_KEY");
   const gateway = createLovableAiGatewayProvider(key, undefined, {
@@ -97,17 +97,71 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
       prompt: opts.prompt,
       output: Output.object({ schema: opts.schema }),
     });
-    return res.output as z.infer<T>;
+    return { output: res.output as z.infer<T>, raw: res.text };
   } catch (err) {
     if (NoObjectGeneratedError.isInstance(err)) {
       const raw = (err.text ?? "")
         .replace(/^```(?:json)?\s*/i, "")
         .replace(/```\s*$/i, "")
         .trim();
-      return JSON.parse(raw) as z.infer<T>;
+      try {
+        return { output: JSON.parse(raw) as z.infer<T>, raw };
+      } catch {
+        return { output: {} as z.infer<T>, raw };
+      }
     }
     throw err;
   }
+}
+
+// Extrai um array de conceitos aceitando chaves alternativas que o modelo
+// eventualmente devolve quando structuredOutputs está desligado.
+function extractConcepts(raw: unknown): unknown[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === "object") {
+    const obj = raw as Record<string, unknown>;
+    const candidates = [
+      "concepts", "conceitos", "calendario", "calendar",
+      "posts", "pautas", "ideias", "ideas", "items", "itens", "content",
+    ];
+    for (const k of candidates) {
+      const v = obj[k];
+      if (Array.isArray(v)) return v;
+    }
+    // fallback: primeiro valor array encontrado
+    for (const v of Object.values(obj)) {
+      if (Array.isArray(v)) return v;
+    }
+  }
+  return [];
+}
+
+function normalizeConcept(c: unknown): {
+  titulo: string; pilar: string; formato: string; plataforma: string;
+  gancho: string; objetivo: string; cta: string;
+} | null {
+  if (!c || typeof c !== "object") return null;
+  const r = c as Record<string, unknown>;
+  const pick = (...ks: string[]) => {
+    for (const k of ks) {
+      const v = r[k];
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+    return "";
+  };
+  const titulo = pick("titulo", "title", "headline", "tema");
+  const gancho = pick("gancho", "hook", "abertura");
+  if (!titulo && !gancho) return null;
+  return {
+    titulo: titulo || gancho,
+    pilar: pick("pilar", "pillar", "categoria", "tema"),
+    formato: pick("formato", "format", "tipo") || "Feed",
+    plataforma: pick("plataforma", "canal", "platform", "channel") || "instagram",
+    gancho: gancho || titulo,
+    objetivo: pick("objetivo", "goal", "objective"),
+    cta: pick("cta", "call_to_action", "acao"),
+  };
 }
 
 function fillTemplate(template: string, vars: Record<string, string>): string {
@@ -220,12 +274,27 @@ async function runOrchestrator(params: {
     }) + mixInstruction + (input.direction ? `\n\nDIRECIONAMENTO EXTRA DO USUÁRIO (prioridade máxima):\n${input.direction}` : "");
     const planned = await runStructured({
       system: plannerSys,
-      prompt: `Gere ${input.quantidade} conceitos para o período "${input.periodo}".`,
+      prompt:
+        `Gere ${input.quantidade} conceitos para o período "${input.periodo}".\n\n` +
+        `Responda EXCLUSIVAMENTE com JSON válido no formato:\n` +
+        `{"concepts":[{"titulo":"...","pilar":"...","formato":"Feed|Reels|Stories|Carrossel",` +
+        `"plataforma":"instagram|tiktok|linkedin|youtube|blog|x","gancho":"...",` +
+        `"objetivo":"...","cta":"..."}]}\n` +
+        `A chave raiz DEVE ser exatamente "concepts". Sem markdown, sem comentários.`,
       schema: PlannerSchema,
       strategic: true,
     });
-    const concepts = (planned.concepts ?? []).slice(0, input.quantidade);
-    if (!concepts.length) throw new Error("Planejador não retornou conceitos.");
+    const rawConcepts = extractConcepts(planned.output);
+    const concepts = rawConcepts
+      .map(normalizeConcept)
+      .filter((c): c is NonNullable<ReturnType<typeof normalizeConcept>> => c !== null)
+      .slice(0, input.quantidade);
+    if (!concepts.length) {
+      const sample = (planned.raw ?? JSON.stringify(planned.output ?? {})).slice(0, 400);
+      throw new Error(
+        `Planejador não retornou conceitos válidos. Amostra da resposta: ${sample}`,
+      );
+    }
 
     // Aplica a cota por canal caso o planner tenha desviado.
     if (input.channelMix) {
