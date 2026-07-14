@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Tooltip,
   TooltipContent,
@@ -43,6 +44,7 @@ function CalendarPage() {
   const list = useServerFn(listScheduledPostsFn);
   const qc = useQueryClient();
   const [openPost, setOpenPost] = useState<CalendarPost | null>(null);
+  const [openingPost, setOpeningPost] = useState(false);
   const loadBoard = useServerFn(loadBoardFn);
   const ensurePipeline = useServerFn(ensureDefaultPipelineFn);
   const [createCtx, setCreateCtx] = useState<
@@ -50,6 +52,26 @@ function CalendarPage() {
     | null
   >(null);
   const [creating, setCreating] = useState(false);
+
+  async function handleOpenPost(p: CalendarPost) {
+    if (openingPost) return;
+    // Legacy posts may not have a pipeline_id — ensure one on the fly.
+    if (!p.pipeline_id) {
+      try {
+        setOpeningPost(true);
+        const pipe = await ensurePipeline({
+          data: { brandId: p.brand_id, clientId: p.client_id },
+        });
+        setOpenPost({ ...p, pipeline_id: pipe.id });
+      } catch (e) {
+        toast.error((e as Error).message || "Não foi possível abrir este conteúdo");
+      } finally {
+        setOpeningPost(false);
+      }
+      return;
+    }
+    setOpenPost(p);
+  }
 
   async function handleCreateOnDate(date: Date) {
     if (!brandId) return;
@@ -256,12 +278,38 @@ function CalendarPage() {
                   </div>
                   <div className="space-y-1">
                     {posts.slice(0, 3).map((p) => (
-                      <PostChip key={p.id} post={p} onOpen={setOpenPost} />
+                      <PostChip key={p.id} post={p} onOpen={handleOpenPost} />
                     ))}
                     {posts.length > 3 ? (
-                      <span className="block pl-0.5 text-[10px] font-medium text-muted-foreground">
-                        +{posts.length - 3} mais
-                      </span>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            type="button"
+                            className="block w-full rounded-md px-1.5 py-0.5 pl-0.5 text-left text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          >
+                            +{posts.length - 3} mais
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-72 p-2">
+                          <div className="mb-2 flex items-center justify-between px-1">
+                            <span className="text-xs font-semibold">
+                              {day.date.toLocaleDateString("pt-BR", {
+                                weekday: "short",
+                                day: "2-digit",
+                                month: "short",
+                              })}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {posts.length} publicações
+                            </span>
+                          </div>
+                          <div className="space-y-1 max-h-72 overflow-y-auto">
+                            {posts.map((p) => (
+                              <PostChip key={p.id} post={p} onOpen={handleOpenPost} />
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
                     ) : null}
                     {posts.length === 0 && isCurrentMonth ? (
                       <button
@@ -314,7 +362,7 @@ function CalendarPage() {
               <li key={p.id}>
                 <button
                   type="button"
-                  onClick={() => setOpenPost(p)}
+                  onClick={() => handleOpenPost(p)}
                   className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50"
                 >
                 <div className="min-w-0">
