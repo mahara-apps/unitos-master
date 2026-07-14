@@ -74,6 +74,38 @@ import {
 } from "@/lib/approval.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { CHANNELS, CHANNEL_STYLES, FORMATS, FORMAT_STYLES, PRIORITY_STYLES } from "./stage-colors";
+import {
+  listPlacementsFn,
+  savePlacementsFn,
+  PLACEMENT_FORMATS,
+  validatePlacementSet,
+  type PlacementFormat,
+} from "@/lib/placements.functions";
+
+// UI helpers to bridge display strings ("Feed"/"Story"/"Reels"/"Carrossel")
+// used elsewhere in this component with the DB enum used by placements.
+const FORMAT_TO_ENUM: Record<string, PlacementFormat> = {
+  Feed: "feed",
+  feed: "feed",
+  Story: "stories",
+  Stories: "stories",
+  stories: "stories",
+  Reels: "reels",
+  reels: "reels",
+  Carrossel: "carrossel",
+  Carousel: "carrossel",
+  carrossel: "carrossel",
+};
+const ENUM_TO_LABEL: Record<PlacementFormat, string> = {
+  feed: "Feed",
+  stories: "Stories",
+  reels: "Reels",
+  carrossel: "Carrossel",
+};
+function toEnum(f: string | null | undefined): PlacementFormat {
+  if (!f) return "feed";
+  return FORMAT_TO_ENUM[f] ?? "feed";
+}
 
 type Priority = "low" | "medium" | "high" | "urgent";
 
@@ -355,6 +387,8 @@ function EditBody({
   const removeRef = useServerFn(removePostReferenceMediaFn);
   const signRefs = useServerFn(signPostReferenceMediaFn);
   const generateRefImage = useServerFn(generatePostReferenceImageFn);
+  const listPlacements = useServerFn(listPlacementsFn);
+  const savePlacements = useServerFn(savePlacementsFn);
 
   const { data } = useSuspenseQuery({
     queryKey: ["post-detail", postId],
@@ -366,6 +400,27 @@ function EditBody({
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [approving, setApproving] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+
+  // Multi-placement state: array of extra placements (beyond the primary one
+  // represented by state.format + state.scheduledAt).
+  type ExtraPlacement = { format: PlacementFormat; scheduled_at: string };
+  const [extras, setExtras] = useState<ExtraPlacement[]>([]);
+  const placementsQ = useQuery({
+    queryKey: ["post-placements", postId],
+    queryFn: () => listPlacements({ data: { postId } }),
+  });
+  useEffect(() => {
+    if (!placementsQ.data) return;
+    const primary = toEnum(state.format || post.format);
+    const seeded = placementsQ.data
+      .filter((p) => p.format !== primary)
+      .map((p) => ({
+        format: p.format,
+        scheduled_at: p.scheduled_at ? toLocalInputValue(p.scheduled_at) : "",
+      }));
+    setExtras(seeded);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placementsQ.data, postId]);
 
   useEffect(() => {
     setState(stateFromPost(post, stages));
@@ -394,8 +449,17 @@ function EditBody({
   }, [refsKey]);
 
   const save = useMutation({
-    mutationFn: () =>
-      updatePost({
+    mutationFn: async () => {
+      // Validate placement combination first
+      const primary = toEnum(state.format);
+      const allFormats: PlacementFormat[] = [primary, ...extras.map((e) => e.format)];
+      if (new Set(allFormats).size !== allFormats.length) {
+        throw new Error("Cada formato só pode ser publicado uma vez neste card.");
+      }
+      const invalid = validatePlacementSet(allFormats);
+      if (invalid) throw new Error(invalid);
+
+      await updatePost({
         data: {
           postId,
           patch: {
@@ -421,11 +485,32 @@ function EditBody({
             assignee_id: state.assigneeId,
           },
         },
-      }),
+      });
+
+      // Persist full placement set (primary + extras)
+      await savePlacements({
+        data: {
+          postId,
+          placements: [
+            {
+              format: primary,
+              scheduled_at: state.scheduledAt ? new Date(state.scheduledAt).toISOString() : null,
+              is_primary: true,
+            },
+            ...extras.map((e) => ({
+              format: e.format,
+              scheduled_at: e.scheduled_at ? new Date(e.scheduled_at).toISOString() : null,
+              is_primary: false,
+            })),
+          ],
+        },
+      });
+    },
     onSuccess: () => {
       toast.success("Tarefa atualizada");
       qc.invalidateQueries({ queryKey: invalidateKey });
       qc.invalidateQueries({ queryKey: ["post-detail", postId] });
+      qc.invalidateQueries({ queryKey: ["post-placements", postId] });
       onOpenChange(false);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -675,6 +760,12 @@ function EditBody({
 
         <div className="mt-6 space-y-5">
           <Separator />
+        <PlacementsPanel
+          primaryFormat={toEnum(state.format)}
+          extras={extras}
+          onChange={setExtras}
+        />
+        <Separator />
         <div className="space-y-1.5">
           <Label className="flex items-center gap-1.5">
             <ImageIcon className="h-3.5 w-3.5" /> Mídias de referência
@@ -1802,6 +1893,119 @@ function InstagramPreview({
           ? "Preview estilo Instagram · adicione mais para virar Carrossel"
           : `Carrossel de ${refs.length} · arquivos originais mantidos por 30 dias após publicação`}
       </p>
+    </div>
+  );
+}
+
+// ----------------- Placements Panel -----------------
+
+function PlacementsPanel({
+  primaryFormat,
+  extras,
+  onChange,
+}: {
+  primaryFormat: PlacementFormat;
+  extras: Array<{ format: PlacementFormat; scheduled_at: string }>;
+  onChange: (
+    v: Array<{ format: PlacementFormat; scheduled_at: string }>,
+  ) => void;
+}) {
+  const available = PLACEMENT_FORMATS.filter(
+    (f) => f !== primaryFormat && !extras.some((e) => e.format === f),
+  );
+  // Filter out combinations that would be invalid with current selection
+  const validAvailable = available.filter((f) => {
+    const test = [primaryFormat, ...extras.map((e) => e.format), f];
+    return validatePlacementSet(test) === null;
+  });
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div>
+          <Label className="flex items-center gap-1.5">
+            <Sparkles className="h-3.5 w-3.5" /> Multi-publicação
+          </Label>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Reaproveite este conceito em mais de um formato com agendamentos
+            independentes.
+          </p>
+        </div>
+        {validAvailable.length > 0 ? (
+          <Select
+            value=""
+            onValueChange={(v) =>
+              onChange([
+                ...extras,
+                { format: v as PlacementFormat, scheduled_at: "" },
+              ])
+            }
+          >
+            <SelectTrigger className="h-8 w-[180px] text-xs">
+              <SelectValue placeholder="+ Adicionar formato" />
+            </SelectTrigger>
+            <SelectContent>
+              {validAvailable.map((f) => (
+                <SelectItem key={f} value={f}>
+                  {ENUM_TO_LABEL[f]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : null}
+      </div>
+
+      <div className="space-y-2 rounded-md border p-2">
+        <div className="flex items-center justify-between gap-3 rounded bg-muted/40 px-2 py-1.5 text-xs">
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className="h-5">
+              {ENUM_TO_LABEL[primaryFormat]}
+            </Badge>
+            <span className="text-muted-foreground">Principal</span>
+          </div>
+          <span className="text-muted-foreground">
+            Usa a data de agendamento do card
+          </span>
+        </div>
+
+        {extras.length === 0 ? (
+          <p className="px-1 py-1 text-xs text-muted-foreground">
+            Nenhum formato adicional. Combinações válidas: Feed+Stories,
+            Reels+Stories, Carrossel+Stories.
+          </p>
+        ) : (
+          extras.map((p, idx) => (
+            <div
+              key={`${p.format}-${idx}`}
+              className="flex items-center gap-2 rounded border px-2 py-1.5"
+            >
+              <Badge variant="outline" className="h-5">
+                {ENUM_TO_LABEL[p.format]}
+              </Badge>
+              <Input
+                type="datetime-local"
+                value={p.scheduled_at}
+                onChange={(e) => {
+                  const next = [...extras];
+                  next[idx] = { ...p, scheduled_at: e.target.value };
+                  onChange(next);
+                }}
+                className="h-7 flex-1 text-xs"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                onClick={() =>
+                  onChange(extras.filter((_, i) => i !== idx))
+                }
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }
