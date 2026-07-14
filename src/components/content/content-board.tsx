@@ -359,11 +359,6 @@ function Column({
             <DropdownMenuItem onSelect={onOpenRichCreate ?? onStartCreate}>
               <Plus className="mr-2 h-4 w-4" /> Novo post
             </DropdownMenuItem>
-            {onConfigure ? (
-              <DropdownMenuItem onSelect={onConfigure}>
-                <Settings2 className="mr-2 h-4 w-4" /> Configurar colunas
-              </DropdownMenuItem>
-            ) : null}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive focus:text-destructive"
