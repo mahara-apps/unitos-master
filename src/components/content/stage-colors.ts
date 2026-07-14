@@ -34,6 +34,13 @@ export const PRIORITY_STYLES: Record<string, string> = {
 export const FORMAT_STYLE =
   "border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-300";
 
+export const FORMAT_STYLES: Record<string, string> = {
+  Feed: "border-blue-600/30 bg-blue-600/10 text-blue-700 dark:text-blue-300",
+  Reels: "border-violet-600/30 bg-violet-600/10 text-violet-700 dark:text-violet-300",
+  Story: "border-orange-500/30 bg-orange-500/10 text-orange-600 dark:text-orange-300",
+  Carrossel: "border-green-600/30 bg-green-600/10 text-green-700 dark:text-green-300",
+};
+
 export const PRIORITY_LABEL: Record<string, string> = {
   none: "Sem prioridade",
   low: "Baixa",
