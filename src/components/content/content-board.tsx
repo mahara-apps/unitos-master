@@ -44,7 +44,7 @@ import {
   type PipelineStage,
   type StageColor,
 } from "@/lib/content.functions";
-import { STAGE_GRADIENT, PRIORITY_STYLES, PRIORITY_LABEL, FORMAT_STYLE } from "./stage-colors";
+import { STAGE_GRADIENT, PRIORITY_STYLES, PRIORITY_LABEL, FORMAT_STYLE, CHANNELS } from "./stage-colors";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Clock, Settings2 } from "lucide-react";
 
@@ -460,6 +460,10 @@ function PostCard({
   const priority = post.priority ?? null;
   const refCount = Array.isArray(post.reference_media) ? post.reference_media.length : 0;
   const hasCover = !!post.cover_url;
+  const channels = Array.isArray(post.channels) ? (post.channels as string[]) : [];
+  const channelDefs = channels
+    .map((id) => CHANNELS.find((c) => c.id === id))
+    .filter(Boolean) as typeof CHANNELS;
   const snippet = (post.copy ?? "")
     .replace(/^###\s+\w+\s*$/gm, "")
     .replace(/\s+/g, " ")
@@ -487,15 +491,27 @@ function PostCard({
       </div>
 
       <div className="p-3">
-        {(priority || post.format) ? (
+        {(priority || post.format || channelDefs.length > 0) ? (
           <div className="mb-1 flex flex-wrap items-center gap-1">
+            {channelDefs.map((c) => {
+              const Icon = c.icon;
+              return (
+                <span
+                  key={c.id}
+                  className="inline-flex items-center gap-0.5 rounded-full border border-border/60 bg-muted/40 px-1.5 py-0 text-[8px] font-semibold uppercase tracking-wider text-foreground/80"
+                >
+                  <Icon className="h-2.5 w-2.5" />
+                  {c.label}
+                </span>
+              );
+            })}
             {post.format ? (
-              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${FORMAT_STYLE}`}>
+              <span className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[8px] font-semibold uppercase tracking-wider ${FORMAT_STYLE}`}>
                 {post.format}
               </span>
             ) : null}
             {priority ? (
-              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${PRIORITY_STYLES[priority] ?? ""}`}>
+              <span className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[8px] font-semibold uppercase tracking-wider ${PRIORITY_STYLES[priority] ?? ""}`}>
                 {PRIORITY_LABEL[priority] ?? priority}
               </span>
             ) : null}
