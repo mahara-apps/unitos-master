@@ -16,7 +16,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Check, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
-import { Paperclip, ImageIcon, CalendarDays, CalendarPlus, UserCircle2, Sparkles } from "lucide-react";
+import { Paperclip, ImageIcon, CalendarDays, UserCircle2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -507,7 +507,6 @@ function PostCard({
     .replace(/\s+/g, " ")
     .trim();
   const scheduled = post.scheduled_at ? new Date(post.scheduled_at) : null;
-  const created = post.created_at ? new Date(post.created_at) : null;
   const tags = Array.isArray(post.tags) ? post.tags.filter(Boolean) : [];
   return (
     <button
@@ -582,27 +581,25 @@ function PostCard({
         <div className="mt-2.5 flex items-center justify-between border-t border-border/50 pt-2 text-[11px] text-muted-foreground">
           <div className="flex items-center gap-2">
             <AssigneeChip brandId={post.brand_id} assigneeId={post.assignee_id} />
-            {created ? (
-              <span className="inline-flex items-center gap-0.5 tabular-nums" title={`Criado em ${created.toLocaleDateString("pt-BR")}`}>
-                <CalendarPlus className="h-3 w-3" />
-                {created.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+          </div>
+          <div className="flex items-center gap-2">
+            {refCount > 0 ? (
+              <span className="inline-flex items-center gap-0.5" title={`${refCount} anexo(s)`}>
+                <Paperclip className="h-3 w-3" /> {refCount}
               </span>
             ) : null}
             {scheduled ? (
               <span
-                className="inline-flex items-center gap-0.5 tabular-nums"
-                title={`Agendado para ${scheduled.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`}
+                className="inline-flex items-center gap-1 tabular-nums"
+                title={`Publicação: ${scheduled.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}`}
               >
                 <CalendarDays className="h-3 w-3" />
                 {scheduled.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                {" · "}
+                {scheduled.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
               </span>
             ) : null}
           </div>
-          {refCount > 0 ? (
-            <span className="inline-flex items-center gap-0.5" title={`${refCount} anexo(s)`}>
-              <Paperclip className="h-3 w-3" /> {refCount}
-            </span>
-          ) : null}
         </div>
       </div>
     </button>
