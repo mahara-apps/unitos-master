@@ -128,8 +128,6 @@ function HeaderFallback() {
 function CustomerDetailReady({ brandId, customerId }: { brandId: string; customerId: string }) {
   const list = useServerFn(listClients);
   const qc = useQueryClient();
-  const [regenOpen, setRegenOpen] = useState(false);
-  const [forceOnboarding, setForceOnboarding] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("overview");
 
   // Lista de customers do brand ativo — só para nome/cor do header.
@@ -139,9 +137,9 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
     staleTime: 60_000,
   });
 
-  // Core suspende (rápido: briefing + voice + usage 30d em paralelo).
-  // Decide se mostra onboarding, alimenta o header e o custo.
-  const { data: core } = useSuspenseQuery(customerCoreQuery({ brandId, clientId: customerId }));
+  // Core suspende (rápido: briefing + voice + usage 30d em paralelo) — apenas para
+  // pré-aquecer o cache das outras abas e alimentar o dashboard.
+  useSuspenseQuery(customerCoreQuery({ brandId, clientId: customerId }));
 
   // Prefetch das fatias pesadas em paralelo assim que a rota monta —
   // elimina waterfall quando o usuário troca de aba.
@@ -150,9 +148,6 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
     qc.prefetchQuery(customerMarketQuery({ brandId, clientId: customerId }));
     qc.prefetchQuery(customerPautasQuery({ brandId, clientId: customerId }));
   }, [qc, brandId, customerId]);
-
-  const hasBriefing = Boolean(core.briefing);
-  const showOnboarding = !hasBriefing || forceOnboarding;
 
   const customer = (customersQ.data ?? []).find((c) => c.id === customerId);
 
@@ -181,15 +176,6 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
           <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-6 text-sm text-destructive">
             Este cliente não pertence ao workspace ativo.
           </div>
-        ) : showOnboarding ? (
-          <PipelineOnboarding
-            brandId={brandId}
-            clientId={customerId}
-            onDone={() => {
-              invalidateAll();
-              setForceOnboarding(false);
-            }}
-          />
         ) : (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
             <TabsList className="w-full justify-start overflow-x-auto rounded-lg border border-border bg-card p-1">
@@ -207,7 +193,6 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
               <CustomerDashboard
                 brandId={brandId}
                 clientId={customerId}
-                onRegenerate={() => setRegenOpen(true)}
                 onOpenBriefing={() => setActiveTab("briefing")}
               />
             </TabsContent>
@@ -215,7 +200,12 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
               <BasicInfoTab brandId={brandId} clientId={customerId} />
             </TabsContent>
             <TabsContent value="briefing">
-              <BriefingWorkspace brandId={brandId} clientId={customerId} embedded />
+              <BriefingWorkspace
+                brandId={brandId}
+                clientId={customerId}
+                embedded
+                onStrategyGenerated={invalidateAll}
+              />
             </TabsContent>
             <TabsContent value="strategy">
               <Suspense fallback={<StrategySkeleton />}>
@@ -234,30 +224,6 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
             </TabsContent>
           </Tabs>
         )}
-
-        <AlertDialog open={regenOpen} onOpenChange={setRegenOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Regenerate strategy?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Isso abre o formulário de onboarding novamente para rodar o pipeline
-                de IA. Os artefatos anteriores permanecem no histórico — os novos
-                se tornam a versão ativa.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={() => {
-                  setForceOnboarding(true);
-                  setRegenOpen(false);
-                }}
-              >
-                Continuar
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
     </ScrollArea>
   );
