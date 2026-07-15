@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Save, KeyRound, Building2, MapPin, MessageCircle } from "lucide-react";
+import { Loader2, Save, KeyRound, Building2, MapPin, MessageCircle, User, Bell, Globe, Clock } from "lucide-react";
 import { getMyProfile, updateMyProfile, changeMyPassword } from "@/lib/profile.functions";
 import { getBrandCompany, updateBrandCompany } from "@/lib/workspace.functions";
 import { useActiveContext } from "@/hooks/use-active-context";
@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -25,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { usePageHeader } from "@/hooks/use-page-header";
+import { SettingsStatCard } from "@/components/settings/settings-stat-card";
 
 export const Route = createFileRoute("/_authenticated/settings/profile")({
   component: ProfilePage,
@@ -84,8 +86,6 @@ type CompanyState = {
 const UFS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 
 function ProfilePage() {
-  usePageHeader({ title: "Perfil", subtitle: "Suas informações pessoais e preferências" });
-
   const qc = useQueryClient();
   const fetchProfile = useServerFn(getMyProfile);
   const saveProfile = useServerFn(updateMyProfile);
@@ -174,6 +174,24 @@ function ProfilePage() {
     },
   });
 
+  usePageHeader(
+    {
+      title: "Meu Perfil",
+      subtitle: "Suas informações pessoais e preferências",
+      actions: form ? (
+        <Button
+          size="sm"
+          onClick={() => form && saveMutation.mutate(form)}
+          disabled={saveMutation.isPending || !form?.full_name?.trim()}
+        >
+          {saveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+          Salvar alterações
+        </Button>
+      ) : undefined,
+    },
+    [form, saveMutation.isPending],
+  );
+
   const companyMutation = useMutation({
     mutationFn: async (payload: CompanyState) =>
       saveCompany({
@@ -217,28 +235,74 @@ function ProfilePage() {
   }
 
   const roleLabel = (data?.role ?? "member").toString();
+  const notifCount = [
+    Boolean(data?.notification_prefs?.email),
+    Boolean(data?.notification_prefs?.push),
+    Boolean((data as { notify_whatsapp?: boolean } | undefined)?.notify_whatsapp),
+  ].filter(Boolean).length;
+  const localeLabel = LOCALES.find((l) => l.value === form.locale)?.label ?? form.locale;
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6">
-      <Card>
-        <CardHeader className="flex flex-row items-start justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16 rounded-xl">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <SettingsStatCard
+          label="Função"
+          value={<span className="capitalize">{roleLabel}</span>}
+          icon={<User className="h-3.5 w-3.5" />}
+        />
+        <SettingsStatCard label="Fuso" value={form.timezone.split("/")[1]?.replace("_", " ") ?? form.timezone} hint={form.timezone} icon={<Clock className="h-3.5 w-3.5" />} />
+        <SettingsStatCard label="Idioma" value={form.locale} hint={localeLabel} icon={<Globe className="h-3.5 w-3.5" />} />
+        <SettingsStatCard
+          label="Notificações"
+          value={`${notifCount}/3`}
+          hint="Email · Push · WhatsApp"
+          icon={<Bell className="h-3.5 w-3.5" />}
+        />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-1 h-fit">
+          <CardHeader className="items-center text-center pb-3">
+            <Avatar className="h-20 w-20 rounded-2xl mb-2">
               {form.avatar_url ? <AvatarImage src={form.avatar_url} alt={form.full_name} /> : null}
-              <AvatarFallback className="rounded-xl bg-indigo-600 text-lg font-semibold text-white">
+              <AvatarFallback className="rounded-2xl bg-indigo-600 text-xl font-semibold text-white">
                 {initials}
               </AvatarFallback>
             </Avatar>
-            <div className="space-y-1">
-              <CardTitle className="text-lg">{form.full_name || "Sem nome"}</CardTitle>
-              <CardDescription>{data?.email ?? "—"}</CardDescription>
-              <Badge variant="secondary" className="text-[10px] uppercase">{roleLabel}</Badge>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
+            <CardTitle className="text-base">{form.full_name || "Sem nome"}</CardTitle>
+            <CardDescription className="text-xs">{data?.email ?? "—"}</CardDescription>
+            <Badge variant="secondary" className="text-[10px] uppercase mt-1">{roleLabel}</Badge>
+          </CardHeader>
+          <CardContent className="space-y-2 text-xs text-muted-foreground">
+            {form.job_title ? (
+              <div className="flex justify-between gap-2">
+                <span>Cargo</span><span className="text-foreground truncate">{form.job_title}</span>
+              </div>
+            ) : null}
+            {form.phone ? (
+              <div className="flex justify-between gap-2">
+                <span>Telefone</span><span className="text-foreground truncate">{form.phone}</span>
+              </div>
+            ) : null}
+            {form.whatsapp ? (
+              <div className="flex justify-between gap-2">
+                <span>WhatsApp</span><span className="text-foreground truncate">{form.whatsapp}</span>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
 
-      <Card>
+        <div className="lg:col-span-2">
+        <Tabs defaultValue="personal" className="w-full">
+          <TabsList>
+            <TabsTrigger value="personal">Pessoal</TabsTrigger>
+            {canEditCompany && brandId ? <TabsTrigger value="company">Empresa</TabsTrigger> : null}
+            {canEditCompany && brandId ? <TabsTrigger value="address">Endereço</TabsTrigger> : null}
+            <TabsTrigger value="security">Segurança</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="personal" className="mt-4">
+            <Card>
         <CardHeader>
           <CardTitle className="text-base">Informações pessoais</CardTitle>
           <CardDescription>Atualize seus dados de contato e preferências.</CardDescription>
@@ -346,19 +410,12 @@ function ProfilePage() {
               placeholder="Uma breve descrição sobre você"
             />
           </div>
-          <div className="sm:col-span-2 flex justify-end">
-            <Button
-              onClick={() => saveMutation.mutate(form)}
-              disabled={saveMutation.isPending || !form.full_name.trim()}
-            >
-              {saveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Salvar alterações
-            </Button>
-          </div>
         </CardContent>
       </Card>
+          </TabsContent>
 
       {canEditCompany && brandId ? (
+        <TabsContent value="company" className="mt-4">
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -403,9 +460,11 @@ function ProfilePage() {
             )}
           </CardContent>
         </Card>
+        </TabsContent>
       ) : null}
 
       {canEditCompany && brandId && company ? (
+        <TabsContent value="address" className="mt-4">
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
@@ -459,8 +518,10 @@ function ProfilePage() {
             </div>
           </CardContent>
         </Card>
+        </TabsContent>
       ) : null}
 
+      <TabsContent value="security" className="mt-4">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Segurança</CardTitle>
@@ -509,6 +570,10 @@ function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+      </TabsContent>
+        </Tabs>
+        </div>
+      </div>
     </div>
   );
 }
