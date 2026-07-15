@@ -930,6 +930,7 @@ type PortalToken = {
   label: string | null;
   expires_at: string | null;
   revoked_at: string | null;
+  last_seen_at?: string | null;
   created_at: string;
 };
 

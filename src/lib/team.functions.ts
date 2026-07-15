@@ -38,12 +38,13 @@ export const listBrandTeam = createServerFn({ method: "GET" })
       client_name: string;
       expires_at: string | null;
       revoked_at: string | null;
+      last_seen_at: string | null;
       created_at: string;
     }> = [];
     if (clients.length > 0) {
       const { data: tokens, error: tErr } = await supabase
         .from("portal_tokens")
-        .select("id, token, label, client_id, expires_at, revoked_at, created_at")
+        .select("id, token, label, client_id, expires_at, revoked_at, last_seen_at, created_at")
         .in("client_id", clients.map((c) => c.id))
         .order("created_at", { ascending: false });
       if (tErr) throw tErr;
