@@ -27,7 +27,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, UserPlus, Copy, X, Loader2, CalendarIcon, Link2, ShieldOff } from "lucide-react";
+import { MoreHorizontal, UserPlus, Copy, X, Loader2, CalendarIcon, Link2, ShieldOff, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
