@@ -199,6 +199,68 @@ export const deleteClient = createServerFn({ method: "POST" })
 
 const SeedInput = z.object({ brandId: z.string().uuid() });
 
+/* --------------------------- Brand company data --------------------------- */
+
+const BrandCompanySchema = z.object({
+  brandId: z.string().uuid(),
+  cpf: z.string().trim().max(20).nullable().optional(),
+  cnpj: z.string().trim().max(20).nullable().optional(),
+  nome_fantasia: z.string().trim().max(160).nullable().optional(),
+  razao_social: z.string().trim().max(200).nullable().optional(),
+  cep: z.string().trim().max(12).nullable().optional(),
+  rua: z.string().trim().max(200).nullable().optional(),
+  numero: z.string().trim().max(20).nullable().optional(),
+  complemento: z.string().trim().max(120).nullable().optional(),
+  bairro: z.string().trim().max(120).nullable().optional(),
+  cidade: z.string().trim().max(120).nullable().optional(),
+  estado: z.string().trim().max(2).nullable().optional(),
+});
+
+export const getBrandCompany = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ brandId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase
+      .from("brands")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .select("id, name, cpf, cnpj, nome_fantasia, razao_social, cep, rua, numero, complemento, bairro, cidade, estado" as any)
+      .eq("id", data.brandId)
+      .maybeSingle();
+    if (error) throw error;
+    return (row ?? null) as null | {
+      id: string; name: string;
+      cpf: string | null; cnpj: string | null;
+      nome_fantasia: string | null; razao_social: string | null;
+      cep: string | null; rua: string | null; numero: string | null;
+      complemento: string | null; bairro: string | null; cidade: string | null; estado: string | null;
+    };
+  });
+
+export const updateBrandCompany = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => BrandCompanySchema.parse(input))
+  .handler(async ({ data, context }) => {
+    // Somente owner/manager podem alterar dados da empresa.
+    const { data: mem } = await context.supabase
+      .from("brand_members")
+      .select("role")
+      .eq("brand_id", data.brandId)
+      .eq("user_id", context.userId)
+      .maybeSingle();
+    const role = (mem?.role ?? "").toLowerCase();
+    if (role !== "owner" && role !== "manager") {
+      throw new Error("Apenas administradores podem editar os dados da empresa.");
+    }
+    const { brandId, ...patch } = data;
+    const { error } = await context.supabase
+      .from("brands")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .update(patch as any)
+      .eq("id", brandId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
 /** Cria conjunto de dados de exemplo para uma brand vazia. Idempotente por marca. */
 export const seedDemoData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
