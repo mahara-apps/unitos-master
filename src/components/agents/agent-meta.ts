@@ -3,7 +3,6 @@ import {
   Compass,
   PenTool,
   LineChart,
-  Cpu,
   type LucideIcon,
 } from "lucide-react";
 
@@ -11,8 +10,7 @@ export type AgentCategory =
   | "intelligence"
   | "planning"
   | "creation"
-  | "analysis"
-  | "system";
+  | "analysis";
 
 export type AgentMeta = {
   category: AgentCategory;
@@ -31,7 +29,6 @@ export const CATEGORY_ORDER: AgentCategory[] = [
   "planning",
   "creation",
   "analysis",
-  "system",
 ];
 
 const CATEGORY_STYLE: Record<AgentCategory, Omit<AgentMeta, "category" | "model">> = {
@@ -59,12 +56,6 @@ const CATEGORY_STYLE: Record<AgentCategory, Omit<AgentMeta, "category" | "model"
     iconClass: "bg-emerald-500/10 text-emerald-500",
     badgeClass: "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
   },
-  system: {
-    categoryLabel: "Sistema & Infraestrutura",
-    icon: Cpu,
-    iconClass: "bg-slate-500/10 text-slate-500",
-    badgeClass: "border-slate-500/20 bg-slate-500/10 text-slate-600 dark:text-slate-300",
-  },
 };
 
 /** Explicit agent → category map (matches seeded agent_id list). */
@@ -78,11 +69,9 @@ const ID_TO_CATEGORY: Record<string, AgentCategory> = {
   copywriter_senior: "creation",
   roteirista_social: "creation",
   instagram_analyst: "analysis",
-  construtor_agentes: "system",
 };
 
 const KEYWORD_TO_CATEGORY: Array<[RegExp, AgentCategory]> = [
-  [/\b(construtor|meta.?agent|infra|sistema)/i, "system"],
   [/\b(analis|análise|analytics|instagram|benchmark|insight|otimiza)/i, "analysis"],
   [/\b(copy|caption|headline|roteir|script)/i, "creation"],
   [/\b(planejad|planner|diretor|art\s?director|visual)/i, "planning"],
