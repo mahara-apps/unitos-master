@@ -27,7 +27,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, UserPlus, Copy, X, Loader2, CalendarIcon, Link2, ShieldOff } from "lucide-react";
+import { MoreHorizontal, UserPlus, Copy, X, Loader2, CalendarIcon, Link2, ShieldOff, ExternalLink } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -252,7 +252,8 @@ function PortalTokenRow({ brandId, token }: {
   brandId: string;
   token: {
     id: string; token: string; label: string | null; client_name: string;
-    expires_at: string | null; revoked_at: string | null; created_at: string;
+    expires_at: string | null; revoked_at: string | null;
+    last_seen_at?: string | null; created_at: string;
   };
 }) {
   const qc = useQueryClient();
@@ -260,6 +261,8 @@ function PortalTokenRow({ brandId, token }: {
   const link = typeof window !== "undefined" ? `${window.location.origin}/portal/${token.token}` : "";
   const isRevoked = Boolean(token.revoked_at);
   const isExpired = token.expires_at ? new Date(token.expires_at).getTime() < Date.now() : false;
+  const daysLeft = token.expires_at ? Math.ceil((new Date(token.expires_at).getTime() - Date.now()) / 86_400_000) : null;
+  const soon = !isRevoked && !isExpired && daysLeft !== null && daysLeft <= 3;
   const revokeMut = useMutation({
     mutationFn: () => revoke({ data: { brandId, tokenId: token.id } }),
     onSuccess: () => { toast.success("Acesso revogado"); qc.invalidateQueries({ queryKey: ["brand-team", brandId] }); },
@@ -274,12 +277,19 @@ function PortalTokenRow({ brandId, token }: {
           <span className="text-xs text-muted-foreground truncate">· {token.client_name}</span>
           {isRevoked && <Badge variant="destructive" className="text-[10px]">Revogado</Badge>}
           {!isRevoked && isExpired && <Badge variant="outline" className="text-[10px]">Expirado</Badge>}
+          {soon && <Badge variant="outline" className="border-amber-500/40 text-amber-600 text-[10px]">Expira em {daysLeft}d</Badge>}
         </div>
         <div className="text-xs text-muted-foreground">
           {token.expires_at ? `Expira em ${new Date(token.expires_at).toLocaleDateString()}` : "Sem expiração"}
+          {token.last_seen_at && ` · último acesso ${new Date(token.last_seen_at).toLocaleString()}`}
         </div>
       </div>
       <div className="flex items-center gap-2">
+        <a href={link} target="_blank" rel="noreferrer">
+          <Button size="sm" variant="outline" disabled={isRevoked} title="Abrir portal">
+            <ExternalLink className="h-3.5 w-3.5 mr-1.5" />Abrir
+          </Button>
+        </a>
         <Button size="sm" variant="outline" disabled={isRevoked} onClick={() => { navigator.clipboard.writeText(link); toast.success("Link copiado"); }}>
           <Copy className="h-3.5 w-3.5 mr-1.5" />Copiar link
         </Button>
