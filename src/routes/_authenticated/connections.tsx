@@ -533,6 +533,88 @@ function SectionHeader({
   );
 }
 
+function MessagingKpiCards({
+  data,
+}: {
+  data:
+    | {
+        sent30d: number;
+        sentPrev30d: number;
+        trendPct: number | null;
+        delivered30d: number;
+        deliveryRate: number | null;
+        failed7d: number;
+        topFailedChannel: string | null;
+        brandsTotal: number;
+        brandsCovered: number;
+      }
+    | undefined;
+}) {
+  const sent = data?.sent30d ?? 0;
+  const trend = data?.trendPct ?? null;
+  const rate = data?.deliveryRate;
+  const ratePct = rate == null ? null : Math.round(rate * 100);
+  const rateTone: "emerald" | "amber" | "rose" | "neutral" =
+    ratePct == null ? "neutral" : ratePct > 95 ? "emerald" : ratePct >= 80 ? "amber" : "rose";
+  const failed = data?.failed7d ?? 0;
+  const covered = data?.brandsCovered ?? 0;
+  const total = data?.brandsTotal ?? 0;
+  const missing = Math.max(0, total - covered);
+
+  return (
+    <>
+      <KpiCard
+        icon={<Send className="h-4 w-4" />}
+        label="Enviadas (30d)"
+        value={sent.toLocaleString("pt-BR")}
+        sub={
+          sent === 0
+            ? "Nenhum envio registrado"
+            : trend == null
+              ? "Sem comparação anterior"
+              : `${trend >= 0 ? "+" : ""}${trend}% vs período anterior`
+        }
+        tone="rose"
+      />
+      <KpiCard
+        icon={<CheckCircle2 className="h-4 w-4" />}
+        label="Taxa de entrega"
+        value={ratePct == null ? "—" : `${ratePct}%`}
+        sub={
+          sent === 0
+            ? "Sem dados no período"
+            : `${(data?.delivered30d ?? 0).toLocaleString("pt-BR")} entregues de ${sent.toLocaleString("pt-BR")} enviadas`
+        }
+        tone={rateTone}
+      />
+      <KpiCard
+        icon={<AlertTriangle className="h-4 w-4" />}
+        label="Falhas (7d)"
+        value={failed.toLocaleString("pt-BR")}
+        sub={
+          failed === 0
+            ? "Nenhuma falha registrada"
+            : data?.topFailedChannel ?? "—"
+        }
+        tone={failed === 0 ? "emerald" : "amber"}
+      />
+      <KpiCard
+        icon={<Briefcase className="h-4 w-4" />}
+        label="Cobertura por marca"
+        value={`${covered}/${total}`}
+        sub={
+          total === 0
+            ? "Nenhuma marca no workspace"
+            : missing === 0
+              ? "Cobertura completa"
+              : `${missing} marca${missing > 1 ? "s" : ""} sem canal ativo`
+        }
+        tone={total > 0 && missing === 0 ? "emerald" : "violet"}
+      />
+    </>
+  );
+}
+
 function BudgetInput({
   active,
   onSave,
