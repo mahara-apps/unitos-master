@@ -439,8 +439,23 @@ function PlanEditor({
   const deleteFn = useServerFn(deleteMediaPlanItem);
   const reorderFn = useServerFn(reorderMediaPlanItems);
 
+  type UpsertItem = {
+    id?: string;
+    position?: number;
+    product_service?: string | null;
+    campaign_type?: string | null;
+    funnel_stage?: "topo" | "meio" | "fundo" | null;
+    objective?: string | null;
+    main_kpi?: string | null;
+    channel?: string | null;
+    audience?: string | null;
+    budget_pct?: number;
+    keywords?: string[];
+    benchmark?: string | null;
+    other_refs?: string | null;
+  };
   const upsertMut = useMutation({
-    mutationFn: (payload: { item: Parameters<typeof upsertFn>[0]["data"]["item"] }) =>
+    mutationFn: (payload: { item: UpsertItem }) =>
       upsertFn({ data: { planId: plan.id, item: payload.item } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["media-plan", plan.id] }),
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Erro ao salvar linha"),
