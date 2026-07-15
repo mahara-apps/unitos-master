@@ -30,7 +30,7 @@ import {
   listPortalBriefingsFn,
 } from "@/lib/portal-public.functions";
 
-export const Route = createFileRoute("/portal/$token")({
+export const Route = createFileRoute("/portal/")({
   component: PortalRoute,
   head: () => ({
     meta: [
