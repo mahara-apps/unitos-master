@@ -249,7 +249,7 @@ async function computeStats(
         supabase.from("tasks").select("status").eq("brand_id", brandId).eq("done", false),
       ),
     ),
-    ignore(scope(supabase.from("posts").select("stage").eq("brand_id", brandId))),
+    ignore(scope(supabase.from("posts").select("stage,stage_id").eq("brand_id", brandId))),
     ignore(
       scope(
         supabase
@@ -290,10 +290,25 @@ async function computeStats(
     acc[r.status] = (acc[r.status] ?? 0) + 1;
     return acc;
   }, {});
-  const postsByStage = ((postsStageRes?.data ?? []) as Array<{ stage: string }>).reduce<
-    Record<string, number>
-  >((acc, r) => {
-    acc[r.stage] = (acc[r.stage] ?? 0) + 1;
+  const stageRows = (postsStageRes?.data ?? []) as Array<{
+    stage: string | null;
+    stage_id: string | null;
+  }>;
+  const stageIds = Array.from(
+    new Set(stageRows.map((r) => r.stage_id).filter((v): v is string => !!v)),
+  );
+  let stageKeyById = new Map<string, string>();
+  if (stageIds.length > 0) {
+    const stagesRes = await ignore(
+      supabase.from("content_pipeline_stages").select("id,key").in("id", stageIds),
+    );
+    for (const s of (stagesRes?.data ?? []) as Array<{ id: string; key: string }>) {
+      stageKeyById.set(s.id, s.key);
+    }
+  }
+  const postsByStage = stageRows.reduce<Record<string, number>>((acc, r) => {
+    const key = (r.stage_id && stageKeyById.get(r.stage_id)) || r.stage || "idea";
+    acc[key] = (acc[key] ?? 0) + 1;
     return acc;
   }, {});
 
