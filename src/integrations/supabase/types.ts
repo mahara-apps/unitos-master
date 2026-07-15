@@ -342,6 +342,50 @@ export type Database = {
           },
         ]
       }
+      brand_api_credentials: {
+        Row: {
+          brand_id: string
+          ciphertext: string
+          created_at: string
+          id: string
+          masked: string
+          metadata: Json
+          provider: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          brand_id: string
+          ciphertext: string
+          created_at?: string
+          id?: string
+          masked: string
+          metadata?: Json
+          provider: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          brand_id?: string
+          ciphertext?: string
+          created_at?: string
+          id?: string
+          masked?: string
+          metadata?: Json
+          provider?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_api_credentials_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_briefings: {
         Row: {
           brand_id: string
