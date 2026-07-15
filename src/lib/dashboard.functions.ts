@@ -421,6 +421,13 @@ export type AgencyDashboard = {
   }>;
   heatmap: number[];
   postsByStage: Record<string, number>;
+  pipelineStages: Array<{
+    key: string;
+    label: string;
+    color: string | null;
+    position: number;
+    count: number;
+  }>;
   publishTrend14d: number[];
   aiUsage: AiUsageSummary;
   avgLeadTimeDays: number | null;
