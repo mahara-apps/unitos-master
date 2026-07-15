@@ -434,11 +434,23 @@ export const movePostFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
+    const { data: before } = await context.supabase
+      .from("posts")
+      .select("brand_id, stage_id, title")
+      .eq("id", data.postId)
+      .maybeSingle();
     const { error } = await context.supabase
       .from("posts")
       .update({ stage_id: data.toStageId, position: data.toPosition })
       .eq("id", data.postId);
     if (error) throw error;
+    if (before?.brand_id && before.stage_id !== data.toStageId) {
+      ingestBrainQuiet(context.supabase, before.brand_id as string, "content_stage_changed", "editorial", {
+        title: before.title,
+        from_stage_id: before.stage_id,
+        to_stage_id: data.toStageId,
+      });
+    }
     return { ok: true };
   });
 
