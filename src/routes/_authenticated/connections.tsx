@@ -59,6 +59,7 @@ import {
   removeToolCredential,
 } from "@/lib/connections.functions";
 import { getMessagingKpis } from "@/lib/messaging-kpis.functions";
+import { getChannelsKpis, type ChannelsKpis } from "@/lib/channels-kpis.functions";
 import { usePageHeader } from "@/hooks/use-page-header";
 import {
   DashboardPageShell,
@@ -267,6 +268,14 @@ function ConnectionsPage() {
   const { data: msgKpis } = useQuery({
     queryKey: ["messaging-kpis", brandId],
     queryFn: () => getMsgKpisFn({ data: { brandId: brandId! } }),
+    enabled: !!brandId,
+    staleTime: 60_000,
+  });
+
+  const getChKpisFn = useServerFn(getChannelsKpis);
+  const { data: chKpis } = useQuery({
+    queryKey: ["channels-kpis", brandId],
+    queryFn: () => getChKpisFn({ data: { brandId: brandId! } }),
     enabled: !!brandId,
     staleTime: 60_000,
   });
