@@ -18,8 +18,20 @@ const attachSupabaseAuth = createMiddleware({ type: "function" }).client(
       const refreshed = await supabase.auth.refreshSession().catch(() => null);
       token = refreshed?.data.session?.access_token ?? token;
     }
+    if (!token) {
+      // Sessão sumiu depois do mount (expirou/foi invalidada). Não faz sentido
+      // disparar o RPC sem Authorization — force o fluxo de re-login.
+      if (typeof window !== "undefined") {
+        const here = window.location.pathname + window.location.search;
+        // Evita loop se já estivermos em /auth ou /login.
+        if (!/^\/(auth|login)(\/|$)/.test(window.location.pathname)) {
+          window.location.replace(`/login?next=${encodeURIComponent(here)}`);
+        }
+      }
+      throw new Error("Sessão expirada. Redirecionando para login…");
+    }
     return next({
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      headers: { Authorization: `Bearer ${token}` },
     });
   },
 );
