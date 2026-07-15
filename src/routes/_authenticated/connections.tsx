@@ -421,6 +421,37 @@ function ConnectionsPage() {
 
         {/* Tab: Canais */}
         <TabsContent value="channels" className="space-y-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <KpiCard
+            icon={<Radio className="h-4 w-4" />}
+            label="Canais conectados"
+            value={`${ch.connected} / ${ch.total}`}
+            sub={ch.connected === ch.total ? "Cobertura total" : "Faltam canais ativos"}
+            tone={chTone}
+          />
+          <KpiCard
+            icon={<Activity className="h-4 w-4" />}
+            label="Cobertura"
+            value={`${chCoverage}%`}
+            sub={`de ${ch.total} disponíveis`}
+            tone="violet"
+          />
+          <KpiCard
+            icon={<CheckCircle2 className="h-4 w-4" />}
+            label="Última conexão"
+            value={ch.latestRel}
+            sub={ch.latest?.def.name ?? "Nenhuma conexão"}
+            tone="sky"
+          />
+          <KpiCard
+            icon={<KeyRound className="h-4 w-4" />}
+            label="Pendentes"
+            value={ch.pending.length.toString()}
+            sub={pendingNames(ch.pending)}
+            tone={ch.pending.length > 0 ? "amber" : "emerald"}
+          />
+        </div>
+
         <SectionHeader
           icon={<Radio className="h-3.5 w-3.5" />}
           title="canais sociais"
@@ -441,6 +472,37 @@ function ConnectionsPage() {
 
         {/* Tab: Mensageria */}
         <TabsContent value="messaging" className="space-y-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <KpiCard
+            icon={<Send className="h-4 w-4" />}
+            label="Ferramentas conectadas"
+            value={`${ms.connected} / ${ms.total}`}
+            sub={ms.connected === ms.total ? "Tudo operacional" : "Configuração incompleta"}
+            tone={msTone}
+          />
+          <KpiCard
+            icon={<KeyRound className="h-4 w-4" />}
+            label="Chaves cifradas"
+            value={ms.connected.toString()}
+            sub="AES-256-GCM"
+            tone="violet"
+          />
+          <KpiCard
+            icon={<Activity className="h-4 w-4" />}
+            label="Última rotação"
+            value={ms.latestRel}
+            sub={ms.latest?.def.name ?? "Nenhuma chave"}
+            tone="sky"
+          />
+          <KpiCard
+            icon={<CheckCircle2 className="h-4 w-4" />}
+            label="Pendentes"
+            value={ms.pending.length.toString()}
+            sub={pendingNames(ms.pending)}
+            tone={ms.pending.length > 0 ? "amber" : "emerald"}
+          />
+        </div>
+
         <SectionHeader
           icon={<Send className="h-3.5 w-3.5" />}
           title="mensageria & entrega"
