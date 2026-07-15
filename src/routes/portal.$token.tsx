@@ -168,7 +168,7 @@ function PortalShell() {
 
           <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
             {tab === "home" && <HomeTab token={token} setTab={setTab} />}
-            {tab === "approvals" && <ApprovalsTab token={token} identity={identity.value} />}
+            {tab === "approvals" && <ApprovalsTab token={token} identity={identity.value} onIdentityChange={identity.save} />}
             {tab === "calendar" && <CalendarTab token={token} />}
             {tab === "feed" && <FeedTab token={token} />}
             {tab === "files" && <FilesTab token={token} />}
@@ -231,7 +231,7 @@ function HomeTab({ token, setTab }: { token: string; setTab: (t: TabId) => void 
 
 /* -------------------------------- APPROVALS ------------------------------- */
 
-function ApprovalsTab({ token, identity }: { token: string; identity: string }) {
+function ApprovalsTab({ token, identity, onIdentityChange }: { token: string; identity: string; onIdentityChange: (v: string) => void }) {
   const list = useServerFn(listPortalApprovalsFn);
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "adjust">("pending");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -270,6 +270,7 @@ function ApprovalsTab({ token, identity }: { token: string; identity: string }) 
           token={token}
           postId={openId}
           identity={identity}
+          onIdentityChange={onIdentityChange}
           onClose={() => setOpenId(null)}
         />
       )}
