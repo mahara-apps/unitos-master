@@ -54,7 +54,7 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
     label: "Operação",
     items: [
       { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-      { title: "Produção", url: "/content", icon: KanbanSquare },
+      { title: "Conteúdo", url: "/content", icon: KanbanSquare },
       { title: "Calendário", url: "/calendar", icon: CalendarDays },
       { title: "Tarefas", url: "/tasks", icon: ListChecks },
       { title: "Projetos", url: "/projects", icon: FolderKanban },
