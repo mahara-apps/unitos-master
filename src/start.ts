@@ -37,9 +37,23 @@ const attachSupabaseAuth = createMiddleware({ type: "function" }).client(
       }
       throw new Error("Sessão expirada. Redirecionando para login…");
     }
-    return next({
-      headers: { Authorization: `Bearer ${token}` },
-    });
+    try {
+      return await next({
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // Token rejeitado pelo servidor (ex.: sessão de outro projeto no
+      // localStorage, token revogado). Limpa e força re-login.
+      if (/Unauthorized|Invalid token/i.test(msg)) {
+        await supabase.auth.signOut().catch(() => null);
+        if (typeof window !== "undefined" && !/^\/(auth|login)(\/|$)/.test(window.location.pathname)) {
+          const here = window.location.pathname + window.location.search;
+          window.location.replace(`/login?next=${encodeURIComponent(here)}`);
+        }
+      }
+      throw err;
+    }
   },
 );
 
