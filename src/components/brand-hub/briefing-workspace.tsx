@@ -1354,6 +1354,7 @@ const BRAIN_SECTIONS = [
   { id: "concorrentes", label: "Concorrentes" },
   { id: "estetica", label: "Estética" },
   { id: "metas", label: "Metas" },
+  { id: "documentos", label: "Documentos & Contexto IA" },
 ] as const;
 
 type StackedProps = {
