@@ -73,7 +73,7 @@ const searchSchema = z.object({
   channel: z.string().optional(),
 });
 
-export const Route = createFileRoute("/_authenticated/customers/$customerId/media-plan")({
+export const Route = createFileRoute("/_authenticated/customers/media-plan")({
   validateSearch: zodValidator(searchSchema),
   component: MediaPlanPage,
 });

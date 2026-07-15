@@ -44,6 +44,7 @@ import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_auth
 import { Route as AuthenticatedSettingsLogsRouteImport } from './routes/_authenticated/settings.logs'
 import { Route as AuthenticatedSettingsAiRouteImport } from './routes/_authenticated/settings.ai'
 import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_authenticated/projects.$projectId'
+import { Route as AuthenticatedCustomersMediaPlanRouteImport } from './routes/_authenticated/customers..media-plan'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 import { Route as ApiPublicMediaPruneRouteImport } from './routes/api/public/media/prune'
 import { Route as ApiPublicApprovalTokenRouteImport } from './routes/api/public/approval.$token'
@@ -233,6 +234,12 @@ const AuthenticatedProjectsProjectIdRoute =
     path: '/$projectId',
     getParentRoute: () => AuthenticatedProjectsRoute,
   } as any)
+const AuthenticatedCustomersMediaPlanRoute =
+  AuthenticatedCustomersMediaPlanRouteImport.update({
+    id: '/media-plan',
+    path: '/media-plan',
+    getParentRoute: () => AuthenticatedCustomersRoute,
+  } as any)
 const AuthenticatedCustomersCustomerIdRoute =
   AuthenticatedCustomersCustomerIdRouteImport.update({
     id: '/$customerId',
@@ -276,6 +283,7 @@ export interface FileRoutesByFullPath {
   '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
+  '/customers/media-plan': typeof AuthenticatedCustomersMediaPlanRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
   '/settings/logs': typeof AuthenticatedSettingsLogsRoute
@@ -313,6 +321,7 @@ export interface FileRoutesByTo {
   '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
+  '/customers/media-plan': typeof AuthenticatedCustomersMediaPlanRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
   '/settings/logs': typeof AuthenticatedSettingsLogsRoute
@@ -355,6 +364,7 @@ export interface FileRoutesById {
   '/invite/$token': typeof InviteTokenRoute
   '/portal/$token': typeof PortalTokenRoute
   '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
+  '/_authenticated/customers/media-plan': typeof AuthenticatedCustomersMediaPlanRoute
   '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/_authenticated/settings/ai': typeof AuthenticatedSettingsAiRoute
   '/_authenticated/settings/logs': typeof AuthenticatedSettingsLogsRoute
@@ -397,6 +407,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/portal/$token'
     | '/customers/$customerId'
+    | '/customers/media-plan'
     | '/projects/$projectId'
     | '/settings/ai'
     | '/settings/logs'
@@ -434,6 +445,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/portal/$token'
     | '/customers/$customerId'
+    | '/customers/media-plan'
     | '/projects/$projectId'
     | '/settings/ai'
     | '/settings/logs'
@@ -475,6 +487,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/portal/$token'
     | '/_authenticated/customers/$customerId'
+    | '/_authenticated/customers/media-plan'
     | '/_authenticated/projects/$projectId'
     | '/_authenticated/settings/ai'
     | '/_authenticated/settings/logs'
@@ -764,6 +777,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProjectsProjectIdRouteImport
       parentRoute: typeof AuthenticatedProjectsRoute
     }
+    '/_authenticated/customers/media-plan': {
+      id: '/_authenticated/customers/media-plan'
+      path: '/media-plan'
+      fullPath: '/customers/media-plan'
+      preLoaderRoute: typeof AuthenticatedCustomersMediaPlanRouteImport
+      parentRoute: typeof AuthenticatedCustomersRoute
+    }
     '/_authenticated/customers/$customerId': {
       id: '/_authenticated/customers/$customerId'
       path: '/$customerId'
@@ -812,6 +832,7 @@ const AuthenticatedCustomersCustomerIdRouteWithChildren =
 
 interface AuthenticatedCustomersRouteChildren {
   AuthenticatedCustomersCustomerIdRoute: typeof AuthenticatedCustomersCustomerIdRouteWithChildren
+  AuthenticatedCustomersMediaPlanRoute: typeof AuthenticatedCustomersMediaPlanRoute
   AuthenticatedCustomersIndexRoute: typeof AuthenticatedCustomersIndexRoute
 }
 
@@ -819,6 +840,7 @@ const AuthenticatedCustomersRouteChildren: AuthenticatedCustomersRouteChildren =
   {
     AuthenticatedCustomersCustomerIdRoute:
       AuthenticatedCustomersCustomerIdRouteWithChildren,
+    AuthenticatedCustomersMediaPlanRoute: AuthenticatedCustomersMediaPlanRoute,
     AuthenticatedCustomersIndexRoute: AuthenticatedCustomersIndexRoute,
   }
 
