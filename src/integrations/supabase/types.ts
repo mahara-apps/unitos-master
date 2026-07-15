@@ -1063,32 +1063,65 @@ export type Database = {
       }
       brands: {
         Row: {
+          bairro: string | null
+          cep: string | null
+          cidade: string | null
+          cnpj: string | null
           color: string | null
+          complemento: string | null
+          cpf: string | null
           created_at: string
           created_by: string
+          estado: string | null
           id: string
           logo_url: string | null
           name: string
+          nome_fantasia: string | null
+          numero: string | null
+          razao_social: string | null
+          rua: string | null
           slug: string
           updated_at: string
         }
         Insert: {
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          cnpj?: string | null
           color?: string | null
+          complemento?: string | null
+          cpf?: string | null
           created_at?: string
           created_by: string
+          estado?: string | null
           id?: string
           logo_url?: string | null
           name: string
+          nome_fantasia?: string | null
+          numero?: string | null
+          razao_social?: string | null
+          rua?: string | null
           slug: string
           updated_at?: string
         }
         Update: {
+          bairro?: string | null
+          cep?: string | null
+          cidade?: string | null
+          cnpj?: string | null
           color?: string | null
+          complemento?: string | null
+          cpf?: string | null
           created_at?: string
           created_by?: string
+          estado?: string | null
           id?: string
           logo_url?: string | null
           name?: string
+          nome_fantasia?: string | null
+          numero?: string | null
+          razao_social?: string | null
+          rua?: string | null
           slug?: string
           updated_at?: string
         }
@@ -2373,11 +2406,14 @@ export type Database = {
           is_super_admin: boolean
           job_title: string | null
           locale: string
+          notification_prefs: Json
+          notify_whatsapp: boolean
           phone: string | null
           requires_password_change: boolean
           role: string
           timezone: string
           updated_at: string
+          whatsapp: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -2388,11 +2424,14 @@ export type Database = {
           is_super_admin?: boolean
           job_title?: string | null
           locale?: string
+          notification_prefs?: Json
+          notify_whatsapp?: boolean
           phone?: string | null
           requires_password_change?: boolean
           role?: string
           timezone?: string
           updated_at?: string
+          whatsapp?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -2403,11 +2442,14 @@ export type Database = {
           is_super_admin?: boolean
           job_title?: string | null
           locale?: string
+          notification_prefs?: Json
+          notify_whatsapp?: boolean
           phone?: string | null
           requires_password_change?: boolean
           role?: string
           timezone?: string
           updated_at?: string
+          whatsapp?: string | null
         }
         Relationships: []
       }

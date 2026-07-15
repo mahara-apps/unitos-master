@@ -53,7 +53,7 @@ const LEVEL_META: Record<LogLevel, { label: string; icon: typeof Info; className
 };
 
 function LogsPage() {
-  usePageHeader({ title: "Logs do sistema", subtitle: "Auditoria e diagnóstico de todos os eventos" });
+  usePageHeader({ title: "Log de Auditoria", subtitle: "Histórico de ações realizadas na organização" });
 
   const { brandId, clientId } = useActiveContext();
   const load = useServerFn(listSystemLogs);

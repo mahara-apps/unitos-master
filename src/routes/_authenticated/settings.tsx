@@ -1,15 +1,16 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { User, Users, Bot, ScrollText } from "lucide-react";
+import { User, Users, ShieldCheck, History, Bell } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsLayout,
 });
 
 const TABS = [
-  { to: "/settings/profile", label: "Perfil", icon: User },
+  { to: "/settings/profile", label: "Meu Perfil", icon: User },
   { to: "/settings/team", label: "Equipe", icon: Users },
-  { to: "/settings/ai", label: "Governança de IA", icon: Bot },
-  { to: "/settings/logs", label: "Logs", icon: ScrollText },
+  { to: "/settings/permissions", label: "Permissões", icon: ShieldCheck },
+  { to: "/settings/logs", label: "Auditoria", icon: History },
+  { to: "/settings/notifications", label: "Notificações", icon: Bell },
 ] as const;
 
 function SettingsLayout() {

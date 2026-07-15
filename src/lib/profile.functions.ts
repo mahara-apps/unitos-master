@@ -10,6 +10,8 @@ const UpdateSchema = z.object({
   timezone: z.string().trim().min(1).max(64),
   locale: z.string().trim().min(2).max(10),
   avatar_url: z.string().trim().url().max(500).optional().nullable(),
+  whatsapp: z.string().trim().max(40).optional().nullable(),
+  notify_whatsapp: z.boolean().optional(),
 });
 
 export type ProfileUpdateInput = z.infer<typeof UpdateSchema>;
@@ -19,7 +21,7 @@ export const getMyProfile = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("user_profiles")
-      .select("id, full_name, role, avatar_url, phone, job_title, bio, timezone, locale, created_at, updated_at")
+      .select("id, full_name, role, avatar_url, phone, job_title, bio, timezone, locale, whatsapp, notify_whatsapp, notification_prefs, created_at, updated_at")
       .eq("id", context.userId)
       .maybeSingle();
     if (error) throw error;
@@ -40,6 +42,19 @@ export const getMyProfile = createServerFn({ method: "GET" })
       timezone: ((data as any)?.timezone ?? "America/Sao_Paulo") as string,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       locale: ((data as any)?.locale ?? "pt-BR") as string,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      whatsapp: ((data as any)?.whatsapp ?? null) as string | null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      notify_whatsapp: Boolean((data as any)?.notify_whatsapp ?? false),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      notification_prefs: ((data as any)?.notification_prefs ?? {
+        email: true,
+        push: true,
+        whatsapp_client_portal: false,
+        comments: true,
+        approvals: true,
+        publications: true,
+      }) as Record<string, boolean>,
     };
   });
 
@@ -55,6 +70,8 @@ export const updateMyProfile = createServerFn({ method: "POST" })
       timezone: data.timezone,
       locale: data.locale,
       avatar_url: data.avatar_url ?? null,
+      whatsapp: data.whatsapp ?? null,
+      notify_whatsapp: data.notify_whatsapp ?? false,
     };
     const { error } = await context.supabase
       .from("user_profiles")
@@ -91,5 +108,35 @@ export const changeMyPassword = createServerFn({ method: "POST" })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .update({ requires_password_change: false } as any)
       .eq("id", context.userId);
+    return { ok: true };
+  });
+
+/* ----------------------- Notification preferences ----------------------- */
+
+const NotificationPrefsSchema = z.object({
+  email: z.boolean(),
+  push: z.boolean(),
+  whatsapp_client_portal: z.boolean(),
+  comments: z.boolean(),
+  approvals: z.boolean(),
+  publications: z.boolean(),
+});
+
+export type NotificationPrefs = z.infer<typeof NotificationPrefsSchema>;
+
+export const updateNotificationPrefs = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ prefs: NotificationPrefsSchema, notify_whatsapp: z.boolean().optional() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const patch: Record<string, unknown> = { notification_prefs: data.prefs };
+    if (typeof data.notify_whatsapp === "boolean") patch.notify_whatsapp = data.notify_whatsapp;
+    const { error } = await context.supabase
+      .from("user_profiles")
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .update(patch as any)
+      .eq("id", context.userId);
+    if (error) throw error;
     return { ok: true };
   });

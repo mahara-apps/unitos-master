@@ -3,8 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Save, KeyRound } from "lucide-react";
+import { Loader2, Save, KeyRound, Building2, MapPin, MessageCircle } from "lucide-react";
 import { getMyProfile, updateMyProfile, changeMyPassword } from "@/lib/profile.functions";
+import { getBrandCompany, updateBrandCompany } from "@/lib/workspace.functions";
+import { useActiveContext } from "@/hooks/use-active-context";
+import { useAccessRole } from "@/hooks/use-access-role";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,7 +63,25 @@ type FormState = {
   timezone: string;
   locale: string;
   avatar_url: string;
+  whatsapp: string;
+  notify_whatsapp: boolean;
 };
+
+type CompanyState = {
+  cpf: string;
+  cnpj: string;
+  nome_fantasia: string;
+  razao_social: string;
+  cep: string;
+  rua: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  estado: string;
+};
+
+const UFS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 
 function ProfilePage() {
   usePageHeader({ title: "Perfil", subtitle: "Suas informações pessoais e preferências" });
@@ -68,14 +90,25 @@ function ProfilePage() {
   const fetchProfile = useServerFn(getMyProfile);
   const saveProfile = useServerFn(updateMyProfile);
   const changePassword = useServerFn(changeMyPassword);
+  const fetchCompany = useServerFn(getBrandCompany);
+  const saveCompany = useServerFn(updateBrandCompany);
+  const { brandId } = useActiveContext();
+  const access = useAccessRole();
+  const canEditCompany = access.role === "admin";
 
   const { data, isLoading } = useQuery({
     queryKey: ["me", "profile"],
     queryFn: () => fetchProfile(),
   });
+  const companyQ = useQuery({
+    queryKey: ["brand", "company", brandId],
+    queryFn: () => fetchCompany({ data: { brandId: brandId! } }),
+    enabled: !!brandId,
+  });
 
   const [form, setForm] = useState<FormState | null>(null);
   const [pw, setPw] = useState({ next: "", confirm: "" });
+  const [company, setCompany] = useState<CompanyState | null>(null);
 
   useEffect(() => {
     if (data && !form) {
@@ -87,9 +120,30 @@ function ProfilePage() {
         timezone: data.timezone ?? "America/Sao_Paulo",
         locale: data.locale ?? "pt-BR",
         avatar_url: data.avatar_url ?? "",
+        whatsapp: (data as { whatsapp?: string | null }).whatsapp ?? "",
+        notify_whatsapp: Boolean((data as { notify_whatsapp?: boolean }).notify_whatsapp),
       });
     }
   }, [data, form]);
+
+  useEffect(() => {
+    if (companyQ.data && !company) {
+      const c = companyQ.data;
+      setCompany({
+        cpf: c.cpf ?? "",
+        cnpj: c.cnpj ?? "",
+        nome_fantasia: c.nome_fantasia ?? "",
+        razao_social: c.razao_social ?? "",
+        cep: c.cep ?? "",
+        rua: c.rua ?? "",
+        numero: c.numero ?? "",
+        complemento: c.complemento ?? "",
+        bairro: c.bairro ?? "",
+        cidade: c.cidade ?? "",
+        estado: c.estado ?? "",
+      });
+    }
+  }, [companyQ.data, company]);
 
   const initials = useMemo(() => {
     const n = form?.full_name ?? data?.full_name ?? data?.email ?? "?";
@@ -107,6 +161,8 @@ function ProfilePage() {
           timezone: payload.timezone,
           locale: payload.locale,
           avatar_url: payload.avatar_url.trim() || null,
+          whatsapp: payload.whatsapp.trim() || null,
+          notify_whatsapp: payload.notify_whatsapp,
         },
       }),
     onSuccess: async () => {
@@ -116,6 +172,31 @@ function ProfilePage() {
     onError: (e: unknown) => {
       toast.error(e instanceof Error ? e.message : "Falha ao salvar perfil");
     },
+  });
+
+  const companyMutation = useMutation({
+    mutationFn: async (payload: CompanyState) =>
+      saveCompany({
+        data: {
+          brandId: brandId!,
+          cpf: payload.cpf.trim() || null,
+          cnpj: payload.cnpj.trim() || null,
+          nome_fantasia: payload.nome_fantasia.trim() || null,
+          razao_social: payload.razao_social.trim() || null,
+          cep: payload.cep.trim() || null,
+          rua: payload.rua.trim() || null,
+          numero: payload.numero.trim() || null,
+          complemento: payload.complemento.trim() || null,
+          bairro: payload.bairro.trim() || null,
+          cidade: payload.cidade.trim() || null,
+          estado: payload.estado.trim().toUpperCase() || null,
+        },
+      }),
+    onSuccess: async () => {
+      toast.success("Dados da empresa atualizados");
+      await qc.invalidateQueries({ queryKey: ["brand", "company", brandId] });
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Falha ao salvar dados da empresa"),
   });
 
   const pwMutation = useMutation({
@@ -181,6 +262,29 @@ function ProfilePage() {
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
               maxLength={40}
               placeholder="+55 11 90000-0000"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="whatsapp" className="flex items-center gap-1.5">
+              <MessageCircle className="h-3.5 w-3.5 text-emerald-500" />
+              WhatsApp para notificações
+            </Label>
+            <Input
+              id="whatsapp"
+              value={form.whatsapp}
+              onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
+              maxLength={40}
+              placeholder="+55 11 90000-0000"
+            />
+          </div>
+          <div className="sm:col-span-2 flex items-start justify-between gap-4 rounded-lg border border-border/60 bg-muted/30 p-3">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium">Receber notificações por WhatsApp</p>
+              <p className="text-xs text-muted-foreground">Publicações aprovadas, ajustes solicitados e menções urgentes.</p>
+            </div>
+            <Switch
+              checked={form.notify_whatsapp}
+              onCheckedChange={(v) => setForm({ ...form, notify_whatsapp: v })}
             />
           </div>
           <div className="space-y-1.5">
@@ -253,6 +357,109 @@ function ProfilePage() {
           </div>
         </CardContent>
       </Card>
+
+      {canEditCompany && brandId ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-indigo-500" />
+              Dados da empresa
+            </CardTitle>
+            <CardDescription>Documentos e razão social da marca ativa.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            {!company ? (
+              <div className="sm:col-span-2 flex items-center justify-center py-6">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="cpf">CPF</Label>
+                  <Input id="cpf" value={company.cpf} onChange={(e) => setCompany({ ...company, cpf: e.target.value })} maxLength={20} placeholder="000.000.000-00" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="cnpj">CNPJ</Label>
+                  <Input id="cnpj" value={company.cnpj} onChange={(e) => setCompany({ ...company, cnpj: e.target.value })} maxLength={20} placeholder="00.000.000/0000-00" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="nome_fantasia">Nome fantasia</Label>
+                  <Input id="nome_fantasia" value={company.nome_fantasia} onChange={(e) => setCompany({ ...company, nome_fantasia: e.target.value })} maxLength={160} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="razao_social">Razão social</Label>
+                  <Input id="razao_social" value={company.razao_social} onChange={(e) => setCompany({ ...company, razao_social: e.target.value })} maxLength={200} />
+                </div>
+                <div className="sm:col-span-2 flex justify-end">
+                  <Button
+                    onClick={() => companyMutation.mutate(company)}
+                    disabled={companyMutation.isPending}
+                  >
+                    {companyMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Salvar dados da empresa
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {canEditCompany && brandId && company ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-rose-500" />
+              Endereço
+            </CardTitle>
+            <CardDescription>Endereço fiscal e de correspondência da empresa.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-6">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="cep">CEP</Label>
+              <Input id="cep" value={company.cep} onChange={(e) => setCompany({ ...company, cep: e.target.value })} maxLength={12} placeholder="00000-000" />
+            </div>
+            <div className="space-y-1.5 sm:col-span-4">
+              <Label htmlFor="rua">Rua</Label>
+              <Input id="rua" value={company.rua} onChange={(e) => setCompany({ ...company, rua: e.target.value })} maxLength={200} />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="numero">Número</Label>
+              <Input id="numero" value={company.numero} onChange={(e) => setCompany({ ...company, numero: e.target.value })} maxLength={20} />
+            </div>
+            <div className="space-y-1.5 sm:col-span-4">
+              <Label htmlFor="complemento">Complemento</Label>
+              <Input id="complemento" value={company.complemento} onChange={(e) => setCompany({ ...company, complemento: e.target.value })} maxLength={120} />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="bairro">Bairro</Label>
+              <Input id="bairro" value={company.bairro} onChange={(e) => setCompany({ ...company, bairro: e.target.value })} maxLength={120} />
+            </div>
+            <div className="space-y-1.5 sm:col-span-3">
+              <Label htmlFor="cidade">Cidade</Label>
+              <Input id="cidade" value={company.cidade} onChange={(e) => setCompany({ ...company, cidade: e.target.value })} maxLength={120} />
+            </div>
+            <div className="space-y-1.5 sm:col-span-1">
+              <Label htmlFor="estado">UF</Label>
+              <Select value={company.estado || undefined} onValueChange={(v) => setCompany({ ...company, estado: v })}>
+                <SelectTrigger id="estado"><SelectValue placeholder="UF" /></SelectTrigger>
+                <SelectContent>
+                  {UFS.map((uf) => (<SelectItem key={uf} value={uf}>{uf}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="sm:col-span-6 flex justify-end">
+              <Button
+                onClick={() => companyMutation.mutate(company)}
+                disabled={companyMutation.isPending}
+              >
+                {companyMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Salvar endereço
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>
