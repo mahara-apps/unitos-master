@@ -69,6 +69,7 @@ export type Database = {
         Row: {
           agent_id: string
           agent_name: string
+          brain_enabled: boolean
           created_at: string
           default_prompt: string
           required_fields: Json
@@ -78,6 +79,7 @@ export type Database = {
         Insert: {
           agent_id: string
           agent_name: string
+          brain_enabled?: boolean
           created_at?: string
           default_prompt: string
           required_fields?: Json
@@ -87,6 +89,7 @@ export type Database = {
         Update: {
           agent_id?: string
           agent_name?: string
+          brain_enabled?: boolean
           created_at?: string
           default_prompt?: string
           required_fields?: Json
@@ -169,6 +172,168 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brain_embeddings: {
+        Row: {
+          brand_id: string | null
+          content_summary: string
+          created_at: string
+          embedding: string | null
+          event_id: string | null
+          id: string
+        }
+        Insert: {
+          brand_id?: string | null
+          content_summary: string
+          created_at?: string
+          embedding?: string | null
+          event_id?: string | null
+          id?: string
+        }
+        Update: {
+          brand_id?: string | null
+          content_summary?: string
+          created_at?: string
+          embedding?: string | null
+          event_id?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_embeddings_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brain_embeddings_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "brain_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brain_events: {
+        Row: {
+          brand_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          outcome_score: number | null
+          payload: Json
+          source_module: string
+        }
+        Insert: {
+          brand_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          source_module: string
+        }
+        Update: {
+          brand_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          source_module?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brain_insights: {
+        Row: {
+          based_on_events: number | null
+          brand_id: string | null
+          confidence: number | null
+          created_at: string
+          description: string
+          expires_at: string | null
+          id: string
+          insight_type: string
+        }
+        Insert: {
+          based_on_events?: number | null
+          brand_id?: string | null
+          confidence?: number | null
+          created_at?: string
+          description: string
+          expires_at?: string | null
+          id?: string
+          insight_type: string
+        }
+        Update: {
+          based_on_events?: number | null
+          brand_id?: string | null
+          confidence?: number | null
+          created_at?: string
+          description?: string
+          expires_at?: string | null
+          id?: string
+          insight_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_insights_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brain_metrics_snapshots: {
+        Row: {
+          brand_id: string | null
+          channel: string | null
+          created_at: string
+          id: string
+          metric_name: string
+          metric_value: number
+          period_end: string
+          period_start: string
+        }
+        Insert: {
+          brand_id?: string | null
+          channel?: string | null
+          created_at?: string
+          id?: string
+          metric_name: string
+          metric_value: number
+          period_end: string
+          period_start: string
+        }
+        Update: {
+          brand_id?: string | null
+          channel?: string | null
+          created_at?: string
+          id?: string
+          metric_name?: string
+          metric_value?: number
+          period_end?: string
+          period_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_metrics_snapshots_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
             referencedColumns: ["id"]
           },
         ]
@@ -2275,6 +2440,18 @@ export type Database = {
       is_super_admin:
         | { Args: never; Returns: boolean }
         | { Args: { _user_id: string }; Returns: boolean }
+      match_brain_events: {
+        Args: { _brand_id: string; _match_count?: number; _query: string }
+        Returns: {
+          content_summary: string
+          created_at: string
+          event_id: string
+          event_type: string
+          payload: Json
+          similarity: number
+          source_module: string
+        }[]
+      }
       media_plan_public_items: { Args: { _token: string }; Returns: Json }
       media_plan_public_resolve: { Args: { _token: string }; Returns: Json }
       portal_approvals: {
