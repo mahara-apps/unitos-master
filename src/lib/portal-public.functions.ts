@@ -125,8 +125,9 @@ export const listPortalApprovalsFn = createServerFn({ method: "POST" })
           .select("post_id, status, notes, decided_at, decided_by_name")
           .in("post_id", ids)
       : { data: [] as Array<Record<string, unknown>> };
-    const byPost = new Map<string, (typeof apprv)[number]>();
-    for (const a of apprv ?? []) byPost.set(a.post_id as string, a);
+    const apprvRows = (apprv ?? []) as Array<Record<string, unknown>>;
+    const byPost = new Map<string, Record<string, unknown>>();
+    for (const a of apprvRows) byPost.set(a.post_id as string, a);
     await fillCovers(admin, posts ?? []);
     const merged = (posts ?? []).map((p) => {
       const a = byPost.get(p.id as string);
@@ -210,13 +211,13 @@ export const decidePortalApprovalFn = createServerFn({ method: "POST" })
         .maybeSingle();
       const row = {
         post_id: data.postId,
-        status: data.decision,
+        status: data.decision as never,
         notes: data.note ?? null,
         decided_at: now,
         decided_by_name: data.identity,
       };
-      if (existing) await admin.from("post_approvals").update(row).eq("id", existing.id);
-      else await admin.from("post_approvals").insert(row);
+      if (existing) await admin.from("post_approvals").update(row as never).eq("id", existing.id);
+      else await admin.from("post_approvals").insert(row as never);
       if (data.decision === "approved") {
         await admin
           .from("posts")
@@ -247,11 +248,11 @@ export const decidePortalApprovalFn = createServerFn({ method: "POST" })
         members.map((m) => ({
           user_id: m.user_id,
           brand_id: s.brandId,
-          kind: `portal_${data.decision}`,
+          kind: `portal_${data.decision}` as never,
           title: titleMap[data.decision],
           body: `${data.identity}: ${post.title ?? "post"}`,
           url: `/customers/${s.clientId}`,
-        })),
+        })) as never,
       );
     }
     return { ok: true };
