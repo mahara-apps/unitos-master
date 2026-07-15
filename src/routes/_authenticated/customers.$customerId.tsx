@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useEffect, useState } from "react";
@@ -156,6 +156,21 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
       title: customer?.name ?? (customersQ.isLoading ? "Carregando…" : "Cliente"),
       subtitle: `${customer?.niche ?? "—"} · ${customerId.slice(0, 8)}`,
       actions: (
+        <div className="flex items-center gap-1">
+          <Button
+            asChild
+            size="sm"
+            variant="outline"
+            className="h-8"
+            title="Plano de mídia paga"
+          >
+            <Link
+              to="/customers/$customerId/media-plan"
+              params={{ customerId }}
+            >
+              Plano de mídia
+            </Link>
+          </Button>
         <Button
           size="icon"
           variant="ghost"
@@ -165,6 +180,7 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
         >
           <Settings className="h-4 w-4" />
         </Button>
+        </div>
       ),
     },
     [customer?.name, customer?.niche, customerId],

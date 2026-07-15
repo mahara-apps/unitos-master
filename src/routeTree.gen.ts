@@ -15,6 +15,7 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
+import { Route as PlanoPlanIdRouteImport } from './routes/plano.$planId'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ApprovalTokenRouteImport } from './routes/approval.$token'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
@@ -47,6 +48,7 @@ import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_au
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 import { Route as ApiPublicMediaPruneRouteImport } from './routes/api/public/media/prune'
 import { Route as ApiPublicApprovalTokenRouteImport } from './routes/api/public/approval.$token'
+import { Route as AuthenticatedCustomersCustomerIdMediaPlanRouteImport } from './routes/_authenticated/customers.$customerId.media-plan'
 import { Route as AuthenticatedCustomersCustomerIdBriefingRouteImport } from './routes/_authenticated/customers.$customerId.briefing'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -76,6 +78,11 @@ const IndexRoute = IndexRouteImport.update({
 const PortalTokenRoute = PortalTokenRouteImport.update({
   id: '/portal/$token',
   path: '/portal/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlanoPlanIdRoute = PlanoPlanIdRouteImport.update({
+  id: '/plano/$planId',
+  path: '/plano/$planId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
@@ -249,6 +256,12 @@ const ApiPublicApprovalTokenRoute = ApiPublicApprovalTokenRouteImport.update({
   path: '/api/public/approval/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedCustomersCustomerIdMediaPlanRoute =
+  AuthenticatedCustomersCustomerIdMediaPlanRouteImport.update({
+    id: '/media-plan',
+    path: '/media-plan',
+    getParentRoute: () => AuthenticatedCustomersCustomerIdRoute,
+  } as any)
 const AuthenticatedCustomersCustomerIdBriefingRoute =
   AuthenticatedCustomersCustomerIdBriefingRouteImport.update({
     id: '/briefing',
@@ -274,6 +287,7 @@ export interface FileRoutesByFullPath {
   '/tasks': typeof AuthenticatedTasksRoute
   '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/plano/$planId': typeof PlanoPlanIdRoute
   '/portal/$token': typeof PortalTokenRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
@@ -293,6 +307,7 @@ export interface FileRoutesByFullPath {
   '/projects/': typeof AuthenticatedProjectsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
+  '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
 }
@@ -311,6 +326,7 @@ export interface FileRoutesByTo {
   '/tasks': typeof AuthenticatedTasksRoute
   '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/plano/$planId': typeof PlanoPlanIdRoute
   '/portal/$token': typeof PortalTokenRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
@@ -330,6 +346,7 @@ export interface FileRoutesByTo {
   '/projects': typeof AuthenticatedProjectsIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
+  '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
 }
@@ -353,6 +370,7 @@ export interface FileRoutesById {
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/plano/$planId': typeof PlanoPlanIdRoute
   '/portal/$token': typeof PortalTokenRoute
   '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
@@ -372,6 +390,7 @@ export interface FileRoutesById {
   '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
+  '/_authenticated/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
 }
@@ -395,6 +414,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/approval/$token'
     | '/invite/$token'
+    | '/plano/$planId'
     | '/portal/$token'
     | '/customers/$customerId'
     | '/projects/$projectId'
@@ -414,6 +434,7 @@ export interface FileRouteTypes {
     | '/projects/'
     | '/settings/'
     | '/customers/$customerId/briefing'
+    | '/customers/$customerId/media-plan'
     | '/api/public/approval/$token'
     | '/api/public/media/prune'
   fileRoutesByTo: FileRoutesByTo
@@ -432,6 +453,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/approval/$token'
     | '/invite/$token'
+    | '/plano/$planId'
     | '/portal/$token'
     | '/customers/$customerId'
     | '/projects/$projectId'
@@ -451,6 +473,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/settings'
     | '/customers/$customerId/briefing'
+    | '/customers/$customerId/media-plan'
     | '/api/public/approval/$token'
     | '/api/public/media/prune'
   id:
@@ -473,6 +496,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tasks'
     | '/approval/$token'
     | '/invite/$token'
+    | '/plano/$planId'
     | '/portal/$token'
     | '/_authenticated/customers/$customerId'
     | '/_authenticated/projects/$projectId'
@@ -492,6 +516,7 @@ export interface FileRouteTypes {
     | '/_authenticated/projects/'
     | '/_authenticated/settings/'
     | '/_authenticated/customers/$customerId/briefing'
+    | '/_authenticated/customers/$customerId/media-plan'
     | '/api/public/approval/$token'
     | '/api/public/media/prune'
   fileRoutesById: FileRoutesById
@@ -504,6 +529,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   ApprovalTokenRoute: typeof ApprovalTokenRoute
   InviteTokenRoute: typeof InviteTokenRoute
+  PlanoPlanIdRoute: typeof PlanoPlanIdRoute
   PortalTokenRoute: typeof PortalTokenRoute
   ApiJobsAnalyzeDocumentRoute: typeof ApiJobsAnalyzeDocumentRoute
   ApiJobsCopilotRoute: typeof ApiJobsCopilotRoute
@@ -559,6 +585,13 @@ declare module '@tanstack/react-router' {
       path: '/portal/$token'
       fullPath: '/portal/$token'
       preLoaderRoute: typeof PortalTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/plano/$planId': {
+      id: '/plano/$planId'
+      path: '/plano/$planId'
+      fullPath: '/plano/$planId'
+      preLoaderRoute: typeof PlanoPlanIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/invite/$token': {
@@ -785,6 +818,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicApprovalTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/customers/$customerId/media-plan': {
+      id: '/_authenticated/customers/$customerId/media-plan'
+      path: '/media-plan'
+      fullPath: '/customers/$customerId/media-plan'
+      preLoaderRoute: typeof AuthenticatedCustomersCustomerIdMediaPlanRouteImport
+      parentRoute: typeof AuthenticatedCustomersCustomerIdRoute
+    }
     '/_authenticated/customers/$customerId/briefing': {
       id: '/_authenticated/customers/$customerId/briefing'
       path: '/briefing'
@@ -797,12 +837,15 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedCustomersCustomerIdRouteChildren {
   AuthenticatedCustomersCustomerIdBriefingRoute: typeof AuthenticatedCustomersCustomerIdBriefingRoute
+  AuthenticatedCustomersCustomerIdMediaPlanRoute: typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
 }
 
 const AuthenticatedCustomersCustomerIdRouteChildren: AuthenticatedCustomersCustomerIdRouteChildren =
   {
     AuthenticatedCustomersCustomerIdBriefingRoute:
       AuthenticatedCustomersCustomerIdBriefingRoute,
+    AuthenticatedCustomersCustomerIdMediaPlanRoute:
+      AuthenticatedCustomersCustomerIdMediaPlanRoute,
   }
 
 const AuthenticatedCustomersCustomerIdRouteWithChildren =
@@ -902,6 +945,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   ApprovalTokenRoute: ApprovalTokenRoute,
   InviteTokenRoute: InviteTokenRoute,
+  PlanoPlanIdRoute: PlanoPlanIdRoute,
   PortalTokenRoute: PortalTokenRoute,
   ApiJobsAnalyzeDocumentRoute: ApiJobsAnalyzeDocumentRoute,
   ApiJobsCopilotRoute: ApiJobsCopilotRoute,
