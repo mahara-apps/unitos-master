@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -13,7 +13,6 @@ import { NotificationsBell } from "@/components/notifications/notifications-draw
 import { MandatoryPasswordReset } from "@/components/auth/mandatory-password-reset";
 import { AiJobsProvider } from "@/components/ai-jobs/ai-jobs-provider";
 import { AiJobsIndicator } from "@/components/ai-jobs/ai-jobs-indicator";
-import { LoginForm } from "@/components/login-form";
 
 const fallbackTitles: Record<string, string> = {
   "/dashboard": "Painel",
@@ -39,32 +38,39 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AppShell() {
   const [status, setStatus] = useState<"checking" | "authenticated" | "unauthenticated">("checking");
+  const navigate = useNavigate();
+  const href = useRouterState({ select: (s) => s.location.href });
 
   useEffect(() => {
     let cancelled = false;
 
     async function validateSession() {
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session?.user) {
-        if (!cancelled) setStatus("unauthenticated");
-        return;
-      }
-
-      const { data: userData, error } = await supabase.auth.getUser();
-      if (error || !userData.user) {
-        await supabase.auth.signOut().catch(() => {});
-        if (!cancelled) setStatus("unauthenticated");
-        return;
-      }
-
-      if (!cancelled) setStatus("authenticated");
+      const { data } = await supabase.auth.getSession();
+      if (cancelled) return;
+      setStatus(data.session?.user ? "authenticated" : "unauthenticated");
     }
 
     validateSession();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return;
+      if (event === "SIGNED_OUT" || !session?.user) {
+        setStatus("unauthenticated");
+      } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+        setStatus("authenticated");
+      }
+    });
+
     return () => {
       cancelled = true;
+      sub.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (status !== "unauthenticated") return;
+    navigate({ to: "/login", search: { next: href } as never, replace: true });
+  }, [status, navigate, href]);
 
   if (status === "checking") {
     return (
@@ -78,15 +84,7 @@ function AppShell() {
   }
 
   if (status === "unauthenticated") {
-    return (
-      <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-12">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,var(--color-muted)_0%,transparent_60%)]"
-        />
-        <LoginForm />
-      </main>
-    );
+    return null;
   }
 
   return (

@@ -1,7 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { LoginForm } from "@/components/login-form";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/login")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    next: typeof search.next === "string" ? search.next : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Entrar — Acesse sua conta" },
@@ -23,6 +28,34 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
+  const { next } = Route.useSearch();
+  const navigate = useNavigate();
+  const [checked, setChecked] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase.auth.getSession().then(({ data }) => {
+      if (cancelled) return;
+      if (data.session?.user) {
+        const target = sanitizeNext(next) ?? "/dashboard";
+        navigate({ to: target, replace: true });
+      } else {
+        setChecked(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [next, navigate]);
+
+  if (!checked) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary" />
+      </div>
+    );
+  }
+
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-12">
       <div
@@ -32,4 +65,13 @@ function LoginPage() {
       <LoginForm />
     </main>
   );
+}
+
+function sanitizeNext(next: string | undefined): string | null {
+  if (!next) return null;
+  try {
+    const decoded = decodeURIComponent(next);
+    if (decoded.startsWith("/") && !decoded.startsWith("//")) return decoded;
+  } catch {}
+  return null;
 }

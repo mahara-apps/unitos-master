@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -38,6 +38,18 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
+  const router = useRouter();
+
+  function resolveNext(): string {
+    if (typeof window === "undefined") return "/dashboard";
+    const raw = new URLSearchParams(window.location.search).get("next");
+    if (!raw) return "/dashboard";
+    try {
+      const decoded = decodeURIComponent(raw);
+      if (decoded.startsWith("/") && !decoded.startsWith("//")) return decoded;
+    } catch {}
+    return "/dashboard";
+  }
 
   const signInForm = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
@@ -60,7 +72,8 @@ export function LoginForm() {
       return;
     }
     toast.success("Bem-vindo de volta");
-    navigate({ to: "/dashboard" });
+    await router.invalidate();
+    navigate({ to: resolveNext(), replace: true });
   }
 
   async function onSignUp(values: SignUpValues) {
@@ -79,7 +92,8 @@ export function LoginForm() {
       return;
     }
     toast.success("Conta criada", { description: "Você já pode acessar o painel." });
-    navigate({ to: "/dashboard" });
+    await router.invalidate();
+    navigate({ to: resolveNext(), replace: true });
   }
 
   return (
