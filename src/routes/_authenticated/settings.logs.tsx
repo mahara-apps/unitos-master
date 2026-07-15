@@ -6,6 +6,7 @@ import { listSystemLogs, type SystemLogEntry, type LogLevel, type LogSource } fr
 import { useActiveContext } from "@/hooks/use-active-context";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SettingsStatCard } from "@/components/settings/settings-stat-card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -101,11 +102,11 @@ function LogsPage() {
   return (
     <div className="w-full space-y-4 px-4 py-6 sm:px-6 lg:px-8">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <StatCard label="Total" value={counts.total} />
-        <StatCard label="Erros" value={counts.error} className="text-red-500" />
-        <StatCard label="Avisos" value={counts.warn} className="text-amber-500" />
-        <StatCard label="Info" value={counts.info} className="text-sky-500" />
-        <StatCard label="Sucesso" value={counts.success} className="text-emerald-500" />
+        <SettingsStatCard label="Total" value={counts.total} tone="neutral" />
+        <SettingsStatCard label="Erros" value={counts.error} className="text-red-500" tone="rose" />
+        <SettingsStatCard label="Avisos" value={counts.warn} className="text-amber-500" tone="amber" />
+        <SettingsStatCard label="Info" value={counts.info} className="text-sky-500" tone="sky" />
+        <SettingsStatCard label="Sucesso" value={counts.success} className="text-emerald-500" tone="emerald" />
       </div>
 
       <Card>
@@ -199,17 +200,6 @@ function LogsPage() {
         </CardContent>
       </Card>
     </div>
-  );
-}
-
-function StatCard({ label, value, className }: { label: string; value: number; className?: string }) {
-  return (
-    <Card>
-      <CardContent className="p-3">
-        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
-        <p className={`text-2xl font-semibold tabular-nums ${className ?? ""}`}>{value}</p>
-      </CardContent>
-    </Card>
   );
 }
 
