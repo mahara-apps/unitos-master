@@ -25,6 +25,7 @@ import {
   Activity,
   Coins,
 } from "lucide-react";
+import { AlertTriangle, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -57,6 +58,7 @@ import {
   saveToolCredential,
   removeToolCredential,
 } from "@/lib/connections.functions";
+import { getMessagingKpis } from "@/lib/messaging-kpis.functions";
 import { usePageHeader } from "@/hooks/use-page-header";
 import {
   DashboardPageShell,
@@ -259,6 +261,14 @@ function ConnectionsPage() {
     queryKey: ["connections", brandId],
     queryFn: () => getFn({ data: { brandId: brandId! } }),
     enabled: !!brandId,
+  });
+
+  const getMsgKpisFn = useServerFn(getMessagingKpis);
+  const { data: msgKpis } = useQuery({
+    queryKey: ["messaging-kpis", brandId],
+    queryFn: () => getMsgKpisFn({ data: { brandId: brandId! } }),
+    enabled: !!brandId,
+    staleTime: 60_000,
   });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["connections", brandId] });
@@ -474,34 +484,7 @@ function ConnectionsPage() {
         {/* Tab: Mensageria */}
         <TabsContent value="messaging" className="space-y-3">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <KpiCard
-            icon={<Send className="h-4 w-4" />}
-            label="Ferramentas conectadas"
-            value={`${ms.connected} / ${ms.total}`}
-            sub={ms.connected === ms.total ? "Tudo operacional" : "Configuração incompleta"}
-            tone={msTone}
-          />
-          <KpiCard
-            icon={<KeyRound className="h-4 w-4" />}
-            label="Chaves cifradas"
-            value={ms.connected.toString()}
-            sub="AES-256-GCM"
-            tone="violet"
-          />
-          <KpiCard
-            icon={<Activity className="h-4 w-4" />}
-            label="Última rotação"
-            value={ms.latestRel}
-            sub={ms.latest?.def.name ?? "Nenhuma chave"}
-            tone="sky"
-          />
-          <KpiCard
-            icon={<CheckCircle2 className="h-4 w-4" />}
-            label="Pendentes"
-            value={ms.pending.length.toString()}
-            sub={pendingNames(ms.pending)}
-            tone={ms.pending.length > 0 ? "amber" : "emerald"}
-          />
+          <MessagingKpiCards data={msgKpis} />
         </div>
 
         <SectionHeader
@@ -547,6 +530,88 @@ function SectionHeader({
       </div>
       <span className="text-xs text-muted-foreground">{hint}</span>
     </div>
+  );
+}
+
+function MessagingKpiCards({
+  data,
+}: {
+  data:
+    | {
+        sent30d: number;
+        sentPrev30d: number;
+        trendPct: number | null;
+        delivered30d: number;
+        deliveryRate: number | null;
+        failed7d: number;
+        topFailedChannel: string | null;
+        brandsTotal: number;
+        brandsCovered: number;
+      }
+    | undefined;
+}) {
+  const sent = data?.sent30d ?? 0;
+  const trend = data?.trendPct ?? null;
+  const rate = data?.deliveryRate;
+  const ratePct = rate == null ? null : Math.round(rate * 100);
+  const rateTone: "emerald" | "amber" | "rose" | "neutral" =
+    ratePct == null ? "neutral" : ratePct > 95 ? "emerald" : ratePct >= 80 ? "amber" : "rose";
+  const failed = data?.failed7d ?? 0;
+  const covered = data?.brandsCovered ?? 0;
+  const total = data?.brandsTotal ?? 0;
+  const missing = Math.max(0, total - covered);
+
+  return (
+    <>
+      <KpiCard
+        icon={<Send className="h-4 w-4" />}
+        label="Enviadas (30d)"
+        value={sent.toLocaleString("pt-BR")}
+        sub={
+          sent === 0
+            ? "Nenhum envio registrado"
+            : trend == null
+              ? "Sem comparação anterior"
+              : `${trend >= 0 ? "+" : ""}${trend}% vs período anterior`
+        }
+        tone="rose"
+      />
+      <KpiCard
+        icon={<CheckCircle2 className="h-4 w-4" />}
+        label="Taxa de entrega"
+        value={ratePct == null ? "—" : `${ratePct}%`}
+        sub={
+          sent === 0
+            ? "Sem dados no período"
+            : `${(data?.delivered30d ?? 0).toLocaleString("pt-BR")} entregues de ${sent.toLocaleString("pt-BR")} enviadas`
+        }
+        tone={rateTone}
+      />
+      <KpiCard
+        icon={<AlertTriangle className="h-4 w-4" />}
+        label="Falhas (7d)"
+        value={failed.toLocaleString("pt-BR")}
+        sub={
+          failed === 0
+            ? "Nenhuma falha registrada"
+            : data?.topFailedChannel ?? "—"
+        }
+        tone={failed === 0 ? "emerald" : "amber"}
+      />
+      <KpiCard
+        icon={<Briefcase className="h-4 w-4" />}
+        label="Cobertura por marca"
+        value={`${covered}/${total}`}
+        sub={
+          total === 0
+            ? "Nenhuma marca no workspace"
+            : missing === 0
+              ? "Cobertura completa"
+              : `${missing} marca${missing > 1 ? "s" : ""} sem canal ativo`
+        }
+        tone={total > 0 && missing === 0 ? "emerald" : "violet"}
+      />
+    </>
   );
 }
 

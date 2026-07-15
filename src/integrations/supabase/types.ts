@@ -1410,6 +1410,59 @@ export type Database = {
           },
         ]
       }
+      message_logs: {
+        Row: {
+          brand_id: string
+          channel: string
+          created_at: string
+          delivered_at: string | null
+          error_message: string | null
+          failed_at: string | null
+          id: string
+          metadata: Json
+          provider_message_id: string | null
+          recipient: string | null
+          sent_at: string
+          status: string
+        }
+        Insert: {
+          brand_id: string
+          channel: string
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          failed_at?: string | null
+          id?: string
+          metadata?: Json
+          provider_message_id?: string | null
+          recipient?: string | null
+          sent_at?: string
+          status: string
+        }
+        Update: {
+          brand_id?: string
+          channel?: string
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          failed_at?: string | null
+          id?: string
+          metadata?: Json
+          provider_message_id?: string | null
+          recipient?: string | null
+          sent_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_logs_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_templates: {
         Row: {
           body: string
