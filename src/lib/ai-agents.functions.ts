@@ -242,6 +242,39 @@ export async function buildBrandContextBlueprint(
 
   const blueprint = sections.join("\n\n");
 
+  // Brain memory — active insights for this brand (top 6, non-expired).
+  try {
+    const { data: ins } = await supabase
+      .from("brain_insights")
+      .select("insight_type, description, confidence, expires_at")
+      .or(`brand_id.eq.${brandId},brand_id.is.null`)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    const active = (ins ?? [])
+      .filter((r: { expires_at: string | null }) => !r.expires_at || new Date(r.expires_at) > new Date())
+      .slice(0, 6);
+    if (active.length) {
+      const lines = active
+        .map(
+          (i) =>
+            `- (${i.insight_type}${i.confidence != null ? ` · conf ${Math.round((i.confidence as number) * 100)}%` : ""}) ${i.description}`,
+        )
+        .join("\n");
+      return {
+        blueprint: `${blueprint}\n\n## Memória do Brain — insights ativos\n${lines}`,
+        counts: {
+          tone_tags: toneTags.length,
+          pain_points: painPoints.length,
+          competitors: competitors.length,
+          documents: documents.length,
+          hashtags: hashtags.length,
+        },
+      };
+    }
+  } catch (err) {
+    console.warn("[buildBrandContextBlueprint] brain insights fetch failed", err);
+  }
+
   return {
     blueprint,
     counts: {
