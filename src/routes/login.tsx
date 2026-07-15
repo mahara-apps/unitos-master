@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { LoginForm } from "@/components/login-form";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -31,11 +31,8 @@ function LoginPage() {
   const { next } = Route.useSearch();
   const navigate = useNavigate();
   const [checked, setChecked] = useState(false);
-  const didCheck = useRef(false);
 
   useEffect(() => {
-    if (didCheck.current) return;
-    didCheck.current = true;
     let cancelled = false;
     supabase.auth.getSession().then(async ({ data }) => {
       if (cancelled) return;
