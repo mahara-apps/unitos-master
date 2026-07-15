@@ -105,21 +105,23 @@ function NotificationsPage() {
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
+    <div className="w-full space-y-4 px-4 py-6 sm:px-6 lg:px-8">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <SettingsStatCard label="Canais ativos" value={`${channelsActive}/4`} icon={<Bell className="h-3.5 w-3.5" />} />
-        <SettingsStatCard label="Tipos ativos" value={`${typesActive}/3`} icon={<Mail className="h-3.5 w-3.5" />} />
+        <SettingsStatCard label="Canais ativos" value={`${channelsActive}/4`} icon={<Bell className="h-3.5 w-3.5" />} tone="violet" />
+        <SettingsStatCard label="Tipos ativos" value={`${typesActive}/3`} icon={<Mail className="h-3.5 w-3.5" />} tone="sky" />
         <SettingsStatCard
           label="WhatsApp"
           value={notifyWhatsapp ? "Ativo" : "Inativo"}
           className={notifyWhatsapp ? "text-emerald-500" : "text-muted-foreground"}
           icon={<MessageCircle className="h-3.5 w-3.5" />}
+          tone={notifyWhatsapp ? "emerald" : "neutral"}
         />
         <SettingsStatCard
           label="Email"
           value={prefs.email ? "Ativo" : "Inativo"}
           className={prefs.email ? "text-sky-500" : "text-muted-foreground"}
           icon={<Mail className="h-3.5 w-3.5" />}
+          tone={prefs.email ? "sky" : "neutral"}
         />
       </div>
 
