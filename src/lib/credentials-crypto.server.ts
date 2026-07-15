@@ -49,8 +49,8 @@ export async function encryptCredential(plaintext: string): Promise<string> {
 export async function decryptCredential(stored: string): Promise<string> {
   const key = await importKey();
   const buf = b64decode(stored);
-  const iv = buf.subarray(0, 12);
-  const ct = buf.subarray(12);
+  const iv = buf.slice(0, 12);
+  const ct = buf.slice(12);
   const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ct);
   return new TextDecoder().decode(pt);
 }
