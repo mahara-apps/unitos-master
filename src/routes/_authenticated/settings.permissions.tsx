@@ -98,7 +98,7 @@ function PermissionsPage() {
   usePageHeader({ title: "Permissões", subtitle: "Funções do sistema e matriz de acesso" });
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-6">
+    <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       <Tabs defaultValue="roles">
         <TabsList>
           <TabsTrigger value="roles">Funções</TabsTrigger>

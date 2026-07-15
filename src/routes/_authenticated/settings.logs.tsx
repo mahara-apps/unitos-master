@@ -99,7 +99,7 @@ function LogsPage() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
+    <div className="w-full space-y-4 px-4 py-6 sm:px-6 lg:px-8">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <StatCard label="Total" value={counts.total} />
         <StatCard label="Erros" value={counts.error} className="text-red-500" />
