@@ -127,7 +127,6 @@ function ShellHeader() {
         </div>
       </div>
       <div className="flex items-center gap-2">
-        {actions}
         <Button
           variant="outline"
           size="sm"
@@ -140,6 +139,7 @@ function ShellHeader() {
           <Command className="h-3 w-3" /> Buscar
           <kbd className="ml-2 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
         </Button>
+        {actions}
         <AiJobsIndicator />
         <NotificationsBell />
         <ThemeToggle />
