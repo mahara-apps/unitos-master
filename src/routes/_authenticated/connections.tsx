@@ -18,6 +18,9 @@ import {
   Music2,
   MessageCircle,
   Send,
+  Linkedin,
+  Twitter,
+  AtSign,
   Trash2,
   Activity,
   Coins,
@@ -78,6 +81,9 @@ type ChannelId =
   | "facebook"
   | "tiktok"
   | "youtube"
+  | "linkedin"
+  | "twitter"
+  | "threads"
   | "whatsapp_evolution"
   | "whatsapp_cloud"
   | "resend";
@@ -178,6 +184,33 @@ const SOCIAL_CHANNELS: ChannelDef[] = [
     icon: Youtube,
     tone: "text-red-500",
     handleLabel: "Canal",
+    handlePlaceholder: "@marca",
+  },
+  {
+    id: "linkedin",
+    name: "LinkedIn",
+    hint: "Company Pages & posts",
+    icon: Linkedin,
+    tone: "text-sky-700",
+    handleLabel: "Página",
+    handlePlaceholder: "linkedin.com/company/marca",
+  },
+  {
+    id: "twitter",
+    name: "Twitter / X",
+    hint: "Posts & threads",
+    icon: Twitter,
+    tone: "text-foreground",
+    handleLabel: "Handle",
+    handlePlaceholder: "@marca",
+  },
+  {
+    id: "threads",
+    name: "Threads",
+    hint: "Meta Threads",
+    icon: AtSign,
+    tone: "text-foreground",
+    handleLabel: "Handle",
     handlePlaceholder: "@marca",
   },
 ];
@@ -357,7 +390,7 @@ function ConnectionsPage() {
         <SectionHeader
           icon={<Radio className="h-3.5 w-3.5" />}
           title="canais sociais"
-          hint="Instagram · TikTok · Facebook · YouTube"
+          hint="Instagram · TikTok · Facebook · YouTube · LinkedIn · X · Threads"
         />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {SOCIAL_CHANNELS.map((c) => (
