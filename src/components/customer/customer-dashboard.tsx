@@ -37,20 +37,12 @@ type Props = {
   onOpenBriefing?: () => void;
 };
 
-const STAGES = [
-  { key: "idea", label: "Ideia" },
-  { key: "production", label: "Produção" },
-  { key: "review", label: "Revisão" },
-  { key: "approved", label: "Aprovado" },
-  { key: "scheduled", label: "Agendado" },
-  { key: "published", label: "Publicado" },
-] as const;
-
-const STAGE_ACCENT: Record<(typeof STAGES)[number]["key"], string> = {
+const STAGE_FALLBACK_ACCENT: Record<string, string> = {
   idea: "bg-zinc-400 dark:bg-zinc-500",
   production: "bg-amber-500",
   review: "bg-orange-500",
   approved: "bg-cyan-500",
+  approval: "bg-cyan-500",
   scheduled: "bg-indigo-500",
   published: "bg-emerald-500",
 };
@@ -166,14 +158,17 @@ function DashboardReady({
               Pipeline de produção
             </div>
             <div className="mt-0.5 text-sm font-medium">
-              {data.pipeline.total} posts em 6 estágios
+              {data.pipeline.total} posts em {data.pipeline.stages.length} estágios
+              {data.pipeline.pipelineName ? (
+                <span className="ml-1 text-muted-foreground">· {data.pipeline.pipelineName}</span>
+              ) : null}
             </div>
           </div>
           <Badge variant="outline" className="font-mono text-[10px]">
             Ao vivo · Sync do Kanban
           </Badge>
         </div>
-        <PipelineFunnel counts={data.pipeline.stages} total={data.pipeline.total} />
+        <PipelineFunnel stages={data.pipeline.stages} total={data.pipeline.total} />
       </div>
 
       {/* Bottom split layout */}
@@ -227,23 +222,29 @@ function MetricCard({
 
 // ---------- Pipeline ----------
 
-function PipelineFunnel({
-  counts,
-  total,
-}: {
-  counts: Record<(typeof STAGES)[number]["key"], number>;
-  total: number;
-}) {
-  const max = Math.max(1, ...STAGES.map((s) => counts[s.key]));
+type PipelineStage = CustomerDashboardData["pipeline"]["stages"][number];
+
+function PipelineFunnel({ stages, total }: { stages: PipelineStage[]; total: number }) {
+  const max = Math.max(1, ...stages.map((s) => s.count));
+  const gridCols =
+    stages.length <= 3
+      ? "sm:grid-cols-3"
+      : stages.length === 4
+        ? "sm:grid-cols-2 md:grid-cols-4"
+        : stages.length === 5
+          ? "sm:grid-cols-3 md:grid-cols-5"
+          : "sm:grid-cols-3 md:grid-cols-6";
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-6">
-      {STAGES.map((s) => {
-        const c = counts[s.key];
+    <div className={`grid grid-cols-2 gap-2 ${gridCols}`}>
+      {stages.map((s) => {
+        const c = s.count;
         const pct = total ? Math.round((c / total) * 100) : 0;
         const barHeight = Math.max(6, Math.round((c / max) * 100));
+        const accent = STAGE_FALLBACK_ACCENT[s.key.toLowerCase()] ?? "bg-primary/70";
+        const barStyle = s.color ? { width: `${barHeight}%`, backgroundColor: s.color } : { width: `${barHeight}%` };
         return (
           <div
-            key={s.key}
+            key={s.id}
             className="group relative overflow-hidden rounded-lg border border-border/60 bg-background/40 p-3"
           >
             <div className="flex items-baseline justify-between">
@@ -255,8 +256,8 @@ function PipelineFunnel({
             <div className="mt-2 text-2xl font-semibold tabular-nums">{c}</div>
             <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
               <div
-                className={`${STAGE_ACCENT[s.key]} h-full rounded-full transition-all`}
-                style={{ width: `${barHeight}%` }}
+                className={s.color ? "h-full rounded-full transition-all" : `${accent} h-full rounded-full transition-all`}
+                style={barStyle}
               />
             </div>
           </div>
