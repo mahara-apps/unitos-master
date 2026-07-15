@@ -34,6 +34,7 @@ import {
 import { ContentBoard } from "@/components/content/content-board";
 import { ColumnConfigDialog } from "@/components/content/column-config-dialog";
 import { TaskDialog } from "@/components/content/task-dialog";
+import { GeneratePlanDialog } from "@/components/calendar/generate-plan-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import {
   DropdownMenu,
@@ -180,10 +181,20 @@ function ContentReady({
           <Button size="sm" className="h-9" onClick={() => { setNewTaskStageId(null); setOpenNewTask(true); }}>
             <Plus className="mr-1.5 h-4 w-4" /> Nova tarefa
           </Button>
+          <GeneratePlanDialog
+            brandId={brandId}
+            clientId={clientId}
+            onGenerated={() => {
+              setTimeout(() => {
+                qc.invalidateQueries({ queryKey: ["content-board", brandId, clientId] });
+                qc.invalidateQueries({ queryKey: ["calendar"] });
+              }, 1200);
+            }}
+          />
         </div>
       ),
     },
-    [effectivePipelineId, pipelines.length, pipelines.map((p) => p.name).join("|")],
+    [effectivePipelineId, pipelines.length, pipelines.map((p) => p.name).join("|"), brandId, clientId],
   );
 
   const createMutation = useMutation({
