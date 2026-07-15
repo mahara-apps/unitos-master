@@ -1952,6 +1952,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _portal_session: {
+        Args: { _token: string }
+        Returns: {
+          brand_id: string
+          client_id: string
+          token_id: string
+        }[]
+      }
       accept_brand_invite: { Args: { _token: string }; Returns: string }
       has_brand_role: {
         Args: {
@@ -1968,6 +1976,33 @@ export type Database = {
       is_super_admin:
         | { Args: never; Returns: boolean }
         | { Args: { _user_id: string }; Returns: boolean }
+      portal_approvals: {
+        Args: { _status?: string; _token: string }
+        Returns: Json
+      }
+      portal_briefings: { Args: { _token: string }; Returns: Json }
+      portal_calendar: {
+        Args: { _month?: string; _token: string }
+        Returns: Json
+      }
+      portal_decide: {
+        Args: {
+          _decision: string
+          _identity: string
+          _note: string
+          _post_id: string
+          _token: string
+        }
+        Returns: Json
+      }
+      portal_feed: { Args: { _token: string }; Returns: Json }
+      portal_files: {
+        Args: { _search?: string; _token: string }
+        Returns: Json
+      }
+      portal_metrics: { Args: { _token: string }; Returns: Json }
+      portal_post: { Args: { _post_id: string; _token: string }; Returns: Json }
+      portal_resolve: { Args: { _token: string }; Returns: Json }
       reap_stuck_ai_jobs: { Args: never; Returns: number }
     }
     Enums: {
