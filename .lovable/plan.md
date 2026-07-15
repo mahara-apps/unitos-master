@@ -1,22 +1,29 @@
-## Objetivo
-Incluir três novos canais sociais na aba **Canais** de `/connections`: **LinkedIn**, **Twitter/X** e **Threads**, mantendo o mesmo padrão visual dos cards existentes (Instagram, TikTok, Facebook, YouTube).
+## KPIs para abas Canais e Mensageria
 
-## Mudanças
+Adicionar 4 KPIs no topo de cada aba usando o mesmo padrão visual da aba IA (`KpiCard` em grid `grid-cols-2 lg:grid-cols-4`, com ícone, label, value, sub e tone).
 
-### 1. `src/lib/connections.functions.ts`
-Adicionar `"twitter"` e `"threads"` ao enum `channel` do `ChannelInput` (LinkedIn já existe). Isso libera persistência via `upsertChannel`.
+### Aba Canais (7 canais sociais)
 
-### 2. `src/routes/_authenticated/connections.tsx`
-Adicionar três entradas em `SOCIAL_CHANNELS`:
+Fonte de dados: `data?.channels` já retornado por `getConnections` (mesmo objeto usado pelos `ChannelCard`), filtrando pelos IDs sociais (`instagram`, `tiktok`, `facebook`, `youtube`, `linkedin`, `twitter`, `threads`).
 
-- **LinkedIn** — ícone `Linkedin` (lucide), tom `text-sky-700`, hint "Company Pages & posts", handle "linkedin.com/company/marca".
-- **Twitter/X** — ícone `Twitter` (lucide), tom `text-foreground`, hint "Posts & threads", handle "@marca".
-- **Threads** — ícone `AtSign` (lucide, não há ícone oficial), tom `text-foreground`, hint "Meta Threads", handle "@marca".
+1. **Canais conectados** — `X / 7` · tone emerald se ≥ 4, amber se 1–3, rose se 0. Ícone `Radio`.
+2. **Cobertura** — `%` de canais ativos sobre o total. Sub: "de 7 disponíveis". Ícone `Activity`.
+3. **Última conexão** — timestamp mais recente (`updatedAt`) formatado em pt-BR ("há 2 dias"). Sub: nome do canal. Ícone `CheckCircle2`.
+4. **Pendentes** — canais sem configuração. Sub: lista curta ("Instagram, X, Threads"). Ícone `KeyRound`, tone amber se > 0.
 
-Atualizar o `hint` do painel "Canais Sociais" para listar os novos: `"Instagram · TikTok · Facebook · YouTube · LinkedIn · X · Threads"`.
+### Aba Mensageria (3 ferramentas)
 
-Nenhuma alteração de schema/DB, RLS ou telemetria — os novos canais reutilizam a coluna `channels` (JSONB) de `brand_connections`.
+Fonte: mesmos `data?.channels` filtrando por `resend`, `whatsapp_evolution`, `whatsapp_cloud`, + `brand_api_credentials` (já espelhado em `channels.connected`).
 
-## Fora do escopo
-- Integração real com as APIs (LinkedIn/X/Threads) — permanece registro manual de handle + status conectado, como os demais canais.
-- OAuth via connectors — pode ser um passo seguinte se quiser publicação nativa.
+1. **Ferramentas conectadas** — `X / 3`. Ícone `Send`, tone emerald/amber/rose.
+2. **Chaves cifradas** — total de credenciais salvas com AES-256-GCM. Sub: "AES-256-GCM". Ícone `KeyRound`, tone violet.
+3. **Última rotação** — `updatedAt` mais recente entre as 3. Sub: nome da ferramenta. Ícone `Activity`.
+4. **Pendentes** — ferramentas sem credencial. Sub: lista ("WhatsApp Cloud, Resend"). Ícone `CheckCircle2`, tone amber se > 0.
+
+### Detalhes técnicos
+
+- Arquivo único: `src/routes/_authenticated/connections.tsx`.
+- Criar dois helpers locais (`buildChannelKpis`, `buildMessagingKpis`) que recebem `data?.channels` e retornam os 4 valores calculados.
+- Reutilizar `formatDistanceToNow` de `date-fns` com locale `ptBR` (já usado em outras telas — confirmar import).
+- Nenhuma mudança em server functions ou banco: todos os dados já vêm de `getConnections`.
+- Manter o mesmo espaçamento (`space-y-3`) e grid dos KPIs de IA para consistência visual.
