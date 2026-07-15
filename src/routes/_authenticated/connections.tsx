@@ -834,6 +834,168 @@ function StatusBadge({ connected, label }: { connected: boolean; label?: string 
   );
 }
 
+function ToolCredentialCard({
+  tool,
+  config,
+  brandId,
+  onChanged,
+}: {
+  tool: ChannelDef;
+  config?: { connected: boolean; handle?: string; updatedAt?: string };
+  brandId: string;
+  onChanged: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [apiKey, setApiKey] = useState("");
+  const [handle, setHandle] = useState(config?.handle ?? "");
+  const Icon = tool.icon;
+
+  const saveFn = useServerFn(saveToolCredential);
+  const removeFn = useServerFn(removeToolCredential);
+
+  const provider = tool.id as "resend" | "whatsapp_evolution" | "whatsapp_cloud";
+
+  const saveMut = useMutation({
+    mutationFn: () =>
+      saveFn({
+        data: {
+          brandId,
+          provider,
+          apiKey: apiKey.trim(),
+          metadata: handle.trim() ? { handle: handle.trim() } : undefined,
+        },
+      }),
+    onSuccess: () => {
+      toast.success(`${tool.name} conectado`);
+      setApiKey("");
+      setOpen(false);
+      onChanged();
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Falha ao conectar"),
+  });
+
+  const removeMut = useMutation({
+    mutationFn: () => removeFn({ data: { brandId, provider } }),
+    onSuccess: () => {
+      toast.success(`${tool.name} desconectado`);
+      onChanged();
+    },
+  });
+
+  const connected = !!config?.connected;
+
+  return (
+    <DashboardPanelSurface className="p-4">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3">
+          <span
+            className={cn(
+              "grid h-10 w-10 place-items-center rounded-lg border border-border/60 bg-background/60",
+              tool.tone,
+            )}
+          >
+            <Icon className="h-5 w-5" />
+          </span>
+          <div>
+            <div className="text-sm font-semibold">{tool.name}</div>
+            <div className="font-mono text-[10px] text-muted-foreground">{tool.hint}</div>
+          </div>
+        </div>
+        <StatusBadge connected={connected} label={connected ? config?.handle : undefined} />
+      </div>
+
+      <div className="mt-4 rounded-lg border border-border/60 bg-background/60 p-3">
+        <div className="flex items-center justify-between font-mono text-[11px]">
+          <span className="flex items-center gap-1.5 text-muted-foreground">
+            <KeyRound className="h-3 w-3" />
+            API Key
+          </span>
+          <span className="tabular-nums text-foreground/80">
+            {connected ? "•••• segura" : "—"}
+          </span>
+        </div>
+        <div className="mt-1 text-[10px] text-muted-foreground">
+          Cifrada com AES-256-GCM (BRAND_CREDENTIALS_SECRET)
+        </div>
+      </div>
+
+      <Separator className="my-4" />
+
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant={connected ? "outline" : "default"}
+          className="flex-1"
+          onClick={() => setOpen(true)}
+        >
+          {connected ? "Rotacionar chave" : "Conectar"}
+        </Button>
+        {connected && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-destructive hover:text-destructive"
+            onClick={() => removeMut.mutate()}
+            disabled={removeMut.isPending}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Conectar {tool.name}</DialogTitle>
+            <DialogDescription>
+              A chave é cifrada com AES-256-GCM antes de ser salva. Apenas os últimos 4
+              caracteres ficam visíveis.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <Label htmlFor={`tool-key-${tool.id}`}>API Key / Token</Label>
+              <Input
+                id={`tool-key-${tool.id}`}
+                type="password"
+                autoComplete="off"
+                placeholder="••••"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor={`tool-handle-${tool.id}`}>{tool.handleLabel}</Label>
+              <Input
+                id={`tool-handle-${tool.id}`}
+                placeholder={tool.handlePlaceholder}
+                value={handle}
+                onChange={(e) => setHandle(e.target.value)}
+              />
+              <p className="font-mono text-[10px] text-muted-foreground">
+                Este campo é armazenado em claro (não é secreto).
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => saveMut.mutate()}
+              disabled={saveMut.isPending || apiKey.trim().length < 4}
+            >
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </DashboardPanelSurface>
+  );
+}
+
 function MicroStat({
   label,
   value,
