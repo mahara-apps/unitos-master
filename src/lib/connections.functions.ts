@@ -169,7 +169,17 @@ export const removeProviderKey = createServerFn({ method: "POST" })
 
 const ChannelInput = z.object({
   brandId: z.string().uuid(),
-  channel: z.enum(["meta", "linkedin", "tiktok", "resend"]),
+  channel: z.enum([
+    "instagram",
+    "facebook",
+    "tiktok",
+    "youtube",
+    "linkedin",
+    "meta",
+    "resend",
+    "whatsapp_evolution",
+    "whatsapp_cloud",
+  ]),
   handle: z.string().trim().min(1).max(200).optional(),
   connected: z.boolean(),
 });
