@@ -416,9 +416,9 @@ function ConnectionsPage() {
         />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {MESSAGING_CHANNELS.map((c) => (
-            <ChannelCard
+            <ToolCredentialCard
               key={c.id}
-              channel={c}
+              tool={c}
               config={data?.channels?.[c.id]}
               brandId={brandId}
               onChanged={invalidate}
