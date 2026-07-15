@@ -17,7 +17,8 @@ export function MandatoryPasswordReset() {
   const { data } = useQuery({
     queryKey: ["me", "password-flag"],
     queryFn: () => fetchFlag(),
-    staleTime: 60_000,
+    staleTime: Infinity,
+    gcTime: Infinity,
   });
   const [pw, setPw] = useState("");
   const [confirm, setConfirm] = useState("");

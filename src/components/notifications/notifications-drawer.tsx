@@ -123,22 +123,34 @@ export function NotificationsBell() {
   });
 
   // Realtime: invalidate on any insert/update to my notifications.
+  // Register `.on()` handlers BEFORE `.subscribe()` — Supabase Realtime rejects
+  // additional postgres_changes callbacks once the channel has subscribed.
   useEffect(() => {
-    let userId: string | null = null;
+    let cancelled = false;
     let channel: ReturnType<typeof supabase.channel> | null = null;
     supabase.auth.getUser().then(({ data }) => {
-      userId = data.user?.id ?? null;
-      if (!userId) return;
-      channel = supabase
-        .channel(`notif:${userId}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
-          () => qc.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY }),
-        )
-        .subscribe();
+      const userId = data.user?.id ?? null;
+      if (!userId || cancelled) return;
+      const topic = `notif:${userId}`;
+      // StrictMode / re-mount can leave an already-subscribed channel in
+      // Supabase's client cache. Tear it down before rebuilding so `.on()`
+      // is never called on a subscribed channel.
+      for (const existing of supabase.getChannels()) {
+        if (existing.topic === `realtime:${topic}` || existing.topic === topic) {
+          supabase.removeChannel(existing);
+        }
+      }
+      const ch = supabase.channel(topic);
+      ch.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
+        () => qc.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY }),
+      );
+      ch.subscribe();
+      channel = ch;
     });
     return () => {
+      cancelled = true;
       if (channel) supabase.removeChannel(channel);
     };
   }, [qc]);
