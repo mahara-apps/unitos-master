@@ -50,6 +50,13 @@ export type DashboardStats = {
   };
   tasksByStatus: Record<string, number>;
   postsByStage: Record<string, number>;
+  pipelineStages: Array<{
+    key: string;
+    label: string;
+    color: string | null;
+    position: number;
+    count: number;
+  }>;
   myTasks: Array<{
     id: string;
     title: string;
