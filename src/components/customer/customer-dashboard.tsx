@@ -99,23 +99,6 @@ function DashboardReady({
 
   return (
     <div className="space-y-5">
-      {/* Header row */}
-      <div className="flex flex-wrap items-end justify-between gap-3 rounded-xl border border-border/60 bg-card/60 px-4 py-3">
-        <div className="min-w-0">
-          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            Painel da conta
-          </div>
-          <div className="mt-0.5 flex items-center gap-2">
-            <h2 className="truncate text-lg font-semibold tracking-tight">{client?.name ?? "—"}</h2>
-            {client?.niche ? (
-              <Badge variant="outline" className="border-border/60 text-[10px] uppercase tracking-wide">
-                {client.niche}
-              </Badge>
-            ) : null}
-          </div>
-        </div>
-      </div>
-
       {/* Metrics row */}
       <div className="grid gap-4 md:grid-cols-3">
         <MetricCard
