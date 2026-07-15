@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { LoginForm } from "@/components/login-form";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -31,17 +31,31 @@ function LoginPage() {
   const { next } = Route.useSearch();
   const navigate = useNavigate();
   const [checked, setChecked] = useState(false);
+  const didCheck = useRef(false);
 
   useEffect(() => {
+    if (didCheck.current) return;
+    didCheck.current = true;
     let cancelled = false;
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       if (cancelled) return;
       if (data.session?.user) {
+        const { data: userData, error } = await supabase.auth.getUser();
+        if (cancelled) return;
+        if (error || !userData.user) {
+          await clearStoredSupabaseSession();
+          setChecked(true);
+          return;
+        }
         const target = sanitizeNext(next) ?? "/dashboard";
         navigate({ to: target, replace: true });
       } else {
         setChecked(true);
       }
+    }).catch(async () => {
+      if (cancelled) return;
+      await clearStoredSupabaseSession();
+      setChecked(true);
     });
     return () => {
       cancelled = true;
@@ -71,7 +85,22 @@ function sanitizeNext(next: string | undefined): string | null {
   if (!next) return null;
   try {
     const decoded = decodeURIComponent(next);
-    if (decoded.startsWith("/") && !decoded.startsWith("//")) return decoded;
+    if (
+      decoded.startsWith("/") &&
+      !decoded.startsWith("//") &&
+      !/^\/(auth|login)(\/|\?|#|$)/.test(decoded)
+    ) return decoded;
   } catch {}
   return null;
+}
+
+async function clearStoredSupabaseSession() {
+  await supabase.auth.signOut().catch(() => null);
+  if (typeof window === "undefined") return;
+  for (let i = window.localStorage.length - 1; i >= 0; i -= 1) {
+    const key = window.localStorage.key(i);
+    if (key === "supabase.auth.token" || key?.startsWith("sb-")) {
+      window.localStorage.removeItem(key);
+    }
+  }
 }
