@@ -3,12 +3,35 @@ import { z } from "zod";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
-type JsonObject = { [key: string]: Json };
 
-type PortalPost = JsonObject & { cover_url: string | null; reference_media: Json };
-type PortalResolveResult = { clientId: string; brandId: string; client: JsonObject; brand: { id: string; name: string } | null };
+export type PortalClient = {
+  id: string;
+  name: string;
+  niche: string | null;
+  color: string | null;
+  socials: Json | null;
+  contact_name: string | null;
+  contact_email: string | null;
+};
+export type PortalBrand = { id: string; name: string };
+export type PortalPost = {
+  id: string;
+  title: string | null;
+  copy?: string | null;
+  format: string | null;
+  channels: string[] | null;
+  scheduled_at: string | null;
+  published_at?: string | null;
+  stage: string | null;
+  cover_url: string | null;
+  reference_media: Json;
+  script?: string | null;
+  approval?: { status: string; notes: string | null; decided_at: string | null };
+};
+export type PortalApproval = { status: string; notes: string | null; decided_at: string | null; decided_by_name: string | null };
+type PortalResolveResult = { clientId: string; brandId: string; client: PortalClient; brand: PortalBrand | null };
 type PortalMetrics = { pending: number; approvedThisMonth: number; scheduled: number; total: number };
-type PortalPostResult = { post: PortalPost; approval: JsonObject | null };
+type PortalPostResult = { post: PortalPost; approval: PortalApproval | null };
 type PortalFile = { id: string; name: string; storage_path: string; mime_type: string | null; size_bytes: number | null; created_at: string };
 type PortalBriefing = { id: string; token: string; label: string | null; expires_at: string | null; revoked_at: string | null; submitted_at: string | null; created_at: string };
 
@@ -95,7 +118,7 @@ export const listPortalApprovalsFn = createServerFn({ method: "POST" })
 
 export const getPortalPostFn = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => tokenIn.extend({ postId: z.string().uuid() }).parse(i))
-  .handler(async ({ data }): Promise<{ post: PortalPost; approval: JsonObject | null; media: Array<{ url: string; type: string }> }> => {
+  .handler(async ({ data }): Promise<{ post: PortalPost; approval: PortalApproval | null; media: Array<{ url: string; type: string }> }> => {
     const res = await rpc<PortalPostResult>("portal_post", {
       _token: data.token,
       _post_id: data.postId,
@@ -144,8 +167,8 @@ export const listPortalCalendarFn = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) =>
     tokenIn.extend({ month: z.string().regex(/^\d{4}-\d{2}$/).optional() }).parse(i),
   )
-  .handler(async ({ data }): Promise<JsonObject[]> =>
-    (await rpc<JsonObject[]>("portal_calendar", { _token: data.token, _month: data.month ?? null })) ?? [],
+  .handler(async ({ data }): Promise<PortalPost[]> =>
+    (await rpc<PortalPost[]>("portal_calendar", { _token: data.token, _month: data.month ?? null })) ?? [],
   );
 
 export const listPortalFeedFn = createServerFn({ method: "POST" })
