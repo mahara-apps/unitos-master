@@ -282,50 +282,7 @@ function StatusPill({
   );
 }
 
-const KPI_TONES = {
-  emerald: { ring: "ring-emerald-500/20", accent: "text-emerald-500", bar: "bg-emerald-500" },
-  amber: { ring: "ring-amber-500/20", accent: "text-amber-500", bar: "bg-amber-500" },
-  rose: { ring: "ring-rose-500/20", accent: "text-rose-500", bar: "bg-rose-500" },
-  violet: { ring: "ring-violet-500/20", accent: "text-violet-500", bar: "bg-violet-500" },
-  sky: { ring: "ring-sky-500/20", accent: "text-sky-500", bar: "bg-sky-500" },
-  pink: { ring: "ring-pink-500/20", accent: "text-pink-500", bar: "bg-pink-500" },
-} as const;
-
-function KpiCard({
-  icon,
-  label,
-  value,
-  sub,
-  tone,
-  spark,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number | string;
-  sub: string;
-  tone: keyof typeof KPI_TONES;
-  spark?: number[];
-}) {
-  const t = KPI_TONES[tone];
-  return (
-    <div className="relative overflow-hidden rounded-xl border border-border/60 bg-card p-4">
-      <span className={cn("absolute inset-x-0 top-0 h-0.5", t.bar)} />
-      <div className="flex items-start justify-between">
-        <span className={cn("grid h-8 w-8 place-items-center rounded-lg border border-border/60 bg-background/60", t.accent)}>
-          {icon}
-        </span>
-        {spark && spark.some((v) => v > 0) ? (
-          <Sparkline data={spark} className={cn("h-6 w-20", t.accent)} />
-        ) : null}
-      </div>
-      <div className="mt-3 text-2xl font-semibold tabular-nums tracking-tight">{value}</div>
-      <div className="mt-0.5 text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-2 text-xs text-muted-foreground">{sub}</div>
-    </div>
-  );
-}
+// KpiCard/KPI_TONES agora vivem em @/components/ui/kpi-card (canonical primitive).
 
 function AlertChip({ alert }: { alert: AgencyDashboard["alerts"][number] }) {
   const tone = {
