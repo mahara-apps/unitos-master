@@ -14,17 +14,17 @@ function getSafeCurrentPath() {
 }
 
 async function clearInvalidSession() {
-  await supabase.auth.signOut().catch(() => null);
-  if (typeof window === "undefined") return;
-
-  // `signOut()` clears the active Supabase key. This extra cleanup removes
-  // legacy/corrupted Supabase auth entries that can keep rehydrating bad JWTs.
-  for (let i = window.localStorage.length - 1; i >= 0; i -= 1) {
-    const key = window.localStorage.key(i);
-    if (key === "supabase.auth.token" || key?.startsWith("sb-")) {
-      window.localStorage.removeItem(key);
+  if (typeof window !== "undefined") {
+    // Clear storage first. If the server rejects the stale token, Supabase's
+    // logout request can itself fail; the browser must not keep rehydrating it.
+    for (let i = window.localStorage.length - 1; i >= 0; i -= 1) {
+      const key = window.localStorage.key(i);
+      if (key === "supabase.auth.token" || key?.startsWith("sb-")) {
+        window.localStorage.removeItem(key);
+      }
     }
   }
+  void supabase.auth.signOut().catch(() => null);
 }
 
 function redirectToLoginWithoutThrowing() {

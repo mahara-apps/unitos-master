@@ -95,12 +95,13 @@ function sanitizeNext(next: string | undefined): string | null {
 }
 
 async function clearStoredSupabaseSession() {
-  await supabase.auth.signOut().catch(() => null);
-  if (typeof window === "undefined") return;
-  for (let i = window.localStorage.length - 1; i >= 0; i -= 1) {
-    const key = window.localStorage.key(i);
-    if (key === "supabase.auth.token" || key?.startsWith("sb-")) {
-      window.localStorage.removeItem(key);
+  if (typeof window !== "undefined") {
+    for (let i = window.localStorage.length - 1; i >= 0; i -= 1) {
+      const key = window.localStorage.key(i);
+      if (key === "supabase.auth.token" || key?.startsWith("sb-")) {
+        window.localStorage.removeItem(key);
+      }
     }
   }
+  void supabase.auth.signOut().catch(() => null);
 }
