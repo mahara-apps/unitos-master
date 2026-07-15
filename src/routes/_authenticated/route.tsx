@@ -39,8 +39,7 @@ export const Route = createFileRoute("/_authenticated")({
 function AppShell() {
   const [status, setStatus] = useState<"checking" | "authenticated" | "unauthenticated">("checking");
   const navigate = useNavigate();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const search = useRouterState({ select: (s) => s.location.searchStr });
+  const href = useRouterState({ select: (s) => s.location.href });
 
   useEffect(() => {
     let cancelled = false;
@@ -70,9 +69,8 @@ function AppShell() {
 
   useEffect(() => {
     if (status !== "unauthenticated") return;
-    const next = encodeURIComponent(pathname + (search ?? ""));
-    navigate({ to: "/login", search: { next } as never, replace: true });
-  }, [status, navigate, pathname, search]);
+    navigate({ to: "/login", search: { next: href } as never, replace: true });
+  }, [status, navigate, href]);
 
   if (status === "checking") {
     return (
