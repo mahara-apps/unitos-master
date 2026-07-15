@@ -558,6 +558,16 @@ function classifyChannel(raw: string): ChannelKind {
 }
 
 const FORMAT_KINDS: ChannelKind[] = [
+];
+
+const FORMAT_TONES: Record<string, KpiTone> = {
+  feed: "violet",
+  stories: "sky",
+  reels: "pink",
+  carrossel: "amber",
+};
+
+const _FORMAT_KINDS_REAL: ChannelKind[] = [
   {
     key: "feed",
     label: "Feed",
