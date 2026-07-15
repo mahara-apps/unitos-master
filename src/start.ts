@@ -14,9 +14,16 @@ const attachSupabaseAuth = createMiddleware({ type: "function" }).client(
     let token = data.session?.access_token;
     const expiresAt = data.session?.expires_at;
     const nearExpiry = expiresAt ? expiresAt * 1000 - Date.now() < 60_000 : false;
+    const expired = expiresAt ? expiresAt * 1000 <= Date.now() : false;
     if (!token || nearExpiry) {
       const refreshed = await supabase.auth.refreshSession().catch(() => null);
-      token = refreshed?.data.session?.access_token ?? token;
+      const refreshedToken = refreshed?.data.session?.access_token ?? null;
+      // Se o refresh falhou e o token atual já expirou, não envie um bearer
+      // inválido — o servidor responderia "Unauthorized: Invalid token".
+      token = refreshedToken ?? (expired ? undefined : token);
+      if (!refreshedToken && expired) {
+        await supabase.auth.signOut().catch(() => null);
+      }
     }
     if (!token) {
       // Sessão sumiu depois do mount (expirou/foi invalidada). Não faz sentido
