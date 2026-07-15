@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { usePageHeader } from "@/hooks/use-page-header";
+import { SettingsStatCard } from "@/components/settings/settings-stat-card";
 
 export const Route = createFileRoute("/_authenticated/settings/notifications")({
   component: NotificationsPage,
@@ -24,8 +25,6 @@ const DEFAULT_PREFS: NotificationPrefs = {
 };
 
 function NotificationsPage() {
-  usePageHeader({ title: "Notificações", subtitle: "Como e quando você quer ser avisado" });
-
   const qc = useQueryClient();
   const fetchProfile = useServerFn(getMyProfile);
   const savePrefs = useServerFn(updateNotificationPrefs);
@@ -53,6 +52,30 @@ function NotificationsPage() {
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Falha ao salvar"),
   });
+
+  usePageHeader(
+    {
+      title: "Notificações",
+      subtitle: "Como e quando você quer ser avisado",
+      actions: (
+        <Button size="sm" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
+          {mutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+          Salvar preferências
+        </Button>
+      ),
+    },
+    [mutation.isPending, prefs, notifyWhatsapp],
+  );
+
+  const channelsActive = useMemo(
+    () =>
+      [prefs.email, prefs.push, notifyWhatsapp, prefs.whatsapp_client_portal].filter(Boolean).length,
+    [prefs.email, prefs.push, prefs.whatsapp_client_portal, notifyWhatsapp],
+  );
+  const typesActive = useMemo(
+    () => [prefs.comments, prefs.approvals, prefs.publications].filter(Boolean).length,
+    [prefs.comments, prefs.approvals, prefs.publications],
+  );
 
   if (isLoading) {
     return (
@@ -82,7 +105,25 @@ function NotificationsPage() {
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <SettingsStatCard label="Canais ativos" value={`${channelsActive}/4`} icon={<Bell className="h-3.5 w-3.5" />} />
+        <SettingsStatCard label="Tipos ativos" value={`${typesActive}/3`} icon={<Mail className="h-3.5 w-3.5" />} />
+        <SettingsStatCard
+          label="WhatsApp"
+          value={notifyWhatsapp ? "Ativo" : "Inativo"}
+          className={notifyWhatsapp ? "text-emerald-500" : "text-muted-foreground"}
+          icon={<MessageCircle className="h-3.5 w-3.5" />}
+        />
+        <SettingsStatCard
+          label="Email"
+          value={prefs.email ? "Ativo" : "Inativo"}
+          className={prefs.email ? "text-sky-500" : "text-muted-foreground"}
+          icon={<Mail className="h-3.5 w-3.5" />}
+        />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Canais de Notificação</CardTitle>
@@ -147,14 +188,9 @@ function NotificationsPage() {
             prefs.publications,
             (v) => setPrefs({ ...prefs, publications: v }),
           )}
-          <div className="flex justify-end pt-2">
-            <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
-              {mutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-              Salvar preferências
-            </Button>
-          </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
