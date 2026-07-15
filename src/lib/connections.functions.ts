@@ -111,6 +111,27 @@ export const saveProviderKey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => ProviderKeyInput.parse(input))
   .handler(async ({ data, context }) => {
+    const { encryptCredential, maskCredential } = await import(
+      "./credentials-crypto.server"
+    );
+    const ciphertext = await encryptCredential(data.apiKey);
+    const masked = maskCredential(data.apiKey);
+
+    // Persist the encrypted secret in brand_api_credentials (server-only read).
+    const { error: credErr } = await context.supabase
+      .from("brand_api_credentials")
+      .upsert(
+        {
+          brand_id: data.brandId,
+          provider: data.provider,
+          ciphertext,
+          masked,
+          updated_by: context.userId,
+        },
+        { onConflict: "brand_id,provider" },
+      );
+    if (credErr) throw credErr;
+
     const { data: existing } = await context.supabase
       .from("brand_connections")
       .select("providers")
@@ -120,12 +141,9 @@ export const saveProviderKey = createServerFn({ method: "POST" })
       string,
       ProviderConfig
     >;
-    // NOTE: we intentionally never persist the raw key to the DB from this
-    // TanStack function — only the masked preview. Rotation of the real
-    // secret is a manual server-side operation.
     providers[data.provider] = {
       connected: true,
-      masked: maskKey(data.apiKey),
+      masked,
       updatedAt: new Date().toISOString(),
     };
     const { error } = await context.supabase
@@ -147,6 +165,12 @@ export const removeProviderKey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => RemoveProviderInput.parse(input))
   .handler(async ({ data, context }) => {
+    await context.supabase
+      .from("brand_api_credentials")
+      .delete()
+      .eq("brand_id", data.brandId)
+      .eq("provider", data.provider);
+
     const { data: existing } = await context.supabase
       .from("brand_connections")
       .select("providers")
@@ -208,6 +232,109 @@ export const upsertChannel = createServerFn({ method: "POST" })
     } else {
       delete channels[data.channel];
     }
+    const { error } = await context.supabase
+      .from("brand_connections")
+      .upsert(
+        { brand_id: data.brandId, channels },
+        { onConflict: "brand_id" },
+      );
+    if (error) throw error;
+    return { ok: true };
+  });
+
+// -----------------------------------------------------------------------------
+// Tool credentials (Resend, WhatsApp Evolution, WhatsApp Cloud, …)
+// Uses the same AES-256-GCM store; metadata carries non-secret fields.
+// -----------------------------------------------------------------------------
+
+const ToolProvider = z.enum([
+  "resend",
+  "whatsapp_evolution",
+  "whatsapp_cloud",
+]);
+
+const SaveToolCredentialInput = z.object({
+  brandId: z.string().uuid(),
+  provider: ToolProvider,
+  apiKey: z.string().trim().min(4).max(800),
+  metadata: z.record(z.string().max(400)).optional(),
+});
+
+export const saveToolCredential = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => SaveToolCredentialInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { encryptCredential, maskCredential } = await import(
+      "./credentials-crypto.server"
+    );
+    const ciphertext = await encryptCredential(data.apiKey);
+    const masked = maskCredential(data.apiKey);
+
+    const { error: credErr } = await context.supabase
+      .from("brand_api_credentials")
+      .upsert(
+        {
+          brand_id: data.brandId,
+          provider: data.provider,
+          ciphertext,
+          masked,
+          metadata: data.metadata ?? {},
+          updated_by: context.userId,
+        },
+        { onConflict: "brand_id,provider" },
+      );
+    if (credErr) throw credErr;
+
+    // Mirror connection status in brand_connections.channels for the UI.
+    const { data: existing } = await context.supabase
+      .from("brand_connections")
+      .select("channels")
+      .eq("brand_id", data.brandId)
+      .maybeSingle();
+    const channels = ((existing?.channels as Record<string, ChannelConfig>) ?? {}) as Record<
+      string,
+      ChannelConfig
+    >;
+    channels[data.provider] = {
+      connected: true,
+      handle: data.metadata?.handle ?? masked,
+      updatedAt: new Date().toISOString(),
+    };
+    const { error } = await context.supabase
+      .from("brand_connections")
+      .upsert(
+        { brand_id: data.brandId, channels },
+        { onConflict: "brand_id" },
+      );
+    if (error) throw error;
+    return { ok: true, masked };
+  });
+
+const RemoveToolInput = z.object({
+  brandId: z.string().uuid(),
+  provider: ToolProvider,
+});
+
+export const removeToolCredential = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => RemoveToolInput.parse(input))
+  .handler(async ({ data, context }) => {
+    await context.supabase
+      .from("brand_api_credentials")
+      .delete()
+      .eq("brand_id", data.brandId)
+      .eq("provider", data.provider);
+
+    const { data: existing } = await context.supabase
+      .from("brand_connections")
+      .select("channels")
+      .eq("brand_id", data.brandId)
+      .maybeSingle();
+    const channels = ((existing?.channels as Record<string, ChannelConfig>) ?? {}) as Record<
+      string,
+      ChannelConfig
+    >;
+    delete channels[data.provider];
     const { error } = await context.supabase
       .from("brand_connections")
       .upsert(
