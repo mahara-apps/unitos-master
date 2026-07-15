@@ -308,7 +308,6 @@ function TasksPage() {
             </Button>
           </div>
         </DashboardPanelSurface>
-      )}
       ) : (
         <div className="space-y-5">
           {TASK_STATUSES.map((status) => {
