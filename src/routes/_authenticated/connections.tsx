@@ -59,6 +59,7 @@ import {
   removeToolCredential,
 } from "@/lib/connections.functions";
 import { getMessagingKpis } from "@/lib/messaging-kpis.functions";
+import { getChannelsKpis, type ChannelsKpis } from "@/lib/channels-kpis.functions";
 import { usePageHeader } from "@/hooks/use-page-header";
 import {
   DashboardPageShell,
@@ -271,6 +272,14 @@ function ConnectionsPage() {
     staleTime: 60_000,
   });
 
+  const getChKpisFn = useServerFn(getChannelsKpis);
+  const { data: chKpis } = useQuery({
+    queryKey: ["channels-kpis", brandId],
+    queryFn: () => getChKpisFn({ data: { brandId: brandId! } }),
+    enabled: !!brandId,
+    staleTime: 60_000,
+  });
+
   const invalidate = () => qc.invalidateQueries({ queryKey: ["connections", brandId] });
 
   type UpdateInput = {
@@ -433,34 +442,7 @@ function ConnectionsPage() {
         {/* Tab: Canais */}
         <TabsContent value="channels" className="space-y-3">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <KpiCard
-            icon={<Radio className="h-4 w-4" />}
-            label="Canais conectados"
-            value={`${ch.connected} / ${ch.total}`}
-            sub={ch.connected === ch.total ? "Cobertura total" : "Faltam canais ativos"}
-            tone={chTone}
-          />
-          <KpiCard
-            icon={<Activity className="h-4 w-4" />}
-            label="Cobertura"
-            value={`${chCoverage}%`}
-            sub={`de ${ch.total} disponíveis`}
-            tone="violet"
-          />
-          <KpiCard
-            icon={<CheckCircle2 className="h-4 w-4" />}
-            label="Última conexão"
-            value={ch.latestRel}
-            sub={ch.latest?.def.name ?? "Nenhuma conexão"}
-            tone="sky"
-          />
-          <KpiCard
-            icon={<KeyRound className="h-4 w-4" />}
-            label="Pendentes"
-            value={ch.pending.length.toString()}
-            sub={pendingNames(ch.pending)}
-            tone={ch.pending.length > 0 ? "amber" : "emerald"}
-          />
+          <ChannelsKpiCards data={chKpis} />
         </div>
 
         <SectionHeader
@@ -584,6 +566,75 @@ function MessagingKpiCards({
           sent === 0
             ? "Sem dados no período"
             : `${(data?.delivered30d ?? 0).toLocaleString("pt-BR")} entregues de ${sent.toLocaleString("pt-BR")} enviadas`
+        }
+        tone={rateTone}
+      />
+      <KpiCard
+        icon={<AlertTriangle className="h-4 w-4" />}
+        label="Falhas (7d)"
+        value={failed.toLocaleString("pt-BR")}
+        sub={
+          failed === 0
+            ? "Nenhuma falha registrada"
+            : data?.topFailedChannel ?? "—"
+        }
+        tone={failed === 0 ? "emerald" : "amber"}
+      />
+      <KpiCard
+        icon={<Briefcase className="h-4 w-4" />}
+        label="Cobertura por marca"
+        value={`${covered}/${total}`}
+        sub={
+          total === 0
+            ? "Nenhuma marca no workspace"
+            : missing === 0
+              ? "Cobertura completa"
+              : `${missing} marca${missing > 1 ? "s" : ""} sem canal ativo`
+        }
+        tone={total > 0 && missing === 0 ? "emerald" : "violet"}
+      />
+    </>
+  );
+}
+
+function ChannelsKpiCards({ data }: { data: ChannelsKpis | undefined }) {
+  const published = data?.published30d ?? 0;
+  const trend = data?.trendPct ?? null;
+  const attempted = data?.attempted30d ?? 0;
+  const rate = data?.successRate;
+  const ratePct = rate == null ? null : Math.round(rate * 100);
+  const successCount =
+    rate == null ? 0 : Math.round(rate * attempted);
+  const rateTone: "emerald" | "amber" | "rose" | "neutral" =
+    ratePct == null ? "neutral" : ratePct > 95 ? "emerald" : ratePct >= 80 ? "amber" : "rose";
+  const failed = data?.failed7d ?? 0;
+  const covered = data?.brandsCovered ?? 0;
+  const total = data?.brandsTotal ?? 0;
+  const missing = Math.max(0, total - covered);
+
+  return (
+    <>
+      <KpiCard
+        icon={<Radio className="h-4 w-4" />}
+        label="Publicados (30d)"
+        value={published.toLocaleString("pt-BR")}
+        sub={
+          published === 0
+            ? "Nenhuma publicação registrada"
+            : trend == null
+              ? "Sem comparação anterior"
+              : `${trend >= 0 ? "+" : ""}${trend}% vs período anterior`
+        }
+        tone="rose"
+      />
+      <KpiCard
+        icon={<CheckCircle2 className="h-4 w-4" />}
+        label="Taxa de sucesso"
+        value={ratePct == null ? "—" : `${ratePct}%`}
+        sub={
+          attempted === 0
+            ? "Sem dados no período"
+            : `${successCount.toLocaleString("pt-BR")} publicados de ${attempted.toLocaleString("pt-BR")} tentados`
         }
         tone={rateTone}
       />
