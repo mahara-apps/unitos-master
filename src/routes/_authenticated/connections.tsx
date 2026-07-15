@@ -63,6 +63,8 @@ import {
 } from "@/components/ui/dashboard-primitives";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export const Route = createFileRoute("/_authenticated/connections")({
   component: ConnectionsPage,
@@ -291,6 +293,36 @@ function ConnectionsPage() {
   const successCalls = data?.usage.successCalls ?? 0;
   const successRate = totalCalls > 0 ? Math.round((successCalls / totalCalls) * 100) : 0;
 
+  const channelsMap = (data?.channels ?? {}) as Record<
+    string,
+    { connected?: boolean; handle?: string; updatedAt?: string } | undefined
+  >;
+
+  const summarize = (defs: ChannelDef[]) => {
+    const total = defs.length;
+    const connectedDefs = defs.filter((d) => channelsMap[d.id]?.connected);
+    const connected = connectedDefs.length;
+    const pending = defs.filter((d) => !channelsMap[d.id]?.connected);
+    const latest = connectedDefs
+      .map((d) => ({ def: d, at: channelsMap[d.id]?.updatedAt }))
+      .filter((x) => !!x.at)
+      .sort((a, b) => (a.at! < b.at! ? 1 : -1))[0];
+    const latestRel = latest?.at
+      ? formatDistanceToNow(new Date(latest.at), { addSuffix: true, locale: ptBR })
+      : "—";
+    return { total, connected, pending, latest, latestRel };
+  };
+
+  const ch = summarize(SOCIAL_CHANNELS);
+  const ms = summarize(MESSAGING_CHANNELS);
+  const chTone: "emerald" | "amber" | "rose" =
+    ch.connected >= 4 ? "emerald" : ch.connected >= 1 ? "amber" : "rose";
+  const msTone: "emerald" | "amber" | "rose" =
+    ms.connected === ms.total ? "emerald" : ms.connected >= 1 ? "amber" : "rose";
+  const chCoverage = Math.round((ch.connected / ch.total) * 100);
+  const pendingNames = (list: ChannelDef[]) =>
+    list.map((d) => d.name).slice(0, 3).join(", ") || "Nenhum";
+
   return (
     <DashboardPageShell>
       <ConnectionsHeaderRegister />
@@ -389,6 +421,37 @@ function ConnectionsPage() {
 
         {/* Tab: Canais */}
         <TabsContent value="channels" className="space-y-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <KpiCard
+            icon={<Radio className="h-4 w-4" />}
+            label="Canais conectados"
+            value={`${ch.connected} / ${ch.total}`}
+            sub={ch.connected === ch.total ? "Cobertura total" : "Faltam canais ativos"}
+            tone={chTone}
+          />
+          <KpiCard
+            icon={<Activity className="h-4 w-4" />}
+            label="Cobertura"
+            value={`${chCoverage}%`}
+            sub={`de ${ch.total} disponíveis`}
+            tone="violet"
+          />
+          <KpiCard
+            icon={<CheckCircle2 className="h-4 w-4" />}
+            label="Última conexão"
+            value={ch.latestRel}
+            sub={ch.latest?.def.name ?? "Nenhuma conexão"}
+            tone="sky"
+          />
+          <KpiCard
+            icon={<KeyRound className="h-4 w-4" />}
+            label="Pendentes"
+            value={ch.pending.length.toString()}
+            sub={pendingNames(ch.pending)}
+            tone={ch.pending.length > 0 ? "amber" : "emerald"}
+          />
+        </div>
+
         <SectionHeader
           icon={<Radio className="h-3.5 w-3.5" />}
           title="canais sociais"
@@ -409,6 +472,37 @@ function ConnectionsPage() {
 
         {/* Tab: Mensageria */}
         <TabsContent value="messaging" className="space-y-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <KpiCard
+            icon={<Send className="h-4 w-4" />}
+            label="Ferramentas conectadas"
+            value={`${ms.connected} / ${ms.total}`}
+            sub={ms.connected === ms.total ? "Tudo operacional" : "Configuração incompleta"}
+            tone={msTone}
+          />
+          <KpiCard
+            icon={<KeyRound className="h-4 w-4" />}
+            label="Chaves cifradas"
+            value={ms.connected.toString()}
+            sub="AES-256-GCM"
+            tone="violet"
+          />
+          <KpiCard
+            icon={<Activity className="h-4 w-4" />}
+            label="Última rotação"
+            value={ms.latestRel}
+            sub={ms.latest?.def.name ?? "Nenhuma chave"}
+            tone="sky"
+          />
+          <KpiCard
+            icon={<CheckCircle2 className="h-4 w-4" />}
+            label="Pendentes"
+            value={ms.pending.length.toString()}
+            sub={pendingNames(ms.pending)}
+            tone={ms.pending.length > 0 ? "amber" : "emerald"}
+          />
+        </div>
+
         <SectionHeader
           icon={<Send className="h-3.5 w-3.5" />}
           title="mensageria & entrega"
