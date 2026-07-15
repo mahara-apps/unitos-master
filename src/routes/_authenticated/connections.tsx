@@ -81,6 +81,9 @@ type ChannelId =
   | "facebook"
   | "tiktok"
   | "youtube"
+  | "linkedin"
+  | "twitter"
+  | "threads"
   | "whatsapp_evolution"
   | "whatsapp_cloud"
   | "resend";
