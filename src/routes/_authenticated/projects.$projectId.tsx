@@ -55,6 +55,12 @@ import {
   loadBoardFn,
 } from "@/lib/content.functions";
 import { TaskDialog } from "@/components/content/task-dialog";
+import {
+  DashboardPageShell,
+  DashboardPanelSurface,
+} from "@/components/ui/dashboard-primitives";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { PanelEmptyState } from "@/components/ui/panel-empty";
 
 export const Route = createFileRoute("/_authenticated/projects/$projectId")({
   component: ProjectDetailPage,
@@ -222,22 +228,24 @@ function ProjectDetailPage() {
 
   if (projectQ.isLoading) {
     return (
-      <div className="w-full space-y-4 px-4 py-6 sm:px-6 lg:px-8">
+      <DashboardPageShell>
         <div className="h-8 w-1/3 animate-pulse rounded bg-muted" />
         <div className="h-40 animate-pulse rounded-xl bg-muted" />
         <div className="h-40 animate-pulse rounded-xl bg-muted" />
-      </div>
+      </DashboardPageShell>
     );
   }
 
   if (!project) {
     return (
-      <div className="w-full space-y-4 px-4 py-6 sm:px-6 lg:px-8">
-        <p className="text-sm text-muted-foreground">Projeto não encontrado.</p>
-        <Button variant="ghost" size="sm" className="mt-3 h-9" onClick={() => navigate({ to: "/projects" })}>
+      <DashboardPageShell>
+        <DashboardPanelSurface className="px-4 py-3 text-sm text-muted-foreground">
+          Projeto não encontrado.
+        </DashboardPanelSurface>
+        <Button variant="ghost" size="sm" className="h-9" onClick={() => navigate({ to: "/projects" })}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
         </Button>
-      </div>
+      </DashboardPageShell>
     );
   }
 
@@ -246,7 +254,7 @@ function ProjectDetailPage() {
   }
 
   return (
-    <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+    <DashboardPageShell>
       <Button variant="ghost" size="sm" className="-ml-2 h-9" onClick={() => navigate({ to: "/projects" })}>
         <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
       </Button>
@@ -278,9 +286,9 @@ function ProjectDetailPage() {
       </div>
 
       {/* Formulário compacto */}
-      <div className="grid gap-4 rounded-xl border border-border/60 bg-card p-5 md:grid-cols-3">
+      <DashboardPanelSurface className="grid gap-4 p-5 md:grid-cols-3">
         <div className="grid gap-1.5">
-          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Status</Label>
+          <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Status</Label>
           <Select
             value={status}
             onValueChange={(v) => {
@@ -288,7 +296,7 @@ function ProjectDetailPage() {
               saveField({ status: v });
             }}
           >
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
               {STATUS_OPTIONS.map((s) => (
                 <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
@@ -297,7 +305,7 @@ function ProjectDetailPage() {
           </Select>
         </div>
         <div className="grid gap-1.5">
-          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Cliente</Label>
+          <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Cliente</Label>
           <Select
             value={clientId ?? "none"}
             onValueChange={(v) => {
@@ -306,7 +314,7 @@ function ProjectDetailPage() {
               saveField({ client_id: next });
             }}
           >
-            <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+            <SelectTrigger className="h-9"><SelectValue placeholder="Selecionar" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="none">Sem cliente</SelectItem>
               {clients.map((c) => (
@@ -316,7 +324,7 @@ function ProjectDetailPage() {
           </Select>
         </div>
         <div className="grid gap-1.5">
-          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Responsável</Label>
+          <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Responsável</Label>
           <Select
             value={ownerId ?? "none"}
             onValueChange={(v) => {
@@ -325,7 +333,7 @@ function ProjectDetailPage() {
               saveField({ owner_id: next });
             }}
           >
-            <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+            <SelectTrigger className="h-9"><SelectValue placeholder="Nenhum" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="none">Nenhum</SelectItem>
               {team.map((m) => (
@@ -353,7 +361,7 @@ function ProjectDetailPage() {
           }}
         />
         <div className="grid gap-1.5">
-          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Cor</Label>
+          <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Cor</Label>
           <div className="flex flex-wrap gap-1.5">
             {COLORS.map((c) => (
               <button
@@ -373,7 +381,7 @@ function ProjectDetailPage() {
           </div>
         </div>
         <div className="grid gap-1.5 md:col-span-3">
-          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Objetivos / Metas</Label>
+          <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Objetivos / Metas</Label>
           <Textarea
             value={goals}
             onChange={(e) => setGoals(e.target.value)}
@@ -382,20 +390,22 @@ function ProjectDetailPage() {
             rows={2}
           />
         </div>
-      </div>
+      </DashboardPanelSurface>
 
       {/* KPIs */}
       <div className="grid gap-3 md:grid-cols-4">
-        <KpiCard icon={<FileText className="h-4 w-4" />} label="Total de Peças" value={stats.total} tone="text-foreground" />
-        <KpiCard icon={<CheckCircle2 className="h-4 w-4" />} label="Aprovadas" value={stats.approved} tone="text-emerald-500" />
-        <KpiCard icon={<Target className="h-4 w-4" />} label="Publicadas" value={stats.published} tone="text-pink-500" />
-        <KpiCard icon={<Clock className="h-4 w-4" />} label="Pendentes" value={stats.pending} tone="text-amber-500" />
+        <KpiCard icon={<FileText className="h-4 w-4" />} label="Total de peças" value={stats.total} tone="neutral" />
+        <KpiCard icon={<CheckCircle2 className="h-4 w-4" />} label="Aprovadas" value={stats.approved} tone="emerald" />
+        <KpiCard icon={<Target className="h-4 w-4" />} label="Publicadas" value={stats.published} tone="pink" />
+        <KpiCard icon={<Clock className="h-4 w-4" />} label="Pendentes" value={stats.pending} tone="amber" />
       </div>
 
       {/* Progresso */}
-      <div className="rounded-xl border border-border/60 bg-card p-5">
+      <DashboardPanelSurface className="p-5">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Progresso do Projeto</h3>
+          <h3 className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+            Progresso do projeto
+          </h3>
           <span className="text-2xl font-semibold" style={{ color }}>
             {pct}%
           </span>
@@ -405,30 +415,30 @@ function ProjectDetailPage() {
           <span>{stats.published} de {stats.total}</span>
         </div>
         <Progress value={pct} className="mt-2 h-2" />
-      </div>
+      </DashboardPanelSurface>
 
       {/* Itens do projeto */}
-      <div className="rounded-xl border border-border/60 bg-card p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Itens do Projeto ({posts.length})</h3>
+      <DashboardPanelSurface>
+        <div className="flex items-center justify-between border-b border-border/60 bg-background/40 px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <h3 className="text-[11px] font-mono uppercase tracking-widest text-foreground">
+              Itens do projeto
+            </h3>
+            <span className="rounded-md border border-border/60 bg-background/60 px-1.5 py-0.5 font-mono text-xs tabular-nums text-foreground">
+              {posts.length}
+            </span>
+          </div>
           <Button size="sm" className="h-9" onClick={goCreateItem}>
             <Plus className="mr-2 h-4 w-4" /> Novo item
           </Button>
         </div>
         {posts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-            <FileText className="h-8 w-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">Nenhum item vinculado a este projeto.</p>
-            <button
-              type="button"
-              onClick={goCreateItem}
-              className="text-sm font-medium text-primary hover:underline"
-            >
-              Criar novo item
-            </button>
-          </div>
+          <PanelEmptyState
+            icon={<FileText className="h-4 w-4" />}
+            text="Nenhum item vinculado a este projeto. Clique em Novo item para começar."
+          />
         ) : (
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-border/60 px-4">
             {posts.map((p) => (
               <div key={p.id} className="flex items-center gap-3 py-3">
                 <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md bg-muted">
@@ -453,7 +463,7 @@ function ProjectDetailPage() {
             ))}
           </div>
         )}
-      </div>
+      </DashboardPanelSurface>
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
@@ -485,17 +495,7 @@ function ProjectDetailPage() {
           invalidateKey={["project", brandId, projectId] as const}
         />
       )}
-    </div>
-  );
-}
-
-function KpiCard(props: { icon: React.ReactNode; label: string; value: number; tone: string }) {
-  return (
-    <div className="rounded-xl border border-border/60 bg-card p-4">
-      <div className={`mb-1 flex items-center gap-2 ${props.tone}`}>{props.icon}</div>
-      <div className="text-2xl font-semibold">{props.value}</div>
-      <div className="text-[11px] text-muted-foreground">{props.label}</div>
-    </div>
+    </DashboardPageShell>
   );
 }
 
@@ -503,10 +503,10 @@ function DateEdit(props: { label: string; value: string | null; onChange: (v: st
   const date = props.value ? new Date(props.value) : undefined;
   return (
     <div className="grid gap-1.5">
-      <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">{props.label}</Label>
+      <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{props.label}</Label>
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" className="justify-start text-left font-normal">
+          <Button variant="outline" className="h-9 justify-start text-left font-normal">
             {date ? fmtDate(props.value) : <span className="text-muted-foreground">Selecionar</span>}
           </Button>
         </PopoverTrigger>
