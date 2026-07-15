@@ -827,6 +827,7 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
     upcoming,
     heatmap,
     postsByStage,
+    pipelineStages,
     publishTrend14d,
     aiUsage,
     avgLeadTimeDays,
