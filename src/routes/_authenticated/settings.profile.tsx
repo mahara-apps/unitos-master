@@ -265,6 +265,29 @@ function ProfilePage() {
             />
           </div>
           <div className="space-y-1.5">
+            <Label htmlFor="whatsapp" className="flex items-center gap-1.5">
+              <MessageCircle className="h-3.5 w-3.5 text-emerald-500" />
+              WhatsApp para notificações
+            </Label>
+            <Input
+              id="whatsapp"
+              value={form.whatsapp}
+              onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
+              maxLength={40}
+              placeholder="+55 11 90000-0000"
+            />
+          </div>
+          <div className="sm:col-span-2 flex items-start justify-between gap-4 rounded-lg border border-border/60 bg-muted/30 p-3">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium">Receber notificações por WhatsApp</p>
+              <p className="text-xs text-muted-foreground">Publicações aprovadas, ajustes solicitados e menções urgentes.</p>
+            </div>
+            <Switch
+              checked={form.notify_whatsapp}
+              onCheckedChange={(v) => setForm({ ...form, notify_whatsapp: v })}
+            />
+          </div>
+          <div className="space-y-1.5">
             <Label htmlFor="job_title">Cargo</Label>
             <Input
               id="job_title"
