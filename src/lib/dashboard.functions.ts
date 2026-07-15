@@ -447,7 +447,7 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
       ignore(
         supabase
           .from("posts")
-          .select("id,title,stage,channels,scheduled_at,published_at,client_id,updated_at")
+          .select("id,title,stage,stage_id,channels,scheduled_at,published_at,client_id,updated_at")
           .eq("brand_id", brandId),
       ),
       ignore(supabase.from("client_briefings").select("client_id,updated_at")),
@@ -497,6 +497,7 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
     id: string;
     title: string;
     stage: string;
+    stage_id: string | null;
     channels: string[] | null;
     scheduled_at: string | null;
     published_at: string | null;
@@ -709,8 +710,23 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
     .sort((a, b) => new Date(a.when).getTime() - new Date(b.when).getTime())
     .slice(0, 12);
 
+  const agencyStageIds = Array.from(
+    new Set(posts.map((p) => p.stage_id).filter((v): v is string => !!v)),
+  );
+  const agencyStageKeyById = new Map<string, string>();
+  if (agencyStageIds.length > 0) {
+    const stagesRes = await ignore(
+      supabase.from("content_pipeline_stages").select("id,key").in("id", agencyStageIds),
+    );
+    for (const s of (stagesRes?.data ?? []) as Array<{ id: string; key: string }>) {
+      agencyStageKeyById.set(s.id, s.key);
+    }
+  }
   const postsByStage: Record<string, number> = {};
-  for (const p of posts) postsByStage[p.stage] = (postsByStage[p.stage] ?? 0) + 1;
+  for (const p of posts) {
+    const key = (p.stage_id && agencyStageKeyById.get(p.stage_id)) || p.stage || "idea";
+    postsByStage[key] = (postsByStage[key] ?? 0) + 1;
+  }
 
   const publishTrend14d = Array.from({ length: 14 }, (_, i) => {
     const start = now - (13 - i) * 86_400_000;
