@@ -27,6 +27,7 @@ import {
   DashboardPanelSurface,
   DashboardIconFrame,
 } from "@/components/ui/dashboard-primitives";
+import { KpiCard, type KpiTone } from "@/components/ui/kpi-card";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   component: CalendarPage,
@@ -210,35 +211,17 @@ function CalendarPage() {
       {/* Volumetria */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {volumetry.map((v) => (
-          <button
-            type="button"
+          <KpiCard
             key={v.key}
+            label={v.label}
+            value={v.count}
+            sub="no mês"
+            tone={FORMAT_TONES[v.key] ?? "neutral"}
+            active={formatFilter === v.key}
+            dimmed={!!formatFilter && formatFilter !== v.key}
+            trailing={formatFilter === v.key ? "Filtro ativo" : undefined}
             onClick={() => setFormatFilter((cur) => (cur === v.key ? null : v.key))}
-            aria-pressed={formatFilter === v.key}
-            className={cn(
-              "group relative overflow-hidden rounded-xl border border-border/60 bg-card p-4 text-left transition-all hover:border-foreground/20 hover:-translate-y-px",
-              formatFilter === v.key
-                ? "border-foreground/40 ring-2 ring-foreground/10 shadow-sm"
-                : formatFilter
-                ? "opacity-60"
-                : "",
-            )}
-          >
-            <div className={cn("absolute inset-x-0 top-0 h-0.5", v.bar)} />
-            <div className="flex items-center justify-between gap-2 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              <span className="flex items-center gap-2">
-                <span className={cn("h-2 w-2 rounded-full", v.dot)} />
-                {v.label}
-              </span>
-              {formatFilter === v.key ? (
-                <span className="text-[9px] font-semibold text-foreground/70">Filtro ativo</span>
-              ) : null}
-            </div>
-            <div className="mt-2 flex items-baseline gap-1.5">
-              <span className="text-2xl font-semibold tabular-nums tracking-tight">{v.count}</span>
-              <span className="text-xs text-muted-foreground">no mês</span>
-            </div>
-          </button>
+          />
         ))}
       </section>
 
@@ -604,6 +587,13 @@ const FORMAT_KINDS: ChannelKind[] = [
     bar: "bg-gradient-to-r from-amber-500 to-orange-500",
   },
 ];
+
+const FORMAT_TONES: Record<string, KpiTone> = {
+  feed: "violet",
+  stories: "sky",
+  reels: "pink",
+  carrossel: "amber",
+};
 
 function classifyFormat(raw: string | null | undefined): string | null {
   const k = (raw ?? "").toLowerCase().trim();
