@@ -291,6 +291,36 @@ function ConnectionsPage() {
   const successCalls = data?.usage.successCalls ?? 0;
   const successRate = totalCalls > 0 ? Math.round((successCalls / totalCalls) * 100) : 0;
 
+  const channelsMap = (data?.channels ?? {}) as Record<
+    string,
+    { connected?: boolean; handle?: string; updatedAt?: string } | undefined
+  >;
+
+  const summarize = (defs: ChannelDef[]) => {
+    const total = defs.length;
+    const connectedDefs = defs.filter((d) => channelsMap[d.id]?.connected);
+    const connected = connectedDefs.length;
+    const pending = defs.filter((d) => !channelsMap[d.id]?.connected);
+    const latest = connectedDefs
+      .map((d) => ({ def: d, at: channelsMap[d.id]?.updatedAt }))
+      .filter((x) => !!x.at)
+      .sort((a, b) => (a.at! < b.at! ? 1 : -1))[0];
+    const latestRel = latest?.at
+      ? formatDistanceToNow(new Date(latest.at), { addSuffix: true, locale: ptBR })
+      : "—";
+    return { total, connected, pending, latest, latestRel };
+  };
+
+  const ch = summarize(SOCIAL_CHANNELS);
+  const ms = summarize(MESSAGING_CHANNELS);
+  const chTone: "emerald" | "amber" | "rose" =
+    ch.connected >= 4 ? "emerald" : ch.connected >= 1 ? "amber" : "rose";
+  const msTone: "emerald" | "amber" | "rose" =
+    ms.connected === ms.total ? "emerald" : ms.connected >= 1 ? "amber" : "rose";
+  const chCoverage = Math.round((ch.connected / ch.total) * 100);
+  const pendingNames = (list: ChannelDef[]) =>
+    list.map((d) => d.name).slice(0, 3).join(", ") || "Nenhum";
+
   return (
     <DashboardPageShell>
       <ConnectionsHeaderRegister />
