@@ -2,11 +2,20 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { CheckCircle2, Search, Share2, Target } from "lucide-react";
+import { CheckCircle2, ChevronDown, Plus, Search, Share2, Sparkles, Target } from "lucide-react";
 
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { DashboardPageShell } from "@/components/ui/dashboard-primitives";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { useActiveContext } from "@/hooks/use-active-context";
@@ -15,6 +24,7 @@ import {
   listBrandMediaPlans,
   type BrandMediaPlanRow,
 } from "@/lib/media-plans-index.functions";
+import { CreateMediaPlanDialog } from "@/components/media-plans/create-media-plan-dialog";
 
 export const Route = createFileRoute("/_authenticated/media-plans")({
   component: MediaPlansIndex,
@@ -44,6 +54,10 @@ function MediaPlansIndex() {
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | "draft" | "approved" | "archived">("all");
+  const [dialog, setDialog] = useState<{ open: boolean; mode: "manual" | "ai" }>({
+    open: false,
+    mode: "manual",
+  });
 
   const plans = q.data?.plans ?? [];
 
@@ -65,8 +79,49 @@ function MediaPlansIndex() {
     {
       title: "Mídia paga",
       subtitle: `${plans.length} plano${plans.length === 1 ? "" : "s"} no workspace`,
+      actions: brandId ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" className="h-8 gap-1.5">
+              <Plus className="h-3.5 w-3.5" />
+              Novo plano
+              <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              Criar plano de mídia
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => setDialog({ open: true, mode: "manual" })}
+              className="gap-2"
+            >
+              <Target className="h-4 w-4 text-muted-foreground" />
+              <div className="grid">
+                <span className="text-sm font-medium">Criar manualmente</span>
+                <span className="text-[11px] text-muted-foreground">
+                  Você define cliente, período e orçamento
+                </span>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => setDialog({ open: true, mode: "ai" })}
+              className="gap-2"
+            >
+              <Sparkles className="h-4 w-4 text-indigo-500" />
+              <div className="grid">
+                <span className="text-sm font-medium">Gerar com IA</span>
+                <span className="text-[11px] text-muted-foreground">
+                  A IA monta 6–10 iniciativas balanceando funil
+                </span>
+              </div>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null,
     },
-    [plans.length],
+    [plans.length, brandId],
   );
 
   return (
@@ -126,6 +181,14 @@ function MediaPlansIndex() {
           </>
         )}
       </div>
+      {brandId && (
+        <CreateMediaPlanDialog
+          open={dialog.open}
+          mode={dialog.mode}
+          brandId={brandId}
+          onOpenChange={(o) => setDialog((d) => ({ ...d, open: o }))}
+        />
+      )}
     </DashboardPageShell>
   );
 }
