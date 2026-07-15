@@ -63,6 +63,8 @@ import {
 } from "@/components/ui/dashboard-primitives";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { cn } from "@/lib/utils";
+import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export const Route = createFileRoute("/_authenticated/connections")({
   component: ConnectionsPage,
