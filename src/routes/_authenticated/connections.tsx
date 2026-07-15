@@ -25,6 +25,7 @@ import {
   Activity,
   Coins,
 } from "lucide-react";
+import { AlertTriangle, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -57,6 +58,7 @@ import {
   saveToolCredential,
   removeToolCredential,
 } from "@/lib/connections.functions";
+import { getMessagingKpis } from "@/lib/messaging-kpis.functions";
 import { usePageHeader } from "@/hooks/use-page-header";
 import {
   DashboardPageShell,
