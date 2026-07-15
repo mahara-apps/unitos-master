@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useEffect, useState } from "react";
-import { AlertTriangle, Settings2 } from "lucide-react";
+import { AlertTriangle, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -163,7 +163,7 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
           onClick={() => setSettingsOpen(true)}
           title="Configurações da conta"
         >
-          <Settings2 className="h-4 w-4" />
+          <Settings className="h-4 w-4" />
         </Button>
       ),
     },
