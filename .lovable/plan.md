@@ -1,36 +1,40 @@
-Alinhar as três telas ao padrão visual usado em `settings.logs.tsx` (Auditoria) e `settings.permissions.tsx` (Permissões): container `max-w-6xl`, faixa de KPIs no topo, blocos em `Card` com `CardHeader` + `CardContent`, filtros/abas dentro do card, tipografia e paddings idênticos. Sem alterar backend nem lógica de dados — só apresentação.
+## Diagnóstico
 
-## Meu Perfil (`settings.profile.tsx`)
+A tela `/notifications` renderiza corretamente, mas mostra "All caught up!" porque **nenhuma notificação é inserida** no banco. Duas migrações (`20260714…` e `20260715…`) fazem `INSERT INTO public.notifications (…, url)` — a coluna real é **`href`** e o enum `notification_kind` não tem `'task_assigned'` (tem `'assignment'`). Todo trigger de menção / atribuição / auto-scheduler falha silenciosamente. Além disso a tela e o drawer estão em inglês, fora do padrão pt-BR do sistema.
 
-- Trocar container `max-w-3xl` por `max-w-6xl` e grid de 2 colunas (`lg:grid-cols-3`): coluna lateral (1/3) com identidade + resumo; coluna principal (2/3) com os formulários em `Tabs`.
-- Faixa superior com 4 StatCards no mesmo estilo de Auditoria: Função, Fuso, Idioma, Notificações ativas.
-- Reorganizar os 4 cards atuais em `Tabs` dentro de um único `Card` grande:
-  - `Pessoal` (nome, telefone, WhatsApp, cargo, bio, avatar, fuso, idioma)
-  - `Empresa` (CPF/CNPJ, nome fantasia, razão social) — só admin
-  - `Endereço` (CEP, rua, número, complemento, bairro, cidade, UF) — só admin
-  - `Segurança` (nova senha + confirmar)
-- Botão "Salvar" migra para o header via `usePageHeader.actions` (padrão do sistema); botão inline vira secundário.
+## Escopo
 
-## Equipe (`settings.team.tsx`)
+1. **Corrigir a origem das notificações (DB)** — nova migração:
+   - Recria `notify_task_mentions` e `notify_task_assigned` usando `href` e `kind='assignment'`.
+   - Adiciona `notify_post_approval_events`: dispara `approval_requested` quando um `post` entra em `stage='approval'` e `approval_decision` quando vira `approved`/`rejected`, notificando `assignee_id` / autor.
+   - Adiciona `notify_ai_job_completed`: `kind='system'` quando `ai_jobs.status` vira `completed`/`failed`, para o `created_by`.
+   - Trigger de deadline: função `public.enqueue_deadline_notifications()` chamada via `pg_cron` a cada 30min, cria `kind='deadline'` para tasks/posts vencendo em <24h ainda não notificados (dedupe por `payload->>'source_id'`).
+   - Respeita `user_profiles.notification_preferences` (in-app on/off por kind).
 
-- Container `max-w-6xl` e mesmo `p-6`.
-- Faixa superior com 4 StatCards: Membros ativos, Convites pendentes, Portais ativos, Admins.
-- Envelopar as 3 seções (Membros, Convites, Portais) em `Card` com `CardHeader` (título + descrição curta) + `CardContent`, substituindo o `<section>` cru e o header em `font-mono`.
-- Adicionar barra de busca (`Input` com ícone Search) + `Tabs` (Todos / Owners / Managers / Editors / Designers / Clientes) dentro do card de Membros, no mesmo formato dos logs.
-- Manter `Convidar` no `usePageHeader.actions` (já está).
+2. **Refatorar `src/routes/_authenticated/notifications.tsx`** para o Design System padrão (igual Dashboard/Settings):
+   - `DashboardPageShell` full-width com header global (título "Notificações", subtítulo dinâmico "X não lidas · Y hoje").
+   - **4 KPI cards** (`SettingsStatCard` reutilizado): Não lidas · Menções · Aprovações pendentes · Prazos próximos — com tones violet/sky/amber/rose.
+   - **Filtros**: `Tabs` (Todas · Não lidas · Menções · Aprovações · Sistema) + busca simples.
+   - **Lista agrupada** por Hoje / Ontem / Esta semana / Anteriores, densidade compacta (px-4 py-3, border-border/60, sem sombra), ícone colorido por `kind`, chip com marca (`brand_id`), horário relativo pt-BR ("há 3 min"), ponto rosa para não lida, ação inline "Marcar como lida" e link para `href`.
+   - Estado vazio no mesmo shell (mantém KPIs zerados).
+   - Ação do header: "Marcar todas como lidas" + link para `/settings/notifications` (preferências).
 
-## Notificações (`settings.notifications.tsx`)
+3. **Localização + polish do `NotificationsBell` / drawer** (`src/components/notifications/notifications-drawer.tsx`):
+   - Traduzir "Recent activity / Mark all as read / All caught up / View all notifications" para pt-BR.
+   - Tempo relativo em pt-BR ("há 3 min", "há 2 h", "ontem").
+   - Contador (badge numérico até 9+) no sino além do pulse.
+   - Mantém realtime + invalidação já existentes.
 
-- Container `max-w-6xl` (hoje é `max-w-3xl`).
-- Faixa superior com 4 StatCards: Canais ativos, Tipos ativos, WhatsApp (on/off), Email (on/off).
-- Layout 2 colunas (`lg:grid-cols-2`): "Canais de Notificação" (Email, Push, WhatsApp pessoal, WhatsApp portal cliente) e "Tipos de Notificação" (Comentários, Aprovações, Publicações), cada bloco em `Card`.
-- Botão "Salvar preferências" movido para `usePageHeader.actions`, com estado `isPending` refletindo no header.
+4. **Utilitário compartilhado** `src/lib/notifications-format.ts` com `relativeTimePtBr`, `iconFor`, `toneFor`, `labelFor` — remove duplicação entre página e drawer.
 
-## Componente compartilhado
+## Detalhes técnicos
 
-Extrair `SettingsStatCard` (baseado no `StatCard` interno de `settings.logs.tsx`) para `src/components/settings/settings-stat-card.tsx` e reutilizar nas 4 telas (inclui refactor leve em Auditoria e Permissões para adotar o componente).
+- Nenhuma quebra de contrato: `NotificationRow`, `listMyNotificationsFn`, mutations e realtime channel permanecem iguais.
+- Migração usa `CREATE OR REPLACE FUNCTION` + `DROP TRIGGER IF EXISTS` para ser idempotente; grants não mudam (a tabela já tem GRANT/RLS corretos).
+- pg_cron: `SELECT cron.schedule('deadline-notifications','*/30 * * * *', $$SELECT public.enqueue_deadline_notifications()$$)` com guarda `IF NOT EXISTS`.
+- Sem novas dependências. Sem mudança de rotas.
 
 ## Fora de escopo
 
-- Nenhuma mudança em `lib/*.functions.ts`, RLS, schemas ou navegação de `settings.tsx`.
-- Nenhuma nova permissão, campo, template ou fluxo de negócio.
+- E-mail/push (a aba `/settings/notifications` já controla preferências; ligar canal e-mail via Resend fica para próxima iteração).
+- Novos tipos de evento além dos listados.
