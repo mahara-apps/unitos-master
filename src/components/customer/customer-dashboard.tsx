@@ -23,7 +23,6 @@ import { Button } from "@/components/ui/button";
 import { Sparkline } from "@/components/dashboard/sparkline";
 import { HealthBar } from "@/components/dashboard/health-bar";
 import { OverviewSkeleton } from "@/components/ai-agents/tab-skeletons";
-import { MonthlyPlanDialog } from "@/components/customer/monthly-plan-dialog";
 import { isValidScope } from "@/lib/customer-queries";
 import {
   loadCustomerDashboardFn,
@@ -121,9 +120,6 @@ function DashboardReady({
               </Badge>
             ) : null}
           </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <MonthlyPlanDialog brandId={brandId} clientId={clientId} />
         </div>
       </div>
 
