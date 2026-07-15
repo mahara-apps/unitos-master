@@ -243,7 +243,7 @@ function ProfilePage() {
   const localeLabel = LOCALES.find((l) => l.value === form.locale)?.label ?? form.locale;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
+    <div className="w-full space-y-4 px-4 py-6 sm:px-6 lg:px-8">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <SettingsStatCard
           label="Função"
