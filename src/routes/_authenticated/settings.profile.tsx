@@ -249,14 +249,16 @@ function ProfilePage() {
           label="Função"
           value={<span className="capitalize">{roleLabel}</span>}
           icon={<User className="h-3.5 w-3.5" />}
+          tone="violet"
         />
-        <SettingsStatCard label="Fuso" value={form.timezone.split("/")[1]?.replace("_", " ") ?? form.timezone} hint={form.timezone} icon={<Clock className="h-3.5 w-3.5" />} />
-        <SettingsStatCard label="Idioma" value={form.locale} hint={localeLabel} icon={<Globe className="h-3.5 w-3.5" />} />
+        <SettingsStatCard label="Fuso" value={form.timezone.split("/")[1]?.replace("_", " ") ?? form.timezone} hint={form.timezone} icon={<Clock className="h-3.5 w-3.5" />} tone="sky" />
+        <SettingsStatCard label="Idioma" value={form.locale} hint={localeLabel} icon={<Globe className="h-3.5 w-3.5" />} tone="emerald" />
         <SettingsStatCard
           label="Notificações"
           value={`${notifCount}/3`}
           hint="Email · Push · WhatsApp"
           icon={<Bell className="h-3.5 w-3.5" />}
+          tone="amber"
         />
       </div>
 
