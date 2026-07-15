@@ -15,6 +15,7 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
+import { Route as PlanoPlanIdRouteImport } from './routes/plano.$planId'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ApprovalTokenRouteImport } from './routes/approval.$token'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
@@ -77,6 +78,11 @@ const IndexRoute = IndexRouteImport.update({
 const PortalTokenRoute = PortalTokenRouteImport.update({
   id: '/portal/$token',
   path: '/portal/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlanoPlanIdRoute = PlanoPlanIdRouteImport.update({
+  id: '/plano/$planId',
+  path: '/plano/$planId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
@@ -281,6 +287,7 @@ export interface FileRoutesByFullPath {
   '/tasks': typeof AuthenticatedTasksRoute
   '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/plano/$planId': typeof PlanoPlanIdRoute
   '/portal/$token': typeof PortalTokenRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
@@ -319,6 +326,7 @@ export interface FileRoutesByTo {
   '/tasks': typeof AuthenticatedTasksRoute
   '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/plano/$planId': typeof PlanoPlanIdRoute
   '/portal/$token': typeof PortalTokenRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
@@ -362,6 +370,7 @@ export interface FileRoutesById {
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/plano/$planId': typeof PlanoPlanIdRoute
   '/portal/$token': typeof PortalTokenRoute
   '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
@@ -405,6 +414,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/approval/$token'
     | '/invite/$token'
+    | '/plano/$planId'
     | '/portal/$token'
     | '/customers/$customerId'
     | '/projects/$projectId'
@@ -443,6 +453,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/approval/$token'
     | '/invite/$token'
+    | '/plano/$planId'
     | '/portal/$token'
     | '/customers/$customerId'
     | '/projects/$projectId'
@@ -485,6 +496,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tasks'
     | '/approval/$token'
     | '/invite/$token'
+    | '/plano/$planId'
     | '/portal/$token'
     | '/_authenticated/customers/$customerId'
     | '/_authenticated/projects/$projectId'
@@ -517,6 +529,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   ApprovalTokenRoute: typeof ApprovalTokenRoute
   InviteTokenRoute: typeof InviteTokenRoute
+  PlanoPlanIdRoute: typeof PlanoPlanIdRoute
   PortalTokenRoute: typeof PortalTokenRoute
   ApiJobsAnalyzeDocumentRoute: typeof ApiJobsAnalyzeDocumentRoute
   ApiJobsCopilotRoute: typeof ApiJobsCopilotRoute
@@ -572,6 +585,13 @@ declare module '@tanstack/react-router' {
       path: '/portal/$token'
       fullPath: '/portal/$token'
       preLoaderRoute: typeof PortalTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/plano/$planId': {
+      id: '/plano/$planId'
+      path: '/plano/$planId'
+      fullPath: '/plano/$planId'
+      preLoaderRoute: typeof PlanoPlanIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/invite/$token': {
@@ -925,6 +945,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   ApprovalTokenRoute: ApprovalTokenRoute,
   InviteTokenRoute: InviteTokenRoute,
+  PlanoPlanIdRoute: PlanoPlanIdRoute,
   PortalTokenRoute: PortalTokenRoute,
   ApiJobsAnalyzeDocumentRoute: ApiJobsAnalyzeDocumentRoute,
   ApiJobsCopilotRoute: ApiJobsCopilotRoute,
