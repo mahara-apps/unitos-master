@@ -25,6 +25,7 @@ import {
   Users,
   Settings as SettingsIcon,
   ScrollText,
+  Target,
 } from "lucide-react";
 import {
   Sidebar,
@@ -59,6 +60,7 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
       { title: "Tarefas", url: "/tasks", icon: ListChecks },
       { title: "Projetos", url: "/projects", icon: FolderKanban },
       { title: "Clientes", url: "/customers", icon: Users },
+      { title: "Mídia paga", url: "/media-plans", icon: Target },
       { title: "Analytics", url: "/analytics", icon: BarChart3 },
     ],
   },
