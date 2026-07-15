@@ -621,6 +621,12 @@ export const createPostFn = createServerFn({ method: "POST" })
       )
       .single();
     if (error) throw error;
+    ingestBrainQuiet(context.supabase, data.brandId, "content_created", "editorial", {
+      title: data.title,
+      channels: data.channels,
+      format: data.format,
+      client_id: data.clientId,
+    });
     return post as BoardPost;
   });
 
