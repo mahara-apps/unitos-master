@@ -37,11 +37,17 @@ export type MediaPlanItem = {
 
 const uuid = z.string().uuid();
 
-async function assertPlanAccess(
-  supabase: ReturnType<typeof getSb>,
-  planId: string,
-) {
-  const { data, error } = await supabase
+async function assertPlanAccess(supabase: unknown, planId: string) {
+  const sb = supabase as {
+    from: (t: string) => {
+      select: (c: string) => {
+        eq: (col: string, val: string) => {
+          maybeSingle: () => Promise<{ data: unknown; error: { message: string } | null }>;
+        };
+      };
+    };
+  };
+  const { data, error } = await sb
     .from("media_plans")
     .select("id, brand_id, client_id")
     .eq("id", planId)
@@ -49,11 +55,6 @@ async function assertPlanAccess(
   if (error) throw new Error(error.message);
   if (!data) throw new Error("plan_not_found");
   return data;
-}
-
-// Just to satisfy TS narrowing helper without importing types
-function getSb(): unknown {
-  return null;
 }
 
 export const listMediaPlans = createServerFn({ method: "GET" })
