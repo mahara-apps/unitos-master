@@ -1,6 +1,37 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { waitUntil } from "./wait-until.server";
+
+/** Fire-and-forget ingest into the Brain (best effort; never throws). */
+function ingestBrainQuiet(
+  supabase: import("@supabase/supabase-js").SupabaseClient,
+  brandId: string,
+  eventType: string,
+  sourceModule: string,
+  payload: Record<string, unknown>,
+) {
+  waitUntil(
+    (async () => {
+      try {
+        const { data: row } = await supabase
+          .from("brain_events")
+          .insert({ brand_id: brandId, event_type: eventType, source_module: sourceModule, payload: payload as never })
+          .select("id")
+          .single();
+        if (!row) return;
+        const [{ supabaseAdmin }, embed] = await Promise.all([
+          import("@/integrations/supabase/client.server"),
+          import("./brain-embed.server"),
+        ]);
+        const summary = embed.summarizeEvent({ event_type: eventType, source_module: sourceModule, payload });
+        await embed.embedEventNow(supabaseAdmin, row.id as string, brandId, summary);
+      } catch (err) {
+        console.error("[brain-ingest quiet] failed", err);
+      }
+    })(),
+  );
+}
 
 export const STAGE_COLORS = [
   "muted",
