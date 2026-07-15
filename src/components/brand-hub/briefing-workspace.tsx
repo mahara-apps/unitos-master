@@ -1521,6 +1521,10 @@ function StackedBrainLayout(props: StackedProps) {
             <VolumetriaTab form={form} setForm={setForm} />
           </BrainSection>
 
+          <BrainSection id="documentos" title="Documentos & Contexto IA">
+            <DocumentsTab brandId={brandId} clientId={clientId} />
+          </BrainSection>
+
           {appendSlot ? <div className="space-y-10 pt-4">{appendSlot}</div> : null}
         </div>
       </div>
