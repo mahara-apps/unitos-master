@@ -119,25 +119,25 @@ export function ContextSwitcher() {
     <>
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
         <PopoverTrigger asChild>
-          <Button variant="ghost" className="h-12 w-full justify-between px-2">
+          <Button variant="ghost" className="h-11 w-full justify-between px-2">
             <div className="flex items-center gap-2 min-w-0">
               {activeClient ? (
                 <CustomerAvatar
                   name={activeClient.name}
                   logoUrl={(activeClient as { logo_url?: string | null }).logo_url ?? null}
-                  className="h-8 w-8"
-                  textClassName="text-xs"
+                  className="h-7 w-7"
+                  textClassName="text-[11px]"
                 />
               ) : (
                 <div
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-white"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white shadow-sm"
                   style={{ background: activeBrand?.color ?? "linear-gradient(135deg,#8b5cf6,#6366f1)" }}
                 >
-                  <Sparkles className="h-4 w-4" />
+                  <Sparkles className="h-3.5 w-3.5" />
                 </div>
               )}
               <div className="flex flex-col text-left leading-tight min-w-0 group-data-[collapsible=icon]:hidden">
-                <span className="truncate text-sm font-semibold">
+                <span className="truncate text-sm font-semibold tracking-tight">
                   {activeClient?.name ?? activeBrand?.name ?? "Nenhum workspace"}
                 </span>
                 <span className="flex items-center gap-1 truncate text-[11px] text-muted-foreground">
