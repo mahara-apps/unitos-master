@@ -1410,6 +1410,56 @@ export type Database = {
           },
         ]
       }
+      message_templates: {
+        Row: {
+          body: string
+          brand_id: string
+          channel: string
+          created_at: string
+          event_key: string
+          id: string
+          is_active: boolean
+          subject: string | null
+          updated_at: string
+          updated_by: string | null
+          variables_used: string[]
+        }
+        Insert: {
+          body?: string
+          brand_id: string
+          channel: string
+          created_at?: string
+          event_key: string
+          id?: string
+          is_active?: boolean
+          subject?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          variables_used?: string[]
+        }
+        Update: {
+          body?: string
+          brand_id?: string
+          channel?: string
+          created_at?: string
+          event_key?: string
+          id?: string
+          is_active?: boolean
+          subject?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          variables_used?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_templates_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
