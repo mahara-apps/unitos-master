@@ -1,80 +1,63 @@
-# Portal do Cliente — white-label multi-abas
+## Diagnóstico
 
-Transformar `/portal/$token` (hoje um mock de um único post) num **portal completo do cliente** com as 6 abas das referências (Início · Aprovações · Calendário · Feed · Arquivos · Briefings), 100% escopado pelo `portal_tokens.token` já existente, e integrado ao fluxo de emissão/revogação que a agência já usa em `Dashboard` e `Settings › Time`.
+Consultei o banco e a causa raiz é clara — **não é o dashboard, é RLS bloqueando todos os `SELECT`**.
 
-## Escopo
+**Dados que existem no banco (via service role):**
+- 1 brand ("Pitada Digital", criada por Bruno), 1 cliente, 1 projeto, 30 posts, 12 tarefas, 71 eventos de atividade
+- Todos os posts estão em `stage='idea'` e agendados, 7 tarefas atrasadas, 1 concluída nos últimos 7d
 
-### 1. Camada pública (server functions sem auth, validadas por token)
+**O que a UI recebe:** zero. Porque:
 
-Novo arquivo `src/lib/portal-public.functions.ts` com uma função de resolução do token + funções por aba, todas chamando `supabaseAdmin` internamente e filtrando por `client_id` derivado do token. Cada uma valida: `token` existe, `revoked_at IS NULL`, `expires_at` no futuro (ou nulo) e grava `last_seen_at`.
+- Todas as policies de `posts`, `tasks`, `clients`, `projects`, `activity_events`, `brand_ai_usage`, `client_briefings` usam `is_brand_member(brand_id, auth.uid())`.
+- A tabela `brand_members` está **vazia**. O único usuário (Bruno) criou a brand mas nunca virou membro dela.
+- O trigger `trg_brands_add_owner` existe hoje, mas a brand atual foi criada antes/fora do fluxo que dispara o trigger — logo, ficou órfã.
+- Com `brand_members` vazio, o `useActiveContext` até resolve o `brandId` (via `brands` policy, que também usa `is_brand_member`, mas a brand aparece por outro caminho — provavelmente cache/RLS residual), mas todas as leituras subsequentes voltam vazias → dashboard mostra tudo zerado.
 
-- `resolvePortalTokenFn({ token })` → `{ clientId, brandId, client: { name, color, socials } }`
-- `listPortalPendingApprovalsFn({ token })` → posts com aprovação `pending` (join `post_approvals` + `posts` + `reference_media`)
-- `listPortalApprovalsFn({ token, status })` → todas / pendentes / aprovadas / ajustes
-- `listPortalCalendarFn({ token, month })` → posts agendados/publicados no mês
-- `listPortalFeedFn({ token })` → posts publicados/aprovados com `cover_url` (grade 3xN estilo Instagram)
-- `listPortalFilesFn({ token, search })` → arquivos de `brand_documents` + `reference_media` públicos do cliente
-- `listPortalBriefingsFn({ token })` → `client_briefing_tokens` ativos do cliente
-- `decidePortalApprovalFn({ token, postId, decision, note, identity })` → grava em `post_approvals` (approve/reject/adjust/comment) + `activity_events` + notifica agência
+Também confirmei que a função `is_super_admin()` existe (retorna `true` para `apitadadigital@gmail.com` e `jose@mahara.marketing`), mas **nenhuma policy nem o `is_brand_member` a consultam** — então super-admins também veem vazio.
 
-Reaproveita a lógica de `approval.functions.ts` (mesma tabela `post_approvals`) e o padrão de `briefing-tokens.functions.ts` para o handshake por token.
+## Correção proposta (uma migration, três camadas)
 
-### 2. Rota pública `/portal/$token` (refatoração completa)
+### 1. Backfill de `brand_members`
+Para toda brand existente cujo `created_by` não é membro, inserir a linha `owner`:
 
-Substituir `src/routes/portal.$token.tsx` por um shell white-label:
+```sql
+INSERT INTO public.brand_members (brand_id, user_id, role)
+SELECT b.id, b.created_by, 'owner'
+FROM public.brands b
+WHERE b.created_by IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM public.brand_members m
+    WHERE m.brand_id = b.id AND m.user_id = b.created_by
+  );
+```
 
-- **Sidebar fixa** (240px) colorida com `client.color` (fallback rosa/roxo conforme referência): avatar 2 letras, nome do cliente, 6 links de aba (Home, CheckSquare, Calendar, Grid3x3, Folder, ClipboardList do lucide).
-- **Conteúdo** com header título/subtítulo + ações à direita, seguindo os primitives do design system: `DashboardPageShell`, `DashboardPanelSurface`, `KpiCard`, `PanelEmptyState` (aplicando **tons pastel** dos KPIs conforme screenshots: âmbar/emerald/sky).
-- Estado do token guardado num contexto local (`PortalContext`) para não repetir prop drilling; abre modal de identificação uma única vez (nome obrigatório, salvo em `sessionStorage` por token).
+Isso destrava imediatamente o dashboard do Bruno (e de qualquer outro criador de brand que tenha ficado órfão).
 
-Sub-rotas via **abas internas** (sem rotas filhas — mantém `/portal/$token` como URL única, mais fácil para compartilhar; state controlado por `?tab=`):
+### 2. Bypass global para super-admins
+Reforçar `is_brand_member` para retornar `true` quando o usuário é super-admin, mantendo a assinatura atual (nenhuma policy precisa mudar):
 
-1. **Início** — 3 KPIs (Aguardando aprovação / Aprovadas no mês / Agendadas) + painel "Pendentes de aprovação" (lista dos posts com um clique abrindo o mesmo drawer de decisão que já existe hoje na página portal atual, com carrossel, zoom, aprovar/ajustar/rejeitar/comentar).
-2. **Aprovações** — barra de status pill (Todas · Pendentes · Aprovadas · Ajustes) + toggle grid/lista + botão refresh. Cards com miniatura, canal, data prevista.
-3. **Calendário** — mês/semana/dia reaproveitando o componente do `/calendar` da agência em modo read-only, filtrado por cliente.
-4. **Feed** — grid 3 colunas estilo Instagram, `cover_url` derivado (mesma lógica já implementada em `listBoardPostsFn`), placeholder "Aguardando publicações" quando vazio.
-5. **Arquivos** — busca por nome, lista `brand_documents` do cliente + refs de posts, download via signed URL.
-6. **Briefings** — cards com os briefings pendentes que o cliente pode responder, apontando para `/p/briefing/$token` (fluxo público que já existe).
+```sql
+CREATE OR REPLACE FUNCTION public.is_brand_member(_brand_id uuid, _user_id uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT
+    COALESCE((SELECT is_super_admin FROM public.user_profiles WHERE id = _user_id), false)
+    OR EXISTS (SELECT 1 FROM public.brand_members WHERE brand_id = _brand_id AND user_id = _user_id);
+$$;
+```
 
-### 3. Integração com o painel da agência
+Com isso, `apitadadigital@gmail.com` e `jose@mahara.marketing` passam a enxergar todas as brands e derivados (posts, tasks, projetos, activity, IA usage, briefings, clients, projects) sem precisar virar membro de cada workspace.
 
-O emissor/revogador **já existe** (`createPortalTokenFn` + `revokePortalTokenFromTeam`), usado em:
-- `src/routes/_authenticated/dashboard.tsx` (bloco "Acessos do cliente")
-- `src/routes/_authenticated/settings.team.tsx` ("Acessos do portal do cliente")
+### 3. Garantia futura no trigger
+O trigger `trg_brands_add_owner` já existe, mas hoje só cobre `INSERT`. Vou reafirmá-lo com `ON CONFLICT DO NOTHING` (já está) e garantir que dispare `AFTER INSERT`. Se estiver correto, não altero — apenas confirmo. Nenhuma nova brand ficará órfã.
 
-Ajustes mínimos nesses dois locais:
-- **Novo botão "Abrir portal"** ao lado de "Copiar link" que abre `/portal/$token` em nova aba.
-- **Indicador "Último acesso"** lendo `last_seen_at` (já persistido pelas novas funções públicas) — usa `formatDistanceToNow`.
-- **Aviso de expiração** (badge âmbar quando faltam <3 dias, vermelho quando expirado) reutilizando `Badge` do design system.
+## Escopo intencionalmente fora deste plano
 
-Quando o cliente decide um post via portal, `decidePortalApprovalFn` grava em `activity_events` + insere `notifications` para todos os membros ativos da brand — a agência vê no `NotificationsDrawer` que já existe.
+- Erro `Cannot read properties of undefined (reading '_nonReactive')` no `preloadRoute` — bug transiente do TanStack Router (preload de intent), não bloqueia dados.
+- Erro `cannot add postgres_changes callbacks after subscribe()` no `notifications-drawer.tsx:112` — bug real de ordem de chamada, mas independente dos dashboards. Marcar como próximo passo.
+- Dashboard do Cliente (`customer-dashboard.functions.ts`) e Analytics (`analytics.functions.ts`) usam as **mesmas policies**, então também destravam com o backfill + bypass — não precisam de mudança de código.
 
-### 4. Segurança
+## Verificação pós-fix
 
-- RLS em `portal_tokens` já bloqueia leitura por `anon`. As funções públicas usam `supabaseAdmin` (server-only) e nunca vazam `brand_id` cru para o cliente.
-- Nenhum campo de outros clientes é exposto — todos os filtros usam o `client_id` resolvido do token.
-- Token revogado ou expirado → função retorna 401 e a rota mostra tela "Link expirado — solicite um novo à agência".
-- `identity` do cliente (nome digitado no primeiro acesso) é anexado a cada decisão em `post_approvals.decided_by_name` (adicionar coluna se não existir — migração pequena).
-
-## Arquivos afetados
-
-**Novos**
-- `src/lib/portal-public.functions.ts`
-- `src/components/portal/portal-shell.tsx` (sidebar + header)
-- `src/components/portal/portal-context.tsx`
-- `src/components/portal/tabs/{home,approvals,calendar,feed,files,briefings}.tsx`
-- `src/components/portal/approval-drawer.tsx` (extrai o carrossel/decisão do arquivo atual)
-
-**Editados**
-- `src/routes/portal.$token.tsx` — vira shell + roteamento por `?tab=`
-- `src/routes/_authenticated/dashboard.tsx` — botão "Abrir portal" + last_seen
-- `src/routes/_authenticated/settings.team.tsx` — botão "Abrir portal" + last_seen + badge expiração
-
-**Migração**
-- Adicionar `decided_by_name text` em `post_approvals` (nullable, backfill vazio).
-
-## Fora do escopo (não faço agora)
-
-- Chat em tempo real cliente↔agência
-- Notificações por e-mail para o cliente
-- Personalização de tema por cliente além da cor primária
+1. Rodar `SELECT count(*) FROM brand_members;` — esperado ≥ 1.
+2. No app, recarregar `/dashboard` como Bruno — KPIs devem mostrar: 1 cliente, 11 tarefas abertas, 7 atrasadas, 30 posts (todos em "Ideia" no funil), 71 eventos no sparkline.
+3. Logar como super-admin (jose@ ou apitadadigital@) e trocar de workspace — deve ver todas as brands cadastradas.
