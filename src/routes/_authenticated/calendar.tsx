@@ -588,10 +588,6 @@ const FORMAT_KINDS: ChannelKind[] = [
   },
 ];
 
-function classifyFormat(raw: string | null | undefined): string | null {
-  return _classifyFormat(raw);
-}
-
 const FORMAT_TONES: Record<string, KpiTone> = {
   feed: "violet",
   stories: "sky",
@@ -599,7 +595,7 @@ const FORMAT_TONES: Record<string, KpiTone> = {
   carrossel: "amber",
 };
 
-function _classifyFormat(raw: string | null | undefined): string | null {
+function classifyFormat(raw: string | null | undefined): string | null {
   const k = (raw ?? "").toLowerCase().trim();
   if (!k) return null;
   if (k.includes("stor")) return "stories";
