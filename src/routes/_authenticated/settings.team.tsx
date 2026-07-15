@@ -74,7 +74,7 @@ function TeamSettingsPage() {
 
   if (!brandId) {
     return (
-      <div className="mx-auto max-w-6xl p-6">
+      <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
         <p className="text-sm text-muted-foreground">Selecione uma marca no menu lateral para gerenciar a equipe.</p>
       </div>
     );
@@ -87,7 +87,7 @@ function TeamSettingsPage() {
   const owners = members.filter((m) => m.role === "owner").length;
 
   return (
-    <div className="mx-auto max-w-6xl p-6 space-y-4">
+    <div className="w-full space-y-4 px-4 py-6 sm:px-6 lg:px-8">
       <Dialog open={open} onOpenChange={setOpen}>
         <InviteDialog
           brandId={brandId}
@@ -99,10 +99,10 @@ function TeamSettingsPage() {
       </Dialog>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <SettingsStatCard label="Membros" value={members.length} icon={<Users className="h-3.5 w-3.5" />} />
-        <SettingsStatCard label="Convites pendentes" value={pendingInvites.length} icon={<MailIcon className="h-3.5 w-3.5" />} className={pendingInvites.length > 0 ? "text-amber-500" : undefined} />
-        <SettingsStatCard label="Portais ativos" value={portalTokens.length} icon={<LinkIcon className="h-3.5 w-3.5" />} />
-        <SettingsStatCard label="Owners" value={owners} icon={<Crown className="h-3.5 w-3.5" />} className="text-emerald-500" />
+        <SettingsStatCard label="Membros" value={members.length} icon={<Users className="h-3.5 w-3.5" />} tone="sky" />
+        <SettingsStatCard label="Convites pendentes" value={pendingInvites.length} icon={<MailIcon className="h-3.5 w-3.5" />} tone={pendingInvites.length > 0 ? "amber" : "neutral"} />
+        <SettingsStatCard label="Portais ativos" value={portalTokens.length} icon={<LinkIcon className="h-3.5 w-3.5" />} tone="violet" />
+        <SettingsStatCard label="Owners" value={owners} icon={<Crown className="h-3.5 w-3.5" />} tone="emerald" />
       </div>
 
       <Card>
