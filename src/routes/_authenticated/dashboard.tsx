@@ -995,11 +995,21 @@ function ClientPortalCard({
                 <li key={t.id} className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background/40 px-2 py-1.5 text-xs">
                   <div className="min-w-0">
                     <div className="truncate font-medium">{t.label ?? "Link público"}</div>
-                    <div className="truncate font-mono text-[10px] text-muted-foreground">{url}</div>
+                    <div className="truncate font-mono text-[10px] text-muted-foreground">
+                      {url}
+                      {t.last_seen_at && ` · último acesso ${new Date(t.last_seen_at).toLocaleDateString()}`}
+                    </div>
                   </div>
-                  <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(url); toast.success("Link copiado."); }}>
-                    <Copy className="h-3 w-3" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <a href={url} target="_blank" rel="noreferrer">
+                      <Button size="sm" variant="ghost" title="Abrir portal">
+                        <ExternalLink className="h-3 w-3" />
+                      </Button>
+                    </a>
+                    <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(url); toast.success("Link copiado."); }}>
+                      <Copy className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </li>
               );
             })}
