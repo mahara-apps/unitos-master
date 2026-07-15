@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TemplateEditor } from "@/components/messaging/template-editor";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
   getConnections,
