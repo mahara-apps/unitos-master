@@ -263,6 +263,14 @@ function ConnectionsPage() {
     enabled: !!brandId,
   });
 
+  const getMsgKpisFn = useServerFn(getMessagingKpis);
+  const { data: msgKpis } = useQuery({
+    queryKey: ["messaging-kpis", brandId],
+    queryFn: () => getMsgKpisFn({ data: { brandId: brandId! } }),
+    enabled: !!brandId,
+    staleTime: 60_000,
+  });
+
   const invalidate = () => qc.invalidateQueries({ queryKey: ["connections", brandId] });
 
   type UpdateInput = {
