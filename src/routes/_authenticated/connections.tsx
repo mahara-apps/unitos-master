@@ -442,34 +442,7 @@ function ConnectionsPage() {
         {/* Tab: Canais */}
         <TabsContent value="channels" className="space-y-3">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <KpiCard
-            icon={<Radio className="h-4 w-4" />}
-            label="Canais conectados"
-            value={`${ch.connected} / ${ch.total}`}
-            sub={ch.connected === ch.total ? "Cobertura total" : "Faltam canais ativos"}
-            tone={chTone}
-          />
-          <KpiCard
-            icon={<Activity className="h-4 w-4" />}
-            label="Cobertura"
-            value={`${chCoverage}%`}
-            sub={`de ${ch.total} disponíveis`}
-            tone="violet"
-          />
-          <KpiCard
-            icon={<CheckCircle2 className="h-4 w-4" />}
-            label="Última conexão"
-            value={ch.latestRel}
-            sub={ch.latest?.def.name ?? "Nenhuma conexão"}
-            tone="sky"
-          />
-          <KpiCard
-            icon={<KeyRound className="h-4 w-4" />}
-            label="Pendentes"
-            value={ch.pending.length.toString()}
-            sub={pendingNames(ch.pending)}
-            tone={ch.pending.length > 0 ? "amber" : "emerald"}
-          />
+          <ChannelsKpiCards data={chKpis} />
         </div>
 
         <SectionHeader
