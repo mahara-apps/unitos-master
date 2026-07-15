@@ -224,8 +224,8 @@ const MESSAGING_CHANNELS: ChannelDef[] = [
     hint: "Instância self-hosted",
     icon: MessageCircle,
     tone: "text-emerald-500",
-    handleLabel: "Instância / URL",
-    handlePlaceholder: "https://evo.dominio.com · marca",
+    handleLabel: "Base URL da instância",
+    handlePlaceholder: "https://evo.dominio.com",
   },
   {
     id: "whatsapp_cloud",
