@@ -37,20 +37,12 @@ type Props = {
   onOpenBriefing?: () => void;
 };
 
-const STAGES = [
-  { key: "idea", label: "Ideia" },
-  { key: "production", label: "Produção" },
-  { key: "review", label: "Revisão" },
-  { key: "approved", label: "Aprovado" },
-  { key: "scheduled", label: "Agendado" },
-  { key: "published", label: "Publicado" },
-] as const;
-
-const STAGE_ACCENT: Record<(typeof STAGES)[number]["key"], string> = {
+const STAGE_FALLBACK_ACCENT: Record<string, string> = {
   idea: "bg-zinc-400 dark:bg-zinc-500",
   production: "bg-amber-500",
   review: "bg-orange-500",
   approved: "bg-cyan-500",
+  approval: "bg-cyan-500",
   scheduled: "bg-indigo-500",
   published: "bg-emerald-500",
 };
@@ -166,14 +158,17 @@ function DashboardReady({
               Pipeline de produção
             </div>
             <div className="mt-0.5 text-sm font-medium">
-              {data.pipeline.total} posts em 6 estágios
+              {data.pipeline.total} posts em {data.pipeline.stages.length} estágios
+              {data.pipeline.pipelineName ? (
+                <span className="ml-1 text-muted-foreground">· {data.pipeline.pipelineName}</span>
+              ) : null}
             </div>
           </div>
           <Badge variant="outline" className="font-mono text-[10px]">
             Ao vivo · Sync do Kanban
           </Badge>
         </div>
-        <PipelineFunnel counts={data.pipeline.stages} total={data.pipeline.total} />
+        <PipelineFunnel stages={data.pipeline.stages} total={data.pipeline.total} />
       </div>
 
       {/* Bottom split layout */}
