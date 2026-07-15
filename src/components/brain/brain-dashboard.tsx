@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Activity, Brain, Sparkles, Zap } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { brainStatsFn } from "@/lib/brain-stats.functions";
@@ -28,26 +28,41 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
 
   return (
     <div className="space-y-6 p-6">
-      <NeuralNetworkCanvas weights={weights} lastEvent={lastEvent} />
+      <Card>
+        <CardHeader className="flex flex-row items-start justify-between gap-4 space-y-0">
+          <div>
+            <CardTitle className="text-base">Rede neural</CardTitle>
+            <CardDescription>
+              Cada evento do sistema alimenta um nó — clusters crescem conforme a atividade.
+            </CardDescription>
+          </div>
+          <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
+            {brandId ? "Marca" : "Agência"}
+          </Badge>
+        </CardHeader>
+        <CardContent>
+          <NeuralNetworkCanvas weights={weights} lastEvent={lastEvent} />
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Kpi
-          icon={<Zap className="h-4 w-4" />}
+          icon={<Zap className="h-4 w-4 text-primary" />}
           label="Eventos (24h)"
           value={stats.isLoading ? undefined : (stats.data?.events24h ?? 0)}
         />
         <Kpi
-          icon={<Activity className="h-4 w-4" />}
+          icon={<Activity className="h-4 w-4" style={{ color: "var(--chart-2)" }} />}
           label="Total de eventos"
           value={stats.isLoading ? undefined : (stats.data?.totalEvents ?? 0)}
         />
         <Kpi
-          icon={<Sparkles className="h-4 w-4" />}
+          icon={<Sparkles className="h-4 w-4" style={{ color: "var(--chart-4)" }} />}
           label="Insights ativos"
           value={stats.isLoading ? undefined : (stats.data?.activeInsights ?? 0)}
         />
         <Kpi
-          icon={<Brain className="h-4 w-4" />}
+          icon={<Brain className="h-4 w-4 text-muted-foreground" />}
           label="Alimentando a IA"
           value={stats.isLoading ? undefined : (stats.data?.totalEvents ?? 0)}
           hint={brandId ? "eventos desta marca" : "eventos da agência"}

@@ -1,14 +1,39 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { BrainStreamEvent } from "@/hooks/use-brain-stream";
 
 type Category = "content" | "media" | "messaging" | "insight";
 
-const COLORS: Record<Category, string> = {
-  content: "#C8FF00",
-  media: "#3B82F6",
-  messaging: "#F5F5F5",
-  insight: "#A855F7",
+type Palette = Record<Category, string> & {
+  core: string;
 };
+
+function readPalette(): Palette {
+  if (typeof window === "undefined") {
+    return {
+      content: "oklch(0.546 0.221 262.881)",
+      media: "oklch(0.6 0.118 184.704)",
+      messaging: "oklch(0.552 0.014 285.938)",
+      insight: "oklch(0.828 0.189 84.429)",
+      core: "oklch(0.546 0.221 262.881)",
+    };
+  }
+  const cs = getComputedStyle(document.documentElement);
+  const read = (name: string, fallback: string) => {
+    const v = cs.getPropertyValue(name).trim();
+    return v ? v : fallback;
+  };
+  return {
+    content: read("--primary", "oklch(0.546 0.221 262.881)"),
+    media: read("--chart-2", "oklch(0.6 0.118 184.704)"),
+    messaging: read("--muted-foreground", "oklch(0.552 0.014 285.938)"),
+    insight: read("--chart-4", "oklch(0.828 0.189 84.429)"),
+    core: read("--ring", "oklch(0.546 0.221 262.881)"),
+  };
+}
+
+function withAlpha(color: string, alphaPct: number): string {
+  return `color-mix(in oklab, ${color} ${alphaPct}%, transparent)`;
+}
 
 type Node = {
   id: string;
@@ -18,7 +43,7 @@ type Node = {
   vx: number;
   vy: number;
   mass: number;
-  pulse: number; // 0..1
+  pulse: number;
   isCore?: boolean;
 };
 
@@ -37,8 +62,7 @@ export type NeuralNetworkCanvasProps = {
 };
 
 /**
- * Live neural-network canvas — soft physics, category clusters, particles
- * flowing in from the edge on each new Brain event.
+ * Neural network — themed with system tokens, subtle halos, no dark backdrop.
  */
 export function NeuralNetworkCanvas({ weights, lastEvent, className }: NeuralNetworkCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -47,8 +71,18 @@ export function NeuralNetworkCanvas({ weights, lastEvent, className }: NeuralNet
   const particlesRef = useRef<Particle[]>([]);
   const rafRef = useRef<number | null>(null);
   const sizeRef = useRef({ w: 0, h: 0 });
+  const [palette, setPalette] = useState<Palette>(() => readPalette());
+  const paletteRef = useRef<Palette>(palette);
+  paletteRef.current = palette;
 
-  // Init nodes once.
+  useEffect(() => {
+    setPalette(readPalette());
+    const target = document.documentElement;
+    const obs = new MutationObserver(() => setPalette(readPalette()));
+    obs.observe(target, { attributes: true, attributeFilter: ["class", "data-theme"] });
+    return () => obs.disconnect();
+  }, []);
+
   useEffect(() => {
     const cats: Category[] = ["content", "media", "messaging", "insight"];
     const perCat = 14;
@@ -60,8 +94,8 @@ export function NeuralNetworkCanvas({ weights, lastEvent, className }: NeuralNet
       y: 0.5,
       vx: 0,
       vy: 0,
-      mass: 22,
-      pulse: 0.4,
+      mass: 14,
+      pulse: 0.3,
       isCore: true,
     });
     cats.forEach((cat, ci) => {
@@ -76,30 +110,30 @@ export function NeuralNetworkCanvas({ weights, lastEvent, className }: NeuralNet
           y: 0.5 + Math.sin(a) * r * 0.65,
           vx: 0,
           vy: 0,
-          mass: 4 + Math.random() * 3,
-          pulse: Math.random() * 0.5,
+          mass: 2.5 + Math.random() * 2,
+          pulse: Math.random() * 0.4,
         });
       }
     });
     nodesRef.current = list;
   }, []);
 
-  // React to weights → adjust node mass by category proportion.
   useEffect(() => {
     const total = Math.max(1, weights.content + weights.media + weights.messaging + weights.insight);
     for (const n of nodesRef.current) {
       if (n.isCore) continue;
       const share = weights[n.category] / total;
-      n.mass = 3 + share * 40;
+      n.mass = 2.5 + share * 18;
     }
   }, [weights]);
 
-  // React to realtime event → spawn particle.
   useEffect(() => {
     if (!lastEvent) return;
     const { w, h } = sizeRef.current;
     if (!w || !h) return;
-    const candidates = nodesRef.current.filter((n) => n.category === lastEvent.category && !n.isCore);
+    const candidates = nodesRef.current.filter(
+      (n) => n.category === lastEvent.category && !n.isCore,
+    );
     const target = candidates[Math.floor(Math.random() * candidates.length)];
     if (!target) return;
     const edge = Math.floor(Math.random() * 4);
@@ -118,20 +152,18 @@ export function NeuralNetworkCanvas({ weights, lastEvent, className }: NeuralNet
       fx = 0;
       fy = Math.random() * h;
     }
-    // Cap simultaneous particles.
     if (particlesRef.current.length < 40) {
       particlesRef.current.push({
         fromX: fx,
         fromY: fy,
         toId: target.id,
         t: 0,
-        color: COLORS[lastEvent.category],
+        color: paletteRef.current[lastEvent.category],
       });
     }
-    target.pulse = Math.min(1, target.pulse + 0.6);
+    target.pulse = Math.min(1, target.pulse + 0.5);
   }, [lastEvent]);
 
-  // Resize observer.
   useEffect(() => {
     const wrap = wrapRef.current;
     const canvas = canvasRef.current;
@@ -151,7 +183,6 @@ export function NeuralNetworkCanvas({ weights, lastEvent, className }: NeuralNet
     return () => ro.disconnect();
   }, []);
 
-  // Animation loop.
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -162,13 +193,11 @@ export function NeuralNetworkCanvas({ weights, lastEvent, className }: NeuralNet
     const step = () => {
       if (!running) return;
       const { w, h } = sizeRef.current;
+      const p = paletteRef.current;
       if (w && h) {
-        // Fade previous frame — cheap trailing glow.
-        ctx.fillStyle = "rgba(8,8,8,0.35)";
-        ctx.fillRect(0, 0, w, h);
+        ctx.clearRect(0, 0, w, h);
 
         const nodes = nodesRef.current;
-        // Soft physics: attraction to base position, mild jitter.
         for (const n of nodes) {
           if (n.isCore) continue;
           n.vx += (Math.random() - 0.5) * 0.02;
@@ -180,7 +209,6 @@ export function NeuralNetworkCanvas({ weights, lastEvent, className }: NeuralNet
           n.pulse *= 0.95;
         }
 
-        // Faint links between same-category neighbors.
         ctx.lineWidth = 1;
         for (let i = 0; i < nodes.length; i++) {
           for (let j = i + 1; j < nodes.length; j++) {
@@ -189,7 +217,7 @@ export function NeuralNetworkCanvas({ weights, lastEvent, className }: NeuralNet
             const dy = (nodes[i].y - nodes[j].y) * h;
             const d = Math.hypot(dx, dy);
             if (d < 110) {
-              ctx.strokeStyle = `${COLORS[nodes[i].category]}22`;
+              ctx.strokeStyle = withAlpha(p[nodes[i].category], 18);
               ctx.beginPath();
               ctx.moveTo(nodes[i].x * w, nodes[i].y * h);
               ctx.lineTo(nodes[j].x * w, nodes[j].y * h);
@@ -198,48 +226,48 @@ export function NeuralNetworkCanvas({ weights, lastEvent, className }: NeuralNet
           }
         }
 
-        // Draw nodes.
         for (const n of nodes) {
           const cx = n.x * w;
           const cy = n.y * h;
-          const r = n.mass + n.pulse * 6;
-          const color = COLORS[n.category];
+          const r = n.mass + n.pulse * 4;
+          const color = n.isCore ? p.core : p[n.category];
+          const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 1.8);
+          halo.addColorStop(0, withAlpha(color, 30));
+          halo.addColorStop(1, withAlpha(color, 0));
+          ctx.fillStyle = halo;
           ctx.beginPath();
-          const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r * 2.5);
-          g.addColorStop(0, color);
-          g.addColorStop(0.4, `${color}88`);
-          g.addColorStop(1, `${color}00`);
-          ctx.fillStyle = g;
-          ctx.arc(cx, cy, r * 2.5, 0, Math.PI * 2);
+          ctx.arc(cx, cy, r * 1.8, 0, Math.PI * 2);
           ctx.fill();
+          ctx.fillStyle = color;
           ctx.beginPath();
-          ctx.fillStyle = n.isCore ? "#F5F5F5" : color;
-          ctx.arc(cx, cy, Math.max(2, r * 0.55), 0, Math.PI * 2);
+          ctx.arc(cx, cy, Math.max(2, r * 0.6), 0, Math.PI * 2);
           ctx.fill();
+          if (n.isCore) {
+            ctx.strokeStyle = withAlpha(color, 55);
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r * 1.1, 0, Math.PI * 2);
+            ctx.stroke();
+          }
         }
 
-        // Particles.
         const alive: Particle[] = [];
-        for (const p of particlesRef.current) {
-          p.t += 1 / 60; // ~1s to reach
-          const target = nodesRef.current.find((n) => n.id === p.toId);
-          if (!target || p.t >= 1) continue;
+        for (const part of particlesRef.current) {
+          part.t += 1 / 60;
+          const target = nodesRef.current.find((n) => n.id === part.toId);
+          if (!target || part.t >= 1) continue;
           const tx = target.x * w;
           const ty = target.y * h;
-          const mx = (p.fromX + tx) / 2 + (ty - p.fromY) * 0.15;
-          const my = (p.fromY + ty) / 2 - (tx - p.fromX) * 0.15;
-          // Quadratic bezier
-          const it = 1 - p.t;
-          const x = it * it * p.fromX + 2 * it * p.t * mx + p.t * p.t * tx;
-          const y = it * it * p.fromY + 2 * it * p.t * my + p.t * p.t * ty;
+          const mx = (part.fromX + tx) / 2 + (ty - part.fromY) * 0.15;
+          const my = (part.fromY + ty) / 2 - (tx - part.fromX) * 0.15;
+          const it = 1 - part.t;
+          const x = it * it * part.fromX + 2 * it * part.t * mx + part.t * part.t * tx;
+          const y = it * it * part.fromY + 2 * it * part.t * my + part.t * part.t * ty;
           ctx.beginPath();
-          ctx.fillStyle = p.color;
-          ctx.shadowColor = p.color;
-          ctx.shadowBlur = 12;
-          ctx.arc(x, y, 2.2, 0, Math.PI * 2);
+          ctx.fillStyle = part.color;
+          ctx.arc(x, y, 2, 0, Math.PI * 2);
           ctx.fill();
-          ctx.shadowBlur = 0;
-          alive.push(p);
+          alive.push(part);
         }
         particlesRef.current = alive;
       }
@@ -255,15 +283,19 @@ export function NeuralNetworkCanvas({ weights, lastEvent, className }: NeuralNet
   return (
     <div
       ref={wrapRef}
-      className={`relative w-full overflow-hidden rounded-xl border border-border/40 bg-[#080808] ${className ?? ""}`}
-      style={{ height: 480 }}
+      className={`relative w-full overflow-hidden rounded-lg border border-border/60 bg-muted/30 ${className ?? ""}`}
+      style={{
+        height: 460,
+        backgroundImage:
+          "radial-gradient(ellipse at center, color-mix(in oklab, var(--muted) 70%, transparent), transparent 70%)",
+      }}
     >
       <canvas ref={canvasRef} className="block h-full w-full" />
-      <div className="pointer-events-none absolute left-4 top-4 flex flex-wrap gap-3 text-[10px] uppercase tracking-wider text-white/60">
-        <Legend color={COLORS.content} label="Conteúdo" />
-        <Legend color={COLORS.media} label="Mídia paga" />
-        <Legend color={COLORS.messaging} label="Mensageria" />
-        <Legend color={COLORS.insight} label="Insights" />
+      <div className="pointer-events-none absolute bottom-3 left-4 flex flex-wrap gap-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        <Legend color={palette.content} label="Conteúdo" />
+        <Legend color={palette.media} label="Mídia paga" />
+        <Legend color={palette.messaging} label="Mensageria" />
+        <Legend color={palette.insight} label="Insights" />
       </div>
     </div>
   );
@@ -273,8 +305,8 @@ function Legend({ color, label }: { color: string; label: string }) {
   return (
     <div className="flex items-center gap-1.5">
       <span
-        className="h-2 w-2 rounded-full"
-        style={{ background: color, boxShadow: `0 0 8px ${color}` }}
+        className="h-2 w-2 rounded-full ring-1 ring-border/60"
+        style={{ background: color }}
       />
       {label}
     </div>
