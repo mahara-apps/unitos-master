@@ -255,26 +255,3 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
     </ScrollArea>
   );
 }
-
-function ProductionPanel({ brandId, clientId }: { brandId: string; clientId: string }) {
-  void brandId; void clientId;
-  const stages = ["Ideia", "Produção", "Revisão", "Aprovado", "Agendado", "Publicado"] as const;
-  return (
-    <div className="flex gap-3 overflow-x-auto pb-4">
-      {stages.map((s) => (
-        <div
-          key={s}
-          className="flex h-[60vh] w-72 shrink-0 flex-col rounded-lg border border-border/60 bg-card/40"
-        >
-          <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
-            <div className="text-xs font-medium">{s}</div>
-            <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">0</span>
-          </div>
-          <div className="flex flex-1 items-center justify-center p-6 text-[11px] text-muted-foreground">
-            Nenhum post neste estágio.
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
