@@ -81,6 +81,13 @@ import {
 import { listBrandAssigneesFn } from "@/lib/content.functions";
 import { listClients } from "@/lib/workspace.functions";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  DashboardPageShell,
+  DashboardPanelSurface,
+  DashboardCountBadge,
+} from "@/components/ui/dashboard-primitives";
+import { KpiCard, type KpiTone } from "@/components/ui/kpi-card";
+import { PanelEmptyState } from "@/components/ui/panel-card";
 
 export const Route = createFileRoute("/_authenticated/tasks")({
   component: TasksPage,
@@ -243,20 +250,24 @@ function TasksPage() {
 
   if (!brandId) {
     return (
-      <div className="p-8 text-sm text-muted-foreground">
-        Selecione uma workspace para ver as tarefas.
-      </div>
+      <DashboardPageShell>
+        <PanelEmptyState
+          icon={CheckCircle2}
+          title="Selecione uma workspace"
+          description="Escolha uma workspace no seletor lateral para carregar as tarefas."
+        />
+      </DashboardPageShell>
     );
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-4">
+    <DashboardPageShell>
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <KpiCard label="Total" value={kpis.total} icon={Circle} tone="text-slate-500" />
-        <KpiCard label="Minhas abertas" value={kpis.mine} icon={UserIcon} tone="text-blue-500" />
-        <KpiCard label="Atrasadas" value={kpis.overdue} icon={AlertTriangle} tone="text-red-500" />
-        <KpiCard label="Concluídas" value={kpis.done} icon={CheckCircle2} tone="text-emerald-500" />
+        <KpiCard label="Total" value={kpis.total} icon={<Circle className="h-4 w-4" />} tone="neutral" />
+        <KpiCard label="Minhas abertas" value={kpis.mine} icon={<UserIcon className="h-4 w-4" />} tone="sky" />
+        <KpiCard label="Atrasadas" value={kpis.overdue} icon={<AlertTriangle className="h-4 w-4" />} tone="rose" />
+        <KpiCard label="Concluídas" value={kpis.done} icon={<CheckCircle2 className="h-4 w-4" />} tone="emerald" />
       </div>
 
       {/* Toolbar */}
@@ -267,11 +278,11 @@ function TasksPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por título, responsável, projeto..."
-            className="pl-9"
+            className="h-9 pl-9"
           />
         </div>
         <Tabs value={view} onValueChange={(v) => setView(v as typeof view)}>
-          <TabsList>
+          <TabsList className="h-9">
             <TabsTrigger value="all">Todas</TabsTrigger>
             <TabsTrigger value="mine">Minhas</TabsTrigger>
             <TabsTrigger value="overdue">Atrasadas</TabsTrigger>
@@ -281,11 +292,20 @@ function TasksPage() {
 
       {/* Groups */}
       {tasksQ.isLoading ? (
-        <div className="flex h-40 items-center justify-center text-muted-foreground">
+        <DashboardPanelSurface className="flex h-40 items-center justify-center text-sm text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando tarefas...
-        </div>
+        </DashboardPanelSurface>
       ) : filtered.length === 0 ? (
-        <EmptyState onCreate={() => setCreateOpen(true)} />
+        <PanelEmptyState
+          icon={CheckCircle2}
+          title="Nenhuma tarefa por aqui"
+          description="Crie a primeira tarefa para começar a organizar o trabalho do time."
+          action={
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus className="mr-1.5 h-4 w-4" /> Nova tarefa
+            </Button>
+          }
+        />
       ) : (
         <div className="space-y-5">
           {TASK_STATUSES.map((status) => {
@@ -293,15 +313,15 @@ function TasksPage() {
             if (list.length === 0) return null;
             const meta = STATUS_META[status];
             return (
-              <section key={status} className="rounded-lg border bg-card">
-                <header className="flex items-center gap-2 border-b px-3 py-2">
+              <DashboardPanelSurface key={status}>
+                <header className="flex items-center gap-2 border-b border-border/60 bg-background/40 px-4 py-2.5">
                   <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
-                  <h2 className="text-sm font-semibold">{meta.label}</h2>
-                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
-                    {list.length}
-                  </Badge>
+                  <h2 className="text-[11px] font-mono uppercase tracking-widest text-foreground">
+                    {meta.label}
+                  </h2>
+                  <DashboardCountBadge className="ml-1">{list.length}</DashboardCountBadge>
                 </header>
-                <div className="divide-y">
+                <div className="divide-y divide-border/60">
                   {list.map((task) => (
                     <TaskRowItem
                       key={task.id}
@@ -311,7 +331,7 @@ function TasksPage() {
                     />
                   ))}
                 </div>
-              </section>
+              </DashboardPanelSurface>
             );
           })}
         </div>
@@ -339,46 +359,7 @@ function TasksPage() {
           onChanged={() => qc.invalidateQueries({ queryKey: invalidateKey })}
         />
       ) : null}
-    </div>
-  );
-}
-
-function KpiCard({
-  label,
-  value,
-  icon: Icon,
-  tone,
-}: {
-  label: string;
-  value: number;
-  icon: typeof Circle;
-  tone: string;
-}) {
-  return (
-    <div className="rounded-lg border bg-card p-3">
-      <div className="flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">{label}</span>
-        <Icon className={cn("h-4 w-4", tone)} />
-      </div>
-      <div className="mt-1 text-2xl font-semibold tracking-tight">{value}</div>
-    </div>
-  );
-}
-
-function EmptyState({ onCreate }: { onCreate: () => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed p-10 text-center">
-      <CheckCircle2 className="h-8 w-8 text-muted-foreground" />
-      <div>
-        <p className="text-sm font-medium">Nenhuma tarefa por aqui</p>
-        <p className="text-xs text-muted-foreground">
-          Crie a primeira tarefa para começar a organizar o trabalho do time.
-        </p>
-      </div>
-      <Button size="sm" onClick={onCreate}>
-        <Plus className="mr-1.5 h-4 w-4" /> Nova tarefa
-      </Button>
-    </div>
+    </DashboardPageShell>
   );
 }
 
