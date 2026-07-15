@@ -84,24 +84,24 @@ export function AppSidebar() {
     .filter((g) => g.items.length > 0);
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="gap-2 border-b border-sidebar-border/60 pb-2">
-        <div className="flex h-8 items-center justify-between gap-2 px-1 group-data-[collapsible=icon]:px-0">
-          <Link
-            to="/dashboard"
-            className="flex min-w-0 items-center gap-2 group-data-[collapsible=icon]:hidden"
-          >
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-indigo-600 text-white shadow-sm">
-              <Sparkles className="h-3.5 w-3.5" />
-            </span>
-            <span className="truncate text-sm font-semibold tracking-tight">
-              NexusFlow
-            </span>
-          </Link>
-          <SidebarTrigger className="h-7 w-7 shrink-0 text-muted-foreground group-data-[collapsible=icon]:mx-auto" />
-        </div>
-        <ContextSwitcher />
+      <SidebarHeader className="h-14 flex-row items-center justify-between gap-2 border-b border-sidebar-border/60 px-3 py-0 group-data-[collapsible=icon]:px-2">
+        <Link
+          to="/dashboard"
+          className="flex min-w-0 items-center gap-2 group-data-[collapsible=icon]:hidden"
+        >
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-indigo-600 text-white shadow-sm">
+            <Sparkles className="h-3.5 w-3.5" />
+          </span>
+          <span className="truncate text-sm font-semibold tracking-tight">
+            NexusFlow
+          </span>
+        </Link>
+        <SidebarTrigger className="h-7 w-7 shrink-0 text-muted-foreground group-data-[collapsible=icon]:mx-auto" />
       </SidebarHeader>
       <SidebarContent>
+        <div className="px-2 pt-2">
+          <ContextSwitcher />
+        </div>
         {visibleGroups.map((g) => (
           <SidebarGroup key={g.label}>
             <SidebarGroupLabel>{g.label}</SidebarGroupLabel>
