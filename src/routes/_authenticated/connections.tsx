@@ -520,6 +520,8 @@ function ConnectionsPage() {
             />
           ))}
         </div>
+
+        {brandId && <TemplateEditor brandId={brandId} />}
         </TabsContent>
       </Tabs>
     </DashboardPageShell>
