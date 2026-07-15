@@ -717,23 +717,76 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
     .sort((a, b) => new Date(a.when).getTime() - new Date(b.when).getTime())
     .slice(0, 12);
 
-  const agencyStageIds = Array.from(
-    new Set(posts.map((p) => p.stage_id).filter((v): v is string => !!v)),
-  );
-  const agencyStageKeyById = new Map<string, string>();
-  if (agencyStageIds.length > 0) {
-    const stagesRes = await ignore(
-      supabase.from("content_pipeline_stages").select("id,key").in("id", agencyStageIds),
-    );
-    for (const s of (stagesRes?.data ?? []) as Array<{ id: string; key: string }>) {
-      agencyStageKeyById.set(s.id, s.key);
+  // Dynamic pipeline stages: union of default pipeline stages across the brand's clients.
+  const clientIds = clients.map((c) => c.id);
+  const defaultPipelinesRes = clientIds.length
+    ? await ignore(
+        supabase
+          .from("content_pipelines")
+          .select("id,client_id")
+          .in("client_id", clientIds)
+          .eq("is_default", true),
+      )
+    : null;
+  const defaultPipelines = (defaultPipelinesRes?.data ?? []) as Array<{
+    id: string;
+    client_id: string;
+  }>;
+  const pipelineIds = defaultPipelines.map((p) => p.id);
+  const stagesRes = pipelineIds.length
+    ? await ignore(
+        supabase
+          .from("content_pipeline_stages")
+          .select("id,key,label,color,position,pipeline_id")
+          .in("pipeline_id", pipelineIds)
+          .order("position", { ascending: true }),
+      )
+    : null;
+  const stageRows = (stagesRes?.data ?? []) as Array<{
+    id: string;
+    key: string;
+    label: string;
+    color: string | null;
+    position: number;
+    pipeline_id: string;
+  }>;
+  const stageById = new Map(stageRows.map((s) => [s.id, s]));
+  // Union by canonical key (lowercased) — merges identical stages across pipelines.
+  const unionByKey = new Map<
+    string,
+    { key: string; label: string; color: string | null; position: number; count: number }
+  >();
+  for (const s of stageRows) {
+    const k = s.key.toLowerCase();
+    const prev = unionByKey.get(k);
+    if (!prev) {
+      unionByKey.set(k, {
+        key: k,
+        label: s.label,
+        color: s.color,
+        position: s.position,
+        count: 0,
+      });
+    } else if (s.position < prev.position) {
+      prev.position = s.position;
     }
   }
   const postsByStage: Record<string, number> = {};
   for (const p of posts) {
-    const key = (p.stage_id && agencyStageKeyById.get(p.stage_id)) || p.stage || "idea";
+    let key: string | null = null;
+    if (p.stage_id) {
+      const row = stageById.get(p.stage_id);
+      if (row) key = row.key.toLowerCase();
+    }
+    if (!key && p.stage) key = String(p.stage).toLowerCase();
+    if (!key) continue;
     postsByStage[key] = (postsByStage[key] ?? 0) + 1;
+    const entry = unionByKey.get(key);
+    if (entry) entry.count += 1;
   }
+  const pipelineStages = Array.from(unionByKey.values()).sort(
+    (a, b) => a.position - b.position,
+  );
 
   const publishTrend14d = Array.from({ length: 14 }, (_, i) => {
     const start = now - (13 - i) * 86_400_000;
