@@ -3,6 +3,36 @@ import { createStart, createMiddleware } from "@tanstack/react-start";
 import { renderErrorPage } from "./lib/error-page";
 import { supabase } from "@/integrations/supabase/client";
 
+const AUTH_ERROR_RE = /Unauthorized|Invalid token|No authorization header/i;
+
+function getSafeCurrentPath() {
+  if (typeof window === "undefined") return "/dashboard";
+  const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  if (!current.startsWith("/") || current.startsWith("//")) return "/dashboard";
+  if (/^\/(auth|login)(\/|$)/.test(window.location.pathname)) return "/dashboard";
+  return current;
+}
+
+async function clearInvalidSession() {
+  if (typeof window !== "undefined") {
+    // Clear storage first. If the server rejects the stale token, Supabase's
+    // logout request can itself fail; the browser must not keep rehydrating it.
+    for (let i = window.localStorage.length - 1; i >= 0; i -= 1) {
+      const key = window.localStorage.key(i);
+      if (key === "supabase.auth.token" || key?.startsWith("sb-")) {
+        window.localStorage.removeItem(key);
+      }
+    }
+  }
+  void supabase.auth.signOut().catch(() => null);
+}
+
+function redirectToLoginWithoutThrowing() {
+  if (typeof window === "undefined") return;
+  const next = getSafeCurrentPath();
+  window.location.replace(`/login?next=${encodeURIComponent(next)}`);
+}
+
 // Client middleware that attaches the Supabase bearer token to every server
 // function RPC. Unlike the generated `attachSupabaseAuth`, this one proactively
 // refreshes an expired/near-expiry session so long-lived tabs don't start
@@ -10,7 +40,7 @@ import { supabase } from "@/integrations/supabase/client";
 // access token silently expires.
 const attachSupabaseAuth = createMiddleware({ type: "function" }).client(
   async ({ next }) => {
-    let { data } = await supabase.auth.getSession();
+    let { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
     let token = data.session?.access_token;
     const expiresAt = data.session?.expires_at;
     const nearExpiry = expiresAt ? expiresAt * 1000 - Date.now() < 60_000 : false;
@@ -22,34 +52,26 @@ const attachSupabaseAuth = createMiddleware({ type: "function" }).client(
       // inválido — o servidor responderia "Unauthorized: Invalid token".
       token = refreshedToken ?? (expired ? undefined : token);
       if (!refreshedToken && expired) {
-        await supabase.auth.signOut().catch(() => null);
+        await clearInvalidSession();
       }
     }
-    if (!token) {
-      // Sessão sumiu depois do mount (expirou/foi invalidada). Não faz sentido
-      // disparar o RPC sem Authorization — force o fluxo de re-login.
-      if (typeof window !== "undefined") {
-        const here = window.location.pathname + window.location.search;
-        // Evita loop se já estivermos em /auth ou /login.
-        if (!/^\/(auth|login)(\/|$)/.test(window.location.pathname)) {
-          window.location.replace(`/login?next=${encodeURIComponent(here)}`);
-        }
-      }
-      throw new Error("Sessão expirada. Redirecionando para login…");
-    }
+
+    // Global middleware must be best-effort: public server functions should
+    // still work without a session. Protected functions will be rejected by
+    // requireSupabaseAuth and handled below.
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
     try {
-      return await next({
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      return await next({ headers });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       // Token rejeitado pelo servidor (ex.: sessão de outro projeto no
       // localStorage, token revogado). Limpa e força re-login.
-      if (/Unauthorized|Invalid token/i.test(msg)) {
-        await supabase.auth.signOut().catch(() => null);
-        if (typeof window !== "undefined" && !/^\/(auth|login)(\/|$)/.test(window.location.pathname)) {
-          const here = window.location.pathname + window.location.search;
-          window.location.replace(`/login?next=${encodeURIComponent(here)}`);
+      if (AUTH_ERROR_RE.test(msg)) {
+        await clearInvalidSession();
+        redirectToLoginWithoutThrowing();
+        if (typeof window !== "undefined") {
+          return await new Promise<never>(() => undefined);
         }
       }
       throw err;
