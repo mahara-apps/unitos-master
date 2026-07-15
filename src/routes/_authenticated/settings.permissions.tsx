@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Fragment } from "react";
 import { Check, Crown, Layers, Minus, Plus, ShieldCheck, Users } from "lucide-react";
 import { usePageHeader } from "@/hooks/use-page-header";
 
@@ -180,8 +181,8 @@ function PermissionsPage() {
                 </thead>
                 <tbody>
                   {GROUPS.map((g) => (
-                    <>
-                      <tr key={`h-${g.id}`} className="bg-muted/20">
+                    <Fragment key={g.id}>
+                      <tr className="bg-muted/20">
                         <td colSpan={ROLES.length + 1} className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                           {g.label}
                         </td>
@@ -206,7 +207,7 @@ function PermissionsPage() {
                           })}
                         </tr>
                       ))}
-                    </>
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
