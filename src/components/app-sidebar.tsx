@@ -69,7 +69,6 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { title: "Integrações", url: "/connections", icon: Plug },
       { title: "Agentes IA", url: "/agents", icon: Bot },
-      { title: "Equipe", url: "/settings/team", icon: UserPlus },
       { title: "Notificações", url: "/notifications", icon: Bell },
       { title: "Logs do sistema", url: "/settings/logs", icon: ScrollText },
       { title: "Configurações", url: "/settings", icon: SettingsIcon },
