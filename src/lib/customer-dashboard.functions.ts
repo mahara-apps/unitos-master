@@ -106,7 +106,6 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
       const resolved = (p.stage_id ? stageKeyById.get(p.stage_id as string) : null) ?? (p.stage as string | null) ?? "idea";
       const s = resolved as (typeof stages)[number];
       if (s in stageCounts) stageCounts[s] += 1;
-      else stageCounts.idea += 1;
     }
 
     const approvalRows = (approvalData ?? []) as Array<{ status: string }>;
