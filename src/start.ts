@@ -59,7 +59,7 @@ const attachSupabaseAuth = createMiddleware({ type: "function" }).client(
     // Global middleware must be best-effort: public server functions should
     // still work without a session. Protected functions will be rejected by
     // requireSupabaseAuth and handled below.
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
     try {
       return await next({ headers });

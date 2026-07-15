@@ -1,5 +1,4 @@
-import { createFileRoute, Outlet, useRouterState, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, Outlet, redirect, useRouterState } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -33,60 +32,20 @@ const fallbackTitles: Record<string, string> = {
 };
 
 export const Route = createFileRoute("/_authenticated")({
+  ssr: false,
+  beforeLoad: async ({ location }) => {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) {
+      await supabase.auth.signOut().catch(() => null);
+      const next = location.href.startsWith("/") && !location.href.startsWith("/login") ? location.href : "/dashboard";
+      throw redirect({ to: "/login", search: { next } });
+    }
+    return { user: data.user };
+  },
   component: AppShell,
 });
 
 function AppShell() {
-  const [status, setStatus] = useState<"checking" | "authenticated" | "unauthenticated">("checking");
-  const navigate = useNavigate();
-  const href = useRouterState({ select: (s) => s.location.href });
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function validateSession() {
-      const { data } = await supabase.auth.getSession();
-      if (cancelled) return;
-      setStatus(data.session?.user ? "authenticated" : "unauthenticated");
-    }
-
-    validateSession();
-
-    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      if (cancelled) return;
-      if (event === "SIGNED_OUT" || !session?.user) {
-        setStatus("unauthenticated");
-      } else if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
-        setStatus("authenticated");
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      sub.subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (status !== "unauthenticated") return;
-    navigate({ to: "/login", search: { next: href } as never, replace: true });
-  }, [status, navigate, href]);
-
-  if (status === "checking") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className="text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary" />
-          <p className="mt-4 text-sm text-muted-foreground">Carregando NexusFlow...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (status === "unauthenticated") {
-    return null;
-  }
-
   return (
     <ActiveContextProvider>
       <PageHeaderProvider>
