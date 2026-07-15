@@ -131,7 +131,16 @@ export function NotificationsBell() {
     supabase.auth.getUser().then(({ data }) => {
       const userId = data.user?.id ?? null;
       if (!userId || cancelled) return;
-      const ch = supabase.channel(`notif:${userId}`);
+      const topic = `notif:${userId}`;
+      // StrictMode / re-mount can leave an already-subscribed channel in
+      // Supabase's client cache. Tear it down before rebuilding so `.on()`
+      // is never called on a subscribed channel.
+      for (const existing of supabase.getChannels()) {
+        if (existing.topic === `realtime:${topic}` || existing.topic === topic) {
+          supabase.removeChannel(existing);
+        }
+      }
+      const ch = supabase.channel(topic);
       ch.on(
         "postgres_changes",
         { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
