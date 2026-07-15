@@ -1903,6 +1903,7 @@ export type Database = {
           created_at: string
           full_name: string
           id: string
+          is_super_admin: boolean
           job_title: string | null
           locale: string
           phone: string | null
@@ -1917,6 +1918,7 @@ export type Database = {
           created_at?: string
           full_name: string
           id: string
+          is_super_admin?: boolean
           job_title?: string | null
           locale?: string
           phone?: string | null
@@ -1931,6 +1933,7 @@ export type Database = {
           created_at?: string
           full_name?: string
           id?: string
+          is_super_admin?: boolean
           job_title?: string | null
           locale?: string
           phone?: string | null
@@ -1959,6 +1962,7 @@ export type Database = {
         Args: { _brand_id: string; _user_id: string }
         Returns: boolean
       }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       reap_stuck_ai_jobs: { Args: never; Returns: number }
     }
     Enums: {
