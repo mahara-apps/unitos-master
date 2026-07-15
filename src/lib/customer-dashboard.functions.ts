@@ -16,7 +16,7 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
     const since14d = new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString();
     const since30d = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
 
-    const [client, portalTokens, activity, posts, tasks, usage] = await Promise.all([
+    const [client, portalTokens, activity, pipelinesRes, tasks, usage] = await Promise.all([
       context.supabase
         .from("clients")
         .select("id,name,niche,color,socials,contact_name,contact_email,tone_of_voice,is_active,created_at,updated_at")
@@ -35,10 +35,13 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
         .order("created_at", { ascending: false })
         .limit(25),
       context.supabase
-        .from("posts")
-        .select("id,stage,stage_id,scheduled_at,published_at,created_at")
+        .from("content_pipelines")
+        .select("id,name,slug,is_default,position,created_at")
         .eq("brand_id", data.brandId)
-        .eq("client_id", data.clientId),
+        .eq("client_id", data.clientId)
+        .order("is_default", { ascending: false })
+        .order("position", { ascending: true })
+        .order("created_at", { ascending: true }),
       context.supabase
         .from("tasks")
         .select("id,status")
@@ -52,7 +55,45 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
         .order("created_at", { ascending: true }),
     ]);
 
-    const postIds = (posts.data ?? []).map((p) => p.id as string);
+    const defaultPipeline = (pipelinesRes.data ?? [])[0] ?? null;
+
+    const [stagesRes, posts] = await Promise.all([
+      defaultPipeline
+        ? context.supabase
+            .from("content_pipeline_stages")
+            .select("id,key,label,color,position")
+            .eq("pipeline_id", defaultPipeline.id)
+            .order("position", { ascending: true })
+        : Promise.resolve({
+            data: [] as Array<{
+              id: string;
+              key: string;
+              label: string;
+              color: string | null;
+              position: number;
+            }>,
+          }),
+      context.supabase
+        .from("posts")
+        .select("id,stage,stage_id,pipeline_id,scheduled_at,published_at,created_at,deleted_at")
+        .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId)
+        .is("deleted_at", null),
+    ]);
+
+    const stageRows = (stagesRes.data ?? []) as Array<{
+      id: string;
+      key: string;
+      label: string;
+      color: string | null;
+      position: number;
+    }>;
+    // Only count posts in the default pipeline so the funnel matches the Kanban.
+    const scopedPosts = (posts.data ?? []).filter(
+      (p) => !defaultPipeline || p.pipeline_id === defaultPipeline.id,
+    );
+
+    const postIds = scopedPosts.map((p) => p.id as string);
     const { data: approvalData } = postIds.length
       ? await context.supabase
           .from("post_approvals")
@@ -60,26 +101,8 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
           .in("post_id", postIds)
       : { data: [] as Array<{ status: string }> };
 
-    // Resolve stage_id -> canonical key via content_pipeline_stages so counts
-    // stay in sync with the Kanban (which updates stage_id, not the legacy
-    // text `stage` column).
-    const stageIds = Array.from(
-      new Set(
-        (posts.data ?? [])
-          .map((p) => p.stage_id as string | null)
-          .filter((v): v is string => !!v),
-      ),
-    );
-    const stageKeyById = new Map<string, string>();
-    if (stageIds.length) {
-      const { data: stageRows } = await context.supabase
-        .from("content_pipeline_stages")
-        .select("id,key")
-        .in("id", stageIds);
-      for (const row of stageRows ?? []) {
-        stageKeyById.set(row.id as string, String(row.key ?? "").toLowerCase());
-      }
-    }
+    const stageById = new Map(stageRows.map((s) => [s.id, s]));
+    const stageByKey = new Map(stageRows.map((s) => [s.key.toLowerCase(), s]));
 
     // Bucket AI cost per-day (last 14d) for sparkline
     const days: string[] = Array.from({ length: 14 }, (_, i) => {
@@ -99,14 +122,30 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
       .filter((r) => (r.created_at as string) >= since14d)
       .reduce((s, r) => s + Number(r.cost_usd ?? 0), 0);
 
-    // Pipeline stage counts
-    const stages = ["idea", "production", "review", "approved", "scheduled", "published"] as const;
-    const stageCounts = Object.fromEntries(stages.map((s) => [s, 0])) as Record<(typeof stages)[number], number>;
-    for (const p of posts.data ?? []) {
-      const resolved = (p.stage_id ? stageKeyById.get(p.stage_id as string) : null) ?? (p.stage as string | null) ?? "idea";
-      const s = resolved as (typeof stages)[number];
-      if (s in stageCounts) stageCounts[s] += 1;
+    // Count posts per real Kanban stage (id first, fallback to legacy text key).
+    const counts = new Map<string, number>(stageRows.map((s) => [s.id, 0]));
+    for (const p of scopedPosts) {
+      let target: string | null = null;
+      if (p.stage_id && stageById.has(p.stage_id as string)) {
+        target = p.stage_id as string;
+      } else {
+        const legacy = String(p.stage ?? "").toLowerCase();
+        const match = stageByKey.get(legacy);
+        if (match) target = match.id;
+      }
+      if (target) counts.set(target, (counts.get(target) ?? 0) + 1);
     }
+
+    const pipelineStages = stageRows.map((s) => ({
+      id: s.id,
+      key: s.key,
+      label: s.label,
+      color: s.color,
+      position: s.position,
+      count: counts.get(s.id) ?? 0,
+    }));
+    const findCount = (key: string) =>
+      pipelineStages.find((s) => s.key.toLowerCase() === key)?.count ?? 0;
 
     const approvalRows = (approvalData ?? []) as Array<{ status: string }>;
     const pendingApprovals = approvalRows.filter((a) => a.status === "pending").length;
@@ -120,7 +159,12 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
       client: client.data,
       portalTokens: portalTokens.data ?? [],
       activity: activity.data ?? [],
-      pipeline: { stages: stageCounts, total: (posts.data ?? []).length },
+      pipeline: {
+        pipelineId: defaultPipeline?.id ?? null,
+        pipelineName: defaultPipeline?.name ?? null,
+        stages: pipelineStages,
+        total: scopedPosts.length,
+      },
       metrics: {
         costTotal30d,
         costTotal14d,
@@ -128,8 +172,8 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
         pendingApprovals,
         decidedApprovals,
         totalApprovals: approvalRows.length,
-        scheduled: stageCounts.scheduled,
-        published: stageCounts.published,
+        scheduled: findCount("scheduled"),
+        published: findCount("published"),
         openTasks,
         doneTasks,
       },
