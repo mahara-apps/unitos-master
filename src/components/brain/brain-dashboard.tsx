@@ -52,12 +52,12 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
           value={stats.isLoading ? undefined : (stats.data?.events24h ?? 0)}
         />
         <Kpi
-          icon={<Activity className="h-4 w-4 text-[oklch(var(--chart-2))]" />}
+          icon={<Activity className="h-4 w-4" style={{ color: "var(--chart-2)" }} />}
           label="Total de eventos"
           value={stats.isLoading ? undefined : (stats.data?.totalEvents ?? 0)}
         />
         <Kpi
-          icon={<Sparkles className="h-4 w-4 text-[oklch(var(--chart-4))]" />}
+          icon={<Sparkles className="h-4 w-4" style={{ color: "var(--chart-4)" }} />}
           label="Insights ativos"
           value={stats.isLoading ? undefined : (stats.data?.activeInsights ?? 0)}
         />
