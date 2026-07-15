@@ -87,7 +87,7 @@ import {
   DashboardCountBadge,
 } from "@/components/ui/dashboard-primitives";
 import { KpiCard, type KpiTone } from "@/components/ui/kpi-card";
-import { PanelEmptyState } from "@/components/ui/panel-card";
+import { PanelEmptyState } from "@/components/ui/panel-empty";
 
 export const Route = createFileRoute("/_authenticated/tasks")({
   component: TasksPage,
@@ -251,11 +251,12 @@ function TasksPage() {
   if (!brandId) {
     return (
       <DashboardPageShell>
-        <PanelEmptyState
-          icon={CheckCircle2}
-          title="Selecione uma workspace"
-          description="Escolha uma workspace no seletor lateral para carregar as tarefas."
-        />
+        <DashboardPanelSurface>
+          <PanelEmptyState
+            icon={<CheckCircle2 className="h-5 w-5" />}
+            text="Selecione uma workspace no seletor lateral para carregar as tarefas."
+          />
+        </DashboardPanelSurface>
       </DashboardPageShell>
     );
   }
@@ -296,16 +297,18 @@ function TasksPage() {
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando tarefas...
         </DashboardPanelSurface>
       ) : filtered.length === 0 ? (
-        <PanelEmptyState
-          icon={CheckCircle2}
-          title="Nenhuma tarefa por aqui"
-          description="Crie a primeira tarefa para começar a organizar o trabalho do time."
-          action={
+        <DashboardPanelSurface>
+          <PanelEmptyState
+            icon={<CheckCircle2 className="h-5 w-5" />}
+            text="Nenhuma tarefa por aqui — crie a primeira para começar a organizar o trabalho do time."
+          />
+          <div className="flex justify-center pb-8">
             <Button size="sm" onClick={() => setCreateOpen(true)}>
               <Plus className="mr-1.5 h-4 w-4" /> Nova tarefa
             </Button>
-          }
-        />
+          </div>
+        </DashboardPanelSurface>
+      )}
       ) : (
         <div className="space-y-5">
           {TASK_STATUSES.map((status) => {
