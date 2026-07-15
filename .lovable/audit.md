@@ -1,4 +1,93 @@
-# NexusFlow — Auditoria Completa (2026-07-15)
+# NexusFlow — Auditoria Sênior (2026-07-15 · rev 2)
+
+> Auditoria completa reexecutada após as correções P0/P1 anteriores.
+> Sinais: `supabase--linter` (41), `security--run_security_scan` (40),
+> `project_monitoring` (1 high), `pg_stat_statements` (top 10),
+> Worker logs (última hora limpa — só 200s).
+
+---
+
+## Sumário executivo
+
+| Severidade | Aberto | Observações |
+| --- | --- | --- |
+| P0 | **1** | `SUPABASE_SERVICE_ROLE_KEY` ausente em produção → aprovação pública quebrada |
+| P1 | 4 | SECURITY DEFINER expostos, `agent_prompts` multi-tenant, caches faltando, senha vazada |
+| P2 | 5 | Extensões em `public`, empty states, PT-BR remanescente, dark badges, mobile |
+
+---
+
+## 🔴 P0 — `SUPABASE_SERVICE_ROLE_KEY` não configurada em produção
+
+- **Evidência (monitoramento, últimas 24h):**
+  - 81× `Error: supabaseKey is required.` em `src/routes/api/public/approval.$token.ts`
+  - 11× `[Supabase] Missing Supabase environment variable(s): SUPABASE_SERVICE_ROLE_KEY` em `src/integrations/supabase/client.server.ts`
+- **Impacto:** endpoint público de aprovação (`/api/public/approval/:token`) — enviado ao cliente por e-mail — está retornando 500 para usuários reais. Qualquer outra rota que use `supabaseAdmin` sofre o mesmo.
+- **Ação:** configurar `SUPABASE_SERVICE_ROLE_KEY` como secret do projeto (Lovable Cloud → Secrets). Após redeploy, validar `/api/public/approval/<token>` com um token válido. Também remover o `!` non-null em `createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY!)` e falhar cedo com mensagem legível.
+
+---
+
+## 🟠 P1 — Segurança
+
+### 1. 27 funções `SECURITY DEFINER` executáveis por `anon`/`authenticated`
+- Scanner reporta o mesmo alerta em massa (9× anon, 18× authenticated). A maioria em `anon` é intencional (`portal_*`, `p_briefing_*`, `card_approval_*`), mas funções administrativas (`has_role`, `is_super_admin`, `is_brand_member`, `has_brand_role`, `accept_brand_invite`, `handle_new_user`, `add_brand_owner`, `reap_stuck_ai_jobs`, triggers `log_*`, `notify_task_*`, `protect_pipeline_delete`, `update_updated_at_column`) **não** deveriam ser executáveis por `PUBLIC/anon/authenticated`.
+- **Ação:** migração `REVOKE EXECUTE ON FUNCTION public.<fn>(...) FROM PUBLIC, anon` para funções não-portal; para triggers, `REVOKE EXECUTE ... FROM PUBLIC, anon, authenticated`.
+
+### 2. `agent_prompts` legível por qualquer usuário autenticado
+- Finding `PUBLIC_USER_DATA` — política `USING (true)` em uma tabela com prompts proprietários.
+- **Ação (recomendada):** escopar por `brand_id` (adicionar coluna + política `is_brand_member(auth.uid(), brand_id)`) OU, se prompts forem realmente globais, restringir escrita a super-admin e documentar em `security-memory`.
+
+### 3. Leaked Password Protection desativado
+- `SUPA_auth_leaked_password_protection`. Ativar em **Supabase → Authentication → Password Protection**. Não requer código.
+
+### 4. Extensões em `public` (2×)
+- Warns `0014_extension_in_public`. Mover `vector` / `pg_trgm` (ou o que estiver ali) para schema dedicado (`extensions`). Baixo impacto, alto ruído no scanner.
+
+---
+
+## ⚡ P1 — Performance (top pg_stat_statements)
+
+| Total ms | Calls | Query |
+| --- | --- | --- |
+| 2358 | 555 | `activity_events` por `brand_id + client_id` |
+| 2194 | 563 | `activity_events` por `brand_id + created_at >= ?` |
+| 1976 | **1192** | `brand_members` por `user_id` |
+| 1592 | 498 | `posts` por `brand_id + client_id` |
+| 1534 | **663** | `user_profiles.requires_password_change` por `id` |
+
+- `brand_members` (1192 chamadas): switcher/permissões executando por render. **Cache global**: `useQuery(['brand-memberships', userId], staleTime: 5min)`.
+- `requires_password_change` (663 chamadas): o gate `MandatoryPasswordReset` refaz a query em cada mount de rota. Usar `staleTime: Infinity`, invalidar apenas em `SIGNED_IN`.
+- `activity_events`: falta índice composto — `CREATE INDEX ON activity_events (brand_id, created_at DESC)` e `(brand_id, client_id, created_at DESC)`.
+- `posts` slim: dashboard traz apenas `id` mas ainda paga 3ms/query — considerar RPC `count_posts_by_client` cacheado por 60s.
+
+> Runtime: última hora de Worker logs sem `error/warn` — infra saudável. Único ruído recente é o P0 acima em janela de 24h.
+
+---
+
+## 🎨 P2 — UX / consistência
+
+- **Empty states** com CTA + ilustração nas listas `customers`, `projects`, `tasks`, `media-plans`.
+- **PT-BR remanescente**: `agent-drawer`, `column-config-dialog`, `strategy-editors` ainda têm strings em EN.
+- **Dark mode**: badges de estágio agora vindos do DB (cores livres) — validar contraste no dark; fallback para tokens semânticos quando `luminance < X`.
+- **Mobile**: sidebar/header ainda não auditados (breakpoint < 768px).
+- **Acessibilidade**: rechecar `DialogTitle` visualmente oculto em `command.tsx` (já corrigido) e replicar em modais menores.
+
+---
+
+## Plano de ação sugerido
+
+1. **P0 hoje:** configurar `SUPABASE_SERVICE_ROLE_KEY` no ambiente publicado + validar fluxo de aprovação por token.
+2. **P1 esta semana:**
+   - migração revogando `EXECUTE` de funções não-portal / de trigger;
+   - decisão de escopo em `agent_prompts` (global vs por marca);
+   - habilitar leaked-password protection;
+   - índices em `activity_events` + caches `brand_members` / `requires_password_change`.
+3. **P2 depois:** mover extensões, polir empty states, i18n final, mobile pass.
+
+---
+
+## Histórico (auditoria anterior)
+
 
 Escopo priorizado pelo usuário: **Runtime & erros · Performance · UX / consistência · Segurança**. Formato: relatório primeiro, correção depois. Cada item traz **severidade**, **evidência** e **ação recomendada**.
 
