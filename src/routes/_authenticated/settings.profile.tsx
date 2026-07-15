@@ -358,6 +358,109 @@ function ProfilePage() {
         </CardContent>
       </Card>
 
+      {canEditCompany && brandId ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-indigo-500" />
+              Dados da empresa
+            </CardTitle>
+            <CardDescription>Documentos e razão social da marca ativa.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            {!company ? (
+              <div className="sm:col-span-2 flex items-center justify-center py-6">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                <div className="space-y-1.5">
+                  <Label htmlFor="cpf">CPF</Label>
+                  <Input id="cpf" value={company.cpf} onChange={(e) => setCompany({ ...company, cpf: e.target.value })} maxLength={20} placeholder="000.000.000-00" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="cnpj">CNPJ</Label>
+                  <Input id="cnpj" value={company.cnpj} onChange={(e) => setCompany({ ...company, cnpj: e.target.value })} maxLength={20} placeholder="00.000.000/0000-00" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="nome_fantasia">Nome fantasia</Label>
+                  <Input id="nome_fantasia" value={company.nome_fantasia} onChange={(e) => setCompany({ ...company, nome_fantasia: e.target.value })} maxLength={160} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="razao_social">Razão social</Label>
+                  <Input id="razao_social" value={company.razao_social} onChange={(e) => setCompany({ ...company, razao_social: e.target.value })} maxLength={200} />
+                </div>
+                <div className="sm:col-span-2 flex justify-end">
+                  <Button
+                    onClick={() => companyMutation.mutate(company)}
+                    disabled={companyMutation.isPending}
+                  >
+                    {companyMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                    Salvar dados da empresa
+                  </Button>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {canEditCompany && brandId && company ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-rose-500" />
+              Endereço
+            </CardTitle>
+            <CardDescription>Endereço fiscal e de correspondência da empresa.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-6">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="cep">CEP</Label>
+              <Input id="cep" value={company.cep} onChange={(e) => setCompany({ ...company, cep: e.target.value })} maxLength={12} placeholder="00000-000" />
+            </div>
+            <div className="space-y-1.5 sm:col-span-4">
+              <Label htmlFor="rua">Rua</Label>
+              <Input id="rua" value={company.rua} onChange={(e) => setCompany({ ...company, rua: e.target.value })} maxLength={200} />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="numero">Número</Label>
+              <Input id="numero" value={company.numero} onChange={(e) => setCompany({ ...company, numero: e.target.value })} maxLength={20} />
+            </div>
+            <div className="space-y-1.5 sm:col-span-4">
+              <Label htmlFor="complemento">Complemento</Label>
+              <Input id="complemento" value={company.complemento} onChange={(e) => setCompany({ ...company, complemento: e.target.value })} maxLength={120} />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="bairro">Bairro</Label>
+              <Input id="bairro" value={company.bairro} onChange={(e) => setCompany({ ...company, bairro: e.target.value })} maxLength={120} />
+            </div>
+            <div className="space-y-1.5 sm:col-span-3">
+              <Label htmlFor="cidade">Cidade</Label>
+              <Input id="cidade" value={company.cidade} onChange={(e) => setCompany({ ...company, cidade: e.target.value })} maxLength={120} />
+            </div>
+            <div className="space-y-1.5 sm:col-span-1">
+              <Label htmlFor="estado">UF</Label>
+              <Select value={company.estado || undefined} onValueChange={(v) => setCompany({ ...company, estado: v })}>
+                <SelectTrigger id="estado"><SelectValue placeholder="UF" /></SelectTrigger>
+                <SelectContent>
+                  {UFS.map((uf) => (<SelectItem key={uf} value={uf}>{uf}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="sm:col-span-6 flex justify-end">
+              <Button
+                onClick={() => companyMutation.mutate(company)}
+                disabled={companyMutation.isPending}
+              >
+                {companyMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Salvar endereço
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Segurança</CardTitle>
