@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Sparkles, Loader2, Info } from "lucide-react";
+import { Sparkles, Loader2, Info, Minus, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +21,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CHANNELS, CHANNEL_STYLES } from "@/components/content/stage-colors";
+import { cn } from "@/lib/utils";
+
+// Canais suportados pelo backend (normalizeChannel em monthly-plan.ts).
+// Excluímos "threads" e "graphic" que caem em fallback ("instagram") no backend.
+const PLAN_CHANNELS = ["instagram", "tiktok", "youtube", "linkedin", "facebook", "x", "blog"] as const;
+type PlanChannel = (typeof PLAN_CHANNELS)[number];
+
+const DEFAULT_MIX: Record<PlanChannel, number> = {
+  instagram: 8,
+  tiktok: 0,
+  youtube: 0,
+  linkedin: 0,
+  facebook: 0,
+  x: 0,
+  blog: 0,
+};
 
 type Props = {
   brandId: string;
@@ -37,36 +55,46 @@ const LOADING_STEPS = [
 
 export function GeneratePlanDialog({ brandId, clientId, onGenerated }: Props) {
   const [open, setOpen] = useState(false);
-  const [postsPerWeek, setPostsPerWeek] = useState(3);
   const [startFrom, setStartFrom] = useState<"current-remaining" | "next-month">("next-month");
   const [direction, setDirection] = useState("");
   const [pending, setPending] = useState(false);
   const [stepIdx, setStepIdx] = useState(0);
+  const [mix, setMix] = useState<Record<PlanChannel, number>>(DEFAULT_MIX);
 
-  const { totalPosts, weeks, periodo, meses } = useMemo(() => {
+  const totalPosts = useMemo(
+    () => PLAN_CHANNELS.reduce((acc, c) => acc + (mix[c] || 0), 0),
+    [mix],
+  );
+  const selectedCount = useMemo(
+    () => PLAN_CHANNELS.filter((c) => (mix[c] || 0) > 0).length,
+    [mix],
+  );
+
+  const { weeks, periodo, meses } = useMemo(() => {
     if (startFrom === "current-remaining") {
       const now = new Date();
       const endMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       const daysLeft = Math.max(1, Math.ceil((endMonth.getTime() - now.getTime()) / 86400000));
       const w = Math.max(1, Math.round(daysLeft / 7));
-      return {
-        weeks: w,
-        totalPosts: Math.max(3, postsPerWeek * w),
-        periodo: "restante do mês atual",
-        meses: 1,
-      };
+      return { weeks: w, periodo: "restante do mês atual", meses: 1 };
     }
-    return {
-      weeks: 4,
-      totalPosts: Math.max(3, postsPerWeek * 4),
-      periodo: "próximo mês",
-      meses: 1,
-    };
-  }, [postsPerWeek, startFrom]);
+    return { weeks: 4, periodo: "próximo mês", meses: 1 };
+  }, [startFrom]);
+
+  function setChannelQty(id: PlanChannel, qty: number) {
+    setMix((m) => ({ ...m, [id]: Math.max(0, Math.min(180, Math.round(qty || 0))) }));
+  }
+  function toggleChannel(id: PlanChannel, on: boolean) {
+    setMix((m) => ({ ...m, [id]: on ? Math.max(1, m[id] || 4) : 0 }));
+  }
 
   async function launch() {
     if (!clientId) {
       toast.error("Selecione um cliente para gerar o plano.");
+      return;
+    }
+    if (totalPosts < 3) {
+      toast.error("Selecione pelo menos 3 peças no total.");
       return;
     }
     setPending(true);
@@ -78,6 +106,9 @@ export function GeneratePlanDialog({ brandId, clientId, onGenerated }: Props) {
       const { data: session } = await supabase.auth.getSession();
       const token = session.session?.access_token;
       if (!token) throw new Error("Sessão expirada. Faça login novamente.");
+      const channelMix = Object.fromEntries(
+        PLAN_CHANNELS.filter((c) => (mix[c] || 0) > 0).map((c) => [c, mix[c]]),
+      );
       const res = await fetch("/api/jobs/monthly-plan", {
         method: "POST",
         headers: {
@@ -92,6 +123,7 @@ export function GeneratePlanDialog({ brandId, clientId, onGenerated }: Props) {
           meses,
           startFrom,
           direction: direction.trim() || undefined,
+          channelMix,
         }),
       });
       if (!res.ok) {
@@ -124,7 +156,7 @@ export function GeneratePlanDialog({ brandId, clientId, onGenerated }: Props) {
           Gerar novo plano
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-fuchsia-500" />
@@ -136,20 +168,76 @@ export function GeneratePlanDialog({ brandId, clientId, onGenerated }: Props) {
         </DialogHeader>
 
         <div className="grid gap-4 py-2">
-          <div className="grid gap-1.5">
-            <Label htmlFor="ppw" className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
-              Quantos posts por semana?
+          <div className="grid gap-2">
+            <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+              Canais e volume no período
             </Label>
-            <Select value={String(postsPerWeek)} onValueChange={(v) => setPostsPerWeek(Number(v))}>
-              <SelectTrigger id="ppw" className="h-9"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {[1, 2, 3, 4, 5, 6, 7].map((n) => (
-                  <SelectItem key={n} value={String(n)}>
-                    {n} {n === 1 ? "post" : "posts"} por semana
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="grid gap-1 rounded-xl border border-border/60 bg-background/40 p-2">
+              {PLAN_CHANNELS.map((id) => {
+                const meta = CHANNELS.find((c) => c.id === id)!;
+                const Icon = meta.icon;
+                const qty = mix[id] || 0;
+                const on = qty > 0;
+                return (
+                  <div
+                    key={id}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-2 py-1.5 transition-opacity",
+                      !on && "opacity-55",
+                    )}
+                  >
+                    <Checkbox
+                      checked={on}
+                      onCheckedChange={(v) => toggleChannel(id, Boolean(v))}
+                      aria-label={`Incluir ${meta.label}`}
+                    />
+                    <span
+                      className={cn(
+                        "inline-flex h-6 items-center gap-1.5 rounded-full border px-2 text-[10px] font-semibold uppercase tracking-wider",
+                        CHANNEL_STYLES[id] ?? "border-border/60 bg-muted/40 text-foreground/80",
+                      )}
+                    >
+                      <Icon className="h-3 w-3" />
+                      {meta.label}
+                    </span>
+                    <div className="ml-auto flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7"
+                        disabled={qty <= 0}
+                        onClick={() => setChannelQty(id, qty - 1)}
+                        aria-label={`Diminuir ${meta.label}`}
+                      >
+                        <Minus className="h-3 w-3" />
+                      </Button>
+                      <input
+                        type="number"
+                        min={0}
+                        max={180}
+                        value={qty}
+                        onChange={(e) => setChannelQty(id, Number(e.target.value))}
+                        className="h-7 w-12 rounded-md border border-border/60 bg-background text-center text-xs tabular-nums outline-none focus:ring-1 focus:ring-ring"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => setChannelQty(id, qty + 1)}
+                        aria-label={`Aumentar ${meta.label}`}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Desmarque canais que não fazem parte do plano ou zere a quantidade para removê-los.
+            </p>
           </div>
 
           <div className="grid gap-1.5">
@@ -182,7 +270,11 @@ export function GeneratePlanDialog({ brandId, clientId, onGenerated }: Props) {
           <div className="flex items-start gap-2 rounded-xl border border-border/60 bg-background/60 p-3 text-xs">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
             <div className="text-muted-foreground">
-              Vamos gerar <span className="font-semibold text-foreground">{totalPosts} entradas</span> em ~{weeks} semana{weeks === 1 ? "" : "s"} ({periodo}).
+              {totalPosts < 3 || selectedCount === 0 ? (
+                <>Selecione ao menos <span className="font-semibold text-foreground">3 peças</span> distribuídas em um ou mais canais.</>
+              ) : (
+                <>Vamos gerar <span className="font-semibold text-foreground">{totalPosts} peças</span> em <span className="font-semibold text-foreground">{selectedCount} canal{selectedCount === 1 ? "" : "is"}</span> ao longo de ~{weeks} semana{weeks === 1 ? "" : "s"} ({periodo}).</>
+              )}
             </div>
           </div>
         </div>
@@ -194,7 +286,7 @@ export function GeneratePlanDialog({ brandId, clientId, onGenerated }: Props) {
           <Button
             size="sm"
             onClick={launch}
-            disabled={pending}
+            disabled={pending || totalPosts < 3 || selectedCount === 0}
             className="h-9 gap-2 border-0 bg-gradient-to-r from-violet-600 via-fuchsia-500 to-pink-500 text-white hover:opacity-95 min-w-[180px]"
           >
             {pending ? (
