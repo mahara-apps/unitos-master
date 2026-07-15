@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Home, CheckSquare, CalendarDays, Images, FolderOpen, FileText,
   Check, X, MessageSquareWarning, MessageCircle, ExternalLink,
-  Download, Search, Clock, Loader2, ChevronLeft,
+  Download, Search, Clock, Loader2, ChevronLeft, ImageIcon, User2, CalendarClock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -168,7 +168,7 @@ function PortalShell() {
 
           <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
             {tab === "home" && <HomeTab token={token} setTab={setTab} />}
-            {tab === "approvals" && <ApprovalsTab token={token} identity={identity.value} />}
+            {tab === "approvals" && <ApprovalsTab token={token} identity={identity.value} onIdentityChange={identity.save} />}
             {tab === "calendar" && <CalendarTab token={token} />}
             {tab === "feed" && <FeedTab token={token} />}
             {tab === "files" && <FilesTab token={token} />}
@@ -231,7 +231,7 @@ function HomeTab({ token, setTab }: { token: string; setTab: (t: TabId) => void 
 
 /* -------------------------------- APPROVALS ------------------------------- */
 
-function ApprovalsTab({ token, identity }: { token: string; identity: string }) {
+function ApprovalsTab({ token, identity, onIdentityChange }: { token: string; identity: string; onIdentityChange: (v: string) => void }) {
   const list = useServerFn(listPortalApprovalsFn);
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "adjust">("pending");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -270,6 +270,7 @@ function ApprovalsTab({ token, identity }: { token: string; identity: string }) 
           token={token}
           postId={openId}
           identity={identity}
+          onIdentityChange={onIdentityChange}
           onClose={() => setOpenId(null)}
         />
       )}
@@ -321,8 +322,8 @@ function ApprovalCard({ post, onOpen }: { post: Record<string, unknown>; onOpen:
 }
 
 function ApprovalDialog({
-  token, postId, identity, onClose,
-}: { token: string; postId: string; identity: string; onClose: () => void }) {
+  token, postId, identity, onIdentityChange, onClose,
+}: { token: string; postId: string; identity: string; onIdentityChange: (v: string) => void; onClose: () => void }) {
   const qc = useQueryClient();
   const getPost = useServerFn(getPortalPostFn);
   const decide = useServerFn(decidePortalApprovalFn);
@@ -332,6 +333,7 @@ function ApprovalDialog({
   });
   const [note, setNote] = useState("");
   const [mode, setMode] = useState<null | "reject" | "adjust" | "comment">(null);
+  const [activeMedia, setActiveMedia] = useState(0);
   const m = useMutation({
     mutationFn: (payload: { decision: "approved" | "rejected" | "adjust" | "comment"; note?: string }) =>
       decide({ data: { token, postId, identity, ...payload } }),
@@ -350,64 +352,176 @@ function ApprovalDialog({
     onError: (e: Error) => toast.error(e.message),
   });
   const disabled = !identity.trim();
+  const post = q.data?.post;
+  const approval = q.data?.approval;
+  const media = q.data?.media ?? [];
+  const gallery = useMemo(() => {
+    const list: Array<{ url: string; type: string }> = [];
+    if (post?.cover_url) list.push({ url: post.cover_url as string, type: "image" });
+    for (const m of media) {
+      if (m.url && m.url !== post?.cover_url) list.push(m);
+    }
+    return list;
+  }, [post?.cover_url, media]);
+  const current = gallery[activeMedia] ?? gallery[0];
+  const statusLabel: Record<string, string> = {
+    approved: "Aprovado", rejected: "Rejeitado", adjust: "Ajustes solicitados",
+    changes_requested: "Ajustes solicitados", pending: "Aguardando decisão",
+  };
+  const statusTone: Record<string, string> = {
+    approved: "border-emerald-500/40 text-emerald-600 bg-emerald-500/10",
+    rejected: "border-rose-500/40 text-rose-600 bg-rose-500/10",
+    adjust: "border-amber-500/40 text-amber-600 bg-amber-500/10",
+    changes_requested: "border-amber-500/40 text-amber-600 bg-amber-500/10",
+    pending: "border-border/60 text-muted-foreground bg-muted/40",
+  };
+  const currentStatus = (approval?.status ?? "pending") as string;
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-3xl overflow-hidden p-0">
-        <div className="grid grid-cols-1 md:grid-cols-[1.15fr_1fr]">
-          <div className="relative aspect-[4/5] bg-muted md:aspect-auto">
-            {q.data?.post?.cover_url ? (
-              <img src={q.data.post.cover_url as string} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">sem preview</div>
+      <DialogContent className="max-w-4xl gap-0 overflow-hidden p-0">
+        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+          {/* Media column */}
+          <div className="relative flex flex-col bg-muted/40">
+            <div className="relative flex aspect-[4/5] w-full items-center justify-center overflow-hidden md:aspect-auto md:flex-1">
+              {current?.url ? (
+                <img src={current.url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <ImageIcon className="h-8 w-8 opacity-40" />
+                  <span className="font-mono text-[10px] uppercase tracking-widest">sem preview</span>
+                </div>
+              )}
+              <Badge
+                variant="outline"
+                className={`absolute left-3 top-3 border backdrop-blur ${statusTone[currentStatus] ?? statusTone.pending}`}
+              >
+                {statusLabel[currentStatus] ?? "Aguardando"}
+              </Badge>
+            </div>
+            {gallery.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto border-t border-border/60 bg-background/60 p-2">
+                {gallery.map((g, i) => (
+                  <button
+                    key={g.url + i}
+                    type="button"
+                    onClick={() => setActiveMedia(i)}
+                    className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-md border transition ${
+                      i === activeMedia ? "border-primary ring-2 ring-primary/30" : "border-border/60 opacity-70 hover:opacity-100"
+                    }`}
+                  >
+                    <img src={g.url} alt="" className="h-full w-full object-cover" />
+                  </button>
+                ))}
+              </div>
             )}
           </div>
-          <div className="flex max-h-[85vh] flex-col">
-            <DialogHeader className="border-b border-border/60 px-5 py-4">
-              <DialogTitle className="truncate">{q.data?.post?.title ?? "Post"}</DialogTitle>
-              <div className="mt-1 flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                <span>{(q.data?.post?.format as string) || "—"}</span>
-                {q.data?.post?.scheduled_at && (
-                  <><span>·</span><span>{formatDate(q.data.post.scheduled_at as string)}</span></>
+
+          {/* Content column */}
+          <div className="flex max-h-[88vh] min-w-0 flex-col">
+            <DialogHeader className="space-y-2 border-b border-border/60 px-5 py-4 text-left">
+              <DialogTitle className="pr-8 text-base font-semibold leading-snug">
+                {post?.title ?? "Post"}
+              </DialogTitle>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {(post?.format) && (
+                  <Badge variant="secondary" className="rounded-md font-mono text-[10px] uppercase tracking-wider">
+                    {post.format}
+                  </Badge>
+                )}
+                {(post?.channels ?? []).map((c) => (
+                  <Badge key={c} variant="outline" className="rounded-md font-mono text-[10px] uppercase tracking-wider">
+                    {c}
+                  </Badge>
+                ))}
+                {post?.scheduled_at && (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <CalendarClock className="h-3 w-3" />
+                    {formatDate(post.scheduled_at as string)}
+                  </span>
                 )}
               </div>
             </DialogHeader>
+
             <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4 text-sm">
               {q.isLoading ? (
-                <Skeleton className="h-32 w-full" />
+                <>
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-32 w-full" />
+                </>
               ) : (
                 <>
-                  <div>
-                    <div className="mb-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">legenda</div>
-                    <div className="whitespace-pre-line rounded-md border border-border/60 bg-muted/40 p-3">
-                      {(q.data?.post?.copy as string) || "—"}
+                  {approval && approval.status !== "pending" && (
+                    <div className={`rounded-md border px-3 py-2 text-xs ${statusTone[approval.status] ?? statusTone.pending}`}>
+                      <div className="font-medium">{statusLabel[approval.status] ?? approval.status}</div>
+                      {approval.notes && <div className="mt-1 opacity-80">{approval.notes}</div>}
+                      {approval.decided_by_name && (
+                        <div className="mt-1 inline-flex items-center gap-1 opacity-70">
+                          <User2 className="h-3 w-3" />
+                          {approval.decided_by_name}
+                          {approval.decided_at && <> · {formatDate(approval.decided_at)}</>}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  {mode && (
-                    <div className="space-y-1">
-                      <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                        {mode === "reject" ? "motivo da rejeição" : mode === "adjust" ? "descreva o ajuste" : "seu comentário"}
+                  )}
+                  <section className="space-y-1.5">
+                    <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Legenda</div>
+                    <div className="whitespace-pre-line rounded-md border border-border/60 bg-muted/40 p-3 leading-relaxed">
+                      {(post?.copy as string) || "—"}
+                    </div>
+                  </section>
+                  {post?.script && (
+                    <section className="space-y-1.5">
+                      <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Roteiro</div>
+                      <div className="whitespace-pre-line rounded-md border border-border/60 bg-muted/40 p-3 leading-relaxed">
+                        {post.script}
                       </div>
-                      <Textarea value={note} onChange={(e) => setNote(e.target.value)} className="min-h-[100px]" />
-                    </div>
+                    </section>
+                  )}
+                  {mode && (
+                    <section className="space-y-1.5">
+                      <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                        {mode === "reject" ? "Motivo da rejeição" : mode === "adjust" ? "Descreva o ajuste desejado" : "Seu comentário"}
+                      </div>
+                      <Textarea
+                        autoFocus
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        placeholder={mode === "comment" ? "Deixe uma observação para a equipe…" : "Seja específico para acelerar a revisão…"}
+                        className="min-h-[110px] resize-none"
+                      />
+                    </section>
                   )}
                 </>
               )}
             </div>
-            <DialogFooter className="flex-col gap-2 border-t border-border/60 bg-card/60 px-5 py-4 sm:flex-row">
+
+            {/* Sticky footer */}
+            <div className="space-y-3 border-t border-border/60 bg-card/70 px-5 py-4">
               {disabled && (
-                <span className="w-full text-center text-[11px] text-amber-500 sm:text-left">
-                  Preencha seu nome no topo para decidir.
-                </span>
+                <div className="space-y-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 p-3">
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                    <User2 className="h-3 w-3" /> Identifique-se para decidir
+                  </div>
+                  <Input
+                    autoFocus
+                    value={identity}
+                    onChange={(e) => onIdentityChange(e.target.value)}
+                    placeholder="Seu nome"
+                    className="h-8 text-sm"
+                  />
+                </div>
               )}
               {mode ? (
-                <div className="flex w-full gap-2">
-                  <Button variant="ghost" className="flex-1" onClick={() => { setMode(null); setNote(""); }}>
+                <div className="flex gap-2">
+                  <Button variant="ghost" size="sm" className="flex-1" onClick={() => { setMode(null); setNote(""); }}>
                     Cancelar
                   </Button>
                   <Button
+                    size="sm"
                     className="flex-1"
-                    disabled={disabled || m.isPending}
+                    variant={mode === "reject" ? "destructive" : "default"}
+                    disabled={disabled || m.isPending || (mode !== "comment" && !note.trim())}
                     onClick={() =>
                       m.mutate({
                         decision: mode === "reject" ? "rejected" : mode,
@@ -415,26 +529,38 @@ function ApprovalDialog({
                       })
                     }
                   >
-                    {m.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enviar"}
+                    {m.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : mode === "reject" ? "Confirmar rejeição"
+                      : mode === "adjust" ? "Solicitar ajuste"
+                      : "Enviar comentário"}
                   </Button>
                 </div>
               ) : (
-                <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4">
-                  <Button size="sm" disabled={disabled || m.isPending} onClick={() => m.mutate({ decision: "approved" })}>
-                    <Check className="mr-1 h-4 w-4" /> Aprovar
+                <div className="flex flex-col gap-2">
+                  <Button
+                    size="sm"
+                    className="w-full bg-emerald-600 text-white hover:bg-emerald-600/90"
+                    disabled={disabled || m.isPending}
+                    onClick={() => m.mutate({ decision: "approved" })}
+                  >
+                    {m.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1.5 h-4 w-4" />}
+                    Aprovar publicação
                   </Button>
-                  <Button size="sm" variant="outline" disabled={disabled} onClick={() => setMode("adjust")}>
-                    <MessageSquareWarning className="mr-1 h-4 w-4" /> Ajustes
-                  </Button>
-                  <Button size="sm" variant="outline" disabled={disabled} onClick={() => setMode("reject")}>
-                    <X className="mr-1 h-4 w-4" /> Rejeitar
-                  </Button>
-                  <Button size="sm" variant="ghost" disabled={disabled} onClick={() => setMode("comment")}>
-                    <MessageCircle className="mr-1 h-4 w-4" /> Comentar
-                  </Button>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Button size="sm" variant="outline" disabled={disabled} onClick={() => setMode("adjust")}>
+                      <MessageSquareWarning className="mr-1 h-4 w-4" /> Ajustar
+                    </Button>
+                    <Button size="sm" variant="outline" disabled={disabled} onClick={() => setMode("reject")}>
+                      <X className="mr-1 h-4 w-4" /> Rejeitar
+                    </Button>
+                    <Button size="sm" variant="ghost" disabled={disabled} onClick={() => setMode("comment")}>
+                      <MessageCircle className="mr-1 h-4 w-4" /> Comentar
+                    </Button>
+                  </div>
                 </div>
               )}
-            </DialogFooter>
+            </div>
           </div>
         </div>
       </DialogContent>
