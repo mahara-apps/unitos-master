@@ -2,16 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import {
-  Bell,
-  Sparkles,
-  CheckCircle2,
-  MessageSquare,
-  UserPlus,
-  Clock,
-  AlertCircle,
-  Inbox,
-} from "lucide-react";
+import { Bell, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -28,46 +19,9 @@ import {
   markNotificationReadFn,
   type NotificationRow,
 } from "@/lib/notifications.functions";
+import { colorFor, iconFor, relativeTimePtBr } from "@/lib/notifications-format";
 
 export const NOTIFICATIONS_QUERY_KEY = ["notifications", "me"] as const;
-
-function iconFor(kind: NotificationRow["kind"]) {
-  switch (kind) {
-    case "mention": return MessageSquare;
-    case "assignment": return UserPlus;
-    case "approval_requested": return AlertCircle;
-    case "approval_decision": return CheckCircle2;
-    case "deadline": return Clock;
-    case "system":
-    default: return Sparkles;
-  }
-}
-
-function colorFor(kind: NotificationRow["kind"]) {
-  switch (kind) {
-    case "mention": return "text-sky-400";
-    case "assignment": return "text-violet-400";
-    case "approval_requested": return "text-amber-400";
-    case "approval_decision": return "text-emerald-400";
-    case "deadline": return "text-rose-400";
-    case "system":
-    default: return "text-indigo-400";
-  }
-}
-
-function relativeTime(iso: string): string {
-  const then = new Date(iso).getTime();
-  const diff = Math.max(0, Date.now() - then);
-  const s = Math.floor(diff / 1000);
-  if (s < 60) return `${s}s ago`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
-  return new Date(iso).toLocaleDateString();
-}
 
 export function useNotifications() {
   const listFn = useServerFn(listMyNotificationsFn);
@@ -162,13 +116,12 @@ export function NotificationsBell() {
           variant="ghost"
           size="icon"
           className="relative h-8 w-8"
-          aria-label={`Notifications${unread ? ` (${unread} unread)` : ""}`}
+          aria-label={`Notificações${unread ? ` (${unread} não lida${unread === 1 ? "" : "s"})` : ""}`}
         >
           <Bell className="h-4 w-4" />
           {unread > 0 ? (
-            <span className="absolute right-1.5 top-1.5 flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-500/70" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-rose-500" />
+            <span className="absolute -right-0.5 -top-0.5 flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-none text-white">
+              {unread > 9 ? "9+" : unread}
             </span>
           ) : null}
         </Button>
@@ -176,9 +129,9 @@ export function NotificationsBell() {
       <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
         <SheetHeader className="flex-row items-center justify-between space-y-0 border-b border-border/60 px-4 py-3">
           <div className="flex flex-col leading-tight">
-            <SheetTitle className="text-sm">Recent activity</SheetTitle>
+            <SheetTitle className="text-sm">Notificações</SheetTitle>
             <span className="text-[11px] text-muted-foreground">
-              {unread > 0 ? `${unread} unread` : "All caught up"}
+              {unread > 0 ? `${unread} não lida${unread === 1 ? "" : "s"}` : "Tudo em dia"}
             </span>
           </div>
           <Button
@@ -188,7 +141,7 @@ export function NotificationsBell() {
             disabled={unread === 0 || markAll.isPending}
             onClick={() => markAll.mutate()}
           >
-            Mark all as read
+            Marcar todas como lidas
           </Button>
         </SheetHeader>
 
@@ -222,7 +175,7 @@ export function NotificationsBell() {
                         </p>
                       ) : null}
                       <p className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground/70">
-                        {relativeTime(n.created_at)}
+                        {relativeTimePtBr(n.created_at)}
                       </p>
                     </div>
                   </div>
@@ -262,7 +215,7 @@ export function NotificationsBell() {
         <div className="border-t border-border/60 p-3">
           <Button asChild variant="outline" className="w-full" size="sm">
             <Link to="/notifications" onClick={() => setOpen(false)}>
-              View all notifications
+              Ver todas as notificações
             </Link>
           </Button>
         </div>
@@ -293,9 +246,9 @@ function EmptyState() {
       <div className="rounded-full border border-border/60 bg-muted/40 p-3">
         <Inbox className="h-5 w-5 text-muted-foreground" />
       </div>
-      <p className="text-sm font-medium">All caught up!</p>
+      <p className="text-sm font-medium">Tudo em dia!</p>
       <p className="text-[11px] text-muted-foreground">
-        You'll see mentions, approvals, and deadlines here as they happen.
+        Menções, aprovações e prazos aparecem aqui em tempo real.
       </p>
     </div>
   );
