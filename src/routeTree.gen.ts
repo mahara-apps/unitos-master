@@ -48,6 +48,7 @@ import { Route as AuthenticatedSettingsAiRouteImport } from './routes/_authentic
 import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_authenticated/projects.$projectId'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 import { Route as ApiPublicMediaPruneRouteImport } from './routes/api/public/media/prune'
+import { Route as ApiPublicHooksBrainConsolidateRouteImport } from './routes/api/public/hooks/brain-consolidate'
 import { Route as ApiPublicApprovalTokenRouteImport } from './routes/api/public/approval.$token'
 import { Route as AuthenticatedCustomersCustomerIdMediaPlanRouteImport } from './routes/_authenticated/customers.$customerId.media-plan'
 import { Route as AuthenticatedCustomersCustomerIdBriefingRouteImport } from './routes/_authenticated/customers.$customerId.briefing'
@@ -257,6 +258,12 @@ const ApiPublicMediaPruneRoute = ApiPublicMediaPruneRouteImport.update({
   path: '/api/public/media/prune',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksBrainConsolidateRoute =
+  ApiPublicHooksBrainConsolidateRouteImport.update({
+    id: '/api/public/hooks/brain-consolidate',
+    path: '/api/public/hooks/brain-consolidate',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicApprovalTokenRoute = ApiPublicApprovalTokenRouteImport.update({
   id: '/api/public/approval/$token',
   path: '/api/public/approval/$token',
@@ -316,6 +323,7 @@ export interface FileRoutesByFullPath {
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
+  '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
 }
 export interface FileRoutesByTo {
@@ -356,6 +364,7 @@ export interface FileRoutesByTo {
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
+  '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
 }
 export interface FileRoutesById {
@@ -401,6 +410,7 @@ export interface FileRoutesById {
   '/_authenticated/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/_authenticated/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
+  '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
 }
 export interface FileRouteTypes {
@@ -446,6 +456,7 @@ export interface FileRouteTypes {
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/media-plan'
     | '/api/public/approval/$token'
+    | '/api/public/hooks/brain-consolidate'
     | '/api/public/media/prune'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -486,6 +497,7 @@ export interface FileRouteTypes {
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/media-plan'
     | '/api/public/approval/$token'
+    | '/api/public/hooks/brain-consolidate'
     | '/api/public/media/prune'
   id:
     | '__root__'
@@ -530,6 +542,7 @@ export interface FileRouteTypes {
     | '/_authenticated/customers/$customerId/briefing'
     | '/_authenticated/customers/$customerId/media-plan'
     | '/api/public/approval/$token'
+    | '/api/public/hooks/brain-consolidate'
     | '/api/public/media/prune'
   fileRoutesById: FileRoutesById
 }
@@ -552,6 +565,7 @@ export interface RootRouteChildren {
   ApiPublicSeedSuperadminsRoute: typeof ApiPublicSeedSuperadminsRoute
   PBriefingTokenRoute: typeof PBriefingTokenRoute
   ApiPublicApprovalTokenRoute: typeof ApiPublicApprovalTokenRoute
+  ApiPublicHooksBrainConsolidateRoute: typeof ApiPublicHooksBrainConsolidateRoute
   ApiPublicMediaPruneRoute: typeof ApiPublicMediaPruneRoute
 }
 
@@ -830,6 +844,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMediaPruneRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/brain-consolidate': {
+      id: '/api/public/hooks/brain-consolidate'
+      path: '/api/public/hooks/brain-consolidate'
+      fullPath: '/api/public/hooks/brain-consolidate'
+      preLoaderRoute: typeof ApiPublicHooksBrainConsolidateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/approval/$token': {
       id: '/api/public/approval/$token'
       path: '/api/public/approval/$token'
@@ -977,6 +998,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicSeedSuperadminsRoute: ApiPublicSeedSuperadminsRoute,
   PBriefingTokenRoute: PBriefingTokenRoute,
   ApiPublicApprovalTokenRoute: ApiPublicApprovalTokenRoute,
+  ApiPublicHooksBrainConsolidateRoute: ApiPublicHooksBrainConsolidateRoute,
   ApiPublicMediaPruneRoute: ApiPublicMediaPruneRoute,
 }
 export const routeTree = rootRouteImport

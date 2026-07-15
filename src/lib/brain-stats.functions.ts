@@ -20,7 +20,7 @@ export type BrainStats = {
     brand_id: string | null;
     event_type: string;
     source_module: string;
-    payload: Record<string, unknown>;
+    payload: unknown;
     created_at: string;
   }>;
   insights: Array<{
@@ -107,7 +107,7 @@ export const brainStatsFn = createServerFn({ method: "POST" })
         brand_id: (r.brand_id as string | null) ?? null,
         event_type: r.event_type as string,
         source_module: r.source_module as string,
-        payload: (r.payload as Record<string, unknown>) ?? {},
+        payload: r.payload as unknown,
         created_at: r.created_at as string,
       })),
       insights,

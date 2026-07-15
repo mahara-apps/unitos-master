@@ -26,7 +26,7 @@ export const brainIngestFn = createServerFn({ method: "POST" })
         brand_id: data.brandId,
         event_type: data.eventType,
         source_module: data.sourceModule,
-        payload: data.payload,
+        payload: data.payload as never,
         outcome_score: data.outcomeScore ?? null,
       })
       .select("id")
