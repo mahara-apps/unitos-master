@@ -3,8 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Save, KeyRound } from "lucide-react";
+import { Loader2, Save, KeyRound, Building2, MapPin, MessageCircle } from "lucide-react";
 import { getMyProfile, updateMyProfile, changeMyPassword } from "@/lib/profile.functions";
+import { getBrandCompany, updateBrandCompany } from "@/lib/workspace.functions";
+import { useActiveContext } from "@/hooks/use-active-context";
+import { useAccessRole } from "@/hooks/use-access-role";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,7 +63,25 @@ type FormState = {
   timezone: string;
   locale: string;
   avatar_url: string;
+  whatsapp: string;
+  notify_whatsapp: boolean;
 };
+
+type CompanyState = {
+  cpf: string;
+  cnpj: string;
+  nome_fantasia: string;
+  razao_social: string;
+  cep: string;
+  rua: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  estado: string;
+};
+
+const UFS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
 
 function ProfilePage() {
   usePageHeader({ title: "Perfil", subtitle: "Suas informações pessoais e preferências" });
@@ -68,14 +90,25 @@ function ProfilePage() {
   const fetchProfile = useServerFn(getMyProfile);
   const saveProfile = useServerFn(updateMyProfile);
   const changePassword = useServerFn(changeMyPassword);
+  const fetchCompany = useServerFn(getBrandCompany);
+  const saveCompany = useServerFn(updateBrandCompany);
+  const { brandId } = useActiveContext();
+  const access = useAccessRole();
+  const canEditCompany = access.role === "admin";
 
   const { data, isLoading } = useQuery({
     queryKey: ["me", "profile"],
     queryFn: () => fetchProfile(),
   });
+  const companyQ = useQuery({
+    queryKey: ["brand", "company", brandId],
+    queryFn: () => fetchCompany({ data: { brandId: brandId! } }),
+    enabled: !!brandId,
+  });
 
   const [form, setForm] = useState<FormState | null>(null);
   const [pw, setPw] = useState({ next: "", confirm: "" });
+  const [company, setCompany] = useState<CompanyState | null>(null);
 
   useEffect(() => {
     if (data && !form) {
@@ -87,9 +120,30 @@ function ProfilePage() {
         timezone: data.timezone ?? "America/Sao_Paulo",
         locale: data.locale ?? "pt-BR",
         avatar_url: data.avatar_url ?? "",
+        whatsapp: (data as { whatsapp?: string | null }).whatsapp ?? "",
+        notify_whatsapp: Boolean((data as { notify_whatsapp?: boolean }).notify_whatsapp),
       });
     }
   }, [data, form]);
+
+  useEffect(() => {
+    if (companyQ.data && !company) {
+      const c = companyQ.data;
+      setCompany({
+        cpf: c.cpf ?? "",
+        cnpj: c.cnpj ?? "",
+        nome_fantasia: c.nome_fantasia ?? "",
+        razao_social: c.razao_social ?? "",
+        cep: c.cep ?? "",
+        rua: c.rua ?? "",
+        numero: c.numero ?? "",
+        complemento: c.complemento ?? "",
+        bairro: c.bairro ?? "",
+        cidade: c.cidade ?? "",
+        estado: c.estado ?? "",
+      });
+    }
+  }, [companyQ.data, company]);
 
   const initials = useMemo(() => {
     const n = form?.full_name ?? data?.full_name ?? data?.email ?? "?";
@@ -107,6 +161,8 @@ function ProfilePage() {
           timezone: payload.timezone,
           locale: payload.locale,
           avatar_url: payload.avatar_url.trim() || null,
+          whatsapp: payload.whatsapp.trim() || null,
+          notify_whatsapp: payload.notify_whatsapp,
         },
       }),
     onSuccess: async () => {
@@ -116,6 +172,31 @@ function ProfilePage() {
     onError: (e: unknown) => {
       toast.error(e instanceof Error ? e.message : "Falha ao salvar perfil");
     },
+  });
+
+  const companyMutation = useMutation({
+    mutationFn: async (payload: CompanyState) =>
+      saveCompany({
+        data: {
+          brandId: brandId!,
+          cpf: payload.cpf.trim() || null,
+          cnpj: payload.cnpj.trim() || null,
+          nome_fantasia: payload.nome_fantasia.trim() || null,
+          razao_social: payload.razao_social.trim() || null,
+          cep: payload.cep.trim() || null,
+          rua: payload.rua.trim() || null,
+          numero: payload.numero.trim() || null,
+          complemento: payload.complemento.trim() || null,
+          bairro: payload.bairro.trim() || null,
+          cidade: payload.cidade.trim() || null,
+          estado: payload.estado.trim().toUpperCase() || null,
+        },
+      }),
+    onSuccess: async () => {
+      toast.success("Dados da empresa atualizados");
+      await qc.invalidateQueries({ queryKey: ["brand", "company", brandId] });
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Falha ao salvar dados da empresa"),
   });
 
   const pwMutation = useMutation({
