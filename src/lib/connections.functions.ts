@@ -175,6 +175,8 @@ const ChannelInput = z.object({
     "tiktok",
     "youtube",
     "linkedin",
+    "twitter",
+    "threads",
     "meta",
     "resend",
     "whatsapp_evolution",
