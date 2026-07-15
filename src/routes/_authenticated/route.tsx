@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ActiveContextProvider } from "@/hooks/use-active-context";
@@ -119,7 +119,6 @@ function ShellHeader() {
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-border/60 bg-background/80 px-4 backdrop-blur">
       <div className="flex min-w-0 items-center gap-3">
-        <SidebarTrigger />
         <div className="flex min-w-0 flex-col leading-tight">
           <span className="truncate text-sm font-semibold">{resolvedTitle}</span>
           {subtitle ? (
