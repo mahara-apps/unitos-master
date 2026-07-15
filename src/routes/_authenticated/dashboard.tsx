@@ -189,7 +189,11 @@ function AgencyMode({ brandId }: { brandId: string }) {
       {/* Health ranking + Funnel */}
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <ClientHealthRanking healths={d?.healths ?? []} loading={q.isLoading} />
-        <FunnelCard postsByStage={d?.postsByStage ?? {}} avgLead={d?.avgLeadTimeDays ?? null} />
+        <FunnelCard
+          stages={d?.pipelineStages ?? []}
+          postsByStage={d?.postsByStage ?? {}}
+          avgLead={d?.avgLeadTimeDays ?? null}
+        />
       </div>
 
       {/* AI usage + Publish trend */}
@@ -773,6 +777,7 @@ function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
         <FunnelCard
+          stages={stats.data?.pipelineStages ?? []}
           postsByStage={stats.data?.postsByStage ?? {}}
           avgLead={stats.data?.avgLeadTimeDays ?? null}
         />
