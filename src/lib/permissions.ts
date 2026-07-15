@@ -87,7 +87,7 @@ export const isAdminRole = (role: AccessRole | null | undefined) => role === "ad
 export const SIDEBAR_ALLOWED_URLS: Record<AccessRole, ReadonlySet<string>> = {
   admin: new Set([
     "/dashboard", "/tasks", "/calendar", "/projects", "/customers",
-    "/analytics",
+    "/analytics", "/media-plans",
     "/connections", "/agents",
     "/content",
     "/settings/team", "/notifications",
@@ -95,7 +95,7 @@ export const SIDEBAR_ALLOWED_URLS: Record<AccessRole, ReadonlySet<string>> = {
   ]),
   user: new Set([
     "/dashboard", "/tasks", "/calendar", "/projects", "/customers",
-    "/content",
+    "/content", "/media-plans",
     "/notifications",
   ]),
 };
