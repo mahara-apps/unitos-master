@@ -36,7 +36,7 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
         .limit(25),
       context.supabase
         .from("posts")
-        .select("id,stage,scheduled_at,published_at,created_at")
+        .select("id,stage,stage_id,scheduled_at,published_at,created_at")
         .eq("brand_id", data.brandId)
         .eq("client_id", data.clientId),
       context.supabase
@@ -60,6 +60,27 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
           .in("post_id", postIds)
       : { data: [] as Array<{ status: string }> };
 
+    // Resolve stage_id -> canonical key via content_pipeline_stages so counts
+    // stay in sync with the Kanban (which updates stage_id, not the legacy
+    // text `stage` column).
+    const stageIds = Array.from(
+      new Set(
+        (posts.data ?? [])
+          .map((p) => p.stage_id as string | null)
+          .filter((v): v is string => !!v),
+      ),
+    );
+    const stageKeyById = new Map<string, string>();
+    if (stageIds.length) {
+      const { data: stageRows } = await context.supabase
+        .from("content_pipeline_stages")
+        .select("id,key")
+        .in("id", stageIds);
+      for (const row of stageRows ?? []) {
+        stageKeyById.set(row.id as string, String(row.key ?? "").toLowerCase());
+      }
+    }
+
     // Bucket AI cost per-day (last 14d) for sparkline
     const days: string[] = Array.from({ length: 14 }, (_, i) => {
       const d = new Date();
@@ -82,7 +103,8 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
     const stages = ["idea", "production", "review", "approved", "scheduled", "published"] as const;
     const stageCounts = Object.fromEntries(stages.map((s) => [s, 0])) as Record<(typeof stages)[number], number>;
     for (const p of posts.data ?? []) {
-      const s = (p.stage as (typeof stages)[number]) ?? "idea";
+      const resolved = (p.stage_id ? stageKeyById.get(p.stage_id as string) : null) ?? (p.stage as string | null) ?? "idea";
+      const s = resolved as (typeof stages)[number];
       if (s in stageCounts) stageCounts[s] += 1;
     }
 
