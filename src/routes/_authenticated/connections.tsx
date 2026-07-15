@@ -53,6 +53,8 @@ import {
   saveProviderKey,
   removeProviderKey,
   upsertChannel,
+  saveToolCredential,
+  removeToolCredential,
 } from "@/lib/connections.functions";
 import { usePageHeader } from "@/hooks/use-page-header";
 import {
