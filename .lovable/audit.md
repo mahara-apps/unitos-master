@@ -1,9 +1,26 @@
 # NexusFlow — Auditoria Sênior (2026-07-15 · rev 2)
 
-> Auditoria completa reexecutada após as correções P0/P1 anteriores.
-> Sinais: `supabase--linter` (41), `security--run_security_scan` (40),
-> `project_monitoring` (1 high), `pg_stat_statements` (top 10),
-> Worker logs (última hora limpa — só 200s).
+> Atualizado após correções desta rodada. Sinais: linter, security scan,
+> `pg_stat_statements`, Worker logs.
+
+## ✅ Corrigido nesta rodada
+
+- Índices compostos criados em `activity_events (brand_id, created_at DESC)` e `(brand_id, client_id, created_at DESC)`.
+- Índice em `ai_jobs (user_id, created_at DESC)` e `brand_members (user_id)`.
+- REVOKE EXECUTE em funções administrativas (`has_brand_role`, `is_brand_member`, `is_super_admin`, `accept_brand_invite`, `reap_stuck_ai_jobs`) para `anon`.
+- REVOKE EXECUTE em **todas as funções de trigger** (`handle_new_user`, `add_brand_owner`, `log_*`, `notify_*`, `protect_pipeline_delete`, `recalc_*`, `update_updated_at_column`) para `PUBLIC/anon/authenticated`.
+- Confirmado: `MandatoryPasswordReset` já usa `staleTime: Infinity`; `useAccessRole` já usa 60s.
+
+## Pendências
+
+- **P0 `SUPABASE_SERVICE_ROLE_KEY`**: prefixo é reservado; deve ser injetado via integração Supabase gerenciada (Lovable Cloud → Project Settings) — não é criável via `add_secret`.
+- **P1 `agent_prompts` escopo por brand** — decisão pendente.
+- **P1 Leaked Password Protection** — ativar no painel Supabase Auth.
+- **P2 Extensões em `public`** (vector/pg_trgm) — mover para schema `extensions`.
+
+---
+
+## Snapshot anterior
 
 ---
 
