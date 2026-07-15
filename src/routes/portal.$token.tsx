@@ -313,7 +313,7 @@ function ApprovalCard({ post, onOpen }: { post: Record<string, unknown>; onOpen:
         <div className="truncate text-sm font-medium">{(post.title as string) || "Sem título"}</div>
         <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
           <span>{(post.format as string) || "—"}</span>
-          {post.scheduled_at && <><span>·</span><span>{formatDate(post.scheduled_at as string)}</span></>}
+          {post.scheduled_at ? <><span>·</span><span>{formatDate(post.scheduled_at as string)}</span></> : null}
         </div>
       </div>
     </button>
