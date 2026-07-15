@@ -33,6 +33,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { usePageHeader } from "@/hooks/use-page-header";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SettingsStatCard } from "@/components/settings/settings-stat-card";
+import { Users, Mail as MailIcon, Link as LinkIcon, Crown } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings/team")({
   component: TeamSettingsPage,
@@ -71,14 +74,20 @@ function TeamSettingsPage() {
 
   if (!brandId) {
     return (
-      <div className="mx-auto max-w-3xl px-6 md:px-8 py-10">
+      <div className="mx-auto max-w-6xl p-6">
         <p className="text-sm text-muted-foreground">Selecione uma marca no menu lateral para gerenciar a equipe.</p>
       </div>
     );
   }
 
+  const members = data?.members ?? [];
+  const invitesAll = data?.invites ?? [];
+  const pendingInvites = invitesAll.filter((i) => !i.accepted_at && !i.revoked_at);
+  const portalTokens = (data?.portalTokens ?? []).filter((t) => !t.revoked_at);
+  const owners = members.filter((m) => m.role === "owner").length;
+
   return (
-    <div className="mx-auto max-w-5xl px-6 md:px-8 py-8 space-y-8">
+    <div className="mx-auto max-w-6xl p-6 space-y-4">
       <Dialog open={open} onOpenChange={setOpen}>
         <InviteDialog
           brandId={brandId}
@@ -89,47 +98,63 @@ function TeamSettingsPage() {
         />
       </Dialog>
 
-      <section className="rounded-xl border border-border bg-card">
-        <header className="grid grid-cols-[minmax(0,1fr)_140px_1fr_60px] items-center gap-4 px-4 py-3 border-b border-border text-[11px] uppercase tracking-wider text-muted-foreground font-mono">
-          <div>Membro</div>
-          <div>Papel</div>
-          <div>Permissões</div>
-          <div />
-        </header>
-        {isLoading ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">Carregando…</div>
-        ) : (data?.members ?? []).length === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">Nenhum membro nesta marca.</div>
-        ) : (
-          <ul>
-            {data!.members.map((m) => (
-              <MemberRow key={m.user_id} brandId={brandId} member={m} />
-            ))}
-          </ul>
-        )}
-      </section>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <SettingsStatCard label="Membros" value={members.length} icon={<Users className="h-3.5 w-3.5" />} />
+        <SettingsStatCard label="Convites pendentes" value={pendingInvites.length} icon={<MailIcon className="h-3.5 w-3.5" />} className={pendingInvites.length > 0 ? "text-amber-500" : undefined} />
+        <SettingsStatCard label="Portais ativos" value={portalTokens.length} icon={<LinkIcon className="h-3.5 w-3.5" />} />
+        <SettingsStatCard label="Owners" value={owners} icon={<Crown className="h-3.5 w-3.5" />} className="text-emerald-500" />
+      </div>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium">Convites pendentes</h2>
-        <div className="rounded-xl border border-border bg-card">
-          {(data?.invites ?? []).filter((i) => !i.accepted_at).length === 0 ? (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Membros da equipe</CardTitle>
+          <CardDescription>Usuários com acesso a esta marca e suas permissões.</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="grid grid-cols-[minmax(0,1fr)_140px_1fr_60px] items-center gap-4 border-y border-border/60 bg-muted/30 px-4 py-2 text-[11px] uppercase tracking-wider text-muted-foreground">
+            <div>Membro</div>
+            <div>Papel</div>
+            <div>Permissões</div>
+            <div />
+          </div>
+          {isLoading ? (
+            <div className="p-8 text-center text-sm text-muted-foreground">Carregando…</div>
+          ) : members.length === 0 ? (
+            <div className="p-8 text-center text-sm text-muted-foreground">Nenhum membro nesta marca.</div>
+          ) : (
+            <ul>
+              {members.map((m) => (
+                <MemberRow key={m.user_id} brandId={brandId} member={m} />
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Convites pendentes</CardTitle>
+          <CardDescription>Convites ainda não aceitos ou expirados.</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          {invitesAll.filter((i) => !i.accepted_at).length === 0 ? (
             <div className="p-6 text-center text-sm text-muted-foreground">Nenhum convite pendente.</div>
           ) : (
             <ul>
-              {data!.invites.filter((i) => !i.accepted_at).map((i) => (
+              {invitesAll.filter((i) => !i.accepted_at).map((i) => (
                 <InviteRow key={i.id} brandId={brandId} invite={i} />
               ))}
             </ul>
           )}
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
-      <section className="space-y-3">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-sm font-medium">Acessos do portal do cliente</h2>
-          <span className="text-xs text-muted-foreground">Links white-label de portal por conta</span>
-        </div>
-        <div className="rounded-xl border border-border bg-card">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Acessos do portal do cliente</CardTitle>
+          <CardDescription>Links white-label de portal por conta.</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
           {(data?.portalTokens ?? []).length === 0 ? (
             <div className="p-6 text-center text-sm text-muted-foreground">Nenhum link de portal ativo.</div>
           ) : (
@@ -139,8 +164,8 @@ function TeamSettingsPage() {
               ))}
             </ul>
           )}
-        </div>
-      </section>
+        </CardContent>
+      </Card>
     </div>
   );
 }
