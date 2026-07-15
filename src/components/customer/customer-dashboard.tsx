@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import {
   Activity,
   CalendarClock,
@@ -296,15 +297,15 @@ function AccountPropertiesCard({
     <div className="rounded-xl border border-border/60 bg-card">
       <div className="border-b border-border/60 px-4 py-3">
         <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-          Account properties
+          Propriedades da conta
         </div>
-        <div className="mt-0.5 text-sm font-medium">Identity and linked channels</div>
+        <div className="mt-0.5 text-sm font-medium">Identidade e canais vinculados</div>
       </div>
       <div className="space-y-4 p-4">
         {(contactName || contactEmail) && (
           <div className="grid gap-1.5">
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              Primary contact
+              Contato principal
             </div>
             <div className="text-sm">
               {contactName ?? "—"}{" "}
@@ -317,7 +318,7 @@ function AccountPropertiesCard({
 
         <div className="grid gap-1.5">
           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            Linked social channels
+            Canais sociais vinculados
           </div>
           <div className="grid gap-1">
             {SOCIAL_META.map((s) => {
@@ -345,7 +346,7 @@ function AccountPropertiesCard({
             })}
             {SOCIAL_META.every((s) => !socials?.[s.key]) && (
               <div className="rounded-md border border-dashed border-border/60 p-3 text-center text-xs text-muted-foreground">
-                No social channels linked yet.
+                Nenhum canal social vinculado ainda.
               </div>
             )}
           </div>
@@ -390,7 +391,7 @@ function ActivityRow({ event }: { event: CustomerDashboardData["activity"][numbe
     try {
       const d = new Date(event.created_at as string);
       const safe = Date.now() - d.getTime() < 0 ? new Date() : d;
-      return formatDistanceToNow(safe, { addSuffix: true });
+      return formatDistanceToNow(safe, { addSuffix: true, locale: ptBR });
     } catch {
       return "";
     }
@@ -422,30 +423,69 @@ function activityDescriptor(ev: CustomerDashboardData["activity"][number]): {
 } {
   const payload = (ev.payload ?? {}) as Record<string, unknown>;
   const title = (payload.title as string) ?? "";
+  const verbLabel: Record<string, string> = {
+    created: "criado",
+    updated: "atualizado",
+    deleted: "excluído",
+    approved: "aprovado",
+    rejected: "rejeitado",
+    scheduled: "agendado",
+    published: "publicado",
+    assigned: "atribuído",
+    commented: "comentado",
+    stage_changed: "movido de estágio",
+    status_changed: "status alterado",
+  };
+  const stageLabel: Record<string, string> = {
+    idea: "Ideia",
+    production: "Produção",
+    review: "Revisão",
+    approval: "Aprovação",
+    scheduled: "Agendado",
+    published: "Publicado",
+  };
+  const taskStatusLabel: Record<string, string> = {
+    todo: "a fazer",
+    doing: "em andamento",
+    done: "concluída",
+    blocked: "bloqueada",
+    backlog: "no backlog",
+  };
+  const humanVerb = (v: string) => verbLabel[v] ?? v;
   if (ev.entity_type === "post") {
     if (ev.verb === "stage_changed") {
+      const to = String(payload.to ?? "");
       return {
-        title: `Post movido para ${payload.to as string}`,
+        title: `Post movido para ${stageLabel[to] ?? to}`,
         subtitle: title,
         icon: Activity,
         dot: "bg-indigo-500",
       };
     }
-    return { title: `Post ${ev.verb}`, subtitle: title, icon: Sparkles, dot: "bg-cyan-500" };
+    return { title: `Post ${humanVerb(ev.verb)}`, subtitle: title, icon: Sparkles, dot: "bg-cyan-500" };
   }
   if (ev.entity_type === "task") {
     if (ev.verb === "status_changed") {
+      const to = String(payload.to ?? "");
       return {
-        title: `Tarefa ${payload.to as string}`,
+        title: `Tarefa ${taskStatusLabel[to] ?? to}`,
         subtitle: title,
         icon: CheckCircle2,
         dot: "bg-emerald-500",
       };
     }
-    return { title: `Tarefa ${ev.verb}`, subtitle: title, icon: Clock, dot: "bg-amber-500" };
+    return { title: `Tarefa ${humanVerb(ev.verb)}`, subtitle: title, icon: Clock, dot: "bg-amber-500" };
   }
+  const entityLabel: Record<string, string> = {
+    post: "Post",
+    task: "Tarefa",
+    project: "Projeto",
+    customer: "Cliente",
+    briefing: "Briefing",
+    persona: "Persona",
+  };
   return {
-    title: `${ev.entity_type} ${ev.verb}`,
+    title: `${entityLabel[ev.entity_type] ?? ev.entity_type} ${humanVerb(ev.verb)}`,
     subtitle: title,
     icon: Activity,
     dot: "bg-zinc-400 dark:bg-zinc-500",
