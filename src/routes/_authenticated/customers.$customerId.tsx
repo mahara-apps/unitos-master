@@ -42,7 +42,6 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
 const TABS = [
   { value: "overview", label: "Visão geral" },
   { value: "brain", label: "Cérebro da Marca" },
-  { value: "production", label: "Produção" },
 ] as const;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -237,9 +236,6 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
                   </>
                 }
               />
-            </TabsContent>
-            <TabsContent value="production">
-              <ProductionPanel brandId={brandId} clientId={customerId} />
             </TabsContent>
           </Tabs>
         )}
