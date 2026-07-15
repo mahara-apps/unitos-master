@@ -42,6 +42,10 @@ import { listClients } from "@/lib/workspace.functions";
 import { listBrandTeam } from "@/lib/team.functions";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import {
+  DashboardPageShell,
+  DashboardPanelSurface,
+} from "@/components/ui/dashboard-primitives";
+import {
   createProject,
   listProjects,
   type ProjectStats,
@@ -175,19 +179,19 @@ function ProjectsIndexPage() {
 
   if (!brandId) {
     return (
-      <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-        <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 text-sm text-muted-foreground">
+      <DashboardPageShell>
+        <DashboardPanelSurface className="flex items-start gap-3 px-4 py-3 text-sm text-muted-foreground">
           <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-500" />
           Selecione um workspace no menu lateral para ver os projetos.
-        </div>
-      </div>
+        </DashboardPanelSurface>
+      </DashboardPageShell>
     );
   }
 
   return (
-    <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+    <DashboardPageShell>
       {/* Filtros */}
-      <div className="flex flex-wrap items-center gap-3">
+      <DashboardPanelSurface className="flex flex-wrap items-center gap-3 px-4 py-3">
         <div className="relative w-full max-w-xs">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -239,7 +243,7 @@ function ProjectsIndexPage() {
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </DashboardPanelSurface>
 
       {/* Grid de projetos */}
       {projectsQ.isLoading ? (
@@ -249,12 +253,12 @@ function ProjectsIndexPage() {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-xl border border-border/60 bg-card">
+        <DashboardPanelSurface>
           <PanelEmptyState
             icon={<FileBarChart2 className="h-4 w-4" />}
             text="Nenhum projeto encontrado. Crie o primeiro clicando em Novo Projeto."
           />
-        </div>
+        </DashboardPanelSurface>
       ) : (
         <div className="grid w-full grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((p) => {
@@ -298,7 +302,9 @@ function ProjectsIndexPage() {
 
                 <div className="mt-4 space-y-1.5">
                   <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-muted-foreground">Progresso</span>
+                    <span className="font-mono uppercase tracking-widest text-muted-foreground">
+                      Progresso
+                    </span>
                     <span className="font-medium text-foreground">
                       {stats.published}/{total} publicadas
                     </span>
@@ -331,7 +337,7 @@ function ProjectsIndexPage() {
         submitting={createMut.isPending}
         onSubmit={(v) => createMut.mutate(v)}
       />
-    </div>
+    </DashboardPageShell>
   );
 }
 
