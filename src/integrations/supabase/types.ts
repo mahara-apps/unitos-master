@@ -1410,6 +1410,137 @@ export type Database = {
           },
         ]
       }
+      media_plan_items: {
+        Row: {
+          audience: string | null
+          benchmark: string | null
+          budget_amount: number
+          budget_pct: number
+          campaign_type: string | null
+          channel: string | null
+          created_at: string
+          funnel_stage: string | null
+          id: string
+          keywords: string[]
+          main_kpi: string | null
+          objective: string | null
+          other_refs: string | null
+          plan_id: string
+          position: number
+          product_service: string | null
+          updated_at: string
+        }
+        Insert: {
+          audience?: string | null
+          benchmark?: string | null
+          budget_amount?: number
+          budget_pct?: number
+          campaign_type?: string | null
+          channel?: string | null
+          created_at?: string
+          funnel_stage?: string | null
+          id?: string
+          keywords?: string[]
+          main_kpi?: string | null
+          objective?: string | null
+          other_refs?: string | null
+          plan_id: string
+          position?: number
+          product_service?: string | null
+          updated_at?: string
+        }
+        Update: {
+          audience?: string | null
+          benchmark?: string | null
+          budget_amount?: number
+          budget_pct?: number
+          campaign_type?: string | null
+          channel?: string | null
+          created_at?: string
+          funnel_stage?: string | null
+          id?: string
+          keywords?: string[]
+          main_kpi?: string | null
+          objective?: string | null
+          other_refs?: string | null
+          plan_id?: string
+          position?: number
+          product_service?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_plan_items_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "media_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      media_plans: {
+        Row: {
+          brand_id: string
+          client_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          monthly_budget: number
+          period_end: string | null
+          period_start: string | null
+          share_expires_at: string | null
+          share_token: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          monthly_budget?: number
+          period_end?: string | null
+          period_start?: string | null
+          share_expires_at?: string | null
+          share_token?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          monthly_budget?: number
+          period_end?: string | null
+          period_start?: string | null
+          share_expires_at?: string | null
+          share_token?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_plans_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_plans_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_logs: {
         Row: {
           brand_id: string
@@ -2144,6 +2275,8 @@ export type Database = {
       is_super_admin:
         | { Args: never; Returns: boolean }
         | { Args: { _user_id: string }; Returns: boolean }
+      media_plan_public_items: { Args: { _token: string }; Returns: Json }
+      media_plan_public_resolve: { Args: { _token: string }; Returns: Json }
       portal_approvals: {
         Args: { _status?: string; _token: string }
         Returns: Json
