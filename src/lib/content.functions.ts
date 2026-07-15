@@ -1,6 +1,37 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { waitUntil } from "./wait-until.server";
+
+/** Fire-and-forget ingest into the Brain (best effort; never throws). */
+function ingestBrainQuiet(
+  supabase: import("@supabase/supabase-js").SupabaseClient,
+  brandId: string,
+  eventType: string,
+  sourceModule: string,
+  payload: Record<string, unknown>,
+) {
+  waitUntil(
+    (async () => {
+      try {
+        const { data: row } = await supabase
+          .from("brain_events")
+          .insert({ brand_id: brandId, event_type: eventType, source_module: sourceModule, payload: payload as never })
+          .select("id")
+          .single();
+        if (!row) return;
+        const [{ supabaseAdmin }, embed] = await Promise.all([
+          import("@/integrations/supabase/client.server"),
+          import("./brain-embed.server"),
+        ]);
+        const summary = embed.summarizeEvent({ event_type: eventType, source_module: sourceModule, payload });
+        await embed.embedEventNow(supabaseAdmin, row.id as string, brandId, summary);
+      } catch (err) {
+        console.error("[brain-ingest quiet] failed", err);
+      }
+    })(),
+  );
+}
 
 export const STAGE_COLORS = [
   "muted",
@@ -403,11 +434,23 @@ export const movePostFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
+    const { data: before } = await context.supabase
+      .from("posts")
+      .select("brand_id, stage_id, title")
+      .eq("id", data.postId)
+      .maybeSingle();
     const { error } = await context.supabase
       .from("posts")
       .update({ stage_id: data.toStageId, position: data.toPosition })
       .eq("id", data.postId);
     if (error) throw error;
+    if (before?.brand_id && before.stage_id !== data.toStageId) {
+      ingestBrainQuiet(context.supabase, before.brand_id as string, "content_stage_changed", "editorial", {
+        title: before.title,
+        from_stage_id: before.stage_id,
+        to_stage_id: data.toStageId,
+      });
+    }
     return { ok: true };
   });
 
@@ -590,6 +633,12 @@ export const createPostFn = createServerFn({ method: "POST" })
       )
       .single();
     if (error) throw error;
+    ingestBrainQuiet(context.supabase, data.brandId, "content_created", "editorial", {
+      title: data.title,
+      channels: data.channels,
+      format: data.format,
+      client_id: data.clientId,
+    });
     return post as BoardPost;
   });
 
