@@ -3,7 +3,6 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { zodValidator } from "@tanstack/zod-adapter";
 import {
   DndContext,
   KeyboardSensor,
@@ -67,14 +66,20 @@ import {
   type MediaPlanItem,
 } from "@/lib/media-plans.functions";
 
+type MediaPlanSearch = {
+  planId?: string;
+  stage?: "topo" | "meio" | "fundo";
+  channel?: string;
+};
 const searchSchema = z.object({
   planId: z.string().uuid().optional(),
   stage: z.enum(["topo", "meio", "fundo"]).optional(),
   channel: z.string().optional(),
 });
 
-export const Route = createFileRoute("/_authenticated/customers/media-plan")({
-  validateSearch: zodValidator(searchSchema),
+export const Route = createFileRoute("/_authenticated/customers/$customerId/media-plan")({
+  validateSearch: (raw: Record<string, unknown>): MediaPlanSearch =>
+    searchSchema.parse(raw),
   component: MediaPlanPage,
 });
 
