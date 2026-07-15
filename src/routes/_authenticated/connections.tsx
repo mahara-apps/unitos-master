@@ -260,38 +260,6 @@ function ConnectionsPage() {
     <DashboardPageShell>
       <ConnectionsHeaderRegister />
 
-      {/* KPI Row */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard
-          icon={<DollarSign className="h-4 w-4" />}
-          label="Consumo do mês"
-          value={isLoading ? "—" : `$${used.toFixed(2)}`}
-          sub={`de $${active.toFixed(0)} · ${pct}%`}
-          tone={pct >= 80 ? "amber" : "emerald"}
-        />
-        <KpiCard
-          icon={<Coins className="h-4 w-4" />}
-          label="Tokens do mês"
-          value={(data?.usage.monthTokens ?? 0).toLocaleString("pt-BR")}
-          sub="Entrada + saída somados"
-          tone="violet"
-        />
-        <KpiCard
-          icon={<Activity className="h-4 w-4" />}
-          label="Chamadas de IA"
-          value={totalCalls.toLocaleString("pt-BR")}
-          sub={`${successCalls} com sucesso`}
-          tone="sky"
-        />
-        <KpiCard
-          icon={<CheckCircle2 className="h-4 w-4" />}
-          label="Taxa de sucesso"
-          value={`${successRate}%`}
-          sub={pct >= 80 ? "Teto próximo do limite" : "Operando dentro do teto"}
-          tone={successRate >= 95 ? "emerald" : successRate >= 80 ? "amber" : "rose"}
-        />
-      </div>
-
       <Tabs defaultValue="ai" className="space-y-4">
         <TabsList variant="bordered">
           <TabsTrigger value="ai">
@@ -310,6 +278,37 @@ function ConnectionsPage() {
 
         {/* Tab: IA */}
         <TabsContent value="ai" className="space-y-3">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <KpiCard
+            icon={<DollarSign className="h-4 w-4" />}
+            label="Consumo do mês"
+            value={isLoading ? "—" : `$${used.toFixed(2)}`}
+            sub={`de $${active.toFixed(0)} · ${pct}%`}
+            tone={pct >= 80 ? "amber" : "emerald"}
+          />
+          <KpiCard
+            icon={<Coins className="h-4 w-4" />}
+            label="Tokens do mês"
+            value={(data?.usage.monthTokens ?? 0).toLocaleString("pt-BR")}
+            sub="Entrada + saída somados"
+            tone="violet"
+          />
+          <KpiCard
+            icon={<Activity className="h-4 w-4" />}
+            label="Chamadas de IA"
+            value={totalCalls.toLocaleString("pt-BR")}
+            sub={`${successCalls} com sucesso`}
+            tone="sky"
+          />
+          <KpiCard
+            icon={<CheckCircle2 className="h-4 w-4" />}
+            label="Taxa de sucesso"
+            value={`${successRate}%`}
+            sub={pct >= 80 ? "Teto próximo do limite" : "Operando dentro do teto"}
+            tone={successRate >= 95 ? "emerald" : successRate >= 80 ? "amber" : "rose"}
+          />
+        </div>
+
         <SectionHeader
           icon={<Sparkles className="h-3.5 w-3.5" />}
           title="inteligências artificiais"
