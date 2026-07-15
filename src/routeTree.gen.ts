@@ -38,6 +38,7 @@ import { Route as ApiJobsMonthlyPlanRouteImport } from './routes/api/jobs/monthl
 import { Route as ApiJobsGenerateIdeasRouteImport } from './routes/api/jobs/generate-ideas'
 import { Route as ApiJobsCustomerPipelineRouteImport } from './routes/api/jobs/customer-pipeline'
 import { Route as ApiJobsCopilotRouteImport } from './routes/api/jobs/copilot'
+import { Route as ApiJobsAnalyzeDocumentRouteImport } from './routes/api/jobs/analyze-document'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_authenticated/settings.profile'
 import { Route as AuthenticatedSettingsLogsRouteImport } from './routes/_authenticated/settings.logs'
@@ -198,6 +199,11 @@ const ApiJobsCopilotRoute = ApiJobsCopilotRouteImport.update({
   path: '/api/jobs/copilot',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiJobsAnalyzeDocumentRoute = ApiJobsAnalyzeDocumentRouteImport.update({
+  id: '/api/jobs/analyze-document',
+  path: '/api/jobs/analyze-document',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedSettingsTeamRoute =
   AuthenticatedSettingsTeamRouteImport.update({
     id: '/team',
@@ -275,6 +281,7 @@ export interface FileRoutesByFullPath {
   '/settings/logs': typeof AuthenticatedSettingsLogsRoute
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
   '/api/jobs/generate-ideas': typeof ApiJobsGenerateIdeasRoute
@@ -311,6 +318,7 @@ export interface FileRoutesByTo {
   '/settings/logs': typeof AuthenticatedSettingsLogsRoute
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
   '/api/jobs/generate-ideas': typeof ApiJobsGenerateIdeasRoute
@@ -352,6 +360,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/logs': typeof AuthenticatedSettingsLogsRoute
   '/_authenticated/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
   '/api/jobs/generate-ideas': typeof ApiJobsGenerateIdeasRoute
@@ -393,6 +402,7 @@ export interface FileRouteTypes {
     | '/settings/logs'
     | '/settings/profile'
     | '/settings/team'
+    | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
     | '/api/jobs/generate-ideas'
@@ -429,6 +439,7 @@ export interface FileRouteTypes {
     | '/settings/logs'
     | '/settings/profile'
     | '/settings/team'
+    | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
     | '/api/jobs/generate-ideas'
@@ -469,6 +480,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/logs'
     | '/_authenticated/settings/profile'
     | '/_authenticated/settings/team'
+    | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
     | '/api/jobs/generate-ideas'
@@ -493,6 +505,7 @@ export interface RootRouteChildren {
   ApprovalTokenRoute: typeof ApprovalTokenRoute
   InviteTokenRoute: typeof InviteTokenRoute
   PortalTokenRoute: typeof PortalTokenRoute
+  ApiJobsAnalyzeDocumentRoute: typeof ApiJobsAnalyzeDocumentRoute
   ApiJobsCopilotRoute: typeof ApiJobsCopilotRoute
   ApiJobsCustomerPipelineRoute: typeof ApiJobsCustomerPipelineRoute
   ApiJobsGenerateIdeasRoute: typeof ApiJobsGenerateIdeasRoute
@@ -709,6 +722,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiJobsCopilotRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/jobs/analyze-document': {
+      id: '/api/jobs/analyze-document'
+      path: '/api/jobs/analyze-document'
+      fullPath: '/api/jobs/analyze-document'
+      preLoaderRoute: typeof ApiJobsAnalyzeDocumentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/settings/team': {
       id: '/_authenticated/settings/team'
       path: '/team'
@@ -883,6 +903,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApprovalTokenRoute: ApprovalTokenRoute,
   InviteTokenRoute: InviteTokenRoute,
   PortalTokenRoute: PortalTokenRoute,
+  ApiJobsAnalyzeDocumentRoute: ApiJobsAnalyzeDocumentRoute,
   ApiJobsCopilotRoute: ApiJobsCopilotRoute,
   ApiJobsCustomerPipelineRoute: ApiJobsCustomerPipelineRoute,
   ApiJobsGenerateIdeasRoute: ApiJobsGenerateIdeasRoute,

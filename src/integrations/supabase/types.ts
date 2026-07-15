@@ -1100,9 +1100,16 @@ export type Database = {
       }
       client_documents: {
         Row: {
+          ai_error: string | null
+          ai_model: string | null
+          ai_status: string
+          ai_summary: Json | null
+          analyzed_at: string | null
+          applied_to_briefing_at: string | null
           brand_id: string
           client_id: string
           created_at: string
+          extracted_text: string | null
           id: string
           mime_type: string | null
           name: string
@@ -1112,9 +1119,16 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          ai_error?: string | null
+          ai_model?: string | null
+          ai_status?: string
+          ai_summary?: Json | null
+          analyzed_at?: string | null
+          applied_to_briefing_at?: string | null
           brand_id: string
           client_id: string
           created_at?: string
+          extracted_text?: string | null
           id?: string
           mime_type?: string | null
           name: string
@@ -1124,9 +1138,16 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          ai_error?: string | null
+          ai_model?: string | null
+          ai_status?: string
+          ai_summary?: Json | null
+          analyzed_at?: string | null
+          applied_to_briefing_at?: string | null
           brand_id?: string
           client_id?: string
           created_at?: string
+          extracted_text?: string | null
           id?: string
           mime_type?: string | null
           name?: string

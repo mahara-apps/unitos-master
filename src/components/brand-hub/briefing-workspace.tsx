@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import { DocumentsTab } from "@/components/brand-hub/documents-tab";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -1354,6 +1355,7 @@ const BRAIN_SECTIONS = [
   { id: "concorrentes", label: "Concorrentes" },
   { id: "estetica", label: "Estética" },
   { id: "metas", label: "Metas" },
+  { id: "documentos", label: "Documentos & Contexto IA" },
 ] as const;
 
 type StackedProps = {
@@ -1518,6 +1520,10 @@ function StackedBrainLayout(props: StackedProps) {
 
           <BrainSection id="metas" title="Volumetria & Metas">
             <VolumetriaTab form={form} setForm={setForm} />
+          </BrainSection>
+
+          <BrainSection id="documentos" title="Documentos & Contexto IA">
+            <DocumentsTab brandId={brandId} clientId={clientId} />
           </BrainSection>
 
           {appendSlot ? <div className="space-y-10 pt-4">{appendSlot}</div> : null}
