@@ -168,15 +168,26 @@ function MediaPlanPage() {
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ["media-plans", customerId] });
       setCreating(false);
-      navigate({ to: ".", search: (prev) => ({ ...prev, planId: r.plan.id }), replace: true });
+      navigate({
+        to: ".",
+        search: (prev: MediaPlanSearch) => ({ ...prev, planId: r.plan.id }),
+        replace: true,
+      });
       toast.success("Plano criado");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Erro ao criar plano"),
   });
 
   const updateFn = useServerFn(updateMediaPlan);
+  type UpdatePatch = {
+    title?: string;
+    period_start?: string | null;
+    period_end?: string | null;
+    monthly_budget?: number;
+    status?: "draft" | "approved" | "archived";
+  };
   const updateMut = useMutation({
-    mutationFn: (payload: { patch: Parameters<typeof updateFn>[0]["data"]["patch"] }) =>
+    mutationFn: (payload: { patch: UpdatePatch }) =>
       updateFn({ data: { planId: activePlanId!, patch: payload.patch } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["media-plan", activePlanId] });
@@ -190,7 +201,11 @@ function MediaPlanPage() {
     mutationFn: () => deleteFn({ data: { planId: activePlanId! } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["media-plans", customerId] });
-      navigate({ to: ".", search: (prev) => ({ ...prev, planId: undefined }), replace: true });
+      navigate({
+        to: ".",
+        search: (prev: MediaPlanSearch) => ({ ...prev, planId: undefined }),
+        replace: true,
+      });
       toast.success("Plano excluído");
     },
   });
@@ -208,7 +223,13 @@ function MediaPlanPage() {
           {plans.length > 0 && (
             <Select
               value={activePlanId ?? ""}
-              onValueChange={(v) => navigate({ to: ".", search: (p) => ({ ...p, planId: v }), replace: true })}
+              onValueChange={(v) =>
+                navigate({
+                  to: ".",
+                  search: (p: MediaPlanSearch) => ({ ...p, planId: v }),
+                  replace: true,
+                })
+              }
             >
               <SelectTrigger className="h-9 w-[220px]">
                 <SelectValue placeholder="Selecionar plano" />
@@ -272,7 +293,11 @@ function MediaPlanPage() {
           searchStage={search.stage}
           searchChannel={search.channel}
           onSearch={(patch) =>
-            navigate({ to: ".", search: (p) => ({ ...p, ...patch }), replace: true })
+            navigate({
+              to: ".",
+              search: (p: MediaPlanSearch) => ({ ...p, ...patch }),
+              replace: true,
+            })
           }
           onUpdatePlan={(patch) => updateMut.mutate({ patch })}
           onDeletePlan={() => {
