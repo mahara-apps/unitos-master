@@ -4,6 +4,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const Input = z.object({ brandId: z.string().uuid().nullable().optional() });
 
+type Json = string | number | boolean | null | { [k: string]: Json } | Json[];
+
 export type BrainCategoryStat = {
   key: "content" | "media" | "messaging" | "insight";
   label: string;
@@ -20,7 +22,7 @@ export type BrainStats = {
     brand_id: string | null;
     event_type: string;
     source_module: string;
-    payload: unknown;
+    payload: Json;
     created_at: string;
   }>;
   insights: Array<{
@@ -107,7 +109,7 @@ export const brainStatsFn = createServerFn({ method: "POST" })
         brand_id: (r.brand_id as string | null) ?? null,
         event_type: r.event_type as string,
         source_module: r.source_module as string,
-        payload: r.payload as unknown,
+        payload: (r.payload ?? null) as Json,
         created_at: r.created_at as string,
       })),
       insights,
