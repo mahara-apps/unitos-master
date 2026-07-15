@@ -409,6 +409,7 @@ async function computeStats(
     },
     tasksByStatus,
     postsByStage,
+    pipelineStages,
     myTasks: (myTasksRes?.data ?? []) as DashboardStats["myTasks"],
     upcomingPosts: (upcomingPostsRes?.data ?? []) as DashboardStats["upcomingPosts"],
     sparkline,
