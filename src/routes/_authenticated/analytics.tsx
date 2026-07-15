@@ -154,7 +154,7 @@ function AnalyticsPage() {
   const clientsQuery = useQuery({
     enabled: !!brandId,
     queryKey: ["analytics-clients", brandId],
-    queryFn: () => clientsFn({ data: { brand_id: brandId! } }),
+    queryFn: () => clientsFn({ data: { brandId: brandId! } }),
   });
   const teamQuery = useQuery({
     enabled: !!brandId,
