@@ -2467,6 +2467,7 @@ export type Database = {
         }[]
       }
       accept_brand_invite: { Args: { _token: string }; Returns: string }
+      enqueue_deadline_notifications: { Args: never; Returns: number }
       has_brand_role: {
         Args: {
           _brand_id: string
