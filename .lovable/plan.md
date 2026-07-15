@@ -1,43 +1,44 @@
-## Diagnóstico
+## Refatorar `GenerateNewPlanDialog` — layout compacto sem scroll
 
-- O modal `src/components/calendar/generate-plan-dialog.tsx` hoje só pede **posts por semana** e distribui automaticamente entre canais (default cai em Instagram).
-- **O backend já aceita mix por canal**: `src/routes/api/jobs/monthly-plan.ts` recebe `channelMix: Record<string, number>` (linhas 29, 266‑273, 310‑…) e força a distribuição obrigatória por plataforma no prompt do Planejador. Canais reconhecidos por `normalizeChannel`: `instagram`, `tiktok`, `linkedin`, `x`/`twitter`, `youtube`, `blog`, `facebook`.
-- Não existe hoje um `channel_mix` persistido em briefing/brand para pré-preencher — vamos partir de um default sensato e permitir edição livre.
+Arquivo: `src/components/calendar/generate-plan-dialog.tsx`
 
-## O que muda (UI apenas — sem tocar no backend)
+### Objetivos
+- Modal cabe inteiro em uma tela padrão (sem barra de rolagem interna).
+- Linhas de canal mais compactas.
+- Stepper de quantidade mais elegante que 3 controles separados.
 
-No `GeneratePlanDialog`:
+### Mudanças
 
-1. **Novo bloco "Canais e volume por canal"** substituindo o campo único "posts por semana":
-   - Lista fixa dos 7 canais suportados (Instagram, TikTok, YouTube, LinkedIn, Facebook, X, Blog), cada linha com:
-     - toggle de inclusão (checkbox)
-     - stepper numérico (posts no período) com `-` / `+` e input direto
-     - chip com o ícone/cor do canal (reaproveitando `CHANNEL_STYLES` de `src/components/content/channel-styles.ts`)
-   - Canais desmarcados ficam esmaecidos e não contam.
-2. **Defaults**: Instagram = 8, TikTok/YouTube/LinkedIn/Facebook = 0, X/Blog = 0 (apenas Instagram ligado). O usuário liga o que quiser.
-3. **"A partir de quando?"** mantido (Restante do mês / Próximo mês).
-4. **Direcionamento extra** mantido.
-5. **Resumo dinâmico** na parte inferior:
-   - `Total: X peças · Y canais · período Z`
-   - Se `total < 3` ou nenhum canal selecionado → botão "Gerar" desabilitado com mensagem.
-6. **Payload** para `/api/jobs/monthly-plan`:
-   - `quantidade` = soma do mix
-   - `channelMix` = `{ instagram: N, tiktok: M, ... }` (apenas canais > 0)
-   - `startFrom`, `periodo`, `meses`, `direction` inalterados
+**1. Container**
+- Remover `max-h-[90vh] overflow-y-auto` do `DialogContent`; manter `max-w-lg`.
+- Reduzir espaçamentos internos: `gap-3` no grid principal, `py-1`.
 
-## Onde tocar
+**2. Lista de canais (mais densa)**
+- Linha compacta em grid `[auto_1fr_auto]`, altura ~32px (`h-8`), padding `px-2`.
+- Chip do canal com ícone menor (`h-2.5 w-2.5`), texto `text-[10px]`, sem borda extra.
+- Checkbox com tamanho reduzido (`h-3.5 w-3.5`).
+- Estado "off" com opacidade e chip em cinza; clicar na linha inteira liga/desliga.
 
-- `src/components/calendar/generate-plan-dialog.tsx` — refatoração do corpo do dialog. Sem novos arquivos.
-- Reuso: `CHANNEL_STYLES` (ícones/cores), componentes shadcn já existentes (`Checkbox`, `Input`, `Button`).
+**3. Stepper unificado (substitui − [input] +)**
+- Um único controle segmentado, largura fixa ~96px, altura 28px:
+  - Botão `−` à esquerda (borda arredondada só do lado esquerdo).
+  - Número central em `tabular-nums`, editável via clique (input inline transparente, sem borda).
+  - Botão `+` à direita.
+- Tudo dentro de uma casca com `border rounded-md`, divisores internos sutis (`divide-x`).
+- Botões desabilitam automaticamente (− quando 0, + quando 180).
+- Roda do mouse sobre o número incrementa/decrementa (nice-to-have).
 
-## Fora do escopo
+**4. Rodapé informativo**
+- Reduzir para uma linha: `text-[11px]`, ícone `h-3 w-3`.
 
-- Persistir mix padrão no briefing/brand (item futuro: coluna `channel_mix jsonb` em `brand_briefings` + preload). Se você quiser, faço em seguida.
-- Alterar prompt/agentes — o backend já respeita `channelMix` estritamente.
-- Distribuir por semana em vez de total no período — mantemos total por canal (mais simples e é o que o backend consome).
+**5. Direcionamento extra**
+- Textarea de 3 linhas → 2 linhas (`rows={2}`), fonte `text-xs`.
 
-## Verificação
+### Resultado esperado
+- Altura total do modal ≈ 560–600px em telas ≥ 700px de altura → sem scroll.
+- Lista de 7 canais ocupa ~230px (7 × 32px + gaps) contra ~360px atual.
+- Selector de quantidade visualmente coeso, parece um único componente premium.
 
-1. Abrir `/content` ou `/calendar` → botão "Gerar novo plano".
-2. Marcar Instagram=6, Reels/TikTok=4, Facebook=2 → resumo mostra "Total: 12 peças · 3 canais".
-3. Gerar → conferir no board que aparecem cards com badges dos 3 canais na proporção pedida.
+### Fora de escopo
+- Backend (`channelMix` continua igual).
+- Nenhuma mudança em outros arquivos.
