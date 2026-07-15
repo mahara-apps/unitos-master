@@ -301,17 +301,17 @@ function ConnectionsPage() {
         />
       </div>
 
-      <Tabs defaultValue="ai" variant="bordered" className="space-y-4">
+      <Tabs defaultValue="ai" className="space-y-4">
         <TabsList variant="bordered">
-          <TabsTrigger variant="bordered" value="ai">
+          <TabsTrigger value="ai">
             <Sparkles className="h-3.5 w-3.5" />
             IA
           </TabsTrigger>
-          <TabsTrigger variant="bordered" value="channels">
+          <TabsTrigger value="channels">
             <Radio className="h-3.5 w-3.5" />
             Canais
           </TabsTrigger>
-          <TabsTrigger variant="bordered" value="messaging">
+          <TabsTrigger value="messaging">
             <Send className="h-3.5 w-3.5" />
             Mensageria
           </TabsTrigger>
