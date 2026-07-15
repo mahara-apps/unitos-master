@@ -89,13 +89,13 @@ export const SIDEBAR_ALLOWED_URLS: Record<AccessRole, ReadonlySet<string>> = {
     "/dashboard", "/tasks", "/calendar", "/projects", "/customers",
     "/analytics", "/media-plans",
     "/connections", "/agents",
-    "/content",
+    "/content", "/brain",
     "/settings/team", "/notifications",
     "/settings",
   ]),
   user: new Set([
     "/dashboard", "/tasks", "/calendar", "/projects", "/customers",
-    "/content", "/media-plans",
+    "/content", "/media-plans", "/brain",
     "/notifications",
   ]),
 };

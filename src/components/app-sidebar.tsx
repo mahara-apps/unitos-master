@@ -26,6 +26,7 @@ import {
   Settings as SettingsIcon,
   ScrollText,
   Target,
+  Brain,
 } from "lucide-react";
 import {
   Sidebar,
@@ -58,6 +59,7 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
       { title: "Conteúdo", url: "/content", icon: KanbanSquare },
       { title: "Calendário", url: "/calendar", icon: CalendarDays },
       { title: "Mídia paga", url: "/media-plans", icon: Target },
+      { title: "Brain", url: "/brain", icon: Brain },
       { title: "Tarefas", url: "/tasks", icon: ListChecks },
       { title: "Projetos", url: "/projects", icon: FolderKanban },
       { title: "Clientes", url: "/customers", icon: Users },

@@ -28,6 +28,7 @@ import { Route as AuthenticatedCustomersRouteImport } from './routes/_authentica
 import { Route as AuthenticatedContentRouteImport } from './routes/_authenticated/content'
 import { Route as AuthenticatedConnectionsRouteImport } from './routes/_authenticated/connections'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
+import { Route as AuthenticatedBrainRouteImport } from './routes/_authenticated/brain'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
@@ -52,6 +53,7 @@ import { Route as ApiPublicHooksBrainConsolidateRouteImport } from './routes/api
 import { Route as ApiPublicApprovalTokenRouteImport } from './routes/api/public/approval.$token'
 import { Route as AuthenticatedCustomersCustomerIdMediaPlanRouteImport } from './routes/_authenticated/customers.$customerId.media-plan'
 import { Route as AuthenticatedCustomersCustomerIdBriefingRouteImport } from './routes/_authenticated/customers.$customerId.briefing'
+import { Route as AuthenticatedCustomersCustomerIdBrainRouteImport } from './routes/_authenticated/customers.$customerId.brain'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -147,6 +149,11 @@ const AuthenticatedConnectionsRoute =
 const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedBrainRoute = AuthenticatedBrainRouteImport.update({
+  id: '/brain',
+  path: '/brain',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedAnalyticsRoute = AuthenticatedAnalyticsRouteImport.update({
@@ -281,6 +288,12 @@ const AuthenticatedCustomersCustomerIdBriefingRoute =
     path: '/briefing',
     getParentRoute: () => AuthenticatedCustomersCustomerIdRoute,
   } as any)
+const AuthenticatedCustomersCustomerIdBrainRoute =
+  AuthenticatedCustomersCustomerIdBrainRouteImport.update({
+    id: '/brain',
+    path: '/brain',
+    getParentRoute: () => AuthenticatedCustomersCustomerIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -289,6 +302,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/agents': typeof AuthenticatedAgentsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/brain': typeof AuthenticatedBrainRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/connections': typeof AuthenticatedConnectionsRoute
   '/content': typeof AuthenticatedContentRoute
@@ -320,6 +334,7 @@ export interface FileRoutesByFullPath {
   '/customers/': typeof AuthenticatedCustomersIndexRoute
   '/projects/': typeof AuthenticatedProjectsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/customers/$customerId/brain': typeof AuthenticatedCustomersCustomerIdBrainRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
@@ -333,6 +348,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/agents': typeof AuthenticatedAgentsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
+  '/brain': typeof AuthenticatedBrainRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/connections': typeof AuthenticatedConnectionsRoute
   '/content': typeof AuthenticatedContentRoute
@@ -361,6 +377,7 @@ export interface FileRoutesByTo {
   '/customers': typeof AuthenticatedCustomersIndexRoute
   '/projects': typeof AuthenticatedProjectsIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
+  '/customers/$customerId/brain': typeof AuthenticatedCustomersCustomerIdBrainRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
@@ -376,6 +393,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/agents': typeof AuthenticatedAgentsRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
+  '/_authenticated/brain': typeof AuthenticatedBrainRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/connections': typeof AuthenticatedConnectionsRoute
   '/_authenticated/content': typeof AuthenticatedContentRoute
@@ -407,6 +425,7 @@ export interface FileRoutesById {
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
   '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/_authenticated/customers/$customerId/brain': typeof AuthenticatedCustomersCustomerIdBrainRoute
   '/_authenticated/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/_authenticated/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
@@ -422,6 +441,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/agents'
     | '/analytics'
+    | '/brain'
     | '/calendar'
     | '/connections'
     | '/content'
@@ -453,6 +473,7 @@ export interface FileRouteTypes {
     | '/customers/'
     | '/projects/'
     | '/settings/'
+    | '/customers/$customerId/brain'
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/media-plan'
     | '/api/public/approval/$token'
@@ -466,6 +487,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/agents'
     | '/analytics'
+    | '/brain'
     | '/calendar'
     | '/connections'
     | '/content'
@@ -494,6 +516,7 @@ export interface FileRouteTypes {
     | '/customers'
     | '/projects'
     | '/settings'
+    | '/customers/$customerId/brain'
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/media-plan'
     | '/api/public/approval/$token'
@@ -508,6 +531,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/_authenticated/agents'
     | '/_authenticated/analytics'
+    | '/_authenticated/brain'
     | '/_authenticated/calendar'
     | '/_authenticated/connections'
     | '/_authenticated/content'
@@ -539,6 +563,7 @@ export interface FileRouteTypes {
     | '/_authenticated/customers/'
     | '/_authenticated/projects/'
     | '/_authenticated/settings/'
+    | '/_authenticated/customers/$customerId/brain'
     | '/_authenticated/customers/$customerId/briefing'
     | '/_authenticated/customers/$customerId/media-plan'
     | '/api/public/approval/$token'
@@ -702,6 +727,13 @@ declare module '@tanstack/react-router' {
       path: '/calendar'
       fullPath: '/calendar'
       preLoaderRoute: typeof AuthenticatedCalendarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/brain': {
+      id: '/_authenticated/brain'
+      path: '/brain'
+      fullPath: '/brain'
+      preLoaderRoute: typeof AuthenticatedBrainRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/analytics': {
@@ -872,16 +904,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersCustomerIdBriefingRouteImport
       parentRoute: typeof AuthenticatedCustomersCustomerIdRoute
     }
+    '/_authenticated/customers/$customerId/brain': {
+      id: '/_authenticated/customers/$customerId/brain'
+      path: '/brain'
+      fullPath: '/customers/$customerId/brain'
+      preLoaderRoute: typeof AuthenticatedCustomersCustomerIdBrainRouteImport
+      parentRoute: typeof AuthenticatedCustomersCustomerIdRoute
+    }
   }
 }
 
 interface AuthenticatedCustomersCustomerIdRouteChildren {
+  AuthenticatedCustomersCustomerIdBrainRoute: typeof AuthenticatedCustomersCustomerIdBrainRoute
   AuthenticatedCustomersCustomerIdBriefingRoute: typeof AuthenticatedCustomersCustomerIdBriefingRoute
   AuthenticatedCustomersCustomerIdMediaPlanRoute: typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
 }
 
 const AuthenticatedCustomersCustomerIdRouteChildren: AuthenticatedCustomersCustomerIdRouteChildren =
   {
+    AuthenticatedCustomersCustomerIdBrainRoute:
+      AuthenticatedCustomersCustomerIdBrainRoute,
     AuthenticatedCustomersCustomerIdBriefingRoute:
       AuthenticatedCustomersCustomerIdBriefingRoute,
     AuthenticatedCustomersCustomerIdMediaPlanRoute:
@@ -949,6 +991,7 @@ const AuthenticatedSettingsRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
+  AuthenticatedBrainRoute: typeof AuthenticatedBrainRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedConnectionsRoute: typeof AuthenticatedConnectionsRoute
   AuthenticatedContentRoute: typeof AuthenticatedContentRoute
@@ -964,6 +1007,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
+  AuthenticatedBrainRoute: AuthenticatedBrainRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedConnectionsRoute: AuthenticatedConnectionsRoute,
   AuthenticatedContentRoute: AuthenticatedContentRoute,
