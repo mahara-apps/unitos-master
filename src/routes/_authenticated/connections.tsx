@@ -42,6 +42,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
   getConnections,
@@ -300,8 +301,24 @@ function ConnectionsPage() {
         />
       </div>
 
-      {/* Bloco 1 — IAs */}
-      <section className="space-y-3">
+      <Tabs defaultValue="ai" variant="bordered" className="space-y-4">
+        <TabsList variant="bordered">
+          <TabsTrigger variant="bordered" value="ai">
+            <Sparkles className="h-3.5 w-3.5" />
+            IA
+          </TabsTrigger>
+          <TabsTrigger variant="bordered" value="channels">
+            <Radio className="h-3.5 w-3.5" />
+            Canais
+          </TabsTrigger>
+          <TabsTrigger variant="bordered" value="messaging">
+            <Send className="h-3.5 w-3.5" />
+            Mensageria
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Tab: IA */}
+        <TabsContent value="ai" className="space-y-3">
         <SectionHeader
           icon={<Sparkles className="h-3.5 w-3.5" />}
           title="inteligências artificiais"
@@ -343,10 +360,10 @@ function ConnectionsPage() {
             />
           ))}
         </div>
-      </section>
+        </TabsContent>
 
-      {/* Bloco 2 — Canais sociais */}
-      <section className="space-y-3">
+        {/* Tab: Canais */}
+        <TabsContent value="channels" className="space-y-3">
         <SectionHeader
           icon={<Radio className="h-3.5 w-3.5" />}
           title="canais sociais"
@@ -363,10 +380,10 @@ function ConnectionsPage() {
             />
           ))}
         </div>
-      </section>
+        </TabsContent>
 
-      {/* Bloco 3 — Mensageria & entrega */}
-      <section className="space-y-3">
+        {/* Tab: Mensageria */}
+        <TabsContent value="messaging" className="space-y-3">
         <SectionHeader
           icon={<Send className="h-3.5 w-3.5" />}
           title="mensageria & entrega"
@@ -383,7 +400,8 @@ function ConnectionsPage() {
             />
           ))}
         </div>
-      </section>
+        </TabsContent>
+      </Tabs>
     </DashboardPageShell>
   );
 }
