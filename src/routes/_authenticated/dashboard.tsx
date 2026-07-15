@@ -62,7 +62,7 @@ import {
   loadCustomerDashboardFn,
 } from "@/lib/customer-dashboard.functions";
 import { Sparkline } from "@/components/dashboard/sparkline";
-import { KpiCard, type KpiTone } from "@/components/ui/kpi-card";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { HealthBar } from "@/components/dashboard/health-bar";
 import { PanelCard as Card } from "@/components/ui/panel-card";
 import { PanelEmptyState as EmptyState } from "@/components/ui/panel-empty";
