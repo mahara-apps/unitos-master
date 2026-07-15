@@ -156,7 +156,7 @@ export function GeneratePlanDialog({ brandId, clientId, onGenerated }: Props) {
           Gerar novo plano
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-fuchsia-500" />
@@ -167,12 +167,12 @@ export function GeneratePlanDialog({ brandId, clientId, onGenerated }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-2">
-          <div className="grid gap-2">
+        <div className="grid gap-3 py-1">
+          <div className="grid gap-1.5">
             <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
               Canais e volume no período
             </Label>
-            <div className="grid gap-1 rounded-xl border border-border/60 bg-background/40 p-2">
+            <div className="grid gap-0.5 rounded-xl border border-border/60 bg-background/40 p-1.5">
               {PLAN_CHANNELS.map((id) => {
                 const meta = CHANNELS.find((c) => c.id === id)!;
                 const Icon = meta.icon;
@@ -182,62 +182,72 @@ export function GeneratePlanDialog({ brandId, clientId, onGenerated }: Props) {
                   <div
                     key={id}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-2 py-1.5 transition-opacity",
+                      "flex h-8 items-center gap-2.5 rounded-md px-1.5 transition-colors hover:bg-muted/40",
                       !on && "opacity-55",
                     )}
+                    onClick={(e) => {
+                      // Ignore clicks originating from the stepper
+                      if ((e.target as HTMLElement).closest("[data-stepper]")) return;
+                      toggleChannel(id, !on);
+                    }}
+                    role="button"
                   >
                     <Checkbox
+                      className="h-3.5 w-3.5"
                       checked={on}
                       onCheckedChange={(v) => toggleChannel(id, Boolean(v))}
                       aria-label={`Incluir ${meta.label}`}
                     />
                     <span
                       className={cn(
-                        "inline-flex h-6 items-center gap-1.5 rounded-full border px-2 text-[10px] font-semibold uppercase tracking-wider",
+                        "inline-flex h-5 items-center gap-1 rounded-full border px-1.5 text-[10px] font-semibold uppercase tracking-wider",
                         CHANNEL_STYLES[id] ?? "border-border/60 bg-muted/40 text-foreground/80",
                       )}
                     >
-                      <Icon className="h-3 w-3" />
+                      <Icon className="h-2.5 w-2.5" />
                       {meta.label}
                     </span>
-                    <div className="ml-auto flex items-center gap-1">
-                      <Button
+                    <div
+                      data-stepper
+                      className="ml-auto inline-flex h-6 items-stretch overflow-hidden rounded-md border border-border/60 bg-background"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
                         type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-7 w-7"
                         disabled={qty <= 0}
                         onClick={() => setChannelQty(id, qty - 1)}
                         aria-label={`Diminuir ${meta.label}`}
+                        className="grid w-6 place-items-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent"
                       >
                         <Minus className="h-3 w-3" />
-                      </Button>
+                      </button>
                       <input
                         type="number"
                         min={0}
                         max={180}
                         value={qty}
                         onChange={(e) => setChannelQty(id, Number(e.target.value))}
-                        className="h-7 w-12 rounded-md border border-border/60 bg-background text-center text-xs tabular-nums outline-none focus:ring-1 focus:ring-ring"
+                        onWheel={(e) => {
+                          if (document.activeElement !== e.currentTarget) return;
+                          e.preventDefault();
+                          setChannelQty(id, qty + (e.deltaY < 0 ? 1 : -1));
+                        }}
+                        className="w-8 border-x border-border/60 bg-transparent text-center text-xs font-medium tabular-nums outline-none [appearance:textfield] focus:bg-muted/40 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                       />
-                      <Button
+                      <button
                         type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-7 w-7"
+                        disabled={qty >= 180}
                         onClick={() => setChannelQty(id, qty + 1)}
                         aria-label={`Aumentar ${meta.label}`}
+                        className="grid w-6 place-items-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent"
                       >
                         <Plus className="h-3 w-3" />
-                      </Button>
+                      </button>
                     </div>
                   </div>
                 );
               })}
             </div>
-            <p className="text-[11px] text-muted-foreground">
-              Desmarque canais que não fazem parte do plano ou zere a quantidade para removê-los.
-            </p>
           </div>
 
           <div className="grid gap-1.5">
@@ -245,7 +255,7 @@ export function GeneratePlanDialog({ brandId, clientId, onGenerated }: Props) {
               A partir de quando?
             </Label>
             <Select value={startFrom} onValueChange={(v) => setStartFrom(v as typeof startFrom)}>
-              <SelectTrigger id="start" className="h-9"><SelectValue /></SelectTrigger>
+              <SelectTrigger id="start" className="h-8"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="current-remaining">Restante do mês atual</SelectItem>
                 <SelectItem value="next-month">Próximo mês</SelectItem>
@@ -262,32 +272,33 @@ export function GeneratePlanDialog({ brandId, clientId, onGenerated }: Props) {
               value={direction}
               onChange={(e) => setDirection(e.target.value)}
               placeholder="Ex.: Foco no lançamento da coleção de inverno, priorizar Reels educativos…"
-              rows={4}
+              rows={2}
               maxLength={2000}
+              className="text-xs"
             />
           </div>
 
-          <div className="flex items-start gap-2 rounded-xl border border-border/60 bg-background/60 p-3 text-xs">
-            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background/60 px-2.5 py-1.5 text-[11px]">
+            <Info className="h-3 w-3 shrink-0 text-muted-foreground" />
             <div className="text-muted-foreground">
               {totalPosts < 3 || selectedCount === 0 ? (
                 <>Selecione ao menos <span className="font-semibold text-foreground">3 peças</span> distribuídas em um ou mais canais.</>
               ) : (
-                <>Vamos gerar <span className="font-semibold text-foreground">{totalPosts} peças</span> em <span className="font-semibold text-foreground">{selectedCount} canal{selectedCount === 1 ? "" : "is"}</span> ao longo de ~{weeks} semana{weeks === 1 ? "" : "s"} ({periodo}).</>
+                <><span className="font-semibold text-foreground">{totalPosts} peças</span> em <span className="font-semibold text-foreground">{selectedCount}</span> canal{selectedCount === 1 ? "" : "is"} · ~{weeks}sem · {periodo}</>
               )}
             </div>
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" size="sm" className="h-9" onClick={() => setOpen(false)} disabled={pending}>
+          <Button variant="outline" size="sm" className="h-8" onClick={() => setOpen(false)} disabled={pending}>
             Cancelar
           </Button>
           <Button
             size="sm"
             onClick={launch}
             disabled={pending || totalPosts < 3 || selectedCount === 0}
-            className="h-9 gap-2 border-0 bg-gradient-to-r from-violet-600 via-fuchsia-500 to-pink-500 text-white hover:opacity-95 min-w-[180px]"
+            className="h-8 gap-2 border-0 bg-gradient-to-r from-violet-600 via-fuchsia-500 to-pink-500 text-white hover:opacity-95 min-w-[180px]"
           >
             {pending ? (
               <>
