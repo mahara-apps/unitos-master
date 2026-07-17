@@ -32,7 +32,7 @@ import { usePageHeader } from "@/hooks/use-page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SettingsStatCard } from "@/components/settings/settings-stat-card";
 import { Users, Mail as MailIcon, Link as LinkIcon, Crown } from "lucide-react";
-import { AddPersonDialog } from "@/components/settings/add-person-dialog";
+import { AddMemberDrawer } from "@/components/settings/add-member-drawer";
 
 export const Route = createFileRoute("/_authenticated/settings/team")({
   component: TeamSettingsPage,
@@ -62,7 +62,7 @@ function TeamSettingsPage() {
       actions: brandId ? (
         <Button size="sm" onClick={() => setAddOpen(true)}>
           <UserPlus className="h-4 w-4 mr-2" />
-          Adicionar pessoa
+          Adicionar membro
         </Button>
       ) : undefined,
     },
@@ -85,7 +85,7 @@ function TeamSettingsPage() {
 
   return (
     <div className="w-full space-y-4 px-4 py-6 sm:px-6 lg:px-8">
-      <AddPersonDialog
+      <AddMemberDrawer
         open={addOpen}
         onOpenChange={setAddOpen}
         brandId={brandId}
