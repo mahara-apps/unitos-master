@@ -181,6 +181,22 @@ export type Board = {
   posts: BoardPost[];
 };
 
+/** SLA overdue rule: stage tem sla_days>0 e não é terminal; post não excluído e passou dos N dias em stage_entered_at. */
+export function annotateOverdue(posts: BoardPost[], stages: PipelineStage[]): BoardPost[] {
+  const stageMap = new Map(stages.map((s) => [s.id, s]));
+  const now = Date.now();
+  return posts.map((p) => {
+    const s = p.stage_id ? stageMap.get(p.stage_id) : null;
+    if (!s || s.is_terminal || !s.sla_days || s.sla_days <= 0 || !p.stage_entered_at) {
+      return { ...p, is_overdue: false, days_overdue: 0 };
+    }
+    const enteredAt = new Date(p.stage_entered_at).getTime();
+    const daysIn = Math.floor((now - enteredAt) / 86_400_000);
+    const overdueBy = daysIn - s.sla_days;
+    return { ...p, is_overdue: overdueBy > 0, days_overdue: Math.max(0, overdueBy) };
+  });
+}
+
 // ---------- Pipelines ----------
 const clientScope = z.object({ brandId: z.string().uuid(), clientId: z.string().uuid() });
 
