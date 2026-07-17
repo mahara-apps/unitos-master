@@ -165,15 +165,15 @@ export const brainDiagnosticsFn = createServerFn({ method: "POST" })
         ),
       ]);
 
-    const durations = (timingsQ.data ?? [])
+    const durations: number[] = (timingsQ.data ?? [])
       .map((r: { started_at: string | null; processed_at: string | null }) => {
         if (!r.started_at || !r.processed_at) return null;
         return new Date(r.processed_at).getTime() - new Date(r.started_at).getTime();
       })
-      .filter((n): n is number => typeof n === "number" && n >= 0);
+      .filter((n: number | null): n is number => typeof n === "number" && n >= 0);
 
     const avg = durations.length
-      ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+      ? Math.round(durations.reduce((a: number, b: number) => a + b, 0) / durations.length)
       : null;
     let p95: number | null = null;
     if (durations.length) {
