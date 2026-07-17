@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type Kind = "logo_light" | "logo_dark" | "icon";
 
@@ -9,11 +10,7 @@ const COLUMN: Record<Kind, "logo_url" | "logo_dark_url" | "icon_url"> = {
   icon: "icon_url",
 };
 
-async function assertManager(
-  supabase: Awaited<ReturnType<typeof requireSupabaseAuth.server>>["context"]["supabase"],
-  userId: string,
-  brandId: string,
-) {
+async function assertManager(supabase: SupabaseClient, userId: string, brandId: string) {
   // Uses RLS-scoped client. Fetch membership to check role owner/manager.
   const { data, error } = await supabase
     .from("brand_members")
