@@ -373,6 +373,280 @@ const AddExistingInput = z.object({
   permissions: z.array(z.enum(ALL_PERMISSION_IDS as [PermissionId, ...PermissionId[]])).default([]),
 });
 
+// ============================================================================
+// Provisionamento manual de usuários com senha temporária e escopo por projeto
+// ============================================================================
+
+const AssignmentInput = z.object({
+  brandId: z.string().uuid(),
+  role: z.enum(ROLES).default("editor"),
+  permissions: z.array(z.enum(ALL_PERMISSION_IDS as [PermissionId, ...PermissionId[]])).default([]),
+  clientIds: z.array(z.string().uuid()).default([]),
+});
+
+const ProvisionUserInput = z.object({
+  email: z.string().trim().toLowerCase().email(),
+  fullName: z.string().trim().min(1).max(120),
+  assignments: z.array(AssignmentInput).min(1).max(20),
+  sendEmail: z.boolean().default(true),
+});
+
+async function sendCredentialsEmail(opts: {
+  to: string;
+  fullName: string;
+  tempPassword: string;
+  loginUrl: string;
+  workspaces: Array<{ name: string; clients: string[] }>;
+}): Promise<{ sent: boolean; error?: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  const lovableKey = process.env.LOVABLE_API_KEY;
+  if (!apiKey) return { sent: false, error: "resend_not_configured" };
+  const from = process.env.INVITE_FROM_EMAIL || "Unitos <onboarding@resend.dev>";
+  const workspacesHtml = opts.workspaces
+    .map(
+      (w) => `
+      <div style="margin-bottom:8px">
+        <div style="font-size:13px;font-weight:600;color:#0a0a0a">${w.name}</div>
+        <div style="font-size:12px;color:#71717a">${
+          w.clients.length === 0 ? "Todos os projetos" : `Projetos: ${w.clients.join(", ")}`
+        }</div>
+      </div>`,
+    )
+    .join("");
+  const html = `
+    <div style="font-family:ui-sans-serif,system-ui;line-height:1.5;color:#0a0a0a">
+      <h2 style="margin:0 0 12px">Sua conta no Unitos está pronta</h2>
+      <p>Olá ${opts.fullName || opts.to}, uma conta foi criada para você no Unitos.</p>
+      <div style="margin:16px 0;padding:12px 14px;border:1px solid #e4e4e7;border-radius:8px;background:#fafafa">
+        <div style="font-size:12px;color:#71717a;margin-bottom:4px">E-mail</div>
+        <div style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;font-weight:600;color:#0a0a0a">${opts.to}</div>
+        <div style="font-size:12px;color:#71717a;margin:10px 0 4px">Senha temporária</div>
+        <div style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;font-weight:600;color:#0a0a0a">${opts.tempPassword}</div>
+        <div style="font-size:11px;color:#a1a1aa;margin-top:8px">Você será solicitado a definir uma nova senha no primeiro acesso.</div>
+      </div>
+      <div style="margin:16px 0">
+        <div style="font-size:12px;color:#71717a;margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">Acessos liberados</div>
+        ${workspacesHtml}
+      </div>
+      <p><a href="${opts.loginUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Acessar Unitos</a></p>
+      <p style="color:#71717a;font-size:12px">Este e-mail é apenas informativo — o acesso já está ativo, você pode entrar imediatamente.</p>
+    </div>`;
+  try {
+    const useGateway = Boolean(lovableKey);
+    const url = useGateway ? "https://connector-gateway.lovable.dev/resend/emails" : "https://api.resend.com/emails";
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (useGateway) {
+      headers["Authorization"] = `Bearer ${lovableKey}`;
+      headers["X-Connection-Api-Key"] = apiKey;
+    } else {
+      headers["Authorization"] = `Bearer ${apiKey}`;
+    }
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ from, to: [opts.to], subject: "Sua conta no Unitos está pronta", html }),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      console.error(`[credentials email] ${res.status} ${body}`);
+      return { sent: false, error: `provider_${res.status}` };
+    }
+    return { sent: true };
+  } catch (e) {
+    console.error("[credentials email] fetch failed", e);
+    return { sent: false, error: "network" };
+  }
+}
+
+export const provisionUser = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => ProvisionUserInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+
+    // Autorização: super admin OU owner/manager em TODAS as marcas alvo
+    const { data: adminFlag } = await supabase
+      .from("user_profiles")
+      .select("is_super_admin")
+      .eq("id", userId)
+      .maybeSingle();
+    const isSuper = Boolean((adminFlag as { is_super_admin?: boolean } | null)?.is_super_admin);
+
+    const brandIds = Array.from(new Set(data.assignments.map((a) => a.brandId)));
+    if (!isSuper) {
+      const { data: myRoles, error: rolesErr } = await supabase
+        .from("brand_members")
+        .select("brand_id, role")
+        .in("brand_id", brandIds)
+        .eq("user_id", userId);
+      if (rolesErr) throw rolesErr;
+      const allowed = new Set(
+        (myRoles ?? [])
+          .filter((r) => r.role === "owner" || r.role === "manager")
+          .map((r) => r.brand_id),
+      );
+      const missing = brandIds.filter((b) => !allowed.has(b));
+      if (missing.length > 0) {
+        throw new Error("forbidden: você precisa ser owner ou manager de todos os workspaces selecionados");
+      }
+    }
+
+    // Validar clientIds pertencem à marca correta
+    const allClientIds = data.assignments.flatMap((a) => a.clientIds);
+    if (allClientIds.length > 0) {
+      const { data: clientRows, error: cErr } = await supabase
+        .from("clients")
+        .select("id, brand_id, name")
+        .in("id", allClientIds);
+      if (cErr) throw cErr;
+      const clientBrand = new Map((clientRows ?? []).map((c) => [c.id, c.brand_id]));
+      for (const a of data.assignments) {
+        for (const cid of a.clientIds) {
+          if (clientBrand.get(cid) !== a.brandId) {
+            throw new Error(`invalid_client: projeto ${cid} não pertence ao workspace ${a.brandId}`);
+          }
+        }
+      }
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Verifica se já existe usuário com esse e-mail
+    const email = data.email;
+    let existingId: string | null = null;
+    for (let page = 1; page <= 20 && !existingId; page++) {
+      const { data: list, error: lErr } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
+      if (lErr) throw lErr;
+      const users = list?.users ?? [];
+      const hit = users.find((u) => (u.email ?? "").toLowerCase() === email);
+      if (hit) existingId = hit.id;
+      if (users.length < 200) break;
+    }
+    if (existingId) {
+      throw new Error("user_exists: já existe conta com este e-mail. Use 'Adicionar existente'.");
+    }
+
+    const tempPassword = randomPassword(16);
+    const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password: tempPassword,
+      email_confirm: true,
+      user_metadata: { full_name: data.fullName },
+    });
+    if (createErr || !created?.user?.id) {
+      throw new Error(`provision_failed: ${createErr?.message ?? "sem id de usuário"}`);
+    }
+    const newUserId = created.user.id;
+
+    // Marca reset obrigatório + garante nome no perfil
+    await supabaseAdmin
+      .from("user_profiles")
+      .update({ requires_password_change: true, full_name: data.fullName } as never)
+      .eq("id", newUserId);
+
+    // Atribui workspaces e projetos
+    const workspaceInfo: Array<{ name: string; clients: string[] }> = [];
+    for (const assignment of data.assignments) {
+      const { error: bmErr } = await supabaseAdmin.from("brand_members").upsert(
+        {
+          brand_id: assignment.brandId,
+          user_id: newUserId,
+          role: assignment.role,
+          permissions: assignment.permissions,
+        },
+        { onConflict: "brand_id,user_id" },
+      );
+      if (bmErr) throw bmErr;
+
+      if (assignment.clientIds.length > 0) {
+        const rows = assignment.clientIds.map((cid) => ({
+          brand_id: assignment.brandId,
+          client_id: cid,
+          user_id: newUserId,
+          role: assignment.role,
+          created_by: userId,
+        }));
+        const { error: cmErr } = await (supabaseAdmin.from as never as (t: string) => {
+          upsert: (v: unknown, o: { onConflict: string }) => Promise<{ error: unknown }>;
+        })("client_members").upsert(rows, { onConflict: "client_id,user_id" });
+        if (cmErr) throw cmErr as Error;
+      }
+
+      const { data: brand } = await supabase.from("brands").select("name").eq("id", assignment.brandId).maybeSingle();
+      let clientNames: string[] = [];
+      if (assignment.clientIds.length > 0) {
+        const { data: cRows } = await supabase.from("clients").select("id, name").in("id", assignment.clientIds);
+        clientNames = (cRows ?? []).map((c) => c.name as string);
+      }
+      workspaceInfo.push({ name: brand?.name ?? "Workspace", clients: clientNames });
+    }
+
+    let emailStatus: { sent: boolean; error?: string } = { sent: false, error: "skipped" };
+    if (data.sendEmail) {
+      const origin = process.env.APP_URL || "";
+      emailStatus = await sendCredentialsEmail({
+        to: email,
+        fullName: data.fullName,
+        tempPassword,
+        loginUrl: `${origin}/auth`,
+        workspaces: workspaceInfo,
+      });
+    }
+
+    return {
+      userId: newUserId,
+      email,
+      tempPassword,
+      emailStatus,
+    };
+  });
+
+// Lista workspaces onde o usuário atual pode provisionar novos usuários
+export const listProvisionableBrands = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { data: adminFlag } = await supabase
+      .from("user_profiles")
+      .select("is_super_admin")
+      .eq("id", userId)
+      .maybeSingle();
+    const isSuper = Boolean((adminFlag as { is_super_admin?: boolean } | null)?.is_super_admin);
+
+    let brandsQuery = supabase.from("brands").select("id, name").order("name");
+    if (!isSuper) {
+      const { data: memberships, error: mErr } = await supabase
+        .from("brand_members")
+        .select("brand_id, role")
+        .eq("user_id", userId)
+        .in("role", ["owner", "manager"]);
+      if (mErr) throw mErr;
+      const ids = (memberships ?? []).map((m) => m.brand_id);
+      if (ids.length === 0) return { brands: [] as Array<{ id: string; name: string; clients: Array<{ id: string; name: string }> }>, isSuperAdmin: false };
+      brandsQuery = brandsQuery.in("id", ids);
+    }
+    const { data: brands, error: bErr } = await brandsQuery;
+    if (bErr) throw bErr;
+    const brandIds = (brands ?? []).map((b) => b.id);
+    const { data: clients } = brandIds.length
+      ? await supabase.from("clients").select("id, name, brand_id").in("brand_id", brandIds).order("name")
+      : { data: [] };
+    const clientsByBrand = new Map<string, Array<{ id: string; name: string }>>();
+    for (const c of clients ?? []) {
+      const arr = clientsByBrand.get(c.brand_id) ?? [];
+      arr.push({ id: c.id, name: c.name as string });
+      clientsByBrand.set(c.brand_id, arr);
+    }
+    return {
+      isSuperAdmin: isSuper,
+      brands: (brands ?? []).map((b) => ({
+        id: b.id,
+        name: b.name as string,
+        clients: clientsByBrand.get(b.id) ?? [],
+      })),
+    };
+  });
+
 export const addExistingUserToBrand = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => AddExistingInput.parse(input))
