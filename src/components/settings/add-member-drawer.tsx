@@ -198,7 +198,7 @@ function InvitePanel({
         role={role}
         value={effectivePerms}
         isCustom={customPerms !== null}
-        onChange={(next) => setCustomPerms(next)}
+        onChange={(next: PermissionId[]) => setCustomPerms(next)}
         onReset={() => setCustomPerms(null)}
       />
 
@@ -285,7 +285,7 @@ function LinkPanel({
         role={role}
         value={effectivePerms}
         isCustom={customPerms !== null}
-        onChange={(next) => setCustomPerms(next)}
+        onChange={(next: PermissionId[]) => setCustomPerms(next)}
         onReset={() => setCustomPerms(null)}
       />
 
