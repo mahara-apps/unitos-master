@@ -106,15 +106,30 @@ function AgencyMode({ brandId }: { brandId: string }) {
   const fn = useServerFn(getAgencyDashboardFn);
   const [greeting, setGreeting] = React.useState("Olá!");
   React.useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    (async () => {
+      const { data } = await supabase.auth.getUser();
       const u = data.user;
-      const meta = (u?.user_metadata ?? {}) as Record<string, unknown>;
-      const name =
-        (meta.full_name as string) ||
-        (meta.name as string) ||
-        (u?.email ? u.email.split("@")[0] : "");
-      if (name) setGreeting(`Olá, ${name.split(" ")[0]}!`);
-    });
+      if (!u) return;
+      let name = "";
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("full_name")
+        .eq("id", u.id)
+        .maybeSingle();
+      if (profile?.full_name) name = profile.full_name;
+      if (!name) {
+        const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
+        name =
+          (meta.full_name as string) ||
+          (meta.name as string) ||
+          (u.email ? u.email.split("@")[0] : "");
+      }
+      if (name) {
+        const first = name.trim().split(/\s+/)[0];
+        const capped = first.charAt(0).toUpperCase() + first.slice(1);
+        setGreeting(`Olá, ${capped}!`);
+      }
+    })();
   }, []);
 
   const q = useQuery({
