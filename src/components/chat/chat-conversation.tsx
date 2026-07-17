@@ -508,3 +508,36 @@ function AttachmentPreview({ attachment }: { attachment: ChatAttachment }) {
     </a>
   );
 }
+
+function StreamingBubble({ text }: { text: string }) {
+  return (
+    <div className="flex gap-3">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-foreground">
+        <Brain className="h-4 w-4 animate-pulse" />
+      </div>
+      <div className="max-w-full rounded-2xl bg-muted/60 px-4 py-2.5 text-sm leading-relaxed">
+        <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1">
+          <ReactMarkdown>{text}</ReactMarkdown>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ToolCallList({ tools }: { tools: ChatToolCall[] }) {
+  return (
+    <div>
+      <div className="font-medium text-muted-foreground">Ações executadas</div>
+      <ul className="list-disc pl-4 space-y-0.5">
+        {tools.map((t, i) => (
+          <li key={i}>
+            <Badge variant={t.ok ? "secondary" : "destructive"} className="mr-1 text-[9px] px-1 py-0">
+              {t.name}
+            </Badge>
+            <span className="text-muted-foreground">{t.ok ? "sucesso" : "falha"}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
