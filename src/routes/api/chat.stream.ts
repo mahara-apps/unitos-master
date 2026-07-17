@@ -308,7 +308,7 @@ export const Route = createFileRoute("/api/chat/stream")({
         // Keep the Cloudflare Worker isolate alive until the assistant row
         // (and Brain events) are persisted. Sem isso, o `.then(insert)` é
         // descartado quando o Worker recicla o isolate após o stream fechar.
-        waitUntil(finish);
+        waitUntil(Promise.resolve(finish));
 
         // 7) Retornar text stream (o cliente lê incrementalmente)
         // TTFB não bloqueia — `waitUntil(finish)` acima garante persistência.
