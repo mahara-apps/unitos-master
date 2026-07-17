@@ -34,11 +34,26 @@ async function sign(path: string | null): Promise<string | null> {
 
 export function useBrandBranding(brandId: string | null | undefined): BrandBranding {
   const fetcher = useServerFn(getBrandBranding);
+  const [hasSession, setHasSession] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (alive) setHasSession(!!data.session);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setHasSession(!!session);
+    });
+    return () => {
+      alive = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
   const paths = useQuery({
     queryKey: ["brand-branding", brandId],
     queryFn: () => fetcher({ data: { brandId: brandId! } }),
-    enabled: !!brandId,
+    enabled: !!brandId && hasSession,
     staleTime: 5 * 60_000,
+    retry: false,
   });
 
   const [signed, setSigned] = useState<{
