@@ -7,7 +7,6 @@ import {
   listMyBrands,
   listClients,
   createBrand,
-  createClient,
   // seedDemoData removido — sistema não cria mais clientes/conteúdos automáticos
 } from "@/lib/workspace.functions";
 import { Button } from "@/components/ui/button";
@@ -38,6 +37,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { CustomerAvatar } from "@/components/customer/customer-avatar";
 import { useAccessRole } from "@/hooks/use-access-role";
+import { QuickCreateCustomerDrawer } from "@/components/customer/quick-create-customer-drawer";
 
 export function ContextSwitcher() {
   const { brandId, clientId, setBrandId, setClientId } = useActiveContext();
@@ -47,7 +47,6 @@ export function ContextSwitcher() {
   const list = useServerFn(listMyBrands);
   const create = useServerFn(createBrand);
   const listCl = useServerFn(listClients);
-  const createCustomer = useServerFn(createClient);
 
   const brandsQ = useQuery({ queryKey: ["brands"], queryFn: () => list() });
   const clientsQ = useQuery({
@@ -60,9 +59,6 @@ export function ContextSwitcher() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState("");
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
-  const [customerName, setCustomerName] = useState("");
-  const [customerNiche, setCustomerNiche] = useState("");
-  const [customerLogo, setCustomerLogo] = useState("");
 
   const createMut = useMutation({
     mutationFn: (n: string) => create({ data: { name: n } }),
@@ -73,28 +69,6 @@ export function ContextSwitcher() {
       toast.success("Workspace criado", { description: "Cadastre seu primeiro cliente para começar." });
       setDialogOpen(false);
       setName("");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const createCustomerMut = useMutation({
-    mutationFn: () =>
-      createCustomer({
-        data: {
-          brandId: brandId!,
-          name: customerName.trim(),
-          niche: customerNiche.trim() || undefined,
-          logo_url: customerLogo.trim() || undefined,
-        },
-      }),
-    onSuccess: async (c: { id: string }) => {
-      await qc.invalidateQueries({ queryKey: ["clients", brandId] });
-      setClientId(c.id);
-      toast.success("Customer created");
-      setCustomerDialogOpen(false);
-      setCustomerName("");
-      setCustomerNiche("");
-      setCustomerLogo("");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -272,64 +246,12 @@ export function ContextSwitcher() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={customerDialogOpen} onOpenChange={setCustomerDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Novo cliente</DialogTitle>
-            <DialogDescription>
-              Adicione um cliente ao workspace atual. Você pode refinar branding
-              e canais depois, na página de clientes.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <CustomerAvatar
-                name={customerName || "?"}
-                logoUrl={customerLogo || null}
-                className="h-10 w-10"
-                textClassName="text-sm"
-              />
-              <div className="flex-1 space-y-1">
-                <Label className="text-xs">Nome</Label>
-                <Input
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Ex.: Café Aurora"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Nicho</Label>
-                <Input
-                  value={customerNiche}
-                  onChange={(e) => setCustomerNiche(e.target.value)}
-                  placeholder="Cafeteria"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">URL do logo (opcional)</Label>
-                <Input
-                  value={customerLogo}
-                  onChange={(e) => setCustomerLogo(e.target.value)}
-                  placeholder="https://…/logo.png"
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCustomerDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => createCustomerMut.mutate()}
-              disabled={customerName.trim().length < 2 || createCustomerMut.isPending}
-            >
-              Criar cliente
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <QuickCreateCustomerDrawer
+        brandId={brandId}
+        open={customerDialogOpen}
+        onOpenChange={setCustomerDialogOpen}
+        onCreated={(c) => setClientId(c.id)}
+      />
     </>
   );
 }

@@ -122,6 +122,39 @@ export const createClient = createServerFn({ method: "POST" })
     return client;
   });
 
+/**
+ * Upload de logo do cliente para o bucket privado `brand-assets`, gerando
+ * uma URL assinada de longa duração que pode ser usada como `logo_url` no
+ * registro do cliente. Usado pelo drawer unificado de criação rápida.
+ */
+const UploadCustomerLogoInput = z.object({
+  brandId: z.string().uuid(),
+  filename: z.string().min(1).max(200),
+  contentType: z
+    .string()
+    .refine((v) => ["image/png", "image/jpeg", "image/jpg", "image/svg+xml", "image/webp"].includes(v.toLowerCase()), "Formato não suportado"),
+  base64: z.string().min(1),
+});
+
+export const uploadCustomerLogo = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => UploadCustomerLogoInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const bin = Uint8Array.from(atob(data.base64), (c) => c.charCodeAt(0));
+    if (bin.byteLength > 5 * 1024 * 1024) throw new Error("Arquivo maior que 5MB");
+    const safe = data.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `${data.brandId}/clients/logos/${Date.now()}-${crypto.randomUUID().slice(0, 8)}-${safe}`;
+    const { error: ue } = await context.supabase.storage
+      .from("brand-assets")
+      .upload(path, bin, { contentType: data.contentType, upsert: false });
+    if (ue) throw ue;
+    const { data: signed, error: se } = await context.supabase.storage
+      .from("brand-assets")
+      .createSignedUrl(path, 60 * 60 * 24 * 365 * 10); // ~10 anos
+    if (se || !signed?.signedUrl) throw se ?? new Error("Falha ao gerar URL");
+    return { path, url: signed.signedUrl };
+  });
+
 const UpdateClientInput = z.object({
   brandId: z.string().uuid(),
   clientId: z.string().uuid(),

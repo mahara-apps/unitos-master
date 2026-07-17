@@ -39,6 +39,7 @@ import { listClients, createClient, updateClient, deleteClient } from "@/lib/wor
 import { listBrandTeam } from "@/lib/team.functions";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
+import { QuickCreateCustomerDrawer } from "@/components/customer/quick-create-customer-drawer";
 
 export const Route = createFileRoute("/_authenticated/customers/")({
   component: CustomersIndexPage,
@@ -118,6 +119,7 @@ function CustomersIndexPage() {
   const [q, setQ] = useState("");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [formOpen, setFormOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<ClientRow | null>(null);
   const [toDelete, setToDelete] = useState<ClientRow | null>(null);
 
@@ -199,7 +201,7 @@ function CustomersIndexPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const openCreate = () => { setEditing(null); setFormOpen(true); };
+  const openCreate = () => { setEditing(null); setCreateOpen(true); };
   const openEdit = (c: ClientRow) => { setEditing(c); setFormOpen(true); };
 
   if (!brandId) {
@@ -404,7 +406,7 @@ function CustomersIndexPage() {
 
       <CustomerFormDialog
         key={editing?.id ?? "new"}
-        open={formOpen}
+        open={formOpen && !!editing}
         onOpenChange={(v) => { setFormOpen(v); if (!v) setEditing(null); }}
         initial={editing}
         teamMembers={teamMembers}
@@ -413,6 +415,12 @@ function CustomersIndexPage() {
           if (editing) updateMut.mutate({ clientId: editing.id, values });
           else createMut.mutate(values);
         }}
+      />
+
+      <QuickCreateCustomerDrawer
+        brandId={brandId}
+        open={createOpen}
+        onOpenChange={setCreateOpen}
       />
 
       <AlertDialog open={!!toDelete} onOpenChange={(v) => !v && setToDelete(null)}>
