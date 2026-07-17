@@ -53,6 +53,7 @@ import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_au
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 import { Route as ApiPublicMediaPruneRouteImport } from './routes/api/public/media/prune'
 import { Route as ApiPublicHooksBrainConsolidateRouteImport } from './routes/api/public/hooks/brain-consolidate'
+import { Route as ApiPublicCronSlaCheckRouteImport } from './routes/api/public/cron/sla-check'
 import { Route as ApiPublicApprovalTokenRouteImport } from './routes/api/public/approval.$token'
 import { Route as AuthenticatedCustomersCustomerIdMediaPlanRouteImport } from './routes/_authenticated/customers.$customerId.media-plan'
 import { Route as AuthenticatedCustomersCustomerIdBriefingRouteImport } from './routes/_authenticated/customers.$customerId.briefing'
@@ -292,6 +293,11 @@ const ApiPublicHooksBrainConsolidateRoute =
     path: '/api/public/hooks/brain-consolidate',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicCronSlaCheckRoute = ApiPublicCronSlaCheckRouteImport.update({
+  id: '/api/public/cron/sla-check',
+  path: '/api/public/cron/sla-check',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicApprovalTokenRoute = ApiPublicApprovalTokenRouteImport.update({
   id: '/api/public/approval/$token',
   path: '/api/public/approval/$token',
@@ -362,6 +368,7 @@ export interface FileRoutesByFullPath {
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
+  '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
 }
@@ -408,6 +415,7 @@ export interface FileRoutesByTo {
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
+  '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
 }
@@ -459,6 +467,7 @@ export interface FileRoutesById {
   '/_authenticated/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/_authenticated/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
+  '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
 }
@@ -510,6 +519,7 @@ export interface FileRouteTypes {
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/media-plan'
     | '/api/public/approval/$token'
+    | '/api/public/cron/sla-check'
     | '/api/public/hooks/brain-consolidate'
     | '/api/public/media/prune'
   fileRoutesByTo: FileRoutesByTo
@@ -556,6 +566,7 @@ export interface FileRouteTypes {
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/media-plan'
     | '/api/public/approval/$token'
+    | '/api/public/cron/sla-check'
     | '/api/public/hooks/brain-consolidate'
     | '/api/public/media/prune'
   id:
@@ -606,6 +617,7 @@ export interface FileRouteTypes {
     | '/_authenticated/customers/$customerId/briefing'
     | '/_authenticated/customers/$customerId/media-plan'
     | '/api/public/approval/$token'
+    | '/api/public/cron/sla-check'
     | '/api/public/hooks/brain-consolidate'
     | '/api/public/media/prune'
   fileRoutesById: FileRoutesById
@@ -629,6 +641,7 @@ export interface RootRouteChildren {
   ApiPublicSeedSuperadminsRoute: typeof ApiPublicSeedSuperadminsRoute
   PBriefingTokenRoute: typeof PBriefingTokenRoute
   ApiPublicApprovalTokenRoute: typeof ApiPublicApprovalTokenRoute
+  ApiPublicCronSlaCheckRoute: typeof ApiPublicCronSlaCheckRoute
   ApiPublicHooksBrainConsolidateRoute: typeof ApiPublicHooksBrainConsolidateRoute
   ApiPublicMediaPruneRoute: typeof ApiPublicMediaPruneRoute
 }
@@ -943,6 +956,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksBrainConsolidateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/cron/sla-check': {
+      id: '/api/public/cron/sla-check'
+      path: '/api/public/cron/sla-check'
+      fullPath: '/api/public/cron/sla-check'
+      preLoaderRoute: typeof ApiPublicCronSlaCheckRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/approval/$token': {
       id: '/api/public/approval/$token'
       path: '/api/public/approval/$token'
@@ -1109,6 +1129,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicSeedSuperadminsRoute: ApiPublicSeedSuperadminsRoute,
   PBriefingTokenRoute: PBriefingTokenRoute,
   ApiPublicApprovalTokenRoute: ApiPublicApprovalTokenRoute,
+  ApiPublicCronSlaCheckRoute: ApiPublicCronSlaCheckRoute,
   ApiPublicHooksBrainConsolidateRoute: ApiPublicHooksBrainConsolidateRoute,
   ApiPublicMediaPruneRoute: ApiPublicMediaPruneRoute,
 }

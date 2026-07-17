@@ -2141,6 +2141,7 @@ export type Database = {
           scheduled_at: string | null
           script: Json | null
           stage: Database["public"]["Enums"]["post_stage"]
+          stage_entered_at: string | null
           stage_id: string | null
           tags: string[]
           title: string
@@ -2180,6 +2181,7 @@ export type Database = {
           scheduled_at?: string | null
           script?: Json | null
           stage?: Database["public"]["Enums"]["post_stage"]
+          stage_entered_at?: string | null
           stage_id?: string | null
           tags?: string[]
           title: string
@@ -2219,6 +2221,7 @@ export type Database = {
           scheduled_at?: string | null
           script?: Json | null
           stage?: Database["public"]["Enums"]["post_stage"]
+          stage_entered_at?: string | null
           stage_id?: string | null
           tags?: string[]
           title?: string
@@ -2618,6 +2621,8 @@ export type Database = {
         | "approval_decision"
         | "deadline"
         | "system"
+        | "sla_overdue"
+        | "sla_overdue_manager"
       post_channel:
         | "instagram"
         | "tiktok"
@@ -2784,6 +2789,8 @@ export const Constants = {
         "approval_decision",
         "deadline",
         "system",
+        "sla_overdue",
+        "sla_overdue_manager",
       ],
       post_channel: ["instagram", "tiktok", "linkedin", "x", "youtube", "blog"],
       post_stage: [

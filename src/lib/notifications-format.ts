@@ -5,6 +5,8 @@ import {
   MessageSquare,
   Sparkles,
   UserPlus,
+  AlarmClock,
+  ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
 import type { Database } from "@/integrations/supabase/types";
@@ -21,6 +23,8 @@ export const KIND_META: Record<
   approval_decision: { label: "Decisão", icon: CheckCircle2, color: "text-emerald-500", tone: "emerald" },
   deadline: { label: "Prazo", icon: Clock, color: "text-rose-500", tone: "rose" },
   system: { label: "Sistema", icon: Sparkles, color: "text-indigo-500", tone: "neutral" },
+  sla_overdue: { label: "SLA vencido", icon: AlarmClock, color: "text-rose-500", tone: "rose" },
+  sla_overdue_manager: { label: "SLA vencido (equipe)", icon: ShieldAlert, color: "text-rose-500", tone: "rose" },
 };
 
 export function iconFor(kind: NotificationKind): LucideIcon {

@@ -65,6 +65,8 @@ import { getAnalytics, type AnalyticsResult } from "@/lib/analytics.functions";
 import { listClients } from "@/lib/workspace.functions";
 import { listBrandTeam } from "@/lib/team.functions";
 import { listProjects } from "@/lib/projects.functions";
+import { slaSnapshotFn, type SlaSnapshot } from "@/lib/content.functions";
+import { AlarmClock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/analytics")({
@@ -166,6 +168,12 @@ function AnalyticsPage() {
     queryKey: ["analytics-projects", brandId],
     queryFn: () => projectsFn({ data: { brandId: brandId! } }),
   });
+  const slaFn = useServerFn(slaSnapshotFn);
+  const slaQuery = useQuery({
+    enabled: !!brandId,
+    queryKey: ["analytics-sla", brandId],
+    queryFn: () => slaFn({ data: { brandId: brandId! } }),
+  });
 
   usePageHeader(
     {
@@ -238,6 +246,7 @@ function AnalyticsPage() {
         </TabsContent>
         <TabsContent value="team" className="space-y-6">
           <TeamTab loading={analyticsQuery.isLoading} data={data?.team} />
+          <SlaPanel data={slaQuery.data} />
         </TabsContent>
         <TabsContent value="clients" className="space-y-6">
           <ClientsTab loading={analyticsQuery.isLoading} data={data?.clients} />
@@ -248,6 +257,72 @@ function AnalyticsPage() {
 }
 
 // ---------- Reusable pieces ----------
+
+function SlaPanel({ data }: { data: SlaSnapshot | undefined }) {
+  if (!data) return null;
+  if (data.activeOverdue === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">SLA de produção</CardTitle>
+          <CardDescription>Nenhuma tarefa em atraso no momento.</CardDescription>
+        </CardHeader>
+      </Card>
+    );
+  }
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <AlarmClock className="h-4 w-4 text-rose-500" /> Atrasos ativos por responsável
+          </CardTitle>
+          <CardDescription>Snapshot atual · {data.activeOverdue} tarefa(s) atrasada(s)</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="divide-y divide-border">
+            {data.byUser.map((u) => (
+              <div key={u.user_id} className="flex items-center justify-between py-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Avatar className="h-7 w-7">
+                    {u.avatar_url && <AvatarImage src={u.avatar_url} />}
+                    <AvatarFallback>{u.full_name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <span className="truncate text-sm">{u.full_name}</span>
+                </div>
+                <Badge variant="outline" className="border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                  {u.overdue}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <AlarmClock className="h-4 w-4 text-rose-500" /> Atrasos por coluna
+          </CardTitle>
+          <CardDescription>Colunas com SLA configurado</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="divide-y divide-border">
+            {data.byStage.map((s) => (
+              <div key={s.stage_id} className="flex items-center justify-between py-2 text-sm">
+                <span className="truncate">
+                  {s.label} <span className="text-muted-foreground">· SLA {s.sla_days}d</span>
+                </span>
+                <Badge variant="outline" className="border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                  {s.overdue}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 function KpiCard({
   label,

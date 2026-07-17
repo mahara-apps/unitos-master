@@ -153,6 +153,9 @@ export type BoardPost = {
   project_id?: string | null;
   remind_at?: string | null;
   assignees?: string[] | null;
+  stage_entered_at?: string | null;
+  is_overdue?: boolean;
+  days_overdue?: number;
 };
 
 export type ScriptScene = {
@@ -177,6 +180,111 @@ export type Board = {
   stages: PipelineStage[];
   posts: BoardPost[];
 };
+
+/** SLA overdue rule: stage tem sla_days>0 e não é terminal; post não excluído e passou dos N dias em stage_entered_at. */
+export function annotateOverdue(posts: BoardPost[], stages: PipelineStage[]): BoardPost[] {
+  const stageMap = new Map(stages.map((s) => [s.id, s]));
+  const now = Date.now();
+  return posts.map((p) => {
+    const s = p.stage_id ? stageMap.get(p.stage_id) : null;
+    if (!s || s.is_terminal || !s.sla_days || s.sla_days <= 0 || !p.stage_entered_at) {
+      return { ...p, is_overdue: false, days_overdue: 0 };
+    }
+    const enteredAt = new Date(p.stage_entered_at).getTime();
+    const daysIn = Math.floor((now - enteredAt) / 86_400_000);
+    const overdueBy = daysIn - s.sla_days;
+    return { ...p, is_overdue: overdueBy > 0, days_overdue: Math.max(0, overdueBy) };
+  });
+}
+
+// ---------- SLA snapshot (analytics) ----------
+
+export type SlaSnapshot = {
+  activeOverdue: number;
+  byUser: Array<{ user_id: string; full_name: string; avatar_url: string | null; overdue: number }>;
+  byStage: Array<{ stage_id: string; label: string; sla_days: number; overdue: number }>;
+};
+
+export const slaSnapshotFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }): Promise<SlaSnapshot> => {
+    const { data: pipes } = await context.supabase
+      .from("content_pipelines")
+      .select("id")
+      .eq("brand_id", data.brandId);
+    const pipeIds = (pipes ?? []).map((p) => p.id as string);
+    if (pipeIds.length === 0) return { activeOverdue: 0, byUser: [], byStage: [] };
+
+    const { data: stages } = await context.supabase
+      .from("content_pipeline_stages")
+      .select("id,label,sla_days,is_terminal")
+      .in("pipeline_id", pipeIds)
+      .not("sla_days", "is", null)
+      .gt("sla_days", 0)
+      .eq("is_terminal", false);
+    if (!stages || stages.length === 0) return { activeOverdue: 0, byUser: [], byStage: [] };
+
+    const byStageMap = new Map<string, { label: string; sla_days: number; overdue: number }>();
+    const byUserMap = new Map<string, number>();
+    let activeOverdue = 0;
+
+    for (const s of stages) {
+      const sinceIso = new Date(Date.now() - (s.sla_days as number) * 86_400_000).toISOString();
+      const { data: rows } = await context.supabase
+        .from("posts")
+        .select("id, assignee_id")
+        .eq("brand_id", data.brandId)
+        .eq("stage_id", s.id as string)
+        .is("deleted_at", null)
+        .lt("stage_entered_at", sinceIso);
+      const count = (rows ?? []).length;
+      if (count === 0) continue;
+      activeOverdue += count;
+      byStageMap.set(s.id as string, {
+        label: s.label as string,
+        sla_days: s.sla_days as number,
+        overdue: count,
+      });
+      for (const r of rows ?? []) {
+        const uid = (r.assignee_id as string | null) ?? "__unassigned__";
+        byUserMap.set(uid, (byUserMap.get(uid) ?? 0) + 1);
+      }
+    }
+
+    const userIds = Array.from(byUserMap.keys()).filter((u) => u !== "__unassigned__");
+    const profMap = new Map<string, { full_name: string; avatar_url: string | null }>();
+    if (userIds.length > 0) {
+      const { data: profs } = await context.supabase
+        .from("user_profiles")
+        .select("id, full_name, avatar_url")
+        .in("id", userIds);
+      for (const p of profs ?? []) {
+        profMap.set(p.id as string, {
+          full_name: (p.full_name as string) || "Sem nome",
+          avatar_url: (p.avatar_url as string | null) ?? null,
+        });
+      }
+    }
+
+    const byUser = Array.from(byUserMap.entries())
+      .map(([user_id, overdue]) => {
+        const p = profMap.get(user_id);
+        return {
+          user_id,
+          full_name: user_id === "__unassigned__" ? "Sem responsável" : p?.full_name ?? "Sem nome",
+          avatar_url: p?.avatar_url ?? null,
+          overdue,
+        };
+      })
+      .sort((a, b) => b.overdue - a.overdue);
+
+    const byStage = Array.from(byStageMap.entries())
+      .map(([stage_id, v]) => ({ stage_id, ...v }))
+      .sort((a, b) => b.overdue - a.overdue);
+
+    return { activeOverdue, byUser, byStage };
+  });
 
 // ---------- Pipelines ----------
 const clientScope = z.object({ brandId: z.string().uuid(), clientId: z.string().uuid() });
@@ -351,7 +459,7 @@ export const loadBoardFn = createServerFn({ method: "POST" })
         context.supabase
           .from("posts")
           .select(
-            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes,priority,format,tags,visible_in_portal,project_id,remind_at,assignees,reference_media",
+            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes,priority,format,tags,visible_in_portal,project_id,remind_at,assignees,reference_media,stage_entered_at",
           )
           .eq("brand_id", data.brandId)
           .eq("client_id", data.clientId)
@@ -416,7 +524,7 @@ export const loadBoardFn = createServerFn({ method: "POST" })
     return {
       pipeline: { ...pipe, post_count: (posts ?? []).length },
       stages: (stages ?? []) as PipelineStage[],
-      posts: (posts ?? []) as BoardPost[],
+      posts: annotateOverdue((posts ?? []) as BoardPost[], (stages ?? []) as PipelineStage[]),
     };
   });
 
