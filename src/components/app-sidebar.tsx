@@ -12,7 +12,6 @@ import {
   UserPlus,
   User as UserIcon,
   ChevronsUpDown,
-  Sparkles,
   Link2,
   ListChecks,
   CalendarDays,
@@ -91,14 +90,17 @@ export function AppSidebar() {
         <Link
           to="/dashboard"
           preload="intent"
-          className="flex min-w-0 items-center gap-2 group-data-[collapsible=icon]:hidden"
+          aria-label="Unitos"
+          className="flex min-w-0 items-center gap-2"
         >
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-indigo-600 text-white shadow-sm">
-            <Sparkles className="h-3.5 w-3.5" />
-          </span>
-          <span className="truncate text-sm font-semibold tracking-tight">
-            Unitos
-          </span>
+          <UnitosLogo
+            variant="full"
+            className="h-7 w-auto group-data-[collapsible=icon]:hidden"
+          />
+          <UnitosLogo
+            variant="mark"
+            className="hidden h-7 w-7 rounded-md group-data-[collapsible=icon]:block"
+          />
         </Link>
         <SidebarTrigger className="h-7 w-7 shrink-0 text-muted-foreground group-data-[collapsible=icon]:mx-auto" />
       </SidebarHeader>
