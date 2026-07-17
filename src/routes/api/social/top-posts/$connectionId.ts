@@ -8,6 +8,7 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import type { Metric, SocialNetwork, SocialPost } from "@/lib/social/types";
+import { withSocialCache, socialCacheKey, hashKey, SOCIAL_CACHE_TTL_MS } from "@/lib/social-analytics/cache";
 
 const QuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(10),
@@ -198,7 +199,11 @@ export const Route = createFileRoute("/api/social/top-posts/$connectionId")({
 
         // Puxa um pool maior que o `limit` para dar liberdade ao score.
         const pool = Math.min(Math.max(limit * 3, 15), 50);
-        const res = await provider.getPosts(ctx, { network, limit: pool });
+        const scope = `${hashKey(token)}:${row.id}`;
+        const res = await withSocialCache(
+          socialCacheKey("posts", scope, { n: network, l: pool }),
+          () => provider.getPosts(ctx, { network, limit: pool }),
+        );
         if (!res.ok)
           return Response.json(
             { error: "provider_error", message: res.error, code: res.code },
@@ -236,7 +241,7 @@ export const Route = createFileRoute("/api/social/top-posts/$connectionId")({
 
         return Response.json(body, {
           headers: {
-            "cache-control": "private, max-age=60, stale-while-revalidate=120",
+            "cache-control": `private, max-age=${SOCIAL_CACHE_TTL_MS / 1000}, stale-while-revalidate=120`,
           },
         });
       },
