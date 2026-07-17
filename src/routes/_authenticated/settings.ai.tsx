@@ -149,7 +149,7 @@ function AISettingsPage() {
               }}
               className={`relative flex h-64 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-all duration-200 ${
                 dragging
-                  ? "border-cyan-500/60 bg-sky-500/10"
+                  ? "border-sky-500/60 bg-sky-500/10"
                   : "border-border/60 bg-muted/30 hover:border-border"
               }`}
             >
