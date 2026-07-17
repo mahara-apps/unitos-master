@@ -48,6 +48,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TemplateEditor } from "@/components/messaging/template-editor";
+import { MetaIntegrationCard } from "@/components/connections/meta-integration-card";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
   getConnections,
