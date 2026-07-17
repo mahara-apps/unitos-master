@@ -1,13 +1,6 @@
 // ⚠️ Brain Chat Gateway — chamada ao LLM via Lovable AI Gateway.
 // Server-only: lê LOVABLE_API_KEY.
-import {
-  generateText,
-  streamText,
-  stepCountIs,
-  type ModelMessage,
-  type StreamTextResult,
-  type ToolSet,
-} from "ai";
+import { generateText, streamText, stepCountIs, type ModelMessage } from "ai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createLovableAiGatewayProvider } from "../../ai-gateway.server";
 import type { BrainConsolidated } from "./consolidate";
@@ -112,7 +105,7 @@ export interface StreamAnswerArgs {
 }
 
 export async function streamAnswer(args: StreamAnswerArgs): Promise<{
-  result: StreamTextResult<ToolSet, unknown, never>;
+  result: ReturnType<typeof streamText>;
   model: string;
 }> {
   const key = process.env.LOVABLE_API_KEY;
