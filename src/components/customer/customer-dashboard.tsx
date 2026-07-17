@@ -158,78 +158,100 @@ function DashboardReady({
       {/* Health */}
       <ClientHealthPanel score={m.health.score} breakdown={m.health.breakdown} />
 
+      {/* Alerts (scoped to this client) */}
+      {data.alerts && data.alerts.length > 0 ? (
+        <div className="grid gap-2 md:grid-cols-2">
+          {data.alerts.map((a, i) => (
+            <AlertBanner
+              key={`${a.severity}-${i}`}
+              severity={a.severity}
+              title={a.title}
+              description={a.description}
+              trailing={typeof a.count === "number" ? a.count : undefined}
+            />
+          ))}
+        </div>
+      ) : null}
+
       {/* Metrics row */}
       <div className="grid gap-4 md:grid-cols-3">
         {hasAiUsage ? (
-          <MetricCard
-            icon={DollarSign}
+          <StatCard
+            icon={<DollarSign className="h-4 w-4" />}
             label="Consumo de IA"
+            tone="violet"
             value={`$${m.costTotal30d.toFixed(4)}`}
-            hint={`$${m.costTotal14d.toFixed(4)} nos últimos 14d`}
-            right={<Sparkline data={m.costSpark} className="h-8 w-24 text-cyan-500" />}
+            sub={`$${m.costTotal14d.toFixed(4)} nos últimos 14d`}
+            spark={m.costSpark}
           />
         ) : (
           <AiEmptyCard onOpenBriefing={onOpenBriefing} />
         )}
-        <MetricCard
-          icon={ShieldCheck}
+        <StatCard
+          icon={<ShieldCheck className="h-4 w-4" />}
           label="Aprovações pendentes"
+          tone={m.pendingApprovals > 0 ? "amber" : "emerald"}
           value={m.pendingApprovals}
-          hint={
+          sub={
             m.pendingApprovals === 0 && m.totalApprovals === 0
               ? "Nenhum conteúdo enviado para aprovação ainda"
-              : `${m.decidedApprovals}/${m.totalApprovals || 0} resolvidas`
-          }
-          right={
-            <div className="w-24">
-              <HealthBar score={approvalPct} />
-              <div className="mt-1 text-right text-[10px] font-mono text-muted-foreground">{approvalPct}%</div>
-            </div>
+              : `${m.decidedApprovals}/${m.totalApprovals || 0} resolvidas · ${approvalPct}%`
           }
         />
-        <MetricCard
-          icon={CalendarClock}
+        <StatCard
+          icon={<CalendarClock className="h-4 w-4" />}
           label="Publicações agendadas"
+          tone={m.scheduled > 0 ? "sky" : "neutral"}
           value={m.scheduled}
-          hint={
+          sub={
             m.scheduled === 0 && m.published === 0
               ? "Nenhum conteúdo agendado ainda"
               : `${m.published} já publicadas`
           }
-          right={
-            <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 font-mono text-[10px] text-emerald-500 dark:text-emerald-300">
-              LIVE
-            </div>
-          }
+          trailing="LIVE"
         />
       </div>
 
+      {/* AI usage by agent — mirrors the "IA & performance" card of the agency dashboard */}
+      <AiByAgentCard
+        rows={data.aiUsageByAgent ?? []}
+        cost30d={m.costTotal30d}
+        jobs30d={m.aiJobsCount}
+        spark14d={m.costSpark}
+      />
+
       {/* Production pipeline funnel */}
-      <div className="rounded-xl border border-border/60 bg-card p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              Pipeline de produção
-            </div>
-            <div className="mt-0.5 text-sm font-medium">
-              {data.pipeline.total === 0 ? (
-                <span className="text-muted-foreground">Nenhum conteúdo gerado ainda</span>
-              ) : (
-                <>
-                  {data.pipeline.total} posts em {data.pipeline.stages.length} estágios
-                  {data.pipeline.pipelineName ? (
-                    <span className="ml-1 text-muted-foreground">· {data.pipeline.pipelineName}</span>
-                  ) : null}
-                </>
-              )}
-            </div>
-          </div>
+      <PanelCard
+        title="Pipeline de produção"
+        subtitle={
+          data.pipeline.total === 0
+            ? "Nenhum conteúdo gerado ainda"
+            : `${data.pipeline.total} posts em ${data.pipeline.stages.length} estágios${
+                data.pipeline.pipelineName ? ` · ${data.pipeline.pipelineName}` : ""
+              }`
+        }
+        action={
           <Badge variant="outline" className="font-mono text-[10px]">
             Ao vivo · Sync do Kanban
           </Badge>
-        </div>
-        <PipelineFunnel stages={data.pipeline.stages} total={data.pipeline.total} />
-      </div>
+        }
+      >
+        {data.pipeline.total === 0 ? (
+          <PanelEmptyState
+            icon={<Sparkles className="h-4 w-4" />}
+            text="Nenhum conteúdo gerado ainda."
+          />
+        ) : (
+          <FunnelStages
+            stages={data.pipeline.stages.map((s) => ({
+              key: s.key,
+              label: s.label,
+              count: s.count,
+              color: s.color,
+            }))}
+          />
+        )}
+      </PanelCard>
 
       {/* Bottom split layout */}
       <div className="grid gap-4 lg:grid-cols-2">
