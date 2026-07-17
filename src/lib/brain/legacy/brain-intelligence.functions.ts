@@ -453,8 +453,8 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
 
     const categoriesAvailable = Array.from(
       new Set(
-        ((categoriesR.data ?? []) as Array<{ category: string | null }>)
-          .map((r) => r.category)
+        ((categoriesR.data ?? []) as Array<{ memory_type: string | null }>)
+          .map((r) => r.memory_type)
           .filter((c): c is string => !!c),
       ),
     ).sort();
@@ -478,14 +478,14 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
       recentKnowledge: (recentKnowledgeR.data ?? []).map(
         (r: {
           id: string;
-          category: string;
+          memory_type: string;
           key: string;
           confidence: number | null;
           updated_at: string;
           reinforcement_count: number | null;
         }) => ({
           id: r.id,
-          category: r.category,
+          category: r.memory_type,
           key: r.key,
           confidence: Number(r.confidence ?? 0),
           updated_at: r.updated_at,
