@@ -5,12 +5,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   listBrandTeam,
-  inviteBrandMembers,
   updateBrandMember,
   removeBrandMember,
   revokeBrandInvite,
   revokePortalTokenFromTeam,
-  addExistingUserToBrand,
 } from "@/lib/team.functions";
 import { PERMISSION_GROUPS, type PermissionId } from "@/lib/permissions";
 import { useActiveContext } from "@/hooks/use-active-context";
@@ -28,10 +26,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, UserPlus, Copy, X, Loader2, CalendarIcon, Link2, ShieldOff, ExternalLink } from "lucide-react";
-import { format } from "date-fns";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { MoreHorizontal, UserPlus, Copy, X, Loader2, Link2, ShieldOff, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
