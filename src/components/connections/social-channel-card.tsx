@@ -445,15 +445,6 @@ function ManageSheet({
     onError: (e: Error) => toast.error(e.message ?? "Falha ao desconectar"),
   });
 
-  const handleMetaReconnect = async () => {
-    try {
-      const { authorizeUrl } = await useServerFn(startMetaOAuth)({ data: { brandId } });
-      window.open(authorizeUrl, "meta-oauth", "width=640,height=760");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Falha ao iniciar OAuth");
-    }
-  };
-
   const startOAuthFn = useServerFn(startMetaOAuth);
   async function handleAddMeta() {
     const popup = window.open("", "meta-oauth", "width=640,height=760");
@@ -465,8 +456,6 @@ function ManageSheet({
       toast.error(e instanceof Error ? e.message : "Falha ao iniciar OAuth");
     }
   }
-
-  void handleMetaReconnect;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
