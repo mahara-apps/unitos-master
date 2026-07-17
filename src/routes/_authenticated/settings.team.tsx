@@ -572,3 +572,85 @@ function InviteDialog({ brandId, onDone }: { brandId: string; onDone: () => void
     </DialogContent>
   );
 }
+
+function AddExistingUserDialog({ brandId, onDone }: { brandId: string; onDone: () => void }) {
+  const addUser = useServerFn(addExistingUserToBrand);
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"owner"|"manager"|"editor"|"designer"|"client">("editor");
+  const [perms, setPerms] = useState<PermissionId[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    const clean = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
+      toast.error("E-mail inválido");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await addUser({
+        data: { brandId, email: clean, role, permissions: perms },
+      });
+      const who = res.fullName || res.email;
+      if (res.status === "added") toast.success(`${who} adicionado à marca como ${role}`);
+      else if (res.status === "updated") toast.success(`${who} atualizado para ${role}`);
+      else if (res.status === "already_member") toast.info(`${who} já era membro com esse papel`);
+      else if (res.status === "not_found") {
+        toast.error("Usuário não encontrado. Use o botão Convidar para enviar um convite por e-mail.");
+        setBusy(false);
+        return;
+      }
+      onDone();
+    } catch (e) {
+      const msg = (e as Error).message;
+      toast.error(msg === "forbidden" ? "Somente owners e managers podem adicionar membros" : msg);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <DialogContent className="max-w-lg">
+      <DialogHeader>
+        <DialogTitle>Adicionar usuário existente</DialogTitle>
+        <DialogDescription>
+          Atribua uma conta já cadastrada no Unitos diretamente a esta marca, sem enviar convite por e-mail.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <Label htmlFor="add-existing-email" className="text-xs">E-mail do usuário</Label>
+          <Input
+            id="add-existing-email"
+            type="email"
+            autoComplete="off"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="pessoa@empresa.com"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-xs">Papel</Label>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value as typeof role)}
+            className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+          >
+            {(["owner","manager","editor","designer","client"] as const).map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <Label className="text-xs mb-1.5 block">Permissões</Label>
+          <PermissionSelector value={perms} onChange={setPerms} />
+        </div>
+      </div>
+      <DialogFooter>
+        <Button onClick={submit} disabled={busy}>
+          {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Adicionar
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
