@@ -246,6 +246,7 @@ function AnalyticsPage() {
         </TabsContent>
         <TabsContent value="team" className="space-y-6">
           <TeamTab loading={analyticsQuery.isLoading} data={data?.team} />
+          <SlaPanel data={slaQuery.data} />
         </TabsContent>
         <TabsContent value="clients" className="space-y-6">
           <ClientsTab loading={analyticsQuery.isLoading} data={data?.clients} />
