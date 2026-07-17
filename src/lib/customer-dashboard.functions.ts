@@ -86,7 +86,7 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
           }),
       context.supabase
         .from("posts")
-        .select("id,stage,stage_id,pipeline_id,scheduled_at,published_at,created_at,deleted_at")
+        .select("id,stage,stage_id,pipeline_id,scheduled_at,published_at,created_at,updated_at,deleted_at")
         .eq("brand_id", data.brandId)
         .eq("client_id", data.clientId)
         .is("deleted_at", null),
