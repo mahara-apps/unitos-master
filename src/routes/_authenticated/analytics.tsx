@@ -59,6 +59,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { KpiCard as CanonicalKpiCard, type KpiTone } from "@/components/ui/kpi-card";
+import { DashboardPageShell } from "@/components/ui/dashboard-primitives";
+import { FunnelStages } from "@/components/ui/funnel-stages";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { getAnalytics, type AnalyticsResult } from "@/lib/analytics.functions";
@@ -230,7 +233,7 @@ function AnalyticsPage() {
   const data = analyticsQuery.data;
 
   return (
-    <div className="px-6 py-6">
+    <DashboardPageShell>
       <Tabs defaultValue="social" className="space-y-6">
         <TabsList>
           <TabsTrigger value="social">Social</TabsTrigger>
@@ -253,7 +256,7 @@ function AnalyticsPage() {
           <ClientsTab loading={analyticsQuery.isLoading} data={data?.clients} />
         </TabsContent>
       </Tabs>
-    </div>
+    </DashboardPageShell>
   );
 }
 
