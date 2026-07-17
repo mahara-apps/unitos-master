@@ -32,12 +32,39 @@ interno passa a ser modular.
 | **Recommendation Engine** | Recomendações (`brain_recommendations`) | `brain.recommendations` |
 | **Query Engine** | Busca semântica, embeddings e stats | `brain.query` |
 | **Chat Gateway** | Consolidação Brain-first + fallback LLM | `brain.chat` |
+| **Context Engine** | Monta ContextPack escopado e scored p/ cada pergunta | `brain.context` |
 
 ## Brain API (alto nível)
 
 Os 12 serviços que **todos os módulos** (Chat, Projetos, CRM, Conteúdo,
 Analytics, Financeiro, Automações, Agentes, Dashboard) devem usar em vez de
 tocar os módulos internos:
+
+### Context Engine
+
+```ts
+// 1) monta contexto reduzido para a pergunta atual
+const pack = await brain.buildContext(ctx, { question, module: "chat" });
+// pack.items[] já vem filtrado por relevância (score >= 0.15) e ordenado desc
+// pack.scope inclui workspace, cliente, projeto, período, módulo, permissões
+
+// 2) após responder, registra provenance (memórias/insights usados)
+await brain.recordContextUsage(ctx, {
+  pack,
+  responseId: assistantMessageId,
+  consumer: "chat",
+  usedLlm: true,
+});
+```
+
+Regras:
+- O Brain **nunca** consulta o banco inteiro; cada topic detectado dispara UMA
+  query com `LIMIT` baixo e filtros de escopo estritos (`brand_id`, `client_id`,
+  `project_id`, `period`).
+- Todo item do `ContextPack` carrega `score` de relevância (0..1) usado para
+  corte e ordenação.
+- Provenance grava um evento `context.used` no Event Bus com os itens, seus
+  scores e o `response_id` que os consumiu.
 
 ```ts
 import { brain } from "@/lib/brain/api";

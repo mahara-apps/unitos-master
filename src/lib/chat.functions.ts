@@ -178,10 +178,27 @@ export const sendChatMessageFn = createServerFn({ method: "POST" })
         userId: context.userId,
         brandId: convo.brand_id,
         clientId: convo.client_id,
+        module: "chat",
       };
-      const brainKnowledge = await brain.chat.consolidate(brainCtx, {
-        query: question || data.attachments.map((a) => a.name).join(", "),
+      // Context Engine: pacote reduzido e scored (apenas o relevante).
+      const contextPack = await brain.buildContext(brainCtx, {
+        question: question || data.attachments.map((a) => a.name).join(", "),
+        module: "chat",
       });
+      // Compat: mantém a shape que o LLM já espera.
+      const brainKnowledge = {
+        memories: contextPack.items
+          .filter((i) => i.kind === "semantic")
+          .map((i) => ({ content_summary: i.detail, similarity: i.confidence ?? i.score, event_type: i.label })),
+        insights: contextPack.items
+          .filter((i) => i.kind === "insight")
+          .map((i) => ({ insight_type: i.label, description: i.detail, confidence: i.confidence ?? null })),
+        memoryRows: contextPack.items
+          .filter((i) => i.kind === "memory")
+          .map((i) => ({ topic: i.label, summary: i.detail, confidence: i.confidence ?? null })),
+        stats: contextPack.stats,
+        markdown: contextPack.markdown,
+      };
 
       // 4) Recent history (last N messages)
       const { data: history } = await context.supabase
@@ -247,20 +264,29 @@ export const sendChatMessageFn = createServerFn({ method: "POST" })
       if (asstErr || !asstRow) throw new Error(asstErr?.message ?? "insert assistant failed");
 
       // 7) Feedback loop → Brain Event Bus (best-effort)
-      await brain.events.publish(brainCtx, {
-        brand_id: convo.brand_id,
-        client_id: convo.client_id,
-        source_module: "chat",
-        event_type: "chat.turn",
-        actor_id: context.userId,
-        payload: {
-          conversation_id: convo.id,
-          question: question.slice(0, 400),
-          used_llm: usedLlm,
-          memories_used: brainSummary.memories.length,
-          insights_used: brainSummary.insights.length,
-        },
-      });
+      await Promise.all([
+        brain.events.publish(brainCtx, {
+          brand_id: convo.brand_id,
+          client_id: convo.client_id,
+          source_module: "chat",
+          event_type: "chat.turn",
+          actor_id: context.userId,
+          payload: {
+            conversation_id: convo.id,
+            question: question.slice(0, 400),
+            used_llm: usedLlm,
+            memories_used: brainSummary.memories.length,
+            insights_used: brainSummary.insights.length,
+          },
+        }),
+        // Provenance: registra quais memórias/insights (com score) alimentaram a resposta.
+        brain.recordContextUsage(brainCtx, {
+          pack: contextPack,
+          responseId: (asstRow as { id: string }).id,
+          consumer: "chat",
+          usedLlm,
+        }),
+      ]);
 
       return { user: userRow as ChatMessageRow, assistant: asstRow as ChatMessageRow };
     },
