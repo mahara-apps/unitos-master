@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { computeClientHealthScore } from "@/lib/client-health";
 
 const scope = z.object({
   brandId: z.string().uuid(),
@@ -16,7 +17,7 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
     const since14d = new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString();
     const since30d = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
 
-    const [client, portalTokens, activity, pipelinesRes, tasks, usage] = await Promise.all([
+    const [client, portalTokens, activity, pipelinesRes, tasks, usage, aiJobsCountRes, briefingRes] = await Promise.all([
       context.supabase
         .from("clients")
         .select("id,name,niche,color,socials,contact_name,contact_email,tone_of_voice,is_active,created_at,updated_at")
@@ -44,7 +45,7 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
         .order("created_at", { ascending: true }),
       context.supabase
         .from("tasks")
-        .select("id,status")
+        .select("id,status,done,done_at,due_at")
         .eq("brand_id", data.brandId)
         .eq("client_id", data.clientId),
       context.supabase
@@ -53,6 +54,16 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
         .eq("brand_id", data.brandId)
         .gte("created_at", since30d)
         .order("created_at", { ascending: true }),
+      context.supabase
+        .from("ai_jobs")
+        .select("id", { count: "exact", head: true })
+        .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId),
+      context.supabase
+        .from("client_briefings")
+        .select("updated_at")
+        .eq("client_id", data.clientId)
+        .maybeSingle(),
     ]);
 
     const defaultPipeline = (pipelinesRes.data ?? [])[0] ?? null;
@@ -155,6 +166,29 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
     const openTasks = taskRows.filter((t) => t.status !== "done").length;
     const doneTasks = taskRows.length - openTasks;
 
+    const taskRowsFull = (tasks.data ?? []) as Array<{
+      status: string;
+      done: boolean | null;
+      done_at: string | null;
+      due_at: string | null;
+    }>;
+    const postsForHealth = (posts.data ?? []) as Array<{
+      stage: string;
+      scheduled_at: string | null;
+      updated_at: string | null;
+    }>;
+    const health = computeClientHealthScore({
+      tasks: taskRowsFull.map((t) => ({
+        done: !!t.done,
+        done_at: t.done_at,
+        due_at: t.due_at,
+      })),
+      posts: postsForHealth,
+      briefingUpdatedAt: (briefingRes?.data?.updated_at as string | null) ?? null,
+    });
+
+    const aiJobsCount = (aiJobsCountRes?.count as number | null) ?? 0;
+
     return {
       client: client.data,
       portalTokens: portalTokens.data ?? [],
@@ -176,6 +210,8 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
         published: findCount("published"),
         openTasks,
         doneTasks,
+        aiJobsCount,
+        health,
       },
     };
   });
