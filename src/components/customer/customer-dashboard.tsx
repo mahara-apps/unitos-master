@@ -434,11 +434,12 @@ const SOCIAL_META: Array<{
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   urlPrefix: string;
+  color: string;
 }> = [
-  { key: "instagram", label: "Instagram", icon: Instagram, urlPrefix: "https://instagram.com/" },
-  { key: "tiktok", label: "TikTok", icon: Music2, urlPrefix: "https://tiktok.com/@" },
-  { key: "linkedin", label: "LinkedIn", icon: Linkedin, urlPrefix: "https://linkedin.com/in/" },
-  { key: "youtube", label: "YouTube", icon: Youtube, urlPrefix: "https://youtube.com/@" },
+  { key: "instagram", label: "Instagram", icon: Instagram, urlPrefix: "https://instagram.com/", color: "#E1306C" },
+  { key: "tiktok", label: "TikTok", icon: Music2, urlPrefix: "https://tiktok.com/@", color: "#111111" },
+  { key: "linkedin", label: "LinkedIn", icon: Linkedin, urlPrefix: "https://linkedin.com/in/", color: "#0A66C2" },
+  { key: "youtube", label: "YouTube", icon: Youtube, urlPrefix: "https://youtube.com/@", color: "#FF0000" },
 ];
 
 function AccountPropertiesCard({
@@ -454,67 +455,65 @@ function AccountPropertiesCard({
   brandId: string;
   clientId: string;
 }) {
+  void brandId;
+  void clientId;
+  const linked = SOCIAL_META.filter((s) => !!socials?.[s.key]);
   return (
-    <div className="rounded-xl border border-border/60 bg-card">
-      <div className="border-b border-border/60 px-4 py-3">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-          Propriedades da conta
-        </div>
-        <div className="mt-0.5 text-sm font-medium">Identidade e canais vinculados</div>
-      </div>
-      <div className="space-y-4 p-4">
-        {(contactName || contactEmail) && (
-          <div className="grid gap-1.5">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              Contato principal
-            </div>
-            <div className="text-sm">
-              {contactName ?? "—"}{" "}
-              {contactEmail ? (
-                <span className="text-muted-foreground">· {contactEmail}</span>
-              ) : null}
-            </div>
-          </div>
-        )}
-
-        <div className="grid gap-1.5">
+    <PanelCard
+      title="Propriedades da conta"
+      subtitle="Identidade e canais vinculados"
+    >
+      {(contactName || contactEmail) && (
+        <div className="border-b border-border/60 px-4 py-3">
           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            Canais sociais vinculados
+            Contato principal
           </div>
-          <div className="grid gap-1">
-            {SOCIAL_META.map((s) => {
-              const handle = socials?.[s.key];
-              if (!handle) return null;
-              const clean = handle.replace(/^@/, "");
-              return (
+          <div className="mt-1 text-sm">
+            {contactName ?? "—"}
+            {contactEmail ? (
+              <span className="text-muted-foreground"> · {contactEmail}</span>
+            ) : null}
+          </div>
+        </div>
+      )}
+      {linked.length === 0 ? (
+        <PanelEmptyState
+          icon={<Instagram className="h-4 w-4" />}
+          text="Nenhum canal social vinculado ainda."
+        />
+      ) : (
+        <ul className="divide-y divide-border/60">
+          {linked.map((s) => {
+            const handle = (socials?.[s.key] ?? "").replace(/^@/, "");
+            const Icon = s.icon;
+            return (
+              <li key={s.key}>
                 <a
-                  key={s.key}
-                  href={`${s.urlPrefix}${clean}`}
+                  href={`${s.urlPrefix}${handle}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center justify-between rounded-md border border-transparent px-2 py-1.5 text-sm transition hover:border-border/60 hover:bg-accent/40"
+                  className="flex items-center gap-3 px-4 py-3 transition hover:bg-accent/40"
                 >
-                  <span className="flex items-center gap-2 text-muted-foreground">
-                    <s.icon className="h-3.5 w-3.5" />
-                    {s.label}
+                  <span
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white"
+                    style={{ background: s.color }}
+                  >
+                    <Icon className="h-4 w-4" />
                   </span>
-                  <span className="flex items-center gap-1 font-mono text-xs">
-                    @{clean}
-                    <ExternalLink className="h-3 w-3 opacity-60" />
-                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium">{s.label}</div>
+                    <div className="truncate text-[11px] text-muted-foreground">
+                      @{handle}
+                    </div>
+                  </div>
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 </a>
-              );
-            })}
-            {SOCIAL_META.every((s) => !socials?.[s.key]) && (
-              <div className="rounded-md border border-dashed border-border/60 p-3 text-center text-xs text-muted-foreground">
-                Nenhum canal social vinculado ainda.
-              </div>
-            )}
-          </div>
-        </div>
-
-      </div>
-    </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </PanelCard>
   );
 }
 
@@ -522,27 +521,23 @@ function AccountPropertiesCard({
 
 function ActivityFeedCard({ activity }: { activity: CustomerDashboardData["activity"] }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-card">
-      <div className="border-b border-border/60 px-4 py-3">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-          Trilha de auditoria
+    <PanelCard
+      title="Trilha de auditoria"
+      subtitle={`Atividade recente (${activity.length})`}
+    >
+      {activity.length === 0 ? (
+        <PanelEmptyState
+          icon={<Activity className="h-4 w-4" />}
+          text="Nenhum evento de atividade para esta conta ainda."
+        />
+      ) : (
+        <div className="max-h-[420px] divide-y divide-border/60 overflow-y-auto">
+          {activity.map((ev) => (
+            <ActivityRow key={ev.id} event={ev} />
+          ))}
         </div>
-        <div className="mt-0.5 text-sm font-medium">Atividade recente ({activity.length})</div>
-      </div>
-      <div className="max-h-[420px] overflow-y-auto p-2">
-        {activity.length === 0 ? (
-          <div className="p-6 text-center text-xs text-muted-foreground">
-            Nenhum evento de atividade para esta conta ainda.
-          </div>
-        ) : (
-          <ol className="relative ml-3 border-l border-border/60">
-            {activity.map((ev) => (
-              <ActivityRow key={ev.id} event={ev} />
-            ))}
-          </ol>
-        )}
-      </div>
-    </div>
+      )}
+    </PanelCard>
   );
 }
 
@@ -558,21 +553,13 @@ function ActivityRow({ event }: { event: CustomerDashboardData["activity"][numbe
     }
   }, [event.created_at]);
   return (
-    <li className="relative pl-4 pr-2 py-2">
-      <span className={`absolute -left-[6px] top-3 h-2.5 w-2.5 rounded-full ${meta.dot}`} />
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <meta.icon className="h-3 w-3 text-muted-foreground" />
-            <span className="text-sm font-medium">{meta.title}</span>
-          </div>
-          {meta.subtitle ? (
-            <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{meta.subtitle}</div>
-          ) : null}
-        </div>
-        <div className="shrink-0 font-mono text-[10px] text-muted-foreground">{when}</div>
-      </div>
-    </li>
+    <ActivityTimelineItem
+      title={meta.title}
+      description={meta.subtitle}
+      timestamp={when}
+      tone={meta.tone}
+      icon={meta.icon}
+    />
   );
 }
 
@@ -580,7 +567,7 @@ function activityDescriptor(ev: CustomerDashboardData["activity"][number]): {
   title: string;
   subtitle?: string;
   icon: React.ComponentType<{ className?: string }>;
-  dot: string;
+  tone: ActivityTimelineTone;
 } {
   const payload = (ev.payload ?? {}) as Record<string, unknown>;
   const title = (payload.title as string) ?? "";
@@ -620,22 +607,27 @@ function activityDescriptor(ev: CustomerDashboardData["activity"][number]): {
         title: `Post movido para ${stageLabel[to] ?? to}`,
         subtitle: title,
         icon: Activity,
-        dot: "bg-indigo-500",
+        tone: "violet",
       };
     }
-    return { title: `Post ${humanVerb(ev.verb)}`, subtitle: title, icon: Sparkles, dot: "bg-cyan-500" };
+    if (ev.verb === "approved") return { title: `Post aprovado`, subtitle: title, icon: BadgeCheck, tone: "success" };
+    if (ev.verb === "rejected") return { title: `Post rejeitado`, subtitle: title, icon: AlertTriangle, tone: "critical" };
+    if (ev.verb === "published") return { title: `Post publicado`, subtitle: title, icon: Send, tone: "pink" };
+    if (ev.verb === "scheduled") return { title: `Post agendado`, subtitle: title, icon: CalendarClock, tone: "info" };
+    return { title: `Post ${humanVerb(ev.verb)}`, subtitle: title, icon: Sparkles, tone: "info" };
   }
   if (ev.entity_type === "task") {
     if (ev.verb === "status_changed") {
       const to = String(payload.to ?? "");
+      const isDone = to === "done";
       return {
         title: `Tarefa ${taskStatusLabel[to] ?? to}`,
         subtitle: title,
-        icon: CheckCircle2,
-        dot: "bg-emerald-500",
+        icon: isDone ? CheckCircle2 : Clock,
+        tone: isDone ? "success" : "warning",
       };
     }
-    return { title: `Tarefa ${humanVerb(ev.verb)}`, subtitle: title, icon: Clock, dot: "bg-amber-500" };
+    return { title: `Tarefa ${humanVerb(ev.verb)}`, subtitle: title, icon: Clock, tone: "warning" };
   }
   const entityLabel: Record<string, string> = {
     post: "Post",
@@ -649,6 +641,6 @@ function activityDescriptor(ev: CustomerDashboardData["activity"][number]): {
     title: `${entityLabel[ev.entity_type] ?? ev.entity_type} ${humanVerb(ev.verb)}`,
     subtitle: title,
     icon: Activity,
-    dot: "bg-zinc-400 dark:bg-zinc-500",
+    tone: "neutral",
   };
 }
