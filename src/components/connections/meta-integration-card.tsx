@@ -95,7 +95,7 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
 
   const hasConnections = connections.length > 0;
   const igCount = useMemo(
-    () => connections.filter((c) => c.igBusinessId).length,
+    () => connections.filter((c) => c.accountId).length,
     [connections],
   );
 
@@ -138,7 +138,7 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
                 <div className="min-w-0 space-y-0.5">
                   <div className="flex items-center gap-2 text-sm font-medium">
                     <Facebook className="h-3.5 w-3.5 text-[#1877F2]" />
-                    <span className="truncate">{c.pageName ?? c.pageId}</span>
+                    <span className="truncate">{c.externalName ?? c.externalId}</span>
                     {c.status !== "active" && (
                       <Badge variant="destructive" className="h-4 px-1 text-[10px]">
                         {c.status}
@@ -146,10 +146,10 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
                     )}
                   </div>
                   <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                    <span>ID {c.pageId}</span>
-                    {c.igUsername ? (
+                    <span>ID {c.externalId}</span>
+                    {c.accountUsername ? (
                       <span className="flex items-center gap-1">
-                        <Instagram className="h-3 w-3" />@{c.igUsername}
+                        <Instagram className="h-3 w-3" />@{c.accountUsername}
                       </span>
                     ) : (
                       <span className="text-amber-600">sem IG Business</span>

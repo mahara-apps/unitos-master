@@ -3731,123 +3731,6 @@ export type Database = {
           },
         ]
       }
-      meta_connections: {
-        Row: {
-          brand_id: string
-          created_at: string
-          created_by: string | null
-          id: string
-          ig_business_id: string | null
-          ig_username: string | null
-          last_error: string | null
-          meta_user_id: string
-          meta_user_name: string | null
-          metadata: Json
-          page_access_token_ciphertext: string
-          page_id: string
-          page_name: string | null
-          scopes: string[]
-          status: string
-          token_expires_at: string | null
-          updated_at: string
-        }
-        Insert: {
-          brand_id: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          ig_business_id?: string | null
-          ig_username?: string | null
-          last_error?: string | null
-          meta_user_id: string
-          meta_user_name?: string | null
-          metadata?: Json
-          page_access_token_ciphertext: string
-          page_id: string
-          page_name?: string | null
-          scopes?: string[]
-          status?: string
-          token_expires_at?: string | null
-          updated_at?: string
-        }
-        Update: {
-          brand_id?: string
-          created_at?: string
-          created_by?: string | null
-          id?: string
-          ig_business_id?: string | null
-          ig_username?: string | null
-          last_error?: string | null
-          meta_user_id?: string
-          meta_user_name?: string | null
-          metadata?: Json
-          page_access_token_ciphertext?: string
-          page_id?: string
-          page_name?: string | null
-          scopes?: string[]
-          status?: string
-          token_expires_at?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "meta_connections_brand_id_fkey"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brain_stats_mv"
-            referencedColumns: ["brand_id"]
-          },
-          {
-            foreignKeyName: "meta_connections_brand_id_fkey"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      meta_oauth_states: {
-        Row: {
-          brand_id: string
-          created_at: string
-          expires_at: string
-          redirect_to: string | null
-          state: string
-          user_id: string
-        }
-        Insert: {
-          brand_id: string
-          created_at?: string
-          expires_at?: string
-          redirect_to?: string | null
-          state: string
-          user_id: string
-        }
-        Update: {
-          brand_id?: string
-          created_at?: string
-          expires_at?: string
-          redirect_to?: string | null
-          state?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "meta_oauth_states_brand_id_fkey"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brain_stats_mv"
-            referencedColumns: ["brand_id"]
-          },
-          {
-            foreignKeyName: "meta_oauth_states_brand_id_fkey"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       notifications: {
         Row: {
           body: string | null
@@ -4305,6 +4188,191 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_connections: {
+        Row: {
+          access_token_ciphertext: string
+          account_id: string | null
+          account_username: string | null
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          external_id: string
+          external_name: string | null
+          id: string
+          last_error: string | null
+          last_synced_at: string | null
+          metadata: Json
+          owner_external_id: string | null
+          owner_name: string | null
+          provider: string
+          refresh_token_ciphertext: string | null
+          scopes: string[]
+          status: string
+          token_expires_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token_ciphertext: string
+          account_id?: string | null
+          account_username?: string | null
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          external_id: string
+          external_name?: string | null
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          metadata?: Json
+          owner_external_id?: string | null
+          owner_name?: string | null
+          provider: string
+          refresh_token_ciphertext?: string | null
+          scopes?: string[]
+          status?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token_ciphertext?: string
+          account_id?: string | null
+          account_username?: string | null
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          external_id?: string
+          external_name?: string | null
+          id?: string
+          last_error?: string | null
+          last_synced_at?: string | null
+          metadata?: Json
+          owner_external_id?: string | null
+          owner_name?: string | null
+          provider?: string
+          refresh_token_ciphertext?: string | null
+          scopes?: string[]
+          status?: string
+          token_expires_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_connections_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "social_connections_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      social_posts: {
+        Row: {
+          brand_id: string
+          caption: string | null
+          client_id: string | null
+          connection_id: string
+          created_at: string
+          created_by: string | null
+          external_permalink: string | null
+          external_post_id: string | null
+          hashtags: string[]
+          id: string
+          last_error: string | null
+          media: Json
+          mentions: string[]
+          placement: string
+          post_id: string | null
+          provider: string
+          provider_response: Json
+          published_at: string | null
+          scheduled_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          caption?: string | null
+          client_id?: string | null
+          connection_id: string
+          created_at?: string
+          created_by?: string | null
+          external_permalink?: string | null
+          external_post_id?: string | null
+          hashtags?: string[]
+          id?: string
+          last_error?: string | null
+          media?: Json
+          mentions?: string[]
+          placement?: string
+          post_id?: string | null
+          provider: string
+          provider_response?: Json
+          published_at?: string | null
+          scheduled_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          caption?: string | null
+          client_id?: string | null
+          connection_id?: string
+          created_at?: string
+          created_by?: string | null
+          external_permalink?: string | null
+          external_post_id?: string | null
+          hashtags?: string[]
+          id?: string
+          last_error?: string | null
+          media?: Json
+          mentions?: string[]
+          placement?: string
+          post_id?: string | null
+          provider?: string
+          provider_response?: Json
+          published_at?: string | null
+          scheduled_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "social_posts_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "social_posts_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_posts_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "social_posts_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "social_connections"
             referencedColumns: ["id"]
           },
         ]

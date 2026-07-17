@@ -1,13 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 /**
- * Public OAuth landing for Meta. Meta redirects the browser here with
- * `?code=...&state=...`. We validate the state (CSRF + brand mapping),
- * exchange the code for a long-lived user token, enumerate Pages/Instagram
- * Business accounts and upsert one row per Page into meta_connections.
- *
- * Lives under /api/public/* so it bypasses the auth wall — the state token
- * itself authenticates the callback (short TTL + single use).
+ * Meta OAuth landing (public). Meta redirects the browser here with
+ * `?code=...&state=...`. State is an HMAC-signed token — no DB row required.
+ * Persists one row per Page into `social_connections`.
  */
 export const Route = createFileRoute("/api/public/meta/callback")({
   server: {
@@ -15,95 +11,96 @@ export const Route = createFileRoute("/api/public/meta/callback")({
       GET: async ({ request }) => {
         const url = new URL(request.url);
         const code = url.searchParams.get("code");
-        const state = url.searchParams.get("state");
+        const stateToken = url.searchParams.get("state");
         const errorReason =
           url.searchParams.get("error_reason") ||
           url.searchParams.get("error_description") ||
           url.searchParams.get("error");
 
         if (errorReason) return htmlResult({ ok: false, error: errorReason });
-        if (!code || !state) return htmlResult({ ok: false, error: "Missing code or state" });
+        if (!code || !stateToken)
+          return htmlResult({ ok: false, error: "Missing code or state" });
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { MetaProvider, MetaGraphError } = await import(
+        const { supabaseAdmin } = await import(
+          "@/integrations/supabase/client.server"
+        );
+        const { MetaProvider, MetaGraphError, verifyOAuthState } = await import(
           "@/lib/meta/provider.server"
         );
         const { encryptCredential } = await import(
           "@/lib/credentials-crypto.server"
         );
 
-        // 1) Consume the state row (CSRF + brand/user context).
-        const { data: stateRow, error: stateErr } = await supabaseAdmin
-          .from("meta_oauth_states")
-          .select("state, brand_id, user_id, redirect_to, expires_at")
-          .eq("state", state)
-          .maybeSingle();
-        if (stateErr) return htmlResult({ ok: false, error: stateErr.message });
-        if (!stateRow) return htmlResult({ ok: false, error: "Invalid or expired state" });
-        if (new Date(stateRow.expires_at) < new Date()) {
-          await supabaseAdmin.from("meta_oauth_states").delete().eq("state", state);
-          return htmlResult({ ok: false, error: "State expired, try again" });
+        // 1) Verify signed state (CSRF + brand/user context).
+        let state;
+        try {
+          state = await verifyOAuthState(stateToken);
+        } catch (err) {
+          return htmlResult({
+            ok: false,
+            error: err instanceof Error ? err.message : "Invalid state",
+          });
         }
-        // Single-use.
-        await supabaseAdmin.from("meta_oauth_states").delete().eq("state", state);
 
         try {
           const provider = new MetaProvider();
 
-          // 2) code -> short-lived user token -> long-lived user token
+          // 2) code -> short-lived -> long-lived user token
           const shortLived = await provider.exchangeCode(code);
           const longLived = await provider.exchangeForLongLivedUserToken(
             shortLived.accessToken,
           );
 
-          // 3) Identify the Meta user and their Pages.
+          // 3) Identify Meta user + list Pages/IG assets
           const me = await provider.getMe(longLived.accessToken);
           const pages = await provider.listPagesWithInstagram(longLived.accessToken);
           if (pages.length === 0) {
             return htmlResult({
               ok: false,
               error:
-                "Nenhuma Página do Facebook foi encontrada para esta conta. Verifique se você é admin de ao menos uma Página.",
+                "Nenhuma Página do Facebook encontrada. Verifique se você é admin de ao menos uma Página.",
             });
           }
 
-          // 4) Persist one row per Page (page access tokens are long-lived
-          //    by default when derived from a long-lived user token).
-          const now = new Date();
+          // 4) Upsert one social_connections row per Page
+          const now = new Date().toISOString();
           for (const page of pages) {
             const ciphertext = await encryptCredential(page.pageAccessToken);
-            const { error: upsertErr } = await supabaseAdmin
-              .from("meta_connections")
+            const { error: upErr } = await supabaseAdmin
+              .from("social_connections")
               .upsert(
                 {
-                  brand_id: stateRow.brand_id,
-                  meta_user_id: me.id,
-                  meta_user_name: me.name ?? null,
-                  page_id: page.pageId,
-                  page_name: page.pageName,
-                  page_access_token_ciphertext: ciphertext,
-                  ig_business_id: page.instagramBusinessId ?? null,
-                  ig_username: page.instagramUsername ?? null,
+                  brand_id: state.brandId,
+                  provider: "meta",
+                  external_id: page.pageId,
+                  external_name: page.pageName,
+                  account_id: page.instagramBusinessId ?? null,
+                  account_username: page.instagramUsername ?? null,
+                  owner_external_id: me.id,
+                  owner_name: me.name ?? null,
+                  access_token_ciphertext: ciphertext,
                   scopes: [],
                   status: "active",
                   last_error: null,
-                  token_expires_at: longLived.expiresAt?.toISOString() ?? null,
+                  last_synced_at: now,
+                  token_expires_at:
+                    longLived.expiresAt?.toISOString() ?? null,
                   metadata: {
                     category: page.category ?? null,
                     tasks: page.tasks ?? [],
-                    linked_at: now.toISOString(),
+                    linked_at: now,
                   },
-                  created_by: stateRow.user_id,
+                  created_by: state.userId,
                 },
-                { onConflict: "brand_id,page_id" },
+                { onConflict: "brand_id,provider,external_id" },
               );
-            if (upsertErr) throw upsertErr;
+            if (upErr) throw upErr;
           }
 
           return htmlResult({
             ok: true,
             message: `${pages.length} página(s) conectadas`,
-            redirectTo: stateRow.redirect_to ?? "/connections",
+            redirectTo: state.redirectTo ?? "/connections",
           });
         } catch (err) {
           const msg =
@@ -149,7 +146,6 @@ function htmlResult(result: {
   <a href="${escapeAttr(target)}">Voltar ao app</a>
 </div>
 <script>
-  // Try to close if we were opened as a popup; otherwise redirect after 1.5s.
   try {
     if (window.opener) {
       window.opener.postMessage(${JSON.stringify({ source: "meta-oauth", ok: result.ok, error: result.error, message: result.message })}, "*");
@@ -162,7 +158,10 @@ function htmlResult(result: {
 </body></html>`;
   return new Response(body, {
     status: 200,
-    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store",
+    },
   });
 }
 
