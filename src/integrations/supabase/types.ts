@@ -1073,7 +1073,9 @@ export type Database = {
           created_at: string
           created_by: string
           estado: string | null
+          icon_url: string | null
           id: string
+          logo_dark_url: string | null
           logo_url: string | null
           name: string
           nome_fantasia: string | null
@@ -1094,7 +1096,9 @@ export type Database = {
           created_at?: string
           created_by: string
           estado?: string | null
+          icon_url?: string | null
           id?: string
+          logo_dark_url?: string | null
           logo_url?: string | null
           name: string
           nome_fantasia?: string | null
@@ -1115,7 +1119,9 @@ export type Database = {
           created_at?: string
           created_by?: string
           estado?: string | null
+          icon_url?: string | null
           id?: string
+          logo_dark_url?: string | null
           logo_url?: string | null
           name?: string
           nome_fantasia?: string | null
