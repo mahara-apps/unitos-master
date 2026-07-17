@@ -84,7 +84,7 @@ export const brainGraphFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<BrainGraph> => {
     const sb = context.supabase;
     const { data: raw, error } = await sb.rpc("get_brain_graph", {
-      _brand_id: data.brandId ?? null,
+      _brand_id: data.brandId ?? undefined,
       _limit: data.limit ?? 300,
     });
     if (error) throw new Error(error.message);
