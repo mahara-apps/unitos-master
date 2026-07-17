@@ -284,13 +284,6 @@ async function consolidateBrainContext(args: {
   query: string;
 }): Promise<BrainConsolidated> {
   const { supabase, brandId, query } = args;
-  const empty: BrainConsolidated = {
-    memories: [],
-    insights: [],
-    memoryRows: [],
-    stats: {},
-    markdown: "",
-  };
 
   // 1) Semantic memories via pgvector (only if brand scoped)
   let memories: BrainConsolidated["memories"] = [];
