@@ -1,0 +1,236 @@
+// Endpoint HTTP para o chat com streaming + tools + multimodal.
+// Não é um createServerFn porque precisamos retornar Response streaming.
+// Auth: Bearer token no header Authorization (mesma sessão do client).
+import { createFileRoute } from "@tanstack/react-router";
+import { createClient } from "@supabase/supabase-js";
+import { z } from "zod";
+import type { Database } from "@/integrations/supabase/types";
+import type { BrainContext } from "@/lib/brain/core";
+import { brain } from "@/lib/brain/api";
+import type { ChatAttachmentInput } from "@/lib/brain/chat-gateway/multimodal.server";
+import type { ToolCallLog } from "@/lib/brain/chat-gateway/tools.server";
+import { streamAnswer } from "@/lib/brain/chat-gateway/llm.server";
+
+const BodySchema = z.object({
+  conversationId: z.string().uuid(),
+  content: z.string().max(8000).default(""),
+  attachments: z
+    .array(
+      z.object({
+        path: z.string(),
+        name: z.string(),
+        mime: z.string(),
+        size: z.number(),
+        kind: z.enum(["image", "audio", "pdf", "file"]),
+      }),
+    )
+    .max(10)
+    .default([]),
+});
+
+function isNewKey(k: string) {
+  return k.startsWith("sb_publishable_") || k.startsWith("sb_secret_");
+}
+function makeFetch(key: string, token: string): typeof fetch {
+  return (input, init) => {
+    const headers = new Headers(init?.headers);
+    if (isNewKey(key) && headers.get("Authorization") === `Bearer ${key}`) headers.delete("Authorization");
+    headers.set("apikey", key);
+    headers.set("Authorization", `Bearer ${token}`);
+    return fetch(input, { ...init, headers });
+  };
+}
+
+export const Route = createFileRoute("/api/chat/stream")({
+  server: {
+    handlers: {
+      POST: async ({ request }) => {
+        const auth = request.headers.get("authorization") ?? "";
+        if (!auth.startsWith("Bearer ")) return new Response("Unauthorized", { status: 401 });
+        const token = auth.slice(7);
+        if (token.split(".").length !== 3) return new Response("Invalid token", { status: 401 });
+
+        const url = process.env.SUPABASE_URL;
+        const pubKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+        if (!url || !pubKey) return new Response("Missing Supabase env", { status: 500 });
+
+        const supabase = createClient<Database>(url, pubKey, {
+          global: { fetch: makeFetch(pubKey, token), headers: { Authorization: `Bearer ${token}` } },
+          auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
+        });
+
+        const claimsRes = await supabase.auth.getClaims(token);
+        const userId = claimsRes.data?.claims?.sub;
+        if (!userId) return new Response("Invalid token", { status: 401 });
+
+        let body: z.infer<typeof BodySchema>;
+        try {
+          body = BodySchema.parse(await request.json());
+        } catch (err) {
+          return new Response(err instanceof Error ? err.message : "Invalid body", { status: 400 });
+        }
+
+        const question = body.content.trim();
+        const attachments = body.attachments as ChatAttachmentInput[];
+        if (!question && attachments.length === 0) {
+          return new Response("Mensagem vazia", { status: 400 });
+        }
+
+        // 1) Carregar conversa
+        const { data: convo, error: convoErr } = await supabase
+          .from("chat_conversations")
+          .select("id, brand_id, client_id, title")
+          .eq("id", body.conversationId)
+          .maybeSingle();
+        if (convoErr || !convo) return new Response("Conversa não encontrada", { status: 404 });
+
+        // 2) Persistir mensagem do usuário
+        const { data: userRow, error: userErr } = await supabase
+          .from("chat_messages")
+          .insert({
+            conversation_id: body.conversationId,
+            user_id: userId,
+            role: "user",
+            content: question,
+            attachments,
+          })
+          .select("id")
+          .single();
+        if (userErr || !userRow) return new Response(userErr?.message ?? "insert failed", { status: 500 });
+
+        // Auto-title
+        if (convo.title === "Nova conversa" && question) {
+          await supabase
+            .from("chat_conversations")
+            .update({ title: question.slice(0, 60) })
+            .eq("id", convo.id);
+        }
+
+        // 3) Brain context
+        const brainCtx: BrainContext = {
+          supabase,
+          userId,
+          brandId: convo.brand_id,
+          clientId: convo.client_id,
+          module: "chat",
+        };
+        const contextPack = await brain.buildContext(brainCtx, {
+          question: question || attachments.map((a) => a.name).join(", "),
+          module: "chat",
+        });
+        const brainKnowledge = {
+          memories: contextPack.items
+            .filter((i) => i.kind === "semantic")
+            .map((i) => ({ content_summary: i.detail, similarity: i.confidence ?? i.score, event_type: i.label })),
+          insights: contextPack.items
+            .filter((i) => i.kind === "insight")
+            .map((i) => ({ insight_type: i.label, description: i.detail, confidence: i.confidence ?? null })),
+          memoryRows: contextPack.items
+            .filter((i) => i.kind === "memory")
+            .map((i) => ({ topic: i.label, summary: i.detail, confidence: i.confidence ?? null })),
+          stats: contextPack.stats,
+          markdown: contextPack.markdown,
+        };
+
+        // 4) Histórico
+        const { data: history } = await supabase
+          .from("chat_messages")
+          .select("role, content")
+          .eq("conversation_id", body.conversationId)
+          .order("created_at", { ascending: true })
+          .limit(20);
+
+        const toolCallLog: ToolCallLog[] = [];
+
+        // 5) Streaming
+        let stream: ReturnType<typeof streamAnswer> extends Promise<infer R> ? R : never;
+        try {
+          stream = await streamAnswer({
+            supabase,
+            brainCtx,
+            question,
+            attachments,
+            history: (history ?? []) as Array<{ role: string; content: string }>,
+            brain: brainKnowledge,
+            toolCallLog,
+          });
+        } catch (err) {
+          return new Response(
+            `Erro ao iniciar stream: ${err instanceof Error ? err.message : String(err)}`,
+            { status: 500 },
+          );
+        }
+
+        // 6) onFinish → persistir assistant + eventos Brain
+        const finish = stream.result.text.then(async (finalText) => {
+          const answer = finalText.trim() || "_(sem resposta)_";
+          const brainSummary = {
+            memories: brainKnowledge.memories.slice(0, 5).map((m) => ({
+              summary: m.content_summary,
+              similarity: m.similarity,
+              event_type: m.event_type,
+            })),
+            insights: brainKnowledge.insights.slice(0, 5).map((i) => ({
+              description: i.description,
+              type: i.insight_type,
+              confidence: i.confidence,
+            })),
+            stats: brainKnowledge.stats as Record<string, number>,
+            used_llm: true,
+            model: stream.model,
+            tool_calls_count: toolCallLog.length,
+          };
+
+          const { data: asstRow } = await supabase
+            .from("chat_messages")
+            .insert({
+              conversation_id: body.conversationId,
+              user_id: userId,
+              role: "assistant",
+              content: answer,
+              attachments: [],
+              brain_context: brainSummary,
+              used_llm: true,
+              model: stream.model,
+              tool_calls: toolCallLog,
+            })
+            .select("id")
+            .single();
+
+          await Promise.all([
+            brain.events.publish(brainCtx, {
+              brand_id: convo.brand_id,
+              client_id: convo.client_id,
+              source_module: "chat",
+              event_type: "chat.turn",
+              actor_id: userId,
+              payload: {
+                conversation_id: convo.id,
+                question: question.slice(0, 400),
+                used_llm: true,
+                tool_calls: toolCallLog.length,
+                memories_used: brainSummary.memories.length,
+              },
+            }),
+            asstRow
+              ? brain.recordContextUsage(brainCtx, {
+                  pack: contextPack,
+                  responseId: asstRow.id,
+                  consumer: "chat",
+                  usedLlm: true,
+                })
+              : Promise.resolve(),
+          ]).catch((e) => console.error("[chat.stream] post-finish error", e));
+        }).catch((e) => console.error("[chat.stream] finish error", e));
+
+        // 7) Retornar text stream (o cliente lê incrementalmente)
+        const response = stream.result.toTextStreamResponse();
+        // Não aguardamos `finish` para não bloquear TTFB — o consumo do stream
+        // é o que resolve stream.result.text, e a persistência acontece em
+        // background após a última chunk.
+        void finish;
+        return response;
+      },
+    },
+  },
+});
