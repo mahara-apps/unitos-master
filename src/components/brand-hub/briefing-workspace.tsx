@@ -1558,15 +1558,12 @@ function StackedBrainLayout(props: StackedProps) {
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
             Salvar
           </Button>
-          <Button
-            size="sm"
-            className="gap-1.5 border-0 bg-gradient-to-r from-fuchsia-600 via-violet-600 to-cyan-500 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08)] hover:opacity-95"
-            onClick={onGenerateStrategy}
-            disabled={generating}
-          >
-            {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-            Gerar Inteligência com IA
-          </Button>
+          <GenerateIntelligenceButton
+            form={form}
+            generating={generating}
+            onGenerate={onGenerateStrategy}
+            onJump={scrollTo}
+          />
         </div>
       </div>
 
