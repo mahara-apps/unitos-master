@@ -1,60 +1,69 @@
-## Branding por marca (logo + ícone) nas Configurações
+# SLA configurável por coluna no `/content`
 
-Hoje o `UnitosLogo` mostra sempre o logo da plataforma. Vou adicionar, na tela de **Configurações**, um painel de identidade visual **por marca (workspace)** com upload de três imagens usadas no sidebar e no login. E vou corrigir o mark colapsado, que hoje ocupa ~56% da largura do sidebar recolhido, para ocupar ~70%.
+Hoje já existe `content_pipeline_stages.sla_days` (integer) e a UI de configuração do SLA no `ColumnConfigDialog`. Falta o resto do ciclo: medir tempo em coluna, marcar como atrasado, notificar e reportar.
 
-### 1. Nova aba "Marca" em `/settings/branding`
+## 1. Schema (migração)
 
-Adicionar tab em `src/routes/_authenticated/settings.tsx` (`Marca`, ícone `Palette`) e criar `src/routes/_authenticated/settings.branding.tsx`.
+- `posts.stage_entered_at timestamptz` — marca quando o card entrou na coluna atual. Default `now()`; backfill com `updated_at`.
+- Trigger `posts_stage_change_bump()`:
+  - Ao `INSERT`: setar `stage_entered_at = now()`.
+  - Ao `UPDATE`, quando `stage_id` muda: `stage_entered_at = now()`.
+- Índice parcial `posts(stage_id, stage_entered_at) WHERE deleted_at IS NULL` para o job de varredura.
+- Adicionar `kind` enum values `sla_overdue` e `sla_overdue_manager` em `public.notification_kind` (se enum) — senão string livre.
+- Nada de novas tabelas — reutilizamos `notifications` (payload jsonb guarda `post_id`, `stage_id`, `days_overdue`).
 
-Layout (padrão `DashboardPageShell` + `Card`s):
-- **Logo (tema claro)** — usada no sidebar expandido em fundo claro e no topo das telas de login/recuperação de senha.
-  - Formato: PNG ou SVG, fundo transparente
-  - Dimensão ideal: **480×120 px** (proporção 4:1), min 240×60
-  - Peso máx: 500 KB
-- **Logo (tema escuro)** — mesma coisa, versão para fundo escuro. Mesmas dimensões.
-- **Ícone / favicon** — usado no sidebar colapsado e como favicon do navegador.
-  - Formato: PNG ou SVG quadrado
-  - Dimensão ideal: **256×256 px**, min 128×128
-  - Peso máx: 200 KB
+## 2. Regra de "atrasado"
 
-Cada card mostra: preview atual (com fundo correspondente ao tema alvo), input `<Input type="file">` estilo drag-and-drop, botão "Remover" (volta ao padrão Unitos), e um subtexto com as dimensões recomendadas. Validação client-side de tipo, tamanho e dimensão mínima antes do upload.
+Considera-se atrasado quando:
+- `stage.sla_days IS NOT NULL AND stage.sla_days > 0`
+- `stage.is_terminal = false` (colunas terminais não contam)
+- `NOW() - posts.stage_entered_at > sla_days * interval '1 day'`
+- `posts.deleted_at IS NULL`
 
-### 2. Backend — schema + storage
+Exposto via campo derivado `is_overdue` e `days_overdue` no retorno de `loadBoardFn` (calculado no server, sem coluna nova).
 
-**Migration** (`supabase/migrations/…_brand_branding.sql`):
-- `ALTER TABLE public.brands ADD COLUMN logo_dark_url text, ADD COLUMN icon_url text;` (o `logo_url` já existe e passa a representar o logo tema claro).
-- Bucket `brand-assets` (público, cacheável). Se já existir, apenas garante políticas.
-- Políticas RLS de storage: `SELECT` público (leitura anônima permite mostrar logo no `/login` sem sessão); `INSERT/UPDATE/DELETE` restrito a membros do brand com papel `owner`/`manager` verificado por `has_brand_permission(brand_id, 'brand.manage')` (helper já existente).
-- Path convention: `brand-assets/{brand_id}/logo-light-{ts}.{ext}`, `logo-dark-…`, `icon-…`.
+## 3. UI — badge no card (`content-board.tsx`)
 
-**Server function** `src/lib/branding.functions.ts` com `requireSupabaseAuth`:
-- `updateBrandBranding({ brandId, kind: 'logo_light'|'logo_dark'|'icon', publicUrl })` — valida permissão via `context.supabase` (RLS aplica), grava a coluna correspondente em `brands`.
-- `clearBrandBranding({ brandId, kind })` — seta coluna para `NULL`.
-- Upload em si acontece client-side com o `supabase` publishable client no bucket (RLS decide se aceita).
+- Novo badge vermelho `Atrasado · Nd` ao lado dos badges existentes (priority/format), usando token semântico `rose` do design system.
+- Tooltip: "Em {stage.label} há X dias · SLA {sla_days}d".
+- Aparece só quando `is_overdue = true`. Cards em estágio terminal nunca mostram.
+- Também um contador de atrasados no header de cada coluna (bolinha rose) quando houver.
 
-### 3. Resolução em tempo de execução
+## 4. Job de notificação
 
-Criar hook `useBrandBranding()` em `src/hooks/use-brand-branding.ts`:
-- `useQuery(['brand-branding', brandId])` lendo `logo_url`, `logo_dark_url`, `icon_url` da tabela `brands` (cache 5 min).
-- Retorna `{ logoLight, logoDark, icon }` já com fallback para as assets padrão Unitos.
+Server route pública `src/routes/api/public/cron/sla-check.ts` (POST, protegida por header `x-cron-secret`):
+- Varre posts atrasados agrupando por (assignee, brand, gestor).
+- Para cada atrasado inédito nas últimas 24h (dedupe via `notifications.payload->>'post_id'` + `kind = 'sla_overdue'` no dia), insere:
+  - 1 notificação para `posts.assignee_id` (kind `sla_overdue`).
+  - 1 notificação para cada `brand_members` com role `owner`/`manager` do workspace (kind `sla_overdue_manager`), agregada por lote (evita spam: uma notificação-resumo por gestor com `count` no payload).
+- Agendado via `pg_cron` chamando a rota (URL estável `https://project--<id>.lovable.app/api/public/cron/sla-check`), 1×/hora.
+- Bell/`notifications` já renderizam automaticamente (nada a mudar lá além do rótulo pt-BR para os dois novos `kind`s no componente de bell/inbox).
 
-Refatorar `src/components/brand/unitos-logo.tsx`:
-- Continua aceitando `variant: 'full' | 'mark'`.
-- Ler `useBrandBranding()` — se o brand tem asset customizado usa ele; senão cai no default Unitos que já existe hoje.
-- Em rotas públicas sem sessão (`/login`, `/forgot-password`, `/reset-password`) o hook devolve default (sem `brandId`), então nada muda visualmente para o platform brand.
+## 5. Notificação em tela
 
-### 4. Tamanho do mark no sidebar colapsado
+- Toast + realtime já existente na inbox global cobre o "bell".
+- Na tela `/content`, banner discreto (`AlertBanner` do design system) no topo quando houver ≥1 atrasado atribuído ao usuário atual: "Você tem N tarefas atrasadas".
 
-Em `src/components/app-sidebar.tsx`:
-- Sidebar colapsado tem largura `--sidebar-width-icon` (3rem = 48px). O mark hoje é `h-9 w-9` (36px) ≈ 75% mas com padding lateral do header (`px-2`) sobra ~32px úteis, ficando visualmente pequeno.
-- Ajustar: `SidebarHeader` colapsado com `px-1` (em vez de `px-2`), e mark `h-9 w-9` → **`h-11 w-11`** (~44px de 48px = **~91% do container, ~70% da largura total do sidebar considerando padding visual**). O `SidebarTrigger` colapsado já fica embaixo (via `mx-auto`), então não conflita.
-- Adicionar `object-contain` (já está no componente) garante que ícones não-quadrados fiquem centrados.
+## 6. Analytics (`/analytics`)
 
-### 5. Favicon do navegador
+Novo painel "Performance de SLA":
+- **Taxa de cumprimento de SLA por usuário** (últimos 30d): posts que saíram da coluna dentro do `sla_days` ÷ total de transições. Calculado a partir de `activity_events` (já registra mudanças de stage) + `content_pipeline_stages.sla_days` no momento da saída — ou, se `activity_events` não tiver o campo, usar heurística `updated_at - stage_entered_at` ao mover.
+- **Tempo médio por coluna** (agregado): média de dias entre entradas/saídas por stage.
+- **Atrasos ativos por usuário** (snapshot atual).
 
-Quando o brand tem `icon_url` definido e o usuário está autenticado nesse workspace, injetar um `<link rel="icon">` dinâmico em runtime via effect no `_authenticated/route.tsx` (troca o href do favicon existente pelo `icon_url` do brand ativo; ao trocar de brand ou sair, volta para `/favicon.png`).
+Server fn nova `slaMetricsFn` em `src/lib/analytics.functions.ts` retornando esses 3 datasets. Componente novo `SlaPerformancePanel` renderizado abaixo dos painéis atuais em `/analytics`.
 
-### Fora de escopo
-- Portal público do cliente (`/portal/$token`): continua usando o branding **do client** (já implementado com `clients.logo_url`), sem mudança.
-- Cores/tema customizado por brand: fica para outra iteração.
-- Emails transacionais: continuam com logo Unitos por enquanto (evita depender de URL absoluta customizada por brand nesse ciclo).
+## 7. Detalhes técnicos
+
+- Servidor: nova função `checkSlaAndNotifyFn` (interna) chamada pela rota cron; usa `supabaseAdmin` (import dinâmico dentro do handler).
+- Segurança: header `x-cron-secret` validado com `timingSafeEqual`. Secret adicionado via `add_secret` (`SLA_CRON_SECRET`).
+- Dedupe: query `notifications` do dia por `kind + payload->>'post_id' + user_id` antes de inserir.
+- RLS: as inserts vão via admin client, então RLS não bloqueia; leitura da inbox já é escopada por `user_id = auth.uid()`.
+- `loadBoardFn`: computa `is_overdue`/`days_overdue` no map final (sem query extra).
+- i18n: strings em pt-BR seguindo o padrão do projeto.
+
+## 8. Fora de escopo (não faremos agora)
+
+- Alterar o enum de `notification_kind` se ele estiver muito acoplado — se necessário, uso de valores string livres funciona.
+- E-mail/WhatsApp de aviso (só bell + tela).
+- SLA por prioridade/canal (só por coluna, conforme pedido).
