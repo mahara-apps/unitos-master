@@ -57,6 +57,7 @@ import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_
 import { Route as AuthenticatedChatConversationIdRouteImport } from './routes/_authenticated/chat.$conversationId'
 import { Route as AuthenticatedBrainGraphRouteImport } from './routes/_authenticated/brain.graph'
 import { Route as AuthenticatedBrainDiagnosticsRouteImport } from './routes/_authenticated/brain.diagnostics'
+import { Route as ApiPublicMetaCallbackRouteImport } from './routes/api/public/meta/callback'
 import { Route as ApiPublicMediaPruneRouteImport } from './routes/api/public/media/prune'
 import { Route as ApiPublicHooksBrainConsolidateRouteImport } from './routes/api/public/hooks/brain-consolidate'
 import { Route as ApiPublicCronSlaCheckRouteImport } from './routes/api/public/cron/sla-check'
@@ -320,6 +321,11 @@ const AuthenticatedBrainDiagnosticsRoute =
     path: '/diagnostics',
     getParentRoute: () => AuthenticatedBrainRoute,
   } as any)
+const ApiPublicMetaCallbackRoute = ApiPublicMetaCallbackRouteImport.update({
+  id: '/api/public/meta/callback',
+  path: '/api/public/meta/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicMediaPruneRoute = ApiPublicMediaPruneRouteImport.update({
   id: '/api/public/media/prune',
   path: '/api/public/media/prune',
@@ -415,6 +421,7 @@ export interface FileRoutesByFullPath {
   '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
+  '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -467,6 +474,7 @@ export interface FileRoutesByTo {
   '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
+  '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -525,6 +533,7 @@ export interface FileRoutesById {
   '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
+  '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -583,6 +592,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/sla-check'
     | '/api/public/hooks/brain-consolidate'
     | '/api/public/media/prune'
+    | '/api/public/meta/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -635,6 +645,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/sla-check'
     | '/api/public/hooks/brain-consolidate'
     | '/api/public/media/prune'
+    | '/api/public/meta/callback'
   id:
     | '__root__'
     | '/'
@@ -692,6 +703,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/sla-check'
     | '/api/public/hooks/brain-consolidate'
     | '/api/public/media/prune'
+    | '/api/public/meta/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -717,6 +729,7 @@ export interface RootRouteChildren {
   ApiPublicCronSlaCheckRoute: typeof ApiPublicCronSlaCheckRoute
   ApiPublicHooksBrainConsolidateRoute: typeof ApiPublicHooksBrainConsolidateRoute
   ApiPublicMediaPruneRoute: typeof ApiPublicMediaPruneRoute
+  ApiPublicMetaCallbackRoute: typeof ApiPublicMetaCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1057,6 +1070,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBrainDiagnosticsRouteImport
       parentRoute: typeof AuthenticatedBrainRoute
     }
+    '/api/public/meta/callback': {
+      id: '/api/public/meta/callback'
+      path: '/api/public/meta/callback'
+      fullPath: '/api/public/meta/callback'
+      preLoaderRoute: typeof ApiPublicMetaCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/media/prune': {
       id: '/api/public/media/prune'
       path: '/api/public/media/prune'
@@ -1276,6 +1296,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicCronSlaCheckRoute: ApiPublicCronSlaCheckRoute,
   ApiPublicHooksBrainConsolidateRoute: ApiPublicHooksBrainConsolidateRoute,
   ApiPublicMediaPruneRoute: ApiPublicMediaPruneRoute,
+  ApiPublicMetaCallbackRoute: ApiPublicMetaCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
