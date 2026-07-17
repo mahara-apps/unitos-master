@@ -7,6 +7,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import type { Metric, SocialNetwork, SocialPost } from "@/lib/social/types";
+import { withSocialCache, socialCacheKey, hashKey, SOCIAL_CACHE_TTL_MS } from "@/lib/social-analytics/cache";
 
 function isNewKey(k: string) {
   return k.startsWith("sb_publishable_") || k.startsWith("sb_secret_");
@@ -172,10 +173,11 @@ export const Route = createFileRoute("/api/social/posts/$postId/analytics")({
           accessToken,
         };
 
-        const res = await provider.getPost(ctx, {
-          network,
-          postId: post.external_post_id,
-        });
+        const scope = `${hashKey(token)}:${conn.id}`;
+        const res = await withSocialCache(
+          socialCacheKey("post", scope, { n: network, p: post.external_post_id }),
+          () => provider.getPost(ctx, { network, postId: post.external_post_id! }),
+        );
         if (!res.ok)
           return Response.json(
             { error: "provider_error", message: res.error, code: res.code },
@@ -205,7 +207,7 @@ export const Route = createFileRoute("/api/social/posts/$postId/analytics")({
 
         return Response.json(body, {
           headers: {
-            "cache-control": "private, max-age=60, stale-while-revalidate=120",
+            "cache-control": `private, max-age=${SOCIAL_CACHE_TTL_MS / 1000}, stale-while-revalidate=120`,
           },
         });
       },
