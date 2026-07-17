@@ -129,7 +129,7 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
               },
             }));
           if (toInsert.length > 0) {
-            const { error: insErr } = await supabaseAdmin.from("notifications").insert(toInsert);
+            const { error: insErr } = await supabaseAdmin.from("notifications").insert(toInsert as never);
             if (insErr) throw insErr;
             notifiedAssignees = toInsert.length;
           }
@@ -189,7 +189,7 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
 
         let notifiedManagers = 0;
         if (mgrInserts.length > 0) {
-          const { error: mErr } = await supabaseAdmin.from("notifications").insert(mgrInserts);
+          const { error: mErr } = await supabaseAdmin.from("notifications").insert(mgrInserts as never);
           if (mErr) throw mErr;
           notifiedManagers = mgrInserts.length;
         }
