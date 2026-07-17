@@ -2,7 +2,8 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useEffect, useState } from "react";
-import { AlertTriangle, Settings } from "lucide-react";
+import { AlertTriangle, Settings, Sparkles } from "lucide-react";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -21,6 +22,9 @@ import {
 import { CustomerDashboard } from "@/components/customer/customer-dashboard";
 import { BasicInfoTab } from "@/components/customer/basic-info-tab";
 import { BriefingWorkspace } from "@/components/brand-hub/briefing-workspace";
+import { QuickOnboardingWizard } from "@/components/brand-hub/quick-onboarding-wizard";
+import { getBrandHub } from "@/lib/brand-hub.functions";
+import { computeBriefingCompletion } from "@/lib/briefing-progress";
 import {
   StrategySkeleton,
   TargetSkeleton,
@@ -36,6 +40,10 @@ import {
 } from "@/lib/customer-queries";
 
 export const Route = createFileRoute("/_authenticated/customers/$customerId")({
+  validateSearch: (s) =>
+    z
+      .object({ onboarding: z.union([z.literal("1"), z.literal(1), z.boolean()]).optional() })
+      .parse(s),
   component: CustomerDetail,
 });
 
@@ -49,6 +57,7 @@ const isUuid = (v: string | null | undefined): v is string => !!v && UUID_RE.tes
 
 function CustomerDetail() {
   const { customerId } = Route.useParams();
+  const { onboarding } = Route.useSearch();
   const { brandId, setClientId } = useActiveContext();
   const { role, allowedClientIds, isReady } = useAccessRole();
   const navigate = useNavigate();
@@ -88,7 +97,11 @@ function CustomerDetail() {
 
   return (
     <Suspense fallback={<HeaderFallback />}>
-      <CustomerDetailReady brandId={brandId} customerId={customerId} />
+      <CustomerDetailReady
+        brandId={brandId}
+        customerId={customerId}
+        openOnboarding={!!onboarding}
+      />
     </Suspense>
   );
 }
@@ -124,11 +137,22 @@ function HeaderFallback() {
   );
 }
 
-function CustomerDetailReady({ brandId, customerId }: { brandId: string; customerId: string }) {
+function CustomerDetailReady({
+  brandId,
+  customerId,
+  openOnboarding,
+}: {
+  brandId: string;
+  customerId: string;
+  openOnboarding: boolean;
+}) {
   const list = useServerFn(listClients);
+  const fetchHub = useServerFn(getBrandHub);
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const navigate = useNavigate();
 
   // Lista de customers do brand ativo — só para nome/cor do header.
   const customersQ = useQuery({
@@ -151,12 +175,53 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
 
   const customer = (customersQ.data ?? []).find((c) => c.id === customerId);
 
+  const hubQ = useQuery({
+    queryKey: ["brand-hub", brandId, customerId],
+    queryFn: () => fetchHub({ data: { brandId, clientId: customerId } }),
+    staleTime: 30_000,
+  });
+  const completion = hubQ.data
+    ? computeBriefingCompletion(hubQ.data.brand_hub ?? {}, hubQ.data)
+    : 0;
+  const needsOnboarding = !!hubQ.data && completion < 60;
+
+  // Auto-open when the customer was just created (?onboarding=1).
+  useEffect(() => {
+    if (openOnboarding) {
+      setWizardOpen(true);
+      setActiveTab("brain");
+      // Clear the query param so a manual refresh doesn't reopen it.
+      navigate({
+        to: "/customers/$customerId",
+        params: { customerId },
+        search: {},
+        replace: true,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openOnboarding, customerId]);
+
   usePageHeader(
     {
       title: customer?.name ?? (customersQ.isLoading ? "Carregando…" : "Cliente"),
       subtitle: `${customer?.niche ?? "—"} · ${customerId.slice(0, 8)}`,
       actions: (
         <div className="flex items-center gap-1">
+          {needsOnboarding && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 border-fuchsia-500/40 text-fuchsia-300 hover:bg-fuchsia-500/10 hover:text-fuchsia-200"
+              onClick={() => {
+                setActiveTab("brain");
+                setWizardOpen(true);
+              }}
+              title="Completar onboarding rápido"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              Completar onboarding
+            </Button>
+          )}
           <Button
             asChild
             size="sm"
@@ -183,7 +248,7 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
         </div>
       ),
     },
-    [customer?.name, customer?.niche, customerId],
+    [customer?.name, customer?.niche, customerId, needsOnboarding],
   );
 
   const scope = { brandId, clientId: customerId };
@@ -268,6 +333,14 @@ function CustomerDetailReady({ brandId, customerId }: { brandId: string; custome
           <BasicInfoTab brandId={brandId} clientId={customerId} />
         </SheetContent>
       </Sheet>
+
+      <QuickOnboardingWizard
+        brandId={brandId}
+        clientId={customerId}
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        onOpenFullBriefing={() => setActiveTab("brain")}
+      />
     </ScrollArea>
   );
 }
