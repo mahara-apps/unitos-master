@@ -153,6 +153,9 @@ export type BoardPost = {
   project_id?: string | null;
   remind_at?: string | null;
   assignees?: string[] | null;
+  stage_entered_at?: string | null;
+  is_overdue?: boolean;
+  days_overdue?: number;
 };
 
 export type ScriptScene = {
