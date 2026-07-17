@@ -546,19 +546,12 @@ export function BriefingWorkspace({
                 <Badge variant="outline" className="border-rose-500/30 bg-rose-500/10 font-mono text-[10px] text-rose-300">
                   {completion}%
                 </Badge>
-                <Button
-                  size="sm"
-                  className="gap-1.5 border-0 bg-gradient-to-r from-fuchsia-600 via-violet-600 to-cyan-500 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08)] hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
-                  onClick={() => setRegenOpen(true)}
-                  disabled={generating}
-                >
-                  {generating ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-3.5 w-3.5" />
-                  )}
-                  Gerar estratégia com IA
-                </Button>
+                <GenerateIntelligenceButton
+                  form={form}
+                  generating={generating}
+                  onGenerate={() => setRegenOpen(true)}
+                  label="Gerar estratégia com IA"
+                />
                 <Button
                   size="sm"
                   variant="outline"
