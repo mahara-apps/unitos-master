@@ -490,7 +490,7 @@ function CustomersIndexPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </DashboardPageShell>
   );
 }
 
