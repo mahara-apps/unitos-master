@@ -5,12 +5,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   listBrandTeam,
-  inviteBrandMembers,
   updateBrandMember,
   removeBrandMember,
   revokeBrandInvite,
   revokePortalTokenFromTeam,
-  addExistingUserToBrand,
 } from "@/lib/team.functions";
 import { PERMISSION_GROUPS, type PermissionId } from "@/lib/permissions";
 import { useActiveContext } from "@/hooks/use-active-context";
@@ -23,21 +21,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, UserPlus, Copy, X, Loader2, CalendarIcon, Link2, ShieldOff, ExternalLink, UserCog } from "lucide-react";
-import { format } from "date-fns";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { MoreHorizontal, UserPlus, Copy, X, Loader2, Link2, ShieldOff, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SettingsStatCard } from "@/components/settings/settings-stat-card";
 import { Users, Mail as MailIcon, Link as LinkIcon, Crown } from "lucide-react";
-import { CreateUserDialog } from "@/components/settings/create-user-dialog";
+import { AddPersonDialog } from "@/components/settings/add-person-dialog";
 
 export const Route = createFileRoute("/_authenticated/settings/team")({
   component: TeamSettingsPage,
@@ -58,29 +53,17 @@ function TeamSettingsPage() {
     enabled: !!brandId,
   });
 
-  const [open, setOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [createOpen, setCreateOpen] = useState(false);
 
   usePageHeader(
     {
       title: "Equipe",
       subtitle: "Membros, permissões e convites da marca",
       actions: brandId ? (
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
-            <UserCog className="h-4 w-4 mr-2" />
-            Criar usuário
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
-            <UserPlus className="h-4 w-4 mr-2" />
-            Adicionar existente
-          </Button>
-          <Button size="sm" onClick={() => setOpen(true)}>
-            <MailIcon className="h-4 w-4 mr-2" />
-            Convidar
-          </Button>
-        </div>
+        <Button size="sm" onClick={() => setAddOpen(true)}>
+          <UserPlus className="h-4 w-4 mr-2" />
+          Adicionar pessoa
+        </Button>
       ) : undefined,
     },
     [brandId],
@@ -102,30 +85,11 @@ function TeamSettingsPage() {
 
   return (
     <div className="w-full space-y-4 px-4 py-6 sm:px-6 lg:px-8">
-      <Dialog open={open} onOpenChange={setOpen}>
-        <InviteDialog
-          brandId={brandId}
-          onDone={() => {
-            setOpen(false);
-            qc.invalidateQueries({ queryKey: ["brand-team", brandId] });
-          }}
-        />
-      </Dialog>
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <AddExistingUserDialog
-          brandId={brandId}
-          onDone={() => {
-            setAddOpen(false);
-            qc.invalidateQueries({ queryKey: ["brand-team", brandId] });
-          }}
-        />
-      </Dialog>
-      <CreateUserDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onDone={() => {
-          qc.invalidateQueries({ queryKey: ["brand-team", brandId] });
-        }}
+      <AddPersonDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        brandId={brandId}
+        onDone={() => qc.invalidateQueries({ queryKey: ["brand-team", brandId] })}
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -454,214 +418,6 @@ function EditPermissionsDialog({
           disabled={saving}
         >
           {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Salvar
-        </Button>
-      </DialogFooter>
-    </DialogContent>
-  );
-}
-
-function InviteDialog({ brandId, onDone }: { brandId: string; onDone: () => void }) {
-  const invite = useServerFn(inviteBrandMembers);
-  const [emails, setEmails] = useState<string[]>([]);
-  const [draft, setDraft] = useState("");
-  const [role, setRole] = useState<"owner"|"manager"|"editor"|"designer"|"client">("editor");
-  const [perms, setPerms] = useState<PermissionId[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [expiresAt, setExpiresAt] = useState<Date | undefined>(() => {
-    const d = new Date(); d.setDate(d.getDate() + 7); return d;
-  });
-
-  const addEmail = (raw: string) => {
-    const e = raw.trim().toLowerCase();
-    if (!e) return;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { toast.error("E-mail inválido"); return; }
-    if (emails.includes(e)) return;
-    setEmails([...emails, e]);
-    setDraft("");
-  };
-
-  const submit = async () => {
-    const all = draft ? [...emails, draft.trim().toLowerCase()] : emails;
-    const unique = Array.from(new Set(all.filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))));
-    if (unique.length === 0) { toast.error("Adicione ao menos um e-mail válido"); return; }
-    setBusy(true);
-    try {
-      const { results } = await invite({
-        data: {
-          brandId, emails: unique, role, permissions: perms,
-          expiresAt: expiresAt ? expiresAt.toISOString() : undefined,
-        },
-      });
-      const linked = results.filter(r => r.status === "linked").length;
-      const invited = results.filter(r => r.status === "invited").length;
-      const already = results.filter(r => r.status === "already_member").length;
-      const failed = results.filter(r => r.status === "error");
-      const notSent = results.filter(r => r.status === "invited" && r.emailSent === false).length;
-      toast.success(`${invited} convite(s), ${linked} vinculado(s), ${already} já membro(s)${notSent ? ` — ${notSent} sem envio de e-mail (link copiável na lista)` : ""}`);
-      if (failed.length) toast.error(`${failed.length} falha(s): ${failed.map(f => f.error).join(", ")}`);
-      onDone();
-    } catch (e) {
-      toast.error((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <DialogContent className="max-w-lg">
-      <DialogHeader>
-        <DialogTitle>Convidar para a marca</DialogTitle>
-        <DialogDescription>Envie convites e defina permissões granulares.</DialogDescription>
-      </DialogHeader>
-      <div className="space-y-4">
-        <div className="space-y-1.5">
-          <Label className="text-xs">E-mails</Label>
-          <div className="flex flex-wrap gap-1.5 rounded-md border border-input p-2 min-h-[42px]">
-            {emails.map((e) => (
-              <Badge key={e} variant="secondary" className="gap-1">
-                {e}
-                <button onClick={() => setEmails(emails.filter((x) => x !== e))} className="opacity-60 hover:opacity-100"><X className="h-3 w-3" /></button>
-              </Badge>
-            ))}
-            <input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addEmail(draft); }
-                if (e.key === "Backspace" && !draft && emails.length) setEmails(emails.slice(0, -1));
-              }}
-              onBlur={() => draft && addEmail(draft)}
-              placeholder={emails.length ? "" : "email@empresa.com — pressione Enter"}
-              className="flex-1 min-w-[160px] bg-transparent text-sm outline-none"
-            />
-          </div>
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Papel</Label>
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value as typeof role)}
-            className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-          >
-            {(["owner","manager","editor","designer","client"] as const).map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Expira em</Label>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className={cn("w-full justify-start text-left font-normal h-9", !expiresAt && "text-muted-foreground")}>
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {expiresAt ? format(expiresAt, "dd/MM/yyyy") : "Selecionar data"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={expiresAt}
-                onSelect={setExpiresAt}
-                disabled={(d) => d.getTime() < Date.now() - 24*60*60*1000}
-                initialFocus
-                className={cn("p-3 pointer-events-auto")}
-              />
-            </PopoverContent>
-          </Popover>
-          <p className="text-[11px] text-muted-foreground">
-            Após esta data o convite não poderá mais ser aceito. Padrão: 7 dias.
-          </p>
-        </div>
-        <div>
-          <Label className="text-xs mb-1.5 block">Permissões</Label>
-          <PermissionSelector value={perms} onChange={setPerms} />
-        </div>
-      </div>
-      <DialogFooter>
-        <Button onClick={submit} disabled={busy}>
-          {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Enviar
-        </Button>
-      </DialogFooter>
-    </DialogContent>
-  );
-}
-
-function AddExistingUserDialog({ brandId, onDone }: { brandId: string; onDone: () => void }) {
-  const addUser = useServerFn(addExistingUserToBrand);
-  const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"owner"|"manager"|"editor"|"designer"|"client">("editor");
-  const [perms, setPerms] = useState<PermissionId[]>([]);
-  const [busy, setBusy] = useState(false);
-
-  const submit = async () => {
-    const clean = email.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) {
-      toast.error("E-mail inválido");
-      return;
-    }
-    setBusy(true);
-    try {
-      const res = await addUser({
-        data: { brandId, email: clean, role, permissions: perms },
-      });
-      const who = res.fullName || res.email;
-      if (res.status === "added") toast.success(`${who} adicionado à marca como ${role}`);
-      else if (res.status === "updated") toast.success(`${who} atualizado para ${role}`);
-      else if (res.status === "already_member") toast.info(`${who} já era membro com esse papel`);
-      else if (res.status === "not_found") {
-        toast.error("Usuário não encontrado. Use o botão Convidar para enviar um convite por e-mail.");
-        setBusy(false);
-        return;
-      }
-      onDone();
-    } catch (e) {
-      const msg = (e as Error).message;
-      toast.error(msg === "forbidden" ? "Somente owners e managers podem adicionar membros" : msg);
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <DialogContent className="max-w-lg">
-      <DialogHeader>
-        <DialogTitle>Adicionar usuário existente</DialogTitle>
-        <DialogDescription>
-          Atribua uma conta já cadastrada no Unitos diretamente a esta marca, sem enviar convite por e-mail.
-        </DialogDescription>
-      </DialogHeader>
-      <div className="space-y-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="add-existing-email" className="text-xs">E-mail do usuário</Label>
-          <Input
-            id="add-existing-email"
-            type="email"
-            autoComplete="off"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="pessoa@empresa.com"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Papel</Label>
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value as typeof role)}
-            className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm"
-          >
-            {(["owner","manager","editor","designer","client"] as const).map((r) => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <Label className="text-xs mb-1.5 block">Permissões</Label>
-          <PermissionSelector value={perms} onChange={setPerms} />
-        </div>
-      </div>
-      <DialogFooter>
-        <Button onClick={submit} disabled={busy}>
-          {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Adicionar
         </Button>
       </DialogFooter>
     </DialogContent>

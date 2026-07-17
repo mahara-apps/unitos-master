@@ -742,3 +742,161 @@ export const previewInvite = createServerFn({ method: "POST" })
       brand: brand ?? null,
     };
   });
+
+// ============================================================================
+// Fluxo unificado: adicionar pessoa (vincula se existe, provisiona se não)
+// ============================================================================
+
+const AddPersonInput = z.object({
+  brandId: z.string().uuid(),
+  email: z.string().trim().toLowerCase().email(),
+  fullName: z.string().trim().max(120).optional().default(""),
+  role: z.enum(ROLES).default("editor"),
+  permissions: z.array(z.enum(ALL_PERMISSION_IDS as [PermissionId, ...PermissionId[]])).default([]),
+  clientIds: z.array(z.string().uuid()).default([]),
+  sendEmail: z.boolean().default(true),
+});
+
+export const addPerson = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => AddPersonInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+
+    // Autorização: super admin OU owner/manager desta marca
+    const { data: adminFlag } = await supabase
+      .from("user_profiles").select("is_super_admin").eq("id", userId).maybeSingle();
+    const isSuper = Boolean((adminFlag as { is_super_admin?: boolean } | null)?.is_super_admin);
+    if (!isSuper) {
+      const { data: my } = await supabase
+        .from("brand_members").select("role")
+        .eq("brand_id", data.brandId).eq("user_id", userId).maybeSingle();
+      if (!my || (my.role !== "owner" && my.role !== "manager")) {
+        throw new Error("forbidden: apenas owners e managers podem adicionar pessoas");
+      }
+    }
+
+    // Validar clientIds pertencem à marca
+    if (data.clientIds.length > 0) {
+      const { data: cRows, error: cErr } = await supabase
+        .from("clients").select("id, brand_id").in("id", data.clientIds);
+      if (cErr) throw cErr;
+      for (const c of cRows ?? []) {
+        if (c.brand_id !== data.brandId) {
+          throw new Error("invalid_client: projeto não pertence a este workspace");
+        }
+      }
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Procura usuário existente
+    let existingId: string | null = null;
+    for (let page = 1; page <= 20 && !existingId; page++) {
+      const { data: list, error: lErr } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
+      if (lErr) throw lErr;
+      const users = list?.users ?? [];
+      const hit = users.find((u) => (u.email ?? "").toLowerCase() === data.email);
+      if (hit) existingId = hit.id;
+      if (users.length < 200) break;
+    }
+
+    let tempPassword: string | null = null;
+    let mode: "linked" | "provisioned" = "linked";
+    let targetId: string;
+    let fullName = data.fullName;
+
+    if (existingId) {
+      targetId = existingId;
+      const { data: prof } = await supabase
+        .from("user_profiles").select("full_name").eq("id", existingId).maybeSingle();
+      fullName = fullName || (prof?.full_name ?? "");
+    } else {
+      if (!data.fullName || data.fullName.length < 1) {
+        throw new Error("name_required: informe o nome completo para criar a conta");
+      }
+      tempPassword = randomPassword(16);
+      const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+        email: data.email,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: { full_name: data.fullName },
+      });
+      if (createErr || !created?.user?.id) {
+        throw new Error(`provision_failed: ${createErr?.message ?? "sem id de usuário"}`);
+      }
+      targetId = created.user.id;
+      mode = "provisioned";
+      await supabaseAdmin
+        .from("user_profiles")
+        .update({ requires_password_change: true, full_name: data.fullName } as never)
+        .eq("id", targetId);
+    }
+
+    // Vincula ao workspace (upsert brand_members)
+    const { data: existingMember } = await supabase
+      .from("brand_members").select("role, permissions")
+      .eq("brand_id", data.brandId).eq("user_id", targetId).maybeSingle();
+
+    const { error: upErr } = await supabaseAdmin
+      .from("brand_members")
+      .upsert(
+        { brand_id: data.brandId, user_id: targetId, role: data.role, permissions: data.permissions },
+        { onConflict: "brand_id,user_id" },
+      );
+    if (upErr) throw upErr;
+
+    // Restrições por projeto (opcional)
+    if (data.clientIds.length > 0) {
+      const rows = data.clientIds.map((cid) => ({
+        brand_id: data.brandId,
+        client_id: cid,
+        user_id: targetId,
+        role: data.role,
+        created_by: userId,
+      }));
+      const { error: cmErr } = await (supabaseAdmin.from as never as (t: string) => {
+        upsert: (v: unknown, o: { onConflict: string }) => Promise<{ error: unknown }>;
+      })("client_members").upsert(rows, { onConflict: "client_id,user_id" });
+      if (cmErr) throw cmErr as Error;
+    }
+
+    // Status para o toast
+    let linkStatus: "added" | "updated" | "already_member" = "added";
+    if (mode === "linked" && existingMember) {
+      const samePerms =
+        Array.isArray(existingMember.permissions) &&
+        existingMember.permissions.length === data.permissions.length &&
+        (existingMember.permissions as string[]).every((p) => (data.permissions as string[]).includes(p));
+      linkStatus = existingMember.role === data.role && samePerms ? "already_member" : "updated";
+    }
+
+    // E-mail de credenciais (apenas para conta nova)
+    let emailStatus: { sent: boolean; error?: string } = { sent: false, error: "skipped" };
+    if (mode === "provisioned" && data.sendEmail && tempPassword) {
+      const { data: brand } = await supabase.from("brands").select("name").eq("id", data.brandId).maybeSingle();
+      let clientNames: string[] = [];
+      if (data.clientIds.length > 0) {
+        const { data: cRows } = await supabase.from("clients").select("name").in("id", data.clientIds);
+        clientNames = (cRows ?? []).map((c) => c.name as string);
+      }
+      const origin = process.env.APP_URL || "";
+      emailStatus = await sendCredentialsEmail({
+        to: data.email,
+        fullName,
+        tempPassword,
+        loginUrl: `${origin}/auth`,
+        workspaces: [{ name: brand?.name ?? "Workspace", clients: clientNames }],
+      });
+    }
+
+    return {
+      mode,
+      status: linkStatus,
+      email: data.email,
+      fullName,
+      userId: targetId,
+      tempPassword,
+      emailStatus,
+    };
+  });
