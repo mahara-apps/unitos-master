@@ -20,6 +20,7 @@
 // mecânica vive aqui.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import type {
   GetAudienceOptions,
@@ -46,6 +47,57 @@ import {
 } from "./cache";
 
 export { SOCIAL_CACHE_TTL_MS };
+
+// ---------------------------------------------------------------------------
+// Autenticação — cliente Supabase por request, herda RLS do bearer do usuário
+// ---------------------------------------------------------------------------
+
+function isNewKey(k: string) {
+  return k.startsWith("sb_publishable_") || k.startsWith("sb_secret_");
+}
+
+function makeAuthedFetch(key: string, token: string): typeof fetch {
+  return (input, init) => {
+    const headers = new Headers(init?.headers);
+    if (isNewKey(key) && headers.get("Authorization") === `Bearer ${key}`)
+      headers.delete("Authorization");
+    headers.set("apikey", key);
+    headers.set("Authorization", `Bearer ${token}`);
+    return fetch(input, { ...init, headers });
+  };
+}
+
+/**
+ * Extrai o bearer token JWT do header `Authorization` de uma Request.
+ * Lança `SocialServiceError` com 401 quando ausente/inválido.
+ */
+export function requireBearer(request: Request): string {
+  const auth = request.headers.get("authorization") ?? "";
+  if (!auth.startsWith("Bearer ")) {
+    throw new SocialServiceError("db_error", "Unauthorized", 401);
+  }
+  const token = auth.slice(7);
+  if (token.split(".").length !== 3) {
+    throw new SocialServiceError("db_error", "Invalid token", 401);
+  }
+  return token;
+}
+
+/** Cliente Supabase autenticado como o usuário (RLS aplica). */
+export function supabaseForUser(token: string): SupabaseClient<Database> {
+  const url = process.env.SUPABASE_URL;
+  const pubKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !pubKey) {
+    throw new SocialServiceError("db_error", "Missing Supabase env", 500);
+  }
+  return createClient<Database>(url, pubKey, {
+    global: {
+      fetch: makeAuthedFetch(pubKey, token),
+      headers: { Authorization: `Bearer ${token}` },
+    },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
 
 /** Erro estruturado. Rotas HTTP mapeiam `code` → status. */
 export class SocialServiceError extends Error {
