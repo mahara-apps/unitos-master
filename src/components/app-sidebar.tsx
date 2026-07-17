@@ -27,6 +27,7 @@ import {
   ScrollText,
   Target,
   Brain,
+  MessageSquare,
 } from "lucide-react";
 import {
   Sidebar,
@@ -71,6 +72,7 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
       { title: "Integrações", url: "/connections", icon: Plug },
       { title: "Agentes IA", url: "/agents", icon: Bot },
       { title: "Brain", url: "/brain", icon: Brain },
+      { title: "Chat", url: "/chat", icon: MessageSquare },
       { title: "Notificações", url: "/notifications", icon: Bell },
       { title: "Logs do sistema", url: "/settings/logs", icon: ScrollText },
       { title: "Configurações", url: "/settings", icon: SettingsIcon },
