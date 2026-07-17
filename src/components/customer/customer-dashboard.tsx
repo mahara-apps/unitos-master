@@ -5,6 +5,9 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   Activity,
+  AlertTriangle,
+  BadgeCheck,
+  Bot,
   CalendarClock,
   CheckCircle2,
   Circle,
@@ -15,17 +18,28 @@ import {
   Linkedin,
   Music2,
   RefreshCw,
+  Send,
   ShieldCheck,
   Sparkles,
   Youtube,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sparkline } from "@/components/dashboard/sparkline";
-import { HealthBar } from "@/components/dashboard/health-bar";
 import { ClientHealthPanel } from "@/components/dashboard/client-health-panel";
 import { OverviewSkeleton } from "@/components/ai-agents/tab-skeletons";
+import { StatCard } from "@/components/ui/stat-card";
+import { AlertBanner } from "@/components/ui/alert-banner";
+import { FunnelStages } from "@/components/ui/funnel-stages";
+import { AgentUsageBar } from "@/components/ui/agent-usage-bar";
+import {
+  ActivityTimelineItem,
+  type ActivityTimelineTone,
+} from "@/components/ui/activity-timeline-item";
+import { PanelCard } from "@/components/ui/panel-card";
+import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { isValidScope } from "@/lib/customer-queries";
 import {
   loadCustomerDashboardFn,
@@ -39,16 +53,6 @@ type Props = {
   brandId: string;
   clientId: string;
   onOpenBriefing?: () => void;
-};
-
-const STAGE_FALLBACK_ACCENT: Record<string, string> = {
-  idea: "bg-zinc-400 dark:bg-zinc-500",
-  production: "bg-amber-500",
-  review: "bg-orange-500",
-  approved: "bg-cyan-500",
-  approval: "bg-cyan-500",
-  scheduled: "bg-indigo-500",
-  published: "bg-emerald-500",
 };
 
 export function CustomerDashboard({ brandId, clientId, onOpenBriefing }: Props) {
