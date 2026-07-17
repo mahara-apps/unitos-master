@@ -20,6 +20,7 @@ import * as recommendations from "./recommendations";
 import * as learning from "./learning";
 import * as query from "./query";
 import * as chatGw from "./chat-gateway";
+import * as context from "./context-engine";
 import type { BrainContext, BrainEventInput } from "./core";
 
 // ----------------------------------------------------------------------------
@@ -110,6 +111,26 @@ export async function getContext(
   args: { topic: string },
 ) {
   return chatGw.consolidate(ctx, { query: args.topic });
+}
+
+// ----------------------------------------------------------------------------
+// 11b. buildContext — Context Engine: monta um ContextPack escopado e scored.
+// ----------------------------------------------------------------------------
+export async function buildContext(
+  ctx: BrainContext,
+  args: { question: string; module?: string | null },
+) {
+  return context.build(ctx, args);
+}
+
+// ----------------------------------------------------------------------------
+// 11c. recordContextUsage — registra provenance (memórias/insights usados).
+// ----------------------------------------------------------------------------
+export async function recordContextUsage(
+  ctx: BrainContext,
+  input: context.ProvenanceInput,
+): Promise<void> {
+  await context.record(ctx, input);
 }
 
 // ----------------------------------------------------------------------------
