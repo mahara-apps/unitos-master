@@ -1,97 +1,84 @@
 import { useEffect, useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { z } from "zod";
 import {
-  Plus,
-  Search,
-  Loader2,
-  Trash2,
   CheckCircle2,
   Circle,
   Clock,
   AlertTriangle,
-  Flame,
-  ArrowUp,
-  ArrowDown,
-  MoreHorizontal,
-  MessageSquare,
-  Send,
-  CalendarIcon,
+  CalendarClock,
   User as UserIcon,
-  Folder,
-  X,
+  ListTodo,
+  Kanban,
+  CalendarDays,
+  Loader2,
 } from "lucide-react";
-import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import {
-  addTaskCommentFn,
-  createTaskFn,
-  deleteTaskCommentFn,
-  deleteTaskFn,
-  listProjectsFn,
-  listTaskCommentsFn,
-  listTasksFn,
-  updateTaskFn,
-  TASK_PRIORITIES,
-  TASK_STATUSES,
-  type TaskPriority,
-  type TaskRow,
-  type TaskStatus,
-} from "@/lib/tasks.functions";
+  DashboardPageShell,
+  DashboardPanelSurface,
+} from "@/components/ui/dashboard-primitives";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { PanelEmptyState } from "@/components/ui/panel-empty";
+import { listTasksFn, listProjectsFn } from "@/lib/tasks.functions";
 import { listBrandAssigneesFn } from "@/lib/content.functions";
 import { listClients } from "@/lib/workspace.functions";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  DashboardPageShell,
-  DashboardPanelSurface,
-  DashboardCountBadge,
-} from "@/components/ui/dashboard-primitives";
-import { KpiCard, type KpiTone } from "@/components/ui/kpi-card";
-import { PanelEmptyState } from "@/components/ui/panel-empty";
+  CreateTaskDialog,
+  TaskDrawer,
+  isOverdue,
+} from "@/components/tasks/shared";
+import {
+  DEFAULT_VISIBLE_COLUMNS,
+  TaskTable,
+  type GroupBy,
+  type SortDir,
+  type SortKey,
+  type VisibleColumns,
+} from "@/components/tasks/task-table";
+import { TaskKanban } from "@/components/tasks/task-kanban";
+import { TaskCalendar } from "@/components/tasks/task-calendar";
+import {
+  DEFAULT_FILTERS,
+  TaskToolbar,
+  applyFilters,
+  type TaskFilters,
+} from "@/components/tasks/task-toolbar";
+import { Plus } from "lucide-react";
+
+const VIEWS = ["list", "kanban", "calendar", "mine"] as const;
+type View = (typeof VIEWS)[number];
+
+const searchSchema = z.object({
+  view: z.enum(VIEWS).catch("list"),
+  taskId: z.string().uuid().optional(),
+  groupBy: z
+    .enum(["none", "status", "priority", "project", "client", "assignee"])
+    .catch("status"),
+  sort: z
+    .enum(["title", "assignee", "project", "client", "priority", "status", "due", "created"])
+    .catch("created"),
+  dir: z.enum(["asc", "desc"]).catch("desc"),
+  q: z.string().optional(),
+});
 
 export const Route = createFileRoute("/_authenticated/tasks")({
   component: TasksPage,
+  validateSearch: searchSchema,
 });
+
+const VIEW_META: Record<View, { label: string; icon: typeof ListTodo }> = {
+  list: { label: "Lista", icon: ListTodo },
+  kanban: { label: "Kanban", icon: Kanban },
+  calendar: { label: "Calendário", icon: CalendarDays },
+  mine: { label: "Minhas tarefas", icon: UserIcon },
+};
 
 // ---------- Style maps ----------
 
@@ -175,12 +162,32 @@ function relativeDue(iso: string | null): { label: string; tone: string } | null
 function TasksPage() {
   const { brandId, clientId } = useActiveContext();
   const qc = useQueryClient();
+  const navigate = useNavigate({ from: Route.fullPath });
+  const search = Route.useSearch();
+
   const listTasks = useServerFn(listTasksFn);
-  const [openTaskId, setOpenTaskId] = useState<string | null>(null);
+  const listAssignees = useServerFn(listBrandAssigneesFn);
+  const listClientsFn = useServerFn(listClients);
+  const listProjects = useServerFn(listProjectsFn);
+
   const [createOpen, setCreateOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const [view, setView] = useState<"all" | "mine" | "overdue">("all");
   const [me, setMe] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [columns, setColumns] = useState<VisibleColumns>(DEFAULT_VISIBLE_COLUMNS);
+  const [filters, setFilters] = useState<TaskFilters>({
+    ...DEFAULT_FILTERS,
+    search: search.q ?? "",
+  });
+
+  const view: View = search.view;
+  const groupBy: GroupBy = search.groupBy;
+  const sortKey: SortKey = search.sort;
+  const sortDir: SortDir = search.dir;
+  const openTaskId = search.taskId ?? null;
+
+  function setSearch(patch: Partial<z.infer<typeof searchSchema>>) {
+    navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true });
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -201,39 +208,55 @@ function TasksPage() {
   });
 
   const tasks = tasksQ.data ?? [];
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return tasks.filter((t) => {
-      if (view === "mine" && t.assignee_id !== me) return false;
-      if (view === "overdue") {
-        if (!t.due_at || t.status === "done") return false;
-        if (new Date(t.due_at).getTime() > Date.now()) return false;
-      }
-      if (!q) return true;
-      return (
-        t.title.toLowerCase().includes(q) ||
-        (t.description ?? "").toLowerCase().includes(q) ||
-        (t.assignee_name ?? "").toLowerCase().includes(q) ||
-        (t.project_name ?? "").toLowerCase().includes(q)
-      );
-    });
-  }, [tasks, search, view, me]);
+
+  const assigneesQ = useQuery({
+    queryKey: ["brand-assignees", brandId],
+    queryFn: () => listAssignees({ data: { brandId: brandId! } }),
+    enabled: !!brandId,
+    staleTime: 60_000,
+  });
+  const clientsQ = useQuery({
+    queryKey: ["clients", brandId],
+    queryFn: () => listClientsFn({ data: { brandId: brandId! } }),
+    enabled: !!brandId,
+    staleTime: 60_000,
+  });
+  const projectsQ = useQuery({
+    queryKey: ["projects", brandId],
+    queryFn: () => listProjects({ data: { brandId: brandId! } }),
+    enabled: !!brandId,
+    staleTime: 60_000,
+  });
+
+  // Effective filters: "mine" view forces assigneeId=me
+  const effectiveFilters: TaskFilters = useMemo(
+    () => (view === "mine" ? { ...filters, assigneeId: "me" } : filters),
+    [filters, view],
+  );
+
+  const filtered = useMemo(
+    () => applyFilters(tasks, effectiveFilters, me),
+    [tasks, effectiveFilters, me],
+  );
 
   const kpis = useMemo(() => {
+    const now = Date.now();
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
     const total = tasks.length;
+    const inProgress = tasks.filter((t) => t.status === "in_progress").length;
     const done = tasks.filter((t) => t.status === "done").length;
-    const overdue = tasks.filter(
-      (t) => t.due_at && t.status !== "done" && new Date(t.due_at).getTime() < Date.now(),
-    ).length;
+    const overdue = tasks.filter((t) => isOverdue(t)).length;
     const mine = me ? tasks.filter((t) => t.assignee_id === me && t.status !== "done").length : 0;
-    return { total, done, overdue, mine };
+    const dueToday = tasks.filter((t) => {
+      if (!t.due_at || t.status === "done") return false;
+      const time = new Date(t.due_at).getTime();
+      return time >= startOfDay.getTime() && time <= endOfDay.getTime();
+    }).length;
+    return { total, inProgress, done, overdue, mine, dueToday, now };
   }, [tasks, me]);
-
-  const grouped = useMemo(() => {
-    const map: Record<TaskStatus, TaskRow[]> = { todo: [], in_progress: [], review: [], done: [] };
-    for (const t of filtered) map[t.status].push(t);
-    return map;
-  }, [filtered]);
 
   usePageHeader(
     {
@@ -261,37 +284,97 @@ function TasksPage() {
     );
   }
 
+  const invalidate = () => qc.invalidateQueries({ queryKey: invalidateKey });
+
   return (
     <DashboardPageShell>
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         <KpiCard label="Total" value={kpis.total} icon={<Circle className="h-4 w-4" />} tone="neutral" />
-        <KpiCard label="Minhas abertas" value={kpis.mine} icon={<UserIcon className="h-4 w-4" />} tone="sky" />
-        <KpiCard label="Atrasadas" value={kpis.overdue} icon={<AlertTriangle className="h-4 w-4" />} tone="rose" />
-        <KpiCard label="Concluídas" value={kpis.done} icon={<CheckCircle2 className="h-4 w-4" />} tone="emerald" />
+        <KpiCard
+          label="Em andamento"
+          value={kpis.inProgress}
+          icon={<Clock className="h-4 w-4" />}
+          tone="sky"
+        />
+        <KpiCard
+          label="Atrasadas"
+          value={kpis.overdue}
+          icon={<AlertTriangle className="h-4 w-4" />}
+          tone="rose"
+        />
+        <KpiCard
+          label="Concluídas"
+          value={kpis.done}
+          icon={<CheckCircle2 className="h-4 w-4" />}
+          tone="emerald"
+        />
+        <KpiCard
+          label="Minha carga"
+          value={kpis.mine}
+          icon={<UserIcon className="h-4 w-4" />}
+          tone="violet"
+        />
+        <KpiCard
+          label="Prazo hoje"
+          value={kpis.dueToday}
+          icon={<CalendarClock className="h-4 w-4" />}
+          tone="amber"
+        />
       </div>
+
+      {/* Views */}
+      <Tabs value={view} onValueChange={(v) => setSearch({ view: v as View })}>
+        <TabsList className="h-9">
+          {VIEWS.map((v) => {
+            const meta = VIEW_META[v];
+            const Icon = meta.icon;
+            return (
+              <TabsTrigger key={v} value={v} className="gap-1.5">
+                <Icon className="h-3.5 w-3.5" /> {meta.label}
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+      </Tabs>
 
       {/* Toolbar */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="relative w-full md:max-w-sm">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por título, responsável, projeto..."
-            className="h-9 pl-9"
-          />
-        </div>
-        <Tabs value={view} onValueChange={(v) => setView(v as typeof view)}>
-          <TabsList className="h-9">
-            <TabsTrigger value="all">Todas</TabsTrigger>
-            <TabsTrigger value="mine">Minhas</TabsTrigger>
-            <TabsTrigger value="overdue">Atrasadas</TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
+      <TaskToolbar
+        filters={filters}
+        onFiltersChange={(next) => {
+          setFilters(next);
+          setSearch({ q: next.search || undefined });
+        }}
+        groupBy={groupBy}
+        onGroupByChange={(g) => setSearch({ groupBy: g })}
+        sortKey={sortKey}
+        sortDir={sortDir}
+        onSortChange={(k, d) => setSearch({ sort: k, dir: d })}
+        columns={columns}
+        onColumnsChange={setColumns}
+        onNewTask={() => setCreateOpen(true)}
+        tasksToExport={filtered}
+        assignees={assigneesQ.data ?? []}
+        clients={clientsQ.data ?? []}
+        projects={projectsQ.data ?? []}
+      />
 
-      {/* Groups */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+          <span className="font-semibold">{selectedIds.size}</span>
+          <span className="text-muted-foreground">selecionada(s)</span>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="ml-auto h-7"
+            onClick={() => setSelectedIds(new Set())}
+          >
+            Limpar seleção
+          </Button>
+        </div>
+      )}
+
+      {/* Views body */}
       {tasksQ.isLoading ? (
         <DashboardPanelSurface className="flex h-40 items-center justify-center text-sm text-muted-foreground">
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando tarefas...
@@ -300,7 +383,7 @@ function TasksPage() {
         <DashboardPanelSurface>
           <PanelEmptyState
             icon={<CheckCircle2 className="h-5 w-5" />}
-            text="Nenhuma tarefa por aqui — crie a primeira para começar a organizar o trabalho do time."
+            text="Nenhuma tarefa encontrada com os filtros atuais."
           />
           <div className="flex justify-center pb-8">
             <Button size="sm" onClick={() => setCreateOpen(true)}>
@@ -308,35 +391,26 @@ function TasksPage() {
             </Button>
           </div>
         </DashboardPanelSurface>
+      ) : view === "kanban" ? (
+        <TaskKanban tasks={filtered} onOpenTask={(id) => setSearch({ taskId: id })} onChanged={invalidate} />
+      ) : view === "calendar" ? (
+        <TaskCalendar tasks={filtered} onOpenTask={(id) => setSearch({ taskId: id })} />
       ) : (
-        <div className="space-y-5">
-          {TASK_STATUSES.map((status) => {
-            const list = grouped[status];
-            if (list.length === 0) return null;
-            const meta = STATUS_META[status];
-            return (
-              <DashboardPanelSurface key={status}>
-                <header className="flex items-center gap-2 border-b border-border/60 bg-background/40 px-4 py-2.5">
-                  <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
-                  <h2 className="text-[11px] font-mono uppercase tracking-widest text-foreground">
-                    {meta.label}
-                  </h2>
-                  <DashboardCountBadge className="ml-1">{list.length}</DashboardCountBadge>
-                </header>
-                <div className="divide-y divide-border/60">
-                  {list.map((task) => (
-                    <TaskRowItem
-                      key={task.id}
-                      task={task}
-                      onOpen={() => setOpenTaskId(task.id)}
-                      onQuickChange={() => qc.invalidateQueries({ queryKey: invalidateKey })}
-                    />
-                  ))}
-                </div>
-              </DashboardPanelSurface>
-            );
-          })}
-        </div>
+        <TaskTable
+          brandId={brandId}
+          tasks={filtered}
+          columns={columns}
+          groupBy={groupBy}
+          sortKey={sortKey}
+          sortDir={sortDir}
+          onSort={(k) =>
+            setSearch({ sort: k, dir: sortKey === k && sortDir === "asc" ? "desc" : "asc" })
+          }
+          selectedIds={selectedIds}
+          onSelectionChange={setSelectedIds}
+          onOpenTask={(id) => setSearch({ taskId: id })}
+          onChanged={invalidate}
+        />
       )}
 
       {createOpen ? (
@@ -346,19 +420,21 @@ function TasksPage() {
           open={createOpen}
           onOpenChange={setCreateOpen}
           onCreated={(id) => {
-            qc.invalidateQueries({ queryKey: invalidateKey });
-            setOpenTaskId(id);
+            invalidate();
+            setSearch({ taskId: id });
           }}
         />
       ) : null}
 
       {openTaskId ? (
-        <TaskDetailSheet
+        <TaskDrawer
           taskId={openTaskId}
           brandId={brandId}
           currentUserId={me}
-          onClose={() => setOpenTaskId(null)}
-          onChanged={() => qc.invalidateQueries({ queryKey: invalidateKey })}
+          allTasks={filtered}
+          onNavigate={(id) => setSearch({ taskId: id })}
+          onClose={() => setSearch({ taskId: undefined })}
+          onChanged={invalidate}
         />
       ) : null}
     </DashboardPageShell>
