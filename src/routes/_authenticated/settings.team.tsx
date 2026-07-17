@@ -10,6 +10,7 @@ import {
   removeBrandMember,
   revokeBrandInvite,
   revokePortalTokenFromTeam,
+  addExistingUserToBrand,
 } from "@/lib/team.functions";
 import { PERMISSION_GROUPS, type PermissionId } from "@/lib/permissions";
 import { useActiveContext } from "@/hooks/use-active-context";
@@ -57,16 +58,23 @@ function TeamSettingsPage() {
   });
 
   const [open, setOpen] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
 
   usePageHeader(
     {
       title: "Equipe",
       subtitle: "Membros, permissões e convites da marca",
       actions: brandId ? (
-        <Button size="sm" onClick={() => setOpen(true)}>
-          <UserPlus className="h-4 w-4 mr-2" />
-          Convidar
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
+            <UserPlus className="h-4 w-4 mr-2" />
+            Adicionar existente
+          </Button>
+          <Button size="sm" onClick={() => setOpen(true)}>
+            <MailIcon className="h-4 w-4 mr-2" />
+            Convidar
+          </Button>
+        </div>
       ) : undefined,
     },
     [brandId],
@@ -93,6 +101,15 @@ function TeamSettingsPage() {
           brandId={brandId}
           onDone={() => {
             setOpen(false);
+            qc.invalidateQueries({ queryKey: ["brand-team", brandId] });
+          }}
+        />
+      </Dialog>
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <AddExistingUserDialog
+          brandId={brandId}
+          onDone={() => {
+            setAddOpen(false);
             qc.invalidateQueries({ queryKey: ["brand-team", brandId] });
           }}
         />
