@@ -58,7 +58,7 @@ export const listClients = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { data: clients, error } = await context.supabase
       .from("clients")
-      .select("id, name, niche, color, logo_url, contact_name, contact_email, contact_phone, tone_of_voice, palette, socials, is_active, owner_user_id, created_at, updated_at")
+      .select("id, name, niche, color, logo_url, contact_name, contact_email, contact_phone, website, address, tone_of_voice, palette, socials, is_active, owner_user_id, created_at, updated_at")
       .eq("brand_id", data.brandId)
       .is("archived_at", null)
       .order("name");
@@ -165,6 +165,9 @@ const UpdateClientInput = z.object({
     tone_of_voice: z.string().max(120).nullable().optional(),
     contact_name: z.string().max(120).nullable().optional(),
     contact_email: z.string().email().max(200).nullable().optional().or(z.literal("")),
+    contact_phone: z.string().max(40).nullable().optional(),
+    website: z.string().max(300).nullable().optional().or(z.literal("")),
+    address: z.string().max(500).nullable().optional(),
     is_active: z.boolean().optional(),
     owner_user_id: z.string().uuid().nullable().optional(),
     socials: z
@@ -173,6 +176,7 @@ const UpdateClientInput = z.object({
         tiktok: z.string().max(120).optional(),
         youtube: z.string().max(200).optional(),
         linkedin: z.string().max(200).optional(),
+        facebook: z.string().max(200).optional(),
         phone: z.string().max(40).optional(),
         notes: z.string().max(2000).optional(),
       })
@@ -203,6 +207,7 @@ export const updateClient = createServerFn({ method: "POST" })
     }
     const patch = { ...data.patch } as Record<string, unknown>;
     if (patch.contact_email === "") patch.contact_email = null;
+    if (patch.website === "") patch.website = null;
     const { error } = await context.supabase
       .from("clients")
       .update(patch as never)
