@@ -34,6 +34,7 @@ export async function callLlm(args: {
 
   const messages: ModelMessage[] = args.history
     .filter((m) => m.role === "user" || m.role === "assistant")
+    .filter((m) => m.content.trim().length > 0)
     .map((m) => ({
       role: m.role as "assistant" | "user",
       content: m.content,
