@@ -352,6 +352,7 @@ function EmptyConversation({ onSuggest }: { onSuggest: (s: string) => void }) {
 function MessageBubble({ message }: { message: ChatMessageRow }) {
   const isUser = message.role === "user";
   const brain = message.brain_context;
+  const tools = message.tool_calls ?? [];
   return (
     <div className={cn("flex gap-3", isUser && "flex-row-reverse")}>
       <div
@@ -392,10 +393,12 @@ function MessageBubble({ message }: { message: ChatMessageRow }) {
                 {brain.used_llm ? `Brain + LLM (${brain.model ?? "modelo"})` : "Resposta direta do Brain"}
                 {" · "}
                 {brain.memories.length} memórias · {brain.insights.length} insights
+                {tools.length > 0 && <> · {tools.length} ações</>}
               </button>
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-1">
               <div className="rounded-md border bg-card/50 p-2 text-[11px] space-y-1.5">
+                {tools.length > 0 && <ToolCallList tools={tools} />}
                 {brain.memories.length > 0 && (
                   <div>
                     <div className="font-medium text-muted-foreground">Memórias usadas</div>
