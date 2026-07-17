@@ -12,9 +12,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
   listChatMessagesFn,
-  sendChatMessageFn,
   type ChatAttachment,
   type ChatMessageRow,
+  type ChatToolCall,
 } from "@/lib/chat.functions";
 import {
   Collapsible,
@@ -39,7 +39,6 @@ function kindFromMime(mime: string): ChatAttachment["kind"] {
 
 export function ChatConversation({ conversationId }: { conversationId: string }) {
   const listMsgs = useServerFn(listChatMessagesFn);
-  const send = useServerFn(sendChatMessageFn);
   const qc = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -50,6 +49,7 @@ export function ChatConversation({ conversationId }: { conversationId: string })
   const [recording, setRecording] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordChunksRef = useRef<Blob[]>([]);
+  const [streamingText, setStreamingText] = useState<string>("");
 
   const messages = useQuery({
     queryKey: ["chat", "messages", conversationId],
@@ -86,18 +86,54 @@ export function ChatConversation({ conversationId }: { conversationId: string })
 
   const sendM = useMutation({
     mutationFn: async (payload: SendPayload) => {
-      return send({ data: { conversationId, content: payload.content, attachments: payload.attachments } });
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) throw new Error("Sessão expirada");
+      setStreamingText("");
+      const res = await fetch("/api/chat/stream", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          conversationId,
+          content: payload.content,
+          attachments: payload.attachments,
+        }),
+      });
+      if (!res.ok || !res.body) {
+        const msg = await res.text().catch(() => "Falha no stream");
+        throw new Error(msg || `HTTP ${res.status}`);
+      }
+      // Realtime já vai inserir a linha do usuário; leia o stream para o placeholder.
+      qc.invalidateQueries({ queryKey: ["chat", "messages", conversationId] });
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let acc = "";
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        acc += decoder.decode(value, { stream: true });
+        setStreamingText(acc);
+      }
+      return acc;
     },
     onMutate: () => {
       setDraft("");
       setPendingFiles([]);
     },
     onSuccess: () => {
+      setStreamingText("");
       qc.invalidateQueries({ queryKey: ["chat", "messages", conversationId] });
       qc.invalidateQueries({ queryKey: ["chat", "conversations"] });
       textareaRef.current?.focus();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao enviar"),
+    onError: (e) => {
+      setStreamingText("");
+      toast.error(e instanceof Error ? e.message : "Falha ao enviar");
+    },
   });
 
   async function uploadFiles(files: FileList | File[]) {
