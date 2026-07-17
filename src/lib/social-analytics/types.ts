@@ -42,6 +42,7 @@ export type CanonicalMetricKey =
   | "profile_visits"
   | "followers_gained"
   | "followers_lost"
+  | "followers"
   | "link_clicks";
 
 export type Metric = {
