@@ -64,6 +64,7 @@ export const Route = createFileRoute("/api/chat/stream")({
         const claimsRes = await supabase.auth.getClaims(token);
         const userId = claimsRes.data?.claims?.sub;
         if (!userId) return new Response("Invalid token", { status: 401 });
+        const userEmail = (claimsRes.data?.claims?.email as string | undefined) ?? null;
 
         let body: z.infer<typeof BodySchema>;
         try {
@@ -116,6 +117,19 @@ export const Route = createFileRoute("/api/chat/stream")({
           clientId: convo.client_id,
           module: "chat",
         };
+
+        // 3.1) Identidade do usuário para personalizar o tom
+        const { data: profileRow } = await supabase
+          .from("user_profiles")
+          .select("full_name")
+          .eq("id", userId)
+          .maybeSingle();
+        const chatUser = {
+          id: userId,
+          name: profileRow?.full_name ?? null,
+          email: userEmail,
+        };
+
         const contextPack = await brain.buildContext(brainCtx, {
           question: question || attachments.map((a) => a.name).join(", "),
           module: "chat",
@@ -236,6 +250,7 @@ export const Route = createFileRoute("/api/chat/stream")({
             history: (history ?? []) as Array<{ role: string; content: string }>,
             brain: brainKnowledge,
             toolCallLog,
+            user: chatUser,
           });
         } catch (err) {
           return new Response(
