@@ -2911,6 +2911,7 @@ export type Database = {
           role: string
           tokens_in: number | null
           tokens_out: number | null
+          tool_calls: Json
           used_llm: boolean
           user_id: string
         }
@@ -2925,6 +2926,7 @@ export type Database = {
           role: string
           tokens_in?: number | null
           tokens_out?: number | null
+          tool_calls?: Json
           used_llm?: boolean
           user_id: string
         }
@@ -2939,6 +2941,7 @@ export type Database = {
           role?: string
           tokens_in?: number | null
           tokens_out?: number | null
+          tool_calls?: Json
           used_llm?: boolean
           user_id?: string
         }

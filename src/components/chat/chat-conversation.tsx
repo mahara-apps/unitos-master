@@ -12,9 +12,9 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
   listChatMessagesFn,
-  sendChatMessageFn,
   type ChatAttachment,
   type ChatMessageRow,
+  type ChatToolCall,
 } from "@/lib/chat.functions";
 import {
   Collapsible,
@@ -39,7 +39,6 @@ function kindFromMime(mime: string): ChatAttachment["kind"] {
 
 export function ChatConversation({ conversationId }: { conversationId: string }) {
   const listMsgs = useServerFn(listChatMessagesFn);
-  const send = useServerFn(sendChatMessageFn);
   const qc = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -50,6 +49,7 @@ export function ChatConversation({ conversationId }: { conversationId: string })
   const [recording, setRecording] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordChunksRef = useRef<Blob[]>([]);
+  const [streamingText, setStreamingText] = useState<string>("");
 
   const messages = useQuery({
     queryKey: ["chat", "messages", conversationId],
@@ -86,18 +86,54 @@ export function ChatConversation({ conversationId }: { conversationId: string })
 
   const sendM = useMutation({
     mutationFn: async (payload: SendPayload) => {
-      return send({ data: { conversationId, content: payload.content, attachments: payload.attachments } });
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) throw new Error("Sessão expirada");
+      setStreamingText("");
+      const res = await fetch("/api/chat/stream", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          conversationId,
+          content: payload.content,
+          attachments: payload.attachments,
+        }),
+      });
+      if (!res.ok || !res.body) {
+        const msg = await res.text().catch(() => "Falha no stream");
+        throw new Error(msg || `HTTP ${res.status}`);
+      }
+      // Realtime já vai inserir a linha do usuário; leia o stream para o placeholder.
+      qc.invalidateQueries({ queryKey: ["chat", "messages", conversationId] });
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let acc = "";
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        acc += decoder.decode(value, { stream: true });
+        setStreamingText(acc);
+      }
+      return acc;
     },
     onMutate: () => {
       setDraft("");
       setPendingFiles([]);
     },
     onSuccess: () => {
+      setStreamingText("");
       qc.invalidateQueries({ queryKey: ["chat", "messages", conversationId] });
       qc.invalidateQueries({ queryKey: ["chat", "conversations"] });
       textareaRef.current?.focus();
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao enviar"),
+    onError: (e) => {
+      setStreamingText("");
+      toast.error(e instanceof Error ? e.message : "Falha ao enviar");
+    },
   });
 
   async function uploadFiles(files: FileList | File[]) {
@@ -185,7 +221,10 @@ export function ChatConversation({ conversationId }: { conversationId: string })
           {messages.data?.map((m) => (
             <MessageBubble key={m.id} message={m} />
           ))}
-          {isThinking && (
+          {isThinking && streamingText && (
+            <StreamingBubble text={streamingText} />
+          )}
+          {isThinking && !streamingText && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Brain className="h-4 w-4 animate-pulse" />
               Consultando o Brain…
@@ -313,6 +352,7 @@ function EmptyConversation({ onSuggest }: { onSuggest: (s: string) => void }) {
 function MessageBubble({ message }: { message: ChatMessageRow }) {
   const isUser = message.role === "user";
   const brain = message.brain_context;
+  const tools = message.tool_calls ?? [];
   return (
     <div className={cn("flex gap-3", isUser && "flex-row-reverse")}>
       <div
@@ -353,10 +393,12 @@ function MessageBubble({ message }: { message: ChatMessageRow }) {
                 {brain.used_llm ? `Brain + LLM (${brain.model ?? "modelo"})` : "Resposta direta do Brain"}
                 {" · "}
                 {brain.memories.length} memórias · {brain.insights.length} insights
+                {tools.length > 0 && <> · {tools.length} ações</>}
               </button>
             </CollapsibleTrigger>
             <CollapsibleContent className="mt-1">
               <div className="rounded-md border bg-card/50 p-2 text-[11px] space-y-1.5">
+                {tools.length > 0 && <ToolCallList tools={tools} />}
                 {brain.memories.length > 0 && (
                   <div>
                     <div className="font-medium text-muted-foreground">Memórias usadas</div>
@@ -464,5 +506,38 @@ function AttachmentPreview({ attachment }: { attachment: ChatAttachment }) {
       <FileText className="h-4 w-4" />
       <span className="max-w-[220px] truncate">{attachment.name}</span>
     </a>
+  );
+}
+
+function StreamingBubble({ text }: { text: string }) {
+  return (
+    <div className="flex gap-3">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-foreground">
+        <Brain className="h-4 w-4 animate-pulse" />
+      </div>
+      <div className="max-w-full rounded-2xl bg-muted/60 px-4 py-2.5 text-sm leading-relaxed">
+        <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1">
+          <ReactMarkdown>{text}</ReactMarkdown>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ToolCallList({ tools }: { tools: ChatToolCall[] }) {
+  return (
+    <div>
+      <div className="font-medium text-muted-foreground">Ações executadas</div>
+      <ul className="list-disc pl-4 space-y-0.5">
+        {tools.map((t, i) => (
+          <li key={i}>
+            <Badge variant={t.ok ? "secondary" : "destructive"} className="mr-1 text-[9px] px-1 py-0">
+              {t.name}
+            </Badge>
+            <span className="text-muted-foreground">{t.ok ? "sucesso" : "falha"}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

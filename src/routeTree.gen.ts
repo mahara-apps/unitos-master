@@ -44,6 +44,7 @@ import { Route as ApiJobsGenerateIdeasRouteImport } from './routes/api/jobs/gene
 import { Route as ApiJobsCustomerPipelineRouteImport } from './routes/api/jobs/customer-pipeline'
 import { Route as ApiJobsCopilotRouteImport } from './routes/api/jobs/copilot'
 import { Route as ApiJobsAnalyzeDocumentRouteImport } from './routes/api/jobs/analyze-document'
+import { Route as ApiChatStreamRouteImport } from './routes/api/chat.stream'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_authenticated/settings.profile'
 import { Route as AuthenticatedSettingsPermissionsRouteImport } from './routes/_authenticated/settings.permissions'
@@ -244,6 +245,11 @@ const ApiJobsAnalyzeDocumentRoute = ApiJobsAnalyzeDocumentRouteImport.update({
   path: '/api/jobs/analyze-document',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiChatStreamRoute = ApiChatStreamRouteImport.update({
+  id: '/api/chat/stream',
+  path: '/api/chat/stream',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedSettingsTeamRoute =
   AuthenticatedSettingsTeamRouteImport.update({
     id: '/team',
@@ -389,6 +395,7 @@ export interface FileRoutesByFullPath {
   '/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
@@ -440,6 +447,7 @@ export interface FileRoutesByTo {
   '/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
@@ -497,6 +505,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
   '/_authenticated/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
@@ -554,6 +563,7 @@ export interface FileRouteTypes {
     | '/settings/permissions'
     | '/settings/profile'
     | '/settings/team'
+    | '/api/chat/stream'
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
@@ -605,6 +615,7 @@ export interface FileRouteTypes {
     | '/settings/permissions'
     | '/settings/profile'
     | '/settings/team'
+    | '/api/chat/stream'
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
@@ -661,6 +672,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/permissions'
     | '/_authenticated/settings/profile'
     | '/_authenticated/settings/team'
+    | '/api/chat/stream'
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
@@ -692,6 +704,7 @@ export interface RootRouteChildren {
   InviteTokenRoute: typeof InviteTokenRoute
   PlanoPlanIdRoute: typeof PlanoPlanIdRoute
   PortalTokenRoute: typeof PortalTokenRoute
+  ApiChatStreamRoute: typeof ApiChatStreamRoute
   ApiJobsAnalyzeDocumentRoute: typeof ApiJobsAnalyzeDocumentRoute
   ApiJobsCopilotRoute: typeof ApiJobsCopilotRoute
   ApiJobsCustomerPipelineRoute: typeof ApiJobsCustomerPipelineRoute
@@ -951,6 +964,13 @@ declare module '@tanstack/react-router' {
       path: '/api/jobs/analyze-document'
       fullPath: '/api/jobs/analyze-document'
       preLoaderRoute: typeof ApiJobsAnalyzeDocumentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/chat/stream': {
+      id: '/api/chat/stream'
+      path: '/api/chat/stream'
+      fullPath: '/api/chat/stream'
+      preLoaderRoute: typeof ApiChatStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/settings/team': {
@@ -1243,6 +1263,7 @@ const rootRouteChildren: RootRouteChildren = {
   InviteTokenRoute: InviteTokenRoute,
   PlanoPlanIdRoute: PlanoPlanIdRoute,
   PortalTokenRoute: PortalTokenRoute,
+  ApiChatStreamRoute: ApiChatStreamRoute,
   ApiJobsAnalyzeDocumentRoute: ApiJobsAnalyzeDocumentRoute,
   ApiJobsCopilotRoute: ApiJobsCopilotRoute,
   ApiJobsCustomerPipelineRoute: ApiJobsCustomerPipelineRoute,
