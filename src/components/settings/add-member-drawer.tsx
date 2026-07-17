@@ -299,3 +299,97 @@ function LinkPanel({
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Personalização opcional das permissões granulares
+// (Pipelines, Automations, IA Agents) — recolhida por padrão.
+// ---------------------------------------------------------------------------
+function CustomPermissionsSection({
+  role,
+  value,
+  isCustom,
+  onChange,
+  onReset,
+}: {
+  role: Role;
+  value: PermissionId[];
+  isCustom: boolean;
+  onChange: (next: PermissionId[]) => void;
+  onReset: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const isAdmin = value.includes("admin.full");
+
+  const toggle = (id: PermissionId, on: boolean) => {
+    const base = isCustom ? value : ROLE_DEFAULT_PERMISSIONS[role];
+    const next = new Set(base);
+    if (on) next.add(id); else next.delete(id);
+    onChange(Array.from(next));
+  };
+
+  return (
+    <Collapsible open={open} onOpenChange={setOpen} className="rounded-md border border-border/60 bg-muted/20">
+      <CollapsibleTrigger asChild>
+        <button
+          type="button"
+          className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left"
+        >
+          <div className="min-w-0">
+            <div className="text-sm font-medium">Personalizar permissões (opcional)</div>
+            <div className="text-[11px] text-muted-foreground">
+              {isCustom
+                ? "Sobrescrevendo o padrão do papel selecionado."
+                : `Padrão do papel ${role} será aplicado automaticamente.`}
+            </div>
+          </div>
+          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", open && "rotate-180")} />
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="border-t border-border/60 px-3 py-3">
+        {isCustom && (
+          <div className="mb-3 flex items-center justify-between">
+            <span className="text-[11px] text-amber-600">Permissões customizadas ativas.</span>
+            <Button size="sm" variant="ghost" className="h-7 text-[11px]" onClick={onReset}>
+              Restaurar padrão do papel
+            </Button>
+          </div>
+        )}
+        <div className="space-y-4">
+          {PERMISSION_GROUPS.filter((g) => g.id !== "admin").map((g) => (
+            <div key={g.id} className="space-y-1.5">
+              <div className="text-xs font-medium">{g.label}</div>
+              <div className="text-[11px] text-muted-foreground">{g.description}</div>
+              <div className="mt-1 space-y-1.5">
+                {g.items.map((it) => (
+                  <label
+                    key={it.id}
+                    className={cn(
+                      "flex items-start gap-2.5 rounded-md p-1.5 cursor-pointer hover:bg-muted/40",
+                      isAdmin && "opacity-60",
+                    )}
+                  >
+                    <Checkbox
+                      checked={value.includes(it.id)}
+                      disabled={isAdmin}
+                      onCheckedChange={(c) => toggle(it.id, !!c)}
+                      className="mt-0.5"
+                    />
+                    <div className="min-w-0">
+                      <div className="text-xs font-medium">{it.label}</div>
+                      <div className="text-[11px] text-muted-foreground">{it.description}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))}
+          {isAdmin && (
+            <p className="text-[11px] text-muted-foreground">
+              Owner tem acesso total — permissões granulares ficam desativadas.
+            </p>
+          )}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
