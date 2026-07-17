@@ -2904,6 +2904,10 @@ export type Database = {
         Args: { _brand_id?: string }
         Returns: number
       }
+      derive_relationships_from_event: {
+        Args: { _event_id: string }
+        Returns: number
+      }
       emit_brain_event: {
         Args: {
           p_action?: string
@@ -2923,6 +2927,19 @@ export type Database = {
       }
       enqueue_deadline_notifications: { Args: never; Returns: number }
       find_user_id_by_email: { Args: { _email: string }; Returns: string }
+      get_brain_graph: {
+        Args: { _brand_id?: string; _limit?: number }
+        Returns: Json
+      }
+      get_brain_neighborhood: {
+        Args: {
+          _brand_id: string
+          _depth?: number
+          _entity_id: string
+          _entity_type: string
+        }
+        Returns: Json
+      }
       has_brand_role: {
         Args: {
           _brand_id: string
@@ -2996,6 +3013,20 @@ export type Database = {
       process_brain_learning_queue: { Args: { _limit?: number }; Returns: Json }
       reap_brain_learning_queue: { Args: never; Returns: number }
       reap_stuck_ai_jobs: { Args: never; Returns: number }
+      upsert_brain_relationship: {
+        Args: {
+          _bidirectional?: boolean
+          _brand_id: string
+          _from_id: string
+          _from_type: string
+          _metadata?: Json
+          _rel_type: string
+          _strength_delta?: number
+          _to_id: string
+          _to_type: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       alert_severity: "info" | "warning" | "critical"
