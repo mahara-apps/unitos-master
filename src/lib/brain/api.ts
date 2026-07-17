@@ -46,6 +46,10 @@ export const brain = {
   // ---- API pública de alto nível (consumida por todos os módulos) ----
   learn: services.learn,
   remember: services.remember,
+  evolveMemory: services.evolveMemory,
+  touchMemories: services.touchMemories,
+  memoryVersions: services.memoryVersions,
+  decayMemories: services.decayMemories,
   searchKnowledge: services.searchKnowledge,
   generateInsights: services.generateInsights,
   recommend: services.recommend,
