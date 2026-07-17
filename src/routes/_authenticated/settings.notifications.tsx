@@ -107,8 +107,8 @@ function NotificationsPage() {
   return (
     <div className="w-full space-y-4 px-4 py-6 sm:px-6 lg:px-8">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <SettingsStatCard label="Canais ativos" value={`${channelsActive}/4`} icon={<Bell className="h-3.5 w-3.5" />} tone="violet" />
-        <SettingsStatCard label="Tipos ativos" value={`${typesActive}/3`} icon={<Mail className="h-3.5 w-3.5" />} tone="sky" />
+        <SettingsStatCard label="Canais ativos" value={`${channelsActive}/4`} icon={<Bell className="h-4 w-4" />} tone="violet" />
+        <SettingsStatCard label="Tipos ativos" value={`${typesActive}/3`} icon={<Mail className="h-4 w-4" />} tone="sky" />
         <SettingsStatCard
           label="WhatsApp"
           value={notifyWhatsapp ? "Ativo" : "Inativo"}
@@ -152,7 +152,7 @@ function NotificationsPage() {
             setNotifyWhatsapp,
           )}
           {channelRow(
-            <Smartphone className="h-4 w-4 text-emerald-600" />,
+            <Smartphone className="h-4 w-4 text-emerald-500" />,
             "WhatsApp para clientes do portal",
             "Envia lembretes de aprovação aos clientes finais.",
             prefs.whatsapp_client_portal,
@@ -175,7 +175,7 @@ function NotificationsPage() {
             (v) => setPrefs({ ...prefs, comments: v }),
           )}
           {channelRow(
-            <Bell className="h-4 w-4 text-blue-500" />,
+            <Bell className="h-4 w-4 text-sky-500" />,
             "Aprovações",
             "Decisões do cliente e mudanças no fluxo de aprovação.",
             prefs.approvals,

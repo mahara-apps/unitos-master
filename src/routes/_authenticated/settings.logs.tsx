@@ -42,12 +42,12 @@ export const Route = createFileRoute("/_authenticated/settings/logs")({
 
 const SOURCE_META: Record<LogSource, { label: string; icon: typeof Bot; color: string }> = {
   ai_job: { label: "Jobs de IA", icon: Bot, color: "text-violet-500" },
-  activity: { label: "Atividade", icon: Activity, color: "text-blue-500" },
+  activity: { label: "Atividade", icon: Activity, color: "text-sky-500" },
   notification: { label: "Notificações", icon: Bell, color: "text-amber-500" },
 };
 
 const LEVEL_META: Record<LogLevel, { label: string; icon: typeof Info; className: string; badgeVariant: "destructive" | "default" | "secondary" | "outline" }> = {
-  error: { label: "Erro", icon: AlertCircle, className: "text-red-500", badgeVariant: "destructive" },
+  error: { label: "Erro", icon: AlertCircle, className: "text-rose-500", badgeVariant: "destructive" },
   warn: { label: "Aviso", icon: AlertTriangle, className: "text-amber-500", badgeVariant: "default" },
   info: { label: "Info", icon: Info, className: "text-sky-500", badgeVariant: "secondary" },
   success: { label: "Sucesso", icon: CheckCircle2, className: "text-emerald-500", badgeVariant: "outline" },

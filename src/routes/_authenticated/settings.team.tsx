@@ -95,10 +95,10 @@ function TeamSettingsPage() {
       />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <SettingsStatCard label="Membros" value={members.length} icon={<Users className="h-3.5 w-3.5" />} tone="sky" />
-        <SettingsStatCard label="Convites pendentes" value={pendingInvites.length} icon={<MailIcon className="h-3.5 w-3.5" />} tone={pendingInvites.length > 0 ? "amber" : "neutral"} />
-        <SettingsStatCard label="Portais ativos" value={portalTokens.length} icon={<LinkIcon className="h-3.5 w-3.5" />} tone="violet" />
-        <SettingsStatCard label="Owners" value={owners} icon={<Crown className="h-3.5 w-3.5" />} tone="emerald" />
+        <SettingsStatCard label="Membros" value={members.length} icon={<Users className="h-4 w-4" />} tone="sky" />
+        <SettingsStatCard label="Convites pendentes" value={pendingInvites.length} icon={<MailIcon className="h-4 w-4" />} tone={pendingInvites.length > 0 ? "amber" : "neutral"} />
+        <SettingsStatCard label="Portais ativos" value={portalTokens.length} icon={<LinkIcon className="h-4 w-4" />} tone="violet" />
+        <SettingsStatCard label="Owners" value={owners} icon={<Crown className="h-4 w-4" />} tone="emerald" />
       </div>
 
       <Card>
