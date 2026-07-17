@@ -118,7 +118,10 @@ src/lib/brain/
 ├── stream/              ← hook React (useBrainStream)
 ├── ingest-quiet.server  ← ingest fire-and-forget para consumidores externos
 ├── services.ts          ← 12 métodos de alto nível
-└── legacy/              ← server fns antigas movidas de src/lib/brain-*.functions.ts
+└── legacy/              ← server fns oficiais que ainda expõem RPC via TanStack
+                          (após Fase 1, apenas as com consumidor ativo: consolidate,
+                          graph, intelligence, widget, embed). Roadmap de migração
+                          em DEPRECATION.md.
 ```
 
 Todos os arquivos `src/lib/brain-*.functions.ts` e `src/hooks/use-brain-stream.tsx`
@@ -137,3 +140,9 @@ antigos caminhos não existem mais — consumidores externos devem apontar para
   Helpers server-only (`ingest-quiet.server`, `chat-gateway/llm.server`,
   `brain-consolidate`, `brain-retrieve`) são carregados via `await import(...)`
   ou consumidos apenas por server routes.
+
+## Fase 1 — Deduplicação
+
+Consulte [`DEPRECATION.md`](./DEPRECATION.md) para o relatório completo de
+arquivos **Migrados / Mantidos / Deprecados / Removidos** e o roadmap das
+próximas fases (2–4).
