@@ -250,7 +250,7 @@ export const sendChatMessageFn = createServerFn({ method: "POST" })
           client_id: convo.client_id,
           source_module: "chat",
           event_type: "chat.turn",
-          user_id: context.userId,
+          actor_id: context.userId,
           payload: {
             conversation_id: convo.id,
             question: question.slice(0, 400),
@@ -342,12 +342,13 @@ async function consolidateBrainContext(args: {
 
   // 4) Cheap SQL stats — never dump tables, only counters
   const stats: Record<string, number> = {};
-  const scoped = <T extends { eq: (col: string, val: string) => T }>(q: T) =>
-    brandId ? q.eq("brand_id", brandId) : q;
+  const postsQ = supabase.from("posts").select("*", { count: "exact", head: true });
+  const tasksQ = supabase.from("tasks").select("*", { count: "exact", head: true });
+  const projectsQ = supabase.from("projects").select("*", { count: "exact", head: true });
   const [posts, tasks, projects] = await Promise.all([
-    scoped(supabase.from("posts").select("*", { count: "exact", head: true })),
-    scoped(supabase.from("tasks").select("*", { count: "exact", head: true })),
-    scoped(supabase.from("projects").select("*", { count: "exact", head: true })),
+    brandId ? postsQ.eq("brand_id", brandId) : postsQ,
+    brandId ? tasksQ.eq("brand_id", brandId) : tasksQ,
+    brandId ? projectsQ.eq("brand_id", brandId) : projectsQ,
   ]);
   if (typeof posts.count === "number") stats.posts = posts.count;
   if (typeof tasks.count === "number") stats.tasks = tasks.count;
