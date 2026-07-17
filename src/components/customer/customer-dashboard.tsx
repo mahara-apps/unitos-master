@@ -346,84 +346,84 @@ function NextStepsCard({ steps }: { steps: NextStep[] }) {
   );
 }
 
-// ---------- Metric card ----------
+// ---------- AI by-agent breakdown (mirrors AiUsageCard from /dashboard) ----------
 
-function MetricCard({
-  icon: Icon,
-  label,
-  value,
-  hint,
-  right,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: React.ReactNode;
-  hint?: string;
-  right?: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-xl border border-border/60 bg-card p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <Icon className="h-3 w-3 text-muted-foreground" />
-            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              {label}
-            </span>
-          </div>
-          <div className="mt-2 text-3xl font-semibold tracking-tight">{value}</div>
-          {hint ? <div className="mt-1 text-[11px] text-muted-foreground">{hint}</div> : null}
-        </div>
-        <div className="shrink-0">{right}</div>
-      </div>
-    </div>
-  );
+const AGENT_LABELS: Record<string, string> = {
+  copilot_draft: "Copiloto de conteúdo",
+  one_click_pipeline: "Pipeline completa",
+  agent_run: "Agente especialista",
+  media_plan: "Plano de mídia",
+  strategy: "Estrategista",
+  ideas: "Gerador de ideias",
+  brand_intelligence: "Inteligência da marca",
+  image_generation: "Gerador de imagem",
+};
+
+function humanizeAgent(key: string): string {
+  if (AGENT_LABELS[key]) return AGENT_LABELS[key];
+  return key
+    .split(/[_\-\s]+/)
+    .filter(Boolean)
+    .map((s) => s[0].toUpperCase() + s.slice(1))
+    .join(" ");
 }
 
-// ---------- Pipeline ----------
-
-type PipelineStage = CustomerDashboardData["pipeline"]["stages"][number];
-
-function PipelineFunnel({ stages, total }: { stages: PipelineStage[]; total: number }) {
-  const max = Math.max(1, ...stages.map((s) => s.count));
-  const gridCols =
-    stages.length <= 3
-      ? "sm:grid-cols-3"
-      : stages.length === 4
-        ? "sm:grid-cols-2 md:grid-cols-4"
-        : stages.length === 5
-          ? "sm:grid-cols-3 md:grid-cols-5"
-          : "sm:grid-cols-3 md:grid-cols-6";
+function AiByAgentCard({
+  rows,
+  cost30d,
+  jobs30d,
+  spark14d,
+}: {
+  rows: Array<{ agent: string; cost: number; jobs: number }>;
+  cost30d: number;
+  jobs30d: number;
+  spark14d: number[];
+}) {
+  const max = Math.max(0.01, ...rows.map((r) => r.cost));
   return (
-    <div className={`grid grid-cols-2 gap-2 ${gridCols}`}>
-      {stages.map((s) => {
-        const c = s.count;
-        const pct = total ? Math.round((c / total) * 100) : 0;
-        const barHeight = Math.max(6, Math.round((c / max) * 100));
-        const accent = STAGE_FALLBACK_ACCENT[s.key.toLowerCase()] ?? "bg-primary/70";
-        const barStyle = s.color ? { width: `${barHeight}%`, backgroundColor: s.color } : { width: `${barHeight}%` };
-        return (
-          <div
-            key={s.id}
-            className="group relative overflow-hidden rounded-lg border border-border/60 bg-background/40 p-3"
-          >
-            <div className="flex items-baseline justify-between">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                {s.label}
-              </div>
-              <div className="text-[10px] font-mono text-muted-foreground">{pct}%</div>
+    <PanelCard
+      title="IA & performance"
+      subtitle="Consumo por agente · últimos 30 dias"
+      icon={<Bot className="h-4 w-4" />}
+    >
+      <div className="px-4 py-3">
+        <div className="mb-3 flex items-end justify-between">
+          <div>
+            <div className="font-mono text-2xl font-semibold tabular-nums">
+              ${cost30d.toFixed(2)}
             </div>
-            <div className="mt-2 text-2xl font-semibold tabular-nums">{c}</div>
-            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className={s.color ? "h-full rounded-full transition-all" : `${accent} h-full rounded-full transition-all`}
-                style={barStyle}
-              />
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              Custo · 30d · {jobs30d} execuções
             </div>
           </div>
-        );
-      })}
-    </div>
+          {spark14d.some((v) => v > 0) && (
+            <Sparkline
+              data={spark14d.map((v) => Math.round(v * 1000))}
+              className="h-8 w-24 text-violet-500"
+            />
+          )}
+        </div>
+        {rows.length === 0 ? (
+          <PanelEmptyState
+            icon={<Zap className="h-5 w-5" />}
+            text="Nenhum agente executado ainda para este cliente."
+          />
+        ) : (
+          <ul className="space-y-2">
+            {rows.map((r) => (
+              <li key={r.agent}>
+                <AgentUsageBar
+                  agent={humanizeAgent(r.agent)}
+                  cost={r.cost}
+                  jobs={r.jobs}
+                  max={max}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </PanelCard>
   );
 }
 
