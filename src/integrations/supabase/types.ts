@@ -220,30 +220,57 @@ export type Database = {
       }
       brain_events: {
         Row: {
+          action: string | null
+          actor_id: string | null
           brand_id: string | null
+          client_id: string | null
+          confidence: number | null
+          correlation_id: string | null
           created_at: string
+          entity_id: string | null
+          entity_type: string | null
           event_type: string
           id: string
           outcome_score: number | null
           payload: Json
+          processed_at: string | null
+          project_id: string | null
           source_module: string
         }
         Insert: {
+          action?: string | null
+          actor_id?: string | null
           brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
           created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
           event_type: string
           id?: string
           outcome_score?: number | null
           payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
           source_module: string
         }
         Update: {
+          action?: string | null
+          actor_id?: string | null
           brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
           created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
           event_type?: string
           id?: string
           outcome_score?: number | null
           payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
           source_module?: string
         }
         Relationships: [
@@ -297,6 +324,124 @@ export type Database = {
           },
         ]
       }
+      brain_knowledge: {
+        Row: {
+          brand_id: string | null
+          category: string
+          client_id: string | null
+          confidence: number
+          created_at: string
+          id: string
+          key: string
+          last_reinforced_at: string
+          reinforcement_count: number
+          source: string
+          source_event_ids: string[] | null
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          brand_id?: string | null
+          category: string
+          client_id?: string | null
+          confidence?: number
+          created_at?: string
+          id?: string
+          key: string
+          last_reinforced_at?: string
+          reinforcement_count?: number
+          source?: string
+          source_event_ids?: string[] | null
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          brand_id?: string | null
+          category?: string
+          client_id?: string | null
+          confidence?: number
+          created_at?: string
+          id?: string
+          key?: string
+          last_reinforced_at?: string
+          reinforcement_count?: number
+          source?: string
+          source_event_ids?: string[] | null
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_knowledge_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brain_memory: {
+        Row: {
+          access_count: number
+          brand_id: string | null
+          confidence: number
+          content: Json
+          created_at: string
+          decay_rate: number
+          expires_at: string | null
+          id: string
+          key: string
+          last_accessed_at: string | null
+          memory_type: string
+          scope: string
+          subject_id: string
+          subject_type: string
+          updated_at: string
+        }
+        Insert: {
+          access_count?: number
+          brand_id?: string | null
+          confidence?: number
+          content?: Json
+          created_at?: string
+          decay_rate?: number
+          expires_at?: string | null
+          id?: string
+          key: string
+          last_accessed_at?: string | null
+          memory_type: string
+          scope?: string
+          subject_id: string
+          subject_type: string
+          updated_at?: string
+        }
+        Update: {
+          access_count?: number
+          brand_id?: string | null
+          confidence?: number
+          content?: Json
+          created_at?: string
+          decay_rate?: number
+          expires_at?: string | null
+          id?: string
+          key?: string
+          last_accessed_at?: string | null
+          memory_type?: string
+          scope?: string
+          subject_id?: string
+          subject_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_memory_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brain_metrics_snapshots: {
         Row: {
           brand_id: string | null
@@ -331,6 +476,143 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "brain_metrics_snapshots_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brain_recommendations: {
+        Row: {
+          acted_at: string | null
+          action_payload: Json | null
+          brand_id: string | null
+          client_id: string | null
+          confidence: number
+          created_at: string
+          description: string | null
+          expires_at: string | null
+          id: string
+          priority: string
+          recommendation_type: string
+          source_event_ids: string[] | null
+          source_insight_id: string | null
+          status: string
+          target_user_id: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          acted_at?: string | null
+          action_payload?: Json | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number
+          created_at?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          priority?: string
+          recommendation_type: string
+          source_event_ids?: string[] | null
+          source_insight_id?: string | null
+          status?: string
+          target_user_id?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          acted_at?: string | null
+          action_payload?: Json | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number
+          created_at?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          priority?: string
+          recommendation_type?: string
+          source_event_ids?: string[] | null
+          source_insight_id?: string | null
+          status?: string
+          target_user_id?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_recommendations_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brain_recommendations_source_insight_id_fkey"
+            columns: ["source_insight_id"]
+            isOneToOne: false
+            referencedRelation: "brain_insights"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brain_relationships: {
+        Row: {
+          bidirectional: boolean
+          brand_id: string | null
+          confidence: number
+          created_at: string
+          from_id: string
+          from_type: string
+          id: string
+          last_observed_at: string
+          metadata: Json | null
+          observation_count: number
+          relationship_type: string
+          strength: number
+          to_id: string
+          to_type: string
+          updated_at: string
+        }
+        Insert: {
+          bidirectional?: boolean
+          brand_id?: string | null
+          confidence?: number
+          created_at?: string
+          from_id: string
+          from_type: string
+          id?: string
+          last_observed_at?: string
+          metadata?: Json | null
+          observation_count?: number
+          relationship_type: string
+          strength?: number
+          to_id: string
+          to_type: string
+          updated_at?: string
+        }
+        Update: {
+          bidirectional?: boolean
+          brand_id?: string | null
+          confidence?: number
+          created_at?: string
+          from_id?: string
+          from_type?: string
+          id?: string
+          last_observed_at?: string
+          metadata?: Json | null
+          observation_count?: number
+          relationship_type?: string
+          strength?: number
+          to_id?: string
+          to_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_relationships_brand_id_fkey"
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
@@ -2530,6 +2812,23 @@ export type Database = {
       can_access_client: {
         Args: { _client_id: string; _user_id: string }
         Returns: boolean
+      }
+      emit_brain_event: {
+        Args: {
+          p_action?: string
+          p_actor_id?: string
+          p_brand_id: string
+          p_client_id?: string
+          p_confidence?: number
+          p_correlation_id?: string
+          p_entity_id?: string
+          p_entity_type?: string
+          p_event_type: string
+          p_payload?: Json
+          p_project_id?: string
+          p_source_module: string
+        }
+        Returns: string
       }
       enqueue_deadline_notifications: { Args: never; Returns: number }
       find_user_id_by_email: { Args: { _email: string }; Returns: string }
