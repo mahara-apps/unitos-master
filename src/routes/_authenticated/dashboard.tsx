@@ -397,7 +397,6 @@ function FunnelCard({
   const list: FunnelStage[] = stages && stages.length > 0
     ? stages.map((s) => ({ ...s, count: postsByStage[s.key.toLowerCase()] ?? s.count }))
     : FUNNEL_FALLBACK.map((s) => ({ ...s, count: postsByStage[s.key] ?? 0 }));
-  const max = Math.max(1, ...list.map((s) => s.count));
   const total = list.reduce((s, x) => s + x.count, 0);
   const published = list.find((s) => s.key.toLowerCase() === "published")?.count ?? 0;
   const conv = total ? Math.round((published / total) * 100) : 0;
@@ -412,26 +411,15 @@ function FunnelCard({
         </Link>
       }
     >
-      <div className="space-y-2 px-4 py-3">
-        {list.map((s) => {
-          const n = s.count;
-          const w = Math.max(4, (n / max) * 100);
-          return (
-            <div key={s.key} className="flex items-center gap-3">
-              <span className="w-20 shrink-0 text-xs text-muted-foreground">{s.label}</span>
-              <div className="relative h-6 flex-1 overflow-hidden rounded-md bg-muted/50">
-                <div
-                  className="h-full rounded-md opacity-80 transition-all"
-                  style={{ width: `${w}%`, backgroundColor: s.color ?? "hsl(var(--primary))" }}
-                />
-                <span className="absolute inset-y-0 left-2 flex items-center text-[11px] font-medium text-foreground">
-                  {n}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <FunnelStages
+        stages={list.map((s) => ({
+          key: s.key,
+          label: s.label,
+          count: s.count,
+          // preserva a cor vinda do backend, com fallback à paleta canônica
+          color: funnelColorFor(s.key, s.color),
+        }))}
+      />
       {avgLead !== null && (
         <div className="border-t border-border/60 px-4 py-2.5 text-xs text-muted-foreground">
           <Clock className="mr-1 inline h-3 w-3" />
