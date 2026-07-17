@@ -14,6 +14,7 @@ import type {
   SocialNetwork,
   SocialPost,
 } from "@/lib/social/types";
+import { withSocialCache, socialCacheKey, hashKey, SOCIAL_CACHE_TTL_MS } from "@/lib/social-analytics/cache";
 
 const QuerySchema = z.object({
   period: z
@@ -217,9 +218,18 @@ export const Route = createFileRoute("/api/social/dashboard/$connectionId")({
           accessToken,
         };
 
+        // Cache 10 min por (usuário, conexão, período). Transparente para o
+        // frontend — o formato do retorno não muda.
+        const scope = `${hashKey(token)}:${row.id}`;
         const [dashRes, postsRes] = await Promise.all([
-          provider.getDashboard(ctx, { network, range }),
-          provider.getPosts(ctx, { network, limit: 25 }),
+          withSocialCache(
+            socialCacheKey("dash", scope, { n: network, p: period }),
+            () => provider.getDashboard(ctx, { network, range }),
+          ),
+          withSocialCache(
+            socialCacheKey("posts", scope, { n: network, l: 25 }),
+            () => provider.getPosts(ctx, { network, limit: 25 }),
+          ),
         ]);
 
         if (!dashRes.ok)
@@ -257,7 +267,7 @@ export const Route = createFileRoute("/api/social/dashboard/$connectionId")({
 
         return Response.json(body, {
           headers: {
-            "cache-control": "private, max-age=60, stale-while-revalidate=120",
+            "cache-control": `private, max-age=${SOCIAL_CACHE_TTL_MS / 1000}, stale-while-revalidate=120`,
           },
         });
       },
