@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
@@ -7,6 +8,7 @@ import {
   Activity,
   CalendarClock,
   CheckCircle2,
+  Circle,
   Clock,
   DollarSign,
   ExternalLink,
@@ -23,12 +25,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sparkline } from "@/components/dashboard/sparkline";
 import { HealthBar } from "@/components/dashboard/health-bar";
+import { ClientHealthPanel } from "@/components/dashboard/client-health-panel";
 import { OverviewSkeleton } from "@/components/ai-agents/tab-skeletons";
 import { isValidScope } from "@/lib/customer-queries";
 import {
   loadCustomerDashboardFn,
   type CustomerDashboardData,
 } from "@/lib/customer-dashboard.functions";
+import { getBrandHub } from "@/lib/brand-hub.functions";
+import { computeBriefingCompletion } from "@/lib/briefing-progress";
 import { useEffect } from "react";
 
 type Props = {
@@ -49,6 +54,7 @@ const STAGE_FALLBACK_ACCENT: Record<string, string> = {
 
 export function CustomerDashboard({ brandId, clientId, onOpenBriefing }: Props) {
   const loadFn = useServerFn(loadCustomerDashboardFn);
+  const fetchHub = useServerFn(getBrandHub);
   const scopeValid = isValidScope({ brandId, clientId });
 
   const q = useQuery({
@@ -64,6 +70,13 @@ export function CustomerDashboard({ brandId, clientId, onOpenBriefing }: Props) 
     },
   });
 
+  const hubQ = useQuery({
+    queryKey: ["brand-hub", brandId, clientId],
+    queryFn: () => fetchHub({ data: { brandId, clientId } }),
+    staleTime: 30_000,
+    enabled: scopeValid,
+  });
+
   useEffect(() => {
     if (q.error) {
       const msg = (q.error as Error).message ?? "Falha ao carregar dados da conta";
@@ -72,11 +85,15 @@ export function CustomerDashboard({ brandId, clientId, onOpenBriefing }: Props) 
   }, [q.error]);
 
   if (!scopeValid || q.isLoading || !q.data) return <OverviewSkeleton />;
+  const briefingCompletion = hubQ.data
+    ? computeBriefingCompletion(hubQ.data.brand_hub ?? {}, hubQ.data)
+    : null;
   return (
     <DashboardReady
       data={q.data}
       clientId={clientId}
       brandId={brandId}
+      briefingCompletion={briefingCompletion}
       onOpenBriefing={onOpenBriefing}
     />
   );
@@ -86,33 +103,80 @@ function DashboardReady({
   data,
   clientId,
   brandId,
+  briefingCompletion,
+  onOpenBriefing,
 }: {
   data: NonNullable<CustomerDashboardData>;
   clientId: string;
   brandId: string;
+  briefingCompletion: number | null;
   onOpenBriefing?: () => void;
 }) {
   const client = data.client;
   const m = data.metrics;
   const approvalPct = m.totalApprovals ? Math.round((m.decidedApprovals / m.totalApprovals) * 100) : 0;
   const socials = (client?.socials ?? {}) as Record<string, string | undefined>;
+  const socialsCount = SOCIAL_META.filter((s) => !!socials?.[s.key]).length;
+  const hasAiUsage = (m.aiJobsCount ?? 0) > 0;
+  const hasActivity = data.activity.length > 0;
+
+  const nextSteps: NextStep[] = [];
+  if (briefingCompletion !== null && briefingCompletion < 100) {
+    nextSteps.push({
+      id: "brief",
+      label: "Completar identidade da marca",
+      hint:
+        briefingCompletion > 0
+          ? `Cérebro em ${briefingCompletion}%`
+          : "Nenhum campo preenchido ainda",
+      onClick: onOpenBriefing,
+    });
+  }
+  if (!hasAiUsage) {
+    nextSteps.push({
+      id: "ai",
+      label: "Gerar primeira estratégia com IA",
+      hint: "O agente usa o Cérebro da Marca como contexto",
+      onClick: onOpenBriefing,
+    });
+  }
+  if (socialsCount <= 1) {
+    nextSteps.push({
+      id: "socials",
+      label: "Conectar mais canais sociais",
+      hint: socialsCount === 0 ? "Nenhum canal vinculado" : "Apenas 1 canal vinculado",
+      onClick: onOpenBriefing,
+    });
+  }
+  const showNextSteps = !hasActivity && nextSteps.length > 0;
 
   return (
     <div className="space-y-5">
+      {/* Health */}
+      <ClientHealthPanel score={m.health.score} breakdown={m.health.breakdown} />
+
       {/* Metrics row */}
       <div className="grid gap-4 md:grid-cols-3">
-        <MetricCard
-          icon={DollarSign}
-          label="Consumo de IA"
-          value={`$${m.costTotal30d.toFixed(4)}`}
-          hint={`$${m.costTotal14d.toFixed(4)} nos últimos 14d`}
-          right={<Sparkline data={m.costSpark} className="h-8 w-24 text-cyan-500" />}
-        />
+        {hasAiUsage ? (
+          <MetricCard
+            icon={DollarSign}
+            label="Consumo de IA"
+            value={`$${m.costTotal30d.toFixed(4)}`}
+            hint={`$${m.costTotal14d.toFixed(4)} nos últimos 14d`}
+            right={<Sparkline data={m.costSpark} className="h-8 w-24 text-cyan-500" />}
+          />
+        ) : (
+          <AiEmptyCard onOpenBriefing={onOpenBriefing} />
+        )}
         <MetricCard
           icon={ShieldCheck}
           label="Aprovações pendentes"
           value={m.pendingApprovals}
-          hint={`${m.decidedApprovals}/${m.totalApprovals || 0} resolvidas`}
+          hint={
+            m.pendingApprovals === 0 && m.totalApprovals === 0
+              ? "Nenhum conteúdo enviado para aprovação ainda"
+              : `${m.decidedApprovals}/${m.totalApprovals || 0} resolvidas`
+          }
           right={
             <div className="w-24">
               <HealthBar score={approvalPct} />
@@ -124,7 +188,11 @@ function DashboardReady({
           icon={CalendarClock}
           label="Publicações agendadas"
           value={m.scheduled}
-          hint={`${m.published} já publicadas`}
+          hint={
+            m.scheduled === 0 && m.published === 0
+              ? "Nenhum conteúdo agendado ainda"
+              : `${m.published} já publicadas`
+          }
           right={
             <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 font-mono text-[10px] text-emerald-500 dark:text-emerald-300">
               LIVE
@@ -141,10 +209,16 @@ function DashboardReady({
               Pipeline de produção
             </div>
             <div className="mt-0.5 text-sm font-medium">
-              {data.pipeline.total} posts em {data.pipeline.stages.length} estágios
-              {data.pipeline.pipelineName ? (
-                <span className="ml-1 text-muted-foreground">· {data.pipeline.pipelineName}</span>
-              ) : null}
+              {data.pipeline.total === 0 ? (
+                <span className="text-muted-foreground">Nenhum conteúdo gerado ainda</span>
+              ) : (
+                <>
+                  {data.pipeline.total} posts em {data.pipeline.stages.length} estágios
+                  {data.pipeline.pipelineName ? (
+                    <span className="ml-1 text-muted-foreground">· {data.pipeline.pipelineName}</span>
+                  ) : null}
+                </>
+              )}
             </div>
           </div>
           <Badge variant="outline" className="font-mono text-[10px]">
@@ -163,8 +237,86 @@ function DashboardReady({
           brandId={brandId}
           clientId={clientId}
         />
-        <ActivityFeedCard activity={data.activity} />
+        {showNextSteps ? (
+          <NextStepsCard steps={nextSteps} />
+        ) : (
+          <ActivityFeedCard activity={data.activity} />
+        )}
       </div>
+    </div>
+  );
+}
+
+// ---------- AI empty state ----------
+
+function AiEmptyCard({ onOpenBriefing }: { onOpenBriefing?: () => void }) {
+  return (
+    <div className="flex flex-col justify-between gap-3 rounded-xl border border-dashed border-border/60 bg-card p-4">
+      <div>
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="h-3 w-3 text-muted-foreground" />
+          <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            Consumo de IA
+          </span>
+        </div>
+        <div className="mt-2 text-sm font-medium">Nenhuma geração ainda</div>
+        <div className="mt-1 text-[11px] text-muted-foreground">
+          Rode a primeira estratégia para começar a acumular consumo.
+        </div>
+      </div>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={onOpenBriefing}
+        className="h-8 gap-1.5 self-start border-fuchsia-500/40 text-fuchsia-300 hover:bg-fuchsia-500/10 hover:text-fuchsia-200"
+      >
+        <Sparkles className="h-3.5 w-3.5" />
+        Gerar Inteligência com IA
+      </Button>
+    </div>
+  );
+}
+
+// ---------- Next steps ----------
+
+type NextStep = {
+  id: string;
+  label: string;
+  hint?: string;
+  onClick?: () => void;
+};
+
+function NextStepsCard({ steps }: { steps: NextStep[] }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-card">
+      <div className="border-b border-border/60 px-4 py-3">
+        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+          Próximos passos
+        </div>
+        <div className="mt-0.5 text-sm font-medium">
+          Complete o onboarding do cliente ({steps.length})
+        </div>
+      </div>
+      <ul className="divide-y divide-border/60">
+        {steps.map((s) => (
+          <li key={s.id}>
+            <button
+              type="button"
+              onClick={s.onClick}
+              className="flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-accent/40"
+            >
+              <Circle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium">{s.label}</div>
+                {s.hint ? (
+                  <div className="mt-0.5 text-[11px] text-muted-foreground">{s.hint}</div>
+                ) : null}
+              </div>
+              <ExternalLink className="mt-1 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
