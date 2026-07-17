@@ -80,8 +80,10 @@ function TeamSettingsPage() {
   const members = data?.members ?? [];
   const invitesAll = data?.invites ?? [];
   const pendingInvites = invitesAll.filter((i) => !i.accepted_at && !i.revoked_at);
+  const revokedInvites = invitesAll.filter((i) => !i.accepted_at && i.revoked_at);
   const portalTokens = (data?.portalTokens ?? []).filter((t) => !t.revoked_at);
   const owners = members.filter((m) => m.role === "owner").length;
+  const [showRevoked, setShowRevoked] = useState(false);
 
   return (
     <div className="w-full space-y-4 px-4 py-6 sm:px-6 lg:px-8">
@@ -131,14 +133,32 @@ function TeamSettingsPage() {
           <CardDescription>Convites ainda não aceitos ou expirados.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          {invitesAll.filter((i) => !i.accepted_at).length === 0 ? (
+          {pendingInvites.length === 0 ? (
             <div className="p-6 text-center text-sm text-muted-foreground">Nenhum convite pendente.</div>
           ) : (
             <ul>
-              {invitesAll.filter((i) => !i.accepted_at).map((i) => (
+              {pendingInvites.map((i) => (
                 <InviteRow key={i.id} brandId={brandId} invite={i} />
               ))}
             </ul>
+          )}
+          {revokedInvites.length > 0 && (
+            <div className="border-t border-border/60 px-4 py-2.5">
+              <button
+                type="button"
+                onClick={() => setShowRevoked((v) => !v)}
+                className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+              >
+                {showRevoked ? "Ocultar revogados" : `Ver revogados (${revokedInvites.length})`}
+              </button>
+              {showRevoked && (
+                <ul className="mt-2 border-t border-border/60">
+                  {revokedInvites.map((i) => (
+                    <InviteRow key={i.id} brandId={brandId} invite={i} />
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -405,7 +425,7 @@ function EditPermissionsDialog({
             onChange={(e) => setRole(e.target.value)}
             className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm"
           >
-            {["owner", "manager", "editor", "designer", "client"].map((r) => (
+            {["owner", "manager", "editor", "designer"].map((r) => (
               <option key={r} value={r}>{r}</option>
             ))}
           </select>
