@@ -223,6 +223,8 @@ function LinkPanel({
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("editor");
   const [busy, setBusy] = useState(false);
+  const [customPerms, setCustomPerms] = useState<PermissionId[] | null>(null);
+  const effectivePerms = customPerms ?? ROLE_DEFAULT_PERMISSIONS[role];
 
   const submit = async () => {
     const clean = email.trim().toLowerCase();
@@ -230,7 +232,7 @@ function LinkPanel({
     setBusy(true);
     try {
       const res = await link({
-        data: { brandId, email: clean, role, permissions: [] },
+        data: { brandId, email: clean, role, permissions: effectivePerms },
       });
       if (res.status === "not_found") {
         toast.error("Nenhum usuário com esse e-mail. Use a aba Convidar para criar a conta.");
@@ -272,12 +274,20 @@ function LinkPanel({
         <Label className="text-xs">Papel</Label>
         <select
           value={role}
-          onChange={(e) => setRole(e.target.value as Role)}
+          onChange={(e) => { setRole(e.target.value as Role); setCustomPerms(null); }}
           className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm"
         >
-          {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+          {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
         </select>
       </div>
+
+      <CustomPermissionsSection
+        role={role}
+        value={effectivePerms}
+        isCustom={customPerms !== null}
+        onChange={(next) => setCustomPerms(next)}
+        onReset={() => setCustomPerms(null)}
+      />
 
       <div className="flex items-center justify-end gap-2 pt-2">
         <Button variant="outline" onClick={onClose} disabled={busy}>Cancelar</Button>
