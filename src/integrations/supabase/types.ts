@@ -230,13 +230,6 @@ export type Database = {
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "brain_embeddings_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "brain_events"
-            referencedColumns: ["id"]
-          },
         ]
       }
       brain_events: {
@@ -296,20 +289,1049 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "brain_events_brand_id_fkey"
+            foreignKeyName: "brain_events_brand_id_fkey1"
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brain_stats_mv"
             referencedColumns: ["brand_id"]
           },
           {
-            foreignKeyName: "brain_events_brand_id_fkey"
+            foreignKeyName: "brain_events_brand_id_fkey1"
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
         ]
+      }
+      brain_events_202507: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          brand_id: string | null
+          client_id: string | null
+          confidence: number | null
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          outcome_score: number | null
+          payload: Json
+          processed_at: string | null
+          project_id: string | null
+          source_module: string
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module: string
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module?: string
+        }
+        Relationships: []
+      }
+      brain_events_202508: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          brand_id: string | null
+          client_id: string | null
+          confidence: number | null
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          outcome_score: number | null
+          payload: Json
+          processed_at: string | null
+          project_id: string | null
+          source_module: string
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module: string
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module?: string
+        }
+        Relationships: []
+      }
+      brain_events_202509: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          brand_id: string | null
+          client_id: string | null
+          confidence: number | null
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          outcome_score: number | null
+          payload: Json
+          processed_at: string | null
+          project_id: string | null
+          source_module: string
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module: string
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module?: string
+        }
+        Relationships: []
+      }
+      brain_events_202510: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          brand_id: string | null
+          client_id: string | null
+          confidence: number | null
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          outcome_score: number | null
+          payload: Json
+          processed_at: string | null
+          project_id: string | null
+          source_module: string
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module: string
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module?: string
+        }
+        Relationships: []
+      }
+      brain_events_202511: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          brand_id: string | null
+          client_id: string | null
+          confidence: number | null
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          outcome_score: number | null
+          payload: Json
+          processed_at: string | null
+          project_id: string | null
+          source_module: string
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module: string
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module?: string
+        }
+        Relationships: []
+      }
+      brain_events_202512: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          brand_id: string | null
+          client_id: string | null
+          confidence: number | null
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          outcome_score: number | null
+          payload: Json
+          processed_at: string | null
+          project_id: string | null
+          source_module: string
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module: string
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module?: string
+        }
+        Relationships: []
+      }
+      brain_events_202601: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          brand_id: string | null
+          client_id: string | null
+          confidence: number | null
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          outcome_score: number | null
+          payload: Json
+          processed_at: string | null
+          project_id: string | null
+          source_module: string
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module: string
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module?: string
+        }
+        Relationships: []
+      }
+      brain_events_202602: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          brand_id: string | null
+          client_id: string | null
+          confidence: number | null
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          outcome_score: number | null
+          payload: Json
+          processed_at: string | null
+          project_id: string | null
+          source_module: string
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module: string
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module?: string
+        }
+        Relationships: []
+      }
+      brain_events_202603: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          brand_id: string | null
+          client_id: string | null
+          confidence: number | null
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          outcome_score: number | null
+          payload: Json
+          processed_at: string | null
+          project_id: string | null
+          source_module: string
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module: string
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module?: string
+        }
+        Relationships: []
+      }
+      brain_events_202604: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          brand_id: string | null
+          client_id: string | null
+          confidence: number | null
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          outcome_score: number | null
+          payload: Json
+          processed_at: string | null
+          project_id: string | null
+          source_module: string
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module: string
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module?: string
+        }
+        Relationships: []
+      }
+      brain_events_202605: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          brand_id: string | null
+          client_id: string | null
+          confidence: number | null
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          outcome_score: number | null
+          payload: Json
+          processed_at: string | null
+          project_id: string | null
+          source_module: string
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module: string
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module?: string
+        }
+        Relationships: []
+      }
+      brain_events_202606: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          brand_id: string | null
+          client_id: string | null
+          confidence: number | null
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          outcome_score: number | null
+          payload: Json
+          processed_at: string | null
+          project_id: string | null
+          source_module: string
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module: string
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module?: string
+        }
+        Relationships: []
+      }
+      brain_events_202607: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          brand_id: string | null
+          client_id: string | null
+          confidence: number | null
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          outcome_score: number | null
+          payload: Json
+          processed_at: string | null
+          project_id: string | null
+          source_module: string
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module: string
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module?: string
+        }
+        Relationships: []
+      }
+      brain_events_202608: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          brand_id: string | null
+          client_id: string | null
+          confidence: number | null
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          outcome_score: number | null
+          payload: Json
+          processed_at: string | null
+          project_id: string | null
+          source_module: string
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module: string
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module?: string
+        }
+        Relationships: []
+      }
+      brain_events_202609: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          brand_id: string | null
+          client_id: string | null
+          confidence: number | null
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          outcome_score: number | null
+          payload: Json
+          processed_at: string | null
+          project_id: string | null
+          source_module: string
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module: string
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module?: string
+        }
+        Relationships: []
+      }
+      brain_events_202610: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          brand_id: string | null
+          client_id: string | null
+          confidence: number | null
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          outcome_score: number | null
+          payload: Json
+          processed_at: string | null
+          project_id: string | null
+          source_module: string
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module: string
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module?: string
+        }
+        Relationships: []
+      }
+      brain_events_archive: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          archived_at: string
+          brand_id: string | null
+          client_id: string | null
+          confidence: number | null
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          outcome_score: number | null
+          payload: Json
+          processed_at: string | null
+          project_id: string | null
+          source_module: string
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          archived_at?: string
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id: string
+          outcome_score?: number | null
+          payload: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module: string
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          archived_at?: string
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module?: string
+        }
+        Relationships: []
+      }
+      brain_events_default: {
+        Row: {
+          action: string | null
+          actor_id: string | null
+          brand_id: string | null
+          client_id: string | null
+          confidence: number | null
+          correlation_id: string | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          event_type: string
+          id: string
+          outcome_score: number | null
+          payload: Json
+          processed_at: string | null
+          project_id: string | null
+          source_module: string
+        }
+        Insert: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module: string
+        }
+        Update: {
+          action?: string | null
+          actor_id?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          confidence?: number | null
+          correlation_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          event_type?: string
+          id?: string
+          outcome_score?: number | null
+          payload?: Json
+          processed_at?: string | null
+          project_id?: string | null
+          source_module?: string
+        }
+        Relationships: []
       }
       brain_insights: {
         Row: {
@@ -399,15 +1421,7 @@ export type Database = {
           status?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "brain_learning_queue_event_id_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "brain_events"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       brain_memory: {
         Row: {
@@ -522,13 +1536,6 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "brain_memory_source_event_fkey"
-            columns: ["source_event"]
-            isOneToOne: false
-            referencedRelation: "brain_events"
             referencedColumns: ["id"]
           },
         ]
@@ -802,6 +1809,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      brain_retention_config: {
+        Row: {
+          description: string | null
+          key: string
+          updated_at: string
+          value_days: number
+        }
+        Insert: {
+          description?: string | null
+          key: string
+          updated_at?: string
+          value_days: number
+        }
+        Update: {
+          description?: string | null
+          key?: string
+          updated_at?: string
+          value_days?: number
+        }
+        Relationships: []
       }
       brand_ai_content: {
         Row: {
@@ -3310,6 +4338,10 @@ export type Database = {
       }
     }
     Functions: {
+      _brain_cfg_days: {
+        Args: { _default: number; _key: string }
+        Returns: number
+      }
       _portal_session: {
         Args: { _token: string }
         Returns: {
@@ -3319,6 +4351,12 @@ export type Database = {
         }[]
       }
       accept_brand_invite: { Args: { _token: string }; Returns: string }
+      brain_archive_and_prune_events: { Args: never; Returns: Json }
+      brain_cleanup_ttl: { Args: never; Returns: Json }
+      brain_ensure_event_partitions: {
+        Args: { _months_back?: number; _months_forward?: number }
+        Returns: number
+      }
       brain_memory_decay_and_archive: { Args: never; Returns: number }
       brain_memory_evolve: {
         Args: {
@@ -3340,6 +4378,7 @@ export type Database = {
         Returns: string
       }
       brain_memory_touch: { Args: { _ids: string[] }; Returns: number }
+      brain_retention_run: { Args: never; Returns: Json }
       can_access_client: {
         Args: { _client_id: string; _user_id: string }
         Returns: boolean
