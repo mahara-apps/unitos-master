@@ -92,7 +92,7 @@ export const Route = createFileRoute("/api/chat/stream")({
             user_id: userId,
             role: "user",
             content: question,
-            attachments,
+            attachments: attachments as unknown as Database["public"]["Tables"]["chat_messages"]["Insert"]["attachments"],
           })
           .select("id")
           .single();
@@ -192,7 +192,7 @@ export const Route = createFileRoute("/api/chat/stream")({
               brain_context: brainSummary,
               used_llm: true,
               model: stream.model,
-              tool_calls: toolCallLog,
+              tool_calls: toolCallLog as unknown as Database["public"]["Tables"]["chat_messages"]["Insert"]["tool_calls"],
             })
             .select("id")
             .single();
@@ -220,8 +220,9 @@ export const Route = createFileRoute("/api/chat/stream")({
                   usedLlm: true,
                 })
               : Promise.resolve(),
-          ]).catch((e) => console.error("[chat.stream] post-finish error", e));
-        }).catch((e) => console.error("[chat.stream] finish error", e));
+          ]);
+        });
+        finish.then(undefined, (e: unknown) => console.error("[chat.stream] finish error", e));
 
         // 7) Retornar text stream (o cliente lê incrementalmente)
         const response = stream.result.toTextStreamResponse();
