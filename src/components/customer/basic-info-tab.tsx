@@ -10,6 +10,11 @@ import { Label } from "@/components/ui/label";
 import { listClients, listMyBrands, updateClient } from "@/lib/workspace.functions";
 import { canEditBasicInfo, resolveAccessRole } from "@/lib/permissions";
 
+/**
+ * Aba "Cadastro" — fonte única do registro do cliente
+ * (nome, nicho, site, endereço, contato e redes sociais).
+ * Os campos que aparecem em Identidade do Cérebro (Nome) leem daqui.
+ */
 export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId: string }) {
   const qc = useQueryClient();
   const listClientsFn = useServerFn(listClients);
@@ -31,10 +36,13 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
   const socials = (client?.socials && typeof client.socials === "object"
     ? (client.socials as Record<string, string | undefined>)
     : {}) ?? {};
+  const clientAny = (client ?? {}) as Record<string, unknown>;
 
   const [form, setForm] = useState({
     name: "",
     niche: "",
+    website: "",
+    address: "",
     contact_name: "",
     contact_email: "",
     phone: "",
@@ -42,6 +50,7 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
     tiktok: "",
     linkedin: "",
     youtube: "",
+    facebook: "",
   });
 
   useEffect(() => {
@@ -49,13 +58,16 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
     setForm({
       name: client.name ?? "",
       niche: client.niche ?? "",
+      website: (clientAny.website as string) ?? "",
+      address: (clientAny.address as string) ?? "",
       contact_name: client.contact_name ?? "",
       contact_email: client.contact_email ?? "",
-      phone: socials.phone ?? "",
+      phone: (client.contact_phone as string | null) ?? socials.phone ?? "",
       instagram: socials.instagram ?? "",
       tiktok: socials.tiktok ?? "",
       linkedin: socials.linkedin ?? "",
       youtube: socials.youtube ?? "",
+      facebook: socials.facebook ?? "",
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client?.id, client?.updated_at]);
@@ -64,11 +76,12 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
     mutationFn: async () => {
       const nextSocials = {
         ...socials,
-        phone: form.phone.trim() || undefined,
+        phone: undefined, // canonicalizado em contact_phone
         instagram: form.instagram.trim() || undefined,
         tiktok: form.tiktok.trim() || undefined,
         linkedin: form.linkedin.trim() || undefined,
         youtube: form.youtube.trim() || undefined,
+        facebook: form.facebook.trim() || undefined,
       };
       return update({
         data: {
@@ -77,23 +90,27 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
           patch: {
             name: form.name.trim() || undefined,
             niche: form.niche.trim() || null,
+            website: form.website.trim() || null,
+            address: form.address.trim() || null,
             contact_name: form.contact_name.trim() || null,
             contact_email: form.contact_email.trim() || null,
+            contact_phone: form.phone.trim() || null,
             socials: nextSocials,
           },
         },
       });
     },
     onSuccess: () => {
-      toast.success("Profile updated successfully");
+      toast.success("Cadastro atualizado");
       qc.invalidateQueries({ queryKey: ["clients", brandId] });
       qc.invalidateQueries({ queryKey: ["customer-dashboard"] });
       qc.invalidateQueries({ queryKey: ["customer-core", brandId, clientId] });
+      qc.invalidateQueries({ queryKey: ["brand-hub", brandId, clientId] });
     },
-    onError: (e) => toast.error((e as Error).message ?? "Falha ao salvar perfil"),
+    onError: (e) => toast.error((e as Error).message ?? "Falha ao salvar cadastro"),
   });
 
-  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
 
   const disabled = !canEdit || mut.isPending;
@@ -102,9 +119,9 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold">Dados básicos</h2>
+          <h2 className="text-lg font-semibold">Cadastro</h2>
           <p className="text-sm text-muted-foreground">
-            Informações de contato e redes desta conta. Refletem no dashboard e no Brand Hub.
+            Fonte única do registro deste cliente. Nome, redes e contato usados em todo o sistema.
           </p>
         </div>
         {canEdit ? (
@@ -125,44 +142,80 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
         </div>
       ) : null}
 
-      <div className="grid gap-4 rounded-xl border border-border bg-card p-6 sm:grid-cols-2">
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs">Nome da conta</Label>
-          <Input placeholder="Ex.: Café Aurora" value={form.name} onChange={set("name")} disabled={disabled} />
+      <section className="space-y-4 rounded-xl border border-border bg-card p-6">
+        <header>
+          <h3 className="text-sm font-semibold">Identificação</h3>
+          <p className="text-xs text-muted-foreground">Nome legal e posicionamento resumido.</p>
+        </header>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label className="text-xs">Nome legal / Nome da conta</Label>
+            <Input placeholder="Ex.: Café Aurora" value={form.name} onChange={set("name")} disabled={disabled} />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label className="text-xs">Subtítulo / Nicho</Label>
+            <Input placeholder="Ex.: Cafeteria especial · Curitiba" value={form.niche} onChange={set("niche")} disabled={disabled} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Site</Label>
+            <Input placeholder="https://empresa.com" value={form.website} onChange={set("website")} disabled={disabled} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Endereço <span className="text-muted-foreground">(opcional)</span></Label>
+            <Input placeholder="Rua, número, cidade" value={form.address} onChange={set("address")} disabled={disabled} />
+          </div>
         </div>
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs">Subtítulo / Nicho</Label>
-          <Input placeholder="Ex.: Cafeteria especial · Curitiba" value={form.niche} onChange={set("niche")} disabled={disabled} />
+      </section>
+
+      <section className="space-y-4 rounded-xl border border-border bg-card p-6">
+        <header>
+          <h3 className="text-sm font-semibold">Contato</h3>
+          <p className="text-xs text-muted-foreground">Ponto focal para aprovações e comunicação.</p>
+        </header>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Contato responsável</Label>
+            <Input placeholder="Nome do contato" value={form.contact_name} onChange={set("contact_name")} disabled={disabled} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">E-mail corporativo</Label>
+            <Input type="email" placeholder="contato@empresa.com" value={form.contact_email} onChange={set("contact_email")} disabled={disabled} />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label className="text-xs">Telefone</Label>
+            <Input placeholder="+55 11 90000-0000" value={form.phone} onChange={set("phone")} disabled={disabled} />
+          </div>
         </div>
-        <div className="space-y-1.5 sm:col-span-1">
-          <Label className="text-xs">Contato</Label>
-          <Input placeholder="Nome do contato" value={form.contact_name} onChange={set("contact_name")} disabled={disabled} />
+      </section>
+
+      <section className="space-y-4 rounded-xl border border-border bg-card p-6">
+        <header>
+          <h3 className="text-sm font-semibold">Redes sociais</h3>
+          <p className="text-xs text-muted-foreground">Handles ou URLs completas.</p>
+        </header>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Instagram</Label>
+            <Input placeholder="@handle" value={form.instagram} onChange={set("instagram")} disabled={disabled} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">TikTok</Label>
+            <Input placeholder="@handle" value={form.tiktok} onChange={set("tiktok")} disabled={disabled} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">LinkedIn</Label>
+            <Input placeholder="empresa" value={form.linkedin} onChange={set("linkedin")} disabled={disabled} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">YouTube</Label>
+            <Input placeholder="@canal" value={form.youtube} onChange={set("youtube")} disabled={disabled} />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label className="text-xs">Facebook</Label>
+            <Input placeholder="facebook.com/empresa" value={form.facebook} onChange={set("facebook")} disabled={disabled} />
+          </div>
         </div>
-        <div className="space-y-1.5 sm:col-span-1">
-          <Label className="text-xs">E-mail corporativo</Label>
-          <Input type="email" placeholder="contato@empresa.com" value={form.contact_email} onChange={set("contact_email")} disabled={disabled} />
-        </div>
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label className="text-xs">Telefone</Label>
-          <Input placeholder="+55 11 90000-0000" value={form.phone} onChange={set("phone")} disabled={disabled} />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Instagram</Label>
-          <Input placeholder="@handle" value={form.instagram} onChange={set("instagram")} disabled={disabled} />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">TikTok</Label>
-          <Input placeholder="@handle" value={form.tiktok} onChange={set("tiktok")} disabled={disabled} />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">LinkedIn</Label>
-          <Input placeholder="empresa" value={form.linkedin} onChange={set("linkedin")} disabled={disabled} />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">YouTube</Label>
-          <Input placeholder="@canal" value={form.youtube} onChange={set("youtube")} disabled={disabled} />
-        </div>
-      </div>
+      </section>
 
       <div className="flex justify-end">
         <Button onClick={() => mut.mutate()} disabled={disabled}>

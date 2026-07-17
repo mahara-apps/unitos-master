@@ -818,9 +818,21 @@ function IdentidadeTab({
       >
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1.5">
-            <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
-              Nome
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+                Nome
+              </Label>
+              <a
+                href={`/customers/${clientId}?tab=cadastro`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.dispatchEvent(new CustomEvent("nx:switch-customer-tab", { detail: "cadastro" }));
+                }}
+                className="text-[11px] text-primary hover:underline"
+              >
+                Editar em Cadastro
+              </a>
+            </div>
             <Input value={client.name} disabled className="bg-background/60" />
           </div>
           <LabeledTextarea
