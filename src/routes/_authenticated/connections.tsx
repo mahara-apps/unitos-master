@@ -48,7 +48,13 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TemplateEditor } from "@/components/messaging/template-editor";
-import { MetaIntegrationCard } from "@/components/connections/meta-integration-card";
+import {
+  SocialChannelCard,
+  type SocialAccount,
+  type SocialChannelDef,
+} from "@/components/connections/social-channel-card";
+import { listMetaConnections } from "@/lib/meta/meta.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
   getConnections,
@@ -281,6 +287,28 @@ function ConnectionsPage() {
     staleTime: 60_000,
   });
 
+  const listMetaFn = useServerFn(listMetaConnections);
+  const { data: metaConnections = [] } = useQuery({
+    queryKey: ["meta-connections", brandId],
+    queryFn: () => listMetaFn({ data: { brandId: brandId! } }),
+    enabled: !!brandId,
+  });
+
+  const { data: brandRow } = useQuery({
+    queryKey: ["brand-name", brandId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("brands")
+        .select("name")
+        .eq("id", brandId!)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!brandId,
+    staleTime: 5 * 60_000,
+  });
+  const brandLabel = brandRow?.name ?? "Workspace";
+
   const invalidate = () => qc.invalidateQueries({ queryKey: ["connections", brandId] });
 
   type UpdateInput = {
@@ -451,17 +479,20 @@ function ConnectionsPage() {
           title="canais sociais"
           hint="Instagram · TikTok · Facebook · YouTube · LinkedIn · X · Threads"
         />
-        <MetaIntegrationCard brandId={brandId} />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {SOCIAL_CHANNELS.map((c) => (
-            <ChannelCard
-              key={c.id}
-              channel={c}
-              config={data?.channels?.[c.id]}
-              brandId={brandId}
-              onChanged={invalidate}
-            />
-          ))}
+          {SOCIAL_CHANNELS.map((c) => {
+            const accounts = accountsForChannel(c, data?.channels?.[c.id], metaConnections);
+            return (
+              <SocialChannelCard
+                key={c.id}
+                channel={c as SocialChannelDef}
+                accounts={accounts}
+                brandId={brandId}
+                brandLabel={brandLabel}
+                onChanged={invalidate}
+              />
+            );
+          })}
         </div>
         </TabsContent>
 
@@ -515,6 +546,64 @@ function SectionHeader({
       <span className="text-xs text-muted-foreground">{hint}</span>
     </div>
   );
+}
+
+type MetaConnRow = Awaited<ReturnType<typeof listMetaConnections>>[number];
+
+function accountsForChannel(
+  channel: ChannelDef,
+  legacy: { connected?: boolean; handle?: string; updatedAt?: string } | undefined,
+  meta: MetaConnRow[],
+): SocialAccount[] {
+  if (channel.id === "facebook") {
+    return meta.map((c) => {
+      const md = (c.metadata ?? {}) as { page_picture_url?: string | null };
+      return {
+        id: c.id,
+        name: c.externalName ?? c.externalId,
+        handle: c.externalName ?? undefined,
+        avatarUrl: md.page_picture_url ?? undefined,
+        updatedAt: c.updatedAt,
+        status: c.status === "active" ? "active" : "attention",
+        lastError: c.lastError,
+      };
+    });
+  }
+  if (channel.id === "instagram") {
+    return meta
+      .filter((c) => {
+        const md = (c.metadata ?? {}) as { instagram_username?: string | null };
+        return c.accountUsername || md.instagram_username;
+      })
+      .map((c) => {
+        const md = (c.metadata ?? {}) as {
+          instagram_picture_url?: string | null;
+          instagram_username?: string | null;
+        };
+        const uname = c.accountUsername ?? md.instagram_username ?? "";
+        return {
+          id: c.id,
+          name: uname ? `@${uname}` : c.externalName ?? c.externalId,
+          handle: uname ? `@${uname}` : undefined,
+          avatarUrl: md.instagram_picture_url ?? undefined,
+          updatedAt: c.updatedAt,
+          status: c.status === "active" ? "active" : "attention",
+          lastError: c.lastError,
+        };
+      });
+  }
+  if (legacy?.connected) {
+    return [
+      {
+        id: `${channel.id}-manual`,
+        name: legacy.handle ?? channel.name,
+        handle: legacy.handle ?? undefined,
+        updatedAt: legacy.updatedAt ?? null,
+        status: "active",
+      },
+    ];
+  }
+  return [];
 }
 
 function MessagingKpiCards({
