@@ -2,20 +2,24 @@
 // Este é o ÚNICO caminho autorizado para inserir em `brain_events` a partir
 // da plataforma. Módulos externos devem consumir via `brain.events.publish()`.
 import type { BrainContext, BrainEventInput } from "../core";
+import { waitUntil } from "@/lib/wait-until.server";
 
 export async function publish(ctx: BrainContext, event: BrainEventInput): Promise<void> {
-  const { error } = await ctx.supabase.from("brain_events").insert({
-    brand_id: event.brand_id,
-    client_id: event.client_id ?? null,
-    source_module: event.source_module,
-    event_type: event.event_type,
-    actor_id: event.actor_id ?? ctx.userId,
-    payload: event.payload,
-  });
-  if (error) {
-    // Event Bus é best-effort — nunca deve derrubar o fluxo do chamador.
-    console.error("[brain.events.publish]", error.message);
-  }
+  // Fire-and-forget: o Event Bus é best-effort e NUNCA deve bloquear a resposta.
+  // `waitUntil` mantém o isolate vivo no Worker até o insert concluir.
+  waitUntil(
+    (async () => {
+      const { error } = await ctx.supabase.from("brain_events").insert({
+        brand_id: event.brand_id,
+        client_id: event.client_id ?? null,
+        source_module: event.source_module,
+        event_type: event.event_type,
+        actor_id: event.actor_id ?? ctx.userId,
+        payload: event.payload,
+      });
+      if (error) console.error("[brain.events.publish]", error.message);
+    })(),
+  );
 }
 
 export async function list(
