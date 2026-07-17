@@ -380,6 +380,56 @@ export type Database = {
           },
         ]
       }
+      brain_learning_queue: {
+        Row: {
+          attempts: number
+          brand_id: string | null
+          created_at: string
+          enqueued_at: string
+          error: string | null
+          event_id: string
+          id: string
+          processed_at: string | null
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          brand_id?: string | null
+          created_at?: string
+          enqueued_at?: string
+          error?: string | null
+          event_id: string
+          id?: string
+          processed_at?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          brand_id?: string | null
+          created_at?: string
+          enqueued_at?: string
+          error?: string | null
+          event_id?: string
+          id?: string
+          processed_at?: string | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_learning_queue_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "brain_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brain_memory: {
         Row: {
           access_count: number
@@ -2943,6 +2993,8 @@ export type Database = {
       portal_metrics: { Args: { _token: string }; Returns: Json }
       portal_post: { Args: { _post_id: string; _token: string }; Returns: Json }
       portal_resolve: { Args: { _token: string }; Returns: Json }
+      process_brain_learning_queue: { Args: { _limit?: number }; Returns: Json }
+      reap_brain_learning_queue: { Args: never; Returns: number }
       reap_stuck_ai_jobs: { Args: never; Returns: number }
     }
     Enums: {
