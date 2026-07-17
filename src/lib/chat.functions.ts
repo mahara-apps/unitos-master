@@ -21,7 +21,16 @@ export type ChatMessageRow = {
   brain_context: BrainContextSummary | null;
   used_llm: boolean;
   model: string | null;
+  tool_calls: ChatToolCall[];
   created_at: string;
+};
+
+export type ChatToolCall = {
+  name: string;
+  input: unknown;
+  output: unknown;
+  ok: boolean;
+  ts: string;
 };
 
 export type ChatConversationRow = {
@@ -110,7 +119,7 @@ export const listChatMessagesFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<ChatMessageRow[]> => {
     const { data: rows, error } = await context.supabase
       .from("chat_messages")
-      .select("id, conversation_id, role, content, attachments, brain_context, used_llm, model, created_at")
+      .select("id, conversation_id, role, content, attachments, brain_context, used_llm, model, tool_calls, created_at")
       .eq("conversation_id", data.conversationId)
       .order("created_at", { ascending: true })
       .limit(500);
