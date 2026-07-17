@@ -18,6 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { cn } from "@/lib/utils";
+import { UnitosLogo } from "@/components/brand/unitos-logo";
 
 export const Route = createFileRoute("/forgot-password")({
   head: () => ({
@@ -84,7 +85,8 @@ function ForgotPasswordPage() {
         className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,var(--color-muted)_0%,transparent_60%)]"
       />
       <div className="w-full max-w-[420px]">
-        <div className="mb-8 text-center">
+        <div className="mb-8 flex flex-col items-center text-center">
+          <UnitosLogo variant="full" eager className="mb-4 h-9 w-auto" />
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Recuperar senha
           </h1>

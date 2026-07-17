@@ -1,81 +1,41 @@
+## Objetivo
+Substituir o placeholder atual (quadrado indigo com ícone `Sparkles` + texto "Unitos") pela logomarca oficial nas telas de login e na sidebar, e atualizar o favicon do sistema.
 
-## Diagnóstico
+## Assets
+Enviar os 3 arquivos como **Lovable Assets** (CDN) para não inchar o repo, exceto o favicon (que precisa estar em `public/`):
 
-Verifiquei o estado atual:
-
-- `src/router.tsx` já tem `defaultPreload: "intent"`, `defaultPreloadDelay: 50` e `defaultPreloadStaleTime: 0`. ✅
-- A sidebar (`src/components/app-sidebar.tsx`) usa `<Link>` do TanStack — herda o preload. ✅
-- **Gargalo real:** apenas `customers.$customerId.tsx` define `loader` com prefetch. Todas as outras rotas (`dashboard`, `content`, `calendar`, `tasks`, `projects`, `analytics`, `connections`, `notifications`, `customers`, `media-plans`, `brain`, `agents`, `settings.*`) buscam dados só depois do componente montar via `useQuery`. Resultado: o hover pré-carrega apenas o chunk JS, mas a página ainda mostra skeleton enquanto o fetch começa **após** o clique.
-- Abas internas (Radix `Tabs` em `customers/$id`, `connections`, `settings`) não são rotas — não há preload nativo. O painel só busca dados quando você clica.
-
-## O que vou fazer
-
-### 1) Ajuste global do router (`src/router.tsx`)
-
-- `defaultPreloadDelay: 50 → 0` — dispara o prefetch imediatamente no hover, sem 50ms de espera.
-- Manter `defaultPreloadStaleTime: 0` (Query controla o TTL).
-
-### 2) Adicionar `loader` com prefetch nas rotas quentes
-
-Padrão canônico TanStack + Query — não bloqueia navegação, só aquece cache:
-
-```ts
-loader: ({ context }) => {
-  context.queryClient.prefetchQuery(dashboardKpisQuery(brandId));
-  context.queryClient.prefetchQuery(dashboardHeatmapQuery(brandId));
-}
-```
-
-Rotas alvo (uma `queryOptions` factory por consulta principal, reutilizada por loader e componente):
-
-| Rota | Consultas pré-buscadas |
+| Origem (upload) | Destino |
 |---|---|
-| `dashboard` | KPIs, heatmap, pipeline, próximos posts |
-| `customers.index` | lista de clientes + counts |
-| `content` | posts do board + pipeline stages |
-| `calendar` | posts do mês vigente |
-| `tasks` | tasks do usuário + KPIs |
-| `projects.index` | lista de projetos |
-| `projects.$projectId` | projeto + posts vinculados |
-| `analytics` | métricas do período padrão |
-| `connections` | conexões + KPIs (IA/canais/mensageria) |
-| `notifications` | inbox + KPIs |
-| `media-plans` | lista de planos |
-| `customers.$customerId.brain` | briefing + personas + swot |
-| `settings.team` | membros + convites |
-| `settings.notifications` | preferências |
+| `logo_unitos_tema_claro.png` (logo escura, para fundo claro) | `src/assets/logo-unitos-light.png.asset.json` |
+| `logo_unitos_tema_escuro.png` (logo clara, para fundo escuro) | `src/assets/logo-unitos-dark.png.asset.json` |
+| `favicon-unitos.png` | `public/favicon.png` (copiado direto) + remover `public/favicon.ico` |
 
-Para rotas sob `_authenticated`, o loader roda com o middleware Supabase já em contexto — sessão garantida, sem risco de 401 em prerender.
+Criar um wrapper `src/components/brand/unitos-logo.tsx` que escolhe a variante conforme o tema atual (usa `useTheme` já existente no `ThemeProvider`), aceitando props `variant: "full" | "mark"` e `className`. Renderiza um `<img>` com `alt="Unitos"` e ativa `loading="eager"` só no login.
 
-### 3) Sidebar — `preload="intent"` explícito
+## Alterações por tela
 
-Em `src/components/app-sidebar.tsx`, adicionar `preload="intent"` em cada `<Link>` para deixar o comportamento evidente e imune a futuras mudanças de `defaultPreload`.
+### 1. Sidebar — `src/components/app-sidebar.tsx`
+- Substituir o bloco do header (linhas 91-102): remover o `<span>` com `Sparkles` + o texto "Unitos".
+- Estado expandido: renderizar `<UnitosLogo variant="full" className="h-6 w-auto" />` (logo completa com wordmark).
+- Estado colapsado (`group-data-[collapsible=icon]`): renderizar apenas o ícone `U` — `<UnitosLogo variant="mark" className="h-7 w-7" />` usando o mesmo PNG mas com `object-contain` cortado via CSS, OU uma versão só do símbolo (extraída via crop no componente com `object-position`). Preferência: usar o `favicon-unitos.png` como "mark" no estado colapsado (já é o U isolado).
+- Remover import de `Sparkles`.
 
-### 4) Prefetch em abas Radix (in-page)
+### 2. Login — `src/components/login-form.tsx` (linhas 100-108)
+- Substituir o `<h1>Unitos</h1>` por `<UnitosLogo variant="full" className="mx-auto h-10 w-auto" />`.
+- Manter o subtítulo "Entre ou crie sua conta…".
 
-Criar util `useTabPrefetch(queryOptions)` e passar `onMouseEnter`/`onFocus` nos `TabsTrigger` das telas com tabs pesadas:
+### 3. Forgot password / Reset password
+- Aplicar o mesmo padrão de logo no topo se houver bloco de título análogo (verificar arquivos e reaproveitar componente).
 
-- `customers.$customerId.tsx` — aba **Cérebro da Marca**, **Produção**, **Cadastro**
-- `connections.tsx` — abas **Canais** e **Mensageria** (KPIs pesados)
-- `settings.tsx` — abas menos críticas ficam de fora
-
-O hover na aba dispara `queryClient.prefetchQuery(...)` sem trocar de tab; ao clicar, o painel já tem dado quente.
-
-### 5) Sem alterações comportamentais
-
-- Nenhuma mudança de UI, layout ou lógica de negócio.
-- Nenhuma migração de banco.
-- Nenhuma refatoração de componentes — só adiciono `loader`, factory `queryOptions()`, e handlers `onMouseEnter` em triggers.
-
-## Impacto esperado
-
-- **Sidebar:** clique após hover ≥ ~100ms passa a ser praticamente instantâneo (chunk + dados já em cache).
-- **Abas internas:** troca de aba sem skeleton na maioria dos casos.
-- **Custo:** prefetch em hover consome um pouco mais de banda; mitigado pelo `staleTime` do Query (dados reaproveitados) e por `prefetchQuery` (não bloqueia, não dispara refetch se já fresco).
+### 4. Favicon — `src/routes/__root.tsx`
+- Adicionar `{ rel: "icon", type: "image/png", href: "/favicon.png" }` no `head().links` do root route.
+- Executar `rm public/favicon.ico` para não servir o ícone padrão da Lovable.
 
 ## Detalhes técnicos
+- `UnitosLogo` importa os dois `.asset.json` e resolve a URL conforme `theme === "dark"` (fallback: system → checar `matchMedia`).
+- Como as duas versões diferem só no contraste do miolo do "U" e do subtítulo, o switch de tema garante legibilidade em ambos.
+- Nenhuma mudança em rotas ou lógica de auth. Nenhuma migration.
 
-- Cada rota que hoje só usa `useQuery` ganha uma `queryOptions()` factory exportada em `src/lib/<feature>.queries.ts` (ou junto do arquivo de server functions).
-- O componente continua usando `useQuery(opts)` — nenhuma mudança de render.
-- O loader chama `context.queryClient.prefetchQuery(opts)` (sem `await`) para não bloquear a navegação; se o dado já estiver fresco, Query devolve do cache.
-- Nada muda em `Suspense` boundaries existentes.
+## Fora de escopo
+- Redesenhar o layout do login ou da sidebar.
+- Ajustar cores do design system para bater com o verde-limão do logo (posso propor num passe seguinte se quiser).

@@ -7,6 +7,7 @@ import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
+import { UnitosLogo } from "@/components/brand/unitos-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -99,9 +100,7 @@ export function LoginForm() {
   return (
     <div className="w-full max-w-[420px]">
       <div className="mb-8 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Unitos
-        </h1>
+        <UnitosLogo variant="full" eager className="mx-auto h-10 w-auto" />
         <p className="mt-2 text-sm text-muted-foreground">
           Entre ou crie sua conta para acessar o painel.
         </p>
