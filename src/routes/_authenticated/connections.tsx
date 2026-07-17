@@ -48,6 +48,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TemplateEditor } from "@/components/messaging/template-editor";
+import { MetaIntegrationCard } from "@/components/connections/meta-integration-card";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
   getConnections,
@@ -450,6 +451,7 @@ function ConnectionsPage() {
           title="canais sociais"
           hint="Instagram · TikTok · Facebook · YouTube · LinkedIn · X · Threads"
         />
+        <MetaIntegrationCard brandId={brandId} />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {SOCIAL_CHANNELS.map((c) => (
             <ChannelCard

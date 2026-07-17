@@ -1,0 +1,285 @@
+// Meta (Facebook / Instagram) Graph API provider.
+// Server-only. Encapsulates OAuth, token lifecycle and Graph calls so the
+// rest of the app never talks to graph.facebook.com directly.
+
+const GRAPH_VERSION = "v21.0";
+const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
+const OAUTH_DIALOG = `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`;
+
+export const META_DEFAULT_SCOPES = [
+  "pages_show_list",
+  "pages_read_engagement",
+  "pages_manage_posts",
+  "pages_manage_metadata",
+  "instagram_basic",
+  "instagram_content_publish",
+  "instagram_manage_insights",
+  "business_management",
+  "public_profile",
+  "email",
+];
+
+export type MetaPageAsset = {
+  pageId: string;
+  pageName: string;
+  pageAccessToken: string;
+  category?: string;
+  tasks?: string[];
+  instagramBusinessId?: string;
+  instagramUsername?: string;
+};
+
+export type MetaUser = { id: string; name?: string; email?: string };
+
+export type MetaTokenInfo = {
+  accessToken: string;
+  tokenType: string;
+  expiresIn?: number;
+  expiresAt?: Date;
+};
+
+export type GraphErrorShape = {
+  message: string;
+  type?: string;
+  code?: number;
+  error_subcode?: number;
+  fbtrace_id?: string;
+};
+
+export class MetaGraphError extends Error {
+  status: number;
+  graph?: GraphErrorShape;
+  constructor(message: string, status: number, graph?: GraphErrorShape) {
+    super(message);
+    this.name = "MetaGraphError";
+    this.status = status;
+    this.graph = graph;
+  }
+}
+
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error(`Meta integration is not configured: missing ${name}`);
+  return v;
+}
+
+export class MetaProvider {
+  private appId: string;
+  private appSecret: string;
+  /**
+   * The redirect URI must match EXACTLY what is registered in the Meta App
+   * Dashboard (Facebook Login → Valid OAuth Redirect URIs).
+   */
+  redirectUri: string;
+
+  constructor(opts?: { appId?: string; appSecret?: string; redirectUri?: string }) {
+    this.appId = opts?.appId ?? requireEnv("META_APP_ID");
+    this.appSecret = opts?.appSecret ?? requireEnv("META_APP_SECRET");
+    this.redirectUri =
+      opts?.redirectUri ??
+      process.env.META_REDIRECT_URI ??
+      "https://unitos.lovable.app/api/public/meta/callback";
+  }
+
+  // --------------------------------------------------------------- OAuth ---
+  buildAuthorizeUrl(params: {
+    state: string;
+    scopes?: string[];
+    /** display=popup renders a friendlier consent screen for embedded flows. */
+    display?: "page" | "popup";
+    /** auth_type=rerequest re-prompts for previously declined scopes. */
+    authType?: "rerequest" | "reauthenticate";
+  }): string {
+    const scopes = (params.scopes ?? META_DEFAULT_SCOPES).join(",");
+    const url = new URL(OAUTH_DIALOG);
+    url.searchParams.set("client_id", this.appId);
+    url.searchParams.set("redirect_uri", this.redirectUri);
+    url.searchParams.set("state", params.state);
+    url.searchParams.set("scope", scopes);
+    url.searchParams.set("response_type", "code");
+    if (params.display) url.searchParams.set("display", params.display);
+    if (params.authType) url.searchParams.set("auth_type", params.authType);
+    return url.toString();
+  }
+
+  /** Exchanges the ?code returned by Meta for a short-lived user access token. */
+  async exchangeCode(code: string): Promise<MetaTokenInfo> {
+    const url = new URL(`${GRAPH_BASE}/oauth/access_token`);
+    url.searchParams.set("client_id", this.appId);
+    url.searchParams.set("client_secret", this.appSecret);
+    url.searchParams.set("redirect_uri", this.redirectUri);
+    url.searchParams.set("code", code);
+    return this.readToken(url.toString());
+  }
+
+  /**
+   * Trades a short-lived user token for a long-lived one (~60 days). Meta
+   * does not issue refresh tokens; you refresh by calling this again with a
+   * still-valid long-lived token before it expires.
+   */
+  async exchangeForLongLivedUserToken(shortLivedToken: string): Promise<MetaTokenInfo> {
+    const url = new URL(`${GRAPH_BASE}/oauth/access_token`);
+    url.searchParams.set("grant_type", "fb_exchange_token");
+    url.searchParams.set("client_id", this.appId);
+    url.searchParams.set("client_secret", this.appSecret);
+    url.searchParams.set("fb_exchange_token", shortLivedToken);
+    return this.readToken(url.toString());
+  }
+
+  /** Refresh = re-issue a long-lived token from a still-valid one. */
+  async refreshLongLivedUserToken(currentToken: string): Promise<MetaTokenInfo> {
+    return this.exchangeForLongLivedUserToken(currentToken);
+  }
+
+  /** Revoke the granted permissions for the currently connected user. */
+  async revoke(userAccessToken: string, metaUserId: string): Promise<void> {
+    await this.graph<{ success: boolean }>(`/${metaUserId}/permissions`, {
+      accessToken: userAccessToken,
+      method: "DELETE",
+    });
+  }
+
+  // ------------------------------------------------------------- Assets ---
+  async getMe(userAccessToken: string): Promise<MetaUser> {
+    return this.graph<MetaUser>("/me", {
+      accessToken: userAccessToken,
+      query: { fields: "id,name,email" },
+    });
+  }
+
+  /**
+   * Lists the Facebook Pages the user manages together with each page's
+   * page-scoped access token (which is what we persist for future API calls)
+   * and the connected Instagram Business account, when present.
+   */
+  async listPagesWithInstagram(userAccessToken: string): Promise<MetaPageAsset[]> {
+    type PageRow = {
+      id: string;
+      name: string;
+      access_token: string;
+      category?: string;
+      tasks?: string[];
+      instagram_business_account?: { id: string; username?: string };
+    };
+    type Paged<T> = { data: T[]; paging?: { next?: string } };
+
+    const out: MetaPageAsset[] = [];
+    let nextUrl: string | null = null;
+    let first = true;
+    while (first || nextUrl) {
+      const res: Paged<PageRow> = first
+        ? await this.graph<Paged<PageRow>>("/me/accounts", {
+            accessToken: userAccessToken,
+            query: {
+              fields:
+                "id,name,access_token,category,tasks,instagram_business_account{id,username}",
+              limit: "50",
+            },
+          })
+        : await this.graphAbsolute<Paged<PageRow>>(nextUrl!);
+      for (const p of res.data ?? []) {
+        out.push({
+          pageId: p.id,
+          pageName: p.name,
+          pageAccessToken: p.access_token,
+          category: p.category,
+          tasks: p.tasks,
+          instagramBusinessId: p.instagram_business_account?.id,
+          instagramUsername: p.instagram_business_account?.username,
+        });
+      }
+      nextUrl = res.paging?.next ?? null;
+      first = false;
+    }
+    return out;
+  }
+
+  // --------------------------------------------------------- Generic API ---
+  /**
+   * Generic Graph API call. Prefer the specialised helpers above; use this
+   * as an escape hatch or when building new features on top of Graph.
+   */
+  async graph<T>(
+    path: string,
+    opts: {
+      accessToken: string;
+      method?: "GET" | "POST" | "DELETE";
+      query?: Record<string, string>;
+      body?: Record<string, unknown> | FormData;
+    },
+  ): Promise<T> {
+    const url = new URL(`${GRAPH_BASE}${path.startsWith("/") ? path : `/${path}`}`);
+    if (opts.query) for (const [k, v] of Object.entries(opts.query)) url.searchParams.set(k, v);
+    if (!url.searchParams.has("access_token")) {
+      url.searchParams.set("access_token", opts.accessToken);
+    }
+    // App-secret proof hardens calls against leaked tokens.
+    url.searchParams.set(
+      "appsecret_proof",
+      await hmacSha256Hex(this.appSecret, opts.accessToken),
+    );
+    return this.doFetch<T>(url.toString(), opts.method ?? "GET", opts.body);
+  }
+
+  private async graphAbsolute<T>(absoluteUrl: string): Promise<T> {
+    return this.doFetch<T>(absoluteUrl, "GET");
+  }
+
+  private async doFetch<T>(
+    url: string,
+    method: "GET" | "POST" | "DELETE",
+    body?: Record<string, unknown> | FormData,
+  ): Promise<T> {
+    const init: RequestInit = { method };
+    if (body instanceof FormData) {
+      init.body = body;
+    } else if (body) {
+      init.headers = { "Content-Type": "application/json" };
+      init.body = JSON.stringify(body);
+    }
+    const res = await fetch(url, init);
+    const text = await res.text();
+    let parsed: unknown = null;
+    try {
+      parsed = text ? JSON.parse(text) : null;
+    } catch {
+      /* non-JSON */
+    }
+    if (!res.ok) {
+      const g = (parsed as { error?: GraphErrorShape } | null)?.error;
+      throw new MetaGraphError(g?.message ?? `Graph API ${res.status}`, res.status, g);
+    }
+    return parsed as T;
+  }
+
+  private async readToken(url: string): Promise<MetaTokenInfo> {
+    const data = await this.doFetch<{
+      access_token: string;
+      token_type?: string;
+      expires_in?: number;
+    }>(url, "GET");
+    const expiresAt = data.expires_in
+      ? new Date(Date.now() + data.expires_in * 1000)
+      : undefined;
+    return {
+      accessToken: data.access_token,
+      tokenType: data.token_type ?? "bearer",
+      expiresIn: data.expires_in,
+      expiresAt,
+    };
+  }
+}
+
+async function hmacSha256Hex(secret: string, message: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
+  return Array.from(new Uint8Array(sig))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
