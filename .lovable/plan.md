@@ -1,53 +1,73 @@
 ## Objetivo
 
-Padronizar toda a experiência do módulo `/tasks` em torno do **drawer lateral** (Sheet 640px) já usado como padrão do sistema, eliminando o modal central de criação e permitindo abrir qualquer tarefa em **1 clique** — sem depender de acertar o título.
+Reestruturar o `TaskDrawer` (`src/components/tasks/shared.tsx`, linhas 664-929) para a estrutura **estilo Asana** da referência anexada: título grande no topo, ação primária "Concluir", metadados como **linhas rótulo → valor** e discussão ao fim com composer bem separado.
 
-## Diagnóstico atual (verificado)
+## Estrutura nova (mesma largura 640px)
 
-- `src/components/tasks/shared.tsx` → `CreateTaskDialog` usa `Dialog` centralizado (linhas 421-503), fora do padrão dos demais drawers do sistema (Novo cliente, Adicionar membro, TaskDrawer).
-- `TaskDrawer` (linhas 664-930) já é um Sheet 640px, mas o header mistura `Input` cru + `Select` cru + `<input type="datetime-local">` nativo, quebrando a linguagem visual (badges semânticas, chips, tokens do DS) usada na tabela/kanban.
-- Abertura da tarefa hoje só acontece ao clicar no **botão do título** (`task-table.tsx:475` `<button onClick={onOpen}>`) — o resto da linha não é clicável. No Kanban o card inteiro já abre (`task-kanban.tsx:63`).
-- Rota `tasks.tsx` orquestra `CreateTaskDialog` + `TaskDrawer` via `?taskId=` na URL — permanece igual.
+```text
+┌────────────────────────────────────────────────┐
+│ [✓ Concluir]              [↑] [↓] [⋯] [×]     │  ← top bar (ação + nav)
+├────────────────────────────────────────────────┤
+│ Título grande (autosave onBlur)                │
+│                                                │
+│  Responsável   [👤 Bruno Abreu ▾]              │
+│  Prazo         [📅 14 jul · 09:00 ▾]           │
+│  Status        [● A fazer ▾]                   │
+│  Prioridade    [● Média ▾]                     │
+│  Conta         [Café Aurora ▾]                 │
+│  Projeto       [Nenhum ▾]                      │
+│                                                │
+│  Descrição                                     │
+│  ┌──────────────────────────────────────────┐  │
+│  │ (textarea sem borda, inline)             │  │
+│  └──────────────────────────────────────────┘  │
+├────────────────────────────────────────────────┤
+│ 💬 Discussão · 0                               │
+│ (lista de comentários)                         │
+├────────────────────────────────────────────────┤
+│ [avatar] Escreva um comentário…    [Enviar ➤] │  ← composer sticky
+├────────────────────────────────────────────────┤
+│ 🗑 Excluir              Criada em 14 jul 2026  │
+└────────────────────────────────────────────────┘
+```
 
-## Plano
+## Mudanças
 
-### 1. Substituir o modal "Nova tarefa" por drawer lateral
+### 1. Top bar (novo)
+- Botão primário **"Concluir"** (troca para "Concluído ✓" com `variant="secondary"` quando `status==="done"`) → dispara `patchMutation` com `{ done: !isDone, status: isDone ? "todo" : "done" }`.
+- À direita, cluster compacto: `↑` (K), `↓` (J), `⋯` (menu com Excluir), `×` (fechar). Remove o rótulo "TAREFA" em caps.
 
-Refatorar `CreateTaskDialog` em `shared.tsx` para `CreateTaskDrawer` (mantendo o nome exportado por compat) usando `Sheet` + `SheetContent` 520px, mesma estrutura de `add-member-drawer.tsx` / `quick-create-customer-drawer.tsx`:
+### 2. Título
+- `Input` transparente `text-xl font-semibold`, mesma lógica de autosave onBlur. Fica logo abaixo do top bar, com padding maior (`px-6 pt-4 pb-2`).
 
-- Header do Sheet com título "Nova tarefa" + subtítulo curto.
-- Body com os mesmos campos (Título, Descrição, Prioridade, Prazo, Responsável, Conta, Projeto) em espaçamento vertical do DS (`space-y-4`), labels `text-xs font-medium text-muted-foreground`.
-- Footer fixo com "Cancelar" + "Criar tarefa" (primary).
-- Preserva a API `{ brandId, clientId, open, onOpenChange, onCreated }` — nenhuma mudança em `tasks.tsx`.
+### 3. Metadados como grid de propriedades (substitui a fileira caótica de chips)
+- Grid `grid-cols-[120px_1fr] gap-y-2 gap-x-4` com 6 linhas: **Responsável, Prazo, Status, Prioridade, Conta, Projeto**.
+- Rótulo `text-xs text-muted-foreground`, valor à direita como botão "ghost" enxuto que abre popover — visual limpo estilo Asana.
+- Prazo: substitui `<input type="datetime-local">` cru por botão outline com ícone `CalendarClock` + label formatado (`d 'de' MMM · HH:mm`) e Popover com date/time (usa `<input type="datetime-local">` internamente).
+- Status/Prioridade: `Select` continua funcional mas com `SelectTrigger` estilo pílula (badge colorida do `STATUS_META/PRIORITY_META`) sem largura fixa.
+- Responsável/Conta/Projeto: reaproveita `AssigneePicker`/`ClientPicker`/`ProjectPicker` existentes com estilo mais discreto (borda transparente, hover `bg-muted/50`).
 
-### 2. Alinhar o `TaskDrawer` ao design system do módulo
+### 4. Descrição
+- Movida para dentro do body, após os metadados. Label pequeno + `Textarea` sem borda, `focus:border` — sensação inline (Asana).
 
-Ajustes visuais em `shared.tsx` (não muda API):
+### 5. Discussão
+- Header `💬 Discussão · N` com Separator acima.
+- Lista de comentários mantém layout atual (avatar + bolha).
+- **Composer stickado no rodapé** (acima do footer), com avatar do usuário atual à esquerda, textarea flat e botão Enviar redondo à direita — reduz peso visual do bloco atual.
+- Menções (@) preservadas.
 
-- Trocar o `<Select>` de status pelo `TaskStatusBadge` clicável (Popover com opções), reaproveitando `STATUS_META` — igual às pílulas usadas na tabela.
-- Trocar o `<Select>` de prioridade pelo `TaskPriorityBadge` clicável (mesmo Popover pattern).
-- Trocar o `<input type="datetime-local">` bruto por um botão outline `h-7 text-xs` com ícone `CalendarClock` + label formatado (`d 'de' MMM · HH:mm`) abrindo `Popover` com input datetime-local — casa com o visual dos chips do header.
-- Uniformizar spacing (`px-6 py-4` → `p-5`), separadores, e usar `Separator` do DS entre seções (Descrição / Metadados / Discussão).
-- Manter navegação J/K, autosave onBlur, comentários com @menções.
+### 6. Footer
+- Mantém "Excluir" (ghost destructive) à esquerda + timestamp "Criada em…" à direita, mas condensa para `py-2` para não competir com o composer.
 
-### 3. Abrir tarefas em 1 clique (linha inteira clicável)
+## Fora do escopo
+- Sem alterações em schema, RLS, ou server functions.
+- Sem novos campos (Estimated time, Dependencies, Collaborators do Asana ficam para futuro).
+- `CreateTaskDialog` (criação) permanece como está — refatoração recente.
+- Navegação J/K, autosave, menções e `patchMutation` permanecem funcionalmente idênticos.
 
-Em `src/components/tasks/task-table.tsx`:
+## Arquivos editados
+- `src/components/tasks/shared.tsx` (linhas 664-929, apenas render do `TaskDrawer`).
 
-- Adicionar `onClick={() => onOpenTask(task.id)}` + `className="cursor-pointer hover:bg-muted/40"` na `<tr>` da `TaskRow`.
-- Manter `e.stopPropagation()` nas células interativas (checkbox de seleção, botão de "concluído", pickers inline de status/prioridade/responsável, menu `...`) para não disparar o abrir junto — o padrão `<td onClick={(e) => e.stopPropagation()}>` já existe em `task-table.tsx:457` e será replicado nas demais.
-- Remover o wrapper `<button onClick={onOpen}>` do título, deixando só o texto (o clique já vem da linha).
-- Em `task-calendar.tsx`, os chips já abrem no clique — sem mudança.
-- Em `task-kanban.tsx`, cards já abrem no clique — sem mudança.
-
-### 4. Validação
-
-- Typecheck (`tsgo`).
-- Playwright headless em `/tasks`: criar tarefa via drawer, clicar em qualquer célula da linha para abrir, mudar status pela pílula no header, screenshot final.
-
-## Detalhes técnicos
-
-- Arquivos tocados: `src/components/tasks/shared.tsx`, `src/components/tasks/task-table.tsx`.
-- Nenhuma mudança em `tasks.functions.ts`, RLS, ou schema.
-- Nenhuma mudança na URL/search params da rota `/tasks`.
-- Exports públicos preservados: `CreateTaskDialog` (alias para o novo drawer) e `TaskDrawer`.
+## Validação
+- Typecheck.
+- Playwright: abrir tarefa existente, verificar top bar/metadados/discussão via screenshot, alterar status pelo botão "Concluir", confirmar autosave.

@@ -20,6 +20,8 @@ import {
   Folder,
   X,
   PauseCircle,
+  MoreHorizontal,
+  CalendarClock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -56,6 +58,12 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   addTaskCommentFn,
   createTaskFn,
@@ -661,6 +669,10 @@ export function TaskDrawer({
     setMentionOpen(false);
   }
 
+  const isDone = task?.status === "done";
+  const statusMeta = task ? STATUS_META[task.status] : null;
+  const priorityMeta = task ? PRIORITY_META[task.priority] : null;
+
   return (
     <Sheet open onOpenChange={(v) => !v && onClose()}>
       <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-[640px]">
@@ -670,105 +682,187 @@ export function TaskDrawer({
           </div>
         ) : (
           <>
-            {/* Header */}
-            <div className="border-b px-6 py-4">
-              <div className="mb-2 flex items-center justify-between text-[11px] text-muted-foreground">
-                <span className="font-mono uppercase tracking-widest">Tarefa</span>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    disabled={!prev}
-                    onClick={() => prev && onNavigate(prev.id)}
-                    title="Anterior (K)"
-                  >
-                    <ArrowUp className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    disabled={!next}
-                    onClick={() => next && onNavigate(next.id)}
-                    title="Próxima (J)"
-                  >
-                    <ArrowDown className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onClose}>
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <Input
-                value={draft.title ?? task.title}
-                onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
-                onBlur={() => {
-                  if (draft.title && draft.title !== task.title) {
-                    patchMutation.mutate({ taskId, patch: { title: draft.title.trim() } });
-                  }
-                }}
-                className="h-9 border-0 bg-transparent px-0 text-lg font-semibold shadow-none focus-visible:ring-0"
-              />
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <Select
-                  value={task.status}
-                  onValueChange={(v) =>
-                    patchMutation.mutate({
-                      taskId,
-                      patch: { status: v as TaskStatus, done: v === "done" },
-                    })
-                  }
+            {/* Top bar */}
+            <div className="flex items-center justify-between border-b px-4 py-2.5">
+              <Button
+                size="sm"
+                variant={isDone ? "secondary" : "default"}
+                className="h-8"
+                onClick={() =>
+                  patchMutation.mutate({
+                    taskId,
+                    patch: { done: !isDone, status: isDone ? "todo" : "done" },
+                  })
+                }
+              >
+                <CheckCircle2 className="mr-1.5 h-4 w-4" />
+                {isDone ? "Concluída" : "Concluir"}
+              </Button>
+              <div className="flex items-center gap-0.5">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={!prev}
+                  onClick={() => prev && onNavigate(prev.id)}
+                  title="Anterior (K)"
                 >
-                  <SelectTrigger className={cn("h-7 w-[140px] text-xs", STATUS_META[task.status].badge)}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TASK_STATUSES.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {STATUS_META[s].label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={task.priority}
-                  onValueChange={(v) => patchMutation.mutate({ taskId, patch: { priority: v as TaskPriority } })}
+                  <ArrowUp className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  disabled={!next}
+                  onClick={() => next && onNavigate(next.id)}
+                  title="Próxima (J)"
                 >
-                  <SelectTrigger className={cn("h-7 w-[120px] text-xs", PRIORITY_META[task.priority].badge)}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TASK_PRIORITIES.map((p) => (
-                      <SelectItem key={p} value={p}>
-                        {PRIORITY_META[p].label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <AssigneePicker
-                  brandId={brandId}
-                  value={task.assignee_id}
-                  onChange={(id) => patchMutation.mutate({ taskId, patch: { assignee_id: id } })}
-                  compact
-                />
-                <Input
-                  type="datetime-local"
-                  className="h-7 w-[190px] text-xs"
-                  value={task.due_at ? new Date(task.due_at).toISOString().slice(0, 16) : ""}
-                  onChange={(e) =>
-                    patchMutation.mutate({
-                      taskId,
-                      patch: { due_at: e.target.value ? new Date(e.target.value).toISOString() : null },
-                    })
-                  }
-                />
+                  <ArrowDown className="h-4 w-4" />
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => {
+                        if (confirm("Excluir esta tarefa?")) removeTask.mutate();
+                      }}
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" /> Excluir tarefa
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
             </div>
 
-            {/* Body */}
-            <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
-              <div className="space-y-2">
+            {/* Body (scrollable) */}
+            <div className="flex-1 overflow-y-auto">
+              {/* Title */}
+              <div className="px-6 pb-3 pt-5">
+                <Input
+                  value={draft.title ?? task.title}
+                  onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
+                  onBlur={() => {
+                    if (draft.title && draft.title !== task.title) {
+                      patchMutation.mutate({ taskId, patch: { title: draft.title.trim() } });
+                    }
+                  }}
+                  className={cn(
+                    "h-auto border-0 bg-transparent px-0 py-1 text-xl font-semibold leading-tight shadow-none focus-visible:ring-0",
+                    isDone && "text-muted-foreground line-through",
+                  )}
+                />
+              </div>
+
+              {/* Metadata grid */}
+              <div className="px-6 pb-6">
+                <dl className="grid grid-cols-[120px_1fr] items-center gap-x-4 gap-y-1 text-sm">
+                  <MetaRow label="Responsável">
+                    <AssigneePicker
+                      brandId={brandId}
+                      value={task.assignee_id}
+                      onChange={(id) => patchMutation.mutate({ taskId, patch: { assignee_id: id } })}
+                      compact
+                    />
+                  </MetaRow>
+
+                  <MetaRow label="Prazo">
+                    <DuePicker
+                      value={task.due_at}
+                      onChange={(iso) =>
+                        patchMutation.mutate({ taskId, patch: { due_at: iso } })
+                      }
+                    />
+                  </MetaRow>
+
+                  <MetaRow label="Status">
+                    <Select
+                      value={task.status}
+                      onValueChange={(v) =>
+                        patchMutation.mutate({
+                          taskId,
+                          patch: { status: v as TaskStatus, done: v === "done" },
+                        })
+                      }
+                    >
+                      <SelectTrigger
+                        className={cn(
+                          "h-7 w-auto gap-1.5 border px-2.5 text-xs font-medium",
+                          statusMeta?.badge,
+                        )}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TASK_STATUSES.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {STATUS_META[s].label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </MetaRow>
+
+                  <MetaRow label="Prioridade">
+                    <Select
+                      value={task.priority}
+                      onValueChange={(v) =>
+                        patchMutation.mutate({ taskId, patch: { priority: v as TaskPriority } })
+                      }
+                    >
+                      <SelectTrigger
+                        className={cn(
+                          "h-7 w-auto gap-1.5 border px-2.5 text-xs font-medium",
+                          priorityMeta?.badge,
+                        )}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TASK_PRIORITIES.map((p) => (
+                          <SelectItem key={p} value={p}>
+                            {PRIORITY_META[p].label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </MetaRow>
+
+                  <MetaRow label="Conta">
+                    <ClientPicker
+                      brandId={brandId}
+                      value={task.client_id}
+                      onChange={(id) =>
+                        patchMutation.mutate({
+                          taskId,
+                          patch: { client_id: id, project_id: null },
+                        })
+                      }
+                    />
+                  </MetaRow>
+
+                  <MetaRow label="Projeto">
+                    <ProjectPicker
+                      brandId={brandId}
+                      clientId={task.client_id}
+                      value={task.project_id}
+                      onChange={(id) => patchMutation.mutate({ taskId, patch: { project_id: id } })}
+                    />
+                  </MetaRow>
+                </dl>
+              </div>
+
+              <Separator />
+
+              {/* Description */}
+              <div className="space-y-1.5 px-6 py-5">
                 <label className="text-xs font-medium text-muted-foreground">Descrição</label>
                 <Textarea
                   rows={4}
@@ -781,33 +875,14 @@ export function TaskDrawer({
                       patchMutation.mutate({ taskId, patch: { description: val || null } });
                     }
                   }}
+                  className="resize-none border-transparent bg-transparent px-2 text-sm shadow-none hover:border-border focus-visible:border-border focus-visible:bg-background"
                 />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Conta</label>
-                  <ClientPicker
-                    brandId={brandId}
-                    value={task.client_id}
-                    onChange={(id) => patchMutation.mutate({ taskId, patch: { client_id: id, project_id: null } })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">Projeto</label>
-                  <ProjectPicker
-                    brandId={brandId}
-                    clientId={task.client_id}
-                    value={task.project_id}
-                    onChange={(id) => patchMutation.mutate({ taskId, patch: { project_id: id } })}
-                  />
-                </div>
               </div>
 
               <Separator />
 
               {/* Comments */}
-              <div className="space-y-3">
+              <div className="space-y-3 px-6 py-5">
                 <div className="flex items-center gap-2">
                   <MessageSquare className="h-4 w-4 text-muted-foreground" />
                   <h3 className="text-sm font-semibold">Discussão</h3>
@@ -848,46 +923,6 @@ export function TaskDrawer({
                     ))}
                   </ul>
                 )}
-
-                <div className="relative">
-                  <Textarea
-                    rows={2}
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && comment.trim()) {
-                        e.preventDefault();
-                        send.mutate();
-                      }
-                    }}
-                    placeholder="Escreva um comentário. Use @ para mencionar. Cmd/Ctrl+Enter para enviar."
-                    className="pr-24"
-                  />
-                  <Button
-                    size="sm"
-                    className="absolute bottom-2 right-2"
-                    onClick={() => send.mutate()}
-                    disabled={!comment.trim() || send.isPending}
-                  >
-                    {send.isPending ? (
-                      <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Send className="mr-1 h-3.5 w-3.5" />
-                    )}
-                    Enviar
-                  </Button>
-
-                  {mentionOpen ? (
-                    <div className="absolute bottom-14 left-0 z-20 w-64 rounded-md border bg-popover shadow-md">
-                      <MentionList
-                        members={members}
-                        query={mentionQuery}
-                        onPick={(u) => insertMention(u.id, u.name)}
-                      />
-                    </div>
-                  ) : null}
-                </div>
-
                 {mentionUserIds.length > 0 ? (
                   <div className="flex flex-wrap gap-1">
                     {mentionUserIds.map((id) => {
@@ -907,26 +942,125 @@ export function TaskDrawer({
               </div>
             </div>
 
-            {/* Footer */}
-            <div className="flex items-center justify-between border-t bg-background px-6 py-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-destructive hover:text-destructive"
-                onClick={() => {
-                  if (confirm("Excluir esta tarefa?")) removeTask.mutate();
-                }}
-              >
-                <Trash2 className="mr-1.5 h-4 w-4" /> Excluir
-              </Button>
-              <div className="text-[11px] text-muted-foreground">
-                Criada em {format(new Date(task.created_at), "d 'de' MMM yyyy", { locale: ptBR })}
+            {/* Sticky composer */}
+            <div className="border-t bg-background px-4 py-3">
+              <div className="relative">
+                <Textarea
+                  rows={2}
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && comment.trim()) {
+                      e.preventDefault();
+                      send.mutate();
+                    }
+                  }}
+                  placeholder="Escreva um comentário. Use @ para mencionar. Cmd/Ctrl+Enter para enviar."
+                  className="min-h-[60px] resize-none pr-12"
+                />
+                <Button
+                  size="icon"
+                  className="absolute bottom-2 right-2 h-8 w-8 rounded-full"
+                  onClick={() => send.mutate()}
+                  disabled={!comment.trim() || send.isPending}
+                  aria-label="Enviar comentário"
+                >
+                  {send.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+                {mentionOpen ? (
+                  <div className="absolute bottom-full left-0 z-20 mb-2 w-64 rounded-md border bg-popover shadow-md">
+                    <MentionList
+                      members={members}
+                      query={mentionQuery}
+                      onPick={(u) => insertMention(u.id, u.name)}
+                    />
+                  </div>
+                ) : null}
+              </div>
+              <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>
+                  Criada em {format(new Date(task.created_at), "d 'de' MMM yyyy", { locale: ptBR })}
+                </span>
+                <span className="font-mono opacity-70">J/K para navegar · Esc para fechar</span>
               </div>
             </div>
           </>
         )}
       </SheetContent>
     </Sheet>
+  );
+}
+
+function MetaRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <>
+      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dd className="flex min-w-0 items-center py-0.5">{children}</dd>
+    </>
+  );
+}
+
+function DuePicker({
+  value,
+  onChange,
+}: {
+  value: string | null;
+  onChange: (iso: string | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const local = value ? new Date(value) : null;
+  const label = local
+    ? format(local, "d 'de' MMM · HH:mm", { locale: ptBR })
+    : "Sem prazo";
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn(
+            "h-7 justify-start gap-1.5 px-2 text-xs font-normal hover:bg-muted",
+            !local && "text-muted-foreground",
+          )}
+        >
+          <CalendarClock className="h-3.5 w-3.5" />
+          {label}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto p-3">
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-muted-foreground">Data e hora</label>
+          <Input
+            type="datetime-local"
+            className="h-8 text-xs"
+            value={local ? local.toISOString().slice(0, 16) : ""}
+            onChange={(e) => {
+              onChange(e.target.value ? new Date(e.target.value).toISOString() : null);
+            }}
+          />
+          <div className="flex justify-between pt-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-muted-foreground"
+              onClick={() => {
+                onChange(null);
+                setOpen(false);
+              }}
+            >
+              Limpar
+            </Button>
+            <Button size="sm" className="h-7 text-xs" onClick={() => setOpen(false)}>
+              Ok
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
