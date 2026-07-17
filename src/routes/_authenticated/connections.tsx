@@ -479,17 +479,20 @@ function ConnectionsPage() {
           title="canais sociais"
           hint="Instagram · TikTok · Facebook · YouTube · LinkedIn · X · Threads"
         />
-        <MetaIntegrationCard brandId={brandId} />
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {SOCIAL_CHANNELS.map((c) => (
-            <ChannelCard
-              key={c.id}
-              channel={c}
-              config={data?.channels?.[c.id]}
-              brandId={brandId}
-              onChanged={invalidate}
-            />
-          ))}
+          {SOCIAL_CHANNELS.map((c) => {
+            const accounts = accountsForChannel(c, data?.channels?.[c.id], metaConnections);
+            return (
+              <SocialChannelCard
+                key={c.id}
+                channel={c as SocialChannelDef}
+                accounts={accounts}
+                brandId={brandId}
+                brandLabel={brandLabel}
+                onChanged={invalidate}
+              />
+            );
+          })}
         </div>
         </TabsContent>
 
