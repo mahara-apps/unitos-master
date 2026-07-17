@@ -32,13 +32,6 @@ const GraphInput = z.object({
   limit: z.number().int().min(10).max(2000).optional(),
 });
 
-const NeighborhoodInput = z.object({
-  brandId: z.string().uuid(),
-  entityType: z.string().min(1),
-  entityId: z.string().uuid(),
-  depth: z.number().int().min(1).max(3).optional(),
-});
-
 type RawNode = { type: string; id: string };
 type RawEdge = GraphEdge;
 type RawGraph = { nodes: RawNode[]; edges: RawEdge[] };
@@ -67,10 +60,7 @@ async function resolveLabels(sb: any, nodes: RawNode[]): Promise<Map<string, str
     [...byType.entries()].map(async ([type, ids]) => {
       const cfg = LABEL_TABLES[type];
       if (!cfg) return;
-      const { data } = await sb
-        .from(cfg.table)
-        .select(`id, ${cfg.column}`)
-        .in("id", ids);
+      const { data } = await sb.from(cfg.table).select(`id, ${cfg.column}`).in("id", ids);
       for (const row of (data ?? []) as Array<Record<string, unknown>>) {
         const id = String(row.id);
         const val = row[cfg.column];
@@ -89,32 +79,6 @@ export const brainGraphFn = createServerFn({ method: "POST" })
     const { data: raw, error } = await sb.rpc("get_brain_graph", {
       _brand_id: data.brandId ?? undefined,
       _limit: data.limit ?? 300,
-    });
-    if (error) throw new Error(error.message);
-    const graph = (raw ?? { nodes: [], edges: [] }) as RawGraph;
-    const labels = await resolveLabels(sb, graph.nodes);
-    const typeCounts: Record<string, number> = {};
-    for (const n of graph.nodes) typeCounts[n.type] = (typeCounts[n.type] ?? 0) + 1;
-    return {
-      nodes: graph.nodes.map((n) => ({
-        ...n,
-        label: labels.get(`${n.type}:${n.id}`) ?? `${n.type}·${n.id.slice(0, 6)}`,
-      })),
-      edges: graph.edges ?? [],
-      stats: { nodeCount: graph.nodes.length, edgeCount: (graph.edges ?? []).length, typeCounts },
-    };
-  });
-
-export const brainNeighborhoodFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => NeighborhoodInput.parse(i))
-  .handler(async ({ data, context }): Promise<BrainGraph> => {
-    const sb = context.supabase;
-    const { data: raw, error } = await sb.rpc("get_brain_neighborhood", {
-      _brand_id: data.brandId,
-      _entity_type: data.entityType,
-      _entity_id: data.entityId,
-      _depth: data.depth ?? 2,
     });
     if (error) throw new Error(error.message);
     const graph = (raw ?? { nodes: [], edges: [] }) as RawGraph;

@@ -72,7 +72,13 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
     <div className="space-y-6 p-6">
       {/* Hero */}
       <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-primary/10 via-card to-card p-6">
-        <div className="absolute inset-0 opacity-40" style={{ background: "radial-gradient(circle at 20% 20%, color-mix(in oklab, var(--primary) 20%, transparent), transparent 55%)" }} />
+        <div
+          className="absolute inset-0 opacity-40"
+          style={{
+            background:
+              "radial-gradient(circle at 20% 20%, color-mix(in oklab, var(--primary) 20%, transparent), transparent 55%)",
+          }}
+        />
         <div className="relative flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="grid h-11 w-11 place-items-center rounded-xl border border-border/60 bg-background/70 backdrop-blur">
@@ -81,7 +87,8 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
             <div>
               <h2 className="text-lg font-semibold">O Brain está aprendendo</h2>
               <p className="text-sm text-muted-foreground">
-                Conhecimento consolidado de toda a operação — atualizado continuamente a partir dos eventos da agência.
+                Conhecimento consolidado de toda a operação — atualizado continuamente a partir dos
+                eventos da agência.
               </p>
             </div>
           </div>
@@ -108,22 +115,77 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-        <Kpi loading={q.isLoading} icon={<Brain className="h-4 w-4 text-primary" />} label="Conhecimentos" value={d?.kpis.knowledge} />
-        <Kpi loading={q.isLoading} icon={<Sparkles className="h-4 w-4" style={{ color: "var(--chart-4)" }} />} label="Memórias" value={d?.kpis.memories} />
-        <Kpi loading={q.isLoading} icon={<Lightbulb className="h-4 w-4" style={{ color: "var(--chart-3)" }} />} label="Insights" value={d?.kpis.insights} />
-        <Kpi loading={q.isLoading} icon={<Target className="h-4 w-4" style={{ color: "var(--chart-2)" }} />} label="Recomendações" value={d?.kpis.recommendations} />
-        <Kpi loading={q.isLoading} icon={<Gauge className="h-4 w-4" style={{ color: "var(--chart-5)" }} />} label="Confiança média" value={d ? Math.round(d.kpis.avgConfidence * 100) : undefined} suffix="%" />
-        <Kpi loading={q.isLoading} icon={<Waypoints className="h-4 w-4 text-muted-foreground" />} label="Padrões descobertos" value={d?.kpis.patterns} />
+        <Kpi
+          loading={q.isLoading}
+          icon={<Brain className="h-4 w-4 text-primary" />}
+          label="Conhecimentos"
+          value={d?.kpis.knowledge}
+        />
+        <Kpi
+          loading={q.isLoading}
+          icon={<Sparkles className="h-4 w-4" style={{ color: "var(--chart-4)" }} />}
+          label="Memórias"
+          value={d?.kpis.memories}
+        />
+        <Kpi
+          loading={q.isLoading}
+          icon={<Lightbulb className="h-4 w-4" style={{ color: "var(--chart-3)" }} />}
+          label="Insights"
+          value={d?.kpis.insights}
+        />
+        <Kpi
+          loading={q.isLoading}
+          icon={<Target className="h-4 w-4" style={{ color: "var(--chart-2)" }} />}
+          label="Recomendações"
+          value={d?.kpis.recommendations}
+        />
+        <Kpi
+          loading={q.isLoading}
+          icon={<Gauge className="h-4 w-4" style={{ color: "var(--chart-5)" }} />}
+          label="Confiança média"
+          value={d ? Math.round(d.kpis.avgConfidence * 100) : undefined}
+          suffix="%"
+        />
+        <Kpi
+          loading={q.isLoading}
+          icon={<Waypoints className="h-4 w-4 text-muted-foreground" />}
+          label="Padrões descobertos"
+          value={d?.kpis.patterns}
+        />
       </div>
 
       {/* Learned Today */}
-      <Section title="O Brain aprendeu hoje" icon={<Zap className="h-4 w-4 text-primary" />} description="Atividade de aprendizado desde 00:00.">
+      <Section
+        title="O Brain aprendeu hoje"
+        icon={<Zap className="h-4 w-4 text-primary" />}
+        description="Atividade de aprendizado desde 00:00."
+      >
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-          <MicroStat loading={q.isLoading} label="Eventos capturados" value={d?.learnedToday.events} />
-          <MicroStat loading={q.isLoading} label="Memórias atualizadas" value={d?.learnedToday.memoriesUpdated} />
-          <MicroStat loading={q.isLoading} label="Insights criados" value={d?.learnedToday.insightsCreated} />
-          <MicroStat loading={q.isLoading} label="Recomendações" value={d?.learnedToday.recommendationsCreated} />
-          <MicroStat loading={q.isLoading} label="Conhecimento reforçado" value={d?.learnedToday.knowledgeReinforced} />
+          <MicroStat
+            loading={q.isLoading}
+            label="Eventos capturados"
+            value={d?.learnedToday.events}
+          />
+          <MicroStat
+            loading={q.isLoading}
+            label="Memórias atualizadas"
+            value={d?.learnedToday.memoriesUpdated}
+          />
+          <MicroStat
+            loading={q.isLoading}
+            label="Insights criados"
+            value={d?.learnedToday.insightsCreated}
+          />
+          <MicroStat
+            loading={q.isLoading}
+            label="Recomendações"
+            value={d?.learnedToday.recommendationsCreated}
+          />
+          <MicroStat
+            loading={q.isLoading}
+            label="Conhecimento reforçado"
+            value={d?.learnedToday.knowledgeReinforced}
+          />
         </div>
       </Section>
 
@@ -135,10 +197,18 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
           icon={<Calendar className="h-4 w-4 text-primary" />}
           description={`Eventos e insights nos últimos ${filters.days} dias.`}
         >
-          {q.isLoading ? <Skeleton className="h-40" /> : <Timeline data={d?.learningTimeline ?? []} />}
+          {q.isLoading ? (
+            <Skeleton className="h-40" />
+          ) : (
+            <Timeline data={d?.learningTimeline ?? []} />
+          )}
         </Section>
 
-        <Section title="Mapa de conhecimento" icon={<Compass className="h-4 w-4 text-primary" />} description="Distribuição por categoria.">
+        <Section
+          title="Mapa de conhecimento"
+          icon={<Compass className="h-4 w-4 text-primary" />}
+          description="Distribuição por categoria."
+        >
           {q.isLoading ? (
             <Skeleton className="h-40" />
           ) : (d?.knowledgeMap ?? []).length === 0 ? (
@@ -157,7 +227,10 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
                       </span>
                     </div>
                     <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                      <div className="h-full rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{ width: `${pct}%` }}
+                      />
                     </div>
                   </div>
                 );
@@ -169,22 +242,41 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
 
       {/* Recent Knowledge + Top Discoveries */}
       <div className="grid gap-4 lg:grid-cols-2">
-        <Section title="Conhecimentos recentes" icon={<Brain className="h-4 w-4 text-primary" />} description="Últimas peças de conhecimento consolidadas.">
+        <Section
+          title="Conhecimentos recentes"
+          icon={<Brain className="h-4 w-4 text-primary" />}
+          description="Últimas peças de conhecimento consolidadas."
+        >
           {q.isLoading ? (
-            <div className="space-y-2"><Skeleton className="h-10" /><Skeleton className="h-10" /><Skeleton className="h-10" /></div>
+            <div className="space-y-2">
+              <Skeleton className="h-10" />
+              <Skeleton className="h-10" />
+              <Skeleton className="h-10" />
+            </div>
           ) : (d?.recentKnowledge ?? []).length === 0 ? (
             <Empty text="Nenhum conhecimento consolidado no período." />
           ) : (
             <ul className="space-y-1.5">
               {d!.recentKnowledge.map((k) => (
-                <li key={k.id} className="flex items-center justify-between gap-3 rounded-lg border border-border/40 px-3 py-2">
+                <li
+                  key={k.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border/40 px-3 py-2"
+                >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px]">{k.category}</Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        {k.category}
+                      </Badge>
                       <span className="truncate text-sm font-medium">{k.key}</span>
                     </div>
                     <div className="mt-0.5 text-[10px] text-muted-foreground">
-                      Reforçado {k.reinforcement_count}× · {new Date(k.updated_at).toLocaleString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      Reforçado {k.reinforcement_count}× ·{" "}
+                      {new Date(k.updated_at).toLocaleString("pt-BR", {
+                        day: "2-digit",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </div>
                   </div>
                   <ConfidenceRing value={k.confidence} />
@@ -194,9 +286,16 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
           )}
         </Section>
 
-        <Section title="Principais descobertas" icon={<Lightbulb className="h-4 w-4 text-primary" />} description="Insights ativos com maior confiança.">
+        <Section
+          title="Principais descobertas"
+          icon={<Lightbulb className="h-4 w-4 text-primary" />}
+          description="Insights ativos com maior confiança."
+        >
           {q.isLoading ? (
-            <div className="space-y-2"><Skeleton className="h-16" /><Skeleton className="h-16" /></div>
+            <div className="space-y-2">
+              <Skeleton className="h-16" />
+              <Skeleton className="h-16" />
+            </div>
           ) : (d?.topDiscoveries ?? []).length === 0 ? (
             <Empty text="O Brain ainda está reunindo evidências." />
           ) : (
@@ -204,8 +303,12 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
               {d!.topDiscoveries.map((i) => (
                 <li key={i.id} className="rounded-lg border border-border/40 p-3">
                   <div className="mb-1 flex items-center gap-2">
-                    <Badge variant="secondary" className="text-[10px]">{i.insight_type}</Badge>
-                    <span className="text-[10px] text-muted-foreground">conf {Math.round(i.confidence * 100)}%</span>
+                    <Badge variant="secondary" className="text-[10px]">
+                      {i.insight_type}
+                    </Badge>
+                    <span className="text-[10px] text-muted-foreground">
+                      conf {Math.round(i.confidence * 100)}%
+                    </span>
                   </div>
                   <p className="text-sm leading-snug">{i.description}</p>
                 </li>
@@ -217,15 +320,26 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
 
       {/* Rankings */}
       <div className="grid gap-4 lg:grid-cols-3">
-        <Section title="Clientes com mais inteligência" icon={<Users className="h-4 w-4 text-primary" />} description="Ranking por volume de conhecimento acumulado.">
-          {q.isLoading ? <Skeleton className="h-40" /> : (d?.smartestClients ?? []).length === 0 ? (
+        <Section
+          title="Clientes com mais inteligência"
+          icon={<Users className="h-4 w-4 text-primary" />}
+          description="Ranking por volume de conhecimento acumulado."
+        >
+          {q.isLoading ? (
+            <Skeleton className="h-40" />
+          ) : (d?.smartestClients ?? []).length === 0 ? (
             <Empty text="Sem dados por cliente ainda." />
           ) : (
             <ol className="space-y-1.5">
               {d!.smartestClients.map((c, idx) => (
-                <li key={c.client_id} className="flex items-center justify-between gap-2 rounded-md border border-border/40 px-3 py-2 text-sm">
+                <li
+                  key={c.client_id}
+                  className="flex items-center justify-between gap-2 rounded-md border border-border/40 px-3 py-2 text-sm"
+                >
                   <div className="flex min-w-0 items-center gap-2">
-                    <span className="w-4 shrink-0 text-xs text-muted-foreground tabular-nums">{idx + 1}</span>
+                    <span className="w-4 shrink-0 text-xs text-muted-foreground tabular-nums">
+                      {idx + 1}
+                    </span>
                     <span className="truncate">{c.name}</span>
                   </div>
                   <div className="flex shrink-0 items-center gap-2 text-[11px] text-muted-foreground tabular-nums">
@@ -239,26 +353,45 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
           )}
         </Section>
 
-        <Section title="Projetos mais analisados" icon={<TrendingUp className="h-4 w-4 text-primary" />} description="Por volume de eventos capturados.">
-          {q.isLoading ? <Skeleton className="h-40" /> : (d?.topProjects ?? []).length === 0 ? (
+        <Section
+          title="Projetos mais analisados"
+          icon={<TrendingUp className="h-4 w-4 text-primary" />}
+          description="Por volume de eventos capturados."
+        >
+          {q.isLoading ? (
+            <Skeleton className="h-40" />
+          ) : (d?.topProjects ?? []).length === 0 ? (
             <Empty text="Sem atividade em projetos." />
           ) : (
             <ol className="space-y-1.5">
               {d!.topProjects.map((p, idx) => (
-                <li key={p.project_id} className="flex items-center justify-between gap-2 rounded-md border border-border/40 px-3 py-2 text-sm">
+                <li
+                  key={p.project_id}
+                  className="flex items-center justify-between gap-2 rounded-md border border-border/40 px-3 py-2 text-sm"
+                >
                   <div className="flex min-w-0 items-center gap-2">
-                    <span className="w-4 shrink-0 text-xs text-muted-foreground tabular-nums">{idx + 1}</span>
+                    <span className="w-4 shrink-0 text-xs text-muted-foreground tabular-nums">
+                      {idx + 1}
+                    </span>
                     <span className="truncate">{p.name}</span>
                   </div>
-                  <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">{p.events_count} ev.</span>
+                  <span className="shrink-0 text-[11px] text-muted-foreground tabular-nums">
+                    {p.events_count} ev.
+                  </span>
                 </li>
               ))}
             </ol>
           )}
         </Section>
 
-        <Section title="Ranking de módulos" icon={<Activity className="h-4 w-4 text-primary" />} description="Fontes que mais alimentam o Brain.">
-          {q.isLoading ? <Skeleton className="h-40" /> : (d?.moduleRanking ?? []).length === 0 ? (
+        <Section
+          title="Ranking de módulos"
+          icon={<Activity className="h-4 w-4 text-primary" />}
+          description="Fontes que mais alimentam o Brain."
+        >
+          {q.isLoading ? (
+            <Skeleton className="h-40" />
+          ) : (d?.moduleRanking ?? []).length === 0 ? (
             <Empty text="Sem eventos no período." />
           ) : (
             <ol className="space-y-1.5">
@@ -266,7 +399,10 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
                 const max = Math.max(...d!.moduleRanking.map((x) => x.count));
                 const pct = max ? (m.count / max) * 100 : 0;
                 return (
-                  <li key={m.source_module} className="rounded-md border border-border/40 px-3 py-2">
+                  <li
+                    key={m.source_module}
+                    className="rounded-md border border-border/40 px-3 py-2"
+                  >
                     <div className="flex items-center justify-between text-xs">
                       <span className="flex items-center gap-2">
                         <span className="text-muted-foreground tabular-nums">{idx + 1}</span>
@@ -275,7 +411,10 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
                       <span className="text-muted-foreground tabular-nums">{m.count}</span>
                     </div>
                     <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted">
-                      <div className="h-full rounded-full bg-primary/70" style={{ width: `${pct}%` }} />
+                      <div
+                        className="h-full rounded-full bg-primary/70"
+                        style={{ width: `${pct}%` }}
+                      />
                     </div>
                   </li>
                 );
@@ -344,7 +483,9 @@ function FiltersBar({
           variant="ghost"
           size="sm"
           className="h-8 text-xs"
-          onClick={() => onChange({ clientId: null, projectId: null, actorId: null, category: null })}
+          onClick={() =>
+            onChange({ clientId: null, projectId: null, actorId: null, category: null })
+          }
         >
           Limpar
         </Button>
@@ -402,7 +543,9 @@ function Section({
             {icon}
             {title}
           </h3>
-          {description ? <p className="mt-0.5 text-xs text-muted-foreground">{description}</p> : null}
+          {description ? (
+            <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+          ) : null}
         </div>
       </div>
       {children}
@@ -436,7 +579,9 @@ function Kpi({
           ) : (
             <>
               {value.toLocaleString("pt-BR")}
-              {suffix ? <span className="ml-0.5 text-base text-muted-foreground">{suffix}</span> : null}
+              {suffix ? (
+                <span className="ml-0.5 text-base text-muted-foreground">{suffix}</span>
+              ) : null}
             </>
           )}
         </div>
@@ -458,7 +603,11 @@ function MicroStat({
     <div className="rounded-lg border border-border/40 p-3">
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className="mt-1 text-xl font-semibold tabular-nums">
-        {loading || value === undefined ? <Skeleton className="h-6 w-10" /> : value.toLocaleString("pt-BR")}
+        {loading || value === undefined ? (
+          <Skeleton className="h-6 w-10" />
+        ) : (
+          value.toLocaleString("pt-BR")
+        )}
       </div>
     </div>
   );
@@ -488,7 +637,8 @@ function ConfidenceRing({ value }: { value: number }) {
 
 function Timeline({ data }: { data: BrainIntelligence["learningTimeline"] }) {
   const { maxEvents, maxInsights } = useMemo(() => {
-    let e = 0, i = 0;
+    let e = 0,
+      i = 0;
     for (const d of data) {
       if (d.events > e) e = d.events;
       if (d.insights > i) i = d.insights;
@@ -505,7 +655,10 @@ function Timeline({ data }: { data: BrainIntelligence["learningTimeline"] }) {
           const eh = (d.events / maxEvents) * 100;
           const ih = (d.insights / maxInsights) * 60;
           return (
-            <div key={d.day} className="group relative flex flex-1 flex-col items-center justify-end">
+            <div
+              key={d.day}
+              className="group relative flex flex-1 flex-col items-center justify-end"
+            >
               <div
                 className="w-full rounded-t bg-primary/70 transition-all group-hover:bg-primary"
                 style={{ height: `${eh}%`, minHeight: d.events ? "2px" : 0 }}
@@ -523,8 +676,14 @@ function Timeline({ data }: { data: BrainIntelligence["learningTimeline"] }) {
       <div className="mt-3 flex items-center justify-between text-[10px] text-muted-foreground">
         <span>{data[0]?.day}</span>
         <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded bg-primary/70" />Eventos</span>
-          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded bg-[color:var(--chart-4)]/70" />Insights</span>
+          <span className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded bg-primary/70" />
+            Eventos
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded bg-[color:var(--chart-4)]/70" />
+            Insights
+          </span>
         </div>
         <span>{data[data.length - 1]?.day}</span>
       </div>

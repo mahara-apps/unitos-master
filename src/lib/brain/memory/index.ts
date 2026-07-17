@@ -92,8 +92,10 @@ export async function evolve(
   ctx: BrainContext,
   input: EvolveInput,
 ): Promise<{ ok: boolean; id?: string; error?: string }> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rpc = ctx.supabase.rpc as unknown as (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+  const rpc = ctx.supabase.rpc as unknown as (
+    name: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
   const { data, error } = await rpc("brain_memory_evolve", {
     _brand_id: ctx.brandId ?? null,
     _entity_type: input.entityType,
@@ -119,8 +121,11 @@ export async function evolve(
 
 export async function touch(ctx: BrainContext, ids: string[]): Promise<number> {
   if (!ids.length) return 0;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rpc = ctx.supabase.rpc as unknown as (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+
+  const rpc = ctx.supabase.rpc as unknown as (
+    name: string,
+    args: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
   const { data, error } = await rpc("brain_memory_touch", { _ids: ids });
   if (error) {
     console.error("[brain.memory.touch]", error.message);
@@ -150,8 +155,10 @@ export async function versions(
 }
 
 export async function decay(ctx: BrainContext): Promise<number> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const rpc = ctx.supabase.rpc as unknown as (name: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+  const rpc = ctx.supabase.rpc as unknown as (
+    name: string,
+    args?: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
   const { data, error } = await rpc("brain_memory_decay_and_archive", {});
   if (error) {
     console.error("[brain.memory.decay]", error.message);

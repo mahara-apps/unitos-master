@@ -40,20 +40,10 @@ import type { BrainConsolidated, ChatAttachmentMeta } from "./chat-gateway";
 // Segurança de bundling: só reexportamos legacy fns cujo grafo de imports é
 // client-safe (nenhum `.server.ts` top-level). Fns como `brainConsolidateFn`
 // e `brainRetrieveFn` permanecem acessíveis apenas via server routes.
-export {
-  brainGraphFn,
-  type BrainGraph,
-  type GraphNode,
-} from "./legacy/brain-graph.functions";
-export {
-  brainIntelligenceFn,
-  type BrainIntelligence,
-} from "./legacy/brain-intelligence.functions";
+export { brainGraphFn, type BrainGraph, type GraphNode } from "./legacy/brain-graph.functions";
+export { brainIntelligenceFn, type BrainIntelligence } from "./legacy/brain-intelligence.functions";
 export { loadBrainWidget } from "./legacy/brain-widget.functions";
-export type {
-  BrainWidgetItem,
-  BrainWidgetPayload,
-} from "./legacy/brain-widget.functions";
+export type { BrainWidgetItem, BrainWidgetPayload } from "./legacy/brain-widget.functions";
 
 // Stream hook — reexport-only shim para consumo por componentes React.
 export { useBrainStream, type BrainStreamEvent } from "./stream/use-brain-stream";
@@ -100,9 +90,7 @@ export const brain = {
     payload: Record<string, unknown>,
   ): void {
     void import("./ingest-quiet.server")
-      .then((m) =>
-        m.ingestBrainQuiet(supabase, brandId, eventType, sourceModule, payload),
-      )
+      .then((m) => m.ingestBrainQuiet(supabase, brandId, eventType, sourceModule, payload))
       .catch((err) => console.error("[brain.ingestQuiet]", err));
   },
   chat: {

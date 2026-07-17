@@ -119,7 +119,10 @@ export function NeuralNetworkCanvas({ weights, lastEvent, className }: NeuralNet
   }, []);
 
   useEffect(() => {
-    const total = Math.max(1, weights.content + weights.media + weights.messaging + weights.insight);
+    const total = Math.max(
+      1,
+      weights.content + weights.media + weights.messaging + weights.insight,
+    );
     for (const n of nodesRef.current) {
       if (n.isCore) continue;
       const share = weights[n.category] / total;
@@ -304,10 +307,7 @@ export function NeuralNetworkCanvas({ weights, lastEvent, className }: NeuralNet
 function Legend({ color, label }: { color: string; label: string }) {
   return (
     <div className="flex items-center gap-1.5">
-      <span
-        className="h-2 w-2 rounded-full ring-1 ring-border/60"
-        style={{ background: color }}
-      />
+      <span className="h-2 w-2 rounded-full ring-1 ring-border/60" style={{ background: color }} />
       {label}
     </div>
   );

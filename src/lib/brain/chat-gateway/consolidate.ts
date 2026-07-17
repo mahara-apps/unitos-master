@@ -1,6 +1,12 @@
 // ⚠️ Brain Chat Gateway — consolidação de contexto para respostas conversacionais.
 // Nunca acessa tabelas brain_* diretamente: compõe via memory / insights / query.
-import type { BrainContext, BrainInsightRow, BrainMemoryRow, SemanticMemoryHit, BrainStats } from "../core";
+import type {
+  BrainContext,
+  BrainInsightRow,
+  BrainMemoryRow,
+  SemanticMemoryHit,
+  BrainStats,
+} from "../core";
 import * as memory from "../memory";
 import * as insights from "../insights";
 import * as query from "../query";
@@ -24,13 +30,11 @@ export async function consolidate(
     query.stats(ctx),
   ]);
 
-  const insightsProjected = activeInsights
-    .slice(0, 8)
-    .map((r: BrainInsightRow) => ({
-      insight_type: r.insight_type,
-      description: r.description,
-      confidence: r.confidence,
-    }));
+  const insightsProjected = activeInsights.slice(0, 8).map((r: BrainInsightRow) => ({
+    insight_type: r.insight_type,
+    description: r.description,
+    confidence: r.confidence,
+  }));
 
   const memoryRowsProjected = memRows.slice(0, 8);
 

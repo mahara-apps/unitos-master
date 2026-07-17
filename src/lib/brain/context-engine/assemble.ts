@@ -73,7 +73,9 @@ export async function build(
     intent.topics.includes("recommendations") || intent.topics.includes("general")
       ? recommendations.list(ctx, { limit: 10 })
       : Promise.resolve([]),
-    args.question ? query.semantic(ctx, { query: args.question, matchCount: 6 }) : Promise.resolve([]),
+    args.question
+      ? query.semantic(ctx, { query: args.question, matchCount: 6 })
+      : Promise.resolve([]),
     wantsStats ? query.stats(ctx) : Promise.resolve({} as BrainStats),
   ]);
 
@@ -82,7 +84,10 @@ export async function build(
 
   for (const m of memRows) {
     candidateCount++;
-    const score = relevanceScore({ text: `${m.topic} ${m.summary}`, confidence: m.confidence }, intent.keywords);
+    const score = relevanceScore(
+      { text: `${m.topic} ${m.summary}`, confidence: m.confidence },
+      intent.keywords,
+    );
     items.push({
       kind: "memory",
       label: m.topic,
@@ -105,7 +110,12 @@ export async function build(
       confidence: i.confidence,
     });
   }
-  for (const r of activeRecs as Array<{ id?: string; title: string; description?: string | null; confidence?: number | null }>) {
+  for (const r of activeRecs as Array<{
+    id?: string;
+    title: string;
+    description?: string | null;
+    confidence?: number | null;
+  }>) {
     candidateCount++;
     const score = relevanceScore(
       { text: `${r.title} ${r.description ?? ""}`, confidence: r.confidence ?? null },
@@ -164,7 +174,9 @@ function renderMarkdown(items: ContextItem[], stats: BrainStats, scope: ContextS
     scope.clientId ? `cliente:${scope.clientId.slice(0, 8)}` : null,
     scope.projectId ? `projeto:${scope.projectId.slice(0, 8)}` : null,
     scope.module ? `módulo:${scope.module}` : null,
-    scope.period?.from ? `período:${scope.period.from.slice(0, 10)}→${(scope.period.to ?? "").slice(0, 10)}` : null,
+    scope.period?.from
+      ? `período:${scope.period.from.slice(0, 10)}→${(scope.period.to ?? "").slice(0, 10)}`
+      : null,
   ]
     .filter(Boolean)
     .join(" · ");

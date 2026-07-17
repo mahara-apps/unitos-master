@@ -44,9 +44,7 @@ function layout(nodes: GraphNode[], w: number, h: number): Map<string, Positione
     if (!byType.has(n.type)) byType.set(n.type, []);
     byType.get(n.type)!.push(n);
   }
-  const types = [...byType.keys()].sort(
-    (a, b) => TYPE_ORDER.indexOf(a) - TYPE_ORDER.indexOf(b),
-  );
+  const types = [...byType.keys()].sort((a, b) => TYPE_ORDER.indexOf(a) - TYPE_ORDER.indexOf(b));
   const cx = w / 2;
   const cy = h / 2;
   const clusterR = Math.min(w, h) * 0.38;
@@ -89,9 +87,7 @@ export function KnowledgeGraph({ brandId }: { brandId: string | null }) {
 
   const legend = useMemo(() => {
     const t = graph.data?.stats.typeCounts ?? {};
-    return Object.entries(t).sort(
-      ([a], [b]) => TYPE_ORDER.indexOf(a) - TYPE_ORDER.indexOf(b),
-    );
+    return Object.entries(t).sort(([a], [b]) => TYPE_ORDER.indexOf(a) - TYPE_ORDER.indexOf(b));
   }, [graph.data?.stats.typeCounts]);
 
   return (
