@@ -4,7 +4,7 @@ import { generateText, type ModelMessage } from "ai";
 import { createLovableAiGatewayProvider } from "../../ai-gateway.server";
 import type { BrainConsolidated } from "./consolidate";
 
-const DEFAULT_MODEL = "google/gemini-2.5-flash";
+const DEFAULT_MODEL = "google/gemini-3.5-flash";
 
 export interface ChatAttachmentMeta {
   name: string;
@@ -23,7 +23,7 @@ export async function callLlm(args: {
   const gateway = createLovableAiGatewayProvider(key);
   const model = gateway(DEFAULT_MODEL);
 
-  const system = [
+  const instructions = [
     "Você é o assistente conversacional da Unitos — uma plataforma SaaS para agências.",
     "Você é apenas um cliente do Brain: SEMPRE responda com base no conhecimento consolidado a seguir.",
     "Nunca invente números, prazos ou nomes. Se o Brain não tiver a informação, diga isso com transparência.",
@@ -32,10 +32,13 @@ export async function callLlm(args: {
     args.brain.markdown || "_(O Brain não retornou conhecimento relevante para esta pergunta.)_",
   ].join("\n");
 
-  const messages: ModelMessage[] = args.history.map((m) => ({
-    role: (m.role === "assistant" ? "assistant" : "user") as "assistant" | "user",
-    content: m.content,
-  }));
+  const messages: ModelMessage[] = args.history
+    .filter((m) => m.role === "user" || m.role === "assistant")
+    .filter((m) => m.content.trim().length > 0)
+    .map((m) => ({
+      role: m.role as "assistant" | "user",
+      content: m.content,
+    }));
 
   if (args.attachments.length) {
     const list = args.attachments.map((a) => `- ${a.name} (${a.kind}, ${a.mime})`).join("\n");
@@ -46,13 +49,13 @@ export async function callLlm(args: {
   }
 
   try {
-    const result = await generateText({ model, system, messages, temperature: 0.4 });
+    const result = await generateText({ model, instructions, messages, temperature: 0.4 });
     return { text: result.text.trim() || "_(sem resposta)_", model: DEFAULT_MODEL };
   } catch (err) {
     console.error("[brain.chat.callLlm] LLM error", err);
     const msg = err instanceof Error ? err.message : String(err);
     return {
-      text: `Não consegui consultar o modelo agora. ${args.brain.markdown ? "Segue o que o Brain já sabe sobre isso:\n\n" + args.brain.markdown : ""}\n\n_Erro: ${msg}_`,
+      text: `Não consegui consultar o modelo agora.${args.brain.markdown ? " Segue o que o Brain já sabe sobre isso:\n\n" + args.brain.markdown : ""}\n\n_Detalhe técnico: ${msg}_`,
       model: DEFAULT_MODEL,
     };
   }
