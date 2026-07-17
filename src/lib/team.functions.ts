@@ -366,6 +366,90 @@ export const acceptBrandInvite = createServerFn({ method: "POST" })
     return { brandId };
   });
 
+const AddExistingInput = z.object({
+  brandId: z.string().uuid(),
+  email: z.string().trim().toLowerCase().email(),
+  role: z.enum(ROLES).default("editor"),
+  permissions: z.array(z.enum(ALL_PERMISSION_IDS as [PermissionId, ...PermissionId[]])).default([]),
+});
+
+export const addExistingUserToBrand = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => AddExistingInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    // Authorize: caller must be owner or manager
+    const { data: my, error: memErr } = await supabase
+      .from("brand_members")
+      .select("role")
+      .eq("brand_id", data.brandId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (memErr) throw memErr;
+    if (!my || (my.role !== "owner" && my.role !== "manager")) {
+      throw new Error("forbidden");
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Locate user by email (paginate defensively)
+    let foundId: string | null = null;
+    for (let page = 1; page <= 20 && !foundId; page++) {
+      const { data: list, error: lErr } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
+      if (lErr) throw lErr;
+      const users = list?.users ?? [];
+      const hit = users.find((u) => (u.email ?? "").toLowerCase() === data.email);
+      if (hit) foundId = hit.id;
+      if (users.length < 200) break;
+    }
+
+    if (!foundId) {
+      return { status: "not_found" as const, email: data.email };
+    }
+
+    // Check existing membership
+    const { data: existing } = await supabase
+      .from("brand_members")
+      .select("role, permissions")
+      .eq("brand_id", data.brandId)
+      .eq("user_id", foundId)
+      .maybeSingle();
+
+    const nextPayload = {
+      brand_id: data.brandId,
+      user_id: foundId,
+      role: data.role,
+      permissions: data.permissions,
+    };
+
+    const { error: upErr } = await supabaseAdmin
+      .from("brand_members")
+      .upsert(nextPayload, { onConflict: "brand_id,user_id" });
+    if (upErr) throw upErr;
+
+    const { data: prof } = await supabase
+      .from("user_profiles")
+      .select("full_name")
+      .eq("id", foundId)
+      .maybeSingle();
+
+    let status: "added" | "updated" | "already_member" = "added";
+    if (existing) {
+      const samePerms =
+        Array.isArray(existing.permissions) &&
+        existing.permissions.length === data.permissions.length &&
+        (existing.permissions as string[]).every((p) => (data.permissions as string[]).includes(p));
+      status = existing.role === data.role && samePerms ? "already_member" : "updated";
+    }
+
+    return {
+      status,
+      email: data.email,
+      userId: foundId,
+      fullName: prof?.full_name ?? null,
+    };
+  });
+
 const PreviewInput = z.object({ token: z.string().min(10) });
 export const previewInvite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
