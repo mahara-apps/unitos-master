@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { brainConsolidateFn } from "@/lib/brain-consolidate.functions";
+import { brainConsolidateFn } from "@/lib/brain/legacy/brain-consolidate.functions";
 
 export const Route = createFileRoute("/api/public/hooks/brain-consolidate")({
   server: {

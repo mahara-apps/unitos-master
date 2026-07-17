@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { BrainStreamEvent } from "@/hooks/use-brain-stream";
+import type { BrainStreamEvent } from "@/lib/brain/api";
 
 type Category = "content" | "media" | "messaging" | "insight";
 

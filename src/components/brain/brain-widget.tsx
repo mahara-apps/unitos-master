@@ -16,7 +16,7 @@ import {
   loadBrainWidget,
   type BrainWidgetItem,
   type BrainWidgetPayload,
-} from "@/lib/brain-widget.functions";
+} from "@/lib/brain/api";
 
 export type BrainWidgetPreset =
   | "projects"

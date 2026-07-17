@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { brainGraphFn, type BrainGraph, type GraphNode } from "@/lib/brain-graph.functions";
+import { brainGraphFn, type BrainGraph, type GraphNode } from "@/lib/brain/api";
 import { RefreshCw } from "lucide-react";
 
 const TYPE_COLORS: Record<string, string> = {
