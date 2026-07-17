@@ -47,7 +47,7 @@ import {
 } from "@/lib/content.functions";
 import { STAGE_GRADIENT, PRIORITY_STYLES, PRIORITY_LABEL, FORMAT_STYLE, FORMAT_STYLES, CHANNELS, CHANNEL_STYLES } from "./stage-colors";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Clock, Settings2 } from "lucide-react";
+import { Clock, Settings2, AlarmClock } from "lucide-react";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import {
   DashboardCountBadge,
@@ -398,6 +398,21 @@ function Column({
               </Tooltip>
             </TooltipProvider>
           ) : null}
+        {(() => {
+          const overdueCount = posts.filter((p) => p.is_overdue).length;
+          return overdueCount > 0 ? (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex h-5 items-center gap-1 rounded-md border border-rose-500/30 bg-rose-500/10 px-1.5 text-[10px] font-semibold text-rose-600 dark:text-rose-400">
+                    <AlarmClock className="h-2.5 w-2.5" /> {overdueCount}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{overdueCount} tarefa(s) atrasada(s)</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null;
+        })()}
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -552,6 +567,14 @@ function PostCard({
       <div className="p-3">
         {(priority || post.format || channelDefs.length > 0) ? (
           <div className="mb-1 flex flex-wrap items-center gap-1">
+            {post.is_overdue ? (
+              <span
+                className="inline-flex items-center gap-0.5 rounded-full border border-rose-500/40 bg-rose-500/10 px-1.5 py-0 text-[8px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400"
+                title={`Atrasado há ${post.days_overdue}d`}
+              >
+                <AlarmClock className="h-2.5 w-2.5" /> Atrasado{post.days_overdue ? ` · ${post.days_overdue}d` : ""}
+              </span>
+            ) : null}
             {channelDefs.map((c) => {
               const Icon = c.icon;
               return (
