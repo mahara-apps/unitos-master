@@ -27,8 +27,8 @@ export type ChatMessageRow = {
 
 export type ChatToolCall = {
   name: string;
-  input: unknown;
-  output: unknown;
+  input: Record<string, unknown>;
+  output: Record<string, unknown>;
   ok: boolean;
   ts: string;
 };
