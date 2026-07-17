@@ -65,6 +65,8 @@ import { getAnalytics, type AnalyticsResult } from "@/lib/analytics.functions";
 import { listClients } from "@/lib/workspace.functions";
 import { listBrandTeam } from "@/lib/team.functions";
 import { listProjects } from "@/lib/projects.functions";
+import { slaSnapshotFn, type SlaSnapshot } from "@/lib/content.functions";
+import { AlarmClock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/analytics")({
@@ -165,6 +167,12 @@ function AnalyticsPage() {
     enabled: !!brandId,
     queryKey: ["analytics-projects", brandId],
     queryFn: () => projectsFn({ data: { brandId: brandId! } }),
+  });
+  const slaFn = useServerFn(slaSnapshotFn);
+  const slaQuery = useQuery({
+    enabled: !!brandId,
+    queryKey: ["analytics-sla", brandId],
+    queryFn: () => slaFn({ data: { brandId: brandId! } }),
   });
 
   usePageHeader(
