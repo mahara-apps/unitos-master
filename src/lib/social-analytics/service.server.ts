@@ -247,12 +247,12 @@ export async function getPost(
   const res = await withSocialCache(
     socialCacheKey("post", conn.cacheScope, {
       n: conn.network,
-      id: opts.externalPostId,
+      id: opts.postId,
     }),
     () =>
       conn.provider.getPost(conn.ctx, {
         network: conn.network,
-        externalPostId: opts.externalPostId,
+        postId: opts.postId,
       }),
   );
   return unwrap("post", conn.network, res);
@@ -276,10 +276,14 @@ export async function getTopPosts(
 
 export async function getAudience(
   conn: ResolvedConnection,
-  opts: Omit<GetAudienceOptions, "network"> = {},
+  opts: Omit<GetAudienceOptions, "network">,
 ): Promise<SocialAudience> {
   const res = await withSocialCache(
-    socialCacheKey("aud", conn.cacheScope, { n: conn.network }),
+    socialCacheKey("aud", conn.cacheScope, {
+      n: conn.network,
+      s: opts.range.since,
+      u: opts.range.until,
+    }),
     () => conn.provider.getAudience(conn.ctx, { network: conn.network, ...opts }),
   );
   return unwrap("audience", conn.network, res);
