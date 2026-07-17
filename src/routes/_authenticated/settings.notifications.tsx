@@ -112,15 +112,13 @@ function NotificationsPage() {
         <SettingsStatCard
           label="WhatsApp"
           value={notifyWhatsapp ? "Ativo" : "Inativo"}
-          className={notifyWhatsapp ? "text-emerald-500" : "text-muted-foreground"}
-          icon={<MessageCircle className="h-3.5 w-3.5" />}
+          icon={<MessageCircle className="h-4 w-4" />}
           tone={notifyWhatsapp ? "emerald" : "neutral"}
         />
         <SettingsStatCard
           label="Email"
           value={prefs.email ? "Ativo" : "Inativo"}
-          className={prefs.email ? "text-sky-500" : "text-muted-foreground"}
-          icon={<Mail className="h-3.5 w-3.5" />}
+          icon={<Mail className="h-4 w-4" />}
           tone={prefs.email ? "sky" : "neutral"}
         />
       </div>
