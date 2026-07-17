@@ -100,9 +100,40 @@ const nextActions = await brain.getRecommendations(ctx);
 4. `BrainContext` carrega o supabase autenticado (RLS aplicada como o usuário);
    nunca use `supabaseAdmin` sem verificar o papel do chamador antes.
 
-## Compatibilidade
+## Layout físico
 
-Os arquivos `src/lib/brain-*.functions.ts` continuam existindo por
-compatibilidade — nada foi apagado. Eles agora funcionam como fronteira
-pública do Brain (marcados com um comentário-guardrail) e devem, ao longo do
-tempo, delegar sua lógica para os módulos em `src/lib/brain/`.
+```
+src/lib/brain/
+├── api.ts               ← única porta pública (`import { brain } from "@/lib/brain/api"`)
+├── core/                ← BrainContext + tipos compartilhados
+├── event-bus/           ← publish/subscribe de brain_events
+├── memory/              ← memory store + lifecycle (evolve, touch, decay, versions)
+├── graph/               ← knowledge graph
+├── insights/            ← insights ativos
+├── recommendations/     ← recomendações ativas
+├── learning/            ← fila e worker de aprendizado
+├── query/               ← busca semântica e stats
+├── chat-gateway/        ← consolidação Brain-first + LLM fallback
+├── context-engine/      ← ContextPack escopado por pergunta
+├── stream/              ← hook React (useBrainStream)
+├── ingest-quiet.server  ← ingest fire-and-forget para consumidores externos
+├── services.ts          ← 12 métodos de alto nível
+└── legacy/              ← server fns antigas movidas de src/lib/brain-*.functions.ts
+```
+
+Todos os arquivos `src/lib/brain-*.functions.ts` e `src/hooks/use-brain-stream.tsx`
+foram **movidos** para `src/lib/brain/legacy/` e `src/lib/brain/stream/`. Os
+antigos caminhos não existem mais — consumidores externos devem apontar para
+`@/lib/brain/api`.
+
+## Guardrails
+
+- **ESLint** (`eslint.config.js`):
+  - `no-restricted-imports` bloqueia `@/lib/brain-*` e `@/hooks/use-brain-stream`
+    fora de `src/lib/brain/**`.
+  - `no-restricted-syntax` bloqueia `.from("brain_*")` fora de
+    `src/lib/brain/**`.
+- **Client-safety**: `api.ts` só faz re-export top-level de módulos client-safe.
+  Helpers server-only (`ingest-quiet.server`, `chat-gateway/llm.server`,
+  `brain-consolidate`, `brain-retrieve`) são carregados via `await import(...)`
+  ou consumidos apenas por server routes.

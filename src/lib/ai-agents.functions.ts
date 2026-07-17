@@ -3,6 +3,7 @@ import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
+import { brain } from "@/lib/brain/api";
 
 /**
  * Unitos — 8 agentes de IA.
@@ -244,15 +245,10 @@ export async function buildBrandContextBlueprint(
 
   // Brain memory — active insights for this brand (top 6, non-expired).
   try {
-    const { data: ins } = await supabase
-      .from("brain_insights")
-      .select("insight_type, description, confidence, expires_at")
-      .or(`brand_id.eq.${brandId},brand_id.is.null`)
-      .order("created_at", { ascending: false })
-      .limit(20);
-    const active = (ins ?? [])
-      .filter((r: { expires_at: string | null }) => !r.expires_at || new Date(r.expires_at) > new Date())
-      .slice(0, 6);
+    const active = await brain.insights.list(
+      { supabase, userId: "", brandId, clientId, projectId: null, module: "ai-agents" },
+      { limit: 6 },
+    );
     if (active.length) {
       const lines = active
         .map(
