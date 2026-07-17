@@ -1,0 +1,59 @@
+// ============================================================================
+// Brain API — ÚNICO ponto de entrada público da plataforma Brain.
+//
+// Regra de arquitetura:
+//   - Apenas arquivos sob `src/lib/brain/**` podem acessar tabelas `brain_*`.
+//   - Todo consumidor externo (rotas, componentes, outros *.functions.ts) usa
+//     `brain.<módulo>.<método>`.
+//   - Cada método recebe um `BrainContext` com o supabase autenticado + escopo.
+//
+// Componentes internos:
+//   1. Brain Core            → tipos e contrato compartilhados
+//   2. Event Bus             → publicação/leitura de brain_events
+//   3. Learning Engine       → fila e worker de aprendizado
+//   4. Memory Store          → memórias consolidadas
+//   5. Knowledge Graph       → nós e arestas
+//   6. Insight Engine        → insights ativos
+//   7. Recommendation Engine → recomendações
+//   8. Query Engine          → busca semântica, embeddings, stats
+//   9. Chat Gateway          → orquestração Brain-first + LLM fallback
+// ============================================================================
+import * as events from "./event-bus";
+import * as memory from "./memory";
+import * as graph from "./graph";
+import * as insights from "./insights";
+import * as recommendations from "./recommendations";
+import * as learning from "./learning";
+import * as query from "./query";
+import * as chatGw from "./chat-gateway";
+import type { BrainContext } from "./core";
+import type { BrainConsolidated, ChatAttachmentMeta } from "./chat-gateway";
+
+export type { BrainContext };
+export type * from "./core";
+
+export const brain = {
+  events,
+  memory,
+  graph,
+  insights,
+  recommendations,
+  learning,
+  query,
+  chat: {
+    consolidate: chatGw.consolidate,
+    tryDirectAnswer: chatGw.tryDirectAnswer,
+    /** Chamada ao LLM — carrega o módulo server-only sob demanda. */
+    async callLlm(args: {
+      question: string;
+      history: Array<{ role: string; content: string }>;
+      brain: BrainConsolidated;
+      attachments: ChatAttachmentMeta[];
+    }) {
+      const mod = await import("./chat-gateway/llm.server");
+      return mod.callLlm(args);
+    },
+  },
+} as const;
+
+export type BrainAPI = typeof brain;
