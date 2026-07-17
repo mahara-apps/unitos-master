@@ -60,3 +60,10 @@ export function useActiveContext(): ActiveContextValue {
   if (!v) throw new Error("useActiveContext requires <ActiveContextProvider>");
   return v;
 }
+
+/** Safe variant: returns null ids when provider is missing (public routes). */
+export function useActiveContextOptional(): ActiveContextValue {
+  const v = useContext(Ctx);
+  if (!v) return { brandId: null, clientId: null, setBrandId: () => {}, setClientId: () => {} };
+  return v;
+}
