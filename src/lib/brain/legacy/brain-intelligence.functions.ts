@@ -352,7 +352,7 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
     // Knowledge map by category
     const catAgg = new Map<string, { count: number; sum: number }>();
     for (const r of knowledgeMapR.data ?? []) {
-      const c = (r.category as string) || "outros";
+      const c = (r.memory_type as string) || "outros";
       const cur = catAgg.get(c) ?? { count: 0, sum: 0 };
       cur.count += 1;
       cur.sum += Number(r.confidence ?? 0);
@@ -380,7 +380,7 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
     // Smartest clients
     const clientAgg = new Map<string, { count: number; sum: number }>();
     for (const r of clientsKnowledgeR.data ?? []) {
-      const id = r.client_id as string;
+      const id = r.subject_id as string;
       const cur = clientAgg.get(id) ?? { count: 0, sum: 0 };
       cur.count += 1;
       cur.sum += Number(r.confidence ?? 0);
@@ -433,7 +433,9 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
       applyBrand(sb.from("clients").select("id, name").order("name").limit(200)),
       applyBrand(sb.from("projects").select("id, name").order("name").limit(200)),
       applyBrand(sb.from("brand_members").select("user_id").limit(200)),
-      applyBrand(sb.from("brain_knowledge").select("category").limit(1000)),
+      applyBrand(
+        sb.from("brain_memory").select("memory_type").eq("status", "active").limit(1000),
+      ),
     ]);
 
     const teamUserIds = Array.from(
