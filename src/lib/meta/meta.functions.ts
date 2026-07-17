@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { Json } from "@/integrations/supabase/types";
 
 /**
  * Meta Integration — server functions backed by the unified `social_connections`
@@ -23,7 +24,7 @@ export type SocialConnectionRow = {
   status: string;
   tokenExpiresAt: string | null;
   lastError: string | null;
-  metadata: Record<string, unknown>;
+  metadata: Json;
   createdAt: string;
   updatedAt: string;
 };
@@ -54,7 +55,7 @@ export const listMetaConnections = createServerFn({ method: "GET" })
       status: r.status,
       tokenExpiresAt: r.token_expires_at,
       lastError: r.last_error,
-      metadata: (r.metadata as Record<string, unknown>) ?? {},
+      metadata: (r.metadata as Json) ?? {},
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     }));
