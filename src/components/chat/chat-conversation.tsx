@@ -25,6 +25,11 @@ import {
 const BUCKET = "chat-attachments";
 const MAX_FILE_MB = 20;
 
+type SendPayload = {
+  content: string;
+  attachments: ChatAttachment[];
+};
+
 function kindFromMime(mime: string): ChatAttachment["kind"] {
   if (mime.startsWith("image/")) return "image";
   if (mime.startsWith("audio/")) return "audio";
@@ -80,9 +85,8 @@ export function ChatConversation({ conversationId }: { conversationId: string })
   }, [conversationId]);
 
   const sendM = useMutation({
-    mutationFn: async () => {
-      const attachments = pendingFiles.map((p) => p.uploaded).filter(Boolean) as ChatAttachment[];
-      return send({ data: { conversationId, content: draft.trim(), attachments } });
+    mutationFn: async (payload: SendPayload) => {
+      return send({ data: { conversationId, content: payload.content, attachments: payload.attachments } });
     },
     onMutate: () => {
       setDraft("");
@@ -163,6 +167,13 @@ export function ChatConversation({ conversationId }: { conversationId: string })
     !sendM.isPending && (draft.trim().length > 0 || pendingFiles.some((p) => p.uploaded));
   const isThinking = sendM.isPending;
 
+  function submitMessage() {
+    const content = draft.trim();
+    const attachments = pendingFiles.map((p) => p.uploaded).filter(Boolean) as ChatAttachment[];
+    if (!content && attachments.length === 0) return;
+    sendM.mutate({ content, attachments });
+  }
+
   return (
     <div className="flex h-full flex-col">
       <ScrollArea className="flex-1">
@@ -206,7 +217,7 @@ export function ChatConversation({ conversationId }: { conversationId: string })
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();
-                  if (canSend) sendM.mutate();
+                  if (canSend) submitMessage();
                 }
               }}
               placeholder="Pergunte ao Brain…"
@@ -250,7 +261,7 @@ export function ChatConversation({ conversationId }: { conversationId: string })
                 size="icon"
                 className="h-8 w-8"
                 disabled={!canSend}
-                onClick={() => sendM.mutate()}
+                onClick={submitMessage}
                 aria-label="Enviar"
               >
                 {isThinking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
