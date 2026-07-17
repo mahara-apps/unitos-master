@@ -200,6 +200,7 @@ function UserProfileMenu() {
         <div className="my-1 h-px bg-border" />
         <Link
           to="/settings/profile"
+          preload="intent"
           className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground"
         >
           <UserIcon className="h-3.5 w-3.5" />
