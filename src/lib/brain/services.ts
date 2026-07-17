@@ -58,6 +58,16 @@ export async function learn(
 // ----------------------------------------------------------------------------
 export const remember = memory.remember;
 
+/**
+ * evolve — upsert-com-evidência. Sempre preferir sobre `remember` quando houver
+ * uma entidade identificável, para evitar memórias duplicadas e permitir que o
+ * score de confiança evolua com novas evidências.
+ */
+export const evolveMemory = memory.evolve;
+export const touchMemories = memory.touch;
+export const memoryVersions = memory.versions;
+export const decayMemories = memory.decay;
+
 // ----------------------------------------------------------------------------
 // 4. searchKnowledge — busca híbrida (semântica + textual) em memórias.
 // ----------------------------------------------------------------------------
