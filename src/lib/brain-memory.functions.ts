@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+type Json = string | number | boolean | null | { [k: string]: Json } | Json[];
+
 export type BrainMemoryRow = {
   id: string;
   brand_id: string | null;
@@ -13,10 +15,10 @@ export type BrainMemoryRow = {
   confidence: number;
   status: string;
   tags: string[];
-  relations: unknown[] | Record<string, unknown>;
-  metadata: Record<string, unknown>;
+  relations: Json;
+  metadata: Json;
   source_event: string | null;
-  content: Record<string, unknown>;
+  content: Json;
   created_at: string;
   updated_at: string;
 };
