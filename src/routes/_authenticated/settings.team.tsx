@@ -28,7 +28,7 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, UserPlus, Copy, X, Loader2, CalendarIcon, Link2, ShieldOff, ExternalLink } from "lucide-react";
+import { MoreHorizontal, UserPlus, Copy, X, Loader2, CalendarIcon, Link2, ShieldOff, ExternalLink, UserCog } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -37,6 +37,7 @@ import { usePageHeader } from "@/hooks/use-page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SettingsStatCard } from "@/components/settings/settings-stat-card";
 import { Users, Mail as MailIcon, Link as LinkIcon, Crown } from "lucide-react";
+import { CreateUserDialog } from "@/components/settings/create-user-dialog";
 
 export const Route = createFileRoute("/_authenticated/settings/team")({
   component: TeamSettingsPage,
@@ -59,6 +60,7 @@ function TeamSettingsPage() {
 
   const [open, setOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
 
   usePageHeader(
     {
@@ -66,6 +68,10 @@ function TeamSettingsPage() {
       subtitle: "Membros, permissões e convites da marca",
       actions: brandId ? (
         <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setCreateOpen(true)}>
+            <UserCog className="h-4 w-4 mr-2" />
+            Criar usuário
+          </Button>
           <Button size="sm" variant="outline" onClick={() => setAddOpen(true)}>
             <UserPlus className="h-4 w-4 mr-2" />
             Adicionar existente
@@ -114,6 +120,13 @@ function TeamSettingsPage() {
           }}
         />
       </Dialog>
+      <CreateUserDialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        onDone={() => {
+          qc.invalidateQueries({ queryKey: ["brand-team", brandId] });
+        }}
+      />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <SettingsStatCard label="Membros" value={members.length} icon={<Users className="h-3.5 w-3.5" />} tone="sky" />
