@@ -28,6 +28,7 @@ import {
   Target,
   Brain,
   MessageSquare,
+  Activity,
 } from "lucide-react";
 import {
   Sidebar,
