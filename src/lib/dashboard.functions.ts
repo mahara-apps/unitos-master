@@ -4,6 +4,7 @@ import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { computeClientHealthScore } from "@/lib/client-health";
 
 type SupaCtx = { supabase: SupabaseClient<Database>; userId: string };
 
