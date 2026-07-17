@@ -11,6 +11,7 @@ import type { ChatAttachmentInput } from "@/lib/brain/chat-gateway/multimodal.se
 import type { ToolCallLog } from "@/lib/brain/chat-gateway/tools.server";
 import { streamAnswer } from "@/lib/brain/chat-gateway/llm.server";
 import { reason } from "@/lib/brain/reasoning/orchestrator.server";
+import { waitUntil } from "@/lib/wait-until.server";
 
 const BodySchema = z.object({
   conversationId: z.string().uuid(),
@@ -304,15 +305,14 @@ export const Route = createFileRoute("/api/chat/stream")({
               : Promise.resolve(),
           ]);
         });
-        finish.then(undefined, (e: unknown) => console.error("[chat.stream] finish error", e));
+        // Keep the Cloudflare Worker isolate alive until the assistant row
+        // (and Brain events) are persisted. Sem isso, o `.then(insert)` é
+        // descartado quando o Worker recicla o isolate após o stream fechar.
+        waitUntil(Promise.resolve(finish));
 
         // 7) Retornar text stream (o cliente lê incrementalmente)
-        const response = stream.result.toTextStreamResponse();
-        // Não aguardamos `finish` para não bloquear TTFB — o consumo do stream
-        // é o que resolve stream.result.text, e a persistência acontece em
-        // background após a última chunk.
-        void finish;
-        return response;
+        // TTFB não bloqueia — `waitUntil(finish)` acima garante persistência.
+        return stream.result.toTextStreamResponse();
       },
     },
   },
