@@ -38,26 +38,12 @@ export type BrainInfraSummary = {
   }>;
 };
 
-async function countTable(
-  supabase: ReturnType<typeof requireBrandFilter>["supabase"],
-  table: string,
-  brandId: string | null,
-): Promise<number> {
-  let q = supabase.from(table).select("id", { count: "exact", head: true });
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function countTable(sb: any, table: string, brandId: string | null): Promise<number> {
+  let q = sb.from(table).select("id", { count: "exact", head: true });
   if (brandId) q = q.eq("brand_id", brandId);
   const { count } = await q;
-  return count ?? 0;
-}
-
-// Small helper for TS inference — we don't actually filter here.
-function requireBrandFilter(supabase: unknown) {
-  return { supabase: supabase as never as {
-    from: (t: string) => {
-      select: (c: string, o?: { count?: string; head?: boolean }) => {
-        eq: (col: string, val: string) => Promise<{ count: number | null }>;
-      } & Promise<{ count: number | null }>;
-    };
-  } };
+  return (count as number | null) ?? 0;
 }
 
 export const brainInfraSummaryFn = createServerFn({ method: "POST" })
@@ -69,12 +55,12 @@ export const brainInfraSummaryFn = createServerFn({ method: "POST" })
 
     const [events, knowledge, recommendations, memory, relationships, insights] =
       await Promise.all([
-        countTable(sb as never, "brain_events", brandId),
-        countTable(sb as never, "brain_knowledge", brandId),
-        countTable(sb as never, "brain_recommendations", brandId),
-        countTable(sb as never, "brain_memory", brandId),
-        countTable(sb as never, "brain_relationships", brandId),
-        countTable(sb as never, "brain_insights", brandId),
+        countTable(sb, "brain_events", brandId),
+        countTable(sb, "brain_knowledge", brandId),
+        countTable(sb, "brain_recommendations", brandId),
+        countTable(sb, "brain_memory", brandId),
+        countTable(sb, "brain_relationships", brandId),
+        countTable(sb, "brain_insights", brandId),
       ]);
 
     let evQ = sb
