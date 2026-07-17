@@ -583,15 +583,17 @@ function ProductionTab({
             <CardDescription>Distribuição por pipeline</CardDescription>
           </CardHeader>
           <CardContent>
-            <DistributionList
-              items={data.funnel.map((f) => ({
-                key: f.stage,
-                label: STAGE_LABEL[f.stage] ?? f.stage,
-                color: "#0ea5e9",
-                value: f.count,
-              }))}
-              total={data.total}
-            />
+            {data.funnel.length === 0 ? (
+              <EmptyState message="Sem dados" />
+            ) : (
+              <FunnelStages
+                stages={data.funnel.map((f) => ({
+                  key: f.stage,
+                  label: STAGE_LABEL[f.stage] ?? f.stage,
+                  count: f.count,
+                }))}
+              />
+            )}
           </CardContent>
         </Card>
       </div>
