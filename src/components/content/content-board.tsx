@@ -55,6 +55,8 @@ import {
   DashboardPanelSurface,
 } from "@/components/ui/dashboard-primitives";
 
+// Dot de cor da coluna — segue paleta semântica do DESIGN_SYSTEM.
+// (`cyan` mapeado para `sky` para manter uma cor = um significado.)
 const COLOR_MAP: Record<StageColor, string> = {
   muted: "bg-muted-foreground/60",
   indigo: "bg-indigo-500",
@@ -63,7 +65,7 @@ const COLOR_MAP: Record<StageColor, string> = {
   emerald: "bg-emerald-500",
   sky: "bg-sky-500",
   rose: "bg-rose-500",
-  cyan: "bg-cyan-500",
+  cyan: "bg-sky-500",
 };
 
 function AssigneeChip({ brandId, assigneeId }: { brandId: string; assigneeId: string | null }) {
@@ -381,7 +383,7 @@ function Column({
               {stage.label}
             </button>
           )}
-          <Badge variant="secondary" className="h-5 shrink-0 rounded-md border border-border/60 bg-background/60 px-1.5 font-mono text-xs font-normal tabular-nums">
+          <Badge variant="secondary" className="h-5 shrink-0 rounded-md border border-border/60 bg-background/60 px-1.5 text-xs font-normal tabular-nums">
             {posts.length}
           </Badge>
           {stage.sla_days ? (
