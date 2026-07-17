@@ -97,29 +97,3 @@ export const brainGraphFn = createServerFn({ method: "POST" })
       stats: { nodeCount: graph.nodes.length, edgeCount: (graph.edges ?? []).length, typeCounts },
     };
   });
-
-export const brainNeighborhoodFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => NeighborhoodInput.parse(i))
-  .handler(async ({ data, context }): Promise<BrainGraph> => {
-    const sb = context.supabase;
-    const { data: raw, error } = await sb.rpc("get_brain_neighborhood", {
-      _brand_id: data.brandId,
-      _entity_type: data.entityType,
-      _entity_id: data.entityId,
-      _depth: data.depth ?? 2,
-    });
-    if (error) throw new Error(error.message);
-    const graph = (raw ?? { nodes: [], edges: [] }) as RawGraph;
-    const labels = await resolveLabels(sb, graph.nodes);
-    const typeCounts: Record<string, number> = {};
-    for (const n of graph.nodes) typeCounts[n.type] = (typeCounts[n.type] ?? 0) + 1;
-    return {
-      nodes: graph.nodes.map((n) => ({
-        ...n,
-        label: labels.get(`${n.type}:${n.id}`) ?? `${n.type}·${n.id.slice(0, 6)}`,
-      })),
-      edges: graph.edges ?? [],
-      stats: { nodeCount: graph.nodes.length, edgeCount: (graph.edges ?? []).length, typeCounts },
-    };
-  });
