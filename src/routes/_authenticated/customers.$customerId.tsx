@@ -2,13 +2,12 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useEffect, useState } from "react";
-import { AlertTriangle, Settings, Sparkles } from "lucide-react";
+import { AlertTriangle, Sparkles } from "lucide-react";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { FALLBACK_ROUTE } from "@/lib/permissions";
@@ -50,6 +49,7 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
 const TABS = [
   { value: "overview", label: "Visão geral" },
   { value: "brain", label: "Cérebro da Marca" },
+  { value: "cadastro", label: "Cadastro" },
 ] as const;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -150,7 +150,6 @@ function CustomerDetailReady({
   const fetchHub = useServerFn(getBrandHub);
   const qc = useQueryClient();
   const [activeTab, setActiveTab] = useState<string>("overview");
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [wizardOpen, setWizardOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -236,15 +235,6 @@ function CustomerDetailReady({
               Plano de mídia
             </Link>
           </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-8 w-8"
-          onClick={() => setSettingsOpen(true)}
-          title="Configurações da conta"
-        >
-          <Settings className="h-4 w-4" />
-        </Button>
         </div>
       ),
     },
@@ -318,21 +308,12 @@ function CustomerDetailReady({
                 }
               />
             </TabsContent>
+            <TabsContent value="cadastro">
+              <BasicInfoTab brandId={brandId} clientId={customerId} />
+            </TabsContent>
           </Tabs>
         )}
       </div>
-
-      <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
-        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
-          <SheetHeader className="mb-4">
-            <SheetTitle>Configurações da conta</SheetTitle>
-            <SheetDescription>
-              Contato, telefone, e-mail corporativo e redes sociais.
-            </SheetDescription>
-          </SheetHeader>
-          <BasicInfoTab brandId={brandId} clientId={customerId} />
-        </SheetContent>
-      </Sheet>
 
       <QuickOnboardingWizard
         brandId={brandId}
