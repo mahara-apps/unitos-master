@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { brainIntelligenceFn, type BrainIntelligence } from "@/lib/brain-intelligence.functions";
+import { brainIntelligenceFn, type BrainIntelligence } from "@/lib/brain/api";
 
 type Filters = {
   clientId: string | null;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { classifyBrainEvent } from "@/lib/brain-stats.functions";
+import { classifyBrainEvent } from "@/lib/brain/legacy/brain-stats.functions";
 
 export type BrainStreamEvent = {
   id: string;

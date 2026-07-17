@@ -4,7 +4,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { waitUntil } from "./wait-until.server";
+import { waitUntil } from "../../wait-until.server";
 
 const IngestInput = z.object({
   brandId: z.string().uuid(),

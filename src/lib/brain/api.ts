@@ -31,6 +31,33 @@ import * as context from "./context-engine";
 import type { BrainContext } from "./core";
 import type { BrainConsolidated, ChatAttachmentMeta } from "./chat-gateway";
 
+// Legacy server functions (mantidas como parte oficial da Brain Platform —
+// antes viviam em `src/lib/brain-*.functions.ts`).
+// Reexportadas aqui para que consumidores externos NUNCA importem os arquivos
+// legados diretamente. Todo acesso deve ser via `brain.*` ou via estes
+// nomes de conveniência.
+//
+// Segurança de bundling: só reexportamos legacy fns cujo grafo de imports é
+// client-safe (nenhum `.server.ts` top-level). Fns como `brainConsolidateFn`
+// e `brainRetrieveFn` permanecem acessíveis apenas via server routes.
+export {
+  brainGraphFn,
+  type BrainGraph,
+  type GraphNode,
+} from "./legacy/brain-graph.functions";
+export {
+  brainIntelligenceFn,
+  type BrainIntelligence,
+} from "./legacy/brain-intelligence.functions";
+export { loadBrainWidget } from "./legacy/brain-widget.functions";
+export type {
+  BrainWidgetItem,
+  BrainWidgetPayload,
+} from "./legacy/brain-widget.functions";
+
+// Stream hook — reexport-only shim para consumo por componentes React.
+export { useBrainStream, type BrainStreamEvent } from "./stream/use-brain-stream";
+
 export type { BrainContext };
 export type * from "./core";
 
@@ -62,6 +89,22 @@ export const brain = {
   recordContextUsage: services.recordContextUsage,
   summarize: services.summarize,
   getRecommendations: services.getRecommendations,
+  // ---- Ingest de background (fire-and-forget) ----
+  // Carrega o helper server-only sob demanda para preservar a client-safety
+  // deste módulo (evita puxar `wait-until.server` para o bundle do cliente).
+  ingestQuiet(
+    supabase: import("@supabase/supabase-js").SupabaseClient,
+    brandId: string,
+    eventType: string,
+    sourceModule: string,
+    payload: Record<string, unknown>,
+  ): void {
+    void import("./ingest-quiet.server")
+      .then((m) =>
+        m.ingestBrainQuiet(supabase, brandId, eventType, sourceModule, payload),
+      )
+      .catch((err) => console.error("[brain.ingestQuiet]", err));
+  },
   chat: {
     consolidate: chatGw.consolidate,
     tryDirectAnswer: chatGw.tryDirectAnswer,
