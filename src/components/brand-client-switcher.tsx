@@ -9,6 +9,7 @@ import {
   createBrand,
   // seedDemoData removido — sistema não cria mais clientes/conteúdos automáticos
 } from "@/lib/workspace.functions";
+import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -93,38 +94,35 @@ export function ContextSwitcher() {
     <>
       <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
         <PopoverTrigger asChild>
-          <Button variant="ghost" className="h-11 w-full justify-between px-2">
-            <div className="flex items-center gap-2 min-w-0">
-              {activeClient ? (
-                <CustomerAvatar
-                  name={activeClient.name}
-                  logoUrl={(activeClient as { logo_url?: string | null }).logo_url ?? null}
-                  className="h-7 w-7"
-                  textClassName="text-[11px]"
-                />
-              ) : (
-                <div
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white shadow-sm"
-                  style={{ background: activeBrand?.color ?? "linear-gradient(135deg,#8b5cf6,#6366f1)" }}
-                >
-                  <Sparkles className="h-3.5 w-3.5" />
-                </div>
-              )}
-              <div className="flex flex-col text-left leading-tight min-w-0 group-data-[collapsible=icon]:hidden">
-                <span className="truncate text-sm font-semibold tracking-tight">
-                  {activeClient?.name ?? activeBrand?.name ?? "Nenhum workspace"}
-                </span>
-                <span className="flex items-center gap-1 truncate text-[11px] text-muted-foreground">
-                  {activeClient ? (
-                    <span className="truncate">{activeBrand?.name ?? ""}</span>
-                  ) : (
-                    <span className="truncate">Todas as contas</span>
-                  )}
-                </span>
+          <SidebarMenuButton
+            tooltip={activeClient?.name ?? activeBrand?.name ?? "Workspace"}
+            className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+          >
+            {activeClient ? (
+              <CustomerAvatar
+                name={activeClient.name}
+                logoUrl={(activeClient as { logo_url?: string | null }).logo_url ?? null}
+                className="h-5 w-5"
+                textClassName="text-[9px]"
+              />
+            ) : (
+              <div
+                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-white shadow-sm"
+                style={{ background: activeBrand?.color ?? "linear-gradient(135deg,#8b5cf6,#6366f1)" }}
+              >
+                <Sparkles className="h-3 w-3" />
               </div>
+            )}
+            <div className="grid flex-1 text-left leading-tight min-w-0">
+              <span className="truncate text-sm font-medium tracking-tight">
+                {activeClient?.name ?? activeBrand?.name ?? "Nenhum workspace"}
+              </span>
+              <span className="truncate text-[10px] text-muted-foreground">
+                {activeClient ? (activeBrand?.name ?? "") : "Todas as contas"}
+              </span>
             </div>
-            <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground group-data-[collapsible=icon]:hidden" />
-          </Button>
+            <ChevronsUpDown className="ml-auto h-3.5 w-3.5 shrink-0 opacity-60" />
+          </SidebarMenuButton>
         </PopoverTrigger>
         <PopoverContent align="start" sideOffset={8} className="w-72 p-0">
           <Command>

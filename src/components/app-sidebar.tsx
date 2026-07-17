@@ -106,9 +106,15 @@ export function AppSidebar() {
         <SidebarTrigger className="h-7 w-7 shrink-0 text-muted-foreground group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:inset-0 group-data-[collapsible=icon]:m-auto group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:group-hover/brand:opacity-100 transition-opacity" />
       </SidebarHeader>
       <SidebarContent>
-        <div className="px-2 pt-2">
-          <ContextSwitcher />
-        </div>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <ContextSwitcher />
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
         {visibleGroups.map((g) => (
           <SidebarGroup key={g.label}>
             <SidebarGroupLabel>{g.label}</SidebarGroupLabel>
@@ -167,18 +173,18 @@ function UserProfileMenu() {
           tooltip={label}
           className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
         >
-          <Avatar className="h-6 w-6 rounded-md">
-            <AvatarFallback className="rounded-md bg-indigo-600 text-[10px] font-medium text-white">
+          <Avatar className="h-5 w-5 rounded-md">
+            <AvatarFallback className="rounded-md bg-indigo-600 text-[9px] font-medium text-white">
               {initials}
             </AvatarFallback>
           </Avatar>
           <div className="grid flex-1 text-left text-xs leading-tight">
-            <span className="truncate font-medium">{user?.name || "Minha conta"}</span>
+            <span className="truncate text-sm font-medium">{user?.name || "Minha conta"}</span>
             {user?.email ? (
               <span className="truncate text-[10px] text-muted-foreground">{user.email}</span>
             ) : null}
           </div>
-          <ChevronsUpDown className="ml-auto h-3.5 w-3.5 opacity-60" />
+          <ChevronsUpDown className="ml-auto h-3.5 w-3.5 shrink-0 opacity-60" />
         </SidebarMenuButton>
       </PopoverTrigger>
       <PopoverContent
