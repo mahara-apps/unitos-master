@@ -55,6 +55,7 @@ import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_au
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 import { Route as AuthenticatedChatConversationIdRouteImport } from './routes/_authenticated/chat.$conversationId'
 import { Route as AuthenticatedBrainGraphRouteImport } from './routes/_authenticated/brain.graph'
+import { Route as AuthenticatedBrainDiagnosticsRouteImport } from './routes/_authenticated/brain.diagnostics'
 import { Route as ApiPublicMediaPruneRouteImport } from './routes/api/public/media/prune'
 import { Route as ApiPublicHooksBrainConsolidateRouteImport } from './routes/api/public/hooks/brain-consolidate'
 import { Route as ApiPublicCronSlaCheckRouteImport } from './routes/api/public/cron/sla-check'
@@ -307,6 +308,12 @@ const AuthenticatedBrainGraphRoute = AuthenticatedBrainGraphRouteImport.update({
   path: '/graph',
   getParentRoute: () => AuthenticatedBrainRoute,
 } as any)
+const AuthenticatedBrainDiagnosticsRoute =
+  AuthenticatedBrainDiagnosticsRouteImport.update({
+    id: '/diagnostics',
+    path: '/diagnostics',
+    getParentRoute: () => AuthenticatedBrainRoute,
+  } as any)
 const ApiPublicMediaPruneRoute = ApiPublicMediaPruneRouteImport.update({
   id: '/api/public/media/prune',
   path: '/api/public/media/prune',
@@ -370,6 +377,7 @@ export interface FileRoutesByFullPath {
   '/invite/$token': typeof InviteTokenRoute
   '/plano/$planId': typeof PlanoPlanIdRoute
   '/portal/$token': typeof PortalTokenRoute
+  '/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
   '/brain/graph': typeof AuthenticatedBrainGraphRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
@@ -420,6 +428,7 @@ export interface FileRoutesByTo {
   '/invite/$token': typeof InviteTokenRoute
   '/plano/$planId': typeof PlanoPlanIdRoute
   '/portal/$token': typeof PortalTokenRoute
+  '/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
   '/brain/graph': typeof AuthenticatedBrainGraphRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
@@ -476,6 +485,7 @@ export interface FileRoutesById {
   '/invite/$token': typeof InviteTokenRoute
   '/plano/$planId': typeof PlanoPlanIdRoute
   '/portal/$token': typeof PortalTokenRoute
+  '/_authenticated/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
   '/_authenticated/brain/graph': typeof AuthenticatedBrainGraphRoute
   '/_authenticated/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
@@ -532,6 +542,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/plano/$planId'
     | '/portal/$token'
+    | '/brain/diagnostics'
     | '/brain/graph'
     | '/chat/$conversationId'
     | '/customers/$customerId'
@@ -582,6 +593,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/plano/$planId'
     | '/portal/$token'
+    | '/brain/diagnostics'
     | '/brain/graph'
     | '/chat/$conversationId'
     | '/customers/$customerId'
@@ -637,6 +649,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/plano/$planId'
     | '/portal/$token'
+    | '/_authenticated/brain/diagnostics'
     | '/_authenticated/brain/graph'
     | '/_authenticated/chat/$conversationId'
     | '/_authenticated/customers/$customerId'
@@ -1017,6 +1030,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBrainGraphRouteImport
       parentRoute: typeof AuthenticatedBrainRoute
     }
+    '/_authenticated/brain/diagnostics': {
+      id: '/_authenticated/brain/diagnostics'
+      path: '/diagnostics'
+      fullPath: '/brain/diagnostics'
+      preLoaderRoute: typeof AuthenticatedBrainDiagnosticsRouteImport
+      parentRoute: typeof AuthenticatedBrainRoute
+    }
     '/api/public/media/prune': {
       id: '/api/public/media/prune'
       path: '/api/public/media/prune'
@@ -1070,10 +1090,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedBrainRouteChildren {
+  AuthenticatedBrainDiagnosticsRoute: typeof AuthenticatedBrainDiagnosticsRoute
   AuthenticatedBrainGraphRoute: typeof AuthenticatedBrainGraphRoute
 }
 
 const AuthenticatedBrainRouteChildren: AuthenticatedBrainRouteChildren = {
+  AuthenticatedBrainDiagnosticsRoute: AuthenticatedBrainDiagnosticsRoute,
   AuthenticatedBrainGraphRoute: AuthenticatedBrainGraphRoute,
 }
 
