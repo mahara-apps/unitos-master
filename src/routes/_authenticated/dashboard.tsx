@@ -28,7 +28,6 @@ import {
   ExternalLink,
   Flame,
   Gauge,
-  Info,
   Instagram,
   Layers,
   Linkedin,
