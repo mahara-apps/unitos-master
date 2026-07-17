@@ -468,18 +468,7 @@ function AiUsageCard({ usage }: { usage: AiUsageSummary | undefined }) {
           <ul className="space-y-2">
             {rows.map((r) => (
               <li key={r.agent}>
-                <div className="mb-1 flex items-center justify-between text-xs">
-                  <span className="truncate font-medium">{r.agent}</span>
-                  <span className="ml-2 font-mono tabular-nums text-muted-foreground">
-                    ${r.cost.toFixed(3)} · {r.jobs}×
-                  </span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-muted/50">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500"
-                    style={{ width: `${(r.cost / max) * 100}%` }}
-                  />
-                </div>
+                <AgentUsageBar agent={r.agent} cost={r.cost} jobs={r.jobs} max={max} />
               </li>
             ))}
           </ul>
