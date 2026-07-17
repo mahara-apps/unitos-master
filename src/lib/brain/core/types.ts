@@ -12,6 +12,14 @@ export interface BrainContext {
   /** Escopo opcional: null significa "sistema/agência". */
   brandId?: string | null;
   clientId?: string | null;
+  /** Projeto atualmente aberto (opcional — restringe métricas e memórias). */
+  projectId?: string | null;
+  /** Módulo/rota de origem da pergunta (chat, content, tasks, analytics, ...). */
+  module?: string | null;
+  /** Janela temporal opcional para filtrar métricas/memórias. */
+  period?: { from?: string | null; to?: string | null } | null;
+  /** Permissões efetivas do usuário no escopo (usado para gate de contexto). */
+  permissions?: string[] | null;
 }
 
 /** Envelope canônico de evento publicado no Event Bus. */
