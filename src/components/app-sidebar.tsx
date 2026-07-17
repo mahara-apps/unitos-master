@@ -90,6 +90,7 @@ export function AppSidebar() {
       <SidebarHeader className="h-14 flex-row items-center justify-between gap-2 border-b border-sidebar-border/60 px-3 py-0 group-data-[collapsible=icon]:px-2">
         <Link
           to="/dashboard"
+          preload="intent"
           className="flex min-w-0 items-center gap-2 group-data-[collapsible=icon]:hidden"
         >
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-indigo-600 text-white shadow-sm">
@@ -113,7 +114,7 @@ export function AppSidebar() {
                 {g.items.map((item) => (
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-                      <Link to={item.url} className="flex items-center gap-2">
+                      <Link to={item.url} preload="intent" className="flex items-center gap-2">
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </Link>
@@ -199,6 +200,7 @@ function UserProfileMenu() {
         <div className="my-1 h-px bg-border" />
         <Link
           to="/settings/profile"
+          preload="intent"
           className="flex items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-accent hover:text-accent-foreground"
         >
           <UserIcon className="h-3.5 w-3.5" />
