@@ -1417,6 +1417,7 @@ export type Database = {
       }
       clients: {
         Row: {
+          address: string | null
           archived_at: string | null
           brand_hub: Json
           brand_id: string
@@ -1437,8 +1438,10 @@ export type Database = {
           socials: Json | null
           tone_of_voice: string | null
           updated_at: string
+          website: string | null
         }
         Insert: {
+          address?: string | null
           archived_at?: string | null
           brand_hub?: Json
           brand_id: string
@@ -1459,8 +1462,10 @@ export type Database = {
           socials?: Json | null
           tone_of_voice?: string | null
           updated_at?: string
+          website?: string | null
         }
         Update: {
+          address?: string | null
           archived_at?: string | null
           brand_hub?: Json
           brand_id?: string
@@ -1481,6 +1486,7 @@ export type Database = {
           socials?: Json | null
           tone_of_voice?: string | null
           updated_at?: string
+          website?: string | null
         }
         Relationships: [
           {
