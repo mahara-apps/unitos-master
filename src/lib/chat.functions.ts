@@ -424,7 +424,6 @@ async function callLlmWithBrainContext(args: {
   ].join("\n");
 
   const messages: ModelMessage[] = [
-    { role: "system", content: system },
     ...args.history.map((m) => ({
       role: (m.role === "assistant" ? "assistant" : "user") as "assistant" | "user",
       content: m.content,
@@ -441,7 +440,7 @@ async function callLlmWithBrainContext(args: {
   }
 
   try {
-    const result = await generateText({ model, messages, temperature: 0.4 });
+    const result = await generateText({ model, system, messages, temperature: 0.4 });
     return { text: result.text.trim() || "_(sem resposta)_", model: DEFAULT_MODEL };
   } catch (err) {
     console.error("[chat] LLM error", err);
