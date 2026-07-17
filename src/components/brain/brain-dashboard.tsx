@@ -69,6 +69,124 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
         />
       </div>
 
+      <section className="rounded-xl border border-border/60 bg-card p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium">Arquitetura do Brain</h3>
+            <p className="text-xs text-muted-foreground">
+              Camadas de infraestrutura que alimentam toda a inteligência da plataforma.
+            </p>
+          </div>
+          <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
+            Infra
+          </Badge>
+        </div>
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-6">
+          {[
+            { k: "events", label: "Eventos" },
+            { k: "knowledge", label: "Conhecimento" },
+            { k: "insights", label: "Insights" },
+            { k: "recommendations", label: "Recomendações" },
+            { k: "memory", label: "Memória" },
+            { k: "relationships", label: "Relações" },
+          ].map((row) => (
+            <div key={row.k} className="rounded-lg border border-border/40 p-3">
+              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                {row.label}
+              </div>
+              <div className="mt-1 text-lg font-semibold tabular-nums">
+                {infra.isLoading ? (
+                  <Skeleton className="h-6 w-12" />
+                ) : (
+                  (infra.data?.counts[row.k as keyof typeof infra.data.counts] ?? 0).toLocaleString("pt-BR")
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <div>
+            <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Event bus (últimos)
+            </h4>
+            {infra.isLoading ? (
+              <Skeleton className="h-24" />
+            ) : (infra.data?.recentEvents ?? []).length === 0 ? (
+              <p className="text-xs text-muted-foreground">Sem eventos registrados ainda.</p>
+            ) : (
+              <ul className="max-h-64 space-y-1 overflow-auto pr-1">
+                {infra.data!.recentEvents.slice(0, 15).map((e) => (
+                  <li
+                    key={e.id}
+                    className="flex items-center justify-between gap-2 rounded-md border border-border/30 px-2 py-1.5 text-[11px]"
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Badge variant="outline" className="text-[9px]">
+                        {e.source_module}
+                      </Badge>
+                      <span className="truncate font-mono text-muted-foreground">
+                        {e.event_type}
+                      </span>
+                      {e.action ? (
+                        <span className="shrink-0 text-[9px] text-muted-foreground">
+                          · {e.action}
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {e.confidence != null ? (
+                        <span className="text-[9px] text-muted-foreground">
+                          {Math.round(Number(e.confidence) * 100)}%
+                        </span>
+                      ) : null}
+                      <time className="text-[9px] text-muted-foreground">
+                        {new Date(e.created_at).toLocaleTimeString("pt-BR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </time>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div>
+            <h4 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Recomendações pendentes
+            </h4>
+            {infra.isLoading ? (
+              <Skeleton className="h-24" />
+            ) : (infra.data?.topRecommendations ?? []).length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Nenhuma recomendação — a camada está pronta para ser alimentada por futuros motores.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {infra.data!.topRecommendations.map((r) => (
+                  <li key={r.id} className="rounded-md border border-border/40 p-2.5">
+                    <div className="mb-1 flex items-center gap-2">
+                      <Badge variant="secondary" className="text-[10px]">
+                        {r.priority}
+                      </Badge>
+                      <span className="text-[10px] text-muted-foreground">
+                        {Math.round(Number(r.confidence) * 100)}%
+                      </span>
+                    </div>
+                    <p className="text-xs font-medium leading-snug">{r.title}</p>
+                    {r.description ? (
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">{r.description}</p>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </section>
+
       <div className="grid gap-4 lg:grid-cols-2">
         <section className="rounded-xl border border-border/60 bg-card p-5">
           <h3 className="mb-3 text-sm font-medium">Insights ativos</h3>
