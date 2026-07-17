@@ -1,93 +1,40 @@
+## Plano de correção do Chat do Brain
 
-# Unificação da camada de memória — brain_memory como fonte única
+### Diagnóstico confirmado
+- O chat ainda está chamando o LLM via `generateText` com `system` separado de `messages` em `src/lib/brain/chat-gateway/llm.server.ts`.
+- O erro exibido na tela indica que o gateway/modelo rejeita mensagens de sistema no payload atual: `System messages are not allowed in the prompt or messages fields`.
+- O histórico enviado ao modelo inclui mensagens do banco sem filtrar papel `system`, mesmo o tipo do banco permitindo `role: "system"`.
+- Os logs do AI Gateway não registraram chamadas recentes com erro, então a primeira correção deve ser no contrato do payload antes de investigar infra/créditos.
 
-## Diagnóstico
+### Correção proposta
+1. **Reescrever o payload do LLM no Chat Gateway**
+   - Trocar a chamada atual por um formato compatível com o AI SDK/Gateway: usar `instructions` para o contexto do Brain, em vez de `system`/mensagem system.
+   - Manter a pergunta e o histórico como mensagens `user`/`assistant` apenas.
+   - Filtrar qualquer mensagem `system` do histórico antes de enviar ao modelo.
 
-Duas tabelas com responsabilidades sobrepostas:
+2. **Atualizar o modelo do chat para geração atual**
+   - Substituir `google/gemini-2.5-flash` por um modelo atual suportado, preferencialmente `google/gemini-3.5-flash`, mantendo baixo atrito e boa latência.
+   - Atualizar o rótulo persistido em `chat_messages.model` para refletir o modelo real.
 
-| | `brain_memory` (nova) | `brain_knowledge` (legado) |
-|---|---|---|
-| Chave lógica | `(brand_id, scope, memory_type, key)` | `(brand_id, category, key)` |
-| Confidence | ✅ com `previous_confidence` + WMA via `brain_memory_evolve` | ✅ simples, só `reinforcement_count` |
-| Versionamento | ✅ `brain_memory_versions` + trigger snapshot | ❌ nenhum |
-| Lifecycle | ✅ evolve / touch / decay / archive | ❌ nenhum |
-| Origem/evidência | ✅ `source_refs` + `source_event` | ⚠️ `source_event_ids` (ARRAY) |
-| Writers ativos | Brain API (`memory.*`, `evolve`, `remember`) | **nenhum** |
-| Readers ativos | Brain API + widgets | apenas `brain-intelligence.functions.ts` (KPIs de contagem) |
-| Linhas em produção | **0** | **0** |
+3. **Blindar anexos e perguntas vazias**
+   - Garantir que, quando houver anexos, a pergunta final enviada ao modelo seja uma mensagem `user` simples e não introduza nenhum papel inválido.
+   - Preservar a regra atual: anexos permitem pergunta sem texto; sem anexos continua bloqueando “Mensagem vazia”.
 
-Conclusão: `brain_knowledge` está morta operacionalmente. `brain_memory` já é superconjunto funcional. Sem risco de perda de dados (ambas vazias), mas a migração assume que qualquer linha futura em `brain_knowledge` deve ser copiada antes do DROP.
+4. **Melhorar fallback de erro sem mascarar problema real**
+   - Manter resposta de fallback com contexto do Brain se o LLM falhar.
+   - Remover exposição bruta excessiva do erro ao usuário final ou deixar em formato mais limpo, mantendo log técnico no servidor.
 
-## Decisões de consolidação
+5. **Validar fluxo completo**
+   - Verificar envio de nova mensagem em `/chat/:conversationId`.
+   - Confirmar que a resposta não contém mais o erro `System messages are not allowed...`.
+   - Confirmar que a mensagem do usuário e a resposta do assistente persistem e aparecem na conversa.
+   - Conferir logs do AI Gateway após o teste para garantir chamada bem-sucedida ou diagnosticar erro externo se ainda houver falha.
 
-1. **Fonte única**: `brain_memory` passa a ser a ÚNICA tabela de memória/conhecimento. `brain_knowledge` é descontinuada.
-2. **Chave canônica**: `(brand_id, scope, memory_type, key)` — já existente. `category` (legado) mapeia para `memory_type`.
-3. **Confidence**: mantém-se o esquema `brain_memory` (`confidence` + `previous_confidence` + WMA via `brain_memory_evolve`).
-4. **Versionamento**: mantém `brain_memory_versions` + trigger `brain_memory_snapshot()`.
-5. **Lifecycle**: mantém `evolve` / `touch` / `decay` / `archive`.
-6. **Evidência**: `source_refs` (JSONB) absorve `source_event_ids` como `{ event_ids: [...] }`.
+### Arquivos previstos
+- `src/lib/brain/chat-gateway/llm.server.ts`
+- `src/lib/chat.functions.ts` somente se necessário para filtrar/normalizar histórico antes da chamada
 
-## Migração (não destrutiva → destrutiva em 2 fases)
-
-### Fase A — Backfill defensivo (safe, reversível)
-Mesmo com 0 linhas hoje, o script cobre o caso de linhas terem sido criadas entre plano e execução:
-
-```sql
-INSERT INTO public.brain_memory
-  (brand_id, client_id, memory_type, scope, key, content,
-   confidence, source_refs, reinforcement_count, origin, status)
-SELECT
-  bk.brand_id,
-  bk.client_id,
-  bk.category                                    AS memory_type,
-  'brand'                                        AS scope,
-  bk.key,
-  jsonb_build_object('value', bk.value)         AS content,
-  bk.confidence,
-  jsonb_build_object(
-    'event_ids', COALESCE(bk.source_event_ids, ARRAY[]::uuid[]),
-    'legacy_source', bk.source
-  )                                              AS source_refs,
-  bk.reinforcement_count,
-  'migration:brain_knowledge'                    AS origin,
-  'active'                                       AS status
-FROM public.brain_knowledge bk
-ON CONFLICT (brand_id, scope, memory_type, key) DO NOTHING;
-```
-
-### Fase B — Remoção da tabela legada
-Executada só depois de:
-- backfill confirmado (contagens iguais),
-- código de leitura repointado para `brain_memory`,
-- typecheck + lint verdes.
-
-```sql
-DROP TRIGGER IF EXISTS brain_knowledge_touch ON public.brain_knowledge;
-DROP TABLE public.brain_knowledge;
-```
-
-## Alterações de código (não-destrutivas)
-
-- `src/lib/brain/legacy/brain-intelligence.functions.ts`: substituir todas as 7 leituras de `brain_knowledge` por leituras equivalentes em `brain_memory` (filtro `status = 'active'`; `category` → `memory_type`). KPIs "Conhecimentos" e "Memórias" passam a exibir buckets diferentes da MESMA tabela (`memory_type IN ('fact','pattern',…)` vs. todas).
-- `src/lib/brain/README.md`: remover a distinção `Memory Store` vs. `Knowledge` — só existe Memory Store.
-- `src/lib/brain/DEPRECATION.md`: registrar `brain_knowledge` como REMOVED nesta fase.
-- Nada muda na API pública (`brain.memory.*`, `brain.remember`, `brain.evolveMemory`, `brain.searchKnowledge` continuam idênticos — `searchKnowledge` já lê `brain_memory`).
-
-## Ordem de execução
-
-1. Aplicar migração Fase A (backfill idempotente).
-2. Repointar `brain-intelligence.functions.ts` para `brain_memory`.
-3. Rodar typecheck + lint.
-4. Aplicar migração Fase B (DROP `brain_knowledge`).
-5. Atualizar README + DEPRECATION.
-
-## Riscos & mitigações
-
-- **Regressão em consumidores externos**: nenhum consumidor externo escreve em `brain_knowledge` (grep exaustivo confirmou). Risco: nulo.
-- **Perda de dados**: coberta pelo backfill idempotente antes do DROP.
-- **Guardrails ESLint**: `no-restricted-syntax` já bloqueia `.from("brain_*")` fora de `src/lib/brain/**` — nada a mudar.
-- **Types**: `types.ts` é regenerado pelo Supabase após a migração; nenhum consumidor externo depende de `Tables<'brain_knowledge'>`.
-
-## Aprovação necessária
-
-Confirme para eu executar Fase A + repointar leituras + Fase B numa sequência única, ou peça para eu parar entre A e B para revisão.
+### Fora do escopo
+- Não alterar UI do chat.
+- Não criar novas funcionalidades no Brain.
+- Não alterar arquitetura de memória, diagnósticos, eventos ou banco de dados.
