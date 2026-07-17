@@ -231,20 +231,6 @@ function CustomerDetailReady({
               Completar onboarding
             </Button>
           )}
-          <Button
-            asChild
-            size="sm"
-            variant="outline"
-            className="h-8"
-            title="Plano de mídia paga"
-          >
-            <Link
-              to="/customers/$customerId/media-plan"
-              params={{ customerId }}
-            >
-              Plano de mídia
-            </Link>
-          </Button>
         </div>
       ),
     },
