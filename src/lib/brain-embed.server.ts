@@ -1,3 +1,6 @@
+// ⚠️ Brain API boundary — este arquivo faz parte da plataforma Brain.
+// Consumidores externos NÃO devem importar deste módulo diretamente:
+// use o namespace `brain` exportado em `src/lib/brain/api.ts`.
 /**
  * Server-only worker helpers for the Brain memory layer.
  * NEVER import from route/component/*.functions.ts module scope.
