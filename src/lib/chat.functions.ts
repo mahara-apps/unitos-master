@@ -27,8 +27,10 @@ export type ChatMessageRow = {
 
 export type ChatToolCall = {
   name: string;
-  input: Record<string, unknown>;
-  output: Record<string, unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  input: Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  output: Record<string, any>;
   ok: boolean;
   ts: string;
 };
