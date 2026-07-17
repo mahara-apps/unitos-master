@@ -85,10 +85,7 @@ export const publishNow = createServerFn({ method: "POST" })
     if (insErr) throw new Error(insErr.message);
 
     try {
-      const { MetaPublishingService, formatPublishError } = await import(
-        "./publishing.server"
-      );
-      void formatPublishError; // referenced in catch
+      const { MetaPublishingService } = await import("./publishing.server");
       const svc = new MetaPublishingService();
       const result = await svc.publish(conn as any, {
         placement: data.placement,
@@ -102,12 +99,17 @@ export const publishNow = createServerFn({ method: "POST" })
           published_at: new Date().toISOString(),
           external_post_id: result.externalPostId,
           external_permalink: result.externalPermalink,
-          provider_response: result.providerResponse,
+          provider_response: result.providerResponse as any,
           last_error: null,
         })
         .eq("id", row.id);
       if (updErr) throw new Error(updErr.message);
-      return { id: row.id, status: "published" as const, ...result };
+      return {
+        id: row.id as string,
+        status: "published" as const,
+        externalPostId: result.externalPostId,
+        externalPermalink: result.externalPermalink,
+      };
     } catch (err) {
       const { formatPublishError } = await import("./publishing.server");
       const message = formatPublishError(err);
@@ -127,9 +129,7 @@ export const schedulePost = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => ScheduleSchema.parse(i))
   .handler(async ({ data, context }) => {
     const conn = await loadConnection(context.supabase, data.brandId, data.connectionId);
-    // Validate placement is supported now, so scheduling never queues garbage.
-    const { assertSupported } = await import("./publishing.server");
-    assertSupported(data.placement);
+    // Placement is already narrowed by the Zod enum above.
 
     const { data: row, error } = await context.supabase
       .from("social_posts")
