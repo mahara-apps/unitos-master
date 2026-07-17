@@ -664,63 +664,41 @@ export const addExistingUserToBrand = createServerFn({ method: "POST" })
       throw new Error("forbidden");
     }
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    type LinkExistingUserRow = {
+      status: "added" | "updated" | "already_member" | "not_found";
+      email: string;
+      user_id: string | null;
+      full_name: string | null;
+    };
 
-    // Locate user by email (paginate defensively)
-    let foundId: string | null = null;
-    for (let page = 1; page <= 20 && !foundId; page++) {
-      const { data: list, error: lErr } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
-      if (lErr) throw lErr;
-      const users = list?.users ?? [];
-      const hit = users.find((u) => (u.email ?? "").toLowerCase() === data.email);
-      if (hit) foundId = hit.id;
-      if (users.length < 200) break;
-    }
+    const rpc = supabase.rpc as unknown as (
+      fn: "link_existing_user_to_brand",
+      args: {
+        _brand_id: string;
+        _email: string;
+        _role: (typeof ROLES)[number];
+        _permissions: PermissionId[];
+      },
+    ) => Promise<{ data: LinkExistingUserRow[] | LinkExistingUserRow | null; error: Error | null }>;
 
-    if (!foundId) {
+    const { data: linkedRows, error: linkErr } = await rpc("link_existing_user_to_brand", {
+      _brand_id: data.brandId,
+      _email: data.email,
+      _role: data.role,
+      _permissions: data.permissions,
+    });
+    if (linkErr) throw linkErr;
+
+    const linked = Array.isArray(linkedRows) ? linkedRows[0] : linkedRows;
+    if (!linked || linked.status === "not_found") {
       return { status: "not_found" as const, email: data.email };
     }
 
-    // Check existing membership
-    const { data: existing } = await supabase
-      .from("brand_members")
-      .select("role, permissions")
-      .eq("brand_id", data.brandId)
-      .eq("user_id", foundId)
-      .maybeSingle();
-
-    const nextPayload = {
-      brand_id: data.brandId,
-      user_id: foundId,
-      role: data.role,
-      permissions: data.permissions,
-    };
-
-    const { error: upErr } = await supabaseAdmin
-      .from("brand_members")
-      .upsert(nextPayload, { onConflict: "brand_id,user_id" });
-    if (upErr) throw upErr;
-
-    const { data: prof } = await supabase
-      .from("user_profiles")
-      .select("full_name")
-      .eq("id", foundId)
-      .maybeSingle();
-
-    let status: "added" | "updated" | "already_member" = "added";
-    if (existing) {
-      const samePerms =
-        Array.isArray(existing.permissions) &&
-        existing.permissions.length === data.permissions.length &&
-        (existing.permissions as string[]).every((p) => (data.permissions as string[]).includes(p));
-      status = existing.role === data.role && samePerms ? "already_member" : "updated";
-    }
-
     return {
-      status,
-      email: data.email,
-      userId: foundId,
-      fullName: prof?.full_name ?? null,
+      status: linked.status,
+      email: linked.email,
+      userId: linked.user_id,
+      fullName: linked.full_name,
     };
   });
 

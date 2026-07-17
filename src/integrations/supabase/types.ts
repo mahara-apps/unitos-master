@@ -2523,6 +2523,7 @@ export type Database = {
         Returns: boolean
       }
       enqueue_deadline_notifications: { Args: never; Returns: number }
+      find_user_id_by_email: { Args: { _email: string }; Returns: string }
       has_brand_role: {
         Args: {
           _brand_id: string
@@ -2538,6 +2539,20 @@ export type Database = {
       is_super_admin:
         | { Args: never; Returns: boolean }
         | { Args: { _user_id: string }; Returns: boolean }
+      link_existing_user_to_brand: {
+        Args: {
+          _brand_id: string
+          _email: string
+          _permissions?: Json
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: {
+          email: string
+          full_name: string
+          status: string
+          user_id: string
+        }[]
+      }
       match_brain_events: {
         Args: { _brand_id: string; _match_count?: number; _query: string }
         Returns: {
