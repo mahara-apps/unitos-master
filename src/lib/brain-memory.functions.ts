@@ -13,7 +13,7 @@ export type BrainMemoryRow = {
   confidence: number;
   status: string;
   tags: string[];
-  relations: unknown;
+  relations: unknown[] | Record<string, unknown>;
   metadata: Record<string, unknown>;
   source_event: string | null;
   content: Record<string, unknown>;
@@ -139,7 +139,7 @@ export const consolidateBrainMemory = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => ConsolidateInput.parse(i ?? {}))
   .handler(async ({ data, context }) => {
     const { data: written, error } = await context.supabase.rpc("consolidate_brain_memory", {
-      _brand_id: data.brandId ?? null,
+      _brand_id: data.brandId ?? undefined,
     });
     if (error) throw new Error(error.message);
     return { written: Number(written ?? 0) };
