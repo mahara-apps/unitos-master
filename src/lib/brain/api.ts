@@ -31,6 +31,35 @@ import * as context from "./context-engine";
 import type { BrainContext } from "./core";
 import type { BrainConsolidated, ChatAttachmentMeta } from "./chat-gateway";
 
+// Legacy server functions (mantidas aqui como parte oficial da Brain
+// Platform — antes viviam em `src/lib/brain-*.functions.ts`).
+// Reexportadas para que consumidores externos NUNCA importem os arquivos
+// legados diretamente. Todo acesso deve ser via `brain.*` ou via estes
+// nomes de conveniência re-exportados abaixo.
+import { brainConsolidateFn } from "./legacy/brain-consolidate.functions";
+import {
+  brainGraphFn,
+  type BrainGraph,
+  type GraphNode,
+} from "./legacy/brain-graph.functions";
+import {
+  brainIntelligenceFn,
+  type BrainIntelligence,
+} from "./legacy/brain-intelligence.functions";
+import { ingestBrainQuiet } from "./ingest-quiet.server";
+
+export {
+  brainConsolidateFn,
+  brainGraphFn,
+  type BrainGraph,
+  type GraphNode,
+  brainIntelligenceFn,
+  type BrainIntelligence,
+};
+
+// Stream hook — reexport-only shim para consumo por componentes React.
+export { useBrainStream, type BrainStreamEvent } from "./stream/use-brain-stream";
+
 export type { BrainContext };
 export type * from "./core";
 
@@ -62,6 +91,12 @@ export const brain = {
   recordContextUsage: services.recordContextUsage,
   summarize: services.summarize,
   getRecommendations: services.getRecommendations,
+  // ---- Ingest de background (fire-and-forget) ----
+  ingestQuiet: ingestBrainQuiet,
+  // ---- Server fns legadas expostas via API oficial ----
+  consolidateFn: brainConsolidateFn,
+  graphFn: brainGraphFn,
+  intelligenceFn: brainIntelligenceFn,
   chat: {
     consolidate: chatGw.consolidate,
     tryDirectAnswer: chatGw.tryDirectAnswer,
