@@ -580,7 +580,7 @@ function PostCard({
       </div>
 
       <div className="p-3">
-        {(post.is_overdue || priority || post.format || channelDefs.length > 0) ? (
+        {(post.is_overdue || priority || formatKeys.length > 0 || channelDefs.length > 0) ? (
           <div className="mb-1 flex flex-wrap items-center gap-1">
             {post.is_overdue ? (
               <span
