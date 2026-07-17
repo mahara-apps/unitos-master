@@ -200,6 +200,16 @@ function CustomerDetailReady({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openOnboarding, customerId]);
 
+  // Bridge from "Editar em Cadastro" link inside Cérebro tab.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail;
+      if (typeof detail === "string") setActiveTab(detail);
+    };
+    window.addEventListener("nx:switch-customer-tab", handler);
+    return () => window.removeEventListener("nx:switch-customer-tab", handler);
+  }, []);
+
   usePageHeader(
     {
       title: customer?.name ?? (customersQ.isLoading ? "Carregando…" : "Cliente"),
