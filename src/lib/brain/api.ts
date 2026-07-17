@@ -26,6 +26,7 @@ import * as recommendations from "./recommendations";
 import * as learning from "./learning";
 import * as query from "./query";
 import * as chatGw from "./chat-gateway";
+import * as services from "./services";
 import type { BrainContext } from "./core";
 import type { BrainConsolidated, ChatAttachmentMeta } from "./chat-gateway";
 
@@ -40,6 +41,19 @@ export const brain = {
   recommendations,
   learning,
   query,
+  // ---- API pública de alto nível (consumida por todos os módulos) ----
+  learn: services.learn,
+  remember: services.remember,
+  searchKnowledge: services.searchKnowledge,
+  generateInsights: services.generateInsights,
+  recommend: services.recommend,
+  runQuery: services.query_,
+  relate: services.relate,
+  findPatterns: services.findPatterns,
+  registerEvent: services.registerEvent,
+  getContext: services.getContext,
+  summarize: services.summarize,
+  getRecommendations: services.getRecommendations,
   chat: {
     consolidate: chatGw.consolidate,
     tryDirectAnswer: chatGw.tryDirectAnswer,

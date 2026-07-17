@@ -8,6 +8,14 @@ export interface BrainRecommendationRow {
   confidence: number | null;
 }
 
+export interface CreateRecommendationInput {
+  recommendation_type: string;
+  title: string;
+  description?: string | null;
+  confidence?: number;
+  metadata?: Record<string, unknown>;
+}
+
 export async function list(
   ctx: BrainContext,
   opts: { limit?: number } = {},
@@ -24,4 +32,28 @@ export async function list(
     description: r.description,
     confidence: r.confidence,
   }));
+}
+
+export async function create(
+  ctx: BrainContext,
+  input: CreateRecommendationInput,
+): Promise<{ ok: boolean; id?: string; error?: string }> {
+  const { data, error } = await ctx.supabase
+    .from("brain_recommendations")
+    .insert({
+      brand_id: ctx.brandId ?? null,
+      client_id: ctx.clientId ?? null,
+      recommendation_type: input.recommendation_type,
+      title: input.title,
+      description: input.description ?? null,
+      confidence: input.confidence ?? 0.5,
+      metadata: input.metadata ?? {},
+    })
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    console.error("[brain.recommendations.create]", error.message);
+    return { ok: false, error: error.message };
+  }
+  return { ok: true, id: (data as { id?: string } | null)?.id };
 }
