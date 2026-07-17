@@ -149,3 +149,103 @@ export const consolidateBrainMemory = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { written: Number(written ?? 0) };
   });
+
+// ---------- Lifecycle: evolve, touch, versions, decay ----------
+
+const EvolveInput = z.object({
+  brandId: z.string().uuid().nullable().optional(),
+  entityType: z.string().min(1).max(80),
+  entityId: z.string().uuid(),
+  category: z.string().min(1).max(80),
+  title: z.string().min(1).max(200),
+  description: z.string().max(2000).nullable().optional(),
+  content: z.record(z.unknown()).optional(),
+  evidenceConfidence: z.number().min(0).max(1).default(0.6),
+  origin: z.enum(["system", "event", "learning", "consolidation", "manual", "api", "chat"]).default("system"),
+  sourceEvent: z.string().uuid().nullable().optional(),
+  tags: z.array(z.string().max(60)).max(30).optional(),
+  relations: z.array(z.record(z.unknown())).max(50).optional(),
+  metadata: z.record(z.unknown()).optional(),
+  contradicts: z.boolean().default(false),
+});
+
+export const evolveBrainMemory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => EvolveInput.parse(i))
+  .handler(async ({ data, context }) => {
+    const { data: id, error } = await context.supabase.rpc("brain_memory_evolve", {
+      _brand_id: data.brandId ?? null,
+      _entity_type: data.entityType,
+      _entity_id: data.entityId,
+      _category: data.category,
+      _title: data.title,
+      _description: data.description ?? null,
+      _content: data.content ?? {},
+      _evidence_confidence: data.evidenceConfidence,
+      _origin: data.origin,
+      _source_event: data.sourceEvent ?? null,
+      _tags: data.tags ?? [],
+      _relations: data.relations ?? [],
+      _metadata: data.metadata ?? {},
+      _contradicts: data.contradicts,
+    });
+    if (error) throw new Error(error.message);
+    return { id: String(id) };
+  });
+
+const TouchInput = z.object({ ids: z.array(z.string().uuid()).min(1).max(200) });
+
+export const touchBrainMemory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => TouchInput.parse(i))
+  .handler(async ({ data, context }) => {
+    const { data: n, error } = await context.supabase.rpc("brain_memory_touch", { _ids: data.ids });
+    if (error) throw new Error(error.message);
+    return { touched: Number(n ?? 0) };
+  });
+
+const VersionsInput = z.object({
+  memoryId: z.string().uuid(),
+  limit: z.number().int().min(1).max(100).default(30),
+});
+
+export type BrainMemoryVersionRow = {
+  id: string;
+  memory_id: string;
+  version: number;
+  confidence: number;
+  previous_confidence: number | null;
+  delta_confidence: number | null;
+  title: string | null;
+  description: string | null;
+  status: string;
+  change_reason: string | null;
+  source_event: string | null;
+  changed_by: string | null;
+  created_at: string;
+};
+
+export const getBrainMemoryVersions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => VersionsInput.parse(i))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("brain_memory_versions")
+      .select(
+        "id, memory_id, version, confidence, previous_confidence, delta_confidence, title, description, status, change_reason, source_event, changed_by, created_at",
+      )
+      .eq("memory_id", data.memoryId)
+      .order("version", { ascending: false })
+      .limit(data.limit);
+    if (error) throw new Error(error.message);
+    return (rows ?? []) as unknown as BrainMemoryVersionRow[];
+  });
+
+export const decayBrainMemory = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(() => ({}))
+  .handler(async ({ context }) => {
+    const { data, error } = await context.supabase.rpc("brain_memory_decay_and_archive");
+    if (error) throw new Error(error.message);
+    return { archived: Number(data ?? 0) };
+  });

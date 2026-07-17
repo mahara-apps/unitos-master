@@ -437,6 +437,7 @@ export type Database = {
           category: string | null
           confidence: number
           content: Json
+          contradiction_count: number
           created_at: string
           decay_rate: number
           description: string | null
@@ -448,15 +449,20 @@ export type Database = {
           last_accessed_at: string | null
           memory_type: string
           metadata: Json
+          origin: string
+          previous_confidence: number | null
+          reinforcement_count: number
           relations: Json
           scope: string
           source_event: string | null
+          source_refs: Json
           status: string
           subject_id: string | null
           subject_type: string | null
           tags: string[]
           title: string | null
           updated_at: string
+          version: number
         }
         Insert: {
           access_count?: number
@@ -464,6 +470,7 @@ export type Database = {
           category?: string | null
           confidence?: number
           content?: Json
+          contradiction_count?: number
           created_at?: string
           decay_rate?: number
           description?: string | null
@@ -475,15 +482,20 @@ export type Database = {
           last_accessed_at?: string | null
           memory_type: string
           metadata?: Json
+          origin?: string
+          previous_confidence?: number | null
+          reinforcement_count?: number
           relations?: Json
           scope?: string
           source_event?: string | null
+          source_refs?: Json
           status?: string
           subject_id?: string | null
           subject_type?: string | null
           tags?: string[]
           title?: string | null
           updated_at?: string
+          version?: number
         }
         Update: {
           access_count?: number
@@ -491,6 +503,7 @@ export type Database = {
           category?: string | null
           confidence?: number
           content?: Json
+          contradiction_count?: number
           created_at?: string
           decay_rate?: number
           description?: string | null
@@ -502,15 +515,20 @@ export type Database = {
           last_accessed_at?: string | null
           memory_type?: string
           metadata?: Json
+          origin?: string
+          previous_confidence?: number | null
+          reinforcement_count?: number
           relations?: Json
           scope?: string
           source_event?: string | null
+          source_refs?: Json
           status?: string
           subject_id?: string | null
           subject_type?: string | null
           tags?: string[]
           title?: string | null
           updated_at?: string
+          version?: number
         }
         Relationships: [
           {
@@ -525,6 +543,77 @@ export type Database = {
             columns: ["source_event"]
             isOneToOne: false
             referencedRelation: "brain_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brain_memory_versions: {
+        Row: {
+          brand_id: string | null
+          change_reason: string | null
+          changed_by: string | null
+          confidence: number
+          content: Json
+          created_at: string
+          delta_confidence: number | null
+          description: string | null
+          id: string
+          memory_id: string
+          metadata: Json
+          previous_confidence: number | null
+          relations: Json
+          source_event: string | null
+          status: string
+          tags: string[]
+          title: string | null
+          version: number
+        }
+        Insert: {
+          brand_id?: string | null
+          change_reason?: string | null
+          changed_by?: string | null
+          confidence: number
+          content?: Json
+          created_at?: string
+          delta_confidence?: number | null
+          description?: string | null
+          id?: string
+          memory_id: string
+          metadata?: Json
+          previous_confidence?: number | null
+          relations?: Json
+          source_event?: string | null
+          status?: string
+          tags?: string[]
+          title?: string | null
+          version: number
+        }
+        Update: {
+          brand_id?: string | null
+          change_reason?: string | null
+          changed_by?: string | null
+          confidence?: number
+          content?: Json
+          created_at?: string
+          delta_confidence?: number | null
+          description?: string | null
+          id?: string
+          memory_id?: string
+          metadata?: Json
+          previous_confidence?: number | null
+          relations?: Json
+          source_event?: string | null
+          status?: string
+          tags?: string[]
+          title?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brain_memory_versions_memory_id_fkey"
+            columns: ["memory_id"]
+            isOneToOne: false
+            referencedRelation: "brain_memory"
             referencedColumns: ["id"]
           },
         ]
@@ -2997,6 +3086,27 @@ export type Database = {
         }[]
       }
       accept_brand_invite: { Args: { _token: string }; Returns: string }
+      brain_memory_decay_and_archive: { Args: never; Returns: number }
+      brain_memory_evolve: {
+        Args: {
+          _brand_id: string
+          _category: string
+          _content?: Json
+          _contradicts?: boolean
+          _description?: string
+          _entity_id: string
+          _entity_type: string
+          _evidence_confidence?: number
+          _metadata?: Json
+          _origin?: string
+          _relations?: Json
+          _source_event?: string
+          _tags?: string[]
+          _title: string
+        }
+        Returns: string
+      }
+      brain_memory_touch: { Args: { _ids: string[] }; Returns: number }
       can_access_client: {
         Args: { _client_id: string; _user_id: string }
         Returns: boolean
