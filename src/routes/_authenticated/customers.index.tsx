@@ -46,9 +46,13 @@ export const Route = createFileRoute("/_authenticated/customers/")({
 });
 
 const BRAND_COLORS = [
-  "#6366f1", "#8b5cf6", "#ec4899", "#f43f5e", "#f97316",
-  "#f59e0b", "#10b981", "#14b8a6", "#0ea5e9", "#3b82f6",
-  "#a855f7", "#64748b",
+  "#8b5cf6", // violet
+  "#ec4899", // pink
+  "#f43f5e", // rose
+  "#f59e0b", // amber
+  "#10b981", // emerald
+  "#0ea5e9", // sky
+  "#71717a", // neutral
 ];
 
 const CustomerFormSchema = z.object({
