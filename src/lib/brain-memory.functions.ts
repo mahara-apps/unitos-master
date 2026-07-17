@@ -173,7 +173,9 @@ export const evolveBrainMemory = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => EvolveInput.parse(i))
   .handler(async ({ data, context }) => {
-    const { data: id, error } = await context.supabase.rpc("brain_memory_evolve", {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rpc = context.supabase.rpc as unknown as (name: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+    const { data: id, error } = await rpc("brain_memory_evolve", {
       _brand_id: data.brandId ?? null,
       _entity_type: data.entityType,
       _entity_id: data.entityId,
