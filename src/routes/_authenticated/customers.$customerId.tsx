@@ -20,6 +20,7 @@ import {
 } from "@/components/ai-agents/strategy-panel";
 import { CustomerDashboard } from "@/components/customer/customer-dashboard";
 import { BasicInfoTab } from "@/components/customer/basic-info-tab";
+import { BrainWidget } from "@/components/brain/brain-widget";
 import { BriefingWorkspace } from "@/components/brand-hub/briefing-workspace";
 import { QuickOnboardingWizard } from "@/components/brand-hub/quick-onboarding-wizard";
 import { getBrandHub } from "@/lib/brand-hub.functions";
@@ -267,11 +268,14 @@ function CustomerDetailReady({
               ))}
             </TabsList>
             <TabsContent value="overview">
-              <CustomerDashboard
-                brandId={brandId}
-                clientId={customerId}
-                onOpenBriefing={() => setActiveTab("brain")}
-              />
+              <div className="space-y-4">
+                <BrainWidget preset="customers" clientId={customerId} />
+                <CustomerDashboard
+                  brandId={brandId}
+                  clientId={customerId}
+                  onOpenBriefing={() => setActiveTab("brain")}
+                />
+              </div>
             </TabsContent>
             <TabsContent value="brain">
               <BriefingWorkspace
