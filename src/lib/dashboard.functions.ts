@@ -4,6 +4,7 @@ import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { computeClientHealthScore } from "@/lib/client-health";
 
 type SupaCtx = { supabase: SupabaseClient<Database>; userId: string };
 
@@ -669,42 +670,13 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
     const overdueTasks = cTasks.filter(
       (t) => !t.done && t.due_at && new Date(t.due_at).getTime() < now,
     ).length;
-    const closedRecent = cTasks.filter(
-      (t) => t.done && t.done_at && new Date(t.done_at).getTime() > now - 30 * 86_400_000,
-    );
-    const onTimeRatio =
-      closedRecent.length === 0
-        ? 1
-        : closedRecent.filter(
-            (t) => !t.due_at || new Date(t.done_at!).getTime() <= new Date(t.due_at).getTime(),
-          ).length / closedRecent.length;
-
     const cPosts = posts.filter((p) => p.client_id === c.id);
-    const inCycle = cPosts.filter(
-      (p) => p.updated_at && new Date(p.updated_at).getTime() > now - 30 * 86_400_000,
-    );
-    const approvedRatio =
-      inCycle.length === 0
-        ? 1
-        : inCycle.filter((p) => ["approved", "scheduled", "published"].includes(p.stage)).length /
-          inCycle.length;
-
-    const briefingAt = briefings.get(c.id);
-    const briefingScore = !briefingAt
-      ? 0
-      : Math.max(0, 1 - (now - new Date(briefingAt).getTime()) / (60 * 86_400_000));
-
-    const scheduleScore = cPosts.some(
-      (p) => p.scheduled_at && new Date(p.scheduled_at).getTime() > now,
-    )
-      ? 1
-      : 0;
-
-    const onTime = Math.round(onTimeRatio * 40);
-    const approvals = Math.round(approvedRatio * 30);
-    const briefing = Math.round(briefingScore * 15);
-    const schedule = Math.round(scheduleScore * 15);
-    const score = onTime + approvals + briefing + schedule;
+    const { score, breakdown } = computeClientHealthScore({
+      now,
+      tasks: cTasks,
+      posts: cPosts,
+      briefingUpdatedAt: briefings.get(c.id) ?? null,
+    });
     const lastPost =
       cPosts.filter((p) => p.published_at).map((p) => p.published_at as string).sort().at(-1) ??
       null;
@@ -714,7 +686,7 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
       name: c.name,
       color: c.color,
       score,
-      breakdown: { onTime, approvals, briefing, schedule },
+      breakdown,
       openTasks,
       overdueTasks,
       approvalsPending: cPosts.filter((p) => p.stage === "review").length,
