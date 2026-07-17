@@ -283,3 +283,71 @@ async function hmacSha256Hex(secret: string, message: string): Promise<string> {
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
 }
+
+// ---------------------------------------------------------------------------
+// Signed OAuth state (CSRF) — replaces the meta_oauth_states table.
+// Format: base64url(payload).base64url(hmacSha256(payload))
+// Payload is JSON: { brandId, userId, redirectTo, nonce, exp }
+// ---------------------------------------------------------------------------
+
+export type MetaStatePayload = {
+  brandId: string;
+  userId: string;
+  redirectTo?: string | null;
+  nonce: string;
+  exp: number; // unix seconds
+};
+
+function b64urlEncode(bytes: Uint8Array): string {
+  let s = "";
+  for (const b of bytes) s += String.fromCharCode(b);
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function b64urlDecode(s: string): Uint8Array {
+  const pad = s.length % 4 === 0 ? 0 : 4 - (s.length % 4);
+  const b64 = s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat(pad);
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+async function stateSecret(): Promise<string> {
+  // Reuse the app secret — server-side only.
+  return process.env.META_APP_SECRET ?? requireEnv("META_APP_SECRET");
+}
+
+export async function signOAuthState(payload: Omit<MetaStatePayload, "nonce" | "exp"> & { ttlSeconds?: number }): Promise<string> {
+  const nonceBytes = new Uint8Array(16);
+  crypto.getRandomValues(nonceBytes);
+  const nonce = b64urlEncode(nonceBytes);
+  const exp = Math.floor(Date.now() / 1000) + (payload.ttlSeconds ?? 600);
+  const body: MetaStatePayload = {
+    brandId: payload.brandId,
+    userId: payload.userId,
+    redirectTo: payload.redirectTo ?? null,
+    nonce,
+    exp,
+  };
+  const json = JSON.stringify(body);
+  const payloadB64 = b64urlEncode(new TextEncoder().encode(json));
+  const sig = await hmacSha256Hex(await stateSecret(), payloadB64);
+  return `${payloadB64}.${sig}`;
+}
+
+export async function verifyOAuthState(token: string): Promise<MetaStatePayload> {
+  const [payloadB64, sig] = token.split(".");
+  if (!payloadB64 || !sig) throw new Error("Malformed state");
+  const expected = await hmacSha256Hex(await stateSecret(), payloadB64);
+  // Constant-time-ish compare
+  if (expected.length !== sig.length) throw new Error("Invalid state signature");
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ sig.charCodeAt(i);
+  if (diff !== 0) throw new Error("Invalid state signature");
+  const json = new TextDecoder().decode(b64urlDecode(payloadB64));
+  const body = JSON.parse(json) as MetaStatePayload;
+  if (typeof body.exp !== "number" || body.exp * 1000 < Date.now()) {
+    throw new Error("State expired");
+  }
+  return body;
+}
