@@ -111,7 +111,7 @@ function TasksPage() {
   const openTaskId = search.taskId ?? null;
 
   function setSearch(patch: Partial<z.infer<typeof searchSchema>>) {
-    navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true });
+    navigate({ to: ".", search: (prev) => ({ ...prev, ...patch }), replace: true });
   }
 
   useEffect(() => {
