@@ -1,25 +1,79 @@
-## Problema
+# Refatoração completa — Módulo de Tarefas
 
-O saudação do dashboard mostra `Olá, Admin!` — está pegando o `user_metadata.full_name` do auth (que muitas vezes traz o papel "Admin" ou string genérica) em vez do primeiro nome real do usuário salvo em `public.user_profiles.full_name`.
+O escopo da mensagem é grande demais para uma única entrega segura (17 seções, novas tabelas, virtualização, drag&drop, campos customizados). Proponho entregar em **4 fases incrementais**, cada uma testável, mantendo 100% do Design System UNITOS (`DashboardPageShell`, `KpiCard`, `StatCard`, paleta semântica).
 
-Ver `src/routes/_authenticated/dashboard.tsx` (linhas 105-118): a saudação é montada com `supabase.auth.getUser()` → `meta.full_name || meta.name || email.split("@")[0]`.
+---
 
-## Fix
+## Fase 1 — Fundação de UI (sem schema novo)
 
-Trocar a fonte pelo `user_profiles.full_name` (fonte canônica do perfil no app):
+**Entregas**
+- Novo shell `/tasks` com **Views**: `Lista`, `Kanban`, `Calendário`, `Minhas tarefas` (Timeline entra na Fase 4).
+- Estado das views/filtros na URL via `validateSearch` (compartilhado entre views).
+- **TaskToolbar**: Nova tarefa · Filtro · Ordenar · Agrupar · Ocultar campos · Pesquisar · Exportar CSV · Mais.
+- **TaskTable** com cabeçalhos fixos, colunas: ✓, Nome, Responsável, Projeto, Cliente, Prioridade, Status, Prazo, Criado em, Comentários, Anexos, Ações.
+- **Agrupamento colapsável** por Status/Projeto/Responsável/Cliente/Prioridade/Data.
+- **KPIs superiores refeitos**: Total · Em andamento · Atrasadas · Concluídas · Minha carga · Prazo hoje (KpiCard canônico, tons semânticos).
+- Hover, seleção múltipla (checkbox no header), edição inline de título/status/prioridade/prazo, ordenação por clique.
+- Componentes: `TaskToolbar`, `TaskFilters`, `TaskTable`, `TaskHeader`, `TaskRow`, `TaskStatus`, `TaskPriority`, `TaskAssignee`, `TaskProject`, `TaskBulkActions`, `TaskViews`.
 
-1. Em `AgencyMode` (e `ClientMode` se também exibir saudação — verificar) substituir o `useEffect` por:
-   - `SELECT full_name FROM user_profiles WHERE id = auth.uid()` via `supabase.from("user_profiles").select("full_name").eq("id", user.id).maybeSingle()`.
-   - Fallback em cascata: `profile.full_name` → `user_metadata.full_name` / `name` → parte antes do `@` do e-mail → `"Olá!"`.
-   - Usa `.split(" ")[0]` (primeiro nome) e capitaliza a primeira letra caso venha em minúsculas.
-2. Envolver em `useQuery(["me-first-name"])` com `staleTime` de 5 min para evitar refetch por navegação.
+**Fora desta fase**: virtualização (só se >200 tarefas por brand — decido baseado em uso).
 
-## Escopo
+---
 
-- Apenas `src/routes/_authenticated/dashboard.tsx`.
-- Verificar se `ClientMode` também usa saudação; se sim, aplicar o mesmo hook compartilhado local no arquivo (`useFirstName()`).
-- Sem mudanças em backend, schema ou RLS (o próprio usuário já lê seu `user_profiles` pela policy existente).
+## Fase 2 — Painel lateral (Drawer)
 
-## Resultado
+- Clique na linha abre **`TaskDrawer` (Sheet 560px direita)** — substitui o modal atual.
+- Drawer permanece aberto ao navegar entre tarefas (prev/next com `J/K`).
+- Seções: Título · Descrição · Status · Prioridade · Responsável · Projeto · Cliente · Datas · **Comentários** (já existe) · **Histórico/Atividade** (novo — reutiliza `activity_events`) · Anexos (placeholder Fase 3).
 
-`Olá, {Primeiro Nome}!` refletindo o nome cadastrado em Configurações → Meu Perfil, não o papel.
+---
+
+## Fase 3 — Kanban + Checklist + Subtarefas (requer schema)
+
+**Migração Supabase**
+- `task_checklist_items(id, task_id, brand_id, title, done, position, created_at)` — RLS via `brand_members`.
+- `tasks.parent_task_id uuid null references tasks(id) on delete cascade` — subtarefas.
+- `tasks.attachments jsonb default '[]'` — anexos leves (url + name + size).
+- GRANTs + policies conforme padrão UNITOS.
+
+**UI**
+- **TaskKanban** com 5 colunas (`todo`, `in_progress`, `review`, `waiting`, `done`) — adiciono status `waiting` no enum TS.
+- Drag & drop com `@dnd-kit` (já usado em `/content`), update otimista.
+- `TaskChecklist` com progresso `n/m` + %.
+- `TaskSubtasks` recolhíveis dentro do drawer e badge de "Nx subtarefas" na linha.
+
+---
+
+## Fase 4 — Extras avançados
+
+- **TaskCalendar** (view de calendário — reusa layout de `/calendar`).
+- **TaskTimeline** (roadmap simples com barras por prazo).
+- **Campos personalizados** por brand: nova tabela `task_custom_fields` + `task_custom_values`, coluna dinâmica na tabela.
+- Virtualização (`@tanstack/react-virtual`) se lista >200.
+- Atalhos globais (`?` abre lista), colunas redimensionáveis persistidas em `user_profiles.prefs`.
+
+---
+
+## Design System (todas as fases)
+
+- `DashboardPageShell` + `KpiCard` + `StatCard` canônicos.
+- Prioridade: `low=sky` · `medium=neutral` · `high=amber` · `urgent=rose`.
+- Status: `todo=neutral` · `in_progress=sky` · `review=amber` · `waiting=violet` · `done=emerald`.
+- Overdue: badge `rose` "Atrasada" (já existe padrão em `/content`).
+- Padrão de chip: `border-<color>/30 bg-<color>/10 text-<color>-700 dark:text-<color>-300`.
+
+---
+
+## Responsividade
+
+- Desktop: tabela completa.
+- Tablet (`md:`): oculta Criado em, Anexos, Tempo.
+- Mobile (`sm:`): cards (reuso do `PostCard` como base visual).
+
+---
+
+## Confirmação necessária
+
+**Pergunta:** posso começar pela **Fase 1** (fundação de UI, sem migração), entregar, e só então avançar para as fases seguintes conforme seu feedback?
+
+Isso evita uma entrega gigante em um único turno (que tende a quebrar coisas) e te dá pontos de validação a cada fase.
