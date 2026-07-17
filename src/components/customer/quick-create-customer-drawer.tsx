@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { Instagram, Loader2, UploadCloud, X } from "lucide-react";
 import { z } from "zod";
@@ -64,6 +65,7 @@ export function QuickCreateCustomerDrawer({
   const qc = useQueryClient();
   const create = useServerFn(createClient);
   const upload = useServerFn(uploadCustomerLogo);
+  const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [name, setName] = useState("");
@@ -156,9 +158,13 @@ export function QuickCreateCustomerDrawer({
     },
     onSuccess: async (client) => {
       await qc.invalidateQueries({ queryKey: ["clients", brandId] });
-      toast.success("Cliente criado", { description: client.name });
-      onCreated?.(client);
       onOpenChange(false);
+      toast.success(`Cliente ${client.name} criado com sucesso`);
+      onCreated?.(client);
+      await navigate({
+        to: "/customers/$customerId/brain",
+        params: { customerId: client.id },
+      });
     },
     onError: (e: Error) => toast.error(e.message),
   });
