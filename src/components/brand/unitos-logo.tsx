@@ -1,7 +1,6 @@
 import { useTheme } from "@/components/theme-provider";
-import logoLight from "@/assets/brand/logo-unitos-light.png.asset.json";
-import logoDark from "@/assets/brand/logo-unitos-dark.png.asset.json";
-import mark from "@/assets/brand/mark-unitos.png.asset.json";
+import { useActiveContextOptional } from "@/hooks/use-active-context";
+import { useBrandBranding } from "@/hooks/use-brand-branding";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -12,12 +11,14 @@ type Props = {
 
 export function UnitosLogo({ variant = "full", className, eager }: Props) {
   const { resolvedTheme } = useTheme();
+  const { brandId } = useActiveContextOptional();
+  const branding = useBrandBranding(brandId);
   const src =
     variant === "mark"
-      ? mark.url
+      ? branding.icon
       : resolvedTheme === "dark"
-        ? logoDark.url
-        : logoLight.url;
+        ? branding.logoDark
+        : branding.logoLight;
   return (
     <img
       src={src}

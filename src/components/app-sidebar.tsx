@@ -87,7 +87,7 @@ export function AppSidebar() {
     .filter((g) => g.items.length > 0);
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="h-16 flex-row items-center justify-between gap-2 border-b border-sidebar-border/60 px-3 py-0 group-data-[collapsible=icon]:px-2">
+      <SidebarHeader className="h-16 flex-row items-center justify-between gap-2 border-b border-sidebar-border/60 px-3 py-0 group-data-[collapsible=icon]:px-1">
         <Link
           to="/dashboard"
           preload="intent"
@@ -100,7 +100,7 @@ export function AppSidebar() {
           />
           <UnitosLogo
             variant="mark"
-            className="hidden h-9 w-9 group-data-[collapsible=icon]:block"
+            className="hidden h-11 w-11 group-data-[collapsible=icon]:block"
           />
         </Link>
         <SidebarTrigger className="h-7 w-7 shrink-0 text-muted-foreground group-data-[collapsible=icon]:mx-auto" />

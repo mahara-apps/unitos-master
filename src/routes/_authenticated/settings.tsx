@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { User, Users, ShieldCheck, History, Bell } from "lucide-react";
+import { User, Users, ShieldCheck, History, Bell, Palette } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsLayout,
@@ -8,6 +8,7 @@ export const Route = createFileRoute("/_authenticated/settings")({
 const TABS = [
   { to: "/settings/profile", label: "Meu Perfil", icon: User },
   { to: "/settings/team", label: "Equipe", icon: Users },
+  { to: "/settings/branding", label: "Marca", icon: Palette },
   { to: "/settings/permissions", label: "Permissões", icon: ShieldCheck },
   { to: "/settings/logs", label: "Auditoria", icon: History },
   { to: "/settings/notifications", label: "Notificações", icon: Bell },
