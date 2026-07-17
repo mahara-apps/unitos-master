@@ -10,6 +10,7 @@ import { brain } from "@/lib/brain/api";
 import type { ChatAttachmentInput } from "@/lib/brain/chat-gateway/multimodal.server";
 import type { ToolCallLog } from "@/lib/brain/chat-gateway/tools.server";
 import { streamAnswer } from "@/lib/brain/chat-gateway/llm.server";
+import { reason } from "@/lib/brain/reasoning/orchestrator.server";
 
 const BodySchema = z.object({
   conversationId: z.string().uuid(),
@@ -118,6 +119,12 @@ export const Route = createFileRoute("/api/chat/stream")({
           question: question || attachments.map((a) => a.name).join(", "),
           module: "chat",
         });
+
+        // 3.5) Brain Reasoning Engine v1 — planeja antes de responder.
+        const reasoning = question
+          ? await reason(brainCtx, supabase, { question, conversationId: convo.id })
+          : null;
+
         const brainKnowledge = {
           memories: contextPack.items
             .filter((i) => i.kind === "semantic")
@@ -129,8 +136,83 @@ export const Route = createFileRoute("/api/chat/stream")({
             .filter((i) => i.kind === "memory")
             .map((i) => ({ topic: i.label, summary: i.detail, confidence: i.confidence ?? null })),
           stats: contextPack.stats,
-          markdown: contextPack.markdown,
+          markdown: reasoning?.llmContextMarkdown
+            ? `${contextPack.markdown}\n\n${reasoning.llmContextMarkdown}`
+            : contextPack.markdown,
         };
+
+        // 3.6) Se o Reasoning já resolveu de forma determinística, respondemos
+        // sem chamar o LLM — economiza tokens e mantém precisão factual.
+        if (reasoning && !reasoning.shouldCallLlm && reasoning.deterministicAnswer) {
+          const answer = reasoning.deterministicAnswer;
+          const brainSummary = {
+            memories: brainKnowledge.memories.slice(0, 5),
+            insights: brainKnowledge.insights.slice(0, 5),
+            stats: brainKnowledge.stats as Record<string, number>,
+            used_llm: false,
+            model: "brain.reasoning.v1",
+            reasoning: {
+              intent: reasoning.intent.intent,
+              decision: reasoning.decision.decision,
+              tools: reasoning.toolResults.map((r) => r.tool),
+              latency_ms: reasoning.latencyMs,
+            },
+          };
+          const { data: asstRow } = await supabase
+            .from("chat_messages")
+            .insert({
+              conversation_id: body.conversationId,
+              user_id: userId,
+              role: "assistant",
+              content: answer,
+              attachments: [],
+              brain_context: brainSummary as unknown as Database["public"]["Tables"]["chat_messages"]["Insert"]["brain_context"],
+              used_llm: false,
+              model: "brain.reasoning.v1",
+              tool_calls: [] as unknown as Database["public"]["Tables"]["chat_messages"]["Insert"]["tool_calls"],
+            })
+            .select("id")
+            .single();
+          await Promise.all([
+            brain.events.publish(brainCtx, {
+              brand_id: convo.brand_id,
+              client_id: convo.client_id,
+              source_module: "chat",
+              event_type: "chat.turn",
+              actor_id: userId,
+              payload: {
+                conversation_id: convo.id,
+                question: question.slice(0, 400),
+                used_llm: false,
+                reasoning_intent: reasoning.intent.intent,
+                reasoning_decision: reasoning.decision.decision,
+              },
+            }),
+            asstRow
+              ? brain.recordContextUsage(brainCtx, {
+                  pack: contextPack,
+                  responseId: asstRow.id,
+                  consumer: "chat",
+                  usedLlm: false,
+                })
+              : Promise.resolve(),
+          ]);
+          const encoder = new TextEncoder();
+          const rs = new ReadableStream({
+            start(controller) {
+              controller.enqueue(encoder.encode(answer));
+              controller.close();
+            },
+          });
+          return new Response(rs, {
+            headers: {
+              "Content-Type": "text/plain; charset=utf-8",
+              "Cache-Control": "no-cache",
+              "X-Brain-Reasoning": "deterministic",
+              "X-Brain-Intent": reasoning.intent.intent,
+            },
+          });
+        }
 
         // 4) Histórico
         const { data: history } = await supabase
