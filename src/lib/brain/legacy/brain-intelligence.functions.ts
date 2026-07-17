@@ -201,13 +201,12 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
       ),
     );
     const knowledgeReinforcedQ = applyCategory(
-      applyClient(
-        applyBrand(
-          sb
-            .from("brain_knowledge")
-            .select("id", { count: "exact", head: true })
-            .gte("last_reinforced_at", sinceTodayIso),
-        ),
+      applyBrand(
+        sb
+          .from("brain_memory")
+          .select("id", { count: "exact", head: true })
+          .in("memory_type", KNOWLEDGE_BUCKET)
+          .gte("updated_at", sinceTodayIso),
       ),
     );
 
@@ -220,16 +219,15 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
         knowledgeReinforcedQ,
       ]);
 
-    // --- Recent knowledge ---
     const recentKnowledgeQ = applyCategory(
-      applyClient(
-        applyBrand(
-          sb
-            .from("brain_knowledge")
-            .select("id, category, key, confidence, updated_at, reinforcement_count")
-            .order("updated_at", { ascending: false })
-            .limit(12),
-        ),
+      applyBrand(
+        sb
+          .from("brain_memory")
+          .select("id, memory_type, key, confidence, updated_at, reinforcement_count")
+          .eq("status", "active")
+          .in("memory_type", KNOWLEDGE_BUCKET)
+          .order("updated_at", { ascending: false })
+          .limit(12),
       ),
     );
 
@@ -257,9 +255,12 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
       sb.from("brain_insights").select("created_at").gte("created_at", sincePeriod).limit(1000),
     );
 
-    // --- Knowledge map: group knowledge by category ---
-    const knowledgeMapQ = applyClient(
-      applyBrand(sb.from("brain_knowledge").select("category, confidence").limit(2000)),
+    const knowledgeMapQ = applyBrand(
+      sb
+        .from("brain_memory")
+        .select("memory_type, confidence")
+        .eq("status", "active")
+        .limit(2000),
     );
 
     // --- Module ranking (events per source_module) ---
@@ -267,12 +268,13 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
       sb.from("brain_events").select("source_module").gte("created_at", sincePeriod).limit(5000),
     );
 
-    // --- Smartest clients (knowledge grouped by client_id) ---
     const clientsKnowledgeQ = applyBrand(
       sb
-        .from("brain_knowledge")
-        .select("client_id, confidence")
-        .not("client_id", "is", null)
+        .from("brain_memory")
+        .select("subject_id, confidence")
+        .eq("subject_type", "client")
+        .eq("status", "active")
+        .not("subject_id", "is", null)
         .limit(2000),
     );
 
