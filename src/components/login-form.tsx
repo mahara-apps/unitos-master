@@ -99,9 +99,7 @@ export function LoginForm() {
   return (
     <div className="w-full max-w-[420px]">
       <div className="mb-8 text-center">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Unitos
-        </h1>
+        <UnitosLogo variant="full" eager className="mx-auto h-10 w-auto" />
         <p className="mt-2 text-sm text-muted-foreground">
           Entre ou crie sua conta para acessar o painel.
         </p>
