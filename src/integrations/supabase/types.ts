@@ -384,52 +384,82 @@ export type Database = {
         Row: {
           access_count: number
           brand_id: string | null
+          category: string | null
           confidence: number
           content: Json
           created_at: string
           decay_rate: number
+          description: string | null
+          entity_id: string | null
+          entity_type: string | null
           expires_at: string | null
           id: string
           key: string
           last_accessed_at: string | null
           memory_type: string
+          metadata: Json
+          relations: Json
           scope: string
-          subject_id: string
-          subject_type: string
+          source_event: string | null
+          status: string
+          subject_id: string | null
+          subject_type: string | null
+          tags: string[]
+          title: string | null
           updated_at: string
         }
         Insert: {
           access_count?: number
           brand_id?: string | null
+          category?: string | null
           confidence?: number
           content?: Json
           created_at?: string
           decay_rate?: number
+          description?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
           expires_at?: string | null
           id?: string
           key: string
           last_accessed_at?: string | null
           memory_type: string
+          metadata?: Json
+          relations?: Json
           scope?: string
-          subject_id: string
-          subject_type: string
+          source_event?: string | null
+          status?: string
+          subject_id?: string | null
+          subject_type?: string | null
+          tags?: string[]
+          title?: string | null
           updated_at?: string
         }
         Update: {
           access_count?: number
           brand_id?: string | null
+          category?: string | null
           confidence?: number
           content?: Json
           created_at?: string
           decay_rate?: number
+          description?: string | null
+          entity_id?: string | null
+          entity_type?: string | null
           expires_at?: string | null
           id?: string
           key?: string
           last_accessed_at?: string | null
           memory_type?: string
+          metadata?: Json
+          relations?: Json
           scope?: string
-          subject_id?: string
-          subject_type?: string
+          source_event?: string | null
+          status?: string
+          subject_id?: string | null
+          subject_type?: string | null
+          tags?: string[]
+          title?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -438,6 +468,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brain_memory_source_event_fkey"
+            columns: ["source_event"]
+            isOneToOne: false
+            referencedRelation: "brain_events"
             referencedColumns: ["id"]
           },
         ]
@@ -2812,6 +2849,10 @@ export type Database = {
       can_access_client: {
         Args: { _client_id: string; _user_id: string }
         Returns: boolean
+      }
+      consolidate_brain_memory: {
+        Args: { _brand_id?: string }
+        Returns: number
       }
       emit_brain_event: {
         Args: {
