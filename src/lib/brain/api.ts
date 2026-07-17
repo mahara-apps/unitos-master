@@ -27,6 +27,7 @@ import * as learning from "./learning";
 import * as query from "./query";
 import * as chatGw from "./chat-gateway";
 import * as services from "./services";
+import * as context from "./context-engine";
 import type { BrainContext } from "./core";
 import type { BrainConsolidated, ChatAttachmentMeta } from "./chat-gateway";
 
@@ -41,6 +42,7 @@ export const brain = {
   recommendations,
   learning,
   query,
+  context,
   // ---- API pública de alto nível (consumida por todos os módulos) ----
   learn: services.learn,
   remember: services.remember,
@@ -52,6 +54,8 @@ export const brain = {
   findPatterns: services.findPatterns,
   registerEvent: services.registerEvent,
   getContext: services.getContext,
+  buildContext: services.buildContext,
+  recordContextUsage: services.recordContextUsage,
   summarize: services.summarize,
   getRecommendations: services.getRecommendations,
   chat: {
