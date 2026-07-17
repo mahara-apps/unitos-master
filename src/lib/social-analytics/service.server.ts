@@ -378,4 +378,6 @@ export const SocialAnalyticsService = {
   getAudience,
   getProfile,
   errorResponse: socialErrorResponse,
+  requireBearer,
+  supabaseForUser,
 };
