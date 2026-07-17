@@ -102,17 +102,27 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
     const applyClient = (q: any): any => (clientId ? q.eq("client_id", clientId) : q);
     const applyProject = (q: any): any => (projectId ? q.eq("project_id", projectId) : q);
     const applyActor = (q: any): any => (actorId ? q.eq("actor_id", actorId) : q);
-    const applyCategory = (q: any): any => (category ? q.eq("category", category) : q);
+    const applyCategory = (q: any): any => (category ? q.eq("memory_type", category) : q);
     /* eslint-enable @typescript-eslint/no-explicit-any */
 
     // --- KPIs ---
+    // Fonte única: brain_memory. "Knowledge" = memórias factuais.
+    // "Memories" = total ativo. "Patterns" = buckets analíticos.
+    const KNOWLEDGE_BUCKET = ["fact", "knowledge", "preference", "profile"];
     const knowledgeCountQ = applyCategory(
-      applyClient(
-        applyBrand(sb.from("brain_knowledge").select("id", { count: "exact", head: true })),
+      applyBrand(
+        sb
+          .from("brain_memory")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "active")
+          .in("memory_type", KNOWLEDGE_BUCKET),
       ),
     );
     const memoriesCountQ = applyBrand(
-      sb.from("brain_memory").select("id", { count: "exact", head: true }),
+      sb
+        .from("brain_memory")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "active"),
     );
     const insightsCountQ = applyBrand(
       sb.from("brain_insights").select("id", { count: "exact", head: true }),
@@ -121,9 +131,15 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
       applyBrand(sb.from("brain_recommendations").select("id", { count: "exact", head: true })),
     );
 
-    // avg confidence across knowledge
     const knowledgeConfQ = applyCategory(
-      applyClient(applyBrand(sb.from("brain_knowledge").select("confidence").limit(1000))),
+      applyBrand(
+        sb
+          .from("brain_memory")
+          .select("confidence")
+          .eq("status", "active")
+          .in("memory_type", KNOWLEDGE_BUCKET)
+          .limit(1000),
+      ),
     );
 
     // patterns = memories with category "pattern" or insight_type containing pattern
@@ -185,13 +201,12 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
       ),
     );
     const knowledgeReinforcedQ = applyCategory(
-      applyClient(
-        applyBrand(
-          sb
-            .from("brain_knowledge")
-            .select("id", { count: "exact", head: true })
-            .gte("last_reinforced_at", sinceTodayIso),
-        ),
+      applyBrand(
+        sb
+          .from("brain_memory")
+          .select("id", { count: "exact", head: true })
+          .in("memory_type", KNOWLEDGE_BUCKET)
+          .gte("updated_at", sinceTodayIso),
       ),
     );
 
@@ -204,16 +219,15 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
         knowledgeReinforcedQ,
       ]);
 
-    // --- Recent knowledge ---
     const recentKnowledgeQ = applyCategory(
-      applyClient(
-        applyBrand(
-          sb
-            .from("brain_knowledge")
-            .select("id, category, key, confidence, updated_at, reinforcement_count")
-            .order("updated_at", { ascending: false })
-            .limit(12),
-        ),
+      applyBrand(
+        sb
+          .from("brain_memory")
+          .select("id, memory_type, key, confidence, updated_at, reinforcement_count")
+          .eq("status", "active")
+          .in("memory_type", KNOWLEDGE_BUCKET)
+          .order("updated_at", { ascending: false })
+          .limit(12),
       ),
     );
 
@@ -241,9 +255,12 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
       sb.from("brain_insights").select("created_at").gte("created_at", sincePeriod).limit(1000),
     );
 
-    // --- Knowledge map: group knowledge by category ---
-    const knowledgeMapQ = applyClient(
-      applyBrand(sb.from("brain_knowledge").select("category, confidence").limit(2000)),
+    const knowledgeMapQ = applyBrand(
+      sb
+        .from("brain_memory")
+        .select("memory_type, confidence")
+        .eq("status", "active")
+        .limit(2000),
     );
 
     // --- Module ranking (events per source_module) ---
@@ -251,12 +268,13 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
       sb.from("brain_events").select("source_module").gte("created_at", sincePeriod).limit(5000),
     );
 
-    // --- Smartest clients (knowledge grouped by client_id) ---
     const clientsKnowledgeQ = applyBrand(
       sb
-        .from("brain_knowledge")
-        .select("client_id, confidence")
-        .not("client_id", "is", null)
+        .from("brain_memory")
+        .select("subject_id, confidence")
+        .eq("subject_type", "client")
+        .eq("status", "active")
+        .not("subject_id", "is", null)
         .limit(2000),
     );
 
@@ -334,7 +352,7 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
     // Knowledge map by category
     const catAgg = new Map<string, { count: number; sum: number }>();
     for (const r of knowledgeMapR.data ?? []) {
-      const c = (r.category as string) || "outros";
+      const c = (r.memory_type as string) || "outros";
       const cur = catAgg.get(c) ?? { count: 0, sum: 0 };
       cur.count += 1;
       cur.sum += Number(r.confidence ?? 0);
@@ -362,7 +380,7 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
     // Smartest clients
     const clientAgg = new Map<string, { count: number; sum: number }>();
     for (const r of clientsKnowledgeR.data ?? []) {
-      const id = r.client_id as string;
+      const id = r.subject_id as string;
       const cur = clientAgg.get(id) ?? { count: 0, sum: 0 };
       cur.count += 1;
       cur.sum += Number(r.confidence ?? 0);
@@ -415,7 +433,9 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
       applyBrand(sb.from("clients").select("id, name").order("name").limit(200)),
       applyBrand(sb.from("projects").select("id, name").order("name").limit(200)),
       applyBrand(sb.from("brand_members").select("user_id").limit(200)),
-      applyBrand(sb.from("brain_knowledge").select("category").limit(1000)),
+      applyBrand(
+        sb.from("brain_memory").select("memory_type").eq("status", "active").limit(1000),
+      ),
     ]);
 
     const teamUserIds = Array.from(
@@ -433,8 +453,8 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
 
     const categoriesAvailable = Array.from(
       new Set(
-        ((categoriesR.data ?? []) as Array<{ category: string | null }>)
-          .map((r) => r.category)
+        ((categoriesR.data ?? []) as Array<{ memory_type: string | null }>)
+          .map((r) => r.memory_type)
           .filter((c): c is string => !!c),
       ),
     ).sort();
@@ -458,14 +478,14 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
       recentKnowledge: (recentKnowledgeR.data ?? []).map(
         (r: {
           id: string;
-          category: string;
+          memory_type: string;
           key: string;
           confidence: number | null;
           updated_at: string;
           reinforcement_count: number | null;
         }) => ({
           id: r.id,
-          category: r.category,
+          category: r.memory_type,
           key: r.key,
           confidence: Number(r.confidence ?? 0),
           updated_at: r.updated_at,
