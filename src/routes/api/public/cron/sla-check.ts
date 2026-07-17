@@ -159,7 +159,15 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
           overdueByBrand.get(o.brand_id)!.push(o);
         }
 
-        const mgrInserts: Array<Record<string, unknown>> = [];
+        const mgrInserts: Array<{
+          user_id: string;
+          brand_id: string;
+          kind: "sla_overdue_manager";
+          title: string;
+          body: string;
+          href: string;
+          payload: Record<string, unknown>;
+        }> = [];
         for (const m of managers ?? []) {
           const key = `${m.user_id}:${m.brand_id}`;
           if (mgrSeen.has(key)) continue;
