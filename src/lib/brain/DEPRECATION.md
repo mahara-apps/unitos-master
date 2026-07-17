@@ -61,3 +61,22 @@ Nenhum outro endpoint redundante existe.
   projeção redundante `topic`/`summary` de `core/types.ts`.
 - **Fase 4** — mover o job `brainConsolidateFn` para um worker interno e
   eliminar o endpoint público de cron dedicado.
+
+## Fase 2 — Unificação da camada de memória (concluída)
+
+**Removido**
+- Tabela `public.brain_knowledge` — descontinuada.
+- Trigger `brain_knowledge_touch`.
+
+**Migrado**
+- Todas as leituras em `brain-intelligence.functions.ts` agora usam `brain_memory`
+  (`category` → `memory_type`; `client_id` → `subject_id` com `subject_type='client'`;
+  `last_reinforced_at` → `updated_at`).
+- Registros pré-existentes (se houvesse) copiados para `brain_memory` com
+  `origin='migration:brain_knowledge'` e `source_refs.event_ids` preservados.
+
+**Fonte única confirmada**
+- Chave canônica: `(brand_id, subject_type, subject_id, memory_type, key)`.
+- Versionamento: `brain_memory_versions` + trigger snapshot.
+- Confidence: WMA via `brain_memory_evolve()`.
+- Lifecycle: `evolve` / `touch` / `decay` / `archive` em `brain.memory.*`.

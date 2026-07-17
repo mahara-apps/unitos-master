@@ -324,62 +324,6 @@ export type Database = {
           },
         ]
       }
-      brain_knowledge: {
-        Row: {
-          brand_id: string | null
-          category: string
-          client_id: string | null
-          confidence: number
-          created_at: string
-          id: string
-          key: string
-          last_reinforced_at: string
-          reinforcement_count: number
-          source: string
-          source_event_ids: string[] | null
-          updated_at: string
-          value: Json
-        }
-        Insert: {
-          brand_id?: string | null
-          category: string
-          client_id?: string | null
-          confidence?: number
-          created_at?: string
-          id?: string
-          key: string
-          last_reinforced_at?: string
-          reinforcement_count?: number
-          source?: string
-          source_event_ids?: string[] | null
-          updated_at?: string
-          value?: Json
-        }
-        Update: {
-          brand_id?: string | null
-          category?: string
-          client_id?: string | null
-          confidence?: number
-          created_at?: string
-          id?: string
-          key?: string
-          last_reinforced_at?: string
-          reinforcement_count?: number
-          source?: string
-          source_event_ids?: string[] | null
-          updated_at?: string
-          value?: Json
-        }
-        Relationships: [
-          {
-            foreignKeyName: "brain_knowledge_brand_id_fkey"
-            columns: ["brand_id"]
-            isOneToOne: false
-            referencedRelation: "brands"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       brain_learning_queue: {
         Row: {
           attempts: number
