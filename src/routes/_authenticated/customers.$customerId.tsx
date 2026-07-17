@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useEffect, useState } from "react";
@@ -231,20 +231,6 @@ function CustomerDetailReady({
               Completar onboarding
             </Button>
           )}
-          <Button
-            asChild
-            size="sm"
-            variant="outline"
-            className="h-8"
-            title="Plano de mídia paga"
-          >
-            <Link
-              to="/customers/$customerId/media-plan"
-              params={{ customerId }}
-            >
-              Plano de mídia
-            </Link>
-          </Button>
         </div>
       ),
     },
