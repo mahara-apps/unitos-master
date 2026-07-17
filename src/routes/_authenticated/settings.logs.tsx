@@ -42,12 +42,12 @@ export const Route = createFileRoute("/_authenticated/settings/logs")({
 
 const SOURCE_META: Record<LogSource, { label: string; icon: typeof Bot; color: string }> = {
   ai_job: { label: "Jobs de IA", icon: Bot, color: "text-violet-500" },
-  activity: { label: "Atividade", icon: Activity, color: "text-blue-500" },
+  activity: { label: "Atividade", icon: Activity, color: "text-sky-500" },
   notification: { label: "Notificações", icon: Bell, color: "text-amber-500" },
 };
 
 const LEVEL_META: Record<LogLevel, { label: string; icon: typeof Info; className: string; badgeVariant: "destructive" | "default" | "secondary" | "outline" }> = {
-  error: { label: "Erro", icon: AlertCircle, className: "text-red-500", badgeVariant: "destructive" },
+  error: { label: "Erro", icon: AlertCircle, className: "text-rose-500", badgeVariant: "destructive" },
   warn: { label: "Aviso", icon: AlertTriangle, className: "text-amber-500", badgeVariant: "default" },
   info: { label: "Info", icon: Info, className: "text-sky-500", badgeVariant: "secondary" },
   success: { label: "Sucesso", icon: CheckCircle2, className: "text-emerald-500", badgeVariant: "outline" },
@@ -103,10 +103,10 @@ function LogsPage() {
     <div className="w-full space-y-4 px-4 py-6 sm:px-6 lg:px-8">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <SettingsStatCard label="Total" value={counts.total} tone="neutral" />
-        <SettingsStatCard label="Erros" value={counts.error} className="text-red-500" tone="rose" />
-        <SettingsStatCard label="Avisos" value={counts.warn} className="text-amber-500" tone="amber" />
-        <SettingsStatCard label="Info" value={counts.info} className="text-sky-500" tone="sky" />
-        <SettingsStatCard label="Sucesso" value={counts.success} className="text-emerald-500" tone="emerald" />
+        <SettingsStatCard label="Erros" value={counts.error} tone="rose" />
+        <SettingsStatCard label="Avisos" value={counts.warn} tone="amber" />
+        <SettingsStatCard label="Info" value={counts.info} tone="sky" />
+        <SettingsStatCard label="Sucesso" value={counts.success} tone="emerald" />
       </div>
 
       <Card>
