@@ -56,9 +56,10 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
         .order("created_at", { ascending: true }),
       context.supabase
         .from("ai_jobs")
-        .select("id", { count: "exact", head: true })
+        .select("id,kind,created_at")
         .eq("brand_id", data.brandId)
-        .eq("client_id", data.clientId),
+        .eq("client_id", data.clientId)
+        .gte("created_at", since30d),
       context.supabase
         .from("client_briefings")
         .select("updated_at")
@@ -108,9 +109,9 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
     const { data: approvalData } = postIds.length
       ? await context.supabase
           .from("post_approvals")
-          .select("id,status,post_id,created_at")
+          .select("id,status,post_id,created_at,updated_at")
           .in("post_id", postIds)
-      : { data: [] as Array<{ status: string }> };
+      : { data: [] as Array<{ status: string; created_at?: string; updated_at?: string }> };
 
     const stageById = new Map(stageRows.map((s) => [s.id, s]));
     const stageByKey = new Map(stageRows.map((s) => [s.key.toLowerCase(), s]));
@@ -158,7 +159,11 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
     const findCount = (key: string) =>
       pipelineStages.find((s) => s.key.toLowerCase() === key)?.count ?? 0;
 
-    const approvalRows = (approvalData ?? []) as Array<{ status: string }>;
+    const approvalRows = (approvalData ?? []) as Array<{
+      status: string;
+      created_at?: string;
+      updated_at?: string;
+    }>;
     const pendingApprovals = approvalRows.filter((a) => a.status === "pending").length;
     const decidedApprovals = approvalRows.length - pendingApprovals;
 
@@ -187,7 +192,81 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
       briefingUpdatedAt: (briefingRes?.data?.updated_at as string | null) ?? null,
     });
 
-    const aiJobsCount = (aiJobsCountRes?.count as number | null) ?? 0;
+    const aiJobRows = (aiJobsCountRes?.data ?? []) as Array<{
+      id: string;
+      kind: string | null;
+      created_at: string;
+    }>;
+    const aiJobsCount = aiJobRows.length;
+
+    // Breakdown per-agent (uses ai_jobs.kind as agent proxy since brand_ai_usage
+    // does not carry client_id). Cost is pro-rated from the client's brand-level
+    // 30d cost by share of jobs — same 30d window used by costTotal30d.
+    const agentAgg = new Map<string, number>();
+    for (const j of aiJobRows) {
+      const k = (j.kind ?? "outros").toString();
+      agentAgg.set(k, (agentAgg.get(k) ?? 0) + 1);
+    }
+    const aiUsageByAgent = Array.from(agentAgg.entries())
+      .map(([agent, jobs]) => ({
+        agent,
+        jobs,
+        cost: aiJobsCount > 0 ? (costTotal30d * jobs) / aiJobsCount : 0,
+      }))
+      .sort((a, b) => b.jobs - a.jobs)
+      .slice(0, 6);
+
+    // Alerts scoped to this client.
+    const now = Date.now();
+    const alerts: Array<{
+      severity: "critical" | "warning" | "info";
+      title: string;
+      description?: string;
+      count?: number;
+    }> = [];
+    const briefingUpdated = (briefingRes?.data?.updated_at as string | null) ?? null;
+    if (!briefingUpdated || now - new Date(briefingUpdated).getTime() > 7 * 86_400_000) {
+      alerts.push({
+        severity: "critical",
+        title: briefingUpdated ? "Briefing desatualizado" : "Briefing não preenchido",
+        description: "Cérebro da marca sem atualização há mais de 7 dias",
+      });
+    }
+    const stalePending = approvalRows.filter(
+      (a) =>
+        a.status === "pending" &&
+        !!a.created_at &&
+        now - new Date(a.created_at).getTime() > 2 * 86_400_000,
+    ).length;
+    if (stalePending > 0) {
+      alerts.push({
+        severity: "warning",
+        title: "Aprovações paradas",
+        description: "Pendentes há mais de 2 dias",
+        count: stalePending,
+      });
+    }
+    const overdueTasks = (tasks.data ?? []).filter(
+      (t) =>
+        (t as { status?: string; due_at?: string | null }).status !== "done" &&
+        !!(t as { due_at?: string | null }).due_at &&
+        new Date((t as { due_at: string }).due_at).getTime() < now,
+    ).length;
+    if (overdueTasks > 0) {
+      alerts.push({
+        severity: "warning",
+        title: "Tarefas atrasadas",
+        description: "Vencimento já passou",
+        count: overdueTasks,
+      });
+    }
+    if (scopedPosts.length === 0 && !!briefingUpdated) {
+      alerts.push({
+        severity: "info",
+        title: "Pipeline vazio",
+        description: "Briefing pronto — gere as primeiras pautas",
+      });
+    }
 
     return {
       client: client.data,
@@ -199,6 +278,8 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
         stages: pipelineStages,
         total: scopedPosts.length,
       },
+      alerts,
+      aiUsageByAgent,
       metrics: {
         costTotal30d,
         costTotal14d,

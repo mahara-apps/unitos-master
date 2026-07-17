@@ -5,6 +5,9 @@ import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
   Activity,
+  AlertTriangle,
+  BadgeCheck,
+  Bot,
   CalendarClock,
   CheckCircle2,
   Circle,
@@ -15,17 +18,28 @@ import {
   Linkedin,
   Music2,
   RefreshCw,
+  Send,
   ShieldCheck,
   Sparkles,
   Youtube,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sparkline } from "@/components/dashboard/sparkline";
-import { HealthBar } from "@/components/dashboard/health-bar";
 import { ClientHealthPanel } from "@/components/dashboard/client-health-panel";
 import { OverviewSkeleton } from "@/components/ai-agents/tab-skeletons";
+import { StatCard } from "@/components/ui/stat-card";
+import { AlertBanner } from "@/components/ui/alert-banner";
+import { FunnelStages } from "@/components/ui/funnel-stages";
+import { AgentUsageBar } from "@/components/ui/agent-usage-bar";
+import {
+  ActivityTimelineItem,
+  type ActivityTimelineTone,
+} from "@/components/ui/activity-timeline-item";
+import { PanelCard } from "@/components/ui/panel-card";
+import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { isValidScope } from "@/lib/customer-queries";
 import {
   loadCustomerDashboardFn,
@@ -39,16 +53,6 @@ type Props = {
   brandId: string;
   clientId: string;
   onOpenBriefing?: () => void;
-};
-
-const STAGE_FALLBACK_ACCENT: Record<string, string> = {
-  idea: "bg-zinc-400 dark:bg-zinc-500",
-  production: "bg-amber-500",
-  review: "bg-orange-500",
-  approved: "bg-cyan-500",
-  approval: "bg-cyan-500",
-  scheduled: "bg-indigo-500",
-  published: "bg-emerald-500",
 };
 
 export function CustomerDashboard({ brandId, clientId, onOpenBriefing }: Props) {
@@ -154,78 +158,100 @@ function DashboardReady({
       {/* Health */}
       <ClientHealthPanel score={m.health.score} breakdown={m.health.breakdown} />
 
+      {/* Alerts (scoped to this client) */}
+      {data.alerts && data.alerts.length > 0 ? (
+        <div className="grid gap-2 md:grid-cols-2">
+          {data.alerts.map((a, i) => (
+            <AlertBanner
+              key={`${a.severity}-${i}`}
+              severity={a.severity}
+              title={a.title}
+              description={a.description}
+              trailing={typeof a.count === "number" ? a.count : undefined}
+            />
+          ))}
+        </div>
+      ) : null}
+
       {/* Metrics row */}
       <div className="grid gap-4 md:grid-cols-3">
         {hasAiUsage ? (
-          <MetricCard
-            icon={DollarSign}
+          <StatCard
+            icon={<DollarSign className="h-4 w-4" />}
             label="Consumo de IA"
+            tone="violet"
             value={`$${m.costTotal30d.toFixed(4)}`}
-            hint={`$${m.costTotal14d.toFixed(4)} nos últimos 14d`}
-            right={<Sparkline data={m.costSpark} className="h-8 w-24 text-cyan-500" />}
+            sub={`$${m.costTotal14d.toFixed(4)} nos últimos 14d`}
+            spark={m.costSpark}
           />
         ) : (
           <AiEmptyCard onOpenBriefing={onOpenBriefing} />
         )}
-        <MetricCard
-          icon={ShieldCheck}
+        <StatCard
+          icon={<ShieldCheck className="h-4 w-4" />}
           label="Aprovações pendentes"
+          tone={m.pendingApprovals > 0 ? "amber" : "emerald"}
           value={m.pendingApprovals}
-          hint={
+          sub={
             m.pendingApprovals === 0 && m.totalApprovals === 0
               ? "Nenhum conteúdo enviado para aprovação ainda"
-              : `${m.decidedApprovals}/${m.totalApprovals || 0} resolvidas`
-          }
-          right={
-            <div className="w-24">
-              <HealthBar score={approvalPct} />
-              <div className="mt-1 text-right text-[10px] font-mono text-muted-foreground">{approvalPct}%</div>
-            </div>
+              : `${m.decidedApprovals}/${m.totalApprovals || 0} resolvidas · ${approvalPct}%`
           }
         />
-        <MetricCard
-          icon={CalendarClock}
+        <StatCard
+          icon={<CalendarClock className="h-4 w-4" />}
           label="Publicações agendadas"
+          tone={m.scheduled > 0 ? "sky" : "neutral"}
           value={m.scheduled}
-          hint={
+          sub={
             m.scheduled === 0 && m.published === 0
               ? "Nenhum conteúdo agendado ainda"
               : `${m.published} já publicadas`
           }
-          right={
-            <div className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 font-mono text-[10px] text-emerald-500 dark:text-emerald-300">
-              LIVE
-            </div>
-          }
+          trailing="LIVE"
         />
       </div>
 
+      {/* AI usage by agent — mirrors the "IA & performance" card of the agency dashboard */}
+      <AiByAgentCard
+        rows={data.aiUsageByAgent ?? []}
+        cost30d={m.costTotal30d}
+        jobs30d={m.aiJobsCount}
+        spark14d={m.costSpark}
+      />
+
       {/* Production pipeline funnel */}
-      <div className="rounded-xl border border-border/60 bg-card p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              Pipeline de produção
-            </div>
-            <div className="mt-0.5 text-sm font-medium">
-              {data.pipeline.total === 0 ? (
-                <span className="text-muted-foreground">Nenhum conteúdo gerado ainda</span>
-              ) : (
-                <>
-                  {data.pipeline.total} posts em {data.pipeline.stages.length} estágios
-                  {data.pipeline.pipelineName ? (
-                    <span className="ml-1 text-muted-foreground">· {data.pipeline.pipelineName}</span>
-                  ) : null}
-                </>
-              )}
-            </div>
-          </div>
+      <PanelCard
+        title="Pipeline de produção"
+        subtitle={
+          data.pipeline.total === 0
+            ? "Nenhum conteúdo gerado ainda"
+            : `${data.pipeline.total} posts em ${data.pipeline.stages.length} estágios${
+                data.pipeline.pipelineName ? ` · ${data.pipeline.pipelineName}` : ""
+              }`
+        }
+        action={
           <Badge variant="outline" className="font-mono text-[10px]">
             Ao vivo · Sync do Kanban
           </Badge>
-        </div>
-        <PipelineFunnel stages={data.pipeline.stages} total={data.pipeline.total} />
-      </div>
+        }
+      >
+        {data.pipeline.total === 0 ? (
+          <PanelEmptyState
+            icon={<Sparkles className="h-4 w-4" />}
+            text="Nenhum conteúdo gerado ainda."
+          />
+        ) : (
+          <FunnelStages
+            stages={data.pipeline.stages.map((s) => ({
+              key: s.key,
+              label: s.label,
+              count: s.count,
+              color: s.color,
+            }))}
+          />
+        )}
+      </PanelCard>
 
       {/* Bottom split layout */}
       <div className="grid gap-4 lg:grid-cols-2">
@@ -320,84 +346,84 @@ function NextStepsCard({ steps }: { steps: NextStep[] }) {
   );
 }
 
-// ---------- Metric card ----------
+// ---------- AI by-agent breakdown (mirrors AiUsageCard from /dashboard) ----------
 
-function MetricCard({
-  icon: Icon,
-  label,
-  value,
-  hint,
-  right,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  value: React.ReactNode;
-  hint?: string;
-  right?: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-xl border border-border/60 bg-card p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <Icon className="h-3 w-3 text-muted-foreground" />
-            <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              {label}
-            </span>
-          </div>
-          <div className="mt-2 text-3xl font-semibold tracking-tight">{value}</div>
-          {hint ? <div className="mt-1 text-[11px] text-muted-foreground">{hint}</div> : null}
-        </div>
-        <div className="shrink-0">{right}</div>
-      </div>
-    </div>
-  );
+const AGENT_LABELS: Record<string, string> = {
+  copilot_draft: "Copiloto de conteúdo",
+  one_click_pipeline: "Pipeline completa",
+  agent_run: "Agente especialista",
+  media_plan: "Plano de mídia",
+  strategy: "Estrategista",
+  ideas: "Gerador de ideias",
+  brand_intelligence: "Inteligência da marca",
+  image_generation: "Gerador de imagem",
+};
+
+function humanizeAgent(key: string): string {
+  if (AGENT_LABELS[key]) return AGENT_LABELS[key];
+  return key
+    .split(/[_\-\s]+/)
+    .filter(Boolean)
+    .map((s) => s[0].toUpperCase() + s.slice(1))
+    .join(" ");
 }
 
-// ---------- Pipeline ----------
-
-type PipelineStage = CustomerDashboardData["pipeline"]["stages"][number];
-
-function PipelineFunnel({ stages, total }: { stages: PipelineStage[]; total: number }) {
-  const max = Math.max(1, ...stages.map((s) => s.count));
-  const gridCols =
-    stages.length <= 3
-      ? "sm:grid-cols-3"
-      : stages.length === 4
-        ? "sm:grid-cols-2 md:grid-cols-4"
-        : stages.length === 5
-          ? "sm:grid-cols-3 md:grid-cols-5"
-          : "sm:grid-cols-3 md:grid-cols-6";
+function AiByAgentCard({
+  rows,
+  cost30d,
+  jobs30d,
+  spark14d,
+}: {
+  rows: Array<{ agent: string; cost: number; jobs: number }>;
+  cost30d: number;
+  jobs30d: number;
+  spark14d: number[];
+}) {
+  const max = Math.max(0.01, ...rows.map((r) => r.cost));
   return (
-    <div className={`grid grid-cols-2 gap-2 ${gridCols}`}>
-      {stages.map((s) => {
-        const c = s.count;
-        const pct = total ? Math.round((c / total) * 100) : 0;
-        const barHeight = Math.max(6, Math.round((c / max) * 100));
-        const accent = STAGE_FALLBACK_ACCENT[s.key.toLowerCase()] ?? "bg-primary/70";
-        const barStyle = s.color ? { width: `${barHeight}%`, backgroundColor: s.color } : { width: `${barHeight}%` };
-        return (
-          <div
-            key={s.id}
-            className="group relative overflow-hidden rounded-lg border border-border/60 bg-background/40 p-3"
-          >
-            <div className="flex items-baseline justify-between">
-              <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                {s.label}
-              </div>
-              <div className="text-[10px] font-mono text-muted-foreground">{pct}%</div>
+    <PanelCard
+      title="IA & performance"
+      subtitle="Consumo por agente · últimos 30 dias"
+      icon={<Bot className="h-4 w-4" />}
+    >
+      <div className="px-4 py-3">
+        <div className="mb-3 flex items-end justify-between">
+          <div>
+            <div className="font-mono text-2xl font-semibold tabular-nums">
+              ${cost30d.toFixed(2)}
             </div>
-            <div className="mt-2 text-2xl font-semibold tabular-nums">{c}</div>
-            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className={s.color ? "h-full rounded-full transition-all" : `${accent} h-full rounded-full transition-all`}
-                style={barStyle}
-              />
+            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              Custo · 30d · {jobs30d} execuções
             </div>
           </div>
-        );
-      })}
-    </div>
+          {spark14d.some((v) => v > 0) && (
+            <Sparkline
+              data={spark14d.map((v) => Math.round(v * 1000))}
+              className="h-8 w-24 text-violet-500"
+            />
+          )}
+        </div>
+        {rows.length === 0 ? (
+          <PanelEmptyState
+            icon={<Zap className="h-5 w-5" />}
+            text="Nenhum agente executado ainda para este cliente."
+          />
+        ) : (
+          <ul className="space-y-2">
+            {rows.map((r) => (
+              <li key={r.agent}>
+                <AgentUsageBar
+                  agent={humanizeAgent(r.agent)}
+                  cost={r.cost}
+                  jobs={r.jobs}
+                  max={max}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </PanelCard>
   );
 }
 
@@ -408,11 +434,12 @@ const SOCIAL_META: Array<{
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   urlPrefix: string;
+  color: string;
 }> = [
-  { key: "instagram", label: "Instagram", icon: Instagram, urlPrefix: "https://instagram.com/" },
-  { key: "tiktok", label: "TikTok", icon: Music2, urlPrefix: "https://tiktok.com/@" },
-  { key: "linkedin", label: "LinkedIn", icon: Linkedin, urlPrefix: "https://linkedin.com/in/" },
-  { key: "youtube", label: "YouTube", icon: Youtube, urlPrefix: "https://youtube.com/@" },
+  { key: "instagram", label: "Instagram", icon: Instagram, urlPrefix: "https://instagram.com/", color: "#E1306C" },
+  { key: "tiktok", label: "TikTok", icon: Music2, urlPrefix: "https://tiktok.com/@", color: "#111111" },
+  { key: "linkedin", label: "LinkedIn", icon: Linkedin, urlPrefix: "https://linkedin.com/in/", color: "#0A66C2" },
+  { key: "youtube", label: "YouTube", icon: Youtube, urlPrefix: "https://youtube.com/@", color: "#FF0000" },
 ];
 
 function AccountPropertiesCard({
@@ -428,67 +455,65 @@ function AccountPropertiesCard({
   brandId: string;
   clientId: string;
 }) {
+  void brandId;
+  void clientId;
+  const linked = SOCIAL_META.filter((s) => !!socials?.[s.key]);
   return (
-    <div className="rounded-xl border border-border/60 bg-card">
-      <div className="border-b border-border/60 px-4 py-3">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-          Propriedades da conta
-        </div>
-        <div className="mt-0.5 text-sm font-medium">Identidade e canais vinculados</div>
-      </div>
-      <div className="space-y-4 p-4">
-        {(contactName || contactEmail) && (
-          <div className="grid gap-1.5">
-            <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              Contato principal
-            </div>
-            <div className="text-sm">
-              {contactName ?? "—"}{" "}
-              {contactEmail ? (
-                <span className="text-muted-foreground">· {contactEmail}</span>
-              ) : null}
-            </div>
-          </div>
-        )}
-
-        <div className="grid gap-1.5">
+    <PanelCard
+      title="Propriedades da conta"
+      subtitle="Identidade e canais vinculados"
+    >
+      {(contactName || contactEmail) && (
+        <div className="border-b border-border/60 px-4 py-3">
           <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            Canais sociais vinculados
+            Contato principal
           </div>
-          <div className="grid gap-1">
-            {SOCIAL_META.map((s) => {
-              const handle = socials?.[s.key];
-              if (!handle) return null;
-              const clean = handle.replace(/^@/, "");
-              return (
+          <div className="mt-1 text-sm">
+            {contactName ?? "—"}
+            {contactEmail ? (
+              <span className="text-muted-foreground"> · {contactEmail}</span>
+            ) : null}
+          </div>
+        </div>
+      )}
+      {linked.length === 0 ? (
+        <PanelEmptyState
+          icon={<Instagram className="h-4 w-4" />}
+          text="Nenhum canal social vinculado ainda."
+        />
+      ) : (
+        <ul className="divide-y divide-border/60">
+          {linked.map((s) => {
+            const handle = (socials?.[s.key] ?? "").replace(/^@/, "");
+            const Icon = s.icon;
+            return (
+              <li key={s.key}>
                 <a
-                  key={s.key}
-                  href={`${s.urlPrefix}${clean}`}
+                  href={`${s.urlPrefix}${handle}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center justify-between rounded-md border border-transparent px-2 py-1.5 text-sm transition hover:border-border/60 hover:bg-accent/40"
+                  className="flex items-center gap-3 px-4 py-3 transition hover:bg-accent/40"
                 >
-                  <span className="flex items-center gap-2 text-muted-foreground">
-                    <s.icon className="h-3.5 w-3.5" />
-                    {s.label}
+                  <span
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-white"
+                    style={{ background: s.color }}
+                  >
+                    <Icon className="h-4 w-4" />
                   </span>
-                  <span className="flex items-center gap-1 font-mono text-xs">
-                    @{clean}
-                    <ExternalLink className="h-3 w-3 opacity-60" />
-                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-medium">{s.label}</div>
+                    <div className="truncate text-[11px] text-muted-foreground">
+                      @{handle}
+                    </div>
+                  </div>
+                  <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                 </a>
-              );
-            })}
-            {SOCIAL_META.every((s) => !socials?.[s.key]) && (
-              <div className="rounded-md border border-dashed border-border/60 p-3 text-center text-xs text-muted-foreground">
-                Nenhum canal social vinculado ainda.
-              </div>
-            )}
-          </div>
-        </div>
-
-      </div>
-    </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </PanelCard>
   );
 }
 
@@ -496,27 +521,23 @@ function AccountPropertiesCard({
 
 function ActivityFeedCard({ activity }: { activity: CustomerDashboardData["activity"] }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-card">
-      <div className="border-b border-border/60 px-4 py-3">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-          Trilha de auditoria
+    <PanelCard
+      title="Trilha de auditoria"
+      subtitle={`Atividade recente (${activity.length})`}
+    >
+      {activity.length === 0 ? (
+        <PanelEmptyState
+          icon={<Activity className="h-4 w-4" />}
+          text="Nenhum evento de atividade para esta conta ainda."
+        />
+      ) : (
+        <div className="max-h-[420px] divide-y divide-border/60 overflow-y-auto">
+          {activity.map((ev) => (
+            <ActivityRow key={ev.id} event={ev} />
+          ))}
         </div>
-        <div className="mt-0.5 text-sm font-medium">Atividade recente ({activity.length})</div>
-      </div>
-      <div className="max-h-[420px] overflow-y-auto p-2">
-        {activity.length === 0 ? (
-          <div className="p-6 text-center text-xs text-muted-foreground">
-            Nenhum evento de atividade para esta conta ainda.
-          </div>
-        ) : (
-          <ol className="relative ml-3 border-l border-border/60">
-            {activity.map((ev) => (
-              <ActivityRow key={ev.id} event={ev} />
-            ))}
-          </ol>
-        )}
-      </div>
-    </div>
+      )}
+    </PanelCard>
   );
 }
 
@@ -532,21 +553,13 @@ function ActivityRow({ event }: { event: CustomerDashboardData["activity"][numbe
     }
   }, [event.created_at]);
   return (
-    <li className="relative pl-4 pr-2 py-2">
-      <span className={`absolute -left-[6px] top-3 h-2.5 w-2.5 rounded-full ${meta.dot}`} />
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <meta.icon className="h-3 w-3 text-muted-foreground" />
-            <span className="text-sm font-medium">{meta.title}</span>
-          </div>
-          {meta.subtitle ? (
-            <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{meta.subtitle}</div>
-          ) : null}
-        </div>
-        <div className="shrink-0 font-mono text-[10px] text-muted-foreground">{when}</div>
-      </div>
-    </li>
+    <ActivityTimelineItem
+      title={meta.title}
+      description={meta.subtitle}
+      timestamp={when}
+      tone={meta.tone}
+      icon={meta.icon}
+    />
   );
 }
 
@@ -554,7 +567,7 @@ function activityDescriptor(ev: CustomerDashboardData["activity"][number]): {
   title: string;
   subtitle?: string;
   icon: React.ComponentType<{ className?: string }>;
-  dot: string;
+  tone: ActivityTimelineTone;
 } {
   const payload = (ev.payload ?? {}) as Record<string, unknown>;
   const title = (payload.title as string) ?? "";
@@ -594,22 +607,27 @@ function activityDescriptor(ev: CustomerDashboardData["activity"][number]): {
         title: `Post movido para ${stageLabel[to] ?? to}`,
         subtitle: title,
         icon: Activity,
-        dot: "bg-indigo-500",
+        tone: "violet",
       };
     }
-    return { title: `Post ${humanVerb(ev.verb)}`, subtitle: title, icon: Sparkles, dot: "bg-cyan-500" };
+    if (ev.verb === "approved") return { title: `Post aprovado`, subtitle: title, icon: BadgeCheck, tone: "success" };
+    if (ev.verb === "rejected") return { title: `Post rejeitado`, subtitle: title, icon: AlertTriangle, tone: "critical" };
+    if (ev.verb === "published") return { title: `Post publicado`, subtitle: title, icon: Send, tone: "pink" };
+    if (ev.verb === "scheduled") return { title: `Post agendado`, subtitle: title, icon: CalendarClock, tone: "info" };
+    return { title: `Post ${humanVerb(ev.verb)}`, subtitle: title, icon: Sparkles, tone: "info" };
   }
   if (ev.entity_type === "task") {
     if (ev.verb === "status_changed") {
       const to = String(payload.to ?? "");
+      const isDone = to === "done";
       return {
         title: `Tarefa ${taskStatusLabel[to] ?? to}`,
         subtitle: title,
-        icon: CheckCircle2,
-        dot: "bg-emerald-500",
+        icon: isDone ? CheckCircle2 : Clock,
+        tone: isDone ? "success" : "warning",
       };
     }
-    return { title: `Tarefa ${humanVerb(ev.verb)}`, subtitle: title, icon: Clock, dot: "bg-amber-500" };
+    return { title: `Tarefa ${humanVerb(ev.verb)}`, subtitle: title, icon: Clock, tone: "warning" };
   }
   const entityLabel: Record<string, string> = {
     post: "Post",
@@ -623,6 +641,6 @@ function activityDescriptor(ev: CustomerDashboardData["activity"][number]): {
     title: `${entityLabel[ev.entity_type] ?? ev.entity_type} ${humanVerb(ev.verb)}`,
     subtitle: title,
     icon: Activity,
-    dot: "bg-zinc-400 dark:bg-zinc-500",
+    tone: "neutral",
   };
 }
