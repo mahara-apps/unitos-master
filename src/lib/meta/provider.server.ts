@@ -148,6 +148,21 @@ export class MetaProvider {
   }
 
   /**
+   * Returns the list of permissions the user actually granted (status="granted").
+   * Meta lets users revoke individual scopes on the consent screen, so this is
+   * the authoritative list — not the scopes we asked for.
+   */
+  async listGrantedPermissions(userAccessToken: string): Promise<string[]> {
+    type PermRow = { permission: string; status: "granted" | "declined" | "expired" };
+    const res = await this.graph<{ data: PermRow[] }>("/me/permissions", {
+      accessToken: userAccessToken,
+    });
+    return (res.data ?? [])
+      .filter((p) => p.status === "granted")
+      .map((p) => p.permission);
+  }
+
+  /**
    * Lists the Facebook Pages the user manages together with each page's
    * page-scoped access token (which is what we persist for future API calls)
    * and the connected Instagram Business account, when present.
