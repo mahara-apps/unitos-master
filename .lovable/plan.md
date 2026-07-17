@@ -1,151 +1,93 @@
-## Objetivo
 
-Consolidar o Brain como uma **plataforma interna independente** dentro da UNITOS, sem alterar comportamento externo nem remover funcionalidades. Apenas reorganização modular, com interfaces claras e um ponto único de entrada — a **Brain API**.
+# Unificação da camada de memória — brain_memory como fonte única
 
-## Estado atual (verificado)
+## Diagnóstico
 
-Hoje a lógica do Brain está espalhada em vários `*.functions.ts` que fazem SQL direto sobre as tabelas `brain_*`:
+Duas tabelas com responsabilidades sobrepostas:
 
-- `src/lib/brain-ingest.functions.ts` — ingestão de eventos
-- `src/lib/brain-learning.functions.ts` — worker/fila de aprendizado
-- `src/lib/brain-memory.functions.ts` — consulta de memórias
-- `src/lib/brain-consolidate.functions.ts` — consolidação
-- `src/lib/brain-graph.functions.ts` — grafo
-- `src/lib/brain-retrieve.functions.ts` — busca semântica
-- `src/lib/brain-stats.functions.ts` — métricas
-- `src/lib/brain-intelligence.functions.ts` — agregações da tela Brain
-- `src/lib/brain-infra.functions.ts` — infra
-- `src/lib/brain-embed.server.ts` — embeddings
-- `src/lib/chat.functions.ts` — chat lê `brain_events`, `brain_insights`, `brain_memory` diretamente
-- Diversas rotas (`_authenticated/brain.tsx`, `brain.graph.tsx`, `chat.*`) consomem essas funções em ordem arbitrária.
+| | `brain_memory` (nova) | `brain_knowledge` (legado) |
+|---|---|---|
+| Chave lógica | `(brand_id, scope, memory_type, key)` | `(brand_id, category, key)` |
+| Confidence | ✅ com `previous_confidence` + WMA via `brain_memory_evolve` | ✅ simples, só `reinforcement_count` |
+| Versionamento | ✅ `brain_memory_versions` + trigger snapshot | ❌ nenhum |
+| Lifecycle | ✅ evolve / touch / decay / archive | ❌ nenhum |
+| Origem/evidência | ✅ `source_refs` + `source_event` | ⚠️ `source_event_ids` (ARRAY) |
+| Writers ativos | Brain API (`memory.*`, `evolve`, `remember`) | **nenhum** |
+| Readers ativos | Brain API + widgets | apenas `brain-intelligence.functions.ts` (KPIs de contagem) |
+| Linhas em produção | **0** | **0** |
 
-**Nada será apagado.** Todos os `*.functions.ts` acima continuam existindo e continuam funcionando exatamente como hoje (compatibilidade total). Apenas passam a ser **fachadas finas** que delegam para os módulos internos.
+Conclusão: `brain_knowledge` está morta operacionalmente. `brain_memory` já é superconjunto funcional. Sem risco de perda de dados (ambas vazias), mas a migração assume que qualquer linha futura em `brain_knowledge` deve ser copiada antes do DROP.
 
-## Nova arquitetura interna
+## Decisões de consolidação
 
-Criar a pasta `src/lib/brain/` com módulos server-only desacoplados. Cada módulo expõe uma interface TypeScript, e nenhum consumidor externo importa esses módulos diretamente — só a Brain API.
+1. **Fonte única**: `brain_memory` passa a ser a ÚNICA tabela de memória/conhecimento. `brain_knowledge` é descontinuada.
+2. **Chave canônica**: `(brand_id, scope, memory_type, key)` — já existente. `category` (legado) mapeia para `memory_type`.
+3. **Confidence**: mantém-se o esquema `brain_memory` (`confidence` + `previous_confidence` + WMA via `brain_memory_evolve`).
+4. **Versionamento**: mantém `brain_memory_versions` + trigger `brain_memory_snapshot()`.
+5. **Lifecycle**: mantém `evolve` / `touch` / `decay` / `archive`.
+6. **Evidência**: `source_refs` (JSONB) absorve `source_event_ids` como `{ event_ids: [...] }`.
 
-```text
-src/lib/brain/
-├── core/               # Brain Core — bootstrap, config, tipos compartilhados, contexto
-│   ├── types.ts
-│   ├── context.ts      # BrainContext (supabase, userId, scope brand/client)
-│   └── index.ts
-├── event-bus/          # Event Bus — publicar/consumir eventos
-│   ├── publisher.ts    # publish(event)
-│   ├── subscriber.ts   # (leitura para telas ao vivo)
-│   └── index.ts
-├── learning/           # Learning Engine — fila + worker + WMA de confiança
-│   ├── queue.ts
-│   ├── worker.ts
-│   └── index.ts
-├── memory/             # Memory Store — CRUD/consulta de brain_memory
-│   ├── store.ts        # list/search/filter/group/relate
-│   ├── consolidation.ts
-│   └── index.ts
-├── graph/              # Knowledge Graph — nós/arestas + traversal
-│   ├── edges.ts
-│   ├── query.ts
-│   └── index.ts
-├── insights/           # Insight Engine — geração e leitura de brain_insights
-│   ├── generator.ts
-│   ├── reader.ts
-│   └── index.ts
-├── recommendations/    # Recommendation Engine — brain_recommendations
-│   ├── generator.ts
-│   ├── reader.ts
-│   └── index.ts
-├── query/              # Query Engine — busca semântica, retrieval, stats
-│   ├── semantic.ts     # embeddings + match_brain_events (RPC)
-│   ├── stats.ts        # counters de posts/tasks/projects escopo brand
-│   └── index.ts
-├── chat-gateway/       # Chat Gateway — orquestração Brain-first + LLM fallback
-│   ├── consolidate.ts  # monta contexto (memória + insights + stats)
-│   ├── direct-answer.ts
-│   ├── llm.ts          # chamada ao AI Gateway
-│   └── index.ts
-└── api.ts              # Brain API — ÚNICO ponto público (namespace `brain`)
+## Migração (não destrutiva → destrutiva em 2 fases)
+
+### Fase A — Backfill defensivo (safe, reversível)
+Mesmo com 0 linhas hoje, o script cobre o caso de linhas terem sido criadas entre plano e execução:
+
+```sql
+INSERT INTO public.brain_memory
+  (brand_id, client_id, memory_type, scope, key, content,
+   confidence, source_refs, reinforcement_count, origin, status)
+SELECT
+  bk.brand_id,
+  bk.client_id,
+  bk.category                                    AS memory_type,
+  'brand'                                        AS scope,
+  bk.key,
+  jsonb_build_object('value', bk.value)         AS content,
+  bk.confidence,
+  jsonb_build_object(
+    'event_ids', COALESCE(bk.source_event_ids, ARRAY[]::uuid[]),
+    'legacy_source', bk.source
+  )                                              AS source_refs,
+  bk.reinforcement_count,
+  'migration:brain_knowledge'                    AS origin,
+  'active'                                       AS status
+FROM public.brain_knowledge bk
+ON CONFLICT (brand_id, scope, memory_type, key) DO NOTHING;
 ```
 
-### Brain API (fachada única)
+### Fase B — Remoção da tabela legada
+Executada só depois de:
+- backfill confirmado (contagens iguais),
+- código de leitura repointado para `brain_memory`,
+- typecheck + lint verdes.
 
-`src/lib/brain/api.ts` expõe um objeto `brain` com sub-namespaces:
-
-```ts
-export const brain = {
-  events:          { publish, list, subscribe },
-  memory:          { list, search, filter, group, relate, consolidate },
-  graph:           { addEdge, traverse, neighbors, subgraph },
-  insights:        { list, generate },
-  recommendations: { list, generate },
-  learning:        { enqueue, processQueue, status },
-  query:           { semantic, stats, retrieve },
-  chat:            { consolidateContext, tryDirectAnswer, callLlm },
-};
+```sql
+DROP TRIGGER IF EXISTS brain_knowledge_touch ON public.brain_knowledge;
+DROP TABLE public.brain_knowledge;
 ```
 
-Regras:
-- **Somente `src/lib/brain/**` pode importar tabelas `brain_*` diretamente.**
-- Todo consumidor externo (rotas, componentes, outros `*.functions.ts`) usa `brain.*`.
-- Cada módulo interno recebe um `BrainContext` (supabase autenticado + scope) — nenhum lê `process.env` ou constrói cliente próprio (exceto `chat-gateway/llm.ts` que precisa do `LOVABLE_API_KEY`).
+## Alterações de código (não-destrutivas)
 
-### Compatibilidade — nada quebra
+- `src/lib/brain/legacy/brain-intelligence.functions.ts`: substituir todas as 7 leituras de `brain_knowledge` por leituras equivalentes em `brain_memory` (filtro `status = 'active'`; `category` → `memory_type`). KPIs "Conhecimentos" e "Memórias" passam a exibir buckets diferentes da MESMA tabela (`memory_type IN ('fact','pattern',…)` vs. todas).
+- `src/lib/brain/README.md`: remover a distinção `Memory Store` vs. `Knowledge` — só existe Memory Store.
+- `src/lib/brain/DEPRECATION.md`: registrar `brain_knowledge` como REMOVED nesta fase.
+- Nada muda na API pública (`brain.memory.*`, `brain.remember`, `brain.evolveMemory`, `brain.searchKnowledge` continuam idênticos — `searchKnowledge` já lê `brain_memory`).
 
-Cada `*.functions.ts` atual permanece como **thin wrapper** sobre `brain.*`. Exemplo:
+## Ordem de execução
 
-```ts
-// src/lib/brain-memory.functions.ts (depois)
-import { brain } from "./brain/api";
-export const listBrainMemoriesFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator(...)
-  .handler(async ({ data, context }) =>
-    brain.memory.list({ supabase: context.supabase, userId: context.userId, ...data }),
-  );
-```
+1. Aplicar migração Fase A (backfill idempotente).
+2. Repointar `brain-intelligence.functions.ts` para `brain_memory`.
+3. Rodar typecheck + lint.
+4. Aplicar migração Fase B (DROP `brain_knowledge`).
+5. Atualizar README + DEPRECATION.
 
-Assim:
-- Assinaturas dos `createServerFn` **não mudam**.
-- Rotas e componentes continuam importando exatamente os mesmos símbolos.
-- Nenhuma migration de banco. Nenhuma mudança de RLS. Nenhuma mudança em `chat_*`, `posts`, `tasks`, etc.
+## Riscos & mitigações
 
-### Regra de acesso ("Brain como plataforma")
+- **Regressão em consumidores externos**: nenhum consumidor externo escreve em `brain_knowledge` (grep exaustivo confirmou). Risco: nulo.
+- **Perda de dados**: coberta pelo backfill idempotente antes do DROP.
+- **Guardrails ESLint**: `no-restricted-syntax` já bloqueia `.from("brain_*")` fora de `src/lib/brain/**` — nada a mudar.
+- **Types**: `types.ts` é regenerado pelo Supabase após a migração; nenhum consumidor externo depende de `Tables<'brain_knowledge'>`.
 
-Adicionar comentário-guardrail no topo de cada arquivo `brain_*.functions.ts`:
+## Aprovação necessária
 
-```ts
-// ⚠️ Brain API boundary — não acessar tabelas brain_* fora de src/lib/brain/**
-```
-
-E documentar em `DESIGN_SYSTEM.md` (nova seção "Brain Platform"):
-- Diagrama dos 9 componentes
-- Regra: consumir sempre via `brain.*`
-- Contrato de cada módulo
-
-## Execução — fases (cada uma isolada e verificável)
-
-1. **Core + types + BrainContext** — criar `brain/core/*` e `brain/api.ts` vazio (só o shape).
-2. **Query Engine** — mover embeddings, `match_brain_events`, counters. Fazer `brain-retrieve.functions.ts`, `brain-stats.functions.ts`, `brain-embed.server.ts` chamarem `brain.query.*`.
-3. **Memory Store** — mover consulta/consolidação. `brain-memory.functions.ts` e `brain-consolidate.functions.ts` viram wrappers.
-4. **Event Bus** — mover ingestão. `brain-ingest.functions.ts` vira wrapper.
-5. **Learning Engine** — mover fila/worker. `brain-learning.functions.ts` vira wrapper.
-6. **Insight + Recommendation** — extrair dos módulos atuais para pastas próprias.
-7. **Knowledge Graph** — mover `brain-graph.functions.ts` para `brain/graph/*`.
-8. **Chat Gateway** — extrair de `chat.functions.ts` toda a parte de consolidação/direct-answer/LLM para `brain/chat-gateway/*`. O `sendChatMessageFn` passa a orquestrar via `brain.chat.*` e continua persistindo em `chat_messages`.
-9. **Brain Intelligence (tela)** — `brain-intelligence.functions.ts` passa a montar KPIs via `brain.memory`, `brain.insights`, `brain.events.list`.
-10. **Guardrails + docs** — comentários de fronteira nos wrappers e seção no `DESIGN_SYSTEM.md`.
-
-Ao fim de cada fase: `tsgo`, abrir `/brain`, `/brain/graph` e `/chat/*` para confirmar comportamento idêntico.
-
-## Fora de escopo (explícito)
-
-- Nenhuma mudança de schema, RLS, grants, triggers, `pg_cron`.
-- Nenhuma mudança de UI.
-- Nenhuma nova capacidade do Brain (fica para a próxima etapa que você mencionou).
-- `chat_conversations` / `chat_messages` continuam onde estão (o Chat **usa** o Brain, não é parte dele).
-
-## Riscos e mitigação
-
-- **Import protection do Vite**: módulos com `.server.ts` continuam server-only; `brain/chat-gateway/llm.ts` será `llm.server.ts` para bloquear inclusão no bundle client.
-- **Ciclos de import**: cada módulo interno só depende de `brain/core` — nunca de outro módulo irmão. Composições vivem em `brain/api.ts`.
-- **Regressão silenciosa**: por a fase 8 (chat) ser a mais sensível, será a última — e mantém `sendChatMessageFn` byte-a-byte compatível na saída.
+Confirme para eu executar Fase A + repointar leituras + Fase B numa sequência única, ou peça para eu parar entre A e B para revisão.
