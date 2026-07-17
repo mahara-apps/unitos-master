@@ -6,6 +6,7 @@ import type {
   ProviderResult,
   TimeSeriesPoint,
 } from "../types";
+import { metricMapFor } from "../metric-mapping";
 import type {
   AccountAnalyticsOptions,
   PostAnalyticsOptions,
@@ -54,7 +55,8 @@ export class MetaAnalyticsProvider implements SocialAnalyticsProvider {
       return r.followers_count ?? null;
     }, warnings, "followers_count");
 
-    const IG_METRICS = ["impressions", "reach", "profile_views"];
+    const IG_ACCOUNT_MAP = metricMapFor("instagram", "account");
+    const IG_METRICS = Object.keys(IG_ACCOUNT_MAP).filter((k) => k !== "followers_count");
     const points = await this.safe(
       () =>
         this.meta.graph<InsightsResponse>(`/${ctx.accountId}/insights`, {
@@ -70,11 +72,7 @@ export class MetaAnalyticsProvider implements SocialAnalyticsProvider {
       "instagram_insights",
     );
 
-    const series = toSeries(points?.data ?? [], {
-      impressions: "impressions",
-      reach: "reach",
-      profile_views: "profile_visits",
-    });
+    const series = toSeries(points?.data ?? [], IG_ACCOUNT_MAP);
     const totals = sumSeries(series);
 
     return {
@@ -109,12 +107,10 @@ export class MetaAnalyticsProvider implements SocialAnalyticsProvider {
       return r.followers_count ?? r.fan_count ?? null;
     }, warnings, "page_followers");
 
-    const FB_METRICS = [
-      "page_impressions",
-      "page_impressions_unique",
-      "page_post_engagements",
-      "page_fan_adds",
-    ];
+    const FB_ACCOUNT_MAP = metricMapFor("facebook", "account");
+    const FB_METRICS = Object.keys(FB_ACCOUNT_MAP).filter(
+      (k) => k !== "fan_count" && k !== "followers_count" && k !== "page_followers",
+    );
     const points = await this.safe(
       () =>
         this.meta.graph<InsightsResponse>(`/${ctx.externalId}/insights`, {
@@ -130,12 +126,7 @@ export class MetaAnalyticsProvider implements SocialAnalyticsProvider {
       "page_insights",
     );
 
-    const series = toSeries(points?.data ?? [], {
-      page_impressions: "impressions",
-      page_impressions_unique: "reach",
-      page_post_engagements: "engagement",
-      page_fan_adds: "followers_gained",
-    });
+    const series = toSeries(points?.data ?? [], FB_ACCOUNT_MAP);
     const totals = sumSeries(series);
 
     return {
@@ -180,6 +171,7 @@ export class MetaAnalyticsProvider implements SocialAnalyticsProvider {
       "media_meta",
     );
 
+    const IG_POST_MAP = metricMapFor("instagram", "post");
     const IG_POST_METRICS = ["impressions", "reach", "likes", "comments", "saved", "shares"];
     if (meta?.media_type === "VIDEO" || meta?.media_type === "REELS") {
       IG_POST_METRICS.push("video_views");
@@ -195,15 +187,7 @@ export class MetaAnalyticsProvider implements SocialAnalyticsProvider {
       "media_insights",
     );
 
-    const metrics = toPostMetrics(insights?.data ?? [], {
-      impressions: "impressions",
-      reach: "reach",
-      likes: "likes",
-      comments: "comments",
-      saved: "saves",
-      shares: "shares",
-      video_views: "video_views",
-    });
+    const metrics = toPostMetrics(insights?.data ?? [], IG_POST_MAP);
 
     return {
       ok: true,
@@ -377,12 +361,7 @@ type FbPostMeta = {
   type?: string;
 };
 
-const FB_POST_MAP: Record<string, Metric["key"]> = {
-  post_impressions: "impressions",
-  post_impressions_unique: "reach",
-  post_engaged_users: "engagement",
-  post_clicks: "link_clicks",
-};
+const FB_POST_MAP: Record<string, Metric["key"]> = metricMapFor("facebook", "post");
 
 function toEpochRange(range: { since: string; until: string }) {
   return {
