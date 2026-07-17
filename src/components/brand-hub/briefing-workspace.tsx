@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DocumentsTab } from "@/components/brand-hub/documents-tab";
 import {
   AlertDialog,
@@ -545,19 +546,12 @@ export function BriefingWorkspace({
                 <Badge variant="outline" className="border-rose-500/30 bg-rose-500/10 font-mono text-[10px] text-rose-300">
                   {completion}%
                 </Badge>
-                <Button
-                  size="sm"
-                  className="gap-1.5 border-0 bg-gradient-to-r from-fuchsia-600 via-violet-600 to-cyan-500 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08)] hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
-                  onClick={() => setRegenOpen(true)}
-                  disabled={generating}
-                >
-                  {generating ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="h-3.5 w-3.5" />
-                  )}
-                  Gerar estratégia com IA
-                </Button>
+                <GenerateIntelligenceButton
+                  form={form}
+                  generating={generating}
+                  onGenerate={() => setRegenOpen(true)}
+                  label="Gerar estratégia com IA"
+                />
                 <Button
                   size="sm"
                   variant="outline"
@@ -1358,6 +1352,110 @@ const BRAIN_SECTIONS = [
   { id: "documentos", label: "Documentos & Contexto IA" },
 ] as const;
 
+type EssentialField = { key: "tone_text" | "mission" | "positioning" | "offer" | "audience"; label: string; sectionId: string };
+
+const ESSENTIAL_FIELDS: EssentialField[] = [
+  { key: "tone_text", label: "Tom de voz", sectionId: "identidade" },
+  { key: "mission", label: "Missão", sectionId: "identidade" },
+  { key: "positioning", label: "Posicionamento", sectionId: "identidade" },
+  { key: "offer", label: "Oferta principal", sectionId: "produto" },
+  { key: "audience", label: "Descrição do público", sectionId: "publico" },
+];
+
+function getMissingEssentials(form: FormState): EssentialField[] {
+  return ESSENTIAL_FIELDS.filter((f) => !((form as unknown as Record<string, string | undefined>)[f.key] ?? "").trim());
+}
+
+function GenerateIntelligenceButton({
+  form,
+  generating,
+  onGenerate,
+  onJump,
+  label = "Gerar Inteligência com IA",
+  className,
+}: {
+  form: FormState;
+  generating: boolean;
+  onGenerate: () => void;
+  onJump?: (sectionId: string) => void;
+  label?: string;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const missing = getMissingEssentials(form);
+
+  const btnClass =
+    className ??
+    "gap-1.5 border-0 bg-gradient-to-r from-fuchsia-600 via-violet-600 to-cyan-500 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08)] hover:opacity-95";
+
+  const handleClick = () => {
+    if (generating) return;
+    if (missing.length === 0) {
+      onGenerate();
+      return;
+    }
+    setOpen(true);
+  };
+
+  const proceed = () => {
+    setOpen(false);
+    onGenerate();
+  };
+
+  const jump = (sectionId: string) => {
+    setOpen(false);
+    if (onJump) onJump(sectionId);
+    else if (typeof document !== "undefined") {
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button size="sm" className={btnClass} onClick={handleClick} disabled={generating}>
+          {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          {label}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80 space-y-3">
+        <div className="space-y-1">
+          <div className="text-sm font-semibold">Preencha para um resultado melhor</div>
+          <p className="text-xs text-muted-foreground">
+            Estes campos ajudam a IA a gerar uma estratégia mais precisa. Você pode gerar mesmo assim.
+          </p>
+        </div>
+        <ul className="space-y-1">
+          {missing.map((f) => (
+            <li
+              key={f.key}
+              className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5"
+            >
+              <span className="text-xs">{f.label}</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 gap-1 px-2 text-[11px] text-primary hover:text-primary"
+                onClick={() => jump(f.sectionId)}
+              >
+                Preencher
+              </Button>
+            </li>
+          ))}
+        </ul>
+        <div className="flex items-center justify-end gap-2 pt-1">
+          <Button size="sm" variant="ghost" className="h-8" onClick={() => setOpen(false)}>
+            Cancelar
+          </Button>
+          <Button size="sm" className="h-8 gap-1.5" onClick={proceed}>
+            <Sparkles className="h-3.5 w-3.5" /> Gerar mesmo assim
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 type StackedProps = {
   brandId: string;
   clientId: string;
@@ -1453,15 +1551,12 @@ function StackedBrainLayout(props: StackedProps) {
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
             Salvar
           </Button>
-          <Button
-            size="sm"
-            className="gap-1.5 border-0 bg-gradient-to-r from-fuchsia-600 via-violet-600 to-cyan-500 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08)] hover:opacity-95"
-            onClick={onGenerateStrategy}
-            disabled={generating}
-          >
-            {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-            Gerar Inteligência com IA
-          </Button>
+          <GenerateIntelligenceButton
+            form={form}
+            generating={generating}
+            onGenerate={onGenerateStrategy}
+            onJump={scrollTo}
+          />
         </div>
       </div>
 
