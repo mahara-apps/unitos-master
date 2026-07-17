@@ -59,6 +59,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { KpiCard as CanonicalKpiCard, type KpiTone } from "@/components/ui/kpi-card";
+import { DashboardPageShell } from "@/components/ui/dashboard-primitives";
+import { FunnelStages } from "@/components/ui/funnel-stages";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { getAnalytics, type AnalyticsResult } from "@/lib/analytics.functions";
@@ -230,7 +233,7 @@ function AnalyticsPage() {
   const data = analyticsQuery.data;
 
   return (
-    <div className="px-6 py-6">
+    <DashboardPageShell>
       <Tabs defaultValue="social" className="space-y-6">
         <TabsList>
           <TabsTrigger value="social">Social</TabsTrigger>
@@ -253,7 +256,7 @@ function AnalyticsPage() {
           <ClientsTab loading={analyticsQuery.isLoading} data={data?.clients} />
         </TabsContent>
       </Tabs>
-    </div>
+    </DashboardPageShell>
   );
 }
 
@@ -325,60 +328,46 @@ function SlaPanel({ data }: { data: SlaSnapshot | undefined }) {
   );
 }
 
+// Adapter para manter as call sites existentes usando o KpiCard canônico do Design System.
 function KpiCard({
   label,
   value,
   hint,
   Icon,
-  accent = "primary",
+  accent = "neutral",
   delta,
 }: {
   label: string;
   value: string | number;
   hint?: string;
   Icon: typeof Sparkles;
-  accent?: "primary" | "emerald" | "amber" | "rose" | "sky" | "violet";
+  accent?: "primary" | KpiTone;
   delta?: number;
 }) {
-  const accentClass: Record<string, string> = {
-    primary: "from-primary/20 to-primary/5 text-primary",
-    emerald: "from-emerald-500/20 to-emerald-500/5 text-emerald-600 dark:text-emerald-400",
-    amber: "from-amber-500/20 to-amber-500/5 text-amber-600 dark:text-amber-400",
-    rose: "from-rose-500/20 to-rose-500/5 text-rose-600 dark:text-rose-400",
-    sky: "from-sky-500/20 to-sky-500/5 text-sky-600 dark:text-sky-400",
-    violet: "from-violet-500/20 to-violet-500/5 text-violet-600 dark:text-violet-400",
-  };
+  const tone: KpiTone = accent === "primary" ? "neutral" : accent;
+  const sub =
+    typeof delta === "number" ? (
+      <span
+        className={cn(
+          "inline-flex items-center gap-1 text-xs font-medium tabular-nums",
+          delta >= 0 ? "text-emerald-500" : "text-rose-500",
+        )}
+      >
+        {delta >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+        {Math.abs(delta)}%
+        {hint ? <span className="ml-1 text-muted-foreground">· {hint}</span> : null}
+      </span>
+    ) : (
+      hint
+    );
   return (
-    <Card className="relative overflow-hidden">
-      <div className={cn("absolute inset-0 bg-gradient-to-br opacity-70", accentClass[accent])} />
-      <CardHeader className="relative pb-2">
-        <div className="flex items-center justify-between">
-          <CardDescription className="text-xs font-medium text-muted-foreground">
-            {label}
-          </CardDescription>
-          <Icon className={cn("h-4 w-4", accentClass[accent].split(" ").pop())} />
-        </div>
-      </CardHeader>
-      <CardContent className="relative pt-0">
-        <div className="flex items-baseline gap-2">
-          <span className="text-3xl font-semibold tracking-tight text-foreground">{value}</span>
-          {typeof delta === "number" && (
-            <span
-              className={cn(
-                "flex items-center text-xs font-medium",
-                delta >= 0
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : "text-rose-600 dark:text-rose-400",
-              )}
-            >
-              {delta >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-              {Math.abs(delta)}%
-            </span>
-          )}
-        </div>
-        {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
-      </CardContent>
-    </Card>
+    <CanonicalKpiCard
+      label={label}
+      value={value}
+      tone={tone}
+      icon={<Icon className="h-4 w-4" />}
+      sub={sub}
+    />
   );
 }
 
@@ -594,15 +583,17 @@ function ProductionTab({
             <CardDescription>Distribuição por pipeline</CardDescription>
           </CardHeader>
           <CardContent>
-            <DistributionList
-              items={data.funnel.map((f) => ({
-                key: f.stage,
-                label: STAGE_LABEL[f.stage] ?? f.stage,
-                color: "#0ea5e9",
-                value: f.count,
-              }))}
-              total={data.total}
-            />
+            {data.funnel.length === 0 ? (
+              <EmptyState message="Sem dados" />
+            ) : (
+              <FunnelStages
+                stages={data.funnel.map((f) => ({
+                  key: f.stage,
+                  label: STAGE_LABEL[f.stage] ?? f.stage,
+                  count: f.count,
+                }))}
+              />
+            )}
           </CardContent>
         </Card>
       </div>
