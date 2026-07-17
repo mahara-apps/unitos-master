@@ -31,31 +31,29 @@ import * as context from "./context-engine";
 import type { BrainContext } from "./core";
 import type { BrainConsolidated, ChatAttachmentMeta } from "./chat-gateway";
 
-// Legacy server functions (mantidas aqui como parte oficial da Brain
-// Platform — antes viviam em `src/lib/brain-*.functions.ts`).
-// Reexportadas para que consumidores externos NUNCA importem os arquivos
+// Legacy server functions (mantidas como parte oficial da Brain Platform —
+// antes viviam em `src/lib/brain-*.functions.ts`).
+// Reexportadas aqui para que consumidores externos NUNCA importem os arquivos
 // legados diretamente. Todo acesso deve ser via `brain.*` ou via estes
-// nomes de conveniência re-exportados abaixo.
-import { brainConsolidateFn } from "./legacy/brain-consolidate.functions";
-import {
+// nomes de conveniência.
+//
+// Segurança de bundling: só reexportamos legacy fns cujo grafo de imports é
+// client-safe (nenhum `.server.ts` top-level). Fns como `brainConsolidateFn`
+// e `brainRetrieveFn` permanecem acessíveis apenas via server routes.
+export {
   brainGraphFn,
   type BrainGraph,
   type GraphNode,
 } from "./legacy/brain-graph.functions";
-import {
+export {
   brainIntelligenceFn,
   type BrainIntelligence,
 } from "./legacy/brain-intelligence.functions";
-import { ingestBrainQuiet } from "./ingest-quiet.server";
-
-export {
-  brainConsolidateFn,
-  brainGraphFn,
-  type BrainGraph,
-  type GraphNode,
-  brainIntelligenceFn,
-  type BrainIntelligence,
-};
+export { loadBrainWidget } from "./legacy/brain-widget.functions";
+export type {
+  BrainWidgetItem,
+  BrainWidgetPayload,
+} from "./legacy/brain-widget.functions";
 
 // Stream hook — reexport-only shim para consumo por componentes React.
 export { useBrainStream, type BrainStreamEvent } from "./stream/use-brain-stream";
@@ -92,11 +90,21 @@ export const brain = {
   summarize: services.summarize,
   getRecommendations: services.getRecommendations,
   // ---- Ingest de background (fire-and-forget) ----
-  ingestQuiet: ingestBrainQuiet,
-  // ---- Server fns legadas expostas via API oficial ----
-  consolidateFn: brainConsolidateFn,
-  graphFn: brainGraphFn,
-  intelligenceFn: brainIntelligenceFn,
+  // Carrega o helper server-only sob demanda para preservar a client-safety
+  // deste módulo (evita puxar `wait-until.server` para o bundle do cliente).
+  ingestQuiet(
+    supabase: import("@supabase/supabase-js").SupabaseClient,
+    brandId: string,
+    eventType: string,
+    sourceModule: string,
+    payload: Record<string, unknown>,
+  ): void {
+    void import("./ingest-quiet.server")
+      .then((m) =>
+        m.ingestBrainQuiet(supabase, brandId, eventType, sourceModule, payload),
+      )
+      .catch((err) => console.error("[brain.ingestQuiet]", err));
+  },
   chat: {
     consolidate: chatGw.consolidate,
     tryDirectAnswer: chatGw.tryDirectAnswer,
