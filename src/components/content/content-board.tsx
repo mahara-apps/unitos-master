@@ -45,7 +45,7 @@ import {
   type PipelineStage,
   type StageColor,
 } from "@/lib/content.functions";
-import { STAGE_GRADIENT, PRIORITY_STYLES, PRIORITY_LABEL, FORMAT_STYLE, FORMAT_STYLES, CHANNELS, CHANNEL_STYLES } from "./stage-colors";
+import { STAGE_GRADIENT, PRIORITY_STYLES, PRIORITY_LABEL, FORMAT_STYLES, CHANNELS, CHANNEL_STYLES, normalizeFormat, type FormatKey } from "./stage-colors";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Clock, Settings2, AlarmClock } from "lucide-react";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
