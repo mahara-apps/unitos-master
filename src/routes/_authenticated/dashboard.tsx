@@ -28,7 +28,6 @@ import {
   ExternalLink,
   Flame,
   Gauge,
-  Info,
   Instagram,
   Layers,
   Linkedin,
@@ -67,6 +66,10 @@ import { HealthBar } from "@/components/dashboard/health-bar";
 import { PanelCard as Card } from "@/components/ui/panel-card";
 import { PanelEmptyState as EmptyState } from "@/components/ui/panel-empty";
 import { PanelSkeletonList as SkeletonList } from "@/components/ui/panel-skeleton";
+import { AlertBanner } from "@/components/ui/alert-banner";
+import { ScoreListRow } from "@/components/ui/score-list-row";
+import { FunnelStages, funnelColorFor } from "@/components/ui/funnel-stages";
+import { AgentUsageBar } from "@/components/ui/agent-usage-bar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -289,23 +292,13 @@ function StatusPill({
 // KpiCard/KPI_TONES agora vivem em @/components/ui/kpi-card (canonical primitive).
 
 function AlertChip({ alert }: { alert: AgencyDashboard["alerts"][number] }) {
-  const tone = {
-    critical: "border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400",
-    warning: "border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400",
-    info: "border-sky-500/40 bg-sky-500/10 text-sky-600 dark:text-sky-400",
-  }[alert.severity];
-  const Icon = alert.severity === "info" ? Info : AlertTriangle;
   const content = (
-    <div className={cn("group flex items-center gap-3 rounded-xl border bg-card p-3 transition hover:shadow-sm", tone)}>
-      <Icon className="h-4 w-4 shrink-0" />
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium text-foreground">{alert.title}</div>
-        <div className="truncate text-xs text-muted-foreground">{alert.description}</div>
-      </div>
-      <span className="rounded-md border border-border/60 bg-background/60 px-1.5 py-0.5 font-mono text-xs tabular-nums text-foreground">
-        {alert.count}
-      </span>
-    </div>
+    <AlertBanner
+      severity={alert.severity}
+      title={alert.title}
+      description={alert.description}
+      trailing={alert.count}
+    />
   );
   return alert.href ? (
     <Link to={alert.href} className="block">
@@ -342,15 +335,12 @@ function ClientHealthRanking({
       ) : (
         <ul className="divide-y divide-border/40">
           {sorted.slice(0, 8).map((h) => (
-            <li key={h.id} className="flex items-center gap-3 px-4 py-3">
-              <span
-                className="h-8 w-8 shrink-0 rounded-lg text-center text-xs font-semibold leading-8 text-white"
-                style={{ background: h.color ?? "#6366f1" }}
-              >
-                {h.name.slice(0, 2).toUpperCase()}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
+            <li key={h.id}>
+              <ScoreListRow
+                avatarLabel={h.name.slice(0, 2).toUpperCase()}
+                avatarColor={h.color}
+                score={h.score}
+                name={
                   <Link
                     to="/customers/$customerId"
                     params={{ customerId: h.id }}
@@ -358,22 +348,23 @@ function ClientHealthRanking({
                   >
                     {h.name}
                   </Link>
-                  <span className="shrink-0 font-mono text-xs tabular-nums text-foreground">
-                    {h.score}
-                  </span>
-                </div>
-                <div className="mt-1.5 flex items-center gap-3">
-                  <HealthBar score={h.score} className="flex-1" />
-                  <span className="shrink-0 text-[10px] text-muted-foreground">
+                }
+                meta={
+                  <>
                     {h.overdueTasks > 0 && <span className="text-rose-500">{h.overdueTasks} atr.</span>}
                     {h.overdueTasks > 0 && h.approvalsPending > 0 && " · "}
                     {h.approvalsPending > 0 && <span className="text-amber-500">{h.approvalsPending} aprov.</span>}
                     {h.overdueTasks === 0 && h.approvalsPending === 0 && (
-                      <span>{h.openTasks} tarefas · {h.lastPostAt ? formatDistanceToNow(new Date(h.lastPostAt), { locale: ptBR, addSuffix: true }) : "sem posts"}</span>
+                      <span>
+                        {h.openTasks} tarefas ·{" "}
+                        {h.lastPostAt
+                          ? formatDistanceToNow(new Date(h.lastPostAt), { locale: ptBR, addSuffix: true })
+                          : "sem posts"}
+                      </span>
                     )}
-                  </span>
-                </div>
-              </div>
+                  </>
+                }
+              />
             </li>
           ))}
         </ul>
@@ -405,7 +396,6 @@ function FunnelCard({
   const list: FunnelStage[] = stages && stages.length > 0
     ? stages.map((s) => ({ ...s, count: postsByStage[s.key.toLowerCase()] ?? s.count }))
     : FUNNEL_FALLBACK.map((s) => ({ ...s, count: postsByStage[s.key] ?? 0 }));
-  const max = Math.max(1, ...list.map((s) => s.count));
   const total = list.reduce((s, x) => s + x.count, 0);
   const published = list.find((s) => s.key.toLowerCase() === "published")?.count ?? 0;
   const conv = total ? Math.round((published / total) * 100) : 0;
@@ -420,26 +410,15 @@ function FunnelCard({
         </Link>
       }
     >
-      <div className="space-y-2 px-4 py-3">
-        {list.map((s) => {
-          const n = s.count;
-          const w = Math.max(4, (n / max) * 100);
-          return (
-            <div key={s.key} className="flex items-center gap-3">
-              <span className="w-20 shrink-0 text-xs text-muted-foreground">{s.label}</span>
-              <div className="relative h-6 flex-1 overflow-hidden rounded-md bg-muted/50">
-                <div
-                  className="h-full rounded-md opacity-80 transition-all"
-                  style={{ width: `${w}%`, backgroundColor: s.color ?? "hsl(var(--primary))" }}
-                />
-                <span className="absolute inset-y-0 left-2 flex items-center text-[11px] font-medium text-foreground">
-                  {n}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+      <FunnelStages
+        stages={list.map((s) => ({
+          key: s.key,
+          label: s.label,
+          count: s.count,
+          // preserva a cor vinda do backend, com fallback à paleta canônica
+          color: funnelColorFor(s.key, s.color),
+        }))}
+      />
       {avgLead !== null && (
         <div className="border-t border-border/60 px-4 py-2.5 text-xs text-muted-foreground">
           <Clock className="mr-1 inline h-3 w-3" />
@@ -488,18 +467,7 @@ function AiUsageCard({ usage }: { usage: AiUsageSummary | undefined }) {
           <ul className="space-y-2">
             {rows.map((r) => (
               <li key={r.agent}>
-                <div className="mb-1 flex items-center justify-between text-xs">
-                  <span className="truncate font-medium">{r.agent}</span>
-                  <span className="ml-2 font-mono tabular-nums text-muted-foreground">
-                    ${r.cost.toFixed(3)} · {r.jobs}×
-                  </span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-muted/50">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500"
-                    style={{ width: `${(r.cost / max) * 100}%` }}
-                  />
-                </div>
+                <AgentUsageBar agent={r.agent} cost={r.cost} jobs={r.jobs} max={max} />
               </li>
             ))}
           </ul>
