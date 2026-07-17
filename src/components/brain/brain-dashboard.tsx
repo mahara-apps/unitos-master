@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { brainStatsFn } from "@/lib/brain-stats.functions";
-import { brainInfraSummaryFn } from "@/lib/brain-infra.functions";
+import { brainInfraSummaryFn, type BrainInfraSummary } from "@/lib/brain-infra.functions";
 import { NeuralNetworkCanvas } from "./neural-network-canvas";
 import { useBrainStream } from "@/hooks/use-brain-stream";
 
@@ -124,7 +124,7 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
               <p className="text-xs text-muted-foreground">Sem eventos registrados ainda.</p>
             ) : (
               <ul className="max-h-64 space-y-1 overflow-auto pr-1">
-                {infra.data!.recentEvents.slice(0, 15).map((e) => (
+                {infra.data!.recentEvents.slice(0, 15).map((e: BrainInfraSummary["recentEvents"][number]) => (
                   <li
                     key={e.id}
                     className="flex items-center justify-between gap-2 rounded-md border border-border/30 px-2 py-1.5 text-[11px]"
@@ -173,7 +173,7 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
               </p>
             ) : (
               <ul className="space-y-2">
-                {infra.data!.topRecommendations.map((r) => (
+                {infra.data!.topRecommendations.map((r: BrainInfraSummary["topRecommendations"][number]) => (
                   <li key={r.id} className="rounded-md border border-border/40 p-2.5">
                     <div className="mb-1 flex items-center gap-2">
                       <Badge variant="secondary" className="text-[10px]">
