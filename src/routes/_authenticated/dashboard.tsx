@@ -336,15 +336,12 @@ function ClientHealthRanking({
       ) : (
         <ul className="divide-y divide-border/40">
           {sorted.slice(0, 8).map((h) => (
-            <li key={h.id} className="flex items-center gap-3 px-4 py-3">
-              <span
-                className="h-8 w-8 shrink-0 rounded-lg text-center text-xs font-semibold leading-8 text-white"
-                style={{ background: h.color ?? "#6366f1" }}
-              >
-                {h.name.slice(0, 2).toUpperCase()}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center justify-between gap-2">
+            <li key={h.id}>
+              <ScoreListRow
+                avatarLabel={h.name.slice(0, 2).toUpperCase()}
+                avatarColor={h.color}
+                score={h.score}
+                name={
                   <Link
                     to="/customers/$customerId"
                     params={{ customerId: h.id }}
@@ -352,22 +349,23 @@ function ClientHealthRanking({
                   >
                     {h.name}
                   </Link>
-                  <span className="shrink-0 font-mono text-xs tabular-nums text-foreground">
-                    {h.score}
-                  </span>
-                </div>
-                <div className="mt-1.5 flex items-center gap-3">
-                  <HealthBar score={h.score} className="flex-1" />
-                  <span className="shrink-0 text-[10px] text-muted-foreground">
+                }
+                meta={
+                  <>
                     {h.overdueTasks > 0 && <span className="text-rose-500">{h.overdueTasks} atr.</span>}
                     {h.overdueTasks > 0 && h.approvalsPending > 0 && " · "}
                     {h.approvalsPending > 0 && <span className="text-amber-500">{h.approvalsPending} aprov.</span>}
                     {h.overdueTasks === 0 && h.approvalsPending === 0 && (
-                      <span>{h.openTasks} tarefas · {h.lastPostAt ? formatDistanceToNow(new Date(h.lastPostAt), { locale: ptBR, addSuffix: true }) : "sem posts"}</span>
+                      <span>
+                        {h.openTasks} tarefas ·{" "}
+                        {h.lastPostAt
+                          ? formatDistanceToNow(new Date(h.lastPostAt), { locale: ptBR, addSuffix: true })
+                          : "sem posts"}
+                      </span>
                     )}
-                  </span>
-                </div>
-              </div>
+                  </>
+                }
+              />
             </li>
           ))}
         </ul>
