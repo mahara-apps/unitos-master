@@ -289,7 +289,7 @@ function CustomersIndexPage() {
                     <div className="flex min-w-0 flex-1 items-start gap-3 pr-16">
                       <div
                         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-bold text-white"
-                        style={{ background: c.color ?? "#6366f1" }}
+                        style={{ background: c.color ?? "#8b5cf6" }}
                       >
                         {c.name.slice(0, 2).toUpperCase()}
                       </div>
@@ -309,7 +309,7 @@ function CustomersIndexPage() {
                       </div>
                       <Badge
                         variant="outline"
-                        className={`h-4 rounded-full px-1.5 text-[9px] font-normal uppercase tracking-wider transition group-hover:opacity-0 ${c.is_active === false ? "border-zinc-300 text-muted-foreground dark:border-zinc-700" : "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"}`}
+                        className={`h-4 rounded-full px-1.5 text-[9px] font-normal uppercase tracking-wider transition group-hover:opacity-0 ${c.is_active === false ? "border-border/60 text-muted-foreground" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"}`}
                       >
                         {c.is_active === false ? "Inativo" : "Ativo"}
                       </Badge>
@@ -362,7 +362,7 @@ function CustomersIndexPage() {
                 <Link to="/customers/$customerId" params={{ customerId: c.id }} className="flex min-w-0 items-center gap-3">
                   <div
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[11px] font-bold text-white"
-                    style={{ background: c.color ?? "#6366f1" }}
+                    style={{ background: c.color ?? "#8b5cf6" }}
                   >
                     {c.name.slice(0, 2).toUpperCase()}
                   </div>
@@ -374,7 +374,7 @@ function CustomersIndexPage() {
                 <div>
                   <Badge
                     variant="outline"
-                    className={`h-4 rounded-full px-1.5 text-[9px] font-normal uppercase tracking-wider ${c.is_active === false ? "border-zinc-300 text-muted-foreground dark:border-zinc-700" : "border-emerald-500/40 text-emerald-600 dark:text-emerald-400"}`}
+                    className={`h-4 rounded-full px-1.5 text-[9px] font-normal uppercase tracking-wider ${c.is_active === false ? "border-border/60 text-muted-foreground" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"}`}
                   >
                     {c.is_active === false ? "Inativo" : "Ativo"}
                   </Badge>
