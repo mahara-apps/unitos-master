@@ -99,25 +99,25 @@ const STATUS_META: Record<TaskStatus, { label: string; icon: typeof Circle; badg
   todo: {
     label: "A fazer",
     icon: Circle,
-    badge: "border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300",
-    dot: "bg-slate-400",
+    badge: "border-border/60 bg-muted text-muted-foreground",
+    dot: "bg-muted-foreground/60",
   },
   in_progress: {
     label: "Em progresso",
     icon: Clock,
-    badge: "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300",
-    dot: "bg-blue-500",
+    badge: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+    dot: "bg-sky-500",
   },
   review: {
     label: "Revisão",
     icon: AlertTriangle,
-    badge: "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
+    badge: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
     dot: "bg-amber-500",
   },
   done: {
     label: "Concluída",
     icon: CheckCircle2,
-    badge: "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300",
+    badge: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
     dot: "bg-emerald-500",
   },
 };
@@ -126,22 +126,22 @@ const PRIORITY_META: Record<TaskPriority, { label: string; icon: typeof ArrowDow
   low: {
     label: "Baixa",
     icon: ArrowDown,
-    badge: "border-slate-300 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-400",
+    badge: "border-border/60 bg-muted text-muted-foreground",
   },
   medium: {
     label: "Média",
     icon: ArrowUp,
-    badge: "border-sky-300 bg-sky-50 text-sky-700 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-300",
+    badge: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
   },
   high: {
     label: "Alta",
     icon: ArrowUp,
-    badge: "border-orange-300 bg-orange-50 text-orange-700 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-300",
+    badge: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
   },
   urgent: {
     label: "Urgente",
     icon: Flame,
-    badge: "border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300",
+    badge: "border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-300",
   },
 };
 
@@ -164,7 +164,7 @@ function relativeDue(iso: string | null): { label: string; tone: string } | null
   const diffMs = d.getTime() - now.getTime();
   const days = Math.round(diffMs / 86_400_000);
   const label = format(d, "d 'de' MMM", { locale: ptBR });
-  if (days < 0) return { label: `${label} · atrasada`, tone: "text-red-600 dark:text-red-400" };
+  if (days < 0) return { label: `${label} · atrasada`, tone: "text-rose-600 dark:text-rose-400" };
   if (days === 0) return { label: `${label} · hoje`, tone: "text-amber-600 dark:text-amber-400" };
   if (days <= 3) return { label, tone: "text-amber-600 dark:text-amber-400" };
   return { label, tone: "text-muted-foreground" };
