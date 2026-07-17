@@ -4,7 +4,7 @@ import type { BrainContext, SemanticMemoryHit, BrainStats } from "../core";
 
 /** Cria embedding via Lovable AI Gateway. Retorna null em falha. */
 export async function embed(text: string): Promise<number[] | null> {
-  const { embedText } = await import("../../brain-embed.server");
+  const { embedText } = await import("../legacy/brain-embed.server");
   return embedText(text);
 }
 
