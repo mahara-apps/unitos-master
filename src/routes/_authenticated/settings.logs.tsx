@@ -103,10 +103,10 @@ function LogsPage() {
     <div className="w-full space-y-4 px-4 py-6 sm:px-6 lg:px-8">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <SettingsStatCard label="Total" value={counts.total} tone="neutral" />
-        <SettingsStatCard label="Erros" value={counts.error} className="text-red-500" tone="rose" />
-        <SettingsStatCard label="Avisos" value={counts.warn} className="text-amber-500" tone="amber" />
-        <SettingsStatCard label="Info" value={counts.info} className="text-sky-500" tone="sky" />
-        <SettingsStatCard label="Sucesso" value={counts.success} className="text-emerald-500" tone="emerald" />
+        <SettingsStatCard label="Erros" value={counts.error} tone="rose" />
+        <SettingsStatCard label="Avisos" value={counts.warn} tone="amber" />
+        <SettingsStatCard label="Info" value={counts.info} tone="sky" />
+        <SettingsStatCard label="Sucesso" value={counts.success} tone="emerald" />
       </div>
 
       <Card>
