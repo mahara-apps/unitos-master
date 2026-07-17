@@ -57,6 +57,7 @@ import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_
 import { Route as AuthenticatedChatConversationIdRouteImport } from './routes/_authenticated/chat.$conversationId'
 import { Route as AuthenticatedBrainGraphRouteImport } from './routes/_authenticated/brain.graph'
 import { Route as AuthenticatedBrainDiagnosticsRouteImport } from './routes/_authenticated/brain.diagnostics'
+import { Route as ApiPublicMetaPublishScheduledRouteImport } from './routes/api/public/meta/publish-scheduled'
 import { Route as ApiPublicMetaCallbackRouteImport } from './routes/api/public/meta/callback'
 import { Route as ApiPublicMediaPruneRouteImport } from './routes/api/public/media/prune'
 import { Route as ApiPublicHooksBrainConsolidateRouteImport } from './routes/api/public/hooks/brain-consolidate'
@@ -321,6 +322,12 @@ const AuthenticatedBrainDiagnosticsRoute =
     path: '/diagnostics',
     getParentRoute: () => AuthenticatedBrainRoute,
   } as any)
+const ApiPublicMetaPublishScheduledRoute =
+  ApiPublicMetaPublishScheduledRouteImport.update({
+    id: '/api/public/meta/publish-scheduled',
+    path: '/api/public/meta/publish-scheduled',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicMetaCallbackRoute = ApiPublicMetaCallbackRouteImport.update({
   id: '/api/public/meta/callback',
   path: '/api/public/meta/callback',
@@ -422,6 +429,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
+  '/api/public/meta/publish-scheduled': typeof ApiPublicMetaPublishScheduledRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -475,6 +483,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
+  '/api/public/meta/publish-scheduled': typeof ApiPublicMetaPublishScheduledRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -534,6 +543,7 @@ export interface FileRoutesById {
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
+  '/api/public/meta/publish-scheduled': typeof ApiPublicMetaPublishScheduledRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -593,6 +603,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/brain-consolidate'
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
+    | '/api/public/meta/publish-scheduled'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -646,6 +657,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/brain-consolidate'
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
+    | '/api/public/meta/publish-scheduled'
   id:
     | '__root__'
     | '/'
@@ -704,6 +716,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/brain-consolidate'
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
+    | '/api/public/meta/publish-scheduled'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -730,6 +743,7 @@ export interface RootRouteChildren {
   ApiPublicHooksBrainConsolidateRoute: typeof ApiPublicHooksBrainConsolidateRoute
   ApiPublicMediaPruneRoute: typeof ApiPublicMediaPruneRoute
   ApiPublicMetaCallbackRoute: typeof ApiPublicMetaCallbackRoute
+  ApiPublicMetaPublishScheduledRoute: typeof ApiPublicMetaPublishScheduledRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1070,6 +1084,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBrainDiagnosticsRouteImport
       parentRoute: typeof AuthenticatedBrainRoute
     }
+    '/api/public/meta/publish-scheduled': {
+      id: '/api/public/meta/publish-scheduled'
+      path: '/api/public/meta/publish-scheduled'
+      fullPath: '/api/public/meta/publish-scheduled'
+      preLoaderRoute: typeof ApiPublicMetaPublishScheduledRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/meta/callback': {
       id: '/api/public/meta/callback'
       path: '/api/public/meta/callback'
@@ -1297,6 +1318,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksBrainConsolidateRoute: ApiPublicHooksBrainConsolidateRoute,
   ApiPublicMediaPruneRoute: ApiPublicMediaPruneRoute,
   ApiPublicMetaCallbackRoute: ApiPublicMetaCallbackRoute,
+  ApiPublicMetaPublishScheduledRoute: ApiPublicMetaPublishScheduledRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
