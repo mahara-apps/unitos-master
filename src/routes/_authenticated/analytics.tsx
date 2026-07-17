@@ -73,14 +73,15 @@ export const Route = createFileRoute("/_authenticated/analytics")({
   component: AnalyticsPage,
 });
 
+// Design System: canais mapeados aos 7 tons semânticos (sem cores off-palette).
 const CHANNEL_META: Record<string, { label: string; color: string; Icon: typeof Instagram }> = {
-  instagram: { label: "Instagram", color: "#e1306c", Icon: Instagram },
-  tiktok: { label: "TikTok", color: "#0f172a", Icon: Music2 },
-  youtube: { label: "YouTube", color: "#ff0000", Icon: Youtube },
-  linkedin: { label: "LinkedIn", color: "#0077b5", Icon: Linkedin },
-  facebook: { label: "Facebook", color: "#1877f2", Icon: Facebook },
-  x: { label: "X", color: "#0f172a", Icon: TrendingUp },
-  threads: { label: "Threads", color: "#0f172a", Icon: TrendingUp },
+  instagram: { label: "Instagram", color: "#ec4899", Icon: Instagram }, // pink-500
+  tiktok: { label: "TikTok", color: "#71717a", Icon: Music2 },          // neutral-500
+  youtube: { label: "YouTube", color: "#f43f5e", Icon: Youtube },       // rose-500
+  linkedin: { label: "LinkedIn", color: "#0ea5e9", Icon: Linkedin },    // sky-500
+  facebook: { label: "Facebook", color: "#0ea5e9", Icon: Facebook },    // sky-500
+  x: { label: "X", color: "#71717a", Icon: TrendingUp },                // neutral-500
+  threads: { label: "Threads", color: "#71717a", Icon: TrendingUp },    // neutral-500
 };
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -480,7 +481,7 @@ function SocialTab({
               items={data.byChannel.map((c) => ({
                 key: c.channel,
                 label: CHANNEL_META[c.channel]?.label ?? c.channel,
-                color: CHANNEL_META[c.channel]?.color ?? "#64748b",
+                color: CHANNEL_META[c.channel]?.color ?? "#71717a",
                 value: c.count,
               }))}
               total={data.totalPosts}
@@ -498,7 +499,7 @@ function SocialTab({
               items={data.byFormat.map((c) => ({
                 key: c.format,
                 label: FORMAT_LABEL[c.format] ?? c.format,
-                color: "#8b5cf6",
+                color: "#0ea5e9",
                 value: c.count,
               }))}
               total={data.totalPosts}
@@ -580,7 +581,7 @@ function ProductionTab({
                   <YAxis fontSize={11} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
                   <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
                   <Line type="monotone" dataKey="created" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="Criados" />
-                  <Line type="monotone" dataKey="published" stroke="#10b981" strokeWidth={2} dot={false} name="Publicados" />
+                  <Line type="monotone" dataKey="published" stroke="#10b981" strokeWidth={2} dot={false} name="Publicados" />{/* emerald-500 */}
                 </LineChart>
               </ResponsiveContainer>
             )}
@@ -597,7 +598,7 @@ function ProductionTab({
               items={data.funnel.map((f) => ({
                 key: f.stage,
                 label: STAGE_LABEL[f.stage] ?? f.stage,
-                color: "#3b82f6",
+                color: "#0ea5e9",
                 value: f.count,
               }))}
               total={data.total}
@@ -637,7 +638,7 @@ function ProductionTab({
               items={data.byFormat.map((c) => ({
                 key: c.format,
                 label: FORMAT_LABEL[c.format] ?? c.format,
-                color: "#8b5cf6",
+                color: "#0ea5e9",
                 value: c.count,
               }))}
               total={data.total}
@@ -737,7 +738,7 @@ function ClientsTab({
             <Card key={c.client_id} className="relative overflow-hidden">
               <div
                 className="absolute left-0 top-0 h-full w-1"
-                style={{ background: c.color ?? "#64748b" }}
+                style={{ background: c.color ?? "#71717a" }}
               />
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
