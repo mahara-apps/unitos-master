@@ -84,7 +84,7 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
                 published_at: new Date().toISOString(),
                 external_post_id: result.externalPostId,
                 external_permalink: result.externalPermalink,
-                provider_response: result.providerResponse,
+                provider_response: result.providerResponse as any,
                 last_error: null,
               })
               .eq("id", post.id);
