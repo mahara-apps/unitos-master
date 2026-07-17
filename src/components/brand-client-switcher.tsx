@@ -10,6 +10,7 @@ import {
   // seedDemoData removido — sistema não cria mais clientes/conteúdos automáticos
 } from "@/lib/workspace.functions";
 import { SidebarMenuButton } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
 import {
   Popover,
   PopoverContent,
