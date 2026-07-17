@@ -313,7 +313,7 @@ function ProjectsIndexPage() {
                   <div className="mt-4 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                     <span
                       className="h-2 w-2 rounded-full"
-                      style={{ background: client.color ?? "#6366f1" }}
+                      style={{ background: client.color ?? "#8b5cf6" }}
                     />
                     <span className="truncate">{client.name}</span>
                   </div>
