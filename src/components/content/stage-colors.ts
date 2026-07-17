@@ -43,6 +43,21 @@ export const FORMAT_STYLES: Record<string, string> = {
   Carrossel: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
 };
 
+// Normaliza qualquer variação de casing/plataforma vinda do banco em uma das
+// 4 chaves canônicas de formato. Retorna null quando o valor não é um formato
+// (ex.: "tiktok", "youtube" — que são canais e já são exibidos por outro chip).
+export type FormatKey = "Feed" | "Reels" | "Story" | "Carrossel";
+export function normalizeFormat(raw: string | null | undefined): FormatKey | null {
+  if (!raw) return null;
+  const s = String(raw).trim().toLowerCase();
+  if (!s) return null;
+  if (s === "feed") return "Feed";
+  if (s === "reel" || s === "reels") return "Reels";
+  if (s === "story" || s === "stories" || s === "storie") return "Story";
+  if (s === "carrossel" || s === "carousel" || s === "carrocel") return "Carrossel";
+  return null;
+}
+
 export const PRIORITY_LABEL: Record<string, string> = {
   none: "Sem prioridade",
   low: "Baixa",

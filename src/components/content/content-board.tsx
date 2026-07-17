@@ -45,7 +45,7 @@ import {
   type PipelineStage,
   type StageColor,
 } from "@/lib/content.functions";
-import { STAGE_GRADIENT, PRIORITY_STYLES, PRIORITY_LABEL, FORMAT_STYLE, FORMAT_STYLES, CHANNELS, CHANNEL_STYLES } from "./stage-colors";
+import { STAGE_GRADIENT, PRIORITY_STYLES, PRIORITY_LABEL, FORMAT_STYLES, CHANNELS, CHANNEL_STYLES, normalizeFormat, type FormatKey } from "./stage-colors";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Clock, Settings2, AlarmClock } from "lucide-react";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
@@ -537,6 +537,21 @@ function PostCard({
   const channelDefs = channels
     .map((id) => CHANNELS.find((c) => c.id === id))
     .filter(Boolean) as typeof CHANNELS;
+  // Derive up to 3 canonical format chips, preferring posts.format, falling
+  // back to post_placements. Non-format values (e.g. "tiktok") are ignored.
+  const formatKeys: FormatKey[] = (() => {
+    const seen = new Set<FormatKey>();
+    const out: FormatKey[] = [];
+    const push = (k: FormatKey | null) => {
+      if (k && !seen.has(k)) {
+        seen.add(k);
+        out.push(k);
+      }
+    };
+    push(normalizeFormat(post.format));
+    for (const pl of post.placements ?? []) push(normalizeFormat(pl.format));
+    return out.slice(0, 3);
+  })();
   const snippet = (post.copy ?? "")
     .replace(/^###\s+\w+\s*$/gm, "")
     .replace(/\s+/g, " ")
@@ -565,7 +580,7 @@ function PostCard({
       </div>
 
       <div className="p-3">
-        {(post.is_overdue || priority || post.format || channelDefs.length > 0) ? (
+        {(post.is_overdue || priority || formatKeys.length > 0 || channelDefs.length > 0) ? (
           <div className="mb-1 flex flex-wrap items-center gap-1">
             {post.is_overdue ? (
               <span
@@ -587,11 +602,14 @@ function PostCard({
                 </span>
               );
             })}
-            {post.format ? (
-              <span className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[8px] font-semibold uppercase tracking-wider ${FORMAT_STYLES[post.format] ?? FORMAT_STYLE}`}>
-                {post.format}
+            {formatKeys.map((f) => (
+              <span
+                key={f}
+                className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[8px] font-semibold uppercase tracking-wider ${FORMAT_STYLES[f]}`}
+              >
+                {f}
               </span>
-            ) : null}
+            ))}
             {priority ? (
               <span className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[8px] font-semibold uppercase tracking-wider ${PRIORITY_STYLES[priority] ?? ""}`}>
                 {PRIORITY_LABEL[priority] ?? priority}

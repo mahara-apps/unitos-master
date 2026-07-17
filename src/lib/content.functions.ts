@@ -145,6 +145,7 @@ export type BoardPost = {
   priority?: string | null;
   format?: string | null;
   tags?: string[] | null;
+  placements?: Array<{ format: string; is_primary?: boolean | null }> | null;
   visible_in_portal?: boolean | null;
   internal_briefing?: string | null;
   client_briefing?: string | null;
@@ -470,6 +471,27 @@ export const loadBoardFn = createServerFn({ method: "POST" })
     if (pErr) throw pErr;
     if (sErr) throw sErr;
     if (poErr) throw poErr;
+
+    // Fetch placements for this pipeline's posts so cards can render a chip
+    // per format (Feed/Reels/Story/Carrossel) even when posts.format is null.
+    const postIds = (posts ?? []).map((p) => p.id);
+    if (postIds.length > 0) {
+      const { data: placements } = await context.supabase
+        .from("post_placements")
+        .select("post_id,format,is_primary")
+        .in("post_id", postIds);
+      const byPost = new Map<string, Array<{ format: string; is_primary: boolean | null }>>();
+      for (const pl of placements ?? []) {
+        const arr = byPost.get(pl.post_id as string) ?? [];
+        arr.push({ format: pl.format as string, is_primary: (pl.is_primary as boolean | null) ?? false });
+        byPost.set(pl.post_id as string, arr);
+      }
+      for (const p of posts ?? []) {
+        const list = byPost.get(p.id) ?? [];
+        list.sort((a, b) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0));
+        (p as unknown as { placements: typeof list }).placements = list;
+      }
+    }
 
     // Auto-assign posts com stage_id nulo (herança do backfill divergente)
     const orphaned = (posts ?? []).filter((p) => !p.stage_id);
