@@ -1,5 +1,5 @@
 import { useTheme } from "@/components/theme-provider";
-import { useActiveContext } from "@/hooks/use-active-context";
+import { useActiveContextOptional } from "@/hooks/use-active-context";
 import { useBrandBranding } from "@/hooks/use-brand-branding";
 import { cn } from "@/lib/utils";
 
@@ -11,7 +11,7 @@ type Props = {
 
 export function UnitosLogo({ variant = "full", className, eager }: Props) {
   const { resolvedTheme } = useTheme();
-  const { brandId } = useActiveContext();
+  const { brandId } = useActiveContextOptional();
   const branding = useBrandBranding(brandId);
   const src =
     variant === "mark"
