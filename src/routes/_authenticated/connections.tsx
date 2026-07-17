@@ -48,7 +48,13 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TemplateEditor } from "@/components/messaging/template-editor";
-import { MetaIntegrationCard } from "@/components/connections/meta-integration-card";
+import {
+  SocialChannelCard,
+  type SocialAccount,
+  type SocialChannelDef,
+} from "@/components/connections/social-channel-card";
+import { listMetaConnections } from "@/lib/meta/meta.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
   getConnections,
@@ -280,6 +286,28 @@ function ConnectionsPage() {
     enabled: !!brandId,
     staleTime: 60_000,
   });
+
+  const listMetaFn = useServerFn(listMetaConnections);
+  const { data: metaConnections = [] } = useQuery({
+    queryKey: ["meta-connections", brandId],
+    queryFn: () => listMetaFn({ data: { brandId: brandId! } }),
+    enabled: !!brandId,
+  });
+
+  const { data: brandRow } = useQuery({
+    queryKey: ["brand-name", brandId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("brands")
+        .select("name")
+        .eq("id", brandId!)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!brandId,
+    staleTime: 5 * 60_000,
+  });
+  const brandLabel = brandRow?.name ?? "Workspace";
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["connections", brandId] });
 
