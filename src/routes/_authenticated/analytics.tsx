@@ -71,6 +71,7 @@ import { listProjects } from "@/lib/projects.functions";
 import { slaSnapshotFn, type SlaSnapshot } from "@/lib/content.functions";
 import { AlarmClock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrainWidget } from "@/components/brain/brain-widget";
 
 export const Route = createFileRoute("/_authenticated/analytics")({
   component: AnalyticsPage,
@@ -424,6 +425,8 @@ function SocialTab({
           accent="violet"
         />
       </div>
+
+      <BrainWidget preset="analytics" />
 
       <Card>
         <CardHeader>
