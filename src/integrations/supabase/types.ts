@@ -1659,6 +1659,66 @@ export type Database = {
           },
         ]
       }
+      brain_reasoning_logs: {
+        Row: {
+          answer_confidence: number | null
+          answer_preview: string | null
+          brand_id: string | null
+          client_id: string | null
+          conversation_id: string | null
+          created_at: string
+          decision: string
+          id: string
+          intent: string
+          intent_confidence: number | null
+          latency_ms: number | null
+          memory_hits: number
+          plan: Json
+          question: string
+          tools_used: Json
+          used_llm: boolean
+          user_id: string | null
+        }
+        Insert: {
+          answer_confidence?: number | null
+          answer_preview?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          decision: string
+          id?: string
+          intent: string
+          intent_confidence?: number | null
+          latency_ms?: number | null
+          memory_hits?: number
+          plan?: Json
+          question: string
+          tools_used?: Json
+          used_llm?: boolean
+          user_id?: string | null
+        }
+        Update: {
+          answer_confidence?: number | null
+          answer_preview?: string | null
+          brand_id?: string | null
+          client_id?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          decision?: string
+          id?: string
+          intent?: string
+          intent_confidence?: number | null
+          latency_ms?: number | null
+          memory_hits?: number
+          plan?: Json
+          question?: string
+          tools_used?: Json
+          used_llm?: boolean
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       brain_recommendations: {
         Row: {
           acted_at: string | null
