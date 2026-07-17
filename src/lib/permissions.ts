@@ -57,6 +57,27 @@ export const PERMISSION_GROUPS: Array<{
 
 export const ALL_PERMISSION_IDS: PermissionId[] = PERMISSION_GROUPS.flatMap((g) => g.items.map((i) => i.id));
 
+/**
+ * Permissões padrão aplicadas automaticamente quando um papel é escolhido
+ * sem personalização manual. O usuário pode sobrescrever expandindo a
+ * seção "Personalizar permissões" no fluxo de convite.
+ */
+export const ROLE_DEFAULT_PERMISSIONS: Record<
+  "owner" | "manager" | "editor" | "designer",
+  PermissionId[]
+> = {
+  owner: ["admin.full"],
+  manager: [
+    "pipelines.admin",
+    "automations.manage",
+    "automations.logs",
+    "ai.edit",
+    "ai.analytics",
+  ],
+  editor: ["pipelines.member", "automations.logs"],
+  designer: ["pipelines.member"],
+};
+
 export function normalizePermissions(input: unknown): PermissionId[] {
   if (!Array.isArray(input)) return [];
   const valid = new Set<PermissionId>(ALL_PERMISSION_IDS);
