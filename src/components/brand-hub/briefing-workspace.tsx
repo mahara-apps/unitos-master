@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DocumentsTab } from "@/components/brand-hub/documents-tab";
 import {
   AlertDialog,
