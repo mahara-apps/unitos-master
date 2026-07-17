@@ -1,9 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { createLovableAiGatewayProvider } from "./ai-gateway.server";
-import { generateText, type ModelMessage } from "ai";
-import { embedText } from "./brain-embed.server";
+import { brain, type BrainContext } from "./brain/api";
 
 // ============ types ============
 export type ChatAttachment = {
@@ -44,7 +42,6 @@ type BrainContextSummary = {
   model?: string;
 };
 
-const DEFAULT_MODEL = "google/gemini-2.5-flash";
 const HISTORY_LIMIT = 12;
 
 // ============ list conversations ============
@@ -122,6 +119,9 @@ export const listChatMessagesFn = createServerFn({ method: "POST" })
   });
 
 // ============ send message (Brain-first orchestrator) ============
+// Toda a lógica de consolidação + LLM + evento de feedback é feita através da
+// Brain API (`src/lib/brain/api.ts`). Este arquivo NÃO acessa tabelas brain_*
+// diretamente — persiste apenas em chat_conversations / chat_messages.
 const AttachmentSchema = z.object({
   path: z.string(),
   name: z.string(),
@@ -172,11 +172,14 @@ export const sendChatMessageFn = createServerFn({ method: "POST" })
         await context.supabase.from("chat_conversations").update({ title: short }).eq("id", convo.id);
       }
 
-      // 3) BRAIN FIRST — retrieve consolidated context (never raw tables)
-      const brainCtx = await consolidateBrainContext({
+      // 3) BRAIN FIRST — via Brain API (consolida memory + insights + query.stats)
+      const brainCtx: BrainContext = {
         supabase: context.supabase,
+        userId: context.userId,
         brandId: convo.brand_id,
         clientId: convo.client_id,
+      };
+      const brainKnowledge = await brain.chat.consolidate(brainCtx, {
         query: question || data.attachments.map((a) => a.name).join(", "),
       });
 
@@ -190,7 +193,7 @@ export const sendChatMessageFn = createServerFn({ method: "POST" })
       const orderedHistory = (history ?? []).reverse();
 
       // 5) Try to answer WITHOUT LLM when there is a strong direct hit
-      const directAnswer = tryDirectAnswerFromBrain(question, brainCtx);
+      const directAnswer = brain.chat.tryDirectAnswer(question, brainKnowledge);
 
       let answer: string;
       let usedLlm = false;
@@ -199,11 +202,11 @@ export const sendChatMessageFn = createServerFn({ method: "POST" })
       if (directAnswer && !hasAttachments) {
         answer = directAnswer;
       } else {
-        const llm = await callLlmWithBrainContext({
+        const llm = await brain.chat.callLlm({
           question,
           history: orderedHistory as Array<{ role: string; content: string }>,
-          brain: brainCtx,
-          attachments: data.attachments,
+          brain: brainKnowledge,
+          attachments: data.attachments.map((a) => ({ name: a.name, kind: a.kind, mime: a.mime })),
         });
         answer = llm.text;
         usedLlm = true;
@@ -212,17 +215,17 @@ export const sendChatMessageFn = createServerFn({ method: "POST" })
 
       // 6) Persist assistant message with brain context summary
       const brainSummary: BrainContextSummary = {
-        memories: brainCtx.memories.slice(0, 5).map((m) => ({
+        memories: brainKnowledge.memories.slice(0, 5).map((m) => ({
           summary: m.content_summary,
           similarity: m.similarity,
           event_type: m.event_type,
         })),
-        insights: brainCtx.insights.slice(0, 5).map((i) => ({
+        insights: brainKnowledge.insights.slice(0, 5).map((i) => ({
           description: i.description,
           type: i.insight_type,
           confidence: i.confidence,
         })),
-        stats: brainCtx.stats,
+        stats: brainKnowledge.stats as Record<string, number>,
         used_llm: usedLlm,
         model: model ?? undefined,
       };
@@ -243,211 +246,22 @@ export const sendChatMessageFn = createServerFn({ method: "POST" })
         .single();
       if (asstErr || !asstRow) throw new Error(asstErr?.message ?? "insert assistant failed");
 
-      // 7) Feedback loop → Brain (best-effort event)
-      try {
-        await context.supabase.from("brain_events").insert({
-          brand_id: convo.brand_id,
-          client_id: convo.client_id,
-          source_module: "chat",
-          event_type: "chat.turn",
-          actor_id: context.userId,
-          payload: {
-            conversation_id: convo.id,
-            question: question.slice(0, 400),
-            used_llm: usedLlm,
-            memories_used: brainSummary.memories.length,
-            insights_used: brainSummary.insights.length,
-          },
-        });
-      } catch {
-        // ignore — chat should never fail because of brain feedback
-      }
+      // 7) Feedback loop → Brain Event Bus (best-effort)
+      await brain.events.publish(brainCtx, {
+        brand_id: convo.brand_id,
+        client_id: convo.client_id,
+        source_module: "chat",
+        event_type: "chat.turn",
+        actor_id: context.userId,
+        payload: {
+          conversation_id: convo.id,
+          question: question.slice(0, 400),
+          used_llm: usedLlm,
+          memories_used: brainSummary.memories.length,
+          insights_used: brainSummary.insights.length,
+        },
+      });
 
       return { user: userRow as ChatMessageRow, assistant: asstRow as ChatMessageRow };
     },
   );
-
-// ============ helpers ============
-
-type BrainConsolidated = {
-  memories: Array<{ content_summary: string; similarity: number; event_type: string }>;
-  insights: Array<{ description: string; insight_type: string; confidence: number | null }>;
-  memoryRows: Array<{ topic: string; summary: string; confidence: number | null }>;
-  stats: Record<string, number>;
-  markdown: string;
-};
-
-async function consolidateBrainContext(args: {
-  supabase: import("@supabase/supabase-js").SupabaseClient;
-  brandId: string | null;
-  clientId: string | null;
-  query: string;
-}): Promise<BrainConsolidated> {
-  const { supabase, brandId, query } = args;
-
-  // 1) Semantic memories via pgvector (only if brand scoped)
-  let memories: BrainConsolidated["memories"] = [];
-  if (brandId && query) {
-    const vec = await embedText(query);
-    if (vec) {
-      const { data } = await supabase.rpc("match_brain_events", {
-        _brand_id: brandId,
-        _query: vec as unknown as string,
-        _match_count: 6,
-      });
-      memories = ((data ?? []) as Array<{ content_summary: string; similarity: number; event_type: string }>).map(
-        (r) => ({ content_summary: r.content_summary, similarity: r.similarity, event_type: r.event_type }),
-      );
-    }
-  }
-
-  // 2) Active insights
-  const insightsQuery = supabase
-    .from("brain_insights")
-    .select("insight_type, description, confidence, expires_at, brand_id")
-    .order("created_at", { ascending: false })
-    .limit(15);
-  const { data: ins } = brandId
-    ? await insightsQuery.or(`brand_id.eq.${brandId},brand_id.is.null`)
-    : await insightsQuery.is("brand_id", null);
-  const insights = ((ins ?? []) as Array<{
-    insight_type: string;
-    description: string;
-    confidence: number | null;
-    expires_at: string | null;
-  }>)
-    .filter((r) => !r.expires_at || new Date(r.expires_at) > new Date())
-    .slice(0, 8)
-    .map((r) => ({ insight_type: r.insight_type, description: r.description, confidence: r.confidence }));
-
-  // 3) Consolidated memory rows (deterministic knowledge)
-  const memoryQuery = supabase
-    .from("brain_memory")
-    .select("topic, summary, confidence, brand_id")
-    .order("confidence", { ascending: false })
-    .limit(15);
-  const { data: memRows } = brandId
-    ? await memoryQuery.eq("brand_id", brandId)
-    : await memoryQuery.is("brand_id", null);
-  const memoryRows = ((memRows ?? []) as Array<{ topic: string; summary: string; confidence: number | null }>)
-    .slice(0, 8)
-    .map((r) => ({ topic: r.topic, summary: r.summary, confidence: r.confidence }));
-
-  // 4) Cheap SQL stats — never dump tables, only counters
-  const stats: Record<string, number> = {};
-  const postsQ = supabase.from("posts").select("*", { count: "exact", head: true });
-  const tasksQ = supabase.from("tasks").select("*", { count: "exact", head: true });
-  const projectsQ = supabase.from("projects").select("*", { count: "exact", head: true });
-  const [posts, tasks, projects] = await Promise.all([
-    brandId ? postsQ.eq("brand_id", brandId) : postsQ,
-    brandId ? tasksQ.eq("brand_id", brandId) : tasksQ,
-    brandId ? projectsQ.eq("brand_id", brandId) : projectsQ,
-  ]);
-  if (typeof posts.count === "number") stats.posts = posts.count;
-  if (typeof tasks.count === "number") stats.tasks = tasks.count;
-  if (typeof projects.count === "number") stats.projects = projects.count;
-
-  // 5) Prompt-ready markdown block
-  const parts: string[] = [];
-  if (Object.keys(stats).length) {
-    parts.push(
-      `### Estatísticas atuais\n${Object.entries(stats)
-        .map(([k, v]) => `- ${k}: ${v}`)
-        .join("\n")}`,
-    );
-  }
-  if (memoryRows.length) {
-    parts.push(
-      `### Memórias consolidadas\n${memoryRows
-        .map(
-          (m) =>
-            `- **${m.topic}**${m.confidence != null ? ` _(conf ${Math.round((m.confidence ?? 0) * 100)}%)_` : ""}: ${m.summary}`,
-        )
-        .join("\n")}`,
-    );
-  }
-  if (insights.length) {
-    parts.push(
-      `### Insights ativos\n${insights
-        .map(
-          (i) =>
-            `- (${i.insight_type}${i.confidence != null ? ` · ${Math.round((i.confidence ?? 0) * 100)}%` : ""}) ${i.description}`,
-        )
-        .join("\n")}`,
-    );
-  }
-  if (memories.length) {
-    parts.push(
-      `### Memórias semânticas (top)\n${memories
-        .map((m) => `- ${m.content_summary} _(sim ${m.similarity.toFixed(2)})_`)
-        .join("\n")}`,
-    );
-  }
-
-  return {
-    memories,
-    insights,
-    memoryRows,
-    stats,
-    markdown: parts.length ? `## Conhecimento do Brain\n${parts.join("\n\n")}` : "",
-  };
-}
-
-function tryDirectAnswerFromBrain(question: string, ctx: BrainConsolidated): string | null {
-  if (!question) return null;
-  // Only skip LLM when there is a very high-similarity memory hit for a short question
-  const top = ctx.memories[0];
-  if (top && top.similarity >= 0.9 && question.length < 180) {
-    return `**Encontrei no Brain (memória semelhante, ${(top.similarity * 100).toFixed(0)}%):**\n\n${top.content_summary}`;
-  }
-  return null;
-}
-
-async function callLlmWithBrainContext(args: {
-  question: string;
-  history: Array<{ role: string; content: string }>;
-  brain: BrainConsolidated;
-  attachments: ChatAttachment[];
-}): Promise<{ text: string; model: string }> {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("LOVABLE_API_KEY ausente");
-  const gateway = createLovableAiGatewayProvider(key);
-  const model = gateway(DEFAULT_MODEL);
-
-  const system = [
-    "Você é o assistente conversacional da Unitos — uma plataforma SaaS para agências.",
-    "Você é apenas um cliente do Brain: SEMPRE responda com base no conhecimento consolidado a seguir.",
-    "Nunca invente números, prazos ou nomes. Se o Brain não tiver a informação, diga isso com transparência.",
-    "Responda em português do Brasil, em markdown, direto ao ponto, com bullets quando ajudar.",
-    "",
-    args.brain.markdown || "_(O Brain não retornou conhecimento relevante para esta pergunta.)_",
-  ].join("\n");
-
-  const messages: ModelMessage[] = [
-    ...args.history.map((m) => ({
-      role: (m.role === "assistant" ? "assistant" : "user") as "assistant" | "user",
-      content: m.content,
-    })),
-  ];
-
-  // Attachment metadata hint (files themselves are stored, only names go to model)
-  if (args.attachments.length) {
-    const list = args.attachments.map((a) => `- ${a.name} (${a.kind}, ${a.mime})`).join("\n");
-    messages.push({
-      role: "user",
-      content: `Anexos enviados pelo usuário:\n${list}\n\nPergunta: ${args.question || "(sem texto)"}`,
-    });
-  }
-
-  try {
-    const result = await generateText({ model, system, messages, temperature: 0.4 });
-    return { text: result.text.trim() || "_(sem resposta)_", model: DEFAULT_MODEL };
-  } catch (err) {
-    console.error("[chat] LLM error", err);
-    const msg = err instanceof Error ? err.message : String(err);
-    return {
-      text: `Não consegui consultar o modelo agora. ${args.brain.markdown ? "Segue o que o Brain já sabe sobre isso:\n\n" + args.brain.markdown : ""}\n\n_Erro: ${msg}_`,
-      model: DEFAULT_MODEL,
-    };
-  }
-}
