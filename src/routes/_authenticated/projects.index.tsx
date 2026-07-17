@@ -7,10 +7,14 @@ import { z } from "zod";
 import {
   AlertTriangle,
   Calendar as CalendarIcon,
+  CheckCircle2,
   FileBarChart2,
   Filter,
+  Layers,
   Plus,
   Search,
+  Send,
+  TrendingUp,
   User as UserIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -41,6 +45,7 @@ import { useActiveContext } from "@/hooks/use-active-context";
 import { listClients } from "@/lib/workspace.functions";
 import { listBrandTeam } from "@/lib/team.functions";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
+import { KpiCard } from "@/components/ui/kpi-card";
 import {
   DashboardPageShell,
   DashboardPanelSurface,
@@ -143,6 +148,23 @@ function ProjectsIndexPage() {
     return rows.filter((r) => r.name.toLowerCase().includes(query));
   }, [projectsQ.data, q]);
 
+  const kpis = useMemo(() => {
+    const rows = projectsQ.data?.projects ?? [];
+    const stats = projectsQ.data?.stats ?? {};
+    let total = 0;
+    let published = 0;
+    let approved = 0;
+    for (const p of rows) {
+      const s = stats[p.id];
+      if (!s) continue;
+      total += s.total || 0;
+      published += s.published || 0;
+      approved += s.approved || 0;
+    }
+    const active = rows.filter((r) => r.status === "active" || r.status === "in_progress").length;
+    return { count: rows.length, active, total, published, approved };
+  }, [projectsQ.data]);
+
   const createMut = useMutation({
     mutationFn: (values: ProjectFormValues) =>
       create({ data: { brandId: brandId!, values } }),
@@ -187,6 +209,38 @@ function ProjectsIndexPage() {
 
   return (
     <DashboardPageShell>
+      {/* KPIs */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <KpiCard
+          tone="neutral"
+          icon={<Layers className="h-4 w-4" />}
+          label="Projetos"
+          value={kpis.count}
+          sub={`${kpis.active} em andamento`}
+        />
+        <KpiCard
+          tone="sky"
+          icon={<TrendingUp className="h-4 w-4" />}
+          label="Publicações"
+          value={kpis.total}
+          sub="Total no escopo"
+        />
+        <KpiCard
+          tone="emerald"
+          icon={<CheckCircle2 className="h-4 w-4" />}
+          label="Aprovadas"
+          value={kpis.approved}
+          sub={`${kpis.total > 0 ? Math.round((kpis.approved / kpis.total) * 100) : 0}% do total`}
+        />
+        <KpiCard
+          tone="pink"
+          icon={<Send className="h-4 w-4" />}
+          label="Publicadas"
+          value={kpis.published}
+          sub={`${kpis.total > 0 ? Math.round((kpis.published / kpis.total) * 100) : 0}% do total`}
+        />
+      </div>
+
       {/* Filtros */}
       <DashboardPanelSurface className="flex flex-wrap items-center gap-3 px-4 py-3">
         <div className="relative w-full max-w-xs">
