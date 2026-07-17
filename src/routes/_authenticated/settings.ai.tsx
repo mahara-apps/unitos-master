@@ -57,7 +57,7 @@ function AISettingsPage() {
       title: "Governança de IA",
       subtitle: "BYO Keys, memória longa (RAG) e disjuntor financeiro.",
       actions: (
-        <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 font-mono text-[10px] text-emerald-300">
+        <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 font-mono text-[10px] text-emerald-500">
           <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-emerald-400" />
           SYSTEM · OPERATIONAL
         </Badge>
@@ -67,7 +67,7 @@ function AISettingsPage() {
   );
 
   return (
-    <ScrollArea className="h-[calc(100vh-3.5rem)] bg-zinc-950">
+    <ScrollArea className="h-[calc(100vh-3.5rem)] bg-background">
       <div className="mx-auto max-w-7xl space-y-8 p-6">
         {/* Providers */}
         <section>
@@ -76,13 +76,13 @@ function AISettingsPage() {
             {PROVIDERS.map((p) => (
               <div
                 key={p.id}
-                className="group relative overflow-hidden rounded-xl border border-white/10 bg-neutral-950/60 p-4 transition-colors duration-200 hover:border-white/20"
+                className="group relative overflow-hidden rounded-xl border border-border/60 bg-card p-4 transition-colors duration-200 hover:border-border"
               >
                 <div className={`absolute inset-x-0 top-0 h-24 bg-gradient-to-br ${p.color} opacity-30 blur-2xl`} />
                 <div className="relative">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/60 bg-muted/40">
                         <Cpu className="h-4 w-4" />
                       </div>
                       <div>
@@ -94,8 +94,8 @@ function AISettingsPage() {
                       variant="outline"
                       className={
                         p.status === "healthy"
-                          ? "border-emerald-500/30 bg-emerald-500/10 font-mono text-[10px] text-emerald-300"
-                          : "border-amber-500/30 bg-amber-500/10 font-mono text-[10px] text-amber-300"
+                          ? "border-emerald-500/30 bg-emerald-500/10 font-mono text-[10px] text-emerald-500"
+                          : "border-amber-500/30 bg-amber-500/10 font-mono text-[10px] text-amber-500"
                       }
                     >
                       <span
@@ -107,7 +107,7 @@ function AISettingsPage() {
                     </Badge>
                   </div>
 
-                  <div className="mt-4 space-y-2 rounded-lg border border-white/10 bg-white/[0.02] p-3">
+                  <div className="mt-4 space-y-2 rounded-lg border border-border/60 bg-muted/30 p-3">
                     <LeadRow
                       label="Líder de texto"
                       icon={<Sparkles className="h-3 w-3" />}
@@ -149,31 +149,31 @@ function AISettingsPage() {
               }}
               className={`relative flex h-64 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-all duration-200 ${
                 dragging
-                  ? "border-cyan-500/60 bg-cyan-500/[0.05]"
-                  : "border-white/10 bg-white/[0.02] hover:border-white/20"
+                  ? "border-cyan-500/60 bg-sky-500/10"
+                  : "border-border/60 bg-muted/30 hover:border-border"
               }`}
             >
               {scanning && <div className="absolute inset-0 scan-line" />}
-              <UploadCloud className={`h-8 w-8 ${scanning ? "text-cyan-400 animate-pulse" : "text-muted-foreground"}`} />
+              <UploadCloud className={`h-8 w-8 ${scanning ? "text-sky-500 animate-pulse" : "text-muted-foreground"}`} />
               <div className="mt-3 text-sm font-medium">
                 {scanning ? "Scanning & embedding..." : "Solte documentos para indexar"}
               </div>
               <div className="mt-1 font-mono text-[10px] text-muted-foreground">PDF · DOCX · MD · TXT · até 20MB</div>
               {scanning && (
-                <div className="mt-4 font-mono text-[10px] text-cyan-300">
+                <div className="mt-4 font-mono text-[10px] text-sky-500">
                   chunking → embedding → upsert pgvector...
                 </div>
               )}
             </div>
 
-            <div className="rounded-xl border border-white/10 bg-neutral-950/60 p-4">
+            <div className="rounded-xl border border-border/60 bg-card p-4">
               <div className="mb-3 flex items-center justify-between">
                 <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">indexed · 4 docs</span>
                 <span className="font-mono text-[10px] text-muted-foreground">1.284 vectors</span>
               </div>
               <div className="space-y-3">
                 {DOCS.map((d) => (
-                  <div key={d.name} className="rounded-lg border border-white/10 bg-white/[0.02] p-3">
+                  <div key={d.name} className="rounded-lg border border-border/60 bg-muted/30 p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex min-w-0 items-center gap-2">
                         <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -184,12 +184,12 @@ function AISettingsPage() {
                         {d.progress === 100 ? (
                           <CheckCircle2 className="h-3 w-3 text-emerald-400" />
                         ) : (
-                          <Loader2 className="h-3 w-3 animate-spin text-cyan-400" />
+                          <Loader2 className="h-3 w-3 animate-spin text-sky-500" />
                         )}
                       </div>
                     </div>
                     <div className="mt-2 flex items-center gap-2">
-                      <Progress value={d.progress} className="h-1 bg-white/5" />
+                      <Progress value={d.progress} className="h-1 bg-muted/40" />
                       <span className="font-mono text-[10px] tabular-nums text-muted-foreground">{d.progress}%</span>
                     </div>
                   </div>
@@ -207,7 +207,7 @@ function AISettingsPage() {
             hint="Corta automaticamente ao atingir 100% do teto"
           />
           <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <div className="rounded-xl border border-white/10 bg-neutral-950/60 p-4 lg:col-span-2">
+            <div className="rounded-xl border border-border/60 bg-card p-4 lg:col-span-2">
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">consumo · últimos 14d</div>
@@ -216,7 +216,7 @@ function AISettingsPage() {
                     <span className="text-xs text-muted-foreground">/ ${budget}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 font-mono text-[10px] text-emerald-300">
+                <div className="flex items-center gap-1.5 font-mono text-[10px] text-emerald-500">
                   <TrendingUp className="h-3 w-3" />
                   +12.4% vs. semana anterior
                 </div>
@@ -230,11 +230,11 @@ function AISettingsPage() {
                     <div key={i} className="group relative flex-1">
                       <div
                         className={`w-full rounded-t transition-colors duration-200 ${
-                          v > 50 ? "bg-amber-400/70 group-hover:bg-amber-400" : "bg-cyan-400/60 group-hover:bg-cyan-400"
+                          v > 50 ? "bg-amber-500/70 group-hover:bg-amber-500" : "bg-sky-500/60 group-hover:bg-sky-500"
                         }`}
                         style={{ height: `${h}%` }}
                       />
-                      <div className="pointer-events-none absolute -top-6 left-1/2 -translate-x-1/2 rounded border border-white/10 bg-black/80 px-1.5 py-0.5 font-mono text-[9px] opacity-0 backdrop-blur transition-opacity duration-200 group-hover:opacity-100">
+                      <div className="pointer-events-none absolute -top-6 left-1/2 -translate-x-1/2 rounded border border-border/60 bg-popover px-1.5 py-0.5 font-mono text-[9px] opacity-0 backdrop-blur transition-opacity duration-200 group-hover:opacity-100">
                         ${v}
                       </div>
                     </div>
@@ -245,14 +245,14 @@ function AISettingsPage() {
               <div className="mt-6">
                 <div className="mb-1.5 flex items-center justify-between font-mono text-[10px]">
                   <span className="uppercase tracking-widest text-muted-foreground">progresso do teto</span>
-                  <span className={warn ? "text-orange-300" : "text-cyan-300"}>{pct}%</span>
+                  <span className={warn ? "text-amber-500" : "text-sky-500"}>{pct}%</span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-white/5">
+                <div className="h-2 overflow-hidden rounded-full bg-muted/40">
                   <div
                     className={`h-full rounded-full transition-all duration-500 ${
                       warn
-                        ? "bg-gradient-to-r from-amber-400 to-orange-500"
-                        : "bg-gradient-to-r from-cyan-400 to-sky-500"
+                        ? "bg-gradient-to-r from-amber-500 to-amber-400"
+                        : "bg-gradient-to-r from-sky-500 to-sky-400"
                     }`}
                     style={{ width: `${Math.min(pct, 100)}%` }}
                   />
@@ -260,7 +260,7 @@ function AISettingsPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-white/10 bg-neutral-950/60 p-4">
+            <div className="rounded-xl border border-border/60 bg-card p-4">
               <div className="mb-3 flex items-center gap-2">
                 <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
                 <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">teto mensal</span>
@@ -272,7 +272,7 @@ function AISettingsPage() {
                   type="number"
                   value={budget}
                   onChange={(e) => setBudget(Number(e.target.value) || 0)}
-                  className="h-11 border-white/10 bg-white/[0.02] font-mono text-lg tabular-nums focus-visible:ring-cyan-500/40"
+                  className="h-11 border-border/60 bg-muted/30 font-mono text-lg tabular-nums focus-visible:ring-sky-500/40"
                 />
               </div>
 
@@ -282,7 +282,7 @@ function AISettingsPage() {
                 <ToggleRow icon={<TrendingUp className="h-3 w-3" />} label="Fallback para modelo econômico" />
               </div>
 
-              <Button className="mt-4 w-full bg-white text-black hover:bg-white/90">Salvar política</Button>
+              <Button className="mt-4 w-full">Salvar política</Button>
             </div>
           </div>
         </section>
@@ -293,7 +293,7 @@ function AISettingsPage() {
 
 function SectionHeader({ icon, title, hint }: { icon: React.ReactNode; title: string; hint: string }) {
   return (
-    <div className="flex items-end justify-between border-b border-white/10 pb-2">
+    <div className="flex items-end justify-between border-b border-border/60 pb-2">
       <div className="flex items-center gap-2">
         {icon}
         <span className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">{title}</span>
@@ -322,7 +322,7 @@ function ToggleRow({
 }: { icon: React.ReactNode; label: string; defaultChecked?: boolean }) {
   const [on, setOn] = useState(defaultChecked);
   return (
-    <div className="flex items-center justify-between rounded-md border border-white/10 bg-white/[0.02] px-2.5 py-1.5">
+    <div className="flex items-center justify-between rounded-md border border-border/60 bg-muted/30 px-2.5 py-1.5">
       <div className="flex items-center gap-2 text-xs">
         <span className="text-muted-foreground">{icon}</span>
         {label}
