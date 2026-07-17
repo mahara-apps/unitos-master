@@ -35,6 +35,7 @@ import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated/projects.index'
 import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authenticated/customers.index'
+import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat.index'
 import { Route as PBriefingTokenRouteImport } from './routes/p.briefing.$token'
 import { Route as ApiPublicSeedSuperadminsRouteImport } from './routes/api/public/seed-superadmins'
 import { Route as ApiJobsPostPhase2RouteImport } from './routes/api/jobs/post-phase2'
@@ -195,6 +196,11 @@ const AuthenticatedCustomersIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedCustomersRoute,
   } as any)
+const AuthenticatedChatIndexRoute = AuthenticatedChatIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedChatRoute,
+} as any)
 const PBriefingTokenRoute = PBriefingTokenRouteImport.update({
   id: '/p/briefing/$token',
   path: '/p/briefing/$token',
@@ -343,7 +349,7 @@ export interface FileRoutesByFullPath {
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/brain': typeof AuthenticatedBrainRouteWithChildren
   '/calendar': typeof AuthenticatedCalendarRoute
-  '/chat': typeof AuthenticatedChatRoute
+  '/chat': typeof AuthenticatedChatRouteWithChildren
   '/connections': typeof AuthenticatedConnectionsRoute
   '/content': typeof AuthenticatedContentRoute
   '/customers': typeof AuthenticatedCustomersRouteWithChildren
@@ -375,6 +381,7 @@ export interface FileRoutesByFullPath {
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
   '/api/public/seed-superadmins': typeof ApiPublicSeedSuperadminsRoute
   '/p/briefing/$token': typeof PBriefingTokenRoute
+  '/chat/': typeof AuthenticatedChatIndexRoute
   '/customers/': typeof AuthenticatedCustomersIndexRoute
   '/projects/': typeof AuthenticatedProjectsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
@@ -395,7 +402,6 @@ export interface FileRoutesByTo {
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/brain': typeof AuthenticatedBrainRouteWithChildren
   '/calendar': typeof AuthenticatedCalendarRoute
-  '/chat': typeof AuthenticatedChatRoute
   '/connections': typeof AuthenticatedConnectionsRoute
   '/content': typeof AuthenticatedContentRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -424,6 +430,7 @@ export interface FileRoutesByTo {
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
   '/api/public/seed-superadmins': typeof ApiPublicSeedSuperadminsRoute
   '/p/briefing/$token': typeof PBriefingTokenRoute
+  '/chat': typeof AuthenticatedChatIndexRoute
   '/customers': typeof AuthenticatedCustomersIndexRoute
   '/projects': typeof AuthenticatedProjectsIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
@@ -446,7 +453,7 @@ export interface FileRoutesById {
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/brain': typeof AuthenticatedBrainRouteWithChildren
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
-  '/_authenticated/chat': typeof AuthenticatedChatRoute
+  '/_authenticated/chat': typeof AuthenticatedChatRouteWithChildren
   '/_authenticated/connections': typeof AuthenticatedConnectionsRoute
   '/_authenticated/content': typeof AuthenticatedContentRoute
   '/_authenticated/customers': typeof AuthenticatedCustomersRouteWithChildren
@@ -478,6 +485,7 @@ export interface FileRoutesById {
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
   '/api/public/seed-superadmins': typeof ApiPublicSeedSuperadminsRoute
   '/p/briefing/$token': typeof PBriefingTokenRoute
+  '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
   '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
@@ -532,6 +540,7 @@ export interface FileRouteTypes {
     | '/api/jobs/post-phase2'
     | '/api/public/seed-superadmins'
     | '/p/briefing/$token'
+    | '/chat/'
     | '/customers/'
     | '/projects/'
     | '/settings/'
@@ -552,7 +561,6 @@ export interface FileRouteTypes {
     | '/analytics'
     | '/brain'
     | '/calendar'
-    | '/chat'
     | '/connections'
     | '/content'
     | '/dashboard'
@@ -581,6 +589,7 @@ export interface FileRouteTypes {
     | '/api/jobs/post-phase2'
     | '/api/public/seed-superadmins'
     | '/p/briefing/$token'
+    | '/chat'
     | '/customers'
     | '/projects'
     | '/settings'
@@ -634,6 +643,7 @@ export interface FileRouteTypes {
     | '/api/jobs/post-phase2'
     | '/api/public/seed-superadmins'
     | '/p/briefing/$token'
+    | '/_authenticated/chat/'
     | '/_authenticated/customers/'
     | '/_authenticated/projects/'
     | '/_authenticated/settings/'
@@ -854,6 +864,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersIndexRouteImport
       parentRoute: typeof AuthenticatedCustomersRoute
     }
+    '/_authenticated/chat/': {
+      id: '/_authenticated/chat/'
+      path: '/'
+      fullPath: '/chat/'
+      preLoaderRoute: typeof AuthenticatedChatIndexRouteImport
+      parentRoute: typeof AuthenticatedChatRoute
+    }
     '/p/briefing/$token': {
       id: '/p/briefing/$token'
       path: '/p/briefing/$token'
@@ -1043,6 +1060,17 @@ const AuthenticatedBrainRouteChildren: AuthenticatedBrainRouteChildren = {
 const AuthenticatedBrainRouteWithChildren =
   AuthenticatedBrainRoute._addFileChildren(AuthenticatedBrainRouteChildren)
 
+interface AuthenticatedChatRouteChildren {
+  AuthenticatedChatIndexRoute: typeof AuthenticatedChatIndexRoute
+}
+
+const AuthenticatedChatRouteChildren: AuthenticatedChatRouteChildren = {
+  AuthenticatedChatIndexRoute: AuthenticatedChatIndexRoute,
+}
+
+const AuthenticatedChatRouteWithChildren =
+  AuthenticatedChatRoute._addFileChildren(AuthenticatedChatRouteChildren)
+
 interface AuthenticatedCustomersCustomerIdRouteChildren {
   AuthenticatedCustomersCustomerIdBrainRoute: typeof AuthenticatedCustomersCustomerIdBrainRoute
   AuthenticatedCustomersCustomerIdBriefingRoute: typeof AuthenticatedCustomersCustomerIdBriefingRoute
@@ -1129,7 +1157,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedBrainRoute: typeof AuthenticatedBrainRouteWithChildren
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
-  AuthenticatedChatRoute: typeof AuthenticatedChatRoute
+  AuthenticatedChatRoute: typeof AuthenticatedChatRouteWithChildren
   AuthenticatedConnectionsRoute: typeof AuthenticatedConnectionsRoute
   AuthenticatedContentRoute: typeof AuthenticatedContentRoute
   AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRouteWithChildren
@@ -1146,7 +1174,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedBrainRoute: AuthenticatedBrainRouteWithChildren,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
-  AuthenticatedChatRoute: AuthenticatedChatRoute,
+  AuthenticatedChatRoute: AuthenticatedChatRouteWithChildren,
   AuthenticatedConnectionsRoute: AuthenticatedConnectionsRoute,
   AuthenticatedContentRoute: AuthenticatedContentRoute,
   AuthenticatedCustomersRoute: AuthenticatedCustomersRouteWithChildren,
