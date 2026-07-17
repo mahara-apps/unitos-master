@@ -325,3 +325,29 @@ novas para preservar coerência visual.
 7. Cor semântica? → Consulte a seção 1. Uma cor = um significado por tela.
 8. Nenhum componente serve? → **Adicione o novo componente aqui antes
    de usá-lo em produção.**
+
+---
+
+## Brain Platform (arquitetura interna)
+
+O Brain é uma plataforma independente dentro da UNITOS. Sua superfície pública
+é o namespace `brain` exportado em `src/lib/brain/api.ts`. Toda leitura ou
+escrita de dados do Brain — memórias, insights, eventos, grafo, embeddings,
+recomendações, consolidação para chat — passa por ele.
+
+**Regra dura:** nenhum arquivo fora de `src/lib/brain/**` acessa tabelas
+`brain_*` diretamente. Se você precisa de dados do Brain em uma tela, um
+`*.functions.ts` ou um agente, importe `brain` e use o método correspondente.
+
+Componentes:
+
+- `brain.events` — Event Bus
+- `brain.learning` — Learning Engine
+- `brain.memory` — Memory Store
+- `brain.graph` — Knowledge Graph
+- `brain.insights` — Insight Engine
+- `brain.recommendations` — Recommendation Engine
+- `brain.query` — Query Engine (busca semântica, embeddings, stats)
+- `brain.chat` — Chat Gateway (Brain-first + fallback LLM)
+
+Detalhes de contrato em `src/lib/brain/README.md`.
