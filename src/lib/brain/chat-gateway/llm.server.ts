@@ -112,7 +112,7 @@ export interface StreamAnswerArgs {
 }
 
 export async function streamAnswer(args: StreamAnswerArgs): Promise<{
-  result: StreamTextResult<ToolSet, never>;
+  result: StreamTextResult<ToolSet, unknown, never>;
   model: string;
 }> {
   const key = process.env.LOVABLE_API_KEY;
