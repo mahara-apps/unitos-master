@@ -44,7 +44,7 @@ type BrainContextSummary = {
   model?: string;
 };
 
-const DEFAULT_MODEL = "google/gemini-3.5-flash";
+const DEFAULT_MODEL = "google/gemini-2.5-flash";
 const HISTORY_LIMIT = 12;
 
 // ============ list conversations ============
