@@ -72,7 +72,7 @@ function AppShell() {
 function ShellHeader() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { title, subtitle, actions } = usePageHeaderState();
-  const resolvedTitle = title ?? fallbackTitles[pathname] ?? "NexusFlow";
+  const resolvedTitle = title ?? fallbackTitles[pathname] ?? "Unitos";
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-border/60 bg-background/80 px-4 backdrop-blur">
       <div className="flex min-w-0 items-center gap-3">

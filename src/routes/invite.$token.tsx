@@ -8,7 +8,7 @@ import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/invite/$token")({
-  head: () => ({ meta: [{ title: "Aceitar convite — NexusFlow" }, { name: "robots", content: "noindex" }] }),
+  head: () => ({ meta: [{ title: "Aceitar convite — Unitos" }, { name: "robots", content: "noindex" }] }),
   component: AcceptInvitePage,
 });
 
@@ -61,7 +61,7 @@ function AcceptInvitePage() {
   return (
     <div className="min-h-dvh grid place-items-center p-6 bg-background">
       <div className="w-full max-w-md rounded-xl border border-border bg-card p-8 space-y-5">
-        <h1 className="text-xl font-semibold tracking-tight">Convite NexusFlow</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Convite Unitos</h1>
         {status === "checking" && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Verificando…</div>}
         {status === "needs_login" && (
           <div className="space-y-3">

@@ -22,12 +22,12 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/reset-password")({
   head: () => ({
     meta: [
-      { title: "Definir nova senha — NexusFlow" },
+      { title: "Definir nova senha — Unitos" },
       {
         name: "description",
         content: "Escolha uma nova senha para acessar sua conta com segurança.",
       },
-      { property: "og:title", content: "Definir nova senha — NexusFlow" },
+      { property: "og:title", content: "Definir nova senha — Unitos" },
       {
         property: "og:description",
         content: "Escolha uma nova senha para acessar sua conta com segurança.",

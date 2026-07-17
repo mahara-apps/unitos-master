@@ -129,7 +129,7 @@ function NotificationsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Canais de Notificação</CardTitle>
-          <CardDescription>Por onde você quer receber os alertas do NexusFlow.</CardDescription>
+          <CardDescription>Por onde você quer receber os alertas do Unitos.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-3">
           {channelRow(

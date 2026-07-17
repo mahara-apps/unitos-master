@@ -130,7 +130,7 @@ async function sendInviteEmail(opts: {
   const apiKey = process.env.RESEND_API_KEY;
   const lovableKey = process.env.LOVABLE_API_KEY;
   if (!apiKey) return { sent: false, error: "resend_not_configured" };
-  const from = process.env.INVITE_FROM_EMAIL || "NexusFlow <onboarding@resend.dev>";
+  const from = process.env.INVITE_FROM_EMAIL || "Unitos <onboarding@resend.dev>";
   const credsBlock = opts.tempPassword
     ? `
       <div style="margin:16px 0;padding:12px 14px;border:1px solid #e4e4e7;border-radius:8px;background:#fafafa">
@@ -142,7 +142,7 @@ async function sendInviteEmail(opts: {
   const html = `
     <div style="font-family:ui-sans-serif,system-ui;line-height:1.5;color:#0a0a0a">
       <h2 style="margin:0 0 12px">Convite para ${opts.brandName}</h2>
-      <p>${opts.inviterName} convidou você para colaborar na marca <strong>${opts.brandName}</strong> no NexusFlow.</p>
+      <p>${opts.inviterName} convidou você para colaborar na marca <strong>${opts.brandName}</strong> no Unitos.</p>
       ${credsBlock}
       <p><a href="${opts.acceptUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Aceitar convite</a></p>
       <p style="color:#71717a;font-size:12px">Se o botão não funcionar, copie o link: ${opts.acceptUrl}</p>

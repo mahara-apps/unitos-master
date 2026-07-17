@@ -22,12 +22,12 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/forgot-password")({
   head: () => ({
     meta: [
-      { title: "Recuperar senha — NexusFlow" },
+      { title: "Recuperar senha — Unitos" },
       {
         name: "description",
         content: "Envie um link seguro para redefinir a senha da sua conta.",
       },
-      { property: "og:title", content: "Recuperar senha — NexusFlow" },
+      { property: "og:title", content: "Recuperar senha — Unitos" },
       {
         property: "og:description",
         content: "Envie um link seguro para redefinir a senha da sua conta.",

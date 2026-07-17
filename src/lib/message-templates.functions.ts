@@ -121,7 +121,7 @@ export const sendTestMessage = createServerFn({ method: "POST" })
       const apiKey = process.env.RESEND_API_KEY;
       const lovableKey = process.env.LOVABLE_API_KEY;
       if (!apiKey) return { sent: false, error: "resend_nao_configurado" };
-      const from = process.env.INVITE_FROM_EMAIL || "NexusFlow <onboarding@resend.dev>";
+      const from = process.env.INVITE_FROM_EMAIL || "Unitos <onboarding@resend.dev>";
       const useGateway = Boolean(lovableKey);
       const url = useGateway
         ? "https://connector-gateway.lovable.dev/resend/emails"

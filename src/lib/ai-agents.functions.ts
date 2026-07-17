@@ -5,7 +5,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 
 /**
- * NexusFlow — 8 agentes de IA.
+ * Unitos — 8 agentes de IA.
  * Cada função é isolada, valida input com Zod, chama o gateway Lovable AI
  * (Gemini Pro para estratégia; GPT-5.4-mini para operacional com structured
  * outputs) e loga uso em `brand_ai_usage`. Falha de parsing cai para
