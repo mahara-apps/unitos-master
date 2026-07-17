@@ -548,6 +548,64 @@ function SectionHeader({
   );
 }
 
+type MetaConnRow = Awaited<ReturnType<typeof listMetaConnections>>[number];
+
+function accountsForChannel(
+  channel: ChannelDef,
+  legacy: { connected?: boolean; handle?: string; updatedAt?: string } | undefined,
+  meta: MetaConnRow[],
+): SocialAccount[] {
+  if (channel.id === "facebook") {
+    return meta.map((c) => {
+      const md = (c.metadata ?? {}) as { page_picture_url?: string | null };
+      return {
+        id: c.id,
+        name: c.externalName ?? c.externalId,
+        handle: c.externalName ?? undefined,
+        avatarUrl: md.page_picture_url ?? undefined,
+        updatedAt: c.updatedAt,
+        status: c.status === "active" ? "active" : "attention",
+        lastError: c.lastError,
+      };
+    });
+  }
+  if (channel.id === "instagram") {
+    return meta
+      .filter((c) => {
+        const md = (c.metadata ?? {}) as { instagram_username?: string | null };
+        return c.accountUsername || md.instagram_username;
+      })
+      .map((c) => {
+        const md = (c.metadata ?? {}) as {
+          instagram_picture_url?: string | null;
+          instagram_username?: string | null;
+        };
+        const uname = c.accountUsername ?? md.instagram_username ?? "";
+        return {
+          id: c.id,
+          name: uname ? `@${uname}` : c.externalName ?? c.externalId,
+          handle: uname ? `@${uname}` : undefined,
+          avatarUrl: md.instagram_picture_url ?? undefined,
+          updatedAt: c.updatedAt,
+          status: c.status === "active" ? "active" : "attention",
+          lastError: c.lastError,
+        };
+      });
+  }
+  if (legacy?.connected) {
+    return [
+      {
+        id: `${channel.id}-manual`,
+        name: legacy.handle ?? channel.name,
+        handle: legacy.handle ?? undefined,
+        updatedAt: legacy.updatedAt ?? null,
+        status: "active",
+      },
+    ];
+  }
+  return [];
+}
+
 function MessagingKpiCards({
   data,
 }: {
