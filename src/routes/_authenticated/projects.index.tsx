@@ -56,28 +56,25 @@ export const Route = createFileRoute("/_authenticated/projects/")({
 });
 
 const COLORS = [
-  "#8b5cf6",
-  "#ec4899",
-  "#f97316",
-  "#10b981",
-  "#3b82f6",
-  "#6366f1",
-  "#ef4444",
-  "#14b8a6",
-  "#f59e0b",
-  "#06b6d4",
+  "#8b5cf6", // violet
+  "#ec4899", // pink
+  "#f43f5e", // rose
+  "#f59e0b", // amber
+  "#10b981", // emerald
+  "#0ea5e9", // sky
+  "#71717a", // neutral
 ];
 
 const STATUS_META: Record<
   string,
   { label: string; className: string }
 > = {
-  planning: { label: "Planejamento", className: "bg-slate-500/10 text-slate-500 border-slate-500/30" },
-  active: { label: "Ativa", className: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30 dark:text-emerald-400" },
-  in_progress: { label: "Em execução", className: "bg-blue-500/10 text-blue-600 border-blue-500/30 dark:text-blue-400" },
-  paused: { label: "Pausada", className: "bg-amber-500/10 text-amber-600 border-amber-500/30 dark:text-amber-400" },
-  done: { label: "Concluída", className: "bg-indigo-500/10 text-indigo-600 border-indigo-500/30 dark:text-indigo-400" },
-  archived: { label: "Arquivada", className: "bg-muted text-muted-foreground border-border" },
+  planning: { label: "Planejamento", className: "border-border/60 bg-muted text-muted-foreground" },
+  active: { label: "Ativa", className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" },
+  in_progress: { label: "Em execução", className: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300" },
+  paused: { label: "Pausada", className: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300" },
+  done: { label: "Concluída", className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" },
+  archived: { label: "Arquivada", className: "border-border/60 bg-muted text-muted-foreground" },
 };
 
 const ProjectSchema = z.object({
@@ -316,7 +313,7 @@ function ProjectsIndexPage() {
                   <div className="mt-4 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                     <span
                       className="h-2 w-2 rounded-full"
-                      style={{ background: client.color ?? "#6366f1" }}
+                      style={{ background: client.color ?? "#8b5cf6" }}
                     />
                     <span className="truncate">{client.name}</span>
                   </div>
