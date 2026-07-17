@@ -100,7 +100,7 @@ export function LoginForm() {
     <div className="w-full max-w-[420px]">
       <div className="mb-8 text-center">
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          NexusFlow
+          Unitos
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Entre ou crie sua conta para acessar o painel.

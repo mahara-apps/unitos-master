@@ -96,7 +96,7 @@ export function AppSidebar() {
             <Sparkles className="h-3.5 w-3.5" />
           </span>
           <span className="truncate text-sm font-semibold tracking-tight">
-            NexusFlow
+            Unitos
           </span>
         </Link>
         <SidebarTrigger className="h-7 w-7 shrink-0 text-muted-foreground group-data-[collapsible=icon]:mx-auto" />

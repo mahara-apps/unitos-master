@@ -141,7 +141,7 @@ function Presentation({
             <span className="flex h-7 w-7 items-center justify-center rounded-md bg-indigo-600 text-white shadow-sm">
               <Sparkles className="h-3.5 w-3.5" />
             </span>
-            <span className="font-semibold tracking-tight">NexusFlow</span>
+            <span className="font-semibold tracking-tight">Unitos</span>
             <span className="text-muted-foreground">·</span>
             <span className="text-muted-foreground">{brand.name}</span>
             <span className="text-muted-foreground">·</span>

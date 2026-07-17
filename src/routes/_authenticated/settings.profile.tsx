@@ -527,7 +527,7 @@ function ProfilePage() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Segurança</CardTitle>
-          <CardDescription>Altere sua senha de acesso ao NexusFlow.</CardDescription>
+          <CardDescription>Altere sua senha de acesso ao Unitos.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
