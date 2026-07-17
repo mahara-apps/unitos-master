@@ -6,6 +6,7 @@ import type {
   PostAnalytics,
   SocialNetwork,
 } from "./types";
+import { withSocialCache, socialCacheKey } from "./cache";
 
 /**
  * Social Analytics — client-facing API.
@@ -74,9 +75,16 @@ export const getAccountAnalytics = createServerFn({ method: "POST" })
     const { getSocialProvider } = await import("./registry.server");
     const range = normaliseRange(data.range);
     const provider = getSocialProvider(data.network);
-    const res = await provider.fetchAccountAnalytics(ctx, { network: data.network, range });
-    if (!res.ok) throw new Error(res.error);
-    return res.data;
+    const key = socialCacheKey("account", `${context.userId}:${data.connectionId}`, {
+      n: data.network,
+      s: range.since,
+      u: range.until,
+    });
+    return withSocialCache(key, async () => {
+      const res = await provider.fetchAccountAnalytics(ctx, { network: data.network, range });
+      if (!res.ok) throw new Error(res.error);
+      return res.data;
+    });
   });
 
 // ---------------------------------------------------------------------------
@@ -89,12 +97,18 @@ export const getPostAnalytics = createServerFn({ method: "POST" })
     const ctx = await loadProviderContext(context.supabase, data.brandId, data.connectionId);
     const { getSocialProvider } = await import("./registry.server");
     const provider = getSocialProvider(data.network);
-    const res = await provider.fetchPostAnalytics(ctx, {
-      network: data.network,
-      externalPostId: data.externalPostId,
+    const key = socialCacheKey("post", `${context.userId}:${data.connectionId}`, {
+      n: data.network,
+      p: data.externalPostId,
     });
-    if (!res.ok) throw new Error(res.error);
-    return res.data;
+    return withSocialCache(key, async () => {
+      const res = await provider.fetchPostAnalytics(ctx, {
+        network: data.network,
+        externalPostId: data.externalPostId,
+      });
+      if (!res.ok) throw new Error(res.error);
+      return res.data;
+    });
   });
 
 // ---------------------------------------------------------------------------
@@ -107,12 +121,18 @@ export const listRecentPostAnalytics = createServerFn({ method: "POST" })
     const ctx = await loadProviderContext(context.supabase, data.brandId, data.connectionId);
     const { getSocialProvider } = await import("./registry.server");
     const provider = getSocialProvider(data.network);
-    const res = await provider.listRecentPosts(ctx, {
-      network: data.network,
-      limit: data.limit,
+    const key = socialCacheKey("recent", `${context.userId}:${data.connectionId}`, {
+      n: data.network,
+      l: data.limit ?? 25,
     });
-    if (!res.ok) throw new Error(res.error);
-    return res.data;
+    return withSocialCache(key, async () => {
+      const res = await provider.listRecentPosts(ctx, {
+        network: data.network,
+        limit: data.limit,
+      });
+      if (!res.ok) throw new Error(res.error);
+      return res.data;
+    });
   });
 
 // ---------------------------------------------------------------------------
