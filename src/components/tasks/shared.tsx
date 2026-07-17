@@ -36,14 +36,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import {
   Popover,
@@ -418,15 +416,17 @@ export function CreateTaskDialog({
   });
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[560px]">
-        <DialogHeader>
-          <DialogTitle>Nova tarefa</DialogTitle>
-          <DialogDescription>Crie uma tarefa e atribua para alguém do time.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-[520px]">
+        <SheetHeader className="border-b px-6 py-4">
+          <SheetTitle className="text-base">Nova tarefa</SheetTitle>
+          <SheetDescription className="text-xs">
+            Crie uma tarefa e atribua para alguém do time.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium">Título</label>
+            <label className="text-xs font-medium text-muted-foreground">Título</label>
             <Input
               autoFocus
               value={title}
@@ -435,7 +435,7 @@ export function CreateTaskDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium">Descrição</label>
+            <label className="text-xs font-medium text-muted-foreground">Descrição</label>
             <Textarea
               rows={3}
               value={description}
@@ -445,7 +445,7 @@ export function CreateTaskDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium">Prioridade</label>
+              <label className="text-xs font-medium text-muted-foreground">Prioridade</label>
               <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
                 <SelectTrigger>
                   <SelectValue />
@@ -460,7 +460,7 @@ export function CreateTaskDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium">Prazo</label>
+              <label className="text-xs font-medium text-muted-foreground">Prazo</label>
               <Input
                 type="datetime-local"
                 value={dueAt}
@@ -470,11 +470,11 @@ export function CreateTaskDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium">Responsável</label>
+              <label className="text-xs font-medium text-muted-foreground">Responsável</label>
               <AssigneePicker brandId={brandId} value={assigneeId} onChange={setAssigneeId} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium">Conta / Cliente</label>
+              <label className="text-xs font-medium text-muted-foreground">Conta / Cliente</label>
               <ClientPicker
                 brandId={brandId}
                 value={taskClientId}
@@ -486,11 +486,11 @@ export function CreateTaskDialog({
             </div>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-medium">Projeto</label>
+            <label className="text-xs font-medium text-muted-foreground">Projeto</label>
             <ProjectPicker brandId={brandId} clientId={taskClientId} value={projectId} onChange={setProjectId} />
           </div>
         </div>
-        <DialogFooter>
+        <div className="flex items-center justify-end gap-2 border-t bg-background px-6 py-3">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
@@ -498,9 +498,9 @@ export function CreateTaskDialog({
             {m.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
             Criar tarefa
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 

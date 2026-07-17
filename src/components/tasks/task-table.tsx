@@ -449,8 +449,9 @@ function TaskTableRow({
 
   return (
     <tr
+      onClick={onOpen}
       className={cn(
-        "group border-b border-border/40 transition-colors hover:bg-muted/30",
+        "group cursor-pointer border-b border-border/40 transition-colors hover:bg-muted/30",
         selected && "bg-primary/5",
       )}
     >
@@ -472,7 +473,7 @@ function TaskTableRow({
       </td>
 
       <td className="px-3 py-2 align-middle">
-        <button onClick={onOpen} className="flex min-w-0 items-center gap-2 text-left">
+        <div className="flex min-w-0 items-center gap-2 text-left">
           <span
             className={cn(
               "truncate text-sm font-medium",
@@ -489,7 +490,7 @@ function TaskTableRow({
               Atrasada
             </Badge>
           )}
-        </button>
+        </div>
       </td>
 
       {columns.assignee && (
@@ -530,7 +531,7 @@ function TaskTableRow({
       )}
 
       {columns.priority && (
-        <td className="px-3 py-2 align-middle">
+        <td className="px-3 py-2 align-middle" onClick={(e) => e.stopPropagation()}>
           <Select value={task.priority} onValueChange={(v) => patch.mutate({ priority: v as TaskPriority })}>
             <SelectTrigger className={cn("h-7 w-full text-[11px]", priorityMeta.badge)}>
               <SelectValue />
@@ -547,7 +548,7 @@ function TaskTableRow({
       )}
 
       {columns.status && (
-        <td className="px-3 py-2 align-middle">
+        <td className="px-3 py-2 align-middle" onClick={(e) => e.stopPropagation()}>
           <Select
             value={task.status}
             onValueChange={(v) => patch.mutate({ status: v as TaskStatus, done: v === "done" })}
@@ -604,7 +605,7 @@ function TaskTableRow({
         </td>
       )}
 
-      <td className="px-3 py-2 align-middle text-right">
+      <td className="px-3 py-2 align-middle text-right" onClick={(e) => e.stopPropagation()}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100">

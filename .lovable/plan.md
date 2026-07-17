@@ -1,79 +1,53 @@
-# Refatoração completa — Módulo de Tarefas
+## Objetivo
 
-O escopo da mensagem é grande demais para uma única entrega segura (17 seções, novas tabelas, virtualização, drag&drop, campos customizados). Proponho entregar em **4 fases incrementais**, cada uma testável, mantendo 100% do Design System UNITOS (`DashboardPageShell`, `KpiCard`, `StatCard`, paleta semântica).
+Padronizar toda a experiência do módulo `/tasks` em torno do **drawer lateral** (Sheet 640px) já usado como padrão do sistema, eliminando o modal central de criação e permitindo abrir qualquer tarefa em **1 clique** — sem depender de acertar o título.
 
----
+## Diagnóstico atual (verificado)
 
-## Fase 1 — Fundação de UI (sem schema novo)
+- `src/components/tasks/shared.tsx` → `CreateTaskDialog` usa `Dialog` centralizado (linhas 421-503), fora do padrão dos demais drawers do sistema (Novo cliente, Adicionar membro, TaskDrawer).
+- `TaskDrawer` (linhas 664-930) já é um Sheet 640px, mas o header mistura `Input` cru + `Select` cru + `<input type="datetime-local">` nativo, quebrando a linguagem visual (badges semânticas, chips, tokens do DS) usada na tabela/kanban.
+- Abertura da tarefa hoje só acontece ao clicar no **botão do título** (`task-table.tsx:475` `<button onClick={onOpen}>`) — o resto da linha não é clicável. No Kanban o card inteiro já abre (`task-kanban.tsx:63`).
+- Rota `tasks.tsx` orquestra `CreateTaskDialog` + `TaskDrawer` via `?taskId=` na URL — permanece igual.
 
-**Entregas**
-- Novo shell `/tasks` com **Views**: `Lista`, `Kanban`, `Calendário`, `Minhas tarefas` (Timeline entra na Fase 4).
-- Estado das views/filtros na URL via `validateSearch` (compartilhado entre views).
-- **TaskToolbar**: Nova tarefa · Filtro · Ordenar · Agrupar · Ocultar campos · Pesquisar · Exportar CSV · Mais.
-- **TaskTable** com cabeçalhos fixos, colunas: ✓, Nome, Responsável, Projeto, Cliente, Prioridade, Status, Prazo, Criado em, Comentários, Anexos, Ações.
-- **Agrupamento colapsável** por Status/Projeto/Responsável/Cliente/Prioridade/Data.
-- **KPIs superiores refeitos**: Total · Em andamento · Atrasadas · Concluídas · Minha carga · Prazo hoje (KpiCard canônico, tons semânticos).
-- Hover, seleção múltipla (checkbox no header), edição inline de título/status/prioridade/prazo, ordenação por clique.
-- Componentes: `TaskToolbar`, `TaskFilters`, `TaskTable`, `TaskHeader`, `TaskRow`, `TaskStatus`, `TaskPriority`, `TaskAssignee`, `TaskProject`, `TaskBulkActions`, `TaskViews`.
+## Plano
 
-**Fora desta fase**: virtualização (só se >200 tarefas por brand — decido baseado em uso).
+### 1. Substituir o modal "Nova tarefa" por drawer lateral
 
----
+Refatorar `CreateTaskDialog` em `shared.tsx` para `CreateTaskDrawer` (mantendo o nome exportado por compat) usando `Sheet` + `SheetContent` 520px, mesma estrutura de `add-member-drawer.tsx` / `quick-create-customer-drawer.tsx`:
 
-## Fase 2 — Painel lateral (Drawer)
+- Header do Sheet com título "Nova tarefa" + subtítulo curto.
+- Body com os mesmos campos (Título, Descrição, Prioridade, Prazo, Responsável, Conta, Projeto) em espaçamento vertical do DS (`space-y-4`), labels `text-xs font-medium text-muted-foreground`.
+- Footer fixo com "Cancelar" + "Criar tarefa" (primary).
+- Preserva a API `{ brandId, clientId, open, onOpenChange, onCreated }` — nenhuma mudança em `tasks.tsx`.
 
-- Clique na linha abre **`TaskDrawer` (Sheet 560px direita)** — substitui o modal atual.
-- Drawer permanece aberto ao navegar entre tarefas (prev/next com `J/K`).
-- Seções: Título · Descrição · Status · Prioridade · Responsável · Projeto · Cliente · Datas · **Comentários** (já existe) · **Histórico/Atividade** (novo — reutiliza `activity_events`) · Anexos (placeholder Fase 3).
+### 2. Alinhar o `TaskDrawer` ao design system do módulo
 
----
+Ajustes visuais em `shared.tsx` (não muda API):
 
-## Fase 3 — Kanban + Checklist + Subtarefas (requer schema)
+- Trocar o `<Select>` de status pelo `TaskStatusBadge` clicável (Popover com opções), reaproveitando `STATUS_META` — igual às pílulas usadas na tabela.
+- Trocar o `<Select>` de prioridade pelo `TaskPriorityBadge` clicável (mesmo Popover pattern).
+- Trocar o `<input type="datetime-local">` bruto por um botão outline `h-7 text-xs` com ícone `CalendarClock` + label formatado (`d 'de' MMM · HH:mm`) abrindo `Popover` com input datetime-local — casa com o visual dos chips do header.
+- Uniformizar spacing (`px-6 py-4` → `p-5`), separadores, e usar `Separator` do DS entre seções (Descrição / Metadados / Discussão).
+- Manter navegação J/K, autosave onBlur, comentários com @menções.
 
-**Migração Supabase**
-- `task_checklist_items(id, task_id, brand_id, title, done, position, created_at)` — RLS via `brand_members`.
-- `tasks.parent_task_id uuid null references tasks(id) on delete cascade` — subtarefas.
-- `tasks.attachments jsonb default '[]'` — anexos leves (url + name + size).
-- GRANTs + policies conforme padrão UNITOS.
+### 3. Abrir tarefas em 1 clique (linha inteira clicável)
 
-**UI**
-- **TaskKanban** com 5 colunas (`todo`, `in_progress`, `review`, `waiting`, `done`) — adiciono status `waiting` no enum TS.
-- Drag & drop com `@dnd-kit` (já usado em `/content`), update otimista.
-- `TaskChecklist` com progresso `n/m` + %.
-- `TaskSubtasks` recolhíveis dentro do drawer e badge de "Nx subtarefas" na linha.
+Em `src/components/tasks/task-table.tsx`:
 
----
+- Adicionar `onClick={() => onOpenTask(task.id)}` + `className="cursor-pointer hover:bg-muted/40"` na `<tr>` da `TaskRow`.
+- Manter `e.stopPropagation()` nas células interativas (checkbox de seleção, botão de "concluído", pickers inline de status/prioridade/responsável, menu `...`) para não disparar o abrir junto — o padrão `<td onClick={(e) => e.stopPropagation()}>` já existe em `task-table.tsx:457` e será replicado nas demais.
+- Remover o wrapper `<button onClick={onOpen}>` do título, deixando só o texto (o clique já vem da linha).
+- Em `task-calendar.tsx`, os chips já abrem no clique — sem mudança.
+- Em `task-kanban.tsx`, cards já abrem no clique — sem mudança.
 
-## Fase 4 — Extras avançados
+### 4. Validação
 
-- **TaskCalendar** (view de calendário — reusa layout de `/calendar`).
-- **TaskTimeline** (roadmap simples com barras por prazo).
-- **Campos personalizados** por brand: nova tabela `task_custom_fields` + `task_custom_values`, coluna dinâmica na tabela.
-- Virtualização (`@tanstack/react-virtual`) se lista >200.
-- Atalhos globais (`?` abre lista), colunas redimensionáveis persistidas em `user_profiles.prefs`.
+- Typecheck (`tsgo`).
+- Playwright headless em `/tasks`: criar tarefa via drawer, clicar em qualquer célula da linha para abrir, mudar status pela pílula no header, screenshot final.
 
----
+## Detalhes técnicos
 
-## Design System (todas as fases)
-
-- `DashboardPageShell` + `KpiCard` + `StatCard` canônicos.
-- Prioridade: `low=sky` · `medium=neutral` · `high=amber` · `urgent=rose`.
-- Status: `todo=neutral` · `in_progress=sky` · `review=amber` · `waiting=violet` · `done=emerald`.
-- Overdue: badge `rose` "Atrasada" (já existe padrão em `/content`).
-- Padrão de chip: `border-<color>/30 bg-<color>/10 text-<color>-700 dark:text-<color>-300`.
-
----
-
-## Responsividade
-
-- Desktop: tabela completa.
-- Tablet (`md:`): oculta Criado em, Anexos, Tempo.
-- Mobile (`sm:`): cards (reuso do `PostCard` como base visual).
-
----
-
-## Confirmação necessária
-
-**Pergunta:** posso começar pela **Fase 1** (fundação de UI, sem migração), entregar, e só então avançar para as fases seguintes conforme seu feedback?
-
-Isso evita uma entrega gigante em um único turno (que tende a quebrar coisas) e te dá pontos de validação a cada fase.
+- Arquivos tocados: `src/components/tasks/shared.tsx`, `src/components/tasks/task-table.tsx`.
+- Nenhuma mudança em `tasks.functions.ts`, RLS, ou schema.
+- Nenhuma mudança na URL/search params da rota `/tasks`.
+- Exports públicos preservados: `CreateTaskDialog` (alias para o novo drawer) e `TaskDrawer`.
