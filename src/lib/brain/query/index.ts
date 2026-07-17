@@ -1,6 +1,7 @@
 // ⚠️ Brain Query Engine — busca semântica, retrieval e contadores operacionais.
 // Encapsula pgvector (`match_brain_events` RPC), embeddings e stats.
 import type { BrainContext, SemanticMemoryHit, BrainStats } from "../core";
+import { withCache } from "../cache";
 
 /** Cria embedding via Lovable AI Gateway. Retorna null em falha. */
 export async function embed(text: string): Promise<number[] | null> {
@@ -30,17 +31,35 @@ export async function semantic(
 
 /** Contadores operacionais leves — nunca faz dump de linhas. */
 export async function stats(ctx: BrainContext): Promise<BrainStats> {
-  const out: BrainStats = {};
-  const postsQ = ctx.supabase.from("posts").select("*", { count: "exact", head: true });
-  const tasksQ = ctx.supabase.from("tasks").select("*", { count: "exact", head: true });
-  const projectsQ = ctx.supabase.from("projects").select("*", { count: "exact", head: true });
-  const [posts, tasks, projects] = await Promise.all([
-    ctx.brandId ? postsQ.eq("brand_id", ctx.brandId) : postsQ,
-    ctx.brandId ? tasksQ.eq("brand_id", ctx.brandId) : tasksQ,
-    ctx.brandId ? projectsQ.eq("brand_id", ctx.brandId) : projectsQ,
-  ]);
-  if (typeof posts.count === "number") out.posts = posts.count;
-  if (typeof tasks.count === "number") out.tasks = tasks.count;
-  if (typeof projects.count === "number") out.projects = projects.count;
-  return out;
+  const cacheKey = `brain:stats:${ctx.brandId ?? "global"}`;
+  return withCache<BrainStats>(cacheKey, 60_000, async () => {
+    const out: BrainStats = {};
+    if (ctx.brandId) {
+      // Fast path: leitura O(1) da view materializada (refresh a cada 5min via pg_cron).
+      const { data, error } = await ctx.supabase
+        .from("brain_stats_mv")
+        .select("posts, tasks, projects")
+        .eq("brand_id", ctx.brandId)
+        .maybeSingle();
+      if (!error && data) {
+        if (typeof data.posts === "number") out.posts = data.posts;
+        if (typeof data.tasks === "number") out.tasks = data.tasks;
+        if (typeof data.projects === "number") out.projects = data.projects;
+        return out;
+      }
+      // Fallback (linha ainda não materializada): counts diretos.
+    }
+    const postsQ = ctx.supabase.from("posts").select("*", { count: "exact", head: true });
+    const tasksQ = ctx.supabase.from("tasks").select("*", { count: "exact", head: true });
+    const projectsQ = ctx.supabase.from("projects").select("*", { count: "exact", head: true });
+    const [posts, tasks, projects] = await Promise.all([
+      ctx.brandId ? postsQ.eq("brand_id", ctx.brandId) : postsQ,
+      ctx.brandId ? tasksQ.eq("brand_id", ctx.brandId) : tasksQ,
+      ctx.brandId ? projectsQ.eq("brand_id", ctx.brandId) : projectsQ,
+    ]);
+    if (typeof posts.count === "number") out.posts = posts.count;
+    if (typeof tasks.count === "number") out.tasks = tasks.count;
+    if (typeof projects.count === "number") out.projects = projects.count;
+    return out;
+  });
 }

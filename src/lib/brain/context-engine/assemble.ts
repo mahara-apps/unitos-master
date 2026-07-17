@@ -11,6 +11,7 @@ import * as memory from "../memory";
 import * as insights from "../insights";
 import * as recommendations from "../recommendations";
 import * as query from "../query";
+import { withCache, hashKey } from "../cache";
 import { detectIntent, type DetectedIntent, type IntentTopic } from "./intent";
 import { relevanceScore } from "./scoring";
 
@@ -48,6 +49,14 @@ export interface ContextPack {
 }
 
 export async function build(
+  ctx: BrainContext,
+  args: { question: string; module?: string | null },
+): Promise<ContextPack> {
+  const cacheKey = `brain:ctx:${ctx.brandId ?? "-"}:${ctx.clientId ?? "-"}:${ctx.projectId ?? "-"}:${args.module ?? "-"}:${hashKey(args.question.trim().toLowerCase())}`;
+  return withCache<ContextPack>(cacheKey, 30_000, () => buildUncached(ctx, args));
+}
+
+async function buildUncached(
   ctx: BrainContext,
   args: { question: string; module?: string | null },
 ): Promise<ContextPack> {
