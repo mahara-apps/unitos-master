@@ -162,8 +162,9 @@ export function QuickCreateCustomerDrawer({
       toast.success(`Cliente ${client.name} criado com sucesso`);
       onCreated?.(client);
       await navigate({
-        to: "/customers/$customerId/brain",
+        to: "/customers/$customerId",
         params: { customerId: client.id },
+        search: { onboarding: "1" },
       });
     },
     onError: (e: Error) => toast.error(e.message),
