@@ -57,6 +57,7 @@ import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_
 import { Route as AuthenticatedChatConversationIdRouteImport } from './routes/_authenticated/chat.$conversationId'
 import { Route as AuthenticatedBrainGraphRouteImport } from './routes/_authenticated/brain.graph'
 import { Route as AuthenticatedBrainDiagnosticsRouteImport } from './routes/_authenticated/brain.diagnostics'
+import { Route as ApiSocialTopPostsConnectionIdRouteImport } from './routes/api/social/top-posts/$connectionId'
 import { Route as ApiSocialDashboardConnectionIdRouteImport } from './routes/api/social/dashboard/$connectionId'
 import { Route as ApiPublicMetaPublishScheduledRouteImport } from './routes/api/public/meta/publish-scheduled'
 import { Route as ApiPublicMetaCallbackRouteImport } from './routes/api/public/meta/callback'
@@ -324,6 +325,12 @@ const AuthenticatedBrainDiagnosticsRoute =
     path: '/diagnostics',
     getParentRoute: () => AuthenticatedBrainRoute,
   } as any)
+const ApiSocialTopPostsConnectionIdRoute =
+  ApiSocialTopPostsConnectionIdRouteImport.update({
+    id: '/api/social/top-posts/$connectionId',
+    path: '/api/social/top-posts/$connectionId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiSocialDashboardConnectionIdRoute =
   ApiSocialDashboardConnectionIdRouteImport.update({
     id: '/api/social/dashboard/$connectionId',
@@ -445,6 +452,7 @@ export interface FileRoutesByFullPath {
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
   '/api/public/meta/publish-scheduled': typeof ApiPublicMetaPublishScheduledRoute
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
+  '/api/social/top-posts/$connectionId': typeof ApiSocialTopPostsConnectionIdRoute
   '/api/social/posts/$postId/analytics': typeof ApiSocialPostsPostIdAnalyticsRoute
 }
 export interface FileRoutesByTo {
@@ -501,6 +509,7 @@ export interface FileRoutesByTo {
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
   '/api/public/meta/publish-scheduled': typeof ApiPublicMetaPublishScheduledRoute
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
+  '/api/social/top-posts/$connectionId': typeof ApiSocialTopPostsConnectionIdRoute
   '/api/social/posts/$postId/analytics': typeof ApiSocialPostsPostIdAnalyticsRoute
 }
 export interface FileRoutesById {
@@ -563,6 +572,7 @@ export interface FileRoutesById {
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
   '/api/public/meta/publish-scheduled': typeof ApiPublicMetaPublishScheduledRoute
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
+  '/api/social/top-posts/$connectionId': typeof ApiSocialTopPostsConnectionIdRoute
   '/api/social/posts/$postId/analytics': typeof ApiSocialPostsPostIdAnalyticsRoute
 }
 export interface FileRouteTypes {
@@ -625,6 +635,7 @@ export interface FileRouteTypes {
     | '/api/public/meta/callback'
     | '/api/public/meta/publish-scheduled'
     | '/api/social/dashboard/$connectionId'
+    | '/api/social/top-posts/$connectionId'
     | '/api/social/posts/$postId/analytics'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -681,6 +692,7 @@ export interface FileRouteTypes {
     | '/api/public/meta/callback'
     | '/api/public/meta/publish-scheduled'
     | '/api/social/dashboard/$connectionId'
+    | '/api/social/top-posts/$connectionId'
     | '/api/social/posts/$postId/analytics'
   id:
     | '__root__'
@@ -742,6 +754,7 @@ export interface FileRouteTypes {
     | '/api/public/meta/callback'
     | '/api/public/meta/publish-scheduled'
     | '/api/social/dashboard/$connectionId'
+    | '/api/social/top-posts/$connectionId'
     | '/api/social/posts/$postId/analytics'
   fileRoutesById: FileRoutesById
 }
@@ -771,6 +784,7 @@ export interface RootRouteChildren {
   ApiPublicMetaCallbackRoute: typeof ApiPublicMetaCallbackRoute
   ApiPublicMetaPublishScheduledRoute: typeof ApiPublicMetaPublishScheduledRoute
   ApiSocialDashboardConnectionIdRoute: typeof ApiSocialDashboardConnectionIdRoute
+  ApiSocialTopPostsConnectionIdRoute: typeof ApiSocialTopPostsConnectionIdRoute
   ApiSocialPostsPostIdAnalyticsRoute: typeof ApiSocialPostsPostIdAnalyticsRoute
 }
 
@@ -1112,6 +1126,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBrainDiagnosticsRouteImport
       parentRoute: typeof AuthenticatedBrainRoute
     }
+    '/api/social/top-posts/$connectionId': {
+      id: '/api/social/top-posts/$connectionId'
+      path: '/api/social/top-posts/$connectionId'
+      fullPath: '/api/social/top-posts/$connectionId'
+      preLoaderRoute: typeof ApiSocialTopPostsConnectionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/social/dashboard/$connectionId': {
       id: '/api/social/dashboard/$connectionId'
       path: '/api/social/dashboard/$connectionId'
@@ -1362,6 +1383,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicMetaCallbackRoute: ApiPublicMetaCallbackRoute,
   ApiPublicMetaPublishScheduledRoute: ApiPublicMetaPublishScheduledRoute,
   ApiSocialDashboardConnectionIdRoute: ApiSocialDashboardConnectionIdRoute,
+  ApiSocialTopPostsConnectionIdRoute: ApiSocialTopPostsConnectionIdRoute,
   ApiSocialPostsPostIdAnalyticsRoute: ApiSocialPostsPostIdAnalyticsRoute,
 }
 export const routeTree = rootRouteImport
