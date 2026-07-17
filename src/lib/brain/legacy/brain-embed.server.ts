@@ -50,7 +50,18 @@ export function summarizeEvent(input: {
     if (typeof v === "string" && v.trim()) bits.push(`${k}: ${v.trim().slice(0, 300)}`);
     else if (typeof v === "number") bits.push(`${k}: ${v}`);
   };
-  ["title", "channel", "channels", "format", "stage", "decision", "note", "objective", "kpi", "budget"].forEach(push);
+  [
+    "title",
+    "channel",
+    "channels",
+    "format",
+    "stage",
+    "decision",
+    "note",
+    "objective",
+    "kpi",
+    "budget",
+  ].forEach(push);
   if (bits.length === 1) bits.push(JSON.stringify(p).slice(0, 400));
   return bits.join(" · ");
 }

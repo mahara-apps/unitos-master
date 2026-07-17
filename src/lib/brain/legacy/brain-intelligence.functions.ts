@@ -107,10 +107,16 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
 
     // --- KPIs ---
     const knowledgeCountQ = applyCategory(
-      applyClient(applyBrand(sb.from("brain_knowledge").select("id", { count: "exact", head: true }))),
+      applyClient(
+        applyBrand(sb.from("brain_knowledge").select("id", { count: "exact", head: true })),
+      ),
     );
-    const memoriesCountQ = applyBrand(sb.from("brain_memory").select("id", { count: "exact", head: true }));
-    const insightsCountQ = applyBrand(sb.from("brain_insights").select("id", { count: "exact", head: true }));
+    const memoriesCountQ = applyBrand(
+      sb.from("brain_memory").select("id", { count: "exact", head: true }),
+    );
+    const insightsCountQ = applyBrand(
+      sb.from("brain_insights").select("id", { count: "exact", head: true }),
+    );
     const recsCountQ = applyClient(
       applyBrand(sb.from("brain_recommendations").select("id", { count: "exact", head: true })),
     );
@@ -129,7 +135,14 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
     );
 
     const [knowledgeCount, memoriesCount, insightsCount, recsCount, knowledgeConf, patternsCount] =
-      await Promise.all([knowledgeCountQ, memoriesCountQ, insightsCountQ, recsCountQ, knowledgeConfQ, patternsQ]);
+      await Promise.all([
+        knowledgeCountQ,
+        memoriesCountQ,
+        insightsCountQ,
+        recsCountQ,
+        knowledgeConfQ,
+        patternsQ,
+      ]);
 
     const confVals = (knowledgeConf.data ?? [])
       .map((r: { confidence: number | null }) => Number(r.confidence ?? 0))
@@ -219,21 +232,13 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
       applyClient(
         applyActor(
           applyBrand(
-            sb
-              .from("brain_events")
-              .select("created_at")
-              .gte("created_at", sincePeriod)
-              .limit(5000),
+            sb.from("brain_events").select("created_at").gte("created_at", sincePeriod).limit(5000),
           ),
         ),
       ),
     );
     const timelineInsightsQ = applyBrand(
-      sb
-        .from("brain_insights")
-        .select("created_at")
-        .gte("created_at", sincePeriod)
-        .limit(1000),
+      sb.from("brain_insights").select("created_at").gte("created_at", sincePeriod).limit(1000),
     );
 
     // --- Knowledge map: group knowledge by category ---
@@ -243,16 +248,16 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
 
     // --- Module ranking (events per source_module) ---
     const moduleQ = applyBrand(
-      sb
-        .from("brain_events")
-        .select("source_module")
-        .gte("created_at", sincePeriod)
-        .limit(5000),
+      sb.from("brain_events").select("source_module").gte("created_at", sincePeriod).limit(5000),
     );
 
     // --- Smartest clients (knowledge grouped by client_id) ---
     const clientsKnowledgeQ = applyBrand(
-      sb.from("brain_knowledge").select("client_id, confidence").not("client_id", "is", null).limit(2000),
+      sb
+        .from("brain_knowledge")
+        .select("client_id, confidence")
+        .not("client_id", "is", null)
+        .limit(2000),
     );
 
     // --- Top projects (events grouped by project_id) ---
@@ -286,15 +291,25 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
     ]);
 
     const topDiscoveries = (topDiscoveriesR.data ?? [])
-      .filter((r: { expires_at: string | null }) => !r.expires_at || new Date(r.expires_at) > new Date())
+      .filter(
+        (r: { expires_at: string | null }) => !r.expires_at || new Date(r.expires_at) > new Date(),
+      )
       .slice(0, 6)
-      .map((r: { id: string; insight_type: string; description: string; confidence: number | null; created_at: string }) => ({
-        id: r.id,
-        insight_type: r.insight_type,
-        description: r.description,
-        confidence: Number(r.confidence ?? 0),
-        created_at: r.created_at,
-      }));
+      .map(
+        (r: {
+          id: string;
+          insight_type: string;
+          description: string;
+          confidence: number | null;
+          created_at: string;
+        }) => ({
+          id: r.id,
+          insight_type: r.insight_type,
+          description: r.description,
+          confidence: Number(r.confidence ?? 0),
+          created_at: r.created_at,
+        }),
+      );
 
     // Bucket timeline by day
     const timelineMap = new Map<string, { events: number; insights: number }>();
@@ -360,7 +375,9 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
     const { data: clientRows } = topClientIds.length
       ? await sb.from("clients").select("id, name").in("id", topClientIds)
       : { data: [] as Array<{ id: string; name: string }> };
-    const clientNameMap = new Map((clientRows ?? []).map((c: { id: string; name: string }) => [c.id, c.name]));
+    const clientNameMap = new Map(
+      (clientRows ?? []).map((c: { id: string; name: string }) => [c.id, c.name]),
+    );
     const smartestClients = topClientIds.map((id) => {
       const agg = clientAgg.get(id)!;
       return {
@@ -384,7 +401,9 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
     const { data: projectRows } = topProjectIds.length
       ? await sb.from("projects").select("id, name").in("id", topProjectIds)
       : { data: [] as Array<{ id: string; name: string }> };
-    const projectNameMap = new Map((projectRows ?? []).map((p: { id: string; name: string }) => [p.id, p.name]));
+    const projectNameMap = new Map(
+      (projectRows ?? []).map((p: { id: string; name: string }) => [p.id, p.name]),
+    );
     const topProjects = topProjectIds.map((id) => ({
       project_id: id,
       name: (projectNameMap.get(id) as string) ?? "Projeto",
@@ -405,15 +424,19 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
     const { data: teamProfiles } = teamUserIds.length
       ? await sb.from("user_profiles").select("id, full_name").in("id", teamUserIds)
       : { data: [] as Array<{ id: string; full_name: string }> };
-    const teamAvailable = ((teamProfiles ?? []) as Array<{ id: string; full_name: string | null }>).map((p) => ({
+    const teamAvailable = (
+      (teamProfiles ?? []) as Array<{ id: string; full_name: string | null }>
+    ).map((p) => ({
       id: p.id,
       name: p.full_name ?? "Usuário",
     }));
 
     const categoriesAvailable = Array.from(
-      new Set(((categoriesR.data ?? []) as Array<{ category: string | null }>)
-        .map((r) => r.category)
-        .filter((c): c is string => !!c)),
+      new Set(
+        ((categoriesR.data ?? []) as Array<{ category: string | null }>)
+          .map((r) => r.category)
+          .filter((c): c is string => !!c),
+      ),
     ).sort();
 
     return {
@@ -432,17 +455,23 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
         recommendationsCreated: recsCreated.count ?? 0,
         knowledgeReinforced: knowledgeReinforced.count ?? 0,
       },
-      recentKnowledge: (recentKnowledgeR.data ?? []).map((r: {
-        id: string; category: string; key: string; confidence: number | null;
-        updated_at: string; reinforcement_count: number | null;
-      }) => ({
-        id: r.id,
-        category: r.category,
-        key: r.key,
-        confidence: Number(r.confidence ?? 0),
-        updated_at: r.updated_at,
-        reinforcement_count: r.reinforcement_count ?? 0,
-      })),
+      recentKnowledge: (recentKnowledgeR.data ?? []).map(
+        (r: {
+          id: string;
+          category: string;
+          key: string;
+          confidence: number | null;
+          updated_at: string;
+          reinforcement_count: number | null;
+        }) => ({
+          id: r.id,
+          category: r.category,
+          key: r.key,
+          confidence: Number(r.confidence ?? 0),
+          updated_at: r.updated_at,
+          reinforcement_count: r.reinforcement_count ?? 0,
+        }),
+      ),
       topDiscoveries,
       smartestClients,
       topProjects,

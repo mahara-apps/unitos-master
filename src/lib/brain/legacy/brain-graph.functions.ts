@@ -60,10 +60,7 @@ async function resolveLabels(sb: any, nodes: RawNode[]): Promise<Map<string, str
     [...byType.entries()].map(async ([type, ids]) => {
       const cfg = LABEL_TABLES[type];
       if (!cfg) return;
-      const { data } = await sb
-        .from(cfg.table)
-        .select(`id, ${cfg.column}`)
-        .in("id", ids);
+      const { data } = await sb.from(cfg.table).select(`id, ${cfg.column}`).in("id", ids);
       for (const row of (data ?? []) as Array<Record<string, unknown>>) {
         const id = String(row.id);
         const val = row[cfg.column];

@@ -71,10 +71,7 @@ export const decayMemories = memory.decay;
 // ----------------------------------------------------------------------------
 // 4. searchKnowledge — busca híbrida (semântica + textual) em memórias.
 // ----------------------------------------------------------------------------
-export async function searchKnowledge(
-  ctx: BrainContext,
-  args: { text: string; limit?: number },
-) {
+export async function searchKnowledge(ctx: BrainContext, args: { text: string; limit?: number }) {
   const [semantic, textual] = await Promise.all([
     query.semantic(ctx, { query: args.text, matchCount: args.limit ?? 6 }),
     memory.search(ctx, { text: args.text, limit: args.limit ?? 10 }),
@@ -116,10 +113,7 @@ export const relate = graph.relate;
 // 11. getContext — contexto consolidado do Brain para um tema/pergunta.
 //     Base do Chat Brain-first; reutilizável por Agentes e Automações.
 // ----------------------------------------------------------------------------
-export async function getContext(
-  ctx: BrainContext,
-  args: { topic: string },
-) {
+export async function getContext(ctx: BrainContext, args: { topic: string }) {
   return chatGw.consolidate(ctx, { query: args.topic });
 }
 

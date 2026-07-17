@@ -41,7 +41,9 @@ export async function record(ctx: BrainContext, input: ProvenanceInput): Promise
       items,
       item_count: items.length,
       avg_score:
-        items.length > 0 ? Math.round((items.reduce((a, b) => a + b.score, 0) / items.length) * 1000) / 1000 : 0,
+        items.length > 0
+          ? Math.round((items.reduce((a, b) => a + b.score, 0) / items.length) * 1000) / 1000
+          : 0,
     },
   });
 }

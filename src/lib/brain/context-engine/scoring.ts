@@ -22,7 +22,10 @@ export function relevanceScore(item: Scorable, keywords: string[]): number {
 
 function keywordOverlap(text: string, keywords: string[]): number {
   if (!keywords.length) return 0.3; // baseline quando pergunta é genérica
-  const norm = (text || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const norm = (text || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
   let hits = 0;
   for (const k of keywords) if (norm.includes(k)) hits++;
   return clamp01(hits / keywords.length);

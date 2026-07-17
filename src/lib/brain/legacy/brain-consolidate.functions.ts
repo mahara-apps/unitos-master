@@ -48,7 +48,9 @@ export const brainConsolidateFn = createServerFn({ method: "POST" })
       if (!events || events.length < 5) continue;
 
       const digest = events
-        .map((e) => `- ${e.source_module}/${e.event_type}: ${JSON.stringify(e.payload).slice(0, 200)}`)
+        .map(
+          (e) => `- ${e.source_module}/${e.event_type}: ${JSON.stringify(e.payload).slice(0, 200)}`,
+        )
         .join("\n")
         .slice(0, 12000);
 
@@ -89,7 +91,8 @@ export const brainConsolidateFn = createServerFn({ method: "POST" })
             brand_id: brandId,
             insight_type: i.insight_type.slice(0, 64),
             description: i.description.slice(0, 1000),
-            confidence: typeof i.confidence === "number" ? Math.max(0, Math.min(1, i.confidence)) : null,
+            confidence:
+              typeof i.confidence === "number" ? Math.max(0, Math.min(1, i.confidence)) : null,
             based_on_events: events.length,
             expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
           }));

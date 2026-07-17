@@ -12,11 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useActiveContext } from "@/hooks/use-active-context";
-import {
-  loadBrainWidget,
-  type BrainWidgetItem,
-  type BrainWidgetPayload,
-} from "@/lib/brain/api";
+import { loadBrainWidget, type BrainWidgetItem, type BrainWidgetPayload } from "@/lib/brain/api";
 
 export type BrainWidgetPreset =
   | "projects"
@@ -175,21 +171,15 @@ export function BrainWidget({
           <EmptyState text={query.data?.headline ?? spec.hint} />
         ) : (
           <div className="space-y-2.5">
-            <p className="text-sm leading-snug text-foreground">
-              {query.data.headline}
-            </p>
+            <p className="text-sm leading-snug text-foreground">{query.data.headline}</p>
             <ul className="space-y-1.5">
               {query.data.items.map((item, idx) => (
                 <li key={`${item.kind}-${idx}`} className="flex items-start gap-2">
                   <KindIcon kind={item.kind} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-medium text-foreground">
-                      {item.label}
-                    </p>
+                    <p className="truncate text-xs font-medium text-foreground">{item.label}</p>
                     {item.detail && (
-                      <p className="line-clamp-2 text-xs text-muted-foreground">
-                        {item.detail}
-                      </p>
+                      <p className="line-clamp-2 text-xs text-muted-foreground">{item.detail}</p>
                     )}
                   </div>
                   <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
