@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
@@ -9,12 +9,28 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, X, Mail, Link2, UserPlus } from "lucide-react";
+import { Loader2, X, Mail, Link2, UserPlus, ChevronDown } from "lucide-react";
 import { inviteBrandMembers, addExistingUserToBrand } from "@/lib/team.functions";
+import {
+  PERMISSION_GROUPS,
+  ROLE_DEFAULT_PERMISSIONS,
+  type PermissionId,
+} from "@/lib/permissions";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { cn } from "@/lib/utils";
 
 type Role = "owner" | "manager" | "editor" | "designer";
 const ROLES: Role[] = ["owner", "manager", "editor", "designer"];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const ROLE_LABEL: Record<Role, string> = {
+  owner: "Owner — acesso total",
+  manager: "Manager — gerencia pipelines, automações e IA",
+  editor: "Editor — opera pipelines e vê logs",
+  designer: "Designer — opera pipelines",
+};
 
 export function AddMemberDrawer({
   open, onOpenChange, brandId, onDone,
