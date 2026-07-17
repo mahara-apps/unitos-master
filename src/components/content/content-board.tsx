@@ -537,6 +537,21 @@ function PostCard({
   const channelDefs = channels
     .map((id) => CHANNELS.find((c) => c.id === id))
     .filter(Boolean) as typeof CHANNELS;
+  // Derive up to 3 canonical format chips, preferring posts.format, falling
+  // back to post_placements. Non-format values (e.g. "tiktok") are ignored.
+  const formatKeys: FormatKey[] = (() => {
+    const seen = new Set<FormatKey>();
+    const out: FormatKey[] = [];
+    const push = (k: FormatKey | null) => {
+      if (k && !seen.has(k)) {
+        seen.add(k);
+        out.push(k);
+      }
+    };
+    push(normalizeFormat(post.format));
+    for (const pl of post.placements ?? []) push(normalizeFormat(pl.format));
+    return out.slice(0, 3);
+  })();
   const snippet = (post.copy ?? "")
     .replace(/^###\s+\w+\s*$/gm, "")
     .replace(/\s+/g, " ")
@@ -587,11 +602,14 @@ function PostCard({
                 </span>
               );
             })}
-            {post.format ? (
-              <span className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[8px] font-semibold uppercase tracking-wider ${FORMAT_STYLES[post.format] ?? FORMAT_STYLE}`}>
-                {post.format}
+            {formatKeys.map((f) => (
+              <span
+                key={f}
+                className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[8px] font-semibold uppercase tracking-wider ${FORMAT_STYLES[f]}`}
+              >
+                {f}
               </span>
-            ) : null}
+            ))}
             {priority ? (
               <span className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[8px] font-semibold uppercase tracking-wider ${PRIORITY_STYLES[priority] ?? ""}`}>
                 {PRIORITY_LABEL[priority] ?? priority}
