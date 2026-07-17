@@ -53,6 +53,7 @@ import { Route as AuthenticatedSettingsBrandingRouteImport } from './routes/_aut
 import { Route as AuthenticatedSettingsAiRouteImport } from './routes/_authenticated/settings.ai'
 import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_authenticated/projects.$projectId'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
+import { Route as AuthenticatedChatConversationIdRouteImport } from './routes/_authenticated/chat.$conversationId'
 import { Route as AuthenticatedBrainGraphRouteImport } from './routes/_authenticated/brain.graph'
 import { Route as ApiPublicMediaPruneRouteImport } from './routes/api/public/media/prune'
 import { Route as ApiPublicHooksBrainConsolidateRouteImport } from './routes/api/public/hooks/brain-consolidate'
@@ -295,6 +296,12 @@ const AuthenticatedCustomersCustomerIdRoute =
     path: '/$customerId',
     getParentRoute: () => AuthenticatedCustomersRoute,
   } as any)
+const AuthenticatedChatConversationIdRoute =
+  AuthenticatedChatConversationIdRouteImport.update({
+    id: '/$conversationId',
+    path: '/$conversationId',
+    getParentRoute: () => AuthenticatedChatRoute,
+  } as any)
 const AuthenticatedBrainGraphRoute = AuthenticatedBrainGraphRouteImport.update({
   id: '/graph',
   path: '/graph',
@@ -364,6 +371,7 @@ export interface FileRoutesByFullPath {
   '/plano/$planId': typeof PlanoPlanIdRoute
   '/portal/$token': typeof PortalTokenRoute
   '/brain/graph': typeof AuthenticatedBrainGraphRoute
+  '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
@@ -413,6 +421,7 @@ export interface FileRoutesByTo {
   '/plano/$planId': typeof PlanoPlanIdRoute
   '/portal/$token': typeof PortalTokenRoute
   '/brain/graph': typeof AuthenticatedBrainGraphRoute
+  '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
@@ -468,6 +477,7 @@ export interface FileRoutesById {
   '/plano/$planId': typeof PlanoPlanIdRoute
   '/portal/$token': typeof PortalTokenRoute
   '/_authenticated/brain/graph': typeof AuthenticatedBrainGraphRoute
+  '/_authenticated/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/_authenticated/settings/ai': typeof AuthenticatedSettingsAiRoute
@@ -523,6 +533,7 @@ export interface FileRouteTypes {
     | '/plano/$planId'
     | '/portal/$token'
     | '/brain/graph'
+    | '/chat/$conversationId'
     | '/customers/$customerId'
     | '/projects/$projectId'
     | '/settings/ai'
@@ -572,6 +583,7 @@ export interface FileRouteTypes {
     | '/plano/$planId'
     | '/portal/$token'
     | '/brain/graph'
+    | '/chat/$conversationId'
     | '/customers/$customerId'
     | '/projects/$projectId'
     | '/settings/ai'
@@ -626,6 +638,7 @@ export interface FileRouteTypes {
     | '/plano/$planId'
     | '/portal/$token'
     | '/_authenticated/brain/graph'
+    | '/_authenticated/chat/$conversationId'
     | '/_authenticated/customers/$customerId'
     | '/_authenticated/projects/$projectId'
     | '/_authenticated/settings/ai'
@@ -990,6 +1003,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCustomersCustomerIdRouteImport
       parentRoute: typeof AuthenticatedCustomersRoute
     }
+    '/_authenticated/chat/$conversationId': {
+      id: '/_authenticated/chat/$conversationId'
+      path: '/$conversationId'
+      fullPath: '/chat/$conversationId'
+      preLoaderRoute: typeof AuthenticatedChatConversationIdRouteImport
+      parentRoute: typeof AuthenticatedChatRoute
+    }
     '/_authenticated/brain/graph': {
       id: '/_authenticated/brain/graph'
       path: '/graph'
@@ -1061,10 +1081,12 @@ const AuthenticatedBrainRouteWithChildren =
   AuthenticatedBrainRoute._addFileChildren(AuthenticatedBrainRouteChildren)
 
 interface AuthenticatedChatRouteChildren {
+  AuthenticatedChatConversationIdRoute: typeof AuthenticatedChatConversationIdRoute
   AuthenticatedChatIndexRoute: typeof AuthenticatedChatIndexRoute
 }
 
 const AuthenticatedChatRouteChildren: AuthenticatedChatRouteChildren = {
+  AuthenticatedChatConversationIdRoute: AuthenticatedChatConversationIdRoute,
   AuthenticatedChatIndexRoute: AuthenticatedChatIndexRoute,
 }
 
