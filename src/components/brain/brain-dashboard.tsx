@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { brainStatsFn } from "@/lib/brain-stats.functions";
+import { brainInfraSummaryFn } from "@/lib/brain-infra.functions";
 import { NeuralNetworkCanvas } from "./neural-network-canvas";
 import { useBrainStream } from "@/hooks/use-brain-stream";
 
@@ -17,6 +18,13 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
     refetchInterval: 30_000,
   });
   const lastEvent = useBrainStream(brandId ?? null);
+
+  const fetchInfra = useServerFn(brainInfraSummaryFn);
+  const infra = useQuery({
+    queryKey: ["brain-infra", brandId ?? "all"],
+    queryFn: () => fetchInfra({ data: { brandId: brandId ?? null } }),
+    refetchInterval: 60_000,
+  });
 
   const weights = useMemo(() => {
     const m = { content: 1, media: 1, messaging: 1, insight: 1 };
