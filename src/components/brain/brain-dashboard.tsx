@@ -1,10 +1,12 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Activity, Brain, Sparkles, Zap } from "lucide-react";
+import { Activity, Brain, Network, Sparkles, Zap } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Link } from "@tanstack/react-router";
+import { Button } from "@/components/ui/button";
 import { brainStatsFn } from "@/lib/brain-stats.functions";
 import { brainInfraSummaryFn, type BrainInfraSummary } from "@/lib/brain-infra.functions";
 import { NeuralNetworkCanvas } from "./neural-network-canvas";
@@ -44,9 +46,17 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
               Cada evento do sistema alimenta um nó — clusters crescem conforme a atividade.
             </CardDescription>
           </div>
-          <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
-            {brandId ? "Marca" : "Agência"}
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link to="/brain/graph">
+                <Network className="mr-1.5 h-3.5 w-3.5" />
+                Knowledge Graph
+              </Link>
+            </Button>
+            <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
+              {brandId ? "Marca" : "Agência"}
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent>
           <NeuralNetworkCanvas weights={weights} lastEvent={lastEvent} />
