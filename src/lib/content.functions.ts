@@ -354,7 +354,7 @@ export const loadBoardFn = createServerFn({ method: "POST" })
         context.supabase
           .from("posts")
           .select(
-            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes,priority,format,tags,visible_in_portal,project_id,remind_at,assignees,reference_media",
+            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes,priority,format,tags,visible_in_portal,project_id,remind_at,assignees,reference_media,stage_entered_at",
           )
           .eq("brand_id", data.brandId)
           .eq("client_id", data.clientId)
@@ -419,7 +419,7 @@ export const loadBoardFn = createServerFn({ method: "POST" })
     return {
       pipeline: { ...pipe, post_count: (posts ?? []).length },
       stages: (stages ?? []) as PipelineStage[],
-      posts: (posts ?? []) as BoardPost[],
+      posts: annotateOverdue((posts ?? []) as BoardPost[], (stages ?? []) as PipelineStage[]),
     };
   });
 
