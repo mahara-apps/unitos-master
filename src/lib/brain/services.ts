@@ -107,12 +107,9 @@ export const relate = graph.relate;
 // ----------------------------------------------------------------------------
 export async function getContext(
   ctx: BrainContext,
-  args: { topic: string; historyCount?: number },
+  args: { topic: string },
 ) {
-  return chatGw.consolidate(ctx, {
-    question: args.topic,
-    historyCount: args.historyCount ?? 0,
-  });
+  return chatGw.consolidate(ctx, { query: args.topic });
 }
 
 // ----------------------------------------------------------------------------
