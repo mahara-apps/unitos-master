@@ -94,16 +94,13 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
     sinceToday.setHours(0, 0, 0, 0);
     const sinceTodayIso = sinceToday.toISOString();
 
-    const applyBrand = <T extends { eq: (c: string, v: unknown) => T }>(q: T) =>
-      brandId ? q.eq("brand_id", brandId) : q;
-    const applyClient = <T extends { eq: (c: string, v: unknown) => T }>(q: T) =>
-      clientId ? q.eq("client_id", clientId) : q;
-    const applyProject = <T extends { eq: (c: string, v: unknown) => T }>(q: T) =>
-      projectId ? q.eq("project_id", projectId) : q;
-    const applyActor = <T extends { eq: (c: string, v: unknown) => T }>(q: T) =>
-      actorId ? q.eq("actor_id", actorId) : q;
-    const applyCategory = <T extends { eq: (c: string, v: unknown) => T }>(q: T) =>
-      category ? q.eq("category", category) : q;
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const applyBrand = (q: any): any => (brandId ? q.eq("brand_id", brandId) : q);
+    const applyClient = (q: any): any => (clientId ? q.eq("client_id", clientId) : q);
+    const applyProject = (q: any): any => (projectId ? q.eq("project_id", projectId) : q);
+    const applyActor = (q: any): any => (actorId ? q.eq("actor_id", actorId) : q);
+    const applyCategory = (q: any): any => (category ? q.eq("category", category) : q);
+    /* eslint-enable @typescript-eslint/no-explicit-any */
 
     // --- KPIs ---
     const knowledgeCountQ = applyCategory(
