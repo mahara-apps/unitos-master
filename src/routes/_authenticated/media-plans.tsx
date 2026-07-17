@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { DashboardPageShell } from "@/components/ui/dashboard-primitives";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { cn } from "@/lib/utils";
@@ -109,7 +110,7 @@ function MediaPlansIndex() {
               onSelect={() => setDialog({ open: true, mode: "ai" })}
               className="gap-2"
             >
-              <Sparkles className="h-4 w-4 text-indigo-500" />
+              <Sparkles className="h-4 w-4 text-violet-500" />
               <div className="grid">
                 <span className="text-sm font-medium">Gerar com IA</span>
                 <span className="text-[11px] text-muted-foreground">
@@ -129,8 +130,8 @@ function MediaPlansIndex() {
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <KpiCard label="Planos" value={String(kpis.total)} icon={<Target className="h-4 w-4" />} />
-        <KpiCard label="Investimento mensal" value={currency(kpis.totalBudget)} />
-        <KpiCard label="Aprovados" value={String(kpis.approved)} tone="emerald" />
+        <KpiCard label="Investimento mensal" value={currency(kpis.totalBudget)} tone="sky" />
+        <KpiCard label="Aprovados" value={String(kpis.approved)} tone="emerald" icon={<CheckCircle2 className="h-4 w-4" />} />
         <KpiCard label="Em rascunho" value={String(kpis.drafts)} tone="amber" />
       </div>
 
@@ -247,46 +248,15 @@ function PlanRow({ plan }: { plan: BrandMediaPlanRow }) {
 
 function StatusBadge({ status }: { status: BrandMediaPlanRow["status"] }) {
   const tone: Record<string, string> = {
-    draft: "bg-muted text-muted-foreground",
-    approved:
-      "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
-    archived: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+    draft: "border-border/60 bg-muted text-muted-foreground",
+    approved: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    archived: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
   };
   return (
-    <Badge variant="outline" className={cn("border-transparent", tone[status])}>
+    <Badge variant="outline" className={cn("gap-1", tone[status])}>
       {status === "approved" && <CheckCircle2 className="mr-1 h-3 w-3" />}
       {STATUS_LABEL[status] ?? status}
     </Badge>
-  );
-}
-
-function KpiCard({
-  label,
-  value,
-  tone,
-  icon,
-}: {
-  label: string;
-  value: string;
-  tone?: "emerald" | "amber";
-  icon?: React.ReactNode;
-}) {
-  return (
-    <div className="rounded-2xl border border-border/60 bg-card p-4">
-      <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-        <span>{label}</span>
-        {icon}
-      </div>
-      <div
-        className={cn(
-          "mt-1 text-2xl font-semibold tracking-tight",
-          tone === "emerald" && "text-emerald-600 dark:text-emerald-400",
-          tone === "amber" && "text-amber-600 dark:text-amber-400",
-        )}
-      >
-        {value}
-      </div>
-    </div>
   );
 }
 
