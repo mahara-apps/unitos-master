@@ -99,6 +99,8 @@ export const Route = createFileRoute("/api/public/meta/callback")({
                       longLived.expiresAt?.toISOString() ?? null,
                     instagram_business_id: page.instagramBusinessId ?? null,
                     instagram_username: page.instagramUsername ?? null,
+                    page_picture_url: page.pagePictureUrl ?? null,
+                    instagram_picture_url: page.instagramPictureUrl ?? null,
                   },
                   created_by: state.userId,
                 },

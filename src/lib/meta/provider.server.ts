@@ -27,6 +27,8 @@ export type MetaPageAsset = {
   tasks?: string[];
   instagramBusinessId?: string;
   instagramUsername?: string;
+  pagePictureUrl?: string;
+  instagramPictureUrl?: string;
 };
 
 export type MetaUser = { id: string; name?: string; email?: string };
@@ -174,7 +176,12 @@ export class MetaProvider {
       access_token: string;
       category?: string;
       tasks?: string[];
-      instagram_business_account?: { id: string; username?: string };
+      instagram_business_account?: {
+        id: string;
+        username?: string;
+        profile_picture_url?: string;
+      };
+      picture?: { data?: { url?: string } };
     };
     type Paged<T> = { data: T[]; paging?: { next?: string } };
 
@@ -187,7 +194,7 @@ export class MetaProvider {
             accessToken: userAccessToken,
             query: {
               fields:
-                "id,name,access_token,category,tasks,instagram_business_account{id,username}",
+              "id,name,access_token,category,tasks,picture.type(large){url},instagram_business_account{id,username,profile_picture_url}",
               limit: "50",
             },
           })
@@ -201,6 +208,8 @@ export class MetaProvider {
           tasks: p.tasks,
           instagramBusinessId: p.instagram_business_account?.id,
           instagramUsername: p.instagram_business_account?.username,
+          pagePictureUrl: p.picture?.data?.url,
+          instagramPictureUrl: p.instagram_business_account?.profile_picture_url,
         });
       }
       nextUrl = res.paging?.next ?? null;
