@@ -102,17 +102,27 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
     const applyClient = (q: any): any => (clientId ? q.eq("client_id", clientId) : q);
     const applyProject = (q: any): any => (projectId ? q.eq("project_id", projectId) : q);
     const applyActor = (q: any): any => (actorId ? q.eq("actor_id", actorId) : q);
-    const applyCategory = (q: any): any => (category ? q.eq("category", category) : q);
+    const applyCategory = (q: any): any => (category ? q.eq("memory_type", category) : q);
     /* eslint-enable @typescript-eslint/no-explicit-any */
 
     // --- KPIs ---
+    // Fonte única: brain_memory. "Knowledge" = memórias factuais.
+    // "Memories" = total ativo. "Patterns" = buckets analíticos.
+    const KNOWLEDGE_BUCKET = ["fact", "knowledge", "preference", "profile"];
     const knowledgeCountQ = applyCategory(
-      applyClient(
-        applyBrand(sb.from("brain_knowledge").select("id", { count: "exact", head: true })),
+      applyBrand(
+        sb
+          .from("brain_memory")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "active")
+          .in("memory_type", KNOWLEDGE_BUCKET),
       ),
     );
     const memoriesCountQ = applyBrand(
-      sb.from("brain_memory").select("id", { count: "exact", head: true }),
+      sb
+        .from("brain_memory")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "active"),
     );
     const insightsCountQ = applyBrand(
       sb.from("brain_insights").select("id", { count: "exact", head: true }),
@@ -121,9 +131,15 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
       applyBrand(sb.from("brain_recommendations").select("id", { count: "exact", head: true })),
     );
 
-    // avg confidence across knowledge
     const knowledgeConfQ = applyCategory(
-      applyClient(applyBrand(sb.from("brain_knowledge").select("confidence").limit(1000))),
+      applyBrand(
+        sb
+          .from("brain_memory")
+          .select("confidence")
+          .eq("status", "active")
+          .in("memory_type", KNOWLEDGE_BUCKET)
+          .limit(1000),
+      ),
     );
 
     // patterns = memories with category "pattern" or insight_type containing pattern
