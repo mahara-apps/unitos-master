@@ -1,3 +1,6 @@
+// ⚠️ Brain API boundary — este arquivo faz parte da plataforma Brain.
+// Consumidores externos NÃO devem importar deste módulo diretamente:
+// use o namespace `brain` exportado em `src/lib/brain/api.ts`.
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
