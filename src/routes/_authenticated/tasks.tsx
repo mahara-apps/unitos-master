@@ -110,8 +110,13 @@ function TasksPage() {
   const sortDir: SortDir = search.dir;
   const openTaskId = search.taskId ?? null;
 
-  function setSearch(patch: Partial<z.infer<typeof searchSchema>>) {
-    navigate({ to: ".", search: (prev) => ({ ...prev, ...patch }), replace: true });
+  type Search = z.infer<typeof searchSchema>;
+  function setSearch(patch: Partial<Search>) {
+    navigate({
+      to: ".",
+      search: (prev: Search) => ({ ...prev, ...patch }),
+      replace: true,
+    });
   }
 
   useEffect(() => {
