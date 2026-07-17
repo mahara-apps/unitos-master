@@ -30,6 +30,7 @@ import {
 import {
   Plus, Search, ArrowRight, AlertTriangle, Loader2, LayoutGrid, List,
   Pencil, Trash2, MoreHorizontal, Instagram, Music2, Linkedin, Youtube, Users,
+  PowerOff, CheckCircle2, Palette,
 } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -39,6 +40,8 @@ import { listClients, createClient, updateClient, deleteClient } from "@/lib/wor
 import { listBrandTeam } from "@/lib/team.functions";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
+import { KpiCard } from "@/components/ui/kpi-card";
+import { DashboardPageShell } from "@/components/ui/dashboard-primitives";
 import { QuickCreateCustomerDrawer } from "@/components/customer/quick-create-customer-drawer";
 
 export const Route = createFileRoute("/_authenticated/customers/")({
@@ -210,12 +213,12 @@ function CustomersIndexPage() {
 
   if (!brandId) {
     return (
-      <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+      <DashboardPageShell>
         <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-card px-4 py-3 text-sm text-muted-foreground">
           <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-500" />
           Selecione um workspace no menu lateral para ver os clientes.
         </div>
-      </div>
+      </DashboardPageShell>
     );
   }
 
@@ -223,14 +226,53 @@ function CustomersIndexPage() {
     c.name.toLowerCase().includes(q.toLowerCase()),
   ) as ClientRow[];
 
+  const allCustomers = (customersQ.data ?? []) as ClientRow[];
+  const activeCount = allCustomers.filter((c) => c.is_active !== false).length;
+  const inactiveCount = allCustomers.length - activeCount;
+  const uniqueNiches = new Set(
+    allCustomers.map((c) => (c.niche ?? "").trim().toLowerCase()).filter(Boolean),
+  ).size;
+
   return (
-    <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+    <DashboardPageShell>
       <HeaderRegister
         subtitle={
           customersQ.isLoading ? "carregando…" : `${customers.length} cliente(s) neste workspace`
         }
         onCreate={openCreate}
       />
+      {/* KPIs */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <KpiCard
+          tone="neutral"
+          icon={<Users className="h-4 w-4" />}
+          label="Clientes"
+          value={allCustomers.length}
+          sub={`${activeCount} ativos`}
+        />
+        <KpiCard
+          tone="emerald"
+          icon={<CheckCircle2 className="h-4 w-4" />}
+          label="Ativos"
+          value={activeCount}
+          sub="Em operação"
+        />
+        <KpiCard
+          tone="amber"
+          icon={<PowerOff className="h-4 w-4" />}
+          label="Inativos"
+          value={inactiveCount}
+          sub="Sem atividade"
+        />
+        <KpiCard
+          tone="sky"
+          icon={<Palette className="h-4 w-4" />}
+          label="Nichos"
+          value={uniqueNiches}
+          sub="Segmentos distintos"
+        />
+      </div>
+
       <div className="flex items-center justify-between gap-3">
         <div className="relative w-full max-w-sm">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
