@@ -32,13 +32,6 @@ const GraphInput = z.object({
   limit: z.number().int().min(10).max(2000).optional(),
 });
 
-const NeighborhoodInput = z.object({
-  brandId: z.string().uuid(),
-  entityType: z.string().min(1),
-  entityId: z.string().uuid(),
-  depth: z.number().int().min(1).max(3).optional(),
-});
-
 type RawNode = { type: string; id: string };
 type RawEdge = GraphEdge;
 type RawGraph = { nodes: RawNode[]; edges: RawEdge[] };
