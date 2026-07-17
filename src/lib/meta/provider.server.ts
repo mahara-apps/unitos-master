@@ -175,6 +175,7 @@ export class MetaProvider {
       category?: string;
       tasks?: string[];
       instagram_business_account?: { id: string; username?: string };
+      picture?: { data?: { url?: string } };
     };
     type Paged<T> = { data: T[]; paging?: { next?: string } };
 
@@ -187,7 +188,7 @@ export class MetaProvider {
             accessToken: userAccessToken,
             query: {
               fields:
-                "id,name,access_token,category,tasks,instagram_business_account{id,username}",
+              "id,name,access_token,category,tasks,picture.type(large){url},instagram_business_account{id,username,profile_picture_url}",
               limit: "50",
             },
           })
