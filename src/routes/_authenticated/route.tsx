@@ -12,6 +12,7 @@ import { NotificationsBell } from "@/components/notifications/notifications-draw
 import { MandatoryPasswordReset } from "@/components/auth/mandatory-password-reset";
 import { AiJobsProvider } from "@/components/ai-jobs/ai-jobs-provider";
 import { AiJobsIndicator } from "@/components/ai-jobs/ai-jobs-indicator";
+import { BrandFavicon } from "@/components/brand/brand-favicon";
 
 const fallbackTitles: Record<string, string> = {
   "/dashboard": "Painel",
@@ -62,6 +63,7 @@ function AppShell() {
           </div>
           <CommandMenu />
           <MandatoryPasswordReset />
+          <BrandFavicon />
         </SidebarProvider>
         </AiJobsProvider>
       </PageHeaderProvider>
