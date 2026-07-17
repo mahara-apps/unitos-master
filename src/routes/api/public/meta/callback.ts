@@ -53,6 +53,9 @@ export const Route = createFileRoute("/api/public/meta/callback")({
 
           // 3) Identify Meta user + list Pages/IG assets
           const me = await provider.getMe(longLived.accessToken);
+          const grantedScopes = await provider.listGrantedPermissions(
+            longLived.accessToken,
+          );
           const pages = await provider.listPagesWithInstagram(longLived.accessToken);
           if (pages.length === 0) {
             return htmlResult({
@@ -64,6 +67,7 @@ export const Route = createFileRoute("/api/public/meta/callback")({
 
           // 4) Upsert one social_connections row per Page
           const now = new Date().toISOString();
+          const userTokenCiphertext = await encryptCredential(longLived.accessToken);
           for (const page of pages) {
             const ciphertext = await encryptCredential(page.pageAccessToken);
             const { error: upErr } = await supabaseAdmin
@@ -79,7 +83,7 @@ export const Route = createFileRoute("/api/public/meta/callback")({
                   owner_external_id: me.id,
                   owner_name: me.name ?? null,
                   access_token_ciphertext: ciphertext,
-                  scopes: [],
+                  scopes: grantedScopes,
                   status: "active",
                   last_error: null,
                   last_synced_at: now,
@@ -89,6 +93,12 @@ export const Route = createFileRoute("/api/public/meta/callback")({
                     category: page.category ?? null,
                     tasks: page.tasks ?? [],
                     linked_at: now,
+                    user_email: me.email ?? null,
+                    user_access_token_ciphertext: userTokenCiphertext,
+                    user_token_expires_at:
+                      longLived.expiresAt?.toISOString() ?? null,
+                    instagram_business_id: page.instagramBusinessId ?? null,
+                    instagram_username: page.instagramUsername ?? null,
                   },
                   created_by: state.userId,
                 },
