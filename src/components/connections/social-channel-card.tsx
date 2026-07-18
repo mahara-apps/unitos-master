@@ -196,6 +196,8 @@ export function SocialChannelCard({
             kind={kind}
             channel={channel}
             brandId={brandId}
+            hasExisting={false}
+            existingLabel={null}
             manualOpen={manualOpen}
             setManualOpen={setManualOpen}
             onChanged={onChanged}
@@ -214,6 +216,8 @@ export function SocialChannelCard({
               kind={kind}
               channel={channel}
               brandId={brandId}
+              hasExisting={true}
+              existingLabel={primary?.handle ?? primary?.name ?? null}
               manualOpen={manualOpen}
               setManualOpen={setManualOpen}
               onChanged={onChanged}
