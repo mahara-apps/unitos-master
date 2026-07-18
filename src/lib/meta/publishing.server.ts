@@ -71,6 +71,24 @@ export class MetaPublishingService {
     return this.publishFacebookFeed(connection, pageToken, input);
   }
 
+  /**
+   * Same as `publish()` but accepts a pre-decrypted page token. Used by the
+   * high-level SocialProvider layer where the token is already available in
+   * `SocialProviderContext.accessToken`.
+   */
+  async publishWithDecryptedToken(
+    connection: Omit<MetaConnectionRow, "access_token_ciphertext">,
+    pageToken: string,
+    input: PublishInput,
+  ): Promise<PublishResult> {
+    assertSupported(input.placement);
+    const row = { ...connection, access_token_ciphertext: "" } as MetaConnectionRow;
+    if (input.placement === "instagram_feed") {
+      return this.publishInstagramFeed(row, pageToken, input);
+    }
+    return this.publishFacebookFeed(row, pageToken, input);
+  }
+
   // ------------------------------------------------------------ Instagram ---
   private async publishInstagramFeed(
     connection: MetaConnectionRow,
