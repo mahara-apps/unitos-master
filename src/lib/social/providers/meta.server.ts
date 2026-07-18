@@ -603,6 +603,21 @@ export class MetaProvider implements SocialProvider {
 type InsightValue = { value: number | Record<string, number>; end_time?: string };
 type InsightsResponse = { data: Array<{ name: string; values?: InsightValue[] }> };
 
+function buildCaption(
+  base?: string,
+  hashtags: string[] = [],
+  mentions: string[] = [],
+): string | undefined {
+  const parts: string[] = [];
+  if (base) parts.push(base);
+  const ats = mentions.filter(Boolean).map((m) => (m.startsWith("@") ? m : `@${m}`));
+  const tags = hashtags.filter(Boolean).map((t) => (t.startsWith("#") ? t : `#${t}`));
+  if (ats.length) parts.push(ats.join(" "));
+  if (tags.length) parts.push(tags.join(" "));
+  const out = parts.join("\n\n").trim();
+  return out.length ? out : undefined;
+}
+
 type IgProfile = {
   id?: string;
   username?: string;
