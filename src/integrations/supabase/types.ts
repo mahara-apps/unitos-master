@@ -4264,6 +4264,7 @@ export type Database = {
           account_id: string | null
           account_username: string | null
           brand_id: string
+          channel: string
           created_at: string
           created_by: string | null
           external_id: string
@@ -4286,6 +4287,7 @@ export type Database = {
           account_id?: string | null
           account_username?: string | null
           brand_id: string
+          channel: string
           created_at?: string
           created_by?: string | null
           external_id: string
@@ -4308,6 +4310,7 @@ export type Database = {
           account_id?: string | null
           account_username?: string | null
           brand_id?: string
+          channel?: string
           created_at?: string
           created_by?: string | null
           external_id?: string

@@ -32,7 +32,7 @@ export const Route = createFileRoute("/api/public/meta/callback")({
         );
 
         // 1) Verify signed state (CSRF + brand/user context).
-        let state;
+        let state: Awaited<ReturnType<typeof verifyOAuthState>>;
         try {
           state = await verifyOAuthState(stateToken);
         } catch (err) {
@@ -65,53 +65,96 @@ export const Route = createFileRoute("/api/public/meta/callback")({
             });
           }
 
-          // 4) Upsert one social_connections row per Page
+          // 4) Upsert one social_connections row per (brand, channel).
+          //    A single Meta Page yields up to two rows: `facebook` (always)
+          //    and `instagram` (when the Page has an IG Business account).
+          //    The unique partial index enforces one active row per channel
+          //    per brand — reconnecting replaces the previous account.
           const now = new Date().toISOString();
           const userTokenCiphertext = await encryptCredential(longLived.accessToken);
-          for (const page of pages) {
-            const ciphertext = await encryptCredential(page.pageAccessToken);
+          const page = pages[0]; // v1: one FB Page = one brand's Meta identity
+          const ciphertext = await encryptCredential(page.pageAccessToken);
+          const baseMetadata = {
+            category: page.category ?? null,
+            tasks: page.tasks ?? [],
+            linked_at: now,
+            user_email: me.email ?? null,
+            user_access_token_ciphertext: userTokenCiphertext,
+            user_token_expires_at:
+              longLived.expiresAt?.toISOString() ?? null,
+            page_id: page.pageId,
+            page_name: page.pageName,
+            instagram_business_id: page.instagramBusinessId ?? null,
+            instagram_username: page.instagramUsername ?? null,
+            page_picture_url: page.pagePictureUrl ?? null,
+            instagram_picture_url: page.instagramPictureUrl ?? null,
+          };
+
+          // For the "replace" rule, delete any existing active row for the
+          // same (brand, channel) that points at a DIFFERENT account, then
+          // upsert. Same account = idempotent refresh.
+          type SocialConnectionInsert =
+            import("@/integrations/supabase/types").Database["public"]["Tables"]["social_connections"]["Insert"];
+          async function upsertChannel(channel: "facebook" | "instagram", row: SocialConnectionInsert) {
+            await supabaseAdmin
+              .from("social_connections")
+              .delete()
+              .eq("brand_id", state.brandId)
+              .eq("channel", channel)
+              .neq("external_id", row.external_id);
             const { error: upErr } = await supabaseAdmin
               .from("social_connections")
-              .upsert(
-                {
-                  brand_id: state.brandId,
-                  provider: "meta",
-                  external_id: page.pageId,
-                  external_name: page.pageName,
-                  account_id: page.instagramBusinessId ?? null,
-                  account_username: page.instagramUsername ?? null,
-                  owner_external_id: me.id,
-                  owner_name: me.name ?? null,
-                  access_token_ciphertext: ciphertext,
-                  scopes: grantedScopes,
-                  status: "active",
-                  last_error: null,
-                  last_synced_at: now,
-                  token_expires_at:
-                    longLived.expiresAt?.toISOString() ?? null,
-                  metadata: {
-                    category: page.category ?? null,
-                    tasks: page.tasks ?? [],
-                    linked_at: now,
-                    user_email: me.email ?? null,
-                    user_access_token_ciphertext: userTokenCiphertext,
-                    user_token_expires_at:
-                      longLived.expiresAt?.toISOString() ?? null,
-                    instagram_business_id: page.instagramBusinessId ?? null,
-                    instagram_username: page.instagramUsername ?? null,
-                    page_picture_url: page.pagePictureUrl ?? null,
-                    instagram_picture_url: page.instagramPictureUrl ?? null,
-                  },
-                  created_by: state.userId,
-                },
-                { onConflict: "brand_id,provider,external_id" },
-              );
+              .upsert(row, { onConflict: "brand_id,provider,external_id" });
             if (upErr) throw upErr;
+          }
+
+          await upsertChannel("facebook", {
+            brand_id: state.brandId,
+            channel: "facebook",
+            provider: "meta",
+            external_id: page.pageId,
+            external_name: page.pageName,
+            account_id: page.pageId,
+            account_username: null,
+            owner_external_id: me.id,
+            owner_name: me.name ?? null,
+            access_token_ciphertext: ciphertext,
+            scopes: grantedScopes,
+            status: "active",
+            last_error: null,
+            last_synced_at: now,
+            token_expires_at: longLived.expiresAt?.toISOString() ?? null,
+            metadata: baseMetadata,
+            created_by: state.userId,
+          });
+
+          if (page.instagramBusinessId) {
+            await upsertChannel("instagram", {
+              brand_id: state.brandId,
+              channel: "instagram",
+              provider: "meta",
+              external_id: page.instagramBusinessId,
+              external_name: page.instagramUsername ?? page.pageName,
+              account_id: page.instagramBusinessId,
+              account_username: page.instagramUsername ?? null,
+              owner_external_id: me.id,
+              owner_name: me.name ?? null,
+              access_token_ciphertext: ciphertext,
+              scopes: grantedScopes,
+              status: "active",
+              last_error: null,
+              last_synced_at: now,
+              token_expires_at: longLived.expiresAt?.toISOString() ?? null,
+              metadata: baseMetadata,
+              created_by: state.userId,
+            });
           }
 
           return htmlResult({
             ok: true,
-            message: `${pages.length} página(s) conectadas`,
+            message: page.instagramBusinessId
+              ? `Facebook e Instagram conectados a ${page.pageName}`
+              : `Facebook conectado a ${page.pageName}`,
             redirectTo: state.redirectTo ?? "/connections",
           });
         } catch (err) {
