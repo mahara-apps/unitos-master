@@ -2,6 +2,17 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+export const SUPPORTED_CHANNELS = [
+  "instagram",
+  "facebook",
+  "linkedin",
+  "tiktok",
+  "youtube",
+  "x",
+  "threads",
+] as const;
+export type SocialChannel = (typeof SUPPORTED_CHANNELS)[number];
+
 /**
  * Canais conectados por marca — usado pelo Composer.
  * Retorna cada conta publicável com um label amigável, nunca IDs técnicos
@@ -12,7 +23,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 export type PublishableChannel = {
   connectionId: string;
   provider: string; // "meta"
-  network: "instagram" | "facebook" | "tiktok" | "linkedin" | "youtube" | "x" | "threads";
+  network: SocialChannel;
   placement: string; // "instagram_feed" | "facebook_feed" | ...
   label: string; // "Café Aurora · @cafeaurora"
   handle: string | null;
@@ -29,45 +40,108 @@ export const listBrandChannelsFn = createServerFn({ method: "GET" })
     const { data: rows, error } = await context.supabase
       .from("social_connections")
       .select(
-        "id, provider, external_name, account_id, account_username, status, metadata",
+        "id, provider, channel, external_name, account_id, account_username, status, metadata",
       )
       .eq("brand_id", data.brandId)
+      .in("status", ["active", "attention"])
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
 
     const out: PublishableChannel[] = [];
     for (const r of rows ?? []) {
       const meta = (r.metadata ?? {}) as Record<string, any>;
-      // Meta = 1 linha por Página → 2 canais publicáveis (FB + IG quando linkada).
-      if (String(r.provider).startsWith("meta")) {
-        // Facebook Feed sempre disponível
-        out.push({
-          connectionId: r.id,
-          provider: r.provider,
-          network: "facebook",
-          placement: "facebook_feed",
-          label: r.external_name ?? "Página do Facebook",
-          handle: r.external_name ?? null,
-          avatarUrl: meta.page_picture_url ?? null,
-          status: r.status,
-        });
-        // Instagram Feed apenas se Business account estiver linkado
-        if (r.account_id) {
-          out.push({
-            connectionId: r.id,
-            provider: r.provider,
-            network: "instagram",
-            placement: "instagram_feed",
-            label: r.account_username
-              ? `@${r.account_username}`
-              : (r.external_name ?? "Instagram Business"),
-            handle: r.account_username ?? null,
-            avatarUrl: meta.instagram_picture_url ?? meta.page_picture_url ?? null,
-            status: r.status,
-          });
-        }
-      }
-      // Demais redes serão adicionadas quando publishers estiverem prontos.
+      const network = r.channel as SocialChannel;
+      const placement =
+        network === "facebook" ? "facebook_feed"
+        : network === "instagram" ? "instagram_feed"
+        : `${network}_feed`;
+      const label =
+        network === "instagram"
+          ? (r.account_username ? `@${r.account_username}` : (r.external_name ?? "Instagram"))
+          : (r.external_name ?? network);
+      const avatar =
+        network === "instagram"
+          ? (meta.instagram_picture_url ?? meta.page_picture_url ?? null)
+          : network === "facebook"
+            ? (meta.page_picture_url ?? null)
+            : null;
+      out.push({
+        connectionId: r.id,
+        provider: r.provider,
+        network,
+        placement,
+        label,
+        handle: network === "instagram" ? r.account_username : (r.external_name ?? null),
+        avatarUrl: avatar,
+        status: r.status,
+      });
     }
     return out;
+  });
+
+// ---------------------------------------------------------------------------
+// Existência de canal ativo — usado pelo prompt "Substituir conexão"
+// ---------------------------------------------------------------------------
+const ExistsInput = z.object({
+  brandId: z.string().uuid(),
+  channel: z.enum(SUPPORTED_CHANNELS),
+});
+
+export const checkBrandChannelExistsFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => ExistsInput.parse(i))
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase
+      .from("social_connections")
+      .select("id, external_name, account_username, provider")
+      .eq("brand_id", data.brandId)
+      .eq("channel", data.channel)
+      .in("status", ["active", "attention"])
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!row) return { exists: false as const };
+    return {
+      exists: true as const,
+      connectionId: row.id,
+      label: row.account_username
+        ? `@${row.account_username}`
+        : (row.external_name ?? row.provider),
+    };
+  });
+
+// ---------------------------------------------------------------------------
+// Resolver conexão pela marca + canal — Brand como fonte da verdade.
+// Nenhuma tela deve pedir ao usuário para escolher connectionId.
+// ---------------------------------------------------------------------------
+const ResolveInput = z.object({
+  brandId: z.string().uuid(),
+  channel: z.enum(SUPPORTED_CHANNELS),
+});
+
+export const resolveBrandChannelFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => ResolveInput.parse(i))
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase
+      .from("social_connections")
+      .select("id, provider, channel, external_id, external_name, account_username, status")
+      .eq("brand_id", data.brandId)
+      .eq("channel", data.channel)
+      .in("status", ["active", "attention"])
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!row) {
+      throw new Error(
+        `Nenhuma conta ${data.channel} conectada para esta marca. Conecte em /connections.`,
+      );
+    }
+    return {
+      connectionId: row.id,
+      provider: row.provider,
+      channel: row.channel,
+      externalId: row.external_id,
+      label: row.account_username
+        ? `@${row.account_username}`
+        : (row.external_name ?? row.provider),
+    };
   });
