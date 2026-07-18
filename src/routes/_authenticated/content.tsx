@@ -189,7 +189,7 @@ function ContentTabsBar({ current }: { current: ContentTab }) {
           <TabsTrigger key={t.value} value={t.value} asChild>
             <Link
               to="/content"
-              search={(prev) => ({ ...prev, tab: t.value })}
+              search={(prev: Record<string, unknown>) => ({ ...prev, tab: t.value })}
               className="cursor-pointer"
             >
               {t.label}
