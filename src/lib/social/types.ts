@@ -91,3 +91,68 @@ export type GetTopPostsOptions = {
 };
 export type GetAudienceOptions = { network: SocialNetwork; range: DateRange };
 export type GetProfileOptions = { network: SocialNetwork };
+
+// ------------------------------ Lifecycle / Publishing ---------------------
+
+/**
+ * Canonical publish input. Every provider must accept this exact shape so
+ * the UI never learns the vocabulary of a specific network.
+ */
+export type SocialPublishInput = {
+  network: SocialNetwork;
+  /** Feed / stories / reels — providers reject placements they don't support. */
+  placement: "feed" | "story" | "reel";
+  caption?: string;
+  hashtags?: string[];
+  mentions?: string[];
+  media: {
+    /** Publicly reachable image URL. */
+    imageUrl?: string;
+    /** Publicly reachable video URL. */
+    videoUrl?: string;
+    /** Optional external link (feed only, when supported). */
+    link?: string;
+  };
+};
+
+export type SocialPublishResult = {
+  network: SocialNetwork;
+  externalPostId: string;
+  externalPermalink: string | null;
+  providerResponse: Record<string, unknown>;
+};
+
+export type SocialScheduleResult = {
+  network: SocialNetwork;
+  scheduledAt: string;
+  reference: string;
+};
+
+/**
+ * OAuth entry point returned by `connect()`. `state` is a provider-issued
+ * (HMAC-signed) opaque value — the callback route verifies it.
+ */
+export type SocialConnectStart = {
+  network: SocialNetwork;
+  authorizeUrl: string;
+  state: string;
+};
+
+export type SocialTokenInfo = {
+  network: SocialNetwork;
+  connectionId: string;
+  expiresAt: string | null;
+  refreshedAt: string;
+};
+
+export type ConnectOptions = {
+  network: SocialNetwork;
+  brandId: string;
+  /** URL the OAuth callback should return the user to after handling. */
+  returnUrl?: string;
+};
+
+export type DisconnectOptions = { network: SocialNetwork };
+export type RefreshTokenOptions = { network: SocialNetwork };
+export type PublishOptions = SocialPublishInput;
+export type ScheduleOptions = SocialPublishInput & { scheduledAt: string };
