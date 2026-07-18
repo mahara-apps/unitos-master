@@ -32,7 +32,7 @@ export const Route = createFileRoute("/api/public/meta/callback")({
         );
 
         // 1) Verify signed state (CSRF + brand/user context).
-        let state;
+        let state: Awaited<ReturnType<typeof verifyOAuthState>>;
         try {
           state = await verifyOAuthState(stateToken);
         } catch (err) {
@@ -93,13 +93,15 @@ export const Route = createFileRoute("/api/public/meta/callback")({
           // For the "replace" rule, delete any existing active row for the
           // same (brand, channel) that points at a DIFFERENT account, then
           // upsert. Same account = idempotent refresh.
-          async function upsertChannel(channel: "facebook" | "instagram", row: Record<string, unknown>) {
+          type SocialConnectionInsert =
+            import("@/integrations/supabase/types").Database["public"]["Tables"]["social_connections"]["Insert"];
+          async function upsertChannel(channel: "facebook" | "instagram", row: SocialConnectionInsert) {
             await supabaseAdmin
               .from("social_connections")
               .delete()
               .eq("brand_id", state.brandId)
               .eq("channel", channel)
-              .neq("external_id", row.external_id as string);
+              .neq("external_id", row.external_id);
             const { error: upErr } = await supabaseAdmin
               .from("social_connections")
               .upsert(row, { onConflict: "brand_id,provider,external_id" });
