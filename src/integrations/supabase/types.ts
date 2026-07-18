@@ -2426,6 +2426,72 @@ export type Database = {
           },
         ]
       }
+      brand_media_assets: {
+        Row: {
+          brand_id: string
+          created_at: string
+          height: number | null
+          id: string
+          kind: string
+          metadata: Json
+          mime_type: string
+          name: string
+          size_bytes: number
+          storage_path: string
+          tags: string[]
+          updated_at: string
+          uploaded_by: string | null
+          width: number | null
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          height?: number | null
+          id?: string
+          kind: string
+          metadata?: Json
+          mime_type: string
+          name: string
+          size_bytes?: number
+          storage_path: string
+          tags?: string[]
+          updated_at?: string
+          uploaded_by?: string | null
+          width?: number | null
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          height?: number | null
+          id?: string
+          kind?: string
+          metadata?: Json
+          mime_type?: string
+          name?: string
+          size_bytes?: number
+          storage_path?: string
+          tags?: string[]
+          updated_at?: string
+          uploaded_by?: string | null
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_media_assets_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "brand_media_assets_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_members: {
         Row: {
           brand_id: string
