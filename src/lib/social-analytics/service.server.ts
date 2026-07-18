@@ -29,6 +29,15 @@ import type {
   GetPostsOptions,
   GetProfileOptions,
   GetTopPostsOptions,
+  ConnectOptions,
+  DisconnectOptions,
+  RefreshTokenOptions,
+  PublishOptions,
+  ScheduleOptions,
+  SocialConnectStart,
+  SocialPublishResult,
+  SocialScheduleResult,
+  SocialTokenInfo,
   ProviderResult,
   SocialAudience,
   SocialDashboard,
@@ -364,6 +373,88 @@ export function socialErrorResponse(err: unknown): Response {
   return Response.json({ error: "internal", message }, { status: 500 });
 }
 
+// ---------------------------------------------------------------------------
+// Lifecycle & publishing — delegam ao provider concreto via registry.
+// ---------------------------------------------------------------------------
+
+function unwrapWrite<T>(
+  op: string,
+  network: SocialNetwork,
+  res: ProviderResult<T>,
+): T {
+  if (!res.ok) {
+    throw new SocialServiceError("provider_error", `[${network}] ${op}: ${res.error}`, 500);
+  }
+  return res.data;
+}
+
+export async function connect(opts: ConnectOptions): Promise<SocialConnectStart> {
+  const provider = getSocialProviderForNetwork(opts.network);
+  if (!provider) {
+    throw new SocialServiceError("provider_not_implemented", `Provider ${opts.network} não implementado`, 501);
+  }
+  if (!provider.connect) {
+    throw new SocialServiceError("provider_not_implemented", `Provider ${opts.network} não suporta connect()`, 400);
+  }
+  return unwrapWrite("connect", opts.network, await provider.connect(opts));
+}
+
+export async function disconnect(
+  conn: ResolvedConnection,
+  opts: Omit<DisconnectOptions, "network"> = {},
+): Promise<{ revoked: boolean }> {
+  if (!conn.provider.disconnect) {
+    throw new SocialServiceError("provider_not_implemented", `Provider ${conn.network} não suporta disconnect()`, 400);
+  }
+  return unwrapWrite(
+    "disconnect",
+    conn.network,
+    await conn.provider.disconnect(conn.ctx, { network: conn.network, ...opts }),
+  );
+}
+
+export async function refreshToken(
+  conn: ResolvedConnection,
+  opts: Omit<RefreshTokenOptions, "network"> = {},
+): Promise<SocialTokenInfo & { accessToken: string }> {
+  if (!conn.provider.refreshToken) {
+    throw new SocialServiceError("provider_not_implemented", `Provider ${conn.network} não suporta refreshToken()`, 400);
+  }
+  return unwrapWrite(
+    "refreshToken",
+    conn.network,
+    await conn.provider.refreshToken(conn.ctx, { network: conn.network, ...opts }),
+  );
+}
+
+export async function publish(
+  conn: ResolvedConnection,
+  opts: Omit<PublishOptions, "network">,
+): Promise<SocialPublishResult> {
+  if (!conn.provider.publish) {
+    throw new SocialServiceError("provider_not_implemented", `Provider ${conn.network} não suporta publish()`, 400);
+  }
+  return unwrapWrite(
+    "publish",
+    conn.network,
+    await conn.provider.publish(conn.ctx, { network: conn.network, ...opts }),
+  );
+}
+
+export async function schedule(
+  conn: ResolvedConnection,
+  opts: Omit<ScheduleOptions, "network">,
+): Promise<SocialScheduleResult> {
+  if (!conn.provider.schedule) {
+    throw new SocialServiceError("provider_not_implemented", `Provider ${conn.network} não suporta schedule()`, 400);
+  }
+  return unwrapWrite(
+    "schedule",
+    conn.network,
+    await conn.provider.schedule(conn.ctx, { network: conn.network, ...opts }),
+  );
+}
+
 /**
  * Namespace de conveniência — permite escrever
  * `SocialAnalyticsService.getDashboard(...)` no chamador, deixando explícito
@@ -377,6 +468,11 @@ export const SocialAnalyticsService = {
   getTopPosts,
   getAudience,
   getProfile,
+  connect,
+  disconnect,
+  refreshToken,
+  publish,
+  schedule,
   errorResponse: socialErrorResponse,
   requireBearer,
   supabaseForUser,

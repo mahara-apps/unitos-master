@@ -1,10 +1,19 @@
 import type {
+  ConnectOptions,
+  DisconnectOptions,
   GetAudienceOptions,
   GetDashboardOptions,
   GetPostOptions,
   GetPostsOptions,
   GetProfileOptions,
   GetTopPostsOptions,
+  PublishOptions,
+  RefreshTokenOptions,
+  ScheduleOptions,
+  SocialConnectStart,
+  SocialPublishResult,
+  SocialScheduleResult,
+  SocialTokenInfo,
   ProviderResult,
   SocialAudience,
   SocialDashboard,
@@ -47,6 +56,35 @@ export interface SocialProvider {
   /** Human-readable label surfaced to logs/UI. */
   readonly label: string;
 
+  // ---------- Lifecycle (OAuth + token management) ----------
+  /**
+   * Starts an OAuth connect flow WITHOUT any connection context — the caller
+   * is on the UI side and there is no `ctx` yet. Returns the authorize URL
+   * the browser must be redirected to.
+   */
+  connect(opts: ConnectOptions): Promise<ProviderResult<SocialConnectStart>>;
+
+  /**
+   * Revokes provider-side permissions (best effort) and marks the row as
+   * disconnected. The service layer is responsible for persistence — the
+   * provider only performs the network call to the platform.
+   */
+  disconnect(
+    ctx: SocialProviderContext,
+    opts: DisconnectOptions,
+  ): Promise<ProviderResult<{ revoked: boolean }>>;
+
+  /**
+   * Refreshes / re-issues the long-lived access token. Callers persist the
+   * returned `expiresAt` on the connection row.
+   */
+  refreshToken(
+    ctx: SocialProviderContext,
+    opts: RefreshTokenOptions,
+  ): Promise<ProviderResult<SocialTokenInfo & { accessToken: string }>>;
+
+  // ---------- Read ----------
+
   getDashboard(
     ctx: SocialProviderContext,
     opts: GetDashboardOptions,
@@ -76,4 +114,16 @@ export interface SocialProvider {
     ctx: SocialProviderContext,
     opts: GetProfileOptions,
   ): Promise<ProviderResult<SocialProfile>>;
+
+  // ---------- Write (publishing) ----------
+
+  publish(
+    ctx: SocialProviderContext,
+    opts: PublishOptions,
+  ): Promise<ProviderResult<SocialPublishResult>>;
+
+  schedule(
+    ctx: SocialProviderContext,
+    opts: ScheduleOptions,
+  ): Promise<ProviderResult<SocialScheduleResult>>;
 }
