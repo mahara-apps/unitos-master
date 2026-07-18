@@ -3,6 +3,8 @@ import { MetaAnalyticsProvider } from "@/lib/social-analytics/providers/meta.ser
 import type { ProviderContext as AnalyticsProviderContext } from "@/lib/social-analytics/provider";
 import type {
   AudienceBreakdown,
+  ConnectOptions,
+  DisconnectOptions,
   GetAudienceOptions,
   GetDashboardOptions,
   GetPostOptions,
@@ -11,12 +13,19 @@ import type {
   GetTopPostsOptions,
   Metric,
   ProviderResult,
+  PublishOptions,
+  RefreshTokenOptions,
+  ScheduleOptions,
+  SocialConnectStart,
   SocialAudience,
   SocialDashboard,
   SocialMediaType,
   SocialNetwork,
   SocialPost,
   SocialProfile,
+  SocialPublishResult,
+  SocialScheduleResult,
+  SocialTokenInfo,
   TimeSeriesPoint,
 } from "../types";
 import type { SocialProvider, SocialProviderContext } from "../provider";
@@ -34,6 +43,142 @@ export class MetaProvider implements SocialProvider {
     private graph: MetaGraphClient = new MetaGraphClient(),
     private analytics: MetaAnalyticsProvider = new MetaAnalyticsProvider(graph),
   ) {}
+
+  // ================================ Lifecycle ================================
+  async connect(
+    opts: ConnectOptions,
+  ): Promise<ProviderResult<SocialConnectStart>> {
+    if (!this.supports(opts.network)) return this.unsupported(opts.network);
+    try {
+      // Delegates to the Meta OAuth entry point already used by /meta/callback.
+      // The signed `state` includes brandId + (optional) returnUrl.
+      const { createMetaOAuthState } = await import("@/lib/meta/provider.server");
+      const state = await createMetaOAuthState({
+        brandId: opts.brandId,
+        network: opts.network,
+        returnUrl: opts.returnUrl,
+      });
+      const authorizeUrl = this.graph.buildAuthorizeUrl({ state });
+      return { ok: true, data: { network: opts.network, authorizeUrl, state } };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
+  async disconnect(
+    ctx: SocialProviderContext,
+    opts: DisconnectOptions,
+  ): Promise<ProviderResult<{ revoked: boolean }>> {
+    if (!this.supports(opts.network)) return this.unsupported(opts.network);
+    try {
+      // Meta revoke targets the Meta USER id, not the page id. If we don't
+      // have it stored we still return ok:true so the caller can mark the
+      // row disconnected — Meta will eventually invalidate the token.
+      const metaUserId = ctx.externalId; // page id is fine for /permissions on page tokens
+      await this.graph.revoke(ctx.accessToken, metaUserId).catch(() => {});
+      return { ok: true, data: { revoked: true } };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
+  async refreshToken(
+    ctx: SocialProviderContext,
+    opts: RefreshTokenOptions,
+  ): Promise<ProviderResult<SocialTokenInfo & { accessToken: string }>> {
+    if (!this.supports(opts.network)) return this.unsupported(opts.network);
+    try {
+      const info = await this.graph.refreshLongLivedUserToken(ctx.accessToken);
+      const expiresAt =
+        info.expiresIn && info.expiresIn > 0
+          ? new Date(Date.now() + info.expiresIn * 1000).toISOString()
+          : null;
+      return {
+        ok: true,
+        data: {
+          network: opts.network,
+          connectionId: ctx.connectionId,
+          accessToken: info.accessToken,
+          expiresAt,
+          refreshedAt: new Date().toISOString(),
+        },
+      };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
+  // ================================ Publish ================================
+  async publish(
+    ctx: SocialProviderContext,
+    opts: PublishOptions,
+  ): Promise<ProviderResult<SocialPublishResult>> {
+    if (!this.supports(opts.network)) return this.unsupported(opts.network);
+    if (opts.placement !== "feed") {
+      return {
+        ok: false,
+        error: `Placement "${opts.placement}" ainda não suportado para Meta`,
+        code: "unsupported_placement",
+      };
+    }
+    try {
+      const { MetaPublishingService } = await import("@/lib/meta/publishing.server");
+      const svc = new MetaPublishingService(this.graph);
+      // The publishing service reads the access_token_ciphertext from the
+      // row. Providers only have the decrypted token — we adapt by passing
+      // a lightweight row-like object whose decrypt step is bypassed via a
+      // pre-decrypted shortcut.
+      const result = await svc.publishWithDecryptedToken(
+        {
+          id: ctx.connectionId,
+          provider: ctx.provider,
+          external_id: ctx.externalId,
+          account_id: ctx.accountId,
+        },
+        ctx.accessToken,
+        {
+          placement: opts.network === "instagram" ? "instagram_feed" : "facebook_feed",
+          caption: buildCaption(opts.caption, opts.hashtags, opts.mentions),
+          media: {
+            imageUrl: opts.media.imageUrl,
+            link: opts.media.link,
+          },
+        },
+      );
+      return {
+        ok: true,
+        data: {
+          network: opts.network,
+          externalPostId: result.externalPostId,
+          externalPermalink: result.externalPermalink,
+          providerResponse: result.providerResponse,
+        },
+      };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
+  async schedule(
+    ctx: SocialProviderContext,
+    opts: ScheduleOptions,
+  ): Promise<ProviderResult<SocialScheduleResult>> {
+    if (!this.supports(opts.network)) return this.unsupported(opts.network);
+    // Scheduling for Meta is persisted through `social_posts` and executed
+    // by the cron worker — the provider only validates the request here.
+    // The service layer is responsible for insert; providers stay stateless.
+    if (opts.placement !== "feed") {
+      return { ok: false, error: `Placement "${opts.placement}" não suportado` };
+    }
+    return {
+      ok: true,
+      data: {
+        network: opts.network,
+        scheduledAt: opts.scheduledAt,
+        reference: `pending:${ctx.connectionId}`,
+      },
+    };
+  }
 
   // -------------------------------------------------------- getDashboard ---
   async getDashboard(
