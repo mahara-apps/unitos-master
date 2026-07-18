@@ -148,6 +148,8 @@ export type SocialTokenInfo = {
 export type ConnectOptions = {
   network: SocialNetwork;
   brandId: string;
+  /** Authenticated user issuing the connect flow. Required for CSRF state. */
+  userId: string;
   /** URL the OAuth callback should return the user to after handling. */
   returnUrl?: string;
 };
