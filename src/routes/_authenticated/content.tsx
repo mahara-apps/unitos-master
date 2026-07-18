@@ -77,31 +77,127 @@ export const Route = createFileRoute("/_authenticated/content")({
 function ContentPage() {
   const { brandId, clientId } = useActiveContext();
   const search = Route.useSearch();
+  const tab: ContentTab = (search.tab as ContentTab | undefined) ?? "pipeline";
+  const [composerOpen, setComposerOpen] = useState(false);
+
+  usePageHeader(
+    {
+      title: "Conteúdo",
+      subtitle: "Pipeline, calendário, biblioteca e publicações em um só lugar.",
+      actions: (
+        <Button
+          size="sm"
+          className="h-9"
+          onClick={() => setComposerOpen(true)}
+          disabled={!brandId}
+        >
+          <Sparkles className="mr-1.5 h-4 w-4" /> Novo conteúdo
+        </Button>
+      ),
+    },
+    [brandId],
+  );
 
   if (!brandId) {
     return (
       <BoardEmpty
         title="Selecione um workspace"
-        description="Escolha um workspace na barra lateral para visualizar o pipeline de conteúdo."
-      />
-    );
-  }
-  if (!clientId) {
-    return (
-      <BoardEmpty
-        title="Selecione uma conta"
-        description="O pipeline de conteúdo é organizado por cliente. Selecione uma conta ativa."
+        description="Escolha um workspace na barra lateral para visualizar o módulo de conteúdo."
       />
     );
   }
 
   return (
-    <ContentReady
-      brandId={brandId}
-      clientId={clientId}
-      defaultProjectId={search.project ?? null}
-      autoOpenNewTask={!!search.new}
-    />
+    <DashboardPageShell className="flex min-h-0 flex-col space-y-4">
+      <ContentTabsBar current={tab} />
+
+      {tab === "pipeline" && !clientId ? (
+        <BoardEmpty
+          title="Selecione uma conta"
+          description="O pipeline é organizado por cliente. Selecione uma conta ativa."
+        />
+      ) : tab === "pipeline" && clientId ? (
+        <ContentReady
+          brandId={brandId}
+          clientId={clientId}
+          defaultProjectId={search.project ?? null}
+          autoOpenNewTask={!!search.new}
+        />
+      ) : null}
+
+      {tab === "calendar" ? (
+        <DashboardPanelSurface>
+          <div className="flex items-center justify-between p-5">
+            <div>
+              <div className="text-sm font-semibold">Calendário editorial</div>
+              <div className="text-xs text-muted-foreground">
+                Visualização mensal completa em página dedicada.
+              </div>
+            </div>
+            <Button size="sm" asChild>
+              <Link to="/calendar">Abrir calendário</Link>
+            </Button>
+          </div>
+        </DashboardPanelSurface>
+      ) : null}
+
+      {tab === "scheduled" ? (
+        <PublicationsPanel
+          brandId={brandId}
+          onlyStatus="scheduled"
+          title="Publicações agendadas"
+          subtitle="Serão publicadas automaticamente pelo worker Meta."
+        />
+      ) : null}
+
+      {tab === "library" ? <MediaLibraryPanel brandId={brandId} /> : null}
+
+      {tab === "publications" ? (
+        <PublicationsPanel
+          brandId={brandId}
+          title="Publicações"
+          subtitle="Histórico completo por marca (agendadas, publicadas, falhas)."
+        />
+      ) : null}
+
+      {tab === "approvals" ? (
+        <DashboardPanelSurface>
+          <div className="p-8">
+            <PanelEmptyState
+              icon={<Layers className="h-5 w-5" />}
+              text="Fluxo de aprovações em breve — por enquanto use o portal do cliente."
+            />
+          </div>
+        </DashboardPanelSurface>
+      ) : null}
+
+      <ComposerDialog
+        open={composerOpen}
+        onOpenChange={setComposerOpen}
+        brandId={brandId}
+        clientId={clientId ?? null}
+      />
+    </DashboardPageShell>
+  );
+}
+
+function ContentTabsBar({ current }: { current: ContentTab }) {
+  return (
+    <Tabs value={current}>
+      <TabsList>
+        {CONTENT_TABS.map((t) => (
+          <TabsTrigger key={t.value} value={t.value} asChild>
+            <Link
+              to="/content"
+              search={(prev) => ({ ...prev, tab: t.value })}
+              className="cursor-pointer"
+            >
+              {t.label}
+            </Link>
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
   );
 }
 
