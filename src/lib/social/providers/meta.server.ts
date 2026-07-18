@@ -50,13 +50,12 @@ export class MetaProvider implements SocialProvider {
   ): Promise<ProviderResult<SocialConnectStart>> {
     if (!this.supports(opts.network)) return this.unsupported(opts.network);
     try {
-      // Delegates to the Meta OAuth entry point already used by /meta/callback.
-      // The signed `state` includes brandId + (optional) returnUrl.
-      const { createMetaOAuthState } = await import("@/lib/meta/provider.server");
-      const state = await createMetaOAuthState({
+      // Signed state: brandId + userId + optional returnUrl.
+      const { signOAuthState } = await import("@/lib/meta/provider.server");
+      const state = await signOAuthState({
         brandId: opts.brandId,
-        network: opts.network,
-        returnUrl: opts.returnUrl,
+        userId: opts.userId,
+        redirectTo: opts.returnUrl ?? null,
       });
       const authorizeUrl = this.graph.buildAuthorizeUrl({ state });
       return { ok: true, data: { network: opts.network, authorizeUrl, state } };
