@@ -245,6 +245,8 @@ function ConnectButton({
   kind,
   channel,
   brandId,
+  hasExisting,
+  existingLabel,
   manualOpen,
   setManualOpen,
   onChanged,
@@ -253,6 +255,8 @@ function ConnectButton({
   kind: Kind;
   channel: SocialChannelDef;
   brandId: string;
+  hasExisting: boolean;
+  existingLabel?: string | null;
   manualOpen: boolean;
   setManualOpen: (v: boolean) => void;
   onChanged: () => void;
@@ -261,6 +265,7 @@ function ConnectButton({
   const qc = useQueryClient();
   const startFn = useServerFn(startMetaOAuth);
   const [connecting, setConnecting] = useState(false);
+  const [replaceOpen, setReplaceOpen] = useState(false);
 
   // Listen for Meta OAuth popup postMessage.
   useEffect(() => {
@@ -305,8 +310,10 @@ function ConnectButton({
         className={iconOnly ? "" : "flex-1"}
         disabled={connecting}
         onClick={() => {
-          if (kind === "meta") handleMetaConnect();
-          else setManualOpen(true);
+          if (kind === "meta") {
+            if (hasExisting) setReplaceOpen(true);
+            else handleMetaConnect();
+          } else setManualOpen(true);
         }}
         title={iconOnly ? "Adicionar conta" : undefined}
       >
@@ -323,6 +330,32 @@ function ConnectButton({
           onChanged={onChanged}
         />
       )}
+
+      <Dialog open={replaceOpen} onOpenChange={setReplaceOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Substituir conexão de {channel.name}?</DialogTitle>
+            <DialogDescription>
+              Já existe uma conta ativa deste canal para esta marca
+              {existingLabel ? ` (${existingLabel})` : ""}. Continuar irá
+              substituir a conexão existente pela nova conta autorizada.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setReplaceOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => {
+                setReplaceOpen(false);
+                handleMetaConnect();
+              }}
+            >
+              Substituir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
