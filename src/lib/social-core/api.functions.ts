@@ -82,7 +82,12 @@ export const socialCorePublish = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => PublishInput.parse(i))
   .handler(async ({ data, context }) => {
     const { publish } = await import("./core.server");
-    return publish(context.supabase, data, tokenFromRequest());
+    const r = await publish(context.supabase, data, tokenFromRequest());
+    return {
+      network: r.network,
+      externalPostId: r.externalPostId,
+      externalPermalink: r.externalPermalink,
+    };
   });
 
 export const socialCoreSchedule = createServerFn({ method: "POST" })
@@ -99,7 +104,8 @@ export const socialCoreSchedule = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { schedule } = await import("./core.server");
-    return schedule(context.supabase, data, tokenFromRequest());
+    const r = await schedule(context.supabase, data, tokenFromRequest());
+    return { network: r.network, scheduledAt: r.scheduledAt, reference: r.reference };
   });
 
 // -------------------- Read --------------------
