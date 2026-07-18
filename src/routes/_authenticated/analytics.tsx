@@ -36,6 +36,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { SocialAnalyticsDashboard } from "@/components/analytics/social-analytics-dashboard";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
@@ -244,7 +245,7 @@ function AnalyticsPage() {
         </TabsList>
 
         <TabsContent value="social" className="space-y-6">
-          <SocialTab loading={analyticsQuery.isLoading} data={data?.social} />
+          <SocialAnalyticsDashboard brandId={brandId} period={rangeKey} />
         </TabsContent>
         <TabsContent value="production" className="space-y-6">
           <ProductionTab loading={analyticsQuery.isLoading} data={data?.production} />
