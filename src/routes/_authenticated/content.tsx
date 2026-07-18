@@ -1,11 +1,12 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Layers, Loader2, Pencil, Plus, Settings } from "lucide-react";
+import { Layers, Loader2, Pencil, Plus, Settings, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -45,6 +46,19 @@ import {
 import { PanelCard } from "@/components/ui/panel-card";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
+import { MediaLibraryPanel } from "@/components/content/media-library-panel";
+import { PublicationsPanel } from "@/components/content/publications-panel";
+import { ComposerDialog } from "@/components/content/composer-dialog";
+
+const CONTENT_TABS = [
+  { value: "pipeline", label: "Pipeline" },
+  { value: "calendar", label: "Calendário" },
+  { value: "scheduled", label: "Agendados" },
+  { value: "library", label: "Biblioteca" },
+  { value: "publications", label: "Publicações" },
+  { value: "approvals", label: "Aprovações" },
+] as const;
+type ContentTab = (typeof CONTENT_TABS)[number]["value"];
 
 export const Route = createFileRoute("/_authenticated/content")({
   validateSearch: (s: Record<string, unknown>) =>
@@ -52,6 +66,9 @@ export const Route = createFileRoute("/_authenticated/content")({
       .object({
         project: z.string().uuid().optional(),
         new: z.coerce.boolean().optional(),
+        tab: z
+          .enum(["pipeline", "calendar", "scheduled", "library", "publications", "approvals"])
+          .optional(),
       })
       .parse(s),
   component: ContentPage,
