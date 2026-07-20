@@ -3836,6 +3836,194 @@ export type Database = {
           },
         ]
       }
+      project_jobs: {
+        Row: {
+          brand_id: string
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          position: number
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          position?: number
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          position?: number
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_jobs_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "project_jobs_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_jobs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_template_jobs: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          position: number
+          template_id: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          position?: number
+          template_id: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          position?: number
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_template_jobs_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "project_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_template_tasks: {
+        Row: {
+          created_at: string
+          description: string | null
+          estimated_minutes: number | null
+          id: string
+          position: number
+          priority: string | null
+          template_job_id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          estimated_minutes?: number | null
+          id?: string
+          position?: number
+          priority?: string | null
+          template_job_id: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          estimated_minutes?: number | null
+          id?: string
+          position?: number
+          priority?: string | null
+          template_job_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_template_tasks_template_job_id_fkey"
+            columns: ["template_job_id"]
+            isOneToOne: false
+            referencedRelation: "project_template_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_templates: {
+        Row: {
+          brand_id: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          is_system: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_system?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_system?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_templates_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "project_templates_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           brand_id: string
@@ -4168,6 +4356,73 @@ export type Database = {
           },
         ]
       }
+      task_time_entries: {
+        Row: {
+          brand_id: string
+          created_at: string
+          description: string | null
+          ended_at: string | null
+          id: string
+          is_rework: boolean
+          minutes: number | null
+          source: string
+          started_at: string
+          task_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          description?: string | null
+          ended_at?: string | null
+          id?: string
+          is_rework?: boolean
+          minutes?: number | null
+          source?: string
+          started_at?: string
+          task_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          description?: string | null
+          ended_at?: string | null
+          id?: string
+          is_rework?: boolean
+          minutes?: number | null
+          source?: string
+          started_at?: string
+          task_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_time_entries_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "task_time_entries_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_time_entries_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assignee_id: string | null
@@ -4179,11 +4434,15 @@ export type Database = {
           done: boolean
           done_at: string | null
           due_at: string | null
+          estimated_minutes: number | null
           id: string
+          job_id: string | null
+          position: number
           priority: Database["public"]["Enums"]["task_priority"]
           project_id: string | null
           status: Database["public"]["Enums"]["task_status"]
           title: string
+          total_minutes: number
           updated_at: string
         }
         Insert: {
@@ -4196,11 +4455,15 @@ export type Database = {
           done?: boolean
           done_at?: string | null
           due_at?: string | null
+          estimated_minutes?: number | null
           id?: string
+          job_id?: string | null
+          position?: number
           priority?: Database["public"]["Enums"]["task_priority"]
           project_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           title: string
+          total_minutes?: number
           updated_at?: string
         }
         Update: {
@@ -4213,11 +4476,15 @@ export type Database = {
           done?: boolean
           done_at?: string | null
           due_at?: string | null
+          estimated_minutes?: number | null
           id?: string
+          job_id?: string | null
+          position?: number
           priority?: Database["public"]["Enums"]["task_priority"]
           project_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
           title?: string
+          total_minutes?: number
           updated_at?: string
         }
         Relationships: [
@@ -4240,6 +4507,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "project_jobs"
             referencedColumns: ["id"]
           },
           {
@@ -4431,6 +4705,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      instantiate_project_template: {
+        Args: {
+          _brand_id: string
+          _client_id: string
+          _project_name: string
+          _template_id: string
+        }
+        Returns: string
+      }
       is_brand_member: {
         Args: { _brand_id: string; _user_id: string }
         Returns: boolean
@@ -4505,6 +4788,15 @@ export type Database = {
       reap_brain_learning_queue: { Args: never; Returns: number }
       reap_stuck_ai_jobs: { Args: never; Returns: number }
       refresh_brain_stats: { Args: never; Returns: undefined }
+      refresh_task_total_minutes: {
+        Args: { _task_id: string }
+        Returns: number
+      }
+      start_timer: {
+        Args: { _brand_id: string; _task_id: string }
+        Returns: string
+      }
+      stop_timer: { Args: { _entry_id: string }; Returns: number }
       upsert_brain_relationship: {
         Args: {
           _bidirectional?: boolean
