@@ -14,6 +14,7 @@ import {
   Trash2,
   Upload,
   X,
+  Minus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
