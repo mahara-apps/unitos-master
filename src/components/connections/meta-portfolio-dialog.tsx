@@ -9,6 +9,7 @@ import {
   Facebook,
   Instagram,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,6 +24,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   getMetaPortfolio,
@@ -32,6 +34,7 @@ import {
   type PortfolioThreadsAccount,
   type PortfolioAdAccount,
 } from "@/lib/meta/portfolio.functions";
+import { startMetaOAuth } from "@/lib/meta/meta.functions";
 
 /**
  * Post-OAuth account selector. Reads the captured portfolio for a
@@ -55,6 +58,19 @@ export function MetaPortfolioDialog({
   const getFn = useServerFn(getMetaPortfolio);
   const linkFn = useServerFn(linkMetaAccount);
   const unlinkFn = useServerFn(unlinkMetaAccount);
+  const startFn = useServerFn(startMetaOAuth);
+
+  async function reauthorize(channel: "instagram" | "facebook" | "threads") {
+    const popup = window.open("", "meta-oauth", "width=640,height=760");
+    try {
+      const { authorizeUrl } = await startFn({ data: { brandId, channel } });
+      if (popup) popup.location.href = authorizeUrl;
+      else window.location.href = authorizeUrl;
+    } catch (err) {
+      popup?.close();
+      toast.error(err instanceof Error ? err.message : "Falha ao iniciar OAuth");
+    }
+  }
 
   const {
     data,
