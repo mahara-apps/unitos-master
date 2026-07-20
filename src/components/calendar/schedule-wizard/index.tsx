@@ -17,6 +17,7 @@ import {
   Link2,
   MapPin,
   AlertTriangle,
+  Upload,
 } from "lucide-react";
 import {
   Dialog,
@@ -54,9 +55,20 @@ import {
 } from "@/lib/scheduling-wizard.functions";
 import {
   listBrandMediaFn,
+  registerBrandMediaFn,
   type BrandMediaAsset,
 } from "@/lib/brand-media.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { Link } from "@tanstack/react-router";
+
+function slugifyMediaName(name: string) {
+  return name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^\w.\-]+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 120);
+}
 
 type WizardStep = "channels" | "editor" | "summary" | "schedule";
 
