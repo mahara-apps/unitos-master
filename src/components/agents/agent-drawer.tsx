@@ -266,7 +266,7 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
                         variant="ghost"
                         className="h-7 gap-1.5 text-xs"
                         onClick={() => {
-                          setDraftPrompt(agent.system_prompt);
+                          setDraftPrompt(currentPrompt);
                           setEditing(false);
                         }}
                       >
