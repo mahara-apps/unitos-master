@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   CalendarClock,
+  FileText,
   Facebook,
   Instagram,
   Linkedin,
@@ -22,6 +23,7 @@ import {
 } from "@/components/ui/dashboard-primitives";
 import {
   listApprovedUnscheduledFn,
+  listDraftsFn,
   type PendingSchedulePost,
 } from "@/lib/scheduling-wizard.functions";
 
@@ -68,30 +70,46 @@ export function PendingSchedulePanel({
   brandId,
   clientId,
   onPick,
+  mode = "pending",
 }: {
   brandId: string;
   clientId: string | null;
   onPick: (p: PendingSchedulePost) => void;
+  mode?: "pending" | "drafts";
 }) {
-  const list = useServerFn(listApprovedUnscheduledFn);
+  const isDrafts = mode === "drafts";
+  const listPending = useServerFn(listApprovedUnscheduledFn);
+  const listDrafts = useServerFn(listDraftsFn);
   const q = useQuery({
     enabled: !!brandId,
-    queryKey: ["pending-schedule", brandId, clientId],
-    queryFn: () => list({ data: { brandId, clientId: clientId ?? null } }),
+    queryKey: [isDrafts ? "wizard-drafts" : "pending-schedule", brandId, clientId],
+    queryFn: () =>
+      isDrafts
+        ? listDrafts({ data: { brandId, clientId: clientId ?? null } })
+        : listPending({ data: { brandId, clientId: clientId ?? null } }),
   });
+  const HeaderIcon = isDrafts ? FileText : CalendarClock;
+  const headerTitle = isDrafts ? "Rascunhos" : "Aguardando agendamento";
+  const headerSubtitle = isDrafts
+    ? "Posts salvos para continuar depois"
+    : "Posts aprovados sem data";
+  const emptyLabel = isDrafts
+    ? "Nenhum rascunho salvo."
+    : "Nada esperando agendamento no momento.";
+  const dateLabel = isDrafts ? "Atualizado" : "Aprovado";
 
   return (
     <DashboardPanelSurface>
       <div className="flex items-center gap-3 border-b border-border/60 px-4 py-3">
         <DashboardIconFrame>
-          <CalendarClock className="h-4 w-4" />
+          <HeaderIcon className="h-4 w-4" />
         </DashboardIconFrame>
         <div className="min-w-0">
           <div className="text-sm font-semibold tracking-tight">
-            Aguardando agendamento
+            {headerTitle}
           </div>
           <div className="text-xs text-muted-foreground">
-            Posts aprovados sem data
+            {headerSubtitle}
           </div>
         </div>
       </div>
@@ -101,7 +119,7 @@ export function PendingSchedulePanel({
         </div>
       ) : !q.data?.length ? (
         <div className="px-4 py-6 text-center text-xs text-muted-foreground">
-          Nada esperando agendamento no momento.
+          {emptyLabel}
         </div>
       ) : (
         <ScrollArea className="max-h-[440px]">
