@@ -28,6 +28,7 @@ export type PendingSchedulePost = {
   coverUrl: string | null;
   channels: string[];
   approvedAt: string | null;
+  placements: Array<{ channel: string; format: string }>;
 };
 
 // ============================================================
@@ -123,6 +124,29 @@ export const listApprovedUnscheduledFn = createServerFn({ method: "GET" })
     if (data.clientId) q = q.eq("client_id", data.clientId);
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
+    const postIds = (rows ?? []).map((r) => r.id as string);
+    const placementsByPost = new Map<
+      string,
+      Array<{ channel: string; format: string }>
+    >();
+    if (postIds.length) {
+      const { data: pls, error: plErr } = await context.supabase
+        .from("post_placements")
+        .select("post_id, format, copy_override")
+        .in("post_id", postIds);
+      if (plErr) throw new Error(plErr.message);
+      for (const pl of pls ?? []) {
+        const key = pl.post_id as string;
+        const arr = placementsByPost.get(key) ?? [];
+        const co = (pl.copy_override ?? {}) as Record<string, unknown>;
+        const channel = typeof co.channel === "string" ? co.channel : "";
+        arr.push({
+          channel,
+          format: pl.format as string,
+        });
+        placementsByPost.set(key, arr);
+      }
+    }
     return (rows ?? []).map((p) => ({
       postId: p.id as string,
       title: (p.title as string) ?? "Sem título",
@@ -130,6 +154,7 @@ export const listApprovedUnscheduledFn = createServerFn({ method: "GET" })
       coverUrl: (p.cover_url as string | null) ?? null,
       channels: (p.channels as string[] | null) ?? [],
       approvedAt: (p.approved_at as string | null) ?? null,
+      placements: placementsByPost.get(p.id as string) ?? [],
     }));
   });
 
