@@ -2395,6 +2395,79 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_events: {
+        Row: {
+          all_day: boolean
+          brand_id: string | null
+          client_id: string | null
+          color: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          ends_at: string | null
+          id: string
+          is_global: boolean
+          starts_at: string
+          title: string
+          type: Database["public"]["Enums"]["calendar_event_type"]
+          updated_at: string
+        }
+        Insert: {
+          all_day?: boolean
+          brand_id?: string | null
+          client_id?: string | null
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          is_global?: boolean
+          starts_at: string
+          title: string
+          type: Database["public"]["Enums"]["calendar_event_type"]
+          updated_at?: string
+        }
+        Update: {
+          all_day?: boolean
+          brand_id?: string | null
+          client_id?: string | null
+          color?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          is_global?: boolean
+          starts_at?: string
+          title?: string
+          type?: Database["public"]["Enums"]["calendar_event_type"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "calendar_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       card_approval_events: {
         Row: {
           brand_id: string
@@ -4456,6 +4529,7 @@ export type Database = {
         | "changes_requested"
         | "adjust"
         | "rejected"
+      calendar_event_type: "appointment" | "seasonal"
       notification_kind:
         | "mention"
         | "assignment"
@@ -4624,6 +4698,7 @@ export const Constants = {
         "adjust",
         "rejected",
       ],
+      calendar_event_type: ["appointment", "seasonal"],
       notification_kind: [
         "mention",
         "assignment",
