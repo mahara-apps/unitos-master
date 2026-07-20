@@ -3570,6 +3570,69 @@ export type Database = {
           },
         ]
       }
+      meta_oauth_sessions: {
+        Row: {
+          brand_id: string
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          meta_user_email: string | null
+          meta_user_id: string
+          meta_user_name: string | null
+          pages: Json
+          scopes: string[]
+          user_id: string
+          user_token_ciphertext: string
+          user_token_expires_at: string | null
+        }
+        Insert: {
+          brand_id: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          meta_user_email?: string | null
+          meta_user_id: string
+          meta_user_name?: string | null
+          pages?: Json
+          scopes?: string[]
+          user_id: string
+          user_token_ciphertext: string
+          user_token_expires_at?: string | null
+        }
+        Update: {
+          brand_id?: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          meta_user_email?: string | null
+          meta_user_id?: string
+          meta_user_name?: string | null
+          pages?: Json
+          scopes?: string[]
+          user_id?: string
+          user_token_ciphertext?: string
+          user_token_expires_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_oauth_sessions_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "meta_oauth_sessions_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
