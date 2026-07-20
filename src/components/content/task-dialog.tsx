@@ -844,8 +844,6 @@ function EditBody({
         ) : null}
 
           <Separator />
-          <ApprovalLinkSection postId={postId} />
-          <Separator />
           <Timeline items={data.timeline} />
         </div>
       </div>
