@@ -288,5 +288,52 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       if (insErr) throw new Error(insErr.message);
     }
 
+    // ---- Publicar agora: dispara Meta para cada destino suportado ----
+    if (data.action === "publish") {
+      const { publishNow } = await import("@/lib/meta/publishing.functions");
+      const results: Array<{ channel: string; format: string; ok: boolean; error?: string; permalink?: string | null }> = [];
+      for (const d of data.destinations) {
+        let placement: "instagram_feed" | "facebook_feed" | null = null;
+        if (d.format === "feed" && d.channel === "instagram") placement = "instagram_feed";
+        else if (d.format === "feed" && d.channel === "facebook") placement = "facebook_feed";
+        if (!placement) {
+          results.push({ channel: d.channel, format: d.format, ok: false, error: "Formato ainda não publicável (apenas Feed IG/FB)" });
+          continue;
+        }
+        const media = data.mediaPaths[0]
+          ? { storagePath: data.mediaPaths[0], ...(data.linkUrl ? { link: data.linkUrl } : {}) }
+          : (data.linkUrl ? { link: data.linkUrl } : {});
+        try {
+          const caption = [data.copy, ...(data.hashtags.length ? [data.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")] : [])]
+            .filter(Boolean).join("\n\n").trim() || undefined;
+          const r = await publishNow({
+            data: {
+              brandId: data.brandId,
+              clientId: data.clientId,
+              connectionId: d.connectionId,
+              placement,
+              caption,
+              hashtags: [],
+              mentions: [],
+              media,
+              postId,
+            },
+          } as any);
+          results.push({ channel: d.channel, format: d.format, ok: true, permalink: (r as any).externalPermalink ?? null });
+        } catch (err) {
+          results.push({ channel: d.channel, format: d.format, ok: false, error: (err as Error).message });
+        }
+      }
+      const okCount = results.filter((r) => r.ok).length;
+      if (okCount > 0) {
+        await supabase
+          .from("posts")
+          .update({ stage: "published", published_at: new Date().toISOString() } as any)
+          .eq("id", postId)
+          .eq("brand_id", data.brandId);
+      }
+      return { ok: okCount > 0, postId, published: okCount, results };
+    }
+
     return { ok: true, postId };
   });
