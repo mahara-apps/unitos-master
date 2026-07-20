@@ -1844,6 +1844,64 @@ export type Database = {
           },
         ]
       }
+      brand_features: {
+        Row: {
+          brand_id: string
+          created_at: string
+          enabled: boolean
+          enabled_at: string | null
+          enabled_by: string | null
+          feature_key: string
+          id: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          enabled?: boolean
+          enabled_at?: string | null
+          enabled_by?: string | null
+          feature_key: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          enabled?: boolean
+          enabled_at?: string | null
+          enabled_by?: string | null
+          feature_key?: string
+          id?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_features_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "brand_features_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_features_feature_key_fkey"
+            columns: ["feature_key"]
+            isOneToOne: false
+            referencedRelation: "feature_catalog"
+            referencedColumns: ["key"]
+          },
+        ]
+      }
       brand_invites: {
         Row: {
           accepted_at: string | null
@@ -3028,6 +3086,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      feature_catalog: {
+        Row: {
+          category: string | null
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          is_core: boolean
+          key: string
+          name: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_core?: boolean
+          key: string
+          name: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_core?: boolean
+          key?: string
+          name?: string
+        }
+        Relationships: []
       }
       media_plan_items: {
         Row: {
