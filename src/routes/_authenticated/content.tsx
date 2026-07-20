@@ -259,7 +259,7 @@ function ContentReady({
   });
 
   return (
-    <DashboardPageShell className="flex h-[calc(100vh-3.5rem)] min-h-0 flex-col space-y-0 !px-2 !py-3 sm:!px-3 lg:!px-4">
+    <DashboardPageShell className="flex h-[calc(100vh-3.5rem)] min-h-0 flex-col space-y-0">
       {effectivePipelineId ? (
         <Suspense fallback={<BoardSkeleton />}>
           <BoardView
