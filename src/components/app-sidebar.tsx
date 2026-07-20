@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyProfile } from "@/lib/profile.functions";
 import { countMyPendingTasksFn } from "@/lib/tasks.functions";
@@ -48,6 +48,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { ContextSwitcher } from "./brand-client-switcher";
+import { CustomerAvatar } from "@/components/customer/customer-avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -111,6 +112,13 @@ export function AppSidebar() {
   const superQ = useIsSuperAdmin();
   const isSuper = !!superQ.data?.isSuperAdmin;
   const { brandId } = useActiveContextOptional();
+  const { clientId } = useActiveContextOptional();
+  const qc = useQueryClient();
+  const clientsCache = qc.getQueryData<Array<{ id: string; name: string; logo_url?: string | null }>>([
+    "clients",
+    brandId,
+  ]);
+  const activeClient = clientId ? clientsCache?.find((c) => c.id === clientId) ?? null : null;
   const countPending = useServerFn(countMyPendingTasksFn);
   const pendingQ = useQuery({
     queryKey: ["tasks-pending-count", brandId],
@@ -183,6 +191,44 @@ export function AppSidebar() {
             <SidebarGroupLabel>{g.label}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
+                {idx === 0 && activeClient ? (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive(`/customers/${activeClient.id}`)}
+                      tooltip={activeClient.name}
+                    >
+                      <Link
+                        to="/customers/$customerId"
+                        params={{ customerId: activeClient.id }}
+                        preload="intent"
+                        className="group/nav relative flex items-center gap-3"
+                      >
+                        {isActive(`/customers/${activeClient.id}`) ? (
+                          <span
+                            aria-hidden
+                            className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-lime group-data-[collapsible=icon]:hidden"
+                          />
+                        ) : null}
+                        <CustomerAvatar
+                          name={activeClient.name}
+                          logoUrl={activeClient.logo_url ?? null}
+                          className="h-[19px] w-[19px] shrink-0 rounded-md"
+                          textClassName="text-[9px]"
+                        />
+                        <span
+                          className={
+                            isActive(`/customers/${activeClient.id}`)
+                              ? "truncate font-semibold"
+                              : "truncate font-medium"
+                          }
+                        >
+                          {activeClient.name}
+                        </span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ) : null}
                 {g.items.map((item) => (
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
