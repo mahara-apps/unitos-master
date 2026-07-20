@@ -122,9 +122,37 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
       const userToken = await decryptCredential(session.user_token_ciphertext);
 
       try {
-        if (needPages) cachedPages = await provider.listPagesWithInstagram(userToken);
+        if (needPages) {
+          const scanned = await provider.listPagesWithInstagram(userToken);
+          cachedPages = scanned.map((p) => ({
+            pageId: p.pageId,
+            pageName: p.pageName,
+            category: p.category ?? null,
+            pagePictureUrl: p.pagePictureUrl ?? null,
+            instagramBusinessId: p.instagramBusinessId ?? null,
+            instagramUsername: p.instagramUsername ?? null,
+            instagramPictureUrl: p.instagramPictureUrl ?? null,
+            pageAccessToken: p.pageAccessToken,
+          }));
+        }
         if (needThreads) {
-          cachedThreads = await provider.listThreadsAccounts(userToken, cachedPages as never);
+          const pagesForThreads = cachedPages.map((p) => ({
+            pageId: p.pageId,
+            pageName: p.pageName,
+            pageAccessToken: p.pageAccessToken ?? "",
+          }));
+          const scanned = await provider.listThreadsAccounts(
+            userToken,
+            pagesForThreads as never,
+          );
+          cachedThreads = scanned.map((t) => ({
+            threadsUserId: t.threadsUserId,
+            username: t.username ?? null,
+            name: t.name ?? null,
+            pictureUrl: t.pictureUrl ?? null,
+            linkedViaPageId: t.linkedViaPageId,
+            accessToken: t.accessToken,
+          }));
         }
         if (needAds) cachedAds = await provider.listAdAccounts(userToken);
 
