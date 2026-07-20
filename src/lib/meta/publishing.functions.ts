@@ -119,10 +119,15 @@ export const publishNow = createServerFn({ method: "POST" })
     try {
       const { MetaPublishingService } = await import("./publishing.server");
       const svc = new MetaPublishingService();
+      const media = await resolveMediaForPublish(
+        context.supabase,
+        data.brandId,
+        data.media,
+      );
       const result = await svc.publish(conn as any, {
         placement: data.placement,
         caption: buildCaption(data.caption, data.hashtags, data.mentions),
-        media: data.media,
+        media,
       });
       const { error: updErr } = await context.supabase
         .from("social_posts")
@@ -253,4 +258,31 @@ function buildCaption(base?: string, hashtags: string[] = [], mentions: string[]
   if (tags.length) parts.push(tags.join(" "));
   const out = parts.join("\n\n").trim();
   return out.length ? out : undefined;
+}
+
+/**
+ * Se a mídia veio como `storagePath` (bucket privado brand-media, dentro do
+ * escopo da marca), gera uma signed URL fresca (TTL 1h) agora. Nunca persistir
+ * signed URL: elas expiram e quebram tanto o retry quanto o histórico.
+ */
+async function resolveMediaForPublish(
+  supabase: any,
+  brandId: string,
+  media: { imageUrl?: string; storagePath?: string; link?: string },
+): Promise<{ imageUrl?: string; link?: string }> {
+  const out: { imageUrl?: string; link?: string } = {};
+  if (media?.link) out.link = media.link;
+  if (media?.storagePath) {
+    if (!media.storagePath.startsWith(`${brandId}/`)) {
+      throw new Error("storagePath fora do escopo da marca");
+    }
+    const { data, error } = await supabase.storage
+      .from("brand-media")
+      .createSignedUrl(media.storagePath, 3600);
+    if (error) throw new Error(`Falha ao assinar mídia: ${error.message}`);
+    out.imageUrl = data.signedUrl;
+    return out;
+  }
+  if (media?.imageUrl) out.imageUrl = media.imageUrl;
+  return out;
 }
