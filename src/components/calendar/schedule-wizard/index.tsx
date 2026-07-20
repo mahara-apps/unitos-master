@@ -644,6 +644,7 @@ function StepChannels({
 }
 
 function StepEditor({
+  brandId,
   title,
   copy,
   captionLimit,
@@ -662,8 +663,10 @@ function StepEditor({
   onAutoSuggest,
   onTitle,
   onCopy,
+  onUploaded,
   onToggleMedia,
 }: {
+  brandId: string;
   title: string;
   copy: string;
   captionLimit: number;
@@ -682,10 +685,49 @@ function StepEditor({
   onAutoSuggest: () => void;
   onTitle: (v: string) => void;
   onCopy: (v: string) => void;
+  onUploaded: (assets: BrandMediaAsset[]) => void;
   onToggleMedia: (m: BrandMediaAsset) => void;
 }) {
   const overLimit = copy.length > captionLimit;
   const [tagInput, setTagInput] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const uploadRef = useRef<HTMLInputElement>(null);
+  const registerMedia = useServerFn(registerBrandMediaFn);
+  const qc = useQueryClient();
+  async function handleUpload(files: FileList | null) {
+    if (!files?.length) return;
+    setUploading(true);
+    const uploaded: BrandMediaAsset[] = [];
+    try {
+      for (const file of Array.from(files)) {
+        const path = `${brandId}/${crypto.randomUUID()}-${slugifyMediaName(file.name)}`;
+        const { error: upErr } = await supabase.storage
+          .from("brand-media")
+          .upload(path, file, { contentType: file.type, upsert: false });
+        if (upErr) throw new Error(upErr.message);
+        const asset = await registerMedia({
+          data: {
+            brandId,
+            storagePath: path,
+            name: file.name,
+            mimeType: file.type || "application/octet-stream",
+            sizeBytes: file.size,
+            tags: [],
+          },
+        });
+        uploaded.push(asset);
+      }
+      onUploaded(uploaded);
+      qc.invalidateQueries({ queryKey: ["wizard-media", brandId, "all"] });
+      qc.invalidateQueries({ queryKey: ["brand-media", brandId] });
+      toast.success(`${uploaded.length} arquivo(s) enviados`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setUploading(false);
+      if (uploadRef.current) uploadRef.current.value = "";
+    }
+  }
   function commitTag() {
     const raw = tagInput.trim().replace(/^#/, "");
     if (!raw) return;
