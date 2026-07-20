@@ -325,14 +325,22 @@ export function MetaPortfolioDialog({
             </TabsContent>
 
             <TabsContent value="instagram" className="mt-3">
-              <ScrollArea className="h-[420px] rounded-lg border border-border/60">
-                <ul className="divide-y divide-border/60">
-                  {igPages.length === 0 ? (
-                    <li className="p-6 text-center text-xs text-muted-foreground">
-                      Nenhuma conta do Instagram Business encontrada. Verifique se o seu Instagram está corretamente vinculado a uma Página do Facebook.
-                    </li>
-                  ) : (
-                    igPages.map((p) => {
+              {igPages.length === 0 ? (
+                <InstagramEmptyDiagnostic
+                  pagesCount={data?.pagesCount ?? fbPages.length}
+                  pages={fbPages}
+                  missingInstagramScope={(data?.missingScopes ?? []).includes(
+                    "instagram_basic",
+                  )}
+                  missingPagesScope={(data?.missingScopes ?? []).includes(
+                    "pages_show_list",
+                  )}
+                  onReauthorize={() => reauthorize("instagram")}
+                />
+              ) : (
+                <ScrollArea className="h-[420px] rounded-lg border border-border/60">
+                  <ul className="divide-y divide-border/60">
+                    {igPages.map((p) => {
                       const key = `instagram:${p.pageId}`;
                       const connectionId = p.instagramBusinessId
                         ? (data?.connected.instagram[p.instagramBusinessId] ?? null)
@@ -388,10 +396,10 @@ export function MetaPortfolioDialog({
                           </div>
                         </li>
                       );
-                    })
-                  )}
-                </ul>
-              </ScrollArea>
+                    })}
+                  </ul>
+                </ScrollArea>
+              )}
             </TabsContent>
 
             <TabsContent value="threads" className="mt-3">
