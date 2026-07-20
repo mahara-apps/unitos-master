@@ -214,20 +214,14 @@ export class MetaProvider {
     type Paged<T> = { data: T[]; paging?: { next?: string } };
 
     const out: MetaPageAsset[] = [];
-    let nextUrl: string | null = null;
-    let first = true;
-    while (first || nextUrl) {
-      const res: Paged<PageRow> = first
-        ? await this.graph<Paged<PageRow>>("/me/accounts", {
-            accessToken: userAccessToken,
-            query: {
-              fields:
-              "id,name,access_token,category,tasks,picture.type(large){url},instagram_business_account{id,username,profile_picture_url}",
-              limit: "100",
-            },
-          })
-        : await this.graphAbsolute<Paged<PageRow>>(nextUrl!, userAccessToken);
-      for (const p of res.data ?? []) {
+    const seen = new Set<string>();
+    const PAGE_FIELDS =
+      "id,name,access_token,category,tasks,picture.type(large){url},instagram_business_account{id,username,profile_picture_url}";
+
+    const ingest = async (rows: PageRow[]) => {
+      for (const p of rows) {
+        if (seen.has(p.id)) continue;
+        seen.add(p.id);
         const asset: MetaPageAsset = {
           pageId: p.id,
           pageName: p.name,
@@ -239,12 +233,10 @@ export class MetaProvider {
           pagePictureUrl: p.picture?.data?.url,
           instagramPictureUrl: p.instagram_business_account?.profile_picture_url,
         };
-        // Fallback: some IGs return only `id` on the /me/accounts expansion
-        // (private / recently-connected). Hydrate username & avatar with a
-        // direct read using the page token so the selector isn't empty.
         if (
           asset.instagramBusinessId &&
-          (!asset.instagramUsername || !asset.instagramPictureUrl)
+          (!asset.instagramUsername || !asset.instagramPictureUrl) &&
+          p.access_token
         ) {
           try {
             const ig = await this.graph<{
@@ -263,9 +255,65 @@ export class MetaProvider {
         }
         out.push(asset);
       }
-      nextUrl = res.paging?.next ?? null;
-      first = false;
+    };
+
+    const pageLoop = async (
+      startPath: string,
+      query: Record<string, string>,
+    ) => {
+      let nextUrl: string | null = null;
+      let first = true;
+      while (first || nextUrl) {
+        const res: Paged<PageRow> = first
+          ? await this.graph<Paged<PageRow>>(startPath, {
+              accessToken: userAccessToken,
+              query,
+            })
+          : await this.graphAbsolute<Paged<PageRow>>(nextUrl!, userAccessToken);
+        await ingest(res.data ?? []);
+        nextUrl = res.paging?.next ?? null;
+        first = false;
+      }
+    };
+
+    // 1) Páginas admin'd diretamente pelo perfil do usuário.
+    await pageLoop("/me/accounts", { fields: PAGE_FIELDS, limit: "100" });
+
+    // 2) Páginas geridas via Business Portfolios (Meta Business Suite).
+    //    Sem essa varredura, IGs cujas Páginas pertencem a um Business
+    //    (mesmo com o usuário como admin do Business) não aparecem em
+    //    /me/accounts. Requer o escopo `business_management`; se estiver
+    //    faltando, ignoramos silenciosamente.
+    try {
+      type Business = { id: string };
+      let bizNext: string | null = null;
+      let firstBiz = true;
+      while (firstBiz || bizNext) {
+        const bizRes: Paged<Business> = firstBiz
+          ? await this.graph<Paged<Business>>("/me/businesses", {
+              accessToken: userAccessToken,
+              query: { fields: "id", limit: "100" },
+            })
+          : await this.graphAbsolute<Paged<Business>>(bizNext!, userAccessToken);
+        for (const biz of bizRes.data ?? []) {
+          for (const edge of ["owned_pages", "client_pages"] as const) {
+            try {
+              await pageLoop(`/${biz.id}/${edge}`, {
+                fields: PAGE_FIELDS,
+                limit: "100",
+              });
+            } catch {
+              /* escopo/role insuficiente para esse business — segue */
+            }
+          }
+        }
+        bizNext = bizRes.paging?.next ?? null;
+        firstBiz = false;
+      }
+    } catch {
+      /* business_management não concedido — mantém apenas /me/accounts */
     }
+
     return out;
   }
 
