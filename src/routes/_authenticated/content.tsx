@@ -147,11 +147,12 @@ function ContentReady({
 
   const pipelines = pipelinesQuery.data;
   const effectivePipelineId = activePipelineId ?? pipelines[0]?.id ?? null;
+  const [aiPlanOpen, setAiPlanOpen] = useState(false);
 
   usePageHeader(
     {
-      title: "Pipeline de conteúdo",
-      subtitle: "Do briefing à publicação, com D&D fluido e colunas customizáveis.",
+      title: "Conteúdo",
+      subtitle: "Pipeline de produção — do briefing à publicação.",
       actions: (
         <div className="flex items-center gap-2">
           <Select
@@ -190,19 +191,32 @@ function ContentReady({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button size="sm" className="h-9" onClick={() => { setNewTaskStageId(null); setOpenNewTask(true); }}>
-            <Plus className="mr-1.5 h-4 w-4" /> Nova tarefa
-          </Button>
-          <GeneratePlanDialog
-            brandId={brandId}
-            clientId={clientId}
-            onGenerated={() => {
-              setTimeout(() => {
-                qc.invalidateQueries({ queryKey: ["content-board", brandId, clientId] });
-                qc.invalidateQueries({ queryKey: ["calendar"] });
-              }, 1200);
-            }}
-          />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" className="h-9 gap-1.5">
+                <Plus className="h-4 w-4" /> Novo conteúdo
+                <ChevronDown className="h-3.5 w-3.5 opacity-80" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem
+                onClick={() => { setNewTaskStageId(null); setOpenNewTask(true); }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                <div className="flex flex-col">
+                  <span>Manual</span>
+                  <span className="text-[11px] text-muted-foreground">Criar uma tarefa em branco</span>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setAiPlanOpen(true)}>
+                <Sparkles className="mr-2 h-4 w-4 text-fuchsia-500" />
+                <div className="flex flex-col">
+                  <span>Gerar com IA</span>
+                  <span className="text-[11px] text-muted-foreground">Plano estratégico e distribuição</span>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
     },
@@ -284,6 +298,19 @@ function ContentReady({
           />
         </Suspense>
       ) : null}
+
+      <GeneratePlanDialog
+        brandId={brandId}
+        clientId={clientId}
+        open={aiPlanOpen}
+        onOpenChange={setAiPlanOpen}
+        onGenerated={() => {
+          setTimeout(() => {
+            qc.invalidateQueries({ queryKey: ["content-board", brandId, clientId] });
+            qc.invalidateQueries({ queryKey: ["calendar"] });
+          }, 1200);
+        }}
+      />
     </DashboardPageShell>
   );
 }
