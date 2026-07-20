@@ -1,100 +1,78 @@
-## Diagnóstico confirmado
+# Reestruturação: Conexões vs. Canais do Cliente
 
-- **Nenhuma conta Meta foi realmente criada em `social_connections`**: a tabela está vazia para `provider='meta'`.
-- **Nenhum vínculo cliente ↔ conta existe em `client_social_accounts`**: por isso a aba **Canais** do cliente mostra “Nenhuma conta social conectada”.
-- **O cache atual de OAuth está inconsistente**: a sessão mais recente tem `pages_count=0`, enquanto sessões anteriores chegaram a ter `91/119` páginas e `75` contas Ads.
-- **O fluxo ainda pode consumir Graph API em excesso** porque cache vazio (`[]`) é tratado como “precisa buscar de novo”. Isso gera novo scan em cada abertura quando a Meta retorna vazio/rate limit.
-- **O link atual não atende multi-conta por canal**: `linkMetaAccount` apaga outras conexões do mesmo `brand + channel` antes de salvar a nova, o que explica comportamento de “página errada” e perda de seleção.
+Sua leitura está correta — não está complicando. Vamos separar dois níveis com responsabilidades distintas.
 
-## Do I know what the issue is?
-
-Sim. O problema não é só UI: o fluxo precisa ser refeito porque mistura três responsabilidades que devem ser separadas:
+## Modelo mental
 
 ```text
-OAuth Meta
-  apenas autentica e salva token
-
-Portfólio Meta
-  carrega/cacheia contas com proteção anti-rate-limit
-
-Vínculo do cliente
-  atribui social_connection ao client_id ativo
+┌─────────────────────────────────────────────────────────────┐
+│ /connections  (ADMIN-ONLY)                                  │
+│ Integrações "pesadas" de workspace                          │
+│ • Business Manager, Ads Accounts, Pixels, Catálogos         │
+│ • Credenciais de API (OpenAI, Resend, Meta App, tokens)     │
+│ • Webhooks, sistemas globais                                │
+│ • Dashboard read-only: todas as conexões × clientes         │
+└─────────────────────────────────────────────────────────────┘
+                            ▼ abastece
+┌─────────────────────────────────────────────────────────────┐
+│ /customers/:id → aba "Canais"  (TODOS os papéis)            │
+│ Conexão operacional dentro do escopo do cliente             │
+│ • Toggle das contas globais já conectadas (sem re-OAuth)    │
+│ • Botões "Conectar" para novas contas: IG/FB/TikTok/        │
+│   LinkedIn/YouTube/Threads/X                                │
+│ • Vínculo automático em client_social_accounts              │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-Hoje o app abre o seletor com sessão vazia, tenta varrer a Graph API repetidamente, não reaproveita corretamente o último portfólio válido, e ao selecionar uma conta cria vínculo global — não vínculo com o cliente.
+## O que muda
 
-## Plano de correção 100% estrutural
+### 1. Controle de acesso em `/connections`
+- Gate no `beforeLoad` da rota: só `super_admin` e `admin` da agência entram.
+- Item some do sidebar para os demais papéis (usa `hasAnyRole` no `app-sidebar.tsx`).
+- Membros sem permissão que tentarem a URL vão para `/unauthorized`.
 
-1. **Congelar o consumo da Graph API por padrão**
-   - O modal não fará scan automático quando abrir.
-   - Se existir portfólio válido anterior para o mesmo `brand_id + meta_user_id`, ele será reutilizado.
-   - A Graph API só será chamada por ação explícita: **Sincronizar portfólio**.
-   - Em rate limit, salvar um estado de cooldown no banco para bloquear novas tentativas automáticas por alguns minutos.
+### 2. `/connections` redesenhada como hub de workspace
+Três seções (tabs):
+- **Integrações Globais** — Meta Business Manager, Ads Accounts, Pixels, Catálogos. Fica onde já está a lógica de OAuth atual, sem vínculo direto a cliente.
+- **Credenciais de API** — UI para gerir chaves de sistema (leitura via `fetch_secrets`, edição via `add_secret` / `update_secret`). Inclui Meta App, futuros provedores.
+- **Mapa de Conexões** — tabela read-only listando cada `social_connections` × clientes vinculados (via `client_social_accounts`), com status/saúde do token. Sem ação de vincular aqui.
 
-2. **Adicionar metadados de cache na sessão Meta**
-   - Criar campos de controle em `meta_oauth_sessions`, por exemplo:
-     - `portfolio_loaded_at`
-     - `portfolio_load_status`
-     - `portfolio_error`
-     - `portfolio_rate_limited_until`
-   - Isso diferencia:
-     - “nunca carregou”
-     - “carregou e veio vazio”
-     - “falhou por rate limit”
-   - Assim `[]` deixa de ser gatilho para loop infinito.
+### 3. Aba `Canais` do Cliente expandida para todos os canais
+- Layout único com um card por rede social (IG, FB, TikTok, LinkedIn, YouTube, Threads, X).
+- Cada card mostra:
+  - Contas globais **do workspace** naquela rede, com **Switch** para ativar/desativar o vínculo (fluxo atual da Meta, replicado).
+  - Botão **"Conectar nova conta"** que dispara o OAuth do provider correspondente, já passando `clientId` para vínculo automático.
+- Contas não integradas ainda ("em breve") mostram badge desabilitado, sem quebrar layout.
 
-3. **Reutilizar último portfólio válido**
-   - Ao finalizar OAuth, salvar só o token e identidade.
-   - Ao abrir o seletor, antes de consultar a Graph API, copiar/reaproveitar o último cache válido do mesmo usuário Meta e mesma marca.
-   - Isso evita perder as `91/119` páginas já descobertas em sessões anteriores.
+### 4. Providers de canais (backend)
+- Registrar cada rede em `src/lib/social/registry.server.ts` (hoje só Meta).
+- Providers novos (TikTok, LinkedIn, YouTube, Threads, X) entram como stubs implementando a `SocialProvider` interface com `buildAuthorizeUrl`, callback e captura de conta.
+- Callbacks públicos em `src/routes/api/public/{provider}/callback.ts`, todos usando o mesmo padrão cache-first já validado com Meta (só troca code por token, sem scan agressivo na Graph/API).
+- `linkAccount` de cada provider aceita `clientId` opcional e grava em `client_social_accounts`.
+- OAuth real de cada rede exige App/credenciais próprias — vamos deixar cada provider "pronto para plugar" (endpoint + UI funcionais) e habilitar conforme o usuário fornecer as credenciais via `add_secret` (Client ID/Secret de cada plataforma).
 
-4. **Refatorar `linkMetaAccount` para multi-tenant real**
-   - Remover a lógica que apaga outras contas do mesmo canal.
-   - Permitir múltiplas contas Instagram/Facebook/Threads por marca.
-   - Corrigir o identificador usado para Instagram:
-     - Facebook usa `pageId`.
-     - Instagram usa `instagramBusinessId`.
-     - O payload de seleção precisa deixar isso explícito para não salvar a página errada.
+### 5. Fluxo de criação de cliente
+- Sem mudança na criação em si (nada é pré-vinculado).
+- Ao abrir o cliente recém-criado, a aba **Canais** já lista todas as contas globais do workspace com toggle desligado + CTAs de nova conexão. Isso já é o comportamento após esta refatoração.
 
-5. **Conectar e atribuir em uma única ação contextual**
-   - Quando o usuário estiver no perfil do cliente, selecionar uma conta deve:
-     1. criar/atualizar `social_connections`;
-     2. criar o vínculo em `client_social_accounts` para o `client_id` ativo.
-   - Quando o usuário estiver em `/connections`, selecionar uma conta cria apenas conexão global, sem cliente.
-   - A UI deve deixar isso claro: “Conectar ao workspace” vs “Atribuir a este cliente”.
+### 6. Banco de dados
+Nenhuma mudança de schema necessária. `client_social_accounts` e `social_connections` já suportam N:N e o campo `provider` distingue as redes. Só entram novos valores de `provider` conforme adicionarmos APIs.
 
-6. **Corrigir a aba Canais do cliente**
-   - A aba deve listar todas as `social_connections` reais do workspace.
-   - O toggle deve operar apenas em `client_social_accounts`.
-   - Depois de conectar uma conta pelo seletor contextual, a lista deve invalidar/refazer a query e mostrar a conta imediatamente.
+## Escopo desta entrega
 
-7. **Corrigir o Calendário**
-   - O wizard **Novo agendamento** deve ler somente `client_social_accounts` do cliente ativo.
-   - Validar que o `connection_id` ainda existe e está `active`.
-   - Se não houver canais atribuídos, mostrar CTA direto para a aba **Perfil > Canais** do cliente.
+**Nesta iteração (build imediato):**
+- Gate admin em `/connections` + sidebar condicional.
+- Redesenho de `/connections` nas 3 tabs (Integrações Globais / Credenciais / Mapa read-only).
+- Expansão da aba `Canais` do cliente para renderizar todas as redes, com fluxo Meta 100% funcional e placeholders visuais para as demais.
+- Registry pronto para receber novos providers.
 
-8. **Reduzir drasticamente chamadas da Graph API**
-   - Para Instagram, buscar só páginas com `instagram_business_account`.
-   - Não varrer Ads/Business/Threads no fluxo de Instagram.
-   - Não fazer chamadas extras por perfil para imagem/nome quando esses dados já vierem no edge principal.
-   - Remover scan amplo do `business_management` do fluxo padrão; deixar como ação avançada/manual se necessário.
+**Iterações seguintes (uma rede por vez, sob demanda):**
+- Implementar OAuth real de TikTok, LinkedIn, YouTube, Threads, X — cada uma precisa de credenciais do usuário e ativa individualmente.
 
-9. **Validação final**
-   - Confirmar que clicar em **Conectar Instagram** não dispara loop.
-   - Confirmar que selecionar a página/IG cria linha em `social_connections`.
-   - Confirmar que atribuir no cliente cria linha em `client_social_accounts`.
-   - Confirmar que a aba **Canais** do cliente exibe a conta.
-   - Confirmar que o wizard do Calendário lista a conta atribuída.
-   - Confirmar que reabrir modal não aumenta consumo da Graph API sem clique em **Sincronizar**.
+## Detalhes técnicos
 
-## Observação importante
-
-Como o app já estourou o limite da Meta novamente, a correção deve priorizar **não chamar a Graph API automaticamente**. A primeira versão funcional deve operar sobre cache já salvo e só permitir nova varredura quando o usuário clicar conscientemente em sincronizar.
-
-<presentation-actions>
-  <presentation-open-history>View History</presentation-open-history>
-</presentation-actions>
-
-<presentation-actions>
-<presentation-link url="https://docs.lovable.dev/tips-tricks/troubleshooting">Troubleshooting docs</presentation-link>
-</presentation-actions>
+- **Permissão**: adicionar `beforeLoad` em `src/routes/_authenticated/connections.tsx` chamando `hasAnyRole(['super_admin','admin'])` do `use-access-role`. Sidebar (`app-sidebar.tsx`) esconde o link com o mesmo helper.
+- **Mapa read-only**: server fn `listWorkspaceConnectionsWithClientsFn` faz join `social_connections` ⨝ `client_social_accounts` ⨝ `clients`, retorna tabela plana.
+- **Credenciais UI**: usa tools `fetch_secrets` no server (nunca expõe valor), edição sempre via `update_secret`/`add_secret` (abre form seguro).
+- **Aba Canais**: refatorar `channels-tab.tsx` para agrupar por `channel` em vez de listar tudo plano; cada seção usa o mesmo componente reaproveitável `ChannelSection` com Switch + botão conectar.
+- **Provider registry**: adicionar entradas com metadados (label, ícone, `oauthAvailable: boolean`) em `registry.server.ts` para o front renderizar cards mesmo antes do OAuth existir.

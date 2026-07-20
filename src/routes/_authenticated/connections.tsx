@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { useEffect, useState, type ComponentType } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -57,6 +57,7 @@ import { MetaPortfolioDialog } from "@/components/connections/meta-portfolio-dia
 import { listMetaConnections } from "@/lib/meta/meta.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveContext } from "@/hooks/use-active-context";
+import { useAccessRole } from "@/hooks/use-access-role";
 import {
   getConnections,
   updateConnectionsSettings,
@@ -264,6 +265,13 @@ const MESSAGING_CHANNELS: ChannelDef[] = [
 function ConnectionsPage() {
   const { brandId } = useActiveContext();
   const qc = useQueryClient();
+  const { role, isReady } = useAccessRole();
+
+  // Gate: /connections é área admin (BM, credenciais globais, mapa de conexões).
+  // Contas operacionais por cliente vivem em /customers/:id → aba Canais.
+  if (isReady && role !== "admin") {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   // Portfolio selector state (Meta OAuth post-callback).
   const [portfolioSessionId, setPortfolioSessionId] = useState<string | null>(null);
