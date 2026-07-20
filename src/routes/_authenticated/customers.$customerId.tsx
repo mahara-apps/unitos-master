@@ -20,6 +20,7 @@ import {
 } from "@/components/ai-agents/strategy-panel";
 import { CustomerDashboard } from "@/components/customer/customer-dashboard";
 import { BasicInfoTab } from "@/components/customer/basic-info-tab";
+import { ChannelsTab } from "@/components/customer/channels-tab";
 import { BrainWidget } from "@/components/brain/brain-widget";
 import { BriefingWorkspace } from "@/components/brand-hub/briefing-workspace";
 import { QuickOnboardingWizard } from "@/components/brand-hub/quick-onboarding-wizard";
@@ -50,6 +51,7 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
 const TABS = [
   { value: "overview", label: "Visão geral" },
   { value: "brain", label: "Cérebro da Marca" },
+  { value: "channels", label: "Canais" },
   { value: "cadastro", label: "Cadastro" },
 ] as const;
 
@@ -310,6 +312,9 @@ function CustomerDetailReady({
             </TabsContent>
             <TabsContent value="cadastro">
               <BasicInfoTab brandId={brandId} clientId={customerId} />
+            </TabsContent>
+            <TabsContent value="channels">
+              <ChannelsTab brandId={brandId} clientId={customerId} />
             </TabsContent>
           </Tabs>
         )}
