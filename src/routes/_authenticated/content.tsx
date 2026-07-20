@@ -61,6 +61,7 @@ const CONTENT_TABS = [
 type ContentTab = (typeof CONTENT_TABS)[number]["value"];
 
 export const Route = createFileRoute("/_authenticated/content")({
+  beforeLoad: () => ensureFeatureEnabled("blog_post"),
   validateSearch: (s: Record<string, unknown>) =>
     z
       .object({
