@@ -59,7 +59,7 @@ import { ShieldAlert } from "lucide-react";
 type NavItem = {
   title: string;
   url: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
   featureKey?: string;
   badge?: "tasks-pending" | "beta";
 };
