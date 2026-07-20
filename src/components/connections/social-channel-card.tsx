@@ -297,6 +297,19 @@ function ConnectButton({
       const { authorizeUrl } = await startFn({ data: { brandId } });
       if (popup) popup.location.href = authorizeUrl;
       else window.location.href = authorizeUrl;
+      // Detect popup closed without completing OAuth so the button doesn't
+      // stay stuck on "Conectando…" forever.
+      if (popup) {
+        const timer = window.setInterval(() => {
+          if (popup.closed) {
+            window.clearInterval(timer);
+            setConnecting((prev) => {
+              if (prev) toast.message("Conexão cancelada");
+              return false;
+            });
+          }
+        }, 600);
+      }
     } catch (e) {
       setConnecting(false);
       popup?.close();
