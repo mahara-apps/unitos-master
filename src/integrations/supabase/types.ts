@@ -235,6 +235,73 @@ export type Database = {
           },
         ]
       }
+      ai_usage_limits: {
+        Row: {
+          brand_id: string
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          hard_stop: boolean
+          id: string
+          limit_usd: number
+          notify_at_pct: number
+          period: string
+          scope: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          brand_id: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          hard_stop?: boolean
+          id?: string
+          limit_usd: number
+          notify_at_pct?: number
+          period?: string
+          scope: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          brand_id?: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          hard_stop?: boolean
+          id?: string
+          limit_usd?: number
+          notify_at_pct?: number
+          period?: string
+          scope?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_limits_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "ai_usage_limits_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_usage_limits_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brain_embeddings: {
         Row: {
           brand_id: string | null
@@ -1506,6 +1573,7 @@ export type Database = {
           actor_id: string | null
           agent: string
           brand_id: string
+          client_id: string | null
           cost_usd: number
           created_at: string
           error_message: string | null
@@ -1519,6 +1587,7 @@ export type Database = {
           actor_id?: string | null
           agent: string
           brand_id: string
+          client_id?: string | null
           cost_usd?: number
           created_at?: string
           error_message?: string | null
@@ -1532,6 +1601,7 @@ export type Database = {
           actor_id?: string | null
           agent?: string
           brand_id?: string
+          client_id?: string | null
           cost_usd?: number
           created_at?: string
           error_message?: string | null
@@ -1554,6 +1624,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_ai_usage_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -4686,6 +4763,14 @@ export type Database = {
         Args: { _client_id: string; _user_id: string }
         Returns: boolean
       }
+      can_manage_brand_ai_limits: {
+        Args: { _brand_id: string; _user_id: string }
+        Returns: boolean
+      }
+      check_ai_usage_budget: {
+        Args: { _brand_id: string; _client_id: string; _user_id: string }
+        Returns: Json
+      }
       claim_scheduled_social_posts: {
         Args: { p_limit?: number }
         Returns: {
@@ -4788,6 +4873,14 @@ export type Database = {
           required_fields: Json
           updated_at: string
         }[]
+      }
+      list_ai_usage_overview: {
+        Args: {
+          _brand_id: string
+          _period_end?: string
+          _period_start?: string
+        }
+        Returns: Json
       }
       mark_social_post_failed: {
         Args: { p_error: string; p_post_id: string }
