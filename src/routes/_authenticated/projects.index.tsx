@@ -412,6 +412,11 @@ function ProjectsIndexPage() {
         submitting={createMut.isPending}
         onSubmit={(v) => createMut.mutate(v)}
       />
+      <NewFromTemplateDialog
+        open={templateOpen}
+        onOpenChange={setTemplateOpen}
+        brandId={brandId!}
+      />
     </DashboardPageShell>
   );
 }
