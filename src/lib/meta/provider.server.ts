@@ -219,7 +219,7 @@ export class MetaProvider {
             query: {
               fields:
               "id,name,access_token,category,tasks,picture.type(large){url},instagram_business_account{id,username,profile_picture_url}",
-              limit: "50",
+              limit: "100",
             },
           })
         : await this.graphAbsolute<Paged<PageRow>>(nextUrl!);
@@ -265,7 +265,7 @@ export class MetaProvider {
               accessToken: userAccessToken,
               query: {
                 fields: "id,name,currency,timezone_name,account_status,business{name}",
-                limit: "50",
+                limit: "100",
               },
             })
           : await this.graphAbsoluteAuth<Paged<Row>>(nextUrl!);
