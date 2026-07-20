@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   CalendarClock,
@@ -9,19 +9,33 @@ import {
   Loader2,
   Music2,
   Pencil,
+  Trash2,
   Youtube,
   Globe,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   DashboardPanelSurface,
   DashboardIconFrame,
 } from "@/components/ui/dashboard-primitives";
 import {
+  deleteDraftPostFn,
   listApprovedUnscheduledFn,
   listDraftsFn,
   type PendingSchedulePost,
@@ -52,13 +66,32 @@ const FORMAT_LABELS: Record<string, string> = {
   carrossel: "Carrossel",
 };
 
+// Cores oficiais por rede — badge colorido para leitura rápida.
+const CHANNEL_STYLES: Record<string, string> = {
+  instagram:
+    "border-transparent bg-gradient-to-r from-[#f58529] via-[#dd2a7b] to-[#8134af] text-white",
+  facebook: "border-transparent bg-[#1877F2] text-white",
+  linkedin: "border-transparent bg-[#0A66C2] text-white",
+  youtube: "border-transparent bg-[#FF0000] text-white",
+  tiktok: "border-transparent bg-black text-white dark:bg-white dark:text-black",
+  x: "border-transparent bg-black text-white dark:bg-white dark:text-black",
+  threads: "border-transparent bg-black text-white dark:bg-white dark:text-black",
+};
+
+const FORMAT_STYLES: Record<string, string> = {
+  feed: "border-transparent bg-sky-500/15 text-sky-700 dark:text-sky-300",
+  stories: "border-transparent bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300",
+  reels: "border-transparent bg-violet-500/15 text-violet-700 dark:text-violet-300",
+  carrossel: "border-transparent bg-amber-500/15 text-amber-700 dark:text-amber-300",
+};
+
 function ChannelChip({ channel }: { channel: string }) {
   const Icon = CHANNEL_ICONS[channel] ?? Globe;
   const label = CHANNEL_LABELS[channel] ?? channel;
+  const cls = CHANNEL_STYLES[channel] ?? "border-transparent bg-muted text-foreground";
   return (
     <Badge
-      variant="secondary"
-      className="gap-1 px-1.5 py-0 text-[10px] font-medium"
+      className={`gap-1 px-1.5 py-0 text-[10px] font-medium ${cls}`}
     >
       <Icon className="h-3 w-3" />
       {label}
@@ -80,6 +113,19 @@ export function PendingSchedulePanel({
   const isDrafts = mode === "drafts";
   const listPending = useServerFn(listApprovedUnscheduledFn);
   const listDrafts = useServerFn(listDraftsFn);
+  const deleteDraft = useServerFn(deleteDraftPostFn);
+  const queryClient = useQueryClient();
+  const [pendingDelete, setPendingDelete] = useState<PendingSchedulePost | null>(null);
+  const deleteMutation = useMutation({
+    mutationFn: (postId: string) =>
+      deleteDraft({ data: { postId, brandId } }),
+    onSuccess: () => {
+      toast.success("Rascunho excluído.");
+      queryClient.invalidateQueries({ queryKey: ["wizard-drafts", brandId, clientId] });
+      setPendingDelete(null);
+    },
+    onError: (err: Error) => toast.error(err.message || "Falha ao excluir rascunho."),
+  });
   const q = useQuery({
     enabled: !!brandId,
     queryKey: [isDrafts ? "wizard-drafts" : "pending-schedule", brandId, clientId],
@@ -174,8 +220,10 @@ export function PendingSchedulePanel({
                         {formats.slice(0, 4).map((f) => (
                           <Badge
                             key={`f-${f}`}
-                            variant="outline"
-                            className="px-1.5 py-0 text-[10px] font-medium"
+                            className={`px-1.5 py-0 text-[10px] font-medium ${
+                              FORMAT_STYLES[f] ??
+                              "border-transparent bg-muted text-foreground"
+                            }`}
                           >
                             {FORMAT_LABELS[f] ?? f}
                           </Badge>
@@ -189,25 +237,77 @@ export function PendingSchedulePanel({
                       ) : null}
                     </div>
                   </button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Editar post"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onPick(p);
-                    }}
-                    className="absolute right-2 top-2 h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
+                  <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Editar post"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onPick(p);
+                      }}
+                      className="h-8 w-8"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    {isDrafts ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Excluir rascunho"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPendingDelete(p);
+                        }}
+                        className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    ) : null}
+                  </div>
                 </li>
               );
             })}
           </ul>
         </ScrollArea>
       )}
+      <AlertDialog
+        open={!!pendingDelete}
+        onOpenChange={(o) => !o && setPendingDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir rascunho?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O rascunho “{pendingDelete?.title}” será removido permanentemente.
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (pendingDelete) deleteMutation.mutate(pendingDelete.postId);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Excluindo…
+                </>
+              ) : (
+                "Excluir"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardPanelSurface>
   );
 }
