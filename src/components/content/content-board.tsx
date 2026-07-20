@@ -559,6 +559,60 @@ function Column({
 }
 
 function DraggablePostCard({ post, onOpen }: { post: BoardPost; onOpen: (id: string) => void }) {
+  return (
+    <DraggablePostCardInner post={post} onOpen={onOpen} />
+  );
+}
+
+function SortChip({
+  label,
+  icon,
+  active,
+  dir,
+  onClick,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  active: boolean;
+  dir: SortDir | null;
+  onClick: () => void;
+}) {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={onClick}
+            className={`inline-flex h-5 items-center gap-0.5 rounded-md border px-1 text-[10px] transition ${
+              active
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "border-border/60 bg-background/60 text-muted-foreground hover:text-foreground"
+            }`}
+            aria-label={`Ordenar por ${label.toLowerCase()}`}
+          >
+            {icon}
+            {active ? (
+              dir === "asc" ? (
+                <ArrowUp className="h-2.5 w-2.5" />
+              ) : (
+                <ArrowDown className="h-2.5 w-2.5" />
+              )
+            ) : (
+              <ArrowUpDown className="h-2.5 w-2.5" />
+            )}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>
+          Ordenar por {label.toLowerCase()}
+          {active ? ` (${dir === "asc" ? "crescente" : "decrescente"})` : ""}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function DraggablePostCardInner({ post, onOpen }: { post: BoardPost; onOpen: (id: string) => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: post.id });
   return (
     <div
