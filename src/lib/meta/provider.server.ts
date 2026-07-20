@@ -7,16 +7,20 @@ const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
 const OAUTH_DIALOG = `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`;
 
 export const META_DEFAULT_SCOPES = [
+  // Facebook Pages
   "pages_show_list",
   "pages_read_engagement",
   "pages_manage_posts",
-  "pages_manage_metadata",
+  // Instagram Business
   "instagram_basic",
-  "instagram_content_publish",
   "instagram_manage_insights",
-  "business_management",
-  "public_profile",
-  "email",
+  "instagram_content_publish",
+  // Threads
+  "threads_basic",
+  "threads_manage_insights",
+  "threads_content_publish",
+  // Meta Ads
+  "ads_read",
 ];
 
 export type MetaPageAsset = {
@@ -32,6 +36,25 @@ export type MetaPageAsset = {
 };
 
 export type MetaUser = { id: string; name?: string; email?: string };
+
+export type MetaThreadsAccount = {
+  threadsUserId: string;
+  username: string | null;
+  name: string | null;
+  pictureUrl: string | null;
+  /** Threads uses long-lived user tokens; we store what we captured. */
+  accessToken: string;
+  linkedViaPageId?: string;
+};
+
+export type MetaAdAccount = {
+  adAccountId: string; // e.g. "act_1234567890"
+  name: string | null;
+  currency: string | null;
+  timezone: string | null;
+  accountStatus: number | null;
+  businessName: string | null;
+};
 
 export type MetaTokenInfo = {
   accessToken: string;
@@ -216,6 +239,97 @@ export class MetaProvider {
       first = false;
     }
     return out;
+  }
+
+  /**
+   * Lists Meta Ads accounts the user has access to. Requires `ads_read`.
+   */
+  async listAdAccounts(userAccessToken: string): Promise<MetaAdAccount[]> {
+    type Row = {
+      id: string;
+      name?: string;
+      currency?: string;
+      timezone_name?: string;
+      account_status?: number;
+      business?: { name?: string };
+    };
+    type Paged<T> = { data: T[]; paging?: { next?: string } };
+    const out: MetaAdAccount[] = [];
+    let nextUrl: string | null = null;
+    let first = true;
+    try {
+      while (first || nextUrl) {
+        const res: Paged<Row> = first
+          ? await this.graph<Paged<Row>>("/me/adaccounts", {
+              accessToken: userAccessToken,
+              query: {
+                fields: "id,name,currency,timezone_name,account_status,business{name}",
+                limit: "50",
+              },
+            })
+          : await this.graphAbsoluteAuth<Paged<Row>>(nextUrl!);
+        for (const a of res.data ?? []) {
+          out.push({
+            adAccountId: a.id,
+            name: a.name ?? null,
+            currency: a.currency ?? null,
+            timezone: a.timezone_name ?? null,
+            accountStatus: a.account_status ?? null,
+            businessName: a.business?.name ?? null,
+          });
+        }
+        nextUrl = res.paging?.next ?? null;
+        first = false;
+      }
+    } catch (err) {
+      // Missing scope or business setup — return empty list rather than aborting.
+      if (err instanceof MetaGraphError) return out;
+      throw err;
+    }
+    return out;
+  }
+
+  /**
+   * Lists Threads accounts the user manages. Threads accounts are surfaced
+   * per-Facebook-Page via the `threads_profile` edge (Graph v21+).
+   */
+  async listThreadsAccounts(
+    userAccessToken: string,
+    pages: MetaPageAsset[],
+  ): Promise<MetaThreadsAccount[]> {
+    const out: MetaThreadsAccount[] = [];
+    for (const page of pages) {
+      try {
+        const res = await this.graph<{
+          id?: string;
+          username?: string;
+          name?: string;
+          threads_profile_picture_url?: string;
+        }>(`/${page.pageId}/threads_profile`, {
+          accessToken: page.pageAccessToken,
+          query: {
+            fields: "id,username,name,threads_profile_picture_url",
+          },
+        });
+        if (res?.id) {
+          out.push({
+            threadsUserId: res.id,
+            username: res.username ?? null,
+            name: res.name ?? null,
+            pictureUrl: res.threads_profile_picture_url ?? null,
+            accessToken: page.pageAccessToken,
+            linkedViaPageId: page.pageId,
+          });
+        }
+      } catch {
+        // No Threads profile on this page — skip silently.
+      }
+    }
+    return out;
+  }
+
+  private async graphAbsoluteAuth<T>(absoluteUrl: string): Promise<T> {
+    return this.doFetch<T>(absoluteUrl, "GET");
   }
 
   // --------------------------------------------------------- Generic API ---

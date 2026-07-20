@@ -49,6 +49,7 @@ export const Route = createFileRoute("/api/public/meta/callback")({
 
         try {
           const provider = new MetaProvider();
+          const { META_DEFAULT_SCOPES } = await import("@/lib/meta/provider.server");
 
           // 2) code -> short-lived -> long-lived user token
           const shortLived = await provider.exchangeCode(code);
@@ -62,13 +63,22 @@ export const Route = createFileRoute("/api/public/meta/callback")({
             longLived.accessToken,
           );
           const pages = await provider.listPagesWithInstagram(longLived.accessToken);
-          if (pages.length === 0) {
+          const adAccounts = await provider.listAdAccounts(longLived.accessToken);
+          const threadsAccounts = await provider.listThreadsAccounts(
+            longLived.accessToken,
+            pages,
+          );
+          if (pages.length === 0 && adAccounts.length === 0 && threadsAccounts.length === 0) {
             return htmlResult({
               ok: false,
               error:
-                "Nenhuma Página do Facebook encontrada. Verifique se você é admin de ao menos uma Página.",
+                "Nenhuma Página, conta de anúncio ou Threads encontrada. Verifique se você é admin de ao menos uma Página ou Conta.",
             });
           }
+
+          const missingScopes = META_DEFAULT_SCOPES.filter(
+            (s) => !grantedScopes.includes(s),
+          );
 
           // 4) Persist the full portfolio in a short-lived session row. The
           //    frontend will read it via `getMetaPortfolio` and let the user
@@ -85,20 +95,30 @@ export const Route = createFileRoute("/api/public/meta/callback")({
               user_token_ciphertext: userTokenCiphertext,
               user_token_expires_at: longLived.expiresAt?.toISOString() ?? null,
               scopes: grantedScopes,
+              requested_scopes: META_DEFAULT_SCOPES,
               pages: pages as unknown as import("@/integrations/supabase/types").Json,
+              threads_accounts: threadsAccounts as unknown as import("@/integrations/supabase/types").Json,
+              ad_accounts: adAccounts as unknown as import("@/integrations/supabase/types").Json,
             })
             .select("id")
             .single();
           if (sessErr) throw sessErr;
 
+          const parts = [
+            `${pages.length} ${pages.length === 1 ? "Página" : "Páginas"}`,
+            `${threadsAccounts.length} Threads`,
+            `${adAccounts.length} ${adAccounts.length === 1 ? "Conta Ads" : "Contas Ads"}`,
+          ].join(" · ");
+
           return htmlResult({
             ok: true,
-            message: `Portfólio Meta capturado (${pages.length} ${pages.length === 1 ? "Página" : "Páginas"}). Selecione as contas para vincular.`,
+            message: `Portfólio Meta capturado (${parts}). Selecione as contas para vincular.`,
             redirectTo: appendSessionParam(
               state.redirectTo ?? "/connections",
               sessionRow.id,
             ),
             sessionId: sessionRow.id,
+            missingScopes,
           });
         } catch (err) {
           const msg =
@@ -120,6 +140,7 @@ function htmlResult(result: {
   error?: string;
   redirectTo?: string;
   sessionId?: string;
+  missingScopes?: string[];
 }): Response {
   const target = result.redirectTo ?? "/connections";
   const title = result.ok ? "Meta conectada" : "Falha ao conectar Meta";
@@ -148,6 +169,9 @@ function htmlResult(result: {
   try {
     if (window.opener) {
       window.opener.postMessage(${JSON.stringify({ source: "meta-oauth", ok: result.ok, error: result.error, message: result.message, sessionId: result.sessionId ?? null })}, "*");
+      ${result.missingScopes && result.missingScopes.length > 0
+        ? `window.opener.postMessage(${JSON.stringify({ source: "meta-oauth", type: "missing-scopes", scopes: result.missingScopes })}, "*");`
+        : ""}
       setTimeout(() => window.close(), 400);
     } else {
       setTimeout(() => { window.location.href = ${JSON.stringify(target)}; }, 1500);

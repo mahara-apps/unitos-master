@@ -3608,6 +3608,7 @@ export type Database = {
       }
       meta_oauth_sessions: {
         Row: {
+          ad_accounts: Json
           brand_id: string
           consumed_at: string | null
           created_at: string
@@ -3617,12 +3618,15 @@ export type Database = {
           meta_user_id: string
           meta_user_name: string | null
           pages: Json
+          requested_scopes: string[]
           scopes: string[]
+          threads_accounts: Json
           user_id: string
           user_token_ciphertext: string
           user_token_expires_at: string | null
         }
         Insert: {
+          ad_accounts?: Json
           brand_id: string
           consumed_at?: string | null
           created_at?: string
@@ -3632,12 +3636,15 @@ export type Database = {
           meta_user_id: string
           meta_user_name?: string | null
           pages?: Json
+          requested_scopes?: string[]
           scopes?: string[]
+          threads_accounts?: Json
           user_id: string
           user_token_ciphertext: string
           user_token_expires_at?: string | null
         }
         Update: {
+          ad_accounts?: Json
           brand_id?: string
           consumed_at?: string | null
           created_at?: string
@@ -3647,7 +3654,9 @@ export type Database = {
           meta_user_id?: string
           meta_user_name?: string | null
           pages?: Json
+          requested_scopes?: string[]
           scopes?: string[]
+          threads_accounts?: Json
           user_id?: string
           user_token_ciphertext?: string
           user_token_expires_at?: string | null
