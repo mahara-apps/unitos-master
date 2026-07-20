@@ -113,9 +113,17 @@ export function MetaPortfolioDialog({
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["meta-portfolio", brandId, sessionId],
-    queryFn: () => getFn({ data: { brandId, sessionId: sessionId! } }),
+    queryKey: ["meta-portfolio", brandId, sessionId, channel ?? "all"],
+    queryFn: () =>
+      getFn({
+        data: {
+          brandId,
+          sessionId: sessionId!,
+          channel: channel ?? undefined,
+        },
+      }),
     enabled: !!sessionId && open,
+    staleTime: 5 * 60_000,
   });
 
   const [pending, setPending] = useState<Set<string>>(new Set());
