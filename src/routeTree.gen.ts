@@ -52,6 +52,7 @@ import { Route as AuthenticatedSettingsPermissionsRouteImport } from './routes/_
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings.notifications'
 import { Route as AuthenticatedSettingsLogsRouteImport } from './routes/_authenticated/settings.logs'
 import { Route as AuthenticatedSettingsBrandingRouteImport } from './routes/_authenticated/settings.branding'
+import { Route as AuthenticatedSettingsAiLimitsRouteImport } from './routes/_authenticated/settings.ai-limits'
 import { Route as AuthenticatedSettingsAiRouteImport } from './routes/_authenticated/settings.ai'
 import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_authenticated/projects.$projectId'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
@@ -298,6 +299,12 @@ const AuthenticatedSettingsBrandingRoute =
     path: '/branding',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsAiLimitsRoute =
+  AuthenticatedSettingsAiLimitsRouteImport.update({
+    id: '/ai-limits',
+    path: '/ai-limits',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsAiRoute = AuthenticatedSettingsAiRouteImport.update({
   id: '/ai',
   path: '/ai',
@@ -430,6 +437,7 @@ export interface FileRoutesByFullPath {
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
+  '/settings/ai-limits': typeof AuthenticatedSettingsAiLimitsRoute
   '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
   '/settings/logs': typeof AuthenticatedSettingsLogsRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
@@ -488,6 +496,7 @@ export interface FileRoutesByTo {
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
+  '/settings/ai-limits': typeof AuthenticatedSettingsAiLimitsRoute
   '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
   '/settings/logs': typeof AuthenticatedSettingsLogsRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
@@ -552,6 +561,7 @@ export interface FileRoutesById {
   '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
   '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/_authenticated/settings/ai': typeof AuthenticatedSettingsAiRoute
+  '/_authenticated/settings/ai-limits': typeof AuthenticatedSettingsAiLimitsRoute
   '/_authenticated/settings/branding': typeof AuthenticatedSettingsBrandingRoute
   '/_authenticated/settings/logs': typeof AuthenticatedSettingsLogsRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
@@ -616,6 +626,7 @@ export interface FileRouteTypes {
     | '/customers/$customerId'
     | '/projects/$projectId'
     | '/settings/ai'
+    | '/settings/ai-limits'
     | '/settings/branding'
     | '/settings/logs'
     | '/settings/notifications'
@@ -674,6 +685,7 @@ export interface FileRouteTypes {
     | '/customers/$customerId'
     | '/projects/$projectId'
     | '/settings/ai'
+    | '/settings/ai-limits'
     | '/settings/branding'
     | '/settings/logs'
     | '/settings/notifications'
@@ -737,6 +749,7 @@ export interface FileRouteTypes {
     | '/_authenticated/customers/$customerId'
     | '/_authenticated/projects/$projectId'
     | '/_authenticated/settings/ai'
+    | '/_authenticated/settings/ai-limits'
     | '/_authenticated/settings/branding'
     | '/_authenticated/settings/logs'
     | '/_authenticated/settings/notifications'
@@ -1104,6 +1117,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsBrandingRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/settings/ai-limits': {
+      id: '/_authenticated/settings/ai-limits'
+      path: '/ai-limits'
+      fullPath: '/settings/ai-limits'
+      preLoaderRoute: typeof AuthenticatedSettingsAiLimitsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/ai': {
       id: '/_authenticated/settings/ai'
       path: '/ai'
@@ -1314,6 +1334,7 @@ const AuthenticatedProjectsRouteWithChildren =
 
 interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsAiRoute: typeof AuthenticatedSettingsAiRoute
+  AuthenticatedSettingsAiLimitsRoute: typeof AuthenticatedSettingsAiLimitsRoute
   AuthenticatedSettingsBrandingRoute: typeof AuthenticatedSettingsBrandingRoute
   AuthenticatedSettingsLogsRoute: typeof AuthenticatedSettingsLogsRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
@@ -1325,6 +1346,7 @@ interface AuthenticatedSettingsRouteChildren {
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsAiRoute: AuthenticatedSettingsAiRoute,
+  AuthenticatedSettingsAiLimitsRoute: AuthenticatedSettingsAiLimitsRoute,
   AuthenticatedSettingsBrandingRoute: AuthenticatedSettingsBrandingRoute,
   AuthenticatedSettingsLogsRoute: AuthenticatedSettingsLogsRoute,
   AuthenticatedSettingsNotificationsRoute:
