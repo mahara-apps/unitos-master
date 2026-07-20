@@ -623,6 +623,7 @@ function accountsForChannel(
         updatedAt: c.updatedAt,
         status: c.status === "active" ? "active" : "attention",
         lastError: c.lastError,
+        tokenExpiresAt: c.tokenExpiresAt,
       };
     });
   }
@@ -646,6 +647,7 @@ function accountsForChannel(
           updatedAt: c.updatedAt,
           status: c.status === "active" ? "active" : "attention",
           lastError: c.lastError,
+          tokenExpiresAt: c.tokenExpiresAt,
         };
       });
   }
