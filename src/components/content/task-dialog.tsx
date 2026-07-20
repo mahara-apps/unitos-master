@@ -1169,11 +1169,22 @@ function TaskLayout({
           </div>
         </div>
 
-        <CopyEditor
-          value={state.copy}
-          onChange={(v) => set("copy", v)}
-          postId={mode === "edit" ? postId : undefined}
-        />
+        <div className="space-y-1">
+          <CopyEditor
+            value={state.copy}
+            onChange={(v) => set("copy", v)}
+            postId={mode === "edit" ? postId : undefined}
+          />
+          {mode === "edit" ? (
+            <div className="flex justify-end px-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              {copyAutosaveStatus === "saving"
+                ? "Salvando…"
+                : copyAutosaveStatus === "saved"
+                  ? "Salvo automaticamente"
+                  : ""}
+            </div>
+          ) : null}
+        </div>
 
         <Tabs defaultValue="internal" className="w-full">
           <TabsList variant="grid" className="grid w-full grid-cols-3">
