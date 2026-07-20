@@ -11,6 +11,12 @@ import {
   Loader2,
   Send,
   X,
+  Video as VideoIcon,
+  Hash,
+  MessageCircle,
+  Link2,
+  MapPin,
+  AlertTriangle,
 } from "lucide-react";
 import {
   Dialog,
@@ -34,6 +40,11 @@ import {
   FORMAT_LABEL,
   tightestCaptionLimit,
   type PlacementFormat,
+  type MediaKind,
+  inferMediaKind,
+  isFormatCompatibleWithMedia,
+  formatIncompatibilityReason,
+  suggestFormatsForMedia,
 } from "@/lib/scheduling-formats";
 import { SOCIAL_CHANNELS, type SocialChannel } from "@/lib/social-core/capabilities";
 import {
@@ -87,6 +98,10 @@ export function ScheduleWizard({
   const [selectedMedia, setSelectedMedia] = useState<BrandMediaAsset[]>([]);
   const [scheduleAt, setScheduleAt] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
+  const [hashtags, setHashtags] = useState<string[]>([]);
+  const [firstComment, setFirstComment] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [locationName, setLocationName] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -95,6 +110,10 @@ export function ScheduleWizard({
     setCopy(seed?.copy ?? "");
     setPairs([]);
     setSelectedMedia([]);
+    setHashtags([]);
+    setFirstComment("");
+    setLinkUrl("");
+    setLocationName("");
     if (defaultDate) {
       const d = new Date(defaultDate);
       d.setSeconds(0, 0);
@@ -124,7 +143,9 @@ export function ScheduleWizard({
 
   const mediaQ = useQuery({
     enabled: open && step === "editor",
-    queryKey: ["wizard-media", brandId],
+    queryKey: ["wizard-media", brandId, "all"],
+    // Sem filtro de kind → biblioteca devolve imagem + vídeo. Vídeos ganham
+    // badge de duração no picker e destravam Reels/Stories no seletor de formato.
     queryFn: () => listMedia({ data: { brandId, limit: 60 } }),
   });
 
@@ -138,6 +159,18 @@ export function ScheduleWizard({
     return map;
   }, [connectionsQ.data]);
 
+  const mediaKind: MediaKind = useMemo(
+    () => inferMediaKind(selectedMedia),
+    [selectedMedia],
+  );
+
+  // Sempre que a mídia muda, remove pares incompatíveis do estado.
+  useEffect(() => {
+    setPairs((prev) =>
+      prev.filter((p) => isFormatCompatibleWithMedia(p.format, mediaKind)),
+    );
+  }, [mediaKind]);
+
   const captionLimit = useMemo(
     () => tightestCaptionLimit(pairs.map((p) => p.channel)),
     [pairs],
@@ -145,6 +178,16 @@ export function ScheduleWizard({
 
   const canContinueChannels = pairs.length > 0;
   const canContinueEditor = title.trim().length > 0 && copy.length <= captionLimit;
+
+  function autoSuggestPairs() {
+    // Preenche 1 formato sugerido por canal conectado, respeitando a mídia atual.
+    const suggested: typeof pairs = [];
+    for (const [channel, conn] of connByChannel.entries()) {
+      const [fmt] = suggestFormatsForMedia(channel, mediaKind);
+      if (fmt) suggested.push({ channel, format: fmt, connectionId: conn.connectionId });
+    }
+    if (suggested.length) setPairs(suggested);
+  }
 
   async function persist(action: "draft" | "publish" | "schedule") {
     if (!pairs.length) return;
@@ -158,7 +201,10 @@ export function ScheduleWizard({
           title: title.trim() || "Publicação sem título",
           copy,
           mediaPaths: selectedMedia.map((m) => m.storagePath),
-          hashtags: [],
+          hashtags,
+          firstComment: firstComment.trim() || null,
+          linkUrl: linkUrl.trim() || null,
+          locationName: locationName.trim() || null,
           destinations: pairs.map((p) => ({
             connectionId: p.connectionId,
             channel: p.channel,
@@ -207,9 +253,18 @@ export function ScheduleWizard({
               connByChannel={connByChannel}
               loading={connectionsQ.isLoading}
               pairs={pairs}
+              mediaKind={mediaKind}
+              selectedMediaCount={selectedMedia.length}
               onTogglePair={(channel, format) => {
                 const conn = connByChannel.get(channel);
                 if (!conn) return;
+                if (!isFormatCompatibleWithMedia(format, mediaKind)) {
+                  toast.error(
+                    formatIncompatibilityReason(format, mediaKind) ??
+                      "Formato incompatível com a mídia selecionada.",
+                  );
+                  return;
+                }
                 setPairs((prev) => {
                   const exists = prev.find(
                     (p) => p.channel === channel && p.format === format,
@@ -235,6 +290,17 @@ export function ScheduleWizard({
               captionLimit={captionLimit}
               media={mediaQ.data ?? []}
               selectedMedia={selectedMedia}
+              mediaKind={mediaKind}
+              hashtags={hashtags}
+              firstComment={firstComment}
+              linkUrl={linkUrl}
+              locationName={locationName}
+              onHashtags={setHashtags}
+              onFirstComment={setFirstComment}
+              onLinkUrl={setLinkUrl}
+              onLocationName={setLocationName}
+              onAutoSuggest={autoSuggestPairs}
+              hasPairs={pairs.length > 0}
               onTitle={setTitle}
               onCopy={setCopy}
               onToggleMedia={(m) => {
@@ -413,12 +479,16 @@ function StepChannels({
   connByChannel,
   loading,
   pairs,
+  mediaKind,
+  selectedMediaCount,
   onTogglePair,
 }: {
   connections: WizardConnection[];
   connByChannel: Map<SocialChannel, WizardConnection>;
   loading: boolean;
   pairs: { channel: SocialChannel; format: PlacementFormat; connectionId: string }[];
+  mediaKind: MediaKind;
+  selectedMediaCount: number;
   onTogglePair: (c: SocialChannel, f: PlacementFormat) => void;
 }) {
   if (loading) {
@@ -443,6 +513,30 @@ function StepChannels({
   }
   return (
     <div className="space-y-4">
+      {mediaKind === "none" ? (
+        <div className="flex items-start gap-2 rounded-md border border-dashed border-border/60 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5" />
+          <span>
+            Nenhuma mídia selecionada. Todos os formatos aparecem disponíveis, mas
+            Reels exige vídeo e Carrossel exige 2+ imagens — anexe uma mídia no
+            passo <b>Editor</b> para o sistema travar as opções incompatíveis.
+          </span>
+        </div>
+      ) : mediaKind === "mixed" ? (
+        <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-[11px] text-destructive">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5" />
+          <span>
+            Você selecionou imagem <b>e</b> vídeo. A Meta não aceita esse mix numa
+            mesma publicação — mantenha apenas um tipo.
+          </span>
+        </div>
+      ) : (
+        <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+          Mídia atual: <b>{mediaKindLabel(mediaKind)}</b>
+          {selectedMediaCount ? ` · ${selectedMediaCount} arquivo(s)` : ""}. Os
+          formatos incompatíveis ficam desabilitados.
+        </div>
+      )}
       {SOCIAL_CHANNELS.map((channel) => {
         const conn = connByChannel.get(channel);
         const formats = FORMATS_BY_CHANNEL[channel] ?? [];
@@ -488,21 +582,34 @@ function StepChannels({
                 const selected = pairs.some(
                   (p) => p.channel === channel && p.format === f,
                 );
+                const compatible = isFormatCompatibleWithMedia(f, mediaKind);
+                const reason = formatIncompatibilityReason(f, mediaKind);
                 return (
                   <button
                     key={f}
                     type="button"
-                    disabled={!conn}
+                    disabled={!conn || !compatible}
+                    title={
+                      !conn
+                        ? "Sem conta conectada"
+                        : reason ?? `${FORMAT_LABEL[f]} disponível`
+                    }
                     onClick={() => onTogglePair(channel, f)}
                     className={cn(
                       "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
                       selected
                         ? "border-primary bg-primary/10 text-primary"
                         : "border-border/60 hover:bg-muted",
-                      !conn && "cursor-not-allowed",
+                      (!conn || !compatible) &&
+                        "cursor-not-allowed opacity-40 hover:bg-transparent",
                     )}
                   >
                     {FORMAT_LABEL[f]}
+                    {f === "reels" ? (
+                      <span className="ml-1 text-[9px] opacity-60">vídeo</span>
+                    ) : f === "carrossel" ? (
+                      <span className="ml-1 text-[9px] opacity-60">2+ imgs</span>
+                    ) : null}
                   </button>
                 );
               })}
@@ -520,6 +627,17 @@ function StepEditor({
   captionLimit,
   media,
   selectedMedia,
+  mediaKind,
+  hashtags,
+  firstComment,
+  linkUrl,
+  locationName,
+  hasPairs,
+  onHashtags,
+  onFirstComment,
+  onLinkUrl,
+  onLocationName,
+  onAutoSuggest,
   onTitle,
   onCopy,
   onToggleMedia,
@@ -529,11 +647,33 @@ function StepEditor({
   captionLimit: number;
   media: BrandMediaAsset[];
   selectedMedia: BrandMediaAsset[];
+  mediaKind: MediaKind;
+  hashtags: string[];
+  firstComment: string;
+  linkUrl: string;
+  locationName: string;
+  hasPairs: boolean;
+  onHashtags: (v: string[]) => void;
+  onFirstComment: (v: string) => void;
+  onLinkUrl: (v: string) => void;
+  onLocationName: (v: string) => void;
+  onAutoSuggest: () => void;
   onTitle: (v: string) => void;
   onCopy: (v: string) => void;
   onToggleMedia: (m: BrandMediaAsset) => void;
 }) {
   const overLimit = copy.length > captionLimit;
+  const [tagInput, setTagInput] = useState("");
+  function commitTag() {
+    const raw = tagInput.trim().replace(/^#/, "");
+    if (!raw) return;
+    if (hashtags.includes(raw)) {
+      setTagInput("");
+      return;
+    }
+    onHashtags([...hashtags, raw]);
+    setTagInput("");
+  }
   return (
     <div className="space-y-5">
       <div className="space-y-2">
@@ -565,23 +705,132 @@ function StepEditor({
           placeholder="Escreva a legenda. O limite acima respeita a rede mais restritiva selecionada."
         />
       </div>
+
+      {/* -------- Hashtags -------- */}
+      <div className="space-y-2">
+        <Label className="flex items-center gap-1.5">
+          <Hash className="h-3.5 w-3.5" /> Hashtags
+          <span className="text-[10px] font-normal text-muted-foreground">
+            (entrar ou vírgula para adicionar)
+          </span>
+        </Label>
+        <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-border/60 p-2">
+          {hashtags.map((t) => (
+            <span
+              key={t}
+              className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] text-primary"
+            >
+              #{t}
+              <button
+                type="button"
+                onClick={() => onHashtags(hashtags.filter((x) => x !== t))}
+                className="text-primary/70 hover:text-primary"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+          <input
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === ",") {
+                e.preventDefault();
+                commitTag();
+              } else if (e.key === "Backspace" && !tagInput && hashtags.length) {
+                onHashtags(hashtags.slice(0, -1));
+              }
+            }}
+            onBlur={commitTag}
+            placeholder={hashtags.length ? "" : "marketing, unitos, launch…"}
+            className="min-w-[120px] flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+          />
+        </div>
+      </div>
+
+      {/* -------- Extras -------- */}
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="wiz-first-comment" className="flex items-center gap-1.5 text-xs">
+            <MessageCircle className="h-3.5 w-3.5" /> Primeiro comentário
+            <span className="text-[10px] font-normal text-muted-foreground">Instagram</span>
+          </Label>
+          <Textarea
+            id="wiz-first-comment"
+            rows={2}
+            value={firstComment}
+            onChange={(e) => onFirstComment(e.target.value)}
+            placeholder="Comentário fixado após o post (dica: pool de hashtags)."
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="wiz-link" className="flex items-center gap-1.5 text-xs">
+            <Link2 className="h-3.5 w-3.5" /> Link
+            <span className="text-[10px] font-normal text-muted-foreground">Facebook</span>
+          </Label>
+          <Input
+            id="wiz-link"
+            type="url"
+            value={linkUrl}
+            onChange={(e) => onLinkUrl(e.target.value)}
+            placeholder="https://…"
+          />
+          <Label htmlFor="wiz-location" className="mt-2 flex items-center gap-1.5 text-xs">
+            <MapPin className="h-3.5 w-3.5" /> Localização
+            <span className="text-[10px] font-normal text-muted-foreground">opcional</span>
+          </Label>
+          <Input
+            id="wiz-location"
+            value={locationName}
+            onChange={(e) => onLocationName(e.target.value)}
+            placeholder="Ex.: São Paulo, SP"
+          />
+        </div>
+      </div>
+
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label>Mídia</Label>
-          <span className="text-[11px] text-muted-foreground">
-            {selectedMedia.length} selecionada(s)
-          </span>
+          <Label className="flex items-center gap-2">
+            Mídia
+            {mediaKind !== "none" ? (
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-normal text-muted-foreground">
+                {mediaKindLabel(mediaKind)}
+              </span>
+            ) : null}
+          </Label>
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span>{selectedMedia.length} selecionada(s)</span>
+            {mediaKind !== "none" && mediaKind !== "mixed" && !hasPairs ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-6 px-2 text-[10px]"
+                onClick={onAutoSuggest}
+              >
+                Sugerir formatos
+              </Button>
+            ) : null}
+          </div>
         </div>
+        {mediaKind === "mixed" ? (
+          <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-[11px] text-destructive">
+            <AlertTriangle className="mt-0.5 h-3.5 w-3.5" />
+            <span>Remova imagens OU vídeos — só um tipo por publicação.</span>
+          </div>
+        ) : null}
         {media.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
             <ImageIcon className="mx-auto mb-2 h-5 w-5" />
-            Nenhuma mídia na biblioteca. Faça upload em Mídias.
+            Nenhuma mídia na biblioteca. Faça upload de imagens ou vídeos na aba
+            <b> Mídias</b> do cliente.
           </div>
         ) : (
           <ScrollArea className="h-56 rounded-lg border border-border/60">
             <div className="grid grid-cols-4 gap-2 p-2">
               {media.map((m) => {
                 const selected = selectedMedia.some((x) => x.id === m.id);
+                const isVideo = m.kind === "video";
                 return (
                   <button
                     key={m.id}
@@ -592,7 +841,15 @@ function StepEditor({
                       selected ? "border-primary" : "border-transparent hover:border-border",
                     )}
                   >
-                    {m.publicUrl ? (
+                    {isVideo && m.publicUrl ? (
+                      <video
+                        src={m.publicUrl}
+                        className="h-full w-full object-cover"
+                        muted
+                        playsInline
+                        preload="metadata"
+                      />
+                    ) : m.publicUrl ? (
                       <img
                         src={m.publicUrl}
                         alt={m.name}
@@ -603,6 +860,11 @@ function StepEditor({
                         {m.kind}
                       </div>
                     )}
+                    {isVideo ? (
+                      <span className="absolute bottom-1 left-1 inline-flex items-center gap-0.5 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold text-white">
+                        <VideoIcon className="h-2.5 w-2.5" /> vídeo
+                      </span>
+                    ) : null}
                     {selected ? (
                       <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
                         <Check className="h-3 w-3" />
@@ -615,8 +877,30 @@ function StepEditor({
           </ScrollArea>
         )}
       </div>
+
+      <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+        <b>Sobre música em Reels:</b> a API oficial da Meta exige um{" "}
+        <code>music_track_id</code> do catálogo licenciado, que ainda não é
+        exposto publicamente. Recomendação: publique o áudio embutido no arquivo
+        de vídeo e sinalize a trilha na legenda.
+      </div>
     </div>
   );
+}
+
+function mediaKindLabel(k: MediaKind): string {
+  switch (k) {
+    case "single_image":
+      return "1 imagem";
+    case "multi_image":
+      return "2+ imagens";
+    case "video":
+      return "vídeo";
+    case "mixed":
+      return "mix inválido";
+    default:
+      return "sem mídia";
+  }
 }
 
 function StepSummary({
