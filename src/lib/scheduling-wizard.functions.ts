@@ -486,3 +486,41 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
 
     return { ok: true, postId };
   });
+
+// ============================================================
+// deleteDraftPostFn — remove rascunho (stage=idea) do wizard
+// ============================================================
+
+export const deleteDraftPostFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        postId: z.string().uuid(),
+        brandId: z.string().uuid(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    // Confirma que é rascunho antes de deletar (evita apagar post publicado/agendado).
+    const { data: row, error: rErr } = await context.supabase
+      .from("posts")
+      .select("id, stage")
+      .eq("id", data.postId)
+      .eq("brand_id", data.brandId)
+      .maybeSingle();
+    if (rErr) throw new Error(rErr.message);
+    if (!row) throw new Error("Rascunho não encontrado.");
+    if (row.stage !== "idea") {
+      throw new Error("Apenas rascunhos podem ser excluídos por aqui.");
+    }
+    // Placements dependem do post — remove primeiro por segurança se não houver cascade.
+    await context.supabase.from("post_placements").delete().eq("post_id", data.postId);
+    const { error } = await context.supabase
+      .from("posts")
+      .delete()
+      .eq("id", data.postId)
+      .eq("brand_id", data.brandId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
