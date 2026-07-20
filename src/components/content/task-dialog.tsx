@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   useMutation,
   useQuery,
@@ -803,76 +803,22 @@ function EditBody({
           postId={postId}
           createdAt={post.created_at}
           copyAutosaveStatus={copyAutosaveStatus}
+          mediaSlot={
+            <MediaReferenceBlock
+              refs={refs}
+              signedUrls={signedUrls}
+              fileInput={fileInput}
+              onFiles={(fs) => upload.mutate(fs)}
+              onRemove={(p) => removeMedia.mutate(p)}
+              onGenerate={() => generateMedia.mutate()}
+              uploading={upload.isPending}
+              generating={generateMedia.isPending}
+            />
+          }
         />
 
         <div className="mt-6 space-y-5">
           <Separator />
-        <div className="space-y-1.5">
-          <Label className="flex items-center gap-1.5">
-            <ImageIcon className="h-3.5 w-3.5" /> Mídias de referência
-            <span className="text-xs font-normal text-muted-foreground">
-              (feeds, stories, moodboard)
-            </span>
-          </Label>
-          <DashboardPanelSurface className="p-3">
-            {refs.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-border/60 bg-card/40 px-3 py-4 text-xs text-muted-foreground">
-                Anexe imagens ou vídeos. Ao inserir 2 ou mais, o post vira
-                automaticamente um Carrossel.
-              </p>
-            ) : (
-              <InstagramPreview
-                refs={refs}
-                urls={signedUrls}
-                onRemove={(p) => removeMedia.mutate(p)}
-              />
-            )}
-            <div className="mt-2 flex justify-end">
-              <input
-                ref={fileInput}
-                type="file"
-                multiple
-                className="hidden"
-                accept="image/*,video/*"
-                onChange={(e) => {
-                  const fs = Array.from(e.target.files ?? []);
-                  if (fs.length > 0) upload.mutate(fs);
-                  e.target.value = "";
-                }}
-              />
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => generateMedia.mutate()}
-                  disabled={generateMedia.isPending}
-                  title="Gerar imagem de referência usando o hook, headline e copy"
-                >
-                  {generateMedia.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="mr-2 h-4 w-4" />
-                  )}
-                  Gerar com IA
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInput.current?.click()}
-                  disabled={upload.isPending}
-                >
-                  {upload.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="mr-2 h-4 w-4" />
-                  )}
-                  Anexar
-                </Button>
-              </div>
-            </div>
-          </DashboardPanelSurface>
-        </div>
-
         {post.design_brief ? (
           <div className="space-y-1.5">
             <Label className="flex items-center gap-1.5">
@@ -1012,6 +958,7 @@ function TaskLayout({
   postId,
   createdAt,
   copyAutosaveStatus,
+  mediaSlot,
 }: {
   state: TaskState;
   setState: (fn: (prev: TaskState) => TaskState) => void;
@@ -1020,6 +967,7 @@ function TaskLayout({
   postId?: string;
   createdAt?: string | null;
   copyAutosaveStatus?: "idle" | "saving" | "saved";
+  mediaSlot?: ReactNode;
 }) {
   const [tagInput, setTagInput] = useState("");
   const set = <K extends keyof TaskState>(key: K, value: TaskState[K]) =>
@@ -1107,6 +1055,8 @@ function TaskLayout({
             ))}
           </div>
         </div>
+
+        {mediaSlot ? <div>{mediaSlot}</div> : null}
 
         <div className="space-y-1">
           <CopyEditor
@@ -1814,6 +1764,7 @@ function InstagramPreview({
   onRemove: (path: string) => void;
 }) {
   const [idx, setIdx] = useState(0);
+  // MediaReferenceBlock is declared below to keep RefEntry type in scope.
   useEffect(() => {
     if (idx > refs.length - 1) setIdx(Math.max(0, refs.length - 1));
   }, [refs.length, idx]);
@@ -1951,6 +1902,135 @@ function InstagramPreview({
           ? "Preview estilo Instagram · adicione mais para virar Carrossel"
           : `Carrossel de ${refs.length} · arquivos originais mantidos por 30 dias após publicação`}
       </p>
+    </div>
+  );
+}
+
+function MediaReferenceBlock({
+  refs,
+  signedUrls,
+  fileInput,
+  onFiles,
+  onRemove,
+  onGenerate,
+  uploading,
+  generating,
+}: {
+  refs: RefEntry[];
+  signedUrls: Record<string, string>;
+  fileInput: React.RefObject<HTMLInputElement | null>;
+  onFiles: (files: File[]) => void;
+  onRemove: (path: string) => void;
+  onGenerate: () => void;
+  uploading: boolean;
+  generating: boolean;
+}) {
+  const [dragActive, setDragActive] = useState(false);
+  return (
+    <div className="space-y-1.5">
+      <Label className="flex items-center gap-1.5">
+        <ImageIcon className="h-3.5 w-3.5" /> Mídias de referência
+        <span className="text-xs font-normal text-muted-foreground">
+          (feeds, stories, moodboard)
+        </span>
+      </Label>
+      <DashboardPanelSurface
+        className={cn(
+          "p-3 transition",
+          dragActive && "ring-2 ring-primary/60 ring-offset-2 ring-offset-background",
+        )}
+        onDragEnter={(e: React.DragEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.dataTransfer?.types?.includes("Files")) setDragActive(true);
+        }}
+        onDragOver={(e: React.DragEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.dataTransfer?.types?.includes("Files")) {
+            e.dataTransfer.dropEffect = "copy";
+            setDragActive(true);
+          }
+        }}
+        onDragLeave={(e: React.DragEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setDragActive(false);
+        }}
+        onDrop={(e: React.DragEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setDragActive(false);
+          const files = Array.from(e.dataTransfer?.files ?? []).filter((f) =>
+            /^(image|video)\//.test(f.type),
+          );
+          if (files.length > 0) onFiles(files);
+        }}
+      >
+        {refs.length === 0 ? (
+          <button
+            type="button"
+            onClick={() => fileInput.current?.click()}
+            className={cn(
+              "flex w-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed px-3 py-6 text-xs transition",
+              dragActive
+                ? "border-primary/70 bg-primary/5 text-foreground"
+                : "border-border/60 bg-card/40 text-muted-foreground hover:border-border hover:text-foreground",
+            )}
+          >
+            <Upload className="h-4 w-4" />
+            <span className="font-medium">Arraste e solte aqui</span>
+            <span>
+              ou clique para anexar. Ao inserir 2 ou mais, o post vira Carrossel.
+            </span>
+          </button>
+        ) : (
+          <InstagramPreview refs={refs} urls={signedUrls} onRemove={onRemove} />
+        )}
+        <div className="mt-2 flex justify-end">
+          <input
+            ref={fileInput}
+            type="file"
+            multiple
+            className="hidden"
+            accept="image/*,video/*"
+            onChange={(e) => {
+              const fs = Array.from(e.target.files ?? []);
+              if (fs.length > 0) onFiles(fs);
+              e.target.value = "";
+            }}
+          />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onGenerate}
+              disabled={generating}
+              title="Gerar imagem de referência usando o hook, headline e copy"
+            >
+              {generating ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="mr-2 h-4 w-4" />
+              )}
+              Gerar com IA
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fileInput.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="mr-2 h-4 w-4" />
+              )}
+              Anexar
+            </Button>
+          </div>
+        </div>
+      </DashboardPanelSurface>
     </div>
   );
 }
