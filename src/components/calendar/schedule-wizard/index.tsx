@@ -126,26 +126,38 @@ export function ScheduleWizard({
   const [locationName, setLocationName] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const [submitting, setSubmitting] = useState<null | "draft" | "publish" | "schedule">(null);
+  const [submitting, setSubmitting] = useState<null | "draft" | "publish" | "schedule" | "save_draft">(null);
   const [previewChannel, setPreviewChannel] = useState<SocialChannel>("instagram");
 
   const uploadRef = useRef<HTMLInputElement>(null);
+  const wasOpenRef = useRef(false);
 
   useEffect(() => {
-    if (!open) return;
-    setTitle(seed?.title ?? "");
-    setCopy(seed?.copy ?? "");
-    setPairs([]);
-    setSelectedMedia([]);
-    setHashtags([]);
-    setTagInput("");
-    setFirstComment("");
-    setLinkUrl("");
-    setLocationName("");
-    const base = defaultDate ? new Date(defaultDate) : new Date(Date.now() + 60 * 60 * 1000);
-    base.setSeconds(0, 0);
-    setScheduleDate(fmtDate(base));
-    setScheduleTime(fmtTime(base));
+    // Só reseta na transição fechado → aberto para garantir tela limpa
+    // sempre que o wizard reabre (Novo, editar rascunho, etc).
+    if (open && !wasOpenRef.current) {
+      setTitle(seed?.title ?? "");
+      setCopy(seed?.copy ?? "");
+      setPairs([]);
+      setSelectedMedia([]);
+      setHashtags([]);
+      setTagInput("");
+      setFirstComment("");
+      setLinkUrl("");
+      setLocationName("");
+      setDragActive(false);
+      setUploading(false);
+      setSubmitting(null);
+      setPreviewChannel("instagram");
+      if (uploadRef.current) uploadRef.current.value = "";
+      const base = defaultDate
+        ? new Date(defaultDate)
+        : new Date(Date.now() + 60 * 60 * 1000);
+      base.setSeconds(0, 0);
+      setScheduleDate(fmtDate(base));
+      setScheduleTime(fmtTime(base));
+    }
+    wasOpenRef.current = open;
   }, [open, seed, defaultDate]);
 
   const connectionsQ = useQuery({
@@ -287,8 +299,8 @@ export function ScheduleWizard({
     );
   }
 
-  async function persist(action: "draft" | "publish" | "schedule") {
-    if (!pairs.length) {
+  async function persist(action: "draft" | "publish" | "schedule" | "save_draft") {
+    if (action !== "save_draft" && !pairs.length) {
       toast.error("Selecione pelo menos um canal.");
       return;
     }
@@ -334,11 +346,14 @@ export function ScheduleWizard({
               .join(" · ")}`,
           );
         }
+      } else if (action === "save_draft") {
+        toast.success("Rascunho salvo. Você pode retomar depois.");
       } else {
         toast.success(action === "draft" ? "Enviado para aprovação" : "Agendamento criado");
       }
       qc.invalidateQueries({ queryKey: ["calendar"] });
       qc.invalidateQueries({ queryKey: ["pending-schedule"] });
+      qc.invalidateQueries({ queryKey: ["wizard-drafts"] });
       onSaved?.();
       if (action !== "publish" || (res?.published ?? 0) > 0) onOpenChange(false);
     } catch (e) {
@@ -864,9 +879,25 @@ export function ScheduleWizard({
         </div>
 
         {/* Sticky bottom action bar */}
-        <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-border/60 bg-background/95 px-6 py-3 backdrop-blur">
+        <footer className="relative flex shrink-0 items-center justify-between gap-3 border-t border-border/60 bg-background/95 px-6 py-3 backdrop-blur">
+          {submitting ? (
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5 overflow-hidden bg-primary/10">
+              <div className="h-full w-1/3 animate-[wizard-progress_1.2s_ease-in-out_infinite] bg-primary" />
+            </div>
+          ) : null}
           <div className="flex min-w-0 items-center gap-2 text-[11px] text-muted-foreground">
-            {pairs.length ? (
+            {submitting ? (
+              <span className="flex items-center gap-2 text-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                {submitting === "publish"
+                  ? `Publicando em ${pairs.length} canal(is)…`
+                  : submitting === "schedule"
+                    ? "Agendando publicação…"
+                    : submitting === "save_draft"
+                      ? "Salvando rascunho…"
+                      : "Enviando para aprovação…"}
+              </span>
+            ) : pairs.length ? (
               <>
                 <span className="tabular-nums">{pairs.length} destino(s)</span>
                 <span>·</span>
@@ -897,6 +928,18 @@ export function ScheduleWizard({
               onClick={() => onOpenChange(false)}
             >
               Cancelar
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={!!submitting}
+              onClick={() => persist("save_draft")}
+              title="Salvar como rascunho para continuar depois"
+            >
+              {submitting === "save_draft" ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              Salvar rascunho
             </Button>
             <Button
               variant="outline"

@@ -216,6 +216,11 @@
   100% { background-position: -200% 0; }
 }
 
+@keyframes wizard-progress {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
 @utility scan-line {
   background: linear-gradient(180deg, transparent 0%, oklch(0.7 0.2 200 / 0.15) 50%, transparent 100%);
   background-size: 100% 40px;

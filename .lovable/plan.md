@@ -1,43 +1,46 @@
-Enriquecer os cards do painel "Aguardando agendamento" (`src/components/calendar/pending-schedule-panel.tsx`) com preview de imagem maior, badges por rede, formato/posicionamento, data de aprovação e um botão dedicado de edição.
+## Objetivo
+Corrigir três problemas do wizard "Novo agendamento" e validar o fluxo de agendamento.
 
-## Escopo
+## 1) Wizard não abre em branco
+No `ScheduleWizard` (`src/components/calendar/schedule-wizard/index.tsx`), o `useEffect` de reset (linhas 134-149) reseta título/copy/mídias, mas usa `seed` como identidade estável. Quando o usuário edita um card pendente e depois clica "Novo" (que faz `setWizardSeed(null)`), certas transições mantêm `pairs`, `hashtags`, `previewChannel` ou upload em estado sujo dependendo da ordem de renders. Além disso, hoje o efeito só roda quando `open` muda, mas não zera o `submitting` nem o `previewChannel`.
 
-Apenas o painel lateral do calendário (`PendingSchedulePanel`) e o server fn que alimenta a lista (`listApprovedUnscheduledFn` em `src/lib/scheduling-wizard.functions.ts`). Sem mudanças em outras telas, schema ou fluxo de publicação.
+Correção:
+- Reforçar o reset: separar em uma função `resetAll()` que zera 100% dos estados (title, copy, pairs, selectedMedia, scheduleDate/Time, hashtags, tagInput, firstComment, linkUrl, locationName, previewChannel, submitting, dragActive, uploading).
+- Chamar `resetAll()` sempre que `open` transiciona `false → true` (rastrear com `useRef` do estado anterior) e, quando não houver `seed`, garantir campos totalmente vazios.
+- Também limpar o `<input type="file">` (`uploadRef.current.value = ""`).
 
-## Server function
+## 2) Botão "Salvar rascunho" (retomar depois)
+Adicionar na sticky bottom bar um botão terciário "Salvar rascunho" ao lado de "Cancelar" / "Enviar para aprovação". Ele chama uma nova action `"save_draft"` em `saveScheduledPostFn` que persiste em `posts` com `stage = 'idea'` (ou `'production'`) sem exigir canais/data, e permite reabrir depois via lista de rascunhos. O botão "Enviar para aprovação" continua exigindo canais.
 
-`listApprovedUnscheduledFn` retorna hoje: `postId, title, copy, coverUrl, channels[], approvedAt`. Vou estendê-la para incluir os placements do post:
+Backend (`src/lib/scheduling-wizard.functions.ts`): permitir `action = "save_draft"` que:
+- Cria/atualiza o `posts` com `stage = 'idea'`, salva copy, título, hashtags, mídia, sem `scheduled_at`, sem criar `post_placements` obrigatórios.
+- Retorna `{ postId }` para o wizard fechar.
 
-- Buscar em `post_placements` (`post_id in (…)`) os campos `channel`, `format` (feed/stories/reels/carrossel).
-- Agregar por `postId` em `placements: Array<{ channel; format }>`.
-- Manter `channels[]` para compatibilidade.
+Frontend: mostrar rascunhos salvos no painel lateral (novo bloco "Rascunhos" ou reaproveitar o `PendingSchedulePanel` com uma aba). Ao clicar, reabre o wizard com `seed` preenchido.
 
-Novo tipo `PendingSchedulePost` ganha `placements` e mantém os campos atuais.
+## 3) Barra de progresso durante publicação/agendamento
+Hoje o botão apenas mostra `Loader2` girando. Adicionar feedback visual real:
+- Enquanto `submitting !== null`, renderizar uma barra de progresso fina (shadcn `Progress` ou barra indeterminada animada) fixa no topo da sticky bottom bar.
+- Para `action = "publish"`, o backend já processa canal por canal em loop; vamos aproveitar isso: retornar progresso incremental via streaming não vale a pena (custo alto) — em vez disso, mostrar barra indeterminada + label "Publicando em X canal(is)..." usando `pairs.length`, e ao terminar exibir toast por canal (já existe).
+- Desabilitar todos os botões e overlay leve sobre as 3 colunas para evitar edição durante submit.
 
-## UI do card
-
-Cada item passa a mostrar, em layout compacto:
-
-- **Thumb 56×56** (arredondada, `object-cover`) com fallback neutro quando não houver `coverUrl`.
-- **Título** em uma linha (truncate) + **preview da copy** (2 linhas, `line-clamp-2`, muted).
-- **Linha de metadados** com chips pequenos:
-  - Badge por rede com ícone (Instagram, Facebook, LinkedIn, TikTok, etc.) — cores neutras do design system, sem cor hard-coded.
-  - Badge de posicionamento por placement (`Feed`, `Stories`, `Reels`, `Carrossel`), agrupado por `channel/format`.
-  - Data de aprovação formatada em PT-BR (`"aprovado 12/nov 14:30"` via `date-fns` locale `ptBR`).
-- **Botão de editar** (ícone `Pencil`, `variant="ghost" size="icon"`) alinhado à direita, com `aria-label="Editar post"`. O clique chama `onPick(p)` (mesmo callback do card) mas com `stopPropagation` para não conflitar. O corpo do card continua clicável para abrir o wizard.
-
-Estados vazios/carregando permanecem como estão.
+## 4) Validar agendamento
+Confirmar que o fluxo `action = "schedule"`:
+- Persiste `posts.stage = 'scheduled'` com `scheduled_at` no ISO correto.
+- Cria os `post_placements` esperados.
+- Aparece no calendário no dia certo.
+- Roda um teste manual via Playwright em `/app/calendar`: criar agendamento futuro, verificar que aparece no dia, reabrir, confirmar dados.
 
 ## Detalhes técnicos
 
-- Ícones: `Instagram`, `Facebook`, `Linkedin`, `Youtube`, `Music2` (TikTok fallback), `Pencil` do `lucide-react`.
-- Formatar data com `formatDistanceToNow` ou `format(date, "d MMM HH:mm", { locale: ptBR })` — reutilizar padrão já usado no projeto.
-- Query key do `useQuery` permanece `["pending-schedule", brandId, clientId]`.
-- Nenhum novo endpoint; apenas expansão do existente e um `SELECT` adicional em `post_placements` batelado por lista de ids.
-- Sem alterações em RLS: `post_placements` já é lido pelo mesmo usuário autenticado via server fn.
+Arquivos:
+- `src/components/calendar/schedule-wizard/index.tsx` — reset completo, botão "Salvar rascunho", barra de progresso, overlay durante submit.
+- `src/lib/scheduling-wizard.functions.ts` — nova action `"save_draft"` em `saveScheduledPostFn`; nova server fn `listDraftsFn` (posts do brand/client com `stage='idea'` sem `scheduled_at`).
+- `src/components/calendar/pending-schedule-panel.tsx` — adicionar seção/aba "Rascunhos" reutilizando o card já enriquecido.
+- `src/routes/_authenticated/calendar.tsx` — nenhuma mudança de contrato; pode passar `seed` também para rascunhos.
 
-## Fora do escopo
+Sem migração de banco — reutiliza `posts.stage='idea'` que já existe no enum.
 
-- Ação de edição inline (mudar data/rede) — o botão apenas abre o wizard existente.
-- Ordenação/filtros novos.
-- Mudanças no wizard, calendário ou modelagem.
+## Fora de escopo
+- Progresso real por canal via SSE/streaming.
+- Novos formatos além de Feed IG/FB (Stories/Reels seguem bloqueados como hoje).

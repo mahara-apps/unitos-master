@@ -465,20 +465,37 @@ function CalendarPage() {
           </div>
         </DashboardPanelSurface>
         {brandId && clientId ? (
-          <PendingSchedulePanel
-            brandId={brandId}
-            clientId={clientId}
-            onPick={(p) => {
-              setWizardSeed({
-                postId: p.postId,
-                title: p.title,
-                copy: p.copy,
-                coverUrl: p.coverUrl,
-              });
-              setWizardDate(null);
-              setWizardOpen(true);
-            }}
-          />
+          <div className="flex flex-col gap-4">
+            <PendingSchedulePanel
+              brandId={brandId}
+              clientId={clientId}
+              onPick={(p) => {
+                setWizardSeed({
+                  postId: p.postId,
+                  title: p.title,
+                  copy: p.copy,
+                  coverUrl: p.coverUrl,
+                });
+                setWizardDate(null);
+                setWizardOpen(true);
+              }}
+            />
+            <PendingSchedulePanel
+              mode="drafts"
+              brandId={brandId}
+              clientId={clientId}
+              onPick={(p) => {
+                setWizardSeed({
+                  postId: p.postId,
+                  title: p.title,
+                  copy: p.copy,
+                  coverUrl: p.coverUrl,
+                });
+                setWizardDate(null);
+                setWizardOpen(true);
+              }}
+            />
+          </div>
         ) : null}
       </div>
 

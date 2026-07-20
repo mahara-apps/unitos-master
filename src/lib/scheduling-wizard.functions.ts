@@ -162,6 +162,44 @@ export const listApprovedUnscheduledFn = createServerFn({ method: "GET" })
 // saveScheduledPostFn — cria/atualiza post + placements
 // ============================================================
 
+// ============================================================
+// listDraftsFn — rascunhos (stage=idea) do wizard
+// ============================================================
+
+export const listDraftsFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid().nullable().optional(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }): Promise<PendingSchedulePost[]> => {
+    let q = context.supabase
+      .from("posts")
+      .select("id, title, copy, cover_url, channels, updated_at")
+      .eq("brand_id", data.brandId)
+      .eq("stage", "idea")
+      .is("scheduled_at", null)
+      .is("deleted_at", null)
+      .order("updated_at", { ascending: false })
+      .limit(50);
+    if (data.clientId) q = q.eq("client_id", data.clientId);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    return (rows ?? []).map((p) => ({
+      postId: p.id as string,
+      title: (p.title as string) ?? "Sem título",
+      copy: (p.copy as string) ?? "",
+      coverUrl: (p.cover_url as string | null) ?? null,
+      channels: (p.channels as string[] | null) ?? [],
+      approvedAt: (p.updated_at as string | null) ?? null,
+      placements: [],
+    }));
+  });
+
 const DestinationSchema = z.object({
   connectionId: z.string().uuid(),
   channel: z.enum([
@@ -188,9 +226,17 @@ const SaveInput = z.object({
   firstComment: z.string().max(2200).nullable().optional(),
   linkUrl: z.string().url().nullable().optional(),
   locationName: z.string().max(120).nullable().optional(),
-  destinations: z.array(DestinationSchema).min(1),
+  destinations: z.array(DestinationSchema).default([]),
   scheduledAt: z.string().nullable().optional(), // ISO
-  action: z.enum(["draft", "publish", "schedule"]),
+  action: z.enum(["draft", "publish", "schedule", "save_draft"]),
+}).superRefine((v, ctx) => {
+  if (v.action !== "save_draft" && v.destinations.length < 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["destinations"],
+      message: "Selecione ao menos um canal.",
+    });
+  }
 });
 
 export const saveScheduledPostFn = createServerFn({ method: "POST" })
@@ -238,7 +284,9 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         ? "scheduled"
         : data.action === "publish"
           ? "approved"
-          : "approved";
+          : data.action === "save_draft"
+            ? "idea"
+            : "approved";
 
     // ---- Upsert post ----
     let postId = data.postId ?? null;
@@ -254,8 +302,8 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           stage,
           scheduled_at: scheduledIso,
           created_by: context.userId,
-          approved_at: new Date().toISOString(),
-          review_status: "approved",
+          approved_at: data.action === "save_draft" ? null : new Date().toISOString(),
+          review_status: data.action === "save_draft" ? "pending" : "approved",
         })
         .select("id")
         .single();
