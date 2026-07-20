@@ -44,6 +44,9 @@ type Props = {
   brandId: string;
   clientId: string | null;
   onGenerated?: () => void;
+  /** When provided, the dialog is fully controlled and no built-in trigger button is rendered. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
 const LOADING_STEPS = [
@@ -53,8 +56,20 @@ const LOADING_STEPS = [
   "Distribuindo no calendário…",
 ];
 
-export function GeneratePlanDialog({ brandId, clientId, onGenerated }: Props) {
-  const [open, setOpen] = useState(false);
+export function GeneratePlanDialog({
+  brandId,
+  clientId,
+  onGenerated,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+}: Props) {
+  const isControlled = controlledOpen !== undefined;
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (v: boolean) => {
+    if (isControlled) controlledOnOpenChange?.(v);
+    else setUncontrolledOpen(v);
+  };
   const [startFrom, setStartFrom] = useState<"current-remaining" | "next-month">("next-month");
   const [direction, setDirection] = useState("");
   const [pending, setPending] = useState(false);
@@ -145,7 +160,8 @@ export function GeneratePlanDialog({ brandId, clientId, onGenerated }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !pending && setOpen(v)}>
-      <DialogTrigger asChild>
+      {isControlled ? null : (
+        <DialogTrigger asChild>
         <Button
           size="sm"
           disabled={!clientId}
@@ -155,7 +171,8 @@ export function GeneratePlanDialog({ brandId, clientId, onGenerated }: Props) {
           <Sparkles className="h-3.5 w-3.5" />
           Gerar novo plano
         </Button>
-      </DialogTrigger>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
