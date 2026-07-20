@@ -56,6 +56,7 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
   const [connecting, setConnecting] = useState<null | "facebook" | "instagram">(null);
   const [portfolioSessionId, setPortfolioSessionId] = useState<string | null>(null);
   const [portfolioOpen, setPortfolioOpen] = useState(false);
+  const [portfolioChannel, setPortfolioChannel] = useState<"facebook" | "instagram" | null>(null);
 
   const listFn = useServerFn(listMetaConnections);
   const startFn = useServerFn(startMetaOAuth);
@@ -102,6 +103,7 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
         error?: string;
         message?: string;
         sessionId?: string | null;
+        channel?: "facebook" | "instagram" | null;
       };
       if (!d || d.source !== "meta-oauth") return;
       if (d.type === "missing-scopes" && d.scopes && d.scopes.length > 0) {
@@ -117,6 +119,7 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
         invalidate();
         if (d.sessionId) {
           setPortfolioSessionId(d.sessionId);
+          setPortfolioChannel(d.channel ?? null);
           setPortfolioOpen(true);
         }
       } else if (d.error) {
@@ -134,7 +137,7 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
     const popup = window.open("", "meta-oauth", "width=640,height=760");
     setConnecting(source);
     try {
-      const { authorizeUrl } = await startFn({ data: { brandId } });
+      const { authorizeUrl } = await startFn({ data: { brandId, channel: source } });
       if (popup) popup.location.href = authorizeUrl;
       else window.location.href = authorizeUrl;
     } catch (e) {
@@ -330,6 +333,7 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
           brandId={brandId}
           sessionId={portfolioSessionId}
           open={portfolioOpen}
+          channel={portfolioChannel}
           onOpenChange={setPortfolioOpen}
         />
       )}

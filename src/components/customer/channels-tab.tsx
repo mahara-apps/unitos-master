@@ -1,13 +1,16 @@
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Loader2, Radio } from "lucide-react";
+import { Facebook, Instagram, Loader2, Plus, Radio } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MetaPortfolioDialog } from "@/components/connections/meta-portfolio-dialog";
+import { getActiveMetaSession, startMetaOAuth } from "@/lib/meta/meta.functions";
 import {
   listClientChannelAssignmentsFn,
   toggleClientChannelFn,
@@ -24,6 +27,12 @@ export function ChannelsTab({
   const qc = useQueryClient();
   const listFn = useServerFn(listClientChannelAssignmentsFn);
   const toggleFn = useServerFn(toggleClientChannelFn);
+  const startMetaFn = useServerFn(startMetaOAuth);
+  const getActiveMetaSessionFn = useServerFn(getActiveMetaSession);
+  const [connecting, setConnecting] = useState<null | "facebook" | "instagram">(null);
+  const [portfolioSessionId, setPortfolioSessionId] = useState<string | null>(null);
+  const [portfolioOpen, setPortfolioOpen] = useState(false);
+  const [portfolioChannel, setPortfolioChannel] = useState<"facebook" | "instagram" | null>(null);
 
   const queryKey = ["client-channels", brandId, clientId] as const;
   const q = useQuery({
@@ -31,6 +40,64 @@ export function ChannelsTab({
     queryFn: () => listFn({ data: { brandId, clientId } }),
     staleTime: 30_000,
   });
+
+  useEffect(() => {
+    function onMessage(ev: MessageEvent) {
+      const d = ev.data as {
+        source?: string;
+        type?: string;
+        ok?: boolean;
+        error?: string;
+        message?: string;
+        sessionId?: string | null;
+        channel?: "facebook" | "instagram" | null;
+        scopes?: string[];
+      };
+      if (!d || d.source !== "meta-oauth") return;
+      if (d.type === "missing-scopes" && d.scopes?.length) {
+        toast.warning(`Permissões negadas: ${d.scopes.join(", ")}.`, { duration: 8000 });
+        return;
+      }
+      setConnecting(null);
+      if (d.ok && d.sessionId) {
+        toast.success(d.message ?? "Meta conectada");
+        setPortfolioSessionId(d.sessionId);
+        setPortfolioChannel(d.channel ?? null);
+        setPortfolioOpen(true);
+      } else if (d.error) {
+        toast.error(d.error);
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
+  async function connectMeta(channel: "facebook" | "instagram") {
+    setConnecting(channel);
+    try {
+      const existing = await getActiveMetaSessionFn({ data: { brandId } });
+      if (existing.sessionId) {
+        setPortfolioSessionId(existing.sessionId);
+        setPortfolioChannel(channel);
+        setPortfolioOpen(true);
+        setConnecting(null);
+        return;
+      }
+    } catch {
+      // Fall back to OAuth.
+    }
+
+    const popup = window.open("", "meta-oauth", "width=760,height=820,resizable=yes,scrollbars=yes");
+    try {
+      const { authorizeUrl } = await startMetaFn({ data: { brandId, channel } });
+      if (popup) popup.location.href = authorizeUrl;
+      else window.location.href = authorizeUrl;
+    } catch (e) {
+      setConnecting(null);
+      popup?.close();
+      toast.error(e instanceof Error ? e.message : "Falha ao iniciar OAuth da Meta");
+    }
+  }
 
   const toggleMut = useMutation({
     mutationFn: (v: { connectionId: string; assigned: boolean }) =>
@@ -72,9 +139,39 @@ export function ChannelsTab({
             listá-la automaticamente no wizard de agendamento.
           </p>
         </div>
-        <Badge variant="secondary" className="shrink-0 text-[10px]">
-          {assignedCount}/{rows.length} ativas
-        </Badge>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <Badge variant="secondary" className="text-[10px]">
+            {assignedCount}/{rows.length} ativas
+          </Badge>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 text-xs"
+            disabled={!!connecting}
+            onClick={() => connectMeta("instagram")}
+          >
+            {connecting === "instagram" ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Instagram className="h-3.5 w-3.5" />
+            )}
+            Instagram
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 text-xs"
+            disabled={!!connecting}
+            onClick={() => connectMeta("facebook")}
+          >
+            {connecting === "facebook" ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Facebook className="h-3.5 w-3.5" />
+            )}
+            Facebook
+          </Button>
+        </div>
       </div>
 
       {q.isLoading ? (
@@ -92,6 +189,16 @@ export function ChannelsTab({
           <Button asChild size="sm" className="mt-4">
             <Link to="/connections">Ir para Conexões</Link>
           </Button>
+          <div className="mt-3 flex flex-wrap justify-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => connectMeta("instagram")} disabled={!!connecting}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Conectar Instagram neste cliente
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => connectMeta("facebook")} disabled={!!connecting}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Conectar Facebook neste cliente
+            </Button>
+          </div>
         </div>
       ) : (
         <ul className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60 bg-card">
@@ -138,6 +245,20 @@ export function ChannelsTab({
           ))}
         </ul>
       )}
+      <MetaPortfolioDialog
+        brandId={brandId}
+        clientId={clientId}
+        sessionId={portfolioSessionId}
+        open={portfolioOpen}
+        channel={portfolioChannel}
+        onOpenChange={(open) => {
+          setPortfolioOpen(open);
+          if (!open) {
+            qc.invalidateQueries({ queryKey });
+            qc.invalidateQueries({ queryKey: ["wizard-connections", brandId, clientId] });
+          }
+        }}
+      />
     </div>
   );
 }
