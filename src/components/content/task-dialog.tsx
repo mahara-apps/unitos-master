@@ -1415,7 +1415,7 @@ function AiFieldButton({
   size = "sm",
 }: {
   postId: string;
-  field: "copy" | "hashtags" | "cta" | "script" | "briefing";
+  field: "copy" | "hashtags" | "cta" | "script" | "briefing" | "hook" | "headline";
   label: string;
   onText: (t: string) => void;
   size?: "xs" | "sm";
