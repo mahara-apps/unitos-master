@@ -45,6 +45,7 @@ import { Route as ApiJobsCustomerPipelineRouteImport } from './routes/api/jobs/c
 import { Route as ApiJobsCopilotRouteImport } from './routes/api/jobs/copilot'
 import { Route as ApiJobsAnalyzeDocumentRouteImport } from './routes/api/jobs/analyze-document'
 import { Route as ApiChatStreamRouteImport } from './routes/api/chat.stream'
+import { Route as AuthenticatedSuperAdminFeaturesRouteImport } from './routes/_authenticated/super-admin.features'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_authenticated/settings.profile'
 import { Route as AuthenticatedSettingsPermissionsRouteImport } from './routes/_authenticated/settings.permissions'
@@ -255,6 +256,12 @@ const ApiChatStreamRoute = ApiChatStreamRouteImport.update({
   path: '/api/chat/stream',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedSuperAdminFeaturesRoute =
+  AuthenticatedSuperAdminFeaturesRouteImport.update({
+    id: '/super-admin/features',
+    path: '/super-admin/features',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSettingsTeamRoute =
   AuthenticatedSettingsTeamRouteImport.update({
     id: '/team',
@@ -429,6 +436,7 @@ export interface FileRoutesByFullPath {
   '/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
@@ -486,6 +494,7 @@ export interface FileRoutesByTo {
   '/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
@@ -549,6 +558,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
   '/_authenticated/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
+  '/_authenticated/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
@@ -612,6 +622,7 @@ export interface FileRouteTypes {
     | '/settings/permissions'
     | '/settings/profile'
     | '/settings/team'
+    | '/super-admin/features'
     | '/api/chat/stream'
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
@@ -669,6 +680,7 @@ export interface FileRouteTypes {
     | '/settings/permissions'
     | '/settings/profile'
     | '/settings/team'
+    | '/super-admin/features'
     | '/api/chat/stream'
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
@@ -731,6 +743,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/permissions'
     | '/_authenticated/settings/profile'
     | '/_authenticated/settings/team'
+    | '/_authenticated/super-admin/features'
     | '/api/chat/stream'
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
@@ -1042,6 +1055,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiChatStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/super-admin/features': {
+      id: '/_authenticated/super-admin/features'
+      path: '/super-admin/features'
+      fullPath: '/super-admin/features'
+      preLoaderRoute: typeof AuthenticatedSuperAdminFeaturesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings/team': {
       id: '/_authenticated/settings/team'
       path: '/team'
@@ -1335,6 +1355,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedProjectsRoute: typeof AuthenticatedProjectsRouteWithChildren
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
   AuthenticatedTasksRoute: typeof AuthenticatedTasksRoute
+  AuthenticatedSuperAdminFeaturesRoute: typeof AuthenticatedSuperAdminFeaturesRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -1352,6 +1373,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedProjectsRoute: AuthenticatedProjectsRouteWithChildren,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
   AuthenticatedTasksRoute: AuthenticatedTasksRoute,
+  AuthenticatedSuperAdminFeaturesRoute: AuthenticatedSuperAdminFeaturesRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
