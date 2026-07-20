@@ -62,6 +62,7 @@ import { Route as AuthenticatedBrainGraphRouteImport } from './routes/_authentic
 import { Route as AuthenticatedBrainDiagnosticsRouteImport } from './routes/_authenticated/brain.diagnostics'
 import { Route as ApiSocialTopPostsConnectionIdRouteImport } from './routes/api/social/top-posts/$connectionId'
 import { Route as ApiSocialDashboardConnectionIdRouteImport } from './routes/api/social/dashboard/$connectionId'
+import { Route as ApiPublicMetaWebhookRouteImport } from './routes/api/public/meta/webhook'
 import { Route as ApiPublicMetaPublishScheduledRouteImport } from './routes/api/public/meta/publish-scheduled'
 import { Route as ApiPublicMetaCallbackRouteImport } from './routes/api/public/meta/callback'
 import { Route as ApiPublicMediaPruneRouteImport } from './routes/api/public/media/prune'
@@ -358,6 +359,11 @@ const ApiSocialDashboardConnectionIdRoute =
     path: '/api/social/dashboard/$connectionId',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicMetaWebhookRoute = ApiPublicMetaWebhookRouteImport.update({
+  id: '/api/public/meta/webhook',
+  path: '/api/public/meta/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicMetaPublishScheduledRoute =
   ApiPublicMetaPublishScheduledRouteImport.update({
     id: '/api/public/meta/publish-scheduled',
@@ -475,6 +481,7 @@ export interface FileRoutesByFullPath {
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
   '/api/public/meta/publish-scheduled': typeof ApiPublicMetaPublishScheduledRoute
+  '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
   '/api/social/top-posts/$connectionId': typeof ApiSocialTopPostsConnectionIdRoute
   '/api/social/posts/$postId/analytics': typeof ApiSocialPostsPostIdAnalyticsRoute
@@ -535,6 +542,7 @@ export interface FileRoutesByTo {
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
   '/api/public/meta/publish-scheduled': typeof ApiPublicMetaPublishScheduledRoute
+  '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
   '/api/social/top-posts/$connectionId': typeof ApiSocialTopPostsConnectionIdRoute
   '/api/social/posts/$postId/analytics': typeof ApiSocialPostsPostIdAnalyticsRoute
@@ -601,6 +609,7 @@ export interface FileRoutesById {
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
   '/api/public/meta/publish-scheduled': typeof ApiPublicMetaPublishScheduledRoute
+  '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
   '/api/social/top-posts/$connectionId': typeof ApiSocialTopPostsConnectionIdRoute
   '/api/social/posts/$postId/analytics': typeof ApiSocialPostsPostIdAnalyticsRoute
@@ -667,6 +676,7 @@ export interface FileRouteTypes {
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
     | '/api/public/meta/publish-scheduled'
+    | '/api/public/meta/webhook'
     | '/api/social/dashboard/$connectionId'
     | '/api/social/top-posts/$connectionId'
     | '/api/social/posts/$postId/analytics'
@@ -727,6 +737,7 @@ export interface FileRouteTypes {
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
     | '/api/public/meta/publish-scheduled'
+    | '/api/public/meta/webhook'
     | '/api/social/dashboard/$connectionId'
     | '/api/social/top-posts/$connectionId'
     | '/api/social/posts/$postId/analytics'
@@ -792,6 +803,7 @@ export interface FileRouteTypes {
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
     | '/api/public/meta/publish-scheduled'
+    | '/api/public/meta/webhook'
     | '/api/social/dashboard/$connectionId'
     | '/api/social/top-posts/$connectionId'
     | '/api/social/posts/$postId/analytics'
@@ -822,6 +834,7 @@ export interface RootRouteChildren {
   ApiPublicMediaPruneRoute: typeof ApiPublicMediaPruneRoute
   ApiPublicMetaCallbackRoute: typeof ApiPublicMetaCallbackRoute
   ApiPublicMetaPublishScheduledRoute: typeof ApiPublicMetaPublishScheduledRoute
+  ApiPublicMetaWebhookRoute: typeof ApiPublicMetaWebhookRoute
   ApiSocialDashboardConnectionIdRoute: typeof ApiSocialDashboardConnectionIdRoute
   ApiSocialTopPostsConnectionIdRoute: typeof ApiSocialTopPostsConnectionIdRoute
   ApiSocialPostsPostIdAnalyticsRoute: typeof ApiSocialPostsPostIdAnalyticsRoute
@@ -1200,6 +1213,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSocialDashboardConnectionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/meta/webhook': {
+      id: '/api/public/meta/webhook'
+      path: '/api/public/meta/webhook'
+      fullPath: '/api/public/meta/webhook'
+      preLoaderRoute: typeof ApiPublicMetaWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/meta/publish-scheduled': {
       id: '/api/public/meta/publish-scheduled'
       path: '/api/public/meta/publish-scheduled'
@@ -1448,6 +1468,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicMediaPruneRoute: ApiPublicMediaPruneRoute,
   ApiPublicMetaCallbackRoute: ApiPublicMetaCallbackRoute,
   ApiPublicMetaPublishScheduledRoute: ApiPublicMetaPublishScheduledRoute,
+  ApiPublicMetaWebhookRoute: ApiPublicMetaWebhookRoute,
   ApiSocialDashboardConnectionIdRoute: ApiSocialDashboardConnectionIdRoute,
   ApiSocialTopPostsConnectionIdRoute: ApiSocialTopPostsConnectionIdRoute,
   ApiSocialPostsPostIdAnalyticsRoute: ApiSocialPostsPostIdAnalyticsRoute,

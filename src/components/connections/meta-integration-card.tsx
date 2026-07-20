@@ -6,6 +6,7 @@ import {
   Facebook,
   Instagram,
   RefreshCw,
+  Settings2,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +28,7 @@ import {
   refreshMetaConnection,
   startMetaOAuth,
 } from "@/lib/meta/meta.functions";
+import { MetaPortfolioDialog } from "./meta-portfolio-dialog";
 
 type MetaMetadata = {
   page_picture_url?: string | null;
@@ -50,6 +52,8 @@ function formatSyncedAt(iso: string | null | undefined): string {
 export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
   const qc = useQueryClient();
   const [connecting, setConnecting] = useState<null | "facebook" | "instagram">(null);
+  const [portfolioSessionId, setPortfolioSessionId] = useState<string | null>(null);
+  const [portfolioOpen, setPortfolioOpen] = useState(false);
 
   const listFn = useServerFn(listMetaConnections);
   const startFn = useServerFn(startMetaOAuth);
@@ -88,12 +92,22 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
   // Listen for popup postMessage.
   useEffect(() => {
     function onMessage(ev: MessageEvent) {
-      const d = ev.data as { source?: string; ok?: boolean; error?: string; message?: string };
+      const d = ev.data as {
+        source?: string;
+        ok?: boolean;
+        error?: string;
+        message?: string;
+        sessionId?: string | null;
+      };
       if (!d || d.source !== "meta-oauth") return;
       setConnecting(null);
       if (d.ok) {
         toast.success(d.message ?? "Meta conectada");
         invalidate();
+        if (d.sessionId) {
+          setPortfolioSessionId(d.sessionId);
+          setPortfolioOpen(true);
+        }
       } else if (d.error) {
         toast.error(d.error);
       }
@@ -125,7 +139,8 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
         <div>
           <CardTitle className="text-sm">Meta · Facebook & Instagram</CardTitle>
           <CardDescription className="text-xs">
-            Um único login Meta habilita ambas as redes. Escolha por onde entrar.
+            Um único login captura todo o seu portfólio. Em seguida escolha
+            quais Páginas e Contas do Instagram vincular a este projeto.
           </CardDescription>
         </div>
         <div className="grid grid-cols-2 gap-2">
@@ -150,6 +165,17 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
             {connecting === "instagram" ? "Conectando…" : "Conectar Instagram"}
           </Button>
         </div>
+        {portfolioSessionId && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="justify-start gap-2 text-xs"
+            onClick={() => setPortfolioOpen(true)}
+          >
+            <Settings2 className="h-3.5 w-3.5" />
+            Gerenciar contas do último login
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="space-y-2">
         {connections.length === 0 ? (
@@ -257,6 +283,14 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
           </ul>
         )}
       </CardContent>
+      {brandId && (
+        <MetaPortfolioDialog
+          brandId={brandId}
+          sessionId={portfolioSessionId}
+          open={portfolioOpen}
+          onOpenChange={setPortfolioOpen}
+        />
+      )}
     </Card>
   );
 }
