@@ -6,6 +6,7 @@ import {
   Facebook,
   Instagram,
   RefreshCw,
+  Settings2,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -27,6 +28,7 @@ import {
   refreshMetaConnection,
   startMetaOAuth,
 } from "@/lib/meta/meta.functions";
+import { MetaPortfolioDialog } from "./meta-portfolio-dialog";
 
 type MetaMetadata = {
   page_picture_url?: string | null;
@@ -50,6 +52,8 @@ function formatSyncedAt(iso: string | null | undefined): string {
 export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
   const qc = useQueryClient();
   const [connecting, setConnecting] = useState<null | "facebook" | "instagram">(null);
+  const [portfolioSessionId, setPortfolioSessionId] = useState<string | null>(null);
+  const [portfolioOpen, setPortfolioOpen] = useState(false);
 
   const listFn = useServerFn(listMetaConnections);
   const startFn = useServerFn(startMetaOAuth);
@@ -88,12 +92,22 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
   // Listen for popup postMessage.
   useEffect(() => {
     function onMessage(ev: MessageEvent) {
-      const d = ev.data as { source?: string; ok?: boolean; error?: string; message?: string };
+      const d = ev.data as {
+        source?: string;
+        ok?: boolean;
+        error?: string;
+        message?: string;
+        sessionId?: string | null;
+      };
       if (!d || d.source !== "meta-oauth") return;
       setConnecting(null);
       if (d.ok) {
         toast.success(d.message ?? "Meta conectada");
         invalidate();
+        if (d.sessionId) {
+          setPortfolioSessionId(d.sessionId);
+          setPortfolioOpen(true);
+        }
       } else if (d.error) {
         toast.error(d.error);
       }
