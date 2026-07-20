@@ -35,11 +35,11 @@ export const listTimeEntriesFn = createServerFn({ method: "GET" })
     const userIds = Array.from(new Set(entries.map((e) => e.user_id)));
     const { data: profs } = await context.supabase
       .from("user_profiles")
-      .select("user_id, full_name")
-      .in("user_id", userIds);
+      .select("id, full_name")
+      .in("id", userIds);
     const nameMap = new Map<string, string | null>();
-    for (const p of (profs ?? []) as Array<{ user_id: string; full_name: string | null }>) {
-      nameMap.set(p.user_id, p.full_name);
+    for (const p of (profs ?? []) as Array<{ id: string; full_name: string | null }>) {
+      nameMap.set(p.id, p.full_name);
     }
     return entries.map((e) => ({ ...e, user_name: nameMap.get(e.user_id) ?? null }));
   });
