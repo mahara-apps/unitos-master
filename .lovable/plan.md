@@ -1,39 +1,28 @@
 ## Problema
-1. O chat responde "não tenho seu nome" apesar de o usuário estar logado — o `userId` já está no `brainCtx`, mas o nome nunca é buscado nem injetado nas `instructions` do LLM.
-2. As respostas parecem engessadas: prompt atual pede "markdown, bullets quando ajudar", o modelo abusa de **negrito**, listas longas e enumera todas as capacidades a cada turno.
 
-## Mudanças
+`amISuperAdmin()` (server fn usada por `useIsSuperAdmin`) chama a RPC `is_super_admin(_user_id)`, que só olha `user_profiles.is_super_admin`. Os super admins definidos por e-mail (`apitadadigital@gmail.com`, `jose@mahara.marketing`) **não têm** `user_profiles.is_super_admin = true` — a outra overload `is_super_admin()` (sem argumento) é a que resolve por e-mail via JWT.
 
-### 1. Injetar identidade do usuário (`src/routes/api/chat.stream.ts`)
-- Após resolver `userId`, buscar em paralelo com o resto do contexto:
-  ```ts
-  supabase.from("user_profiles").select("full_name, display_name").eq("id", userId).maybeSingle()
-  ```
-- Derivar `userName` (primeiro nome de `display_name` → `full_name` → `email` antes do `@` como fallback).
-- Passar `user: { id, name, email }` para `streamAnswer(...)`.
+Resultado: para esses usuários `superQ.data.isSuperAdmin = false` → o grupo "Super Admin › Feature Flags" nunca é adicionado ao sidebar, e `beforeLoad` da rota `/super-admin/features` também redireciona para `/dashboard`.
 
-### 2. Prompt novo (`src/lib/brain/chat-gateway/llm.server.ts` → `buildInstructions`)
-Reescrever para tom conversacional, curto e cadenciado:
+## Correção
 
-- Adicionar bloco "Usuário atual: {name} ({email})" no topo → o modelo passa a chamar pelo nome naturalmente e nunca mais responde "não sei seu nome".
-- Diretrizes de estilo (substituem as atuais):
-  - Fale como um copiloto humano, não como um FAQ.
-  - Respostas curtas por padrão (1–3 frases). Só expanda quando o usuário pedir detalhe ou a pergunta exigir.
-  - Nada de listar todas as capacidades a cada resposta. Só mencione uma ação quando fizer sentido para a pergunta atual.
-  - Evitar excesso de **negrito** e bullets. Bullets só com 3+ itens realmente paralelos.
-  - Saudações (oi, olá, tudo bem?) → responder curto e devolver a bola ("Oi, {nome}. No que te ajudo?"), sem menu.
-  - Perguntas sobre o próprio usuário → responder direto usando o nome/email conhecidos.
-  - Só usar ferramentas quando a pergunta pedir dado real (clientes, tarefas, posts, memória do Brain).
+Unificar a checagem de super admin usando as duas fontes (flag no perfil **ou** e-mail allowlisted no JWT), em um único ponto no servidor.
 
-### 3. Assinatura de `streamAnswer` e `callLlm`
-Adicionar campo opcional `user?: { name?: string; email?: string }` em `StreamAnswerArgs` e nos args de `callLlm`, propagado para `buildInstructions(brain, user)`.
+### Passos
 
-## Detalhes técnicos
-- `user_profiles` já é lida em outros pontos autenticados; usa RLS do próprio usuário — sem risco de vazamento.
-- Nenhuma mudança de schema, migration ou UI. Só backend do chat.
-- Sem alteração no modelo (`google/gemini-3.5-flash`) nem no pipeline de tools/Reasoning Engine.
-- `temperature` mantida em 0.4; a cadência vem do prompt, não do sampling.
+1. **`src/lib/feature-flags.functions.ts` — `amISuperAdmin`**
+   - Trocar a RPC para chamar `is_super_admin()` (overload sem argumento, que já combina JWT-email). Se preferir defensivo: chamar as duas overloads e retornar `true` se qualquer uma for verdadeira.
+   - Manter o retorno `{ isSuperAdmin: boolean }` (sem mudança de contrato para o hook).
+
+2. **`assertSuperAdmin` no mesmo arquivo**
+   - Aplicar a mesma lógica (`is_super_admin()` sem argumento, ou OR das duas) para não travar escritas de `setBrandFeature` / `listBrandsWithFeatureCounts` para super admins por e-mail.
+
+3. **Verificação**
+   - Build + abrir `/dashboard` logado como `apitadadigital@gmail.com`: sidebar deve mostrar grupo "Super Admin" com "Feature Flags".
+   - Abrir `/super-admin/features`: página carrega, lista marcas e permite toggles.
+   - Usuário comum continua sem ver o grupo (comportamento inalterado).
 
 ## Fora de escopo
-- Persistir preferências de estilo por usuário.
-- Streaming de "digitando…" ou pausas artificiais entre frases (o streaming de tokens já cadencia naturalmente).
+
+- Não vamos alterar as RPCs SQL nem criar `user_profiles` para os e-mails allowlisted (mantém a allowlist por JWT como fonte adicional de verdade).
+- Nenhuma mudança em RLS/policies (a camada de RLS já usa a versão por e-mail via helpers `is_brand_member`/`has_brand_role` patchados anteriormente).
