@@ -20,6 +20,12 @@ import type { SocialChannel } from "./capabilities";
 export type BrandChannelRef = {
   brandId: string;
   channel: SocialChannel;
+  /**
+   * Quando o post pertence a um cliente específico, resolvemos a conta
+   * social daquele cliente. Sem `clientId`, resolvemos apenas conexões
+   * institucionais da marca (client_id IS NULL — ex.: blog da agência).
+   */
+  clientId?: string | null;
 };
 
 /**
@@ -31,13 +37,14 @@ export async function resolveBrandChannelConnection(
   ref: BrandChannelRef,
   userTokenForCache: string,
 ): Promise<ResolvedConnection> {
-  const { data, error } = await supabase
+  let q = supabase
     .from("social_connections")
-    .select("id, status")
+    .select("id, status, client_id")
     .eq("brand_id", ref.brandId)
     .eq("channel", ref.channel)
-    .in("status", ["active", "attention"])
-    .maybeSingle();
+    .in("status", ["active", "attention"]);
+  q = ref.clientId ? q.eq("client_id", ref.clientId) : q.is("client_id", null);
+  const { data, error } = await q.maybeSingle();
 
   if (error) throw new SocialServiceError("db_error", error.message, 500);
   if (!data) {
