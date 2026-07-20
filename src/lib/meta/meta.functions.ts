@@ -82,7 +82,11 @@ export const startMetaOAuth = createServerFn({ method: "POST" })
       redirectTo: data.redirectTo ?? null,
     });
     return {
-      authorizeUrl: provider.buildAuthorizeUrl({ state, display: "popup" }),
+      authorizeUrl: provider.buildAuthorizeUrl({
+        state,
+        display: "popup",
+        authType: "reauthenticate",
+      }),
       redirectUri: provider.redirectUri,
     };
   });
