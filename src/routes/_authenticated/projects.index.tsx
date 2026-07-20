@@ -56,6 +56,14 @@ import {
   listProjects,
   type ProjectStats,
 } from "@/lib/projects.functions";
+import { NewFromTemplateDialog } from "@/components/projects/new-from-template-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown, Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/projects/")({
   component: ProjectsIndexPage,
