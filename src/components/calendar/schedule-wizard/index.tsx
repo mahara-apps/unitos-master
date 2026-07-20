@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ import {
   Link2,
   MapPin,
   AlertTriangle,
+  Upload,
 } from "lucide-react";
 import {
   Dialog,
@@ -54,9 +55,20 @@ import {
 } from "@/lib/scheduling-wizard.functions";
 import {
   listBrandMediaFn,
+  registerBrandMediaFn,
   type BrandMediaAsset,
 } from "@/lib/brand-media.functions";
+import { supabase } from "@/integrations/supabase/client";
 import { Link } from "@tanstack/react-router";
+
+function slugifyMediaName(name: string) {
+  return name
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^\w.\-]+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(0, 120);
+}
 
 type WizardStep = "channels" | "editor" | "summary" | "schedule";
 
@@ -285,6 +297,7 @@ export function ScheduleWizard({
 
           {step === "editor" ? (
             <StepEditor
+              brandId={brandId}
               title={title}
               copy={copy}
               captionLimit={captionLimit}
@@ -303,6 +316,15 @@ export function ScheduleWizard({
               hasPairs={pairs.length > 0}
               onTitle={setTitle}
               onCopy={setCopy}
+              onUploaded={(assets) => {
+                setSelectedMedia((prev) => {
+                  const merged = [...prev];
+                  for (const a of assets) {
+                    if (!merged.find((x) => x.id === a.id)) merged.push(a);
+                  }
+                  return merged;
+                });
+              }}
               onToggleMedia={(m) => {
                 setSelectedMedia((prev) =>
                   prev.find((x) => x.id === m.id)
@@ -622,6 +644,7 @@ function StepChannels({
 }
 
 function StepEditor({
+  brandId,
   title,
   copy,
   captionLimit,
@@ -640,8 +663,10 @@ function StepEditor({
   onAutoSuggest,
   onTitle,
   onCopy,
+  onUploaded,
   onToggleMedia,
 }: {
+  brandId: string;
   title: string;
   copy: string;
   captionLimit: number;
@@ -660,10 +685,49 @@ function StepEditor({
   onAutoSuggest: () => void;
   onTitle: (v: string) => void;
   onCopy: (v: string) => void;
+  onUploaded: (assets: BrandMediaAsset[]) => void;
   onToggleMedia: (m: BrandMediaAsset) => void;
 }) {
   const overLimit = copy.length > captionLimit;
   const [tagInput, setTagInput] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const uploadRef = useRef<HTMLInputElement>(null);
+  const registerMedia = useServerFn(registerBrandMediaFn);
+  const qc = useQueryClient();
+  async function handleUpload(files: FileList | null) {
+    if (!files?.length) return;
+    setUploading(true);
+    const uploaded: BrandMediaAsset[] = [];
+    try {
+      for (const file of Array.from(files)) {
+        const path = `${brandId}/${crypto.randomUUID()}-${slugifyMediaName(file.name)}`;
+        const { error: upErr } = await supabase.storage
+          .from("brand-media")
+          .upload(path, file, { contentType: file.type, upsert: false });
+        if (upErr) throw new Error(upErr.message);
+        const asset = await registerMedia({
+          data: {
+            brandId,
+            storagePath: path,
+            name: file.name,
+            mimeType: file.type || "application/octet-stream",
+            sizeBytes: file.size,
+            tags: [],
+          },
+        });
+        uploaded.push(asset);
+      }
+      onUploaded(uploaded);
+      qc.invalidateQueries({ queryKey: ["wizard-media", brandId, "all"] });
+      qc.invalidateQueries({ queryKey: ["brand-media", brandId] });
+      toast.success(`${uploaded.length} arquivo(s) enviados`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setUploading(false);
+      if (uploadRef.current) uploadRef.current.value = "";
+    }
+  }
   function commitTag() {
     const raw = tagInput.trim().replace(/^#/, "");
     if (!raw) return;
@@ -811,6 +875,29 @@ function StepEditor({
                 Sugerir formatos
               </Button>
             ) : null}
+            <input
+              ref={uploadRef}
+              type="file"
+              multiple
+              accept="image/*,video/*"
+              className="hidden"
+              onChange={(e) => handleUpload(e.target.files)}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-6 px-2 text-[10px]"
+              disabled={uploading}
+              onClick={() => uploadRef.current?.click()}
+            >
+              {uploading ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <Upload className="mr-1 h-3 w-3" />
+              )}
+              Enviar mídia
+            </Button>
           </div>
         </div>
         {mediaKind === "mixed" ? (
@@ -822,8 +909,24 @@ function StepEditor({
         {media.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
             <ImageIcon className="mx-auto mb-2 h-5 w-5" />
-            Nenhuma mídia na biblioteca. Faça upload de imagens ou vídeos na aba
-            <b> Mídias</b> do cliente.
+            <p className="mb-3">
+              Nenhuma mídia na biblioteca. Envie um arquivo agora ou faça upload em massa na aba{" "}
+              <b>Mídias</b> do cliente.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={uploading}
+              onClick={() => uploadRef.current?.click()}
+            >
+              {uploading ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Upload className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Enviar arquivo
+            </Button>
           </div>
         ) : (
           <ScrollArea className="h-56 rounded-lg border border-border/60">
