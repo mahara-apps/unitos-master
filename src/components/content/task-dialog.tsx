@@ -1606,10 +1606,10 @@ const COPY_FIELDS: Array<{
   label: string;
   placeholder: string;
   rows: number;
-  aiField?: "copy" | "hashtags" | "cta";
+  aiField?: "copy" | "hashtags" | "cta" | "hook" | "headline";
 }> = [
-  { key: "gancho", label: "HOOK", placeholder: "Primeira linha que segura o scroll…", rows: 2 },
-  { key: "headline", label: "Headline", placeholder: "Ideia central em uma frase…", rows: 2 },
+  { key: "gancho", label: "HOOK", placeholder: "Primeira linha que segura o scroll…", rows: 2, aiField: "hook" },
+  { key: "headline", label: "Headline", placeholder: "Ideia central em uma frase…", rows: 2, aiField: "headline" },
   { key: "body", label: "Copy principal", placeholder: "Desenvolva o argumento…", rows: 6, aiField: "copy" },
   { key: "cta", label: "CTA", placeholder: "Chamada para ação…", rows: 2, aiField: "cta" },
   { key: "hashtags", label: "Hashtags", placeholder: "#marca #categoria #campanha", rows: 2, aiField: "hashtags" },
@@ -1696,7 +1696,7 @@ function MicroAiButton({
   onText,
 }: {
   postId: string;
-  field: "copy" | "hashtags" | "cta" | "script" | "briefing";
+  field: "copy" | "hashtags" | "cta" | "script" | "briefing" | "hook" | "headline";
   tooltip: string;
   icon: "sparkles" | "wand";
   onText: (t: string) => void;
