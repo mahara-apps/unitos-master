@@ -14,6 +14,7 @@ import {
   Trash2,
   Upload,
   X,
+  Minus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -58,6 +59,9 @@ import {
 } from "@/lib/brand-hub.functions";
 import { computeBriefingCompletion, briefingProgressLabel } from "@/lib/briefing-progress";
 import { supabase } from "@/integrations/supabase/client";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CHANNELS, CHANNEL_STYLES } from "@/components/content/stage-colors";
+import { FORMATS_BY_CHANNEL, FORMAT_LABEL, type PlacementFormat } from "@/lib/scheduling-formats";
 
 /* ----------------------------- Types / helpers ----------------------------- */
 
@@ -89,6 +93,7 @@ type FormState = {
   dont_text: string;
   // Volumetria & Metas
   volumetry: Record<SocialKey, number>;
+  formats: Record<SocialKey, string[]>;
   goals: string;
 };
 
@@ -136,6 +141,13 @@ function toForm(client: BrandHubClient): FormState {
       linkedin: hub.volumetry?.linkedin ?? 0,
       youtube: hub.volumetry?.youtube ?? 0,
       facebook: hub.volumetry?.facebook ?? 0,
+    },
+    formats: {
+      instagram: hub.formats?.instagram ?? [],
+      tiktok: hub.formats?.tiktok ?? [],
+      linkedin: hub.formats?.linkedin ?? [],
+      youtube: hub.formats?.youtube ?? [],
+      facebook: hub.formats?.facebook ?? [],
     },
     goals: hub.goals ?? "",
   };
@@ -386,6 +398,7 @@ export function BriefingWorkspace({
             palette: form.palette,
             do_dont: { do: form.do_text, dont: form.dont_text },
             volumetry: form.volumetry,
+            formats: form.formats,
             goals: form.goals,
             competitors,
           },
@@ -1307,29 +1320,130 @@ function VolumetriaTab({
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <SectionCard title="Volume semanal por canal" hint="Meta de publicações por semana.">
-        <div className="space-y-5">
+        <div className="grid gap-1 rounded-xl border border-border/60 bg-background/40 p-1.5">
           {SOCIALS.map(({ key, label }) => {
-            const value = form.volumetry[key];
+            const value = form.volumetry[key] ?? 0;
+            const on = value > 0;
+            const meta = CHANNELS.find((c) => c.id === key);
+            const Icon = meta?.icon;
+            const available = (FORMATS_BY_CHANNEL[key] ?? []) as PlacementFormat[];
+            const selected = (form.formats[key] ?? []) as string[];
+            const setQty = (n: number) =>
+              setForm({
+                ...form,
+                volumetry: {
+                  ...form.volumetry,
+                  [key]: Math.max(0, Math.min(21, Math.round(n || 0))),
+                },
+              });
+            const toggleOn = (v: boolean) =>
+              setForm({
+                ...form,
+                volumetry: {
+                  ...form.volumetry,
+                  [key]: v ? Math.max(1, value || 3) : 0,
+                },
+              });
+            const toggleFormat = (f: PlacementFormat) => {
+              const has = selected.includes(f);
+              const next = has ? selected.filter((x) => x !== f) : [...selected, f];
+              setForm({
+                ...form,
+                formats: { ...form.formats, [key]: next },
+              });
+            };
             return (
-              <div key={key} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-medium">{label}</Label>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {value} / semana
+              <div
+                key={key}
+                className={cn(
+                  "rounded-md px-1.5 py-1.5 transition-colors hover:bg-muted/40",
+                  !on && "opacity-60",
+                )}
+              >
+                <div
+                  className="flex h-8 items-center gap-2.5"
+                  onClick={(e) => {
+                    if ((e.target as HTMLElement).closest("[data-stepper]")) return;
+                    toggleOn(!on);
+                  }}
+                  role="button"
+                >
+                  <Checkbox
+                    className="h-3.5 w-3.5"
+                    checked={on}
+                    onCheckedChange={(v) => toggleOn(Boolean(v))}
+                    aria-label={`Incluir ${label}`}
+                  />
+                  <span
+                    className={cn(
+                      "inline-flex h-5 items-center gap-1 rounded-full border px-1.5 text-[10px] font-semibold uppercase tracking-wider",
+                      CHANNEL_STYLES[key] ?? "border-border/60 bg-muted/40 text-foreground/80",
+                    )}
+                  >
+                    {Icon ? <Icon className="h-2.5 w-2.5" /> : null}
+                    {label}
                   </span>
+                  <div
+                    data-stepper
+                    className="ml-auto inline-flex h-6 items-stretch overflow-hidden rounded-md border border-border/60 bg-background"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      disabled={value <= 0}
+                      onClick={() => setQty(value - 1)}
+                      aria-label={`Diminuir ${label}`}
+                      className="grid w-6 place-items-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent"
+                    >
+                      <Minus className="h-3 w-3" />
+                    </button>
+                    <input
+                      type="number"
+                      min={0}
+                      max={21}
+                      value={value}
+                      onChange={(e) => setQty(Number(e.target.value))}
+                      className="w-10 border-x border-border/60 bg-transparent text-center text-xs font-medium tabular-nums outline-none [appearance:textfield] focus:bg-muted/40 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                    />
+                    <button
+                      type="button"
+                      disabled={value >= 21}
+                      onClick={() => setQty(value + 1)}
+                      aria-label={`Aumentar ${label}`}
+                      className="grid w-6 place-items-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </button>
+                    <span className="grid place-items-center px-1.5 text-[10px] text-muted-foreground">
+                      / sem
+                    </span>
+                  </div>
                 </div>
-                <Slider
-                  min={0}
-                  max={21}
-                  step={1}
-                  value={[value]}
-                  onValueChange={(v) =>
-                    setForm({
-                      ...form,
-                      volumetry: { ...form.volumetry, [key]: v[0] ?? 0 },
-                    })
-                  }
-                />
+                {on && available.length > 0 && (
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1 pl-6">
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                      Formatos
+                    </span>
+                    {available.map((f) => {
+                      const active = selected.includes(f);
+                      return (
+                        <button
+                          type="button"
+                          key={f}
+                          onClick={() => toggleFormat(f)}
+                          className={cn(
+                            "inline-flex h-5 items-center rounded-full border px-2 text-[10px] font-medium transition-colors",
+                            active
+                              ? "border-primary/40 bg-primary/10 text-primary"
+                              : "border-border/60 bg-background text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          {FORMAT_LABEL[f]}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             );
           })}
