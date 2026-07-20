@@ -3,13 +3,14 @@
 // Aparece em qualquer módulo (Projetos, Clientes, Conteúdo, Mídia, CRM,
 // Financeiro, Analytics). Consulta APENAS a Brain API via server function
 // `loadBrainWidget`; nunca toca `brain_*` diretamente.
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Brain, Lightbulb, Sparkles, TrendingUp, Loader2 } from "lucide-react";
+import { Brain, Lightbulb, Sparkles, TrendingUp, Loader2, ChevronDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { loadBrainWidget, type BrainWidgetItem, type BrainWidgetPayload } from "@/lib/brain/api";
@@ -84,6 +85,10 @@ export interface BrainWidgetProps {
   maxItems?: number;
   className?: string;
   compact?: boolean;
+  /** Chave para persistir estado de colapso no localStorage. */
+  collapseKey?: string;
+  /** Inicia colapsado (default: false). */
+  defaultCollapsed?: boolean;
 }
 
 export function BrainWidget({
@@ -96,9 +101,22 @@ export function BrainWidget({
   maxItems = 4,
   className,
   compact = false,
+  collapseKey,
+  defaultCollapsed = false,
 }: BrainWidgetProps) {
   const { brandId, clientId: activeClientId } = useActiveContext();
   const load = useServerFn(loadBrainWidget);
+
+  const storageKey = collapseKey ? `brain-widget:collapsed:${collapseKey}` : null;
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined" || !storageKey) return defaultCollapsed;
+    const stored = window.localStorage.getItem(storageKey);
+    return stored === null ? defaultCollapsed : stored === "1";
+  });
+  useEffect(() => {
+    if (typeof window === "undefined" || !storageKey) return;
+    window.localStorage.setItem(storageKey, collapsed ? "1" : "0");
+  }, [collapsed, storageKey]);
 
   const spec = useMemo<PresetSpec>(() => {
     if (preset !== "custom") return PRESETS[preset];
@@ -141,21 +159,58 @@ export function BrainWidget({
 
   return (
     <Card className={cn("border-primary/10 bg-primary/[0.02]", className)}>
-      <CardHeader className={cn("pb-2", compact && "pb-1 pt-3")}>
+      <CardHeader
+        className={cn(
+          "pb-2",
+          compact && "pb-1 pt-3",
+          collapsed && "pb-3",
+        )}
+      >
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="flex items-center gap-2 text-sm font-medium">
-            <Brain className="h-4 w-4 text-primary" />
-            <span>{displayTitle}</span>
-          </CardTitle>
-          {query.isFetching ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-          ) : query.data ? (
-            <Badge variant="secondary" className="h-5 text-[10px] font-normal">
-              {query.data.candidateCount} sinais
-            </Badge>
-          ) : null}
+          <button
+            type="button"
+            onClick={() => setCollapsed((c) => !c)}
+            className="flex min-w-0 flex-1 items-center gap-2 text-left"
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? "Expandir" : "Recolher"}
+          >
+            <Brain className="h-4 w-4 shrink-0 text-primary" />
+            <CardTitle className="truncate text-sm font-medium">
+              {displayTitle}
+            </CardTitle>
+            {collapsed && query.data?.headline ? (
+              <span className="truncate text-xs text-muted-foreground">
+                — {query.data.headline}
+              </span>
+            ) : null}
+          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {query.isFetching ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+            ) : query.data ? (
+              <Badge variant="secondary" className="h-5 text-[10px] font-normal">
+                {query.data.candidateCount} sinais
+              </Badge>
+            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 text-muted-foreground"
+              onClick={() => setCollapsed((c) => !c)}
+              aria-label={collapsed ? "Expandir" : "Recolher"}
+            >
+              <ChevronDown
+                className={cn(
+                  "h-4 w-4 transition-transform",
+                  collapsed && "-rotate-90",
+                )}
+              />
+            </Button>
+          </div>
         </div>
       </CardHeader>
+      {collapsed ? null : (
       <CardContent className={cn("pt-1", compact && "pb-3")}>
         {!brandId ? (
           <EmptyState text="Selecione um workspace para ativar o Brain." />
@@ -191,6 +246,7 @@ export function BrainWidget({
           </div>
         )}
       </CardContent>
+      )}
     </Card>
   );
 }
