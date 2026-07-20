@@ -178,8 +178,8 @@ function CalendarPage() {
 
   usePageHeader(
     {
-      title: monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1),
-      subtitle: `Publicações agendadas · ${q.data?.length ?? 0} posts no mês`,
+      title: "Calendário",
+      subtitle: `${monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)} · ${q.data?.length ?? 0} posts agendados`,
       actions: (
         <div className="flex items-center gap-2">
           <div className="flex items-center rounded-md border border-border/60 p-0.5">
@@ -208,35 +208,29 @@ function CalendarPage() {
               Mês
             </button>
           </div>
-          <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => setCursor((d) => addMonths(d, -1))}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="sm" className="h-9" onClick={() => setCursor(startOfMonth(new Date()))}>
-            Hoje
-          </Button>
-          <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => setCursor((d) => addMonths(d, 1))}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center rounded-md border border-border/60">
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-r-none" onClick={() => setCursor((d) => addMonths(d, -1))}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-9 rounded-none border-x border-border/60" onClick={() => setCursor(startOfMonth(new Date()))}>
+              Hoje
+            </Button>
+            <Button variant="ghost" size="icon" className="h-9 w-9 rounded-l-none" onClick={() => setCursor((d) => addMonths(d, 1))}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
           {brandId && clientId ? (
             <Button
               size="sm"
+              className="h-9 gap-1.5"
               onClick={() => {
                 setWizardSeed(null);
                 setWizardDate(null);
                 setWizardOpen(true);
               }}
             >
-              <Plus className="h-4 w-4" /> Novo agendamento
+              <Plus className="h-4 w-4" /> Agendar publicação
             </Button>
-          ) : null}
-          {brandId ? (
-            <GeneratePlanDialog
-              brandId={brandId}
-              clientId={clientId ?? null}
-              onGenerated={() => {
-                setTimeout(() => qc.invalidateQueries({ queryKey: ["calendar"] }), 1200);
-              }}
-            />
           ) : null}
         </div>
       ),
