@@ -1,29 +1,71 @@
-## Diagnóstico (confirmado)
+## Objetivo
 
-Inspecionei o cache do TanStack Query na tela `/analytics` e a query principal `["analytics", brandId, ...]` está em estado **error** com `Error: forbidden`. As demais (`analytics-team`, `analytics-clients`, `analytics-projects`, `analytics-sla`, `social-analytics`) estão `success` com dados. Por isso o SLA aparece na aba Equipe (usa `analytics-sla`), mas as abas Produção/Equipe/Clientes ficam presas nos skeletons — todas dependem de `analyticsQuery.data`, que nunca chega.
+Uma tela única onde o gestor da agência define e monitora **quanto de IA pode ser consumido**, em três camadas hierárquicas:
 
-A causa está em `src/lib/analytics.functions.ts` (linhas 95–102): o handler de `getAnalytics` faz um gate manual consultando **somente** `brand_members`. Se o usuário logado é dono da marca (`brands.owner_id`) ou super admin (`user_profiles.is_super_admin`) mas não possui linha em `brand_members`, o check lança `forbidden`. As outras server functions (ex.: `listBrandTeam`) confiam no RLS + bypass de super admin e por isso funcionam para o mesmo usuário.
+1. **Agência (brand)** — teto global mensal.
+2. **Cliente** — teto por cliente, sempre ≤ teto da agência.
+3. **Usuário** — teto por membro do time, sempre ≤ teto do cliente em que ele opera (ou geral quando não vinculado).
 
-## Correção
+Cada linha mostra: gasto no período, limite configurado, % consumido e ação (editar/remover limite).
 
-Substituir o gate manual de `getAnalytics` por uma verificação equivalente ao padrão já usado em `team.functions.ts`: aceitar **membro da marca OU dono da marca OU super admin**. Sem essa mudança nenhum super admin/dono sem row em `brand_members` consegue abrir Analytics.
+## Base de dados
+
+Já existe `brand_ai_usage` (brand_id, agent, model, tokens, cost_usd, actor_id, created_at). Falta apenas o vínculo com cliente e a tabela de configuração de limites.
+
+**Alteração 1 — `brand_ai_usage`**
+- Adicionar `client_id uuid null references public.clients(id) on delete set null`.
+- Índices: `(brand_id, created_at)`, `(brand_id, client_id, created_at)`, `(brand_id, actor_id, created_at)`.
+- Todos os pontos de execução de IA (`ai-agents.functions.ts`, `monthly-plan`, chat, mídia, hook/headline) passam a gravar `client_id` quando disponível.
+
+**Alteração 2 — nova `ai_usage_limits`**
+- Colunas: `id`, `brand_id`, `scope` (`'brand' | 'client' | 'user'`), `client_id` (obrigatório quando `scope='client'` ou quando o limite de usuário é escopado por cliente), `user_id` (obrigatório quando `scope='user'`), `period` (`'monthly'` v1), `limit_usd numeric(12,4)`, `hard_stop boolean default true` (bloqueia execução ao atingir 100%; se `false` apenas alerta), `notify_at_pct int default 80`, `created_by`, timestamps.
+- Uniques: `(brand_id) where scope='brand'`, `(brand_id, client_id) where scope='client'`, `(brand_id, client_id, user_id) where scope='user'` (client_id pode ser NULL para "usuário na agência inteira").
+- GRANTS + RLS: leitura/edição para owner/manager da marca ou super admin (mesmo padrão de `team.functions.ts`).
+
+**Alteração 3 — função SQL `check_ai_usage_budget(brand, client, user, period_start)`**
+- Retorna, para o par (marca/cliente/usuário) que está prestes a rodar, um JSON: `{ allowed, blocked_by, spent_usd, limit_usd, pct }` avaliando na ordem **user → client → brand**. Fica em `SECURITY DEFINER` e é chamada pelas server functions de IA antes de disparar o modelo.
+
+## Server functions (`src/lib/ai-limits.functions.ts`)
+
+- `listAiUsageOverview({ brandId, period })` — retorna a árvore:
+  - Nó agência: `spent`, `limit`, `pct`.
+  - Nós de cliente: um por cliente ativo da marca com `spent`, `limit`, `pct`.
+  - Nós de usuário: agrupados por cliente (ou "Sem cliente vinculado") com `spent`, `limit`, `pct`.
+- `upsertAiUsageLimit({ scope, brandId, clientId?, userId?, limitUsd, hardStop, notifyAtPct })` — valida hierarquia (client ≤ brand; user ≤ client se houver).
+- `deleteAiUsageLimit({ id })`.
+- Todas com `requireSupabaseAuth` + gate padrão (membro/dono/super admin, replicando o padrão que acabamos de aplicar em `getAnalytics`).
+
+## Enforcement
+
+Introduzir helper `assertAiBudget({ supabase, brandId, clientId, userId })` chamado no início de cada handler de IA (agentes, chat, geração de mídia, hook/headline, monthly-plan). Se `hard_stop` estourou, `throw new Error("ai_budget_exceeded:<scope>")`. O front trata o erro com toast: "Limite de IA atingido para <escopo>. Ajuste em Configurações → IA → Limites."
+
+## UI — `/settings/ai/limits`
+
+Nova rota autenticada, com o padrão `DashboardPageShell` e a estética Geek Sleek já definida no DESIGN_SYSTEM.md.
+
+Layout: um card "Uso da Agência" no topo (KPI grande + barra de progresso + botão "Definir limite") e, abaixo, uma **tabela hierárquica expansível** com colunas: **Escopo · Gasto no período · Limite · % · Ação**.
 
 ```text
-src/lib/analytics.functions.ts (handler de getAnalytics)
-  - Manter requireSupabaseAuth
-  - Rodar em paralelo:
-      * brand_members(brand_id=?, user_id=?) .maybeSingle()
-      * brands(id=?) select owner_id .maybeSingle()
-      * user_profiles(id=?) select is_super_admin .maybeSingle()
-  - Autorizar se: isMember || owner_id === userId || is_super_admin === true
-  - Caso contrário: throw new Error("forbidden")
+▼ Agência — Studio XPTO                 $ 128,40 / $ 500,00   26%   [Editar]
+  ▼ Cliente — Padaria Central           $  62,10 / $ 150,00   41%   [Editar]
+        Usuário — Ana Souza             $  40,20 / $  60,00   67%   [Editar]
+        Usuário — João Lima             $  21,90 /    —              [Definir]
+  ▶ Cliente — Loja Verde                $  30,00 /    —              [Definir]
+  ▶ Sem cliente vinculado               $  36,30 / $ 100,00   36%   [Editar]
 ```
 
-Nenhuma outra alteração no arquivo, no UI, ou no schema. As demais queries continuam funcionando pelo RLS.
+Interações:
+- Seletor de período (Este mês / Últimos 30 dias / Mês passado).
+- Dialog "Definir limite" com valor em USD, toggle "Bloquear execução ao estourar" e slider "Notificar em %".
+- Validação inline impedindo salvar limite de cliente maior que o da agência (mesma regra no servidor).
+- Badge de status: "Dentro do orçamento" (< notify_at_pct), "Atenção" (≥ notify_at_pct), "Bloqueado" (≥ 100% com hard_stop).
+
+Entrada na navegação: item **"Limites de IA"** dentro do grupo **GESTÃO & CONFIG** do sidebar, ao lado de **Configurações → IA**.
 
 ## Validação
 
-1. Recarregar `/analytics` como o usuário atual.
-2. Confirmar via cache do react-query que a query `analytics` sai de `error` para `success`.
-3. Percorrer as abas **Social / Produção / Equipe / Clientes** e verificar que os KPIs e gráficos renderizam sem skeleton persistente.
-4. Confirmar que usuários sem vínculo (nem membro, nem dono, nem super admin) continuam recebendo `forbidden` (regressão de segurança).
+1. Definir limite de agência = $ 10; rodar uma pauta pesada e confirmar bloqueio com toast + evento em `activity_events`.
+2. Definir limite de cliente > limite de marca → servidor rejeita.
+3. Ana Souza consome até 100% do próprio limite → dela é bloqueada, João continua rodando.
+4. Super admin de outra workspace não vê os limites desta marca (RLS).
+5. Registros antigos de `brand_ai_usage` continuam somando no total da agência mesmo sem `client_id`.
