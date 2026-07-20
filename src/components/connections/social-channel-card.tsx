@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { CheckCircle2, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -158,35 +158,11 @@ export function SocialChannelCard({
         <StatusPill status={status} count={accounts.length} />
       </div>
 
-      <div className="mt-4 min-h-[54px] rounded-lg border border-border/60 bg-background/60 p-3">
-        {primary ? (
-          <div className="flex items-start gap-2">
-            <Avatar className="h-8 w-8">
-              <AvatarImage src={primary.avatarUrl ?? undefined} alt={primary.name} />
-              <AvatarFallback className={cn("text-[10px]", channel.tone)}>
-                <Icon className="h-3.5 w-3.5" />
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-xs font-medium">
-                {primary.name}
-                {accounts.length > 1 && (
-                  <span className="ml-1 text-muted-foreground">
-                    +{accounts.length - 1}
-                  </span>
-                )}
-              </div>
-              <div className="truncate font-mono text-[10px] text-muted-foreground">
-                {brandLabel} · sync {fmtSync(primary.updatedAt)}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="flex h-full items-center justify-center text-center font-mono text-[10px] text-muted-foreground">
-            Nenhuma conta conectada
-          </div>
-        )}
-      </div>
+      <AccountsSummary
+        accounts={accounts}
+        channel={channel}
+        brandLabel={brandLabel}
+      />
 
       <Separator className="my-4" />
 
@@ -242,6 +218,82 @@ export function SocialChannelCard({
         }}
       />
     </DashboardPanelSurface>
+  );
+}
+
+function AccountsSummary({
+  accounts,
+  channel,
+  brandLabel,
+}: {
+  accounts: SocialAccount[];
+  channel: SocialChannelDef;
+  brandLabel: string;
+}) {
+  const Icon = channel.icon;
+  if (accounts.length === 0) {
+    return (
+      <div className="mt-4 flex min-h-[54px] items-center justify-center rounded-lg border border-dashed border-border/60 bg-background/40 p-3 text-center font-mono text-[10px] text-muted-foreground">
+        Nenhuma conta conectada
+      </div>
+    );
+  }
+
+  if (accounts.length <= 2) {
+    return (
+      <div className="mt-4 space-y-1.5">
+        {accounts.map((acc) => (
+          <div
+            key={acc.id}
+            className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/60 p-2.5"
+          >
+            <Avatar className="h-7 w-7 shrink-0">
+              <AvatarImage src={acc.avatarUrl ?? undefined} alt={acc.name} />
+              <AvatarFallback className={cn("text-[10px]", channel.tone)}>
+                <Icon className="h-3 w-3" />
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-xs font-medium">{acc.name}</div>
+              <div className="truncate font-mono text-[10px] text-muted-foreground">
+                sync {fmtSync(acc.updatedAt)}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const preview = accounts.slice(0, 3);
+  const extra = accounts.length - preview.length;
+  return (
+    <div className="mt-4 flex items-center gap-3 rounded-lg border border-border/60 bg-background/60 p-3">
+      <div className="flex -space-x-2">
+        {preview.map((acc) => (
+          <Avatar
+            key={acc.id}
+            className="h-8 w-8 border-2 border-background ring-0"
+          >
+            <AvatarImage src={acc.avatarUrl ?? undefined} alt={acc.name} />
+            <AvatarFallback className={cn("text-[10px]", channel.tone)}>
+              <Icon className="h-3.5 w-3.5" />
+            </AvatarFallback>
+          </Avatar>
+        ))}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-xs font-medium">
+          {accounts.length} contas conectadas
+          {extra > 0 && (
+            <span className="ml-1 text-muted-foreground">· +{extra} além destas</span>
+          )}
+        </div>
+        <div className="truncate font-mono text-[10px] text-muted-foreground">
+          {brandLabel} · sync {fmtSync(accounts[0]?.updatedAt)}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -461,6 +513,15 @@ function ManageSheet({
 }) {
   const qc = useQueryClient();
   const Icon = channel.icon;
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return accounts;
+    return accounts.filter((a) =>
+      [a.name, a.handle ?? "", a.id].some((v) => v.toLowerCase().includes(q)),
+    );
+  }, [accounts, query]);
 
   const refreshFn = useServerFn(refreshMetaConnection);
   const disconnectMetaFn = useServerFn(disconnectMeta);
@@ -520,20 +581,36 @@ function ManageSheet({
             >
               <Icon className="h-4 w-4" />
             </span>
-            {channel.name}
+            Gerenciar {channel.name}
           </SheetTitle>
           <SheetDescription>
-            Contas de {channel.name} vinculadas ao workspace <b>{brandLabel}</b>.
+            {accounts.length} {accounts.length === 1 ? "conta vinculada" : "contas vinculadas"} ao workspace <b>{brandLabel}</b>.
           </SheetDescription>
         </SheetHeader>
 
-        <div className="mt-4 space-y-2">
+        {accounts.length > 0 && (
+          <div className="relative mt-4">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nome, handle ou ID"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="h-9 pl-9 text-xs"
+            />
+          </div>
+        )}
+
+        <div className="mt-3 max-h-[calc(100vh-16rem)] space-y-1 overflow-y-auto pr-1">
           {accounts.length === 0 ? (
             <p className="rounded-md border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
               Nenhuma conta conectada.
             </p>
+          ) : filtered.length === 0 ? (
+            <p className="rounded-md border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
+              Nenhuma conta corresponde a “{query}”.
+            </p>
           ) : (
-            accounts.map((acc) => {
+            filtered.map((acc) => {
               const isRefreshing = refreshMut.isPending && refreshMut.variables === acc.id;
               const isDisconnecting =
                 disconnectMut.isPending && (disconnectMut.variables as SocialAccount)?.id === acc.id;
@@ -541,76 +618,60 @@ function ManageSheet({
               return (
                 <div
                   key={acc.id}
-                  className="rounded-lg border border-border/60 bg-card/50 p-3"
+                  className="group flex items-center gap-3 rounded-md border border-transparent px-2 py-2 transition-colors hover:border-border/60 hover:bg-muted/40"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex min-w-0 items-start gap-3">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={acc.avatarUrl ?? undefined} alt={acc.name} />
-                        <AvatarFallback className={cn(channel.tone)}>
-                          <Icon className="h-4 w-4" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="truncate text-sm font-medium">{acc.name}</span>
-                          {active ? (
-                            <Badge
-                              variant="outline"
-                              className="h-5 gap-1 border-emerald-500/30 bg-emerald-500/10 px-1.5 text-[10px] text-emerald-600 dark:text-emerald-400"
-                            >
-                              <CheckCircle2 className="h-3 w-3" /> Conectado
-                            </Badge>
-                          ) : (
-                            <Badge variant="destructive" className="h-5 px-1.5 text-[10px]">
-                              {acc.status}
-                            </Badge>
-                          )}
-                        </div>
-                        {acc.handle && (
-                          <div className="truncate text-[11px] text-muted-foreground">
-                            {acc.handle}
-                          </div>
-                        )}
-                        <p className="text-[10px] text-muted-foreground">
-                          Última sincronização: {fmtSync(acc.updatedAt)}
-                        </p>
-                        {acc.lastError && (
-                          <p
-                            className="truncate text-[10px] text-destructive"
-                            title={acc.lastError}
-                          >
-                            {acc.lastError}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      {kind === "meta" && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 gap-1 px-2 text-[11px]"
-                          disabled={isRefreshing}
-                          onClick={() => refreshMut.mutate(acc.id)}
-                        >
-                          <RefreshCw
-                            className={`h-3 w-3 ${isRefreshing ? "animate-spin" : ""}`}
-                          />
-                          Reconectar
-                        </Button>
+                  <Avatar className="h-9 w-9 shrink-0">
+                    <AvatarImage src={acc.avatarUrl ?? undefined} alt={acc.name} />
+                    <AvatarFallback className={cn(channel.tone)}>
+                      <Icon className="h-4 w-4" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-sm font-medium">{acc.name}</span>
+                      {!active && (
+                        <Badge variant="destructive" className="h-4 px-1 text-[9px]">
+                          {acc.status}
+                        </Badge>
                       )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 gap-1 px-2 text-[11px] text-destructive hover:text-destructive"
-                        disabled={isDisconnecting}
-                        onClick={() => disconnectMut.mutate(acc)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                        Desconectar
-                      </Button>
                     </div>
+                    <div className="truncate font-mono text-[10px] text-muted-foreground">
+                      {acc.handle ?? acc.id} · sync {fmtSync(acc.updatedAt)}
+                    </div>
+                    {acc.lastError && (
+                      <p
+                        className="truncate text-[10px] text-destructive"
+                        title={acc.lastError}
+                      >
+                        {acc.lastError}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 items-center gap-0.5 opacity-70 transition-opacity group-hover:opacity-100">
+                    {kind === "meta" && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        disabled={isRefreshing}
+                        onClick={() => refreshMut.mutate(acc.id)}
+                        title="Reconectar"
+                      >
+                        <RefreshCw
+                          className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")}
+                        />
+                      </Button>
+                    )}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      disabled={isDisconnecting}
+                      onClick={() => disconnectMut.mutate(acc)}
+                      title="Desconectar"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 </div>
               );
