@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, type ComponentType } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -53,6 +53,7 @@ import {
   type SocialAccount,
   type SocialChannelDef,
 } from "@/components/connections/social-channel-card";
+import { MetaPortfolioDialog } from "@/components/connections/meta-portfolio-dialog";
 import { listMetaConnections } from "@/lib/meta/meta.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveContext } from "@/hooks/use-active-context";
@@ -264,6 +265,52 @@ function ConnectionsPage() {
   const { brandId } = useActiveContext();
   const qc = useQueryClient();
 
+  // Portfolio selector state (Meta OAuth post-callback).
+  const [portfolioSessionId, setPortfolioSessionId] = useState<string | null>(null);
+  const [portfolioOpen, setPortfolioOpen] = useState(false);
+
+  // Global listener for postMessage from the OAuth popup.
+  useEffect(() => {
+    function onMessage(ev: MessageEvent) {
+      const d = ev.data as {
+        source?: string;
+        type?: string;
+        ok?: boolean;
+        sessionId?: string | null;
+        scopes?: string[];
+      };
+      if (!d || d.source !== "meta-oauth") return;
+      if (d.type === "missing-scopes" && d.scopes?.length) {
+        toast.warning(
+          `Permissões negadas: ${d.scopes.join(", ")}. Funcionalidades ligadas ficarão limitadas.`,
+          { duration: 8000 },
+        );
+        return;
+      }
+      if (d.ok && d.sessionId) {
+        setPortfolioSessionId(d.sessionId);
+        setPortfolioOpen(true);
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
+  // URL fallback: if the popup couldn't post to opener (COOP / manual close),
+  // the callback appends ?meta_session=<id> so a reload still opens the dialog.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const sid = params.get("meta_session");
+    if (sid) {
+      setPortfolioSessionId(sid);
+      setPortfolioOpen(true);
+      params.delete("meta_session");
+      const qs = params.toString();
+      window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
+    }
+  }, []);
+
   const getFn = useServerFn(getConnections);
   const { data, isLoading } = useQuery({
     queryKey: ["connections", brandId],
@@ -375,6 +422,16 @@ function ConnectionsPage() {
   return (
     <DashboardPageShell>
       <ConnectionsHeaderRegister />
+
+      <MetaPortfolioDialog
+        brandId={brandId}
+        sessionId={portfolioSessionId}
+        open={portfolioOpen}
+        onOpenChange={(v) => {
+          setPortfolioOpen(v);
+          if (!v) qc.invalidateQueries({ queryKey: ["meta-connections", brandId] });
+        }}
+      />
 
       <Tabs defaultValue="channels" className="space-y-4">
         <TabsList variant="bordered">
