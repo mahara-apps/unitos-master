@@ -299,8 +299,8 @@ export function ScheduleWizard({
     );
   }
 
-  async function persist(action: "draft" | "publish" | "schedule") {
-    if (!pairs.length) {
+  async function persist(action: "draft" | "publish" | "schedule" | "save_draft") {
+    if (action !== "save_draft" && !pairs.length) {
       toast.error("Selecione pelo menos um canal.");
       return;
     }
@@ -346,11 +346,14 @@ export function ScheduleWizard({
               .join(" · ")}`,
           );
         }
+      } else if (action === "save_draft") {
+        toast.success("Rascunho salvo. Você pode retomar depois.");
       } else {
         toast.success(action === "draft" ? "Enviado para aprovação" : "Agendamento criado");
       }
       qc.invalidateQueries({ queryKey: ["calendar"] });
       qc.invalidateQueries({ queryKey: ["pending-schedule"] });
+      qc.invalidateQueries({ queryKey: ["wizard-drafts"] });
       onSaved?.();
       if (action !== "publish" || (res?.published ?? 0) > 0) onOpenChange(false);
     } catch (e) {
