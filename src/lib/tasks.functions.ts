@@ -149,6 +149,22 @@ export const listProjectsFn = createServerFn({ method: "GET" })
     return (rows ?? []) as Array<{ id: string; name: string; client_id: string | null }>;
   });
 
+export const countMyPendingTasksFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ brandId: z.string().uuid() }).parse(i),
+  )
+  .handler(async ({ data, context }): Promise<{ count: number }> => {
+    const { count, error } = await context.supabase
+      .from("tasks")
+      .select("id", { count: "exact", head: true })
+      .eq("brand_id", data.brandId)
+      .eq("assignee_id", context.userId)
+      .neq("status", "done");
+    if (error) throw error;
+    return { count: count ?? 0 };
+  });
+
 const CreateTaskInput = z.object({
   brandId: z.string().uuid(),
   title: z.string().trim().min(1).max(200),
