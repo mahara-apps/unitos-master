@@ -80,6 +80,10 @@ function metaPopupFeatures(): string {
   return `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`;
 }
 
+function metaStuckMessage(): string {
+  return "A conexão da Meta não foi concluída. Se a janela ficou em branco ou em /business/cancel, tente novamente mantendo as permissões do canal selecionadas.";
+}
+
 function fmtSync(iso: string | null | undefined): string {
   if (!iso) return "nunca";
   try {
@@ -411,15 +415,32 @@ function ConnectButton({
       // Detect popup closed without completing OAuth so the button doesn't
       // stay stuck on "Conectando…" forever.
       if (popup) {
+        const startedAt = Date.now();
         const timer = window.setInterval(() => {
+          if (oauthCompletedRef.current) {
+            window.clearInterval(timer);
+            return;
+          }
           if (popup.closed) {
             window.clearInterval(timer);
             setConnecting((prev) => {
               if (prev && !oauthCompletedRef.current) {
-                toast.error(
-                  "A conexão da Meta não foi concluída. Se a janela ficou em branco ou em /business/cancel, tente novamente mantendo as permissões do canal selecionadas.",
-                  { duration: 9000 },
-                );
+                toast.error(metaStuckMessage(), { duration: 9000 });
+              }
+              return false;
+            });
+            return;
+          }
+          if (Date.now() - startedAt > 120_000) {
+            window.clearInterval(timer);
+            try {
+              popup.close();
+            } catch {
+              /* noop */
+            }
+            setConnecting((prev) => {
+              if (prev && !oauthCompletedRef.current) {
+                toast.error(metaStuckMessage(), { duration: 9000 });
               }
               return false;
             });
@@ -623,6 +644,28 @@ function ManageSheet({
   const startOAuthFn = useServerFn(startMetaOAuth);
   async function handleAddMeta() {
     const popup = window.open("", "meta-oauth", metaPopupFeatures());
+    let completed = false;
+    let timeoutId: number | undefined;
+    function onOAuthMessage(ev: MessageEvent) {
+      const d = ev.data as { source?: string };
+      if (d?.source !== "meta-oauth") return;
+      completed = true;
+      if (timeoutId) window.clearTimeout(timeoutId);
+      window.removeEventListener("message", onOAuthMessage);
+    }
+    window.addEventListener("message", onOAuthMessage);
+    if (popup) {
+      timeoutId = window.setTimeout(() => {
+        window.removeEventListener("message", onOAuthMessage);
+        if (completed || popup.closed) return;
+        try {
+          popup.close();
+        } catch {
+          /* noop */
+        }
+        toast.error(metaStuckMessage(), { duration: 9000 });
+      }, 120_000);
+    }
     try {
       const metaChannel = metaChannelFromId(channel.id);
       const { authorizeUrl } = await startOAuthFn({
@@ -630,6 +673,8 @@ function ManageSheet({
       });
       if (popup) popup.location.href = authorizeUrl;
     } catch (e) {
+      if (timeoutId) window.clearTimeout(timeoutId);
+      window.removeEventListener("message", onOAuthMessage);
       popup?.close();
       toast.error(e instanceof Error ? e.message : "Falha ao iniciar OAuth");
     }
