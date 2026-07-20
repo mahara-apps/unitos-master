@@ -103,7 +103,7 @@ export class MetaProvider {
     this.redirectUri =
       opts?.redirectUri ??
       process.env.META_REDIRECT_URI ??
-      "https://unitos.lovable.app/api/public/meta/callback";
+      "https://unitos.sejaumpartner.com/api/public/meta/callback";
   }
 
   // --------------------------------------------------------------- OAuth ---
