@@ -803,76 +803,22 @@ function EditBody({
           postId={postId}
           createdAt={post.created_at}
           copyAutosaveStatus={copyAutosaveStatus}
+          mediaSlot={
+            <MediaReferenceBlock
+              refs={refs}
+              signedUrls={signedUrls}
+              fileInput={fileInput}
+              onFiles={(fs) => upload.mutate(fs)}
+              onRemove={(p) => removeMedia.mutate(p)}
+              onGenerate={() => generateMedia.mutate()}
+              uploading={upload.isPending}
+              generating={generateMedia.isPending}
+            />
+          }
         />
 
         <div className="mt-6 space-y-5">
           <Separator />
-        <div className="space-y-1.5">
-          <Label className="flex items-center gap-1.5">
-            <ImageIcon className="h-3.5 w-3.5" /> Mídias de referência
-            <span className="text-xs font-normal text-muted-foreground">
-              (feeds, stories, moodboard)
-            </span>
-          </Label>
-          <DashboardPanelSurface className="p-3">
-            {refs.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-border/60 bg-card/40 px-3 py-4 text-xs text-muted-foreground">
-                Anexe imagens ou vídeos. Ao inserir 2 ou mais, o post vira
-                automaticamente um Carrossel.
-              </p>
-            ) : (
-              <InstagramPreview
-                refs={refs}
-                urls={signedUrls}
-                onRemove={(p) => removeMedia.mutate(p)}
-              />
-            )}
-            <div className="mt-2 flex justify-end">
-              <input
-                ref={fileInput}
-                type="file"
-                multiple
-                className="hidden"
-                accept="image/*,video/*"
-                onChange={(e) => {
-                  const fs = Array.from(e.target.files ?? []);
-                  if (fs.length > 0) upload.mutate(fs);
-                  e.target.value = "";
-                }}
-              />
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => generateMedia.mutate()}
-                  disabled={generateMedia.isPending}
-                  title="Gerar imagem de referência usando o hook, headline e copy"
-                >
-                  {generateMedia.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="mr-2 h-4 w-4" />
-                  )}
-                  Gerar com IA
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInput.current?.click()}
-                  disabled={upload.isPending}
-                >
-                  {upload.isPending ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="mr-2 h-4 w-4" />
-                  )}
-                  Anexar
-                </Button>
-              </div>
-            </div>
-          </DashboardPanelSurface>
-        </div>
-
         {post.design_brief ? (
           <div className="space-y-1.5">
             <Label className="flex items-center gap-1.5">
