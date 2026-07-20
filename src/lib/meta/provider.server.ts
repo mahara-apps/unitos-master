@@ -22,6 +22,10 @@ export const META_DEFAULT_SCOPES = [
   // "threads_content_publish",
   // Meta Ads
   "ads_read",
+  // Business Manager — necessário para enumerar Páginas geridas via Business
+  // Portfolio (dono ou cliente). Sem isso, /me/accounts só devolve Páginas
+  // que o usuário administra diretamente pelo perfil pessoal.
+  "business_management",
 ];
 
 export type MetaPageAsset = {
