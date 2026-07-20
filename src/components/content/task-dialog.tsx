@@ -329,6 +329,19 @@ function CreateBody({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultStageId, stages.length, defaultScheduledAt, defaultProjectId]);
 
+  // Pré-seleciona o usuário atual como responsável ao abrir em criação.
+  useEffect(() => {
+    let cancelled = false;
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? null;
+      if (!uid || cancelled) return;
+      setState((p) => (p.assigneeId ? p : { ...p, assigneeId: uid }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const create = useMutation({
     mutationFn: async () =>
       createPost({
