@@ -4219,6 +4219,67 @@ export type Database = {
           },
         ]
       }
+      sla_rules: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          project_id: string | null
+          scope: string
+          scope_ref: string | null
+          target_hours: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          project_id?: string | null
+          scope: string
+          scope_ref?: string | null
+          target_hours: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          project_id?: string | null
+          scope?: string
+          scope_ref?: string | null
+          target_hours?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sla_rules_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "sla_rules_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sla_rules_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_connections: {
         Row: {
           access_token_ciphertext: string
