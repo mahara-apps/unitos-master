@@ -72,6 +72,51 @@ export type Database = {
           },
         ]
       }
+      agent_prompt_overrides: {
+        Row: {
+          agent_id: string
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          system_prompt: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          system_prompt: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          system_prompt?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_prompt_overrides_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "agent_prompt_overrides_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_prompts: {
         Row: {
           agent_id: string
@@ -4733,6 +4778,15 @@ export type Database = {
           full_name: string
           status: string
           user_id: string
+        }[]
+      }
+      list_agent_catalog: {
+        Args: never
+        Returns: {
+          agent_id: string
+          agent_name: string
+          required_fields: Json
+          updated_at: string
         }[]
       }
       mark_social_post_failed: {
