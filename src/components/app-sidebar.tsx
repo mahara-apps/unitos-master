@@ -2,6 +2,8 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { getMyProfile } from "@/lib/profile.functions";
+import { countMyPendingTasksFn } from "@/lib/tasks.functions";
+import { useActiveContextOptional } from "@/hooks/use-active-context";
 import { UnitosLogo } from "@/components/brand/unitos-logo";
 import {
   LayoutDashboard,
@@ -59,30 +61,41 @@ type NavItem = {
   url: string;
   icon: React.ComponentType<{ className?: string }>;
   featureKey?: string;
+  badge?: "tasks-pending" | "beta";
 };
 
 const groups: Array<{ label: string; items: NavItem[] }> = [
   {
-    label: "Operação",
+    label: "Visão Geral",
     items: [
       { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-      { title: "Conteúdo", url: "/content", icon: KanbanSquare, featureKey: "blog_post" },
-      { title: "Calendário", url: "/calendar", icon: CalendarDays },
-      { title: "Mídia paga", url: "/media-plans", icon: Target, featureKey: "midia_paga" },
-      { title: "Tarefas", url: "/tasks", icon: ListChecks },
-      { title: "Projetos", url: "/projects", icon: FolderKanban },
-      { title: "Clientes", url: "/customers", icon: Users },
       { title: "Analytics", url: "/analytics", icon: BarChart3 },
     ],
   },
   {
-    label: "Sistema",
+    label: "Operação",
     items: [
-      { title: "Integrações", url: "/connections", icon: Plug },
+      { title: "Conteúdo", url: "/content", icon: KanbanSquare, featureKey: "blog_post" },
+      { title: "Calendário", url: "/calendar", icon: CalendarDays },
+      { title: "Tarefas", url: "/tasks", icon: ListChecks, badge: "tasks-pending" },
+      { title: "Projetos", url: "/projects", icon: FolderKanban },
+      { title: "Mídia paga", url: "/media-plans", icon: Target, featureKey: "midia_paga" },
+    ],
+  },
+  {
+    label: "Inteligência",
+    items: [
       { title: "Agentes IA", url: "/agents", icon: Bot },
-      { title: "Brain", url: "/brain", icon: Brain, featureKey: "brain" },
+      { title: "Brain", url: "/brain", icon: Brain, featureKey: "brain", badge: "beta" },
       { title: "Brain Diagnostics", url: "/brain/diagnostics", icon: Activity, featureKey: "brain" },
       { title: "Chat", url: "/chat", icon: MessageSquare, featureKey: "chat" },
+    ],
+  },
+  {
+    label: "Gestão & Config",
+    items: [
+      { title: "Clientes", url: "/customers", icon: Users },
+      { title: "Integrações", url: "/connections", icon: Plug },
       { title: "Notificações", url: "/notifications", icon: Bell },
       { title: "Logs do sistema", url: "/settings/logs", icon: ScrollText },
       { title: "Configurações", url: "/settings", icon: SettingsIcon },
@@ -97,6 +110,16 @@ export function AppSidebar() {
   const featuresQ = useBrandFeatures();
   const superQ = useIsSuperAdmin();
   const isSuper = !!superQ.data?.isSuperAdmin;
+  const { brandId } = useActiveContextOptional();
+  const countPending = useServerFn(countMyPendingTasksFn);
+  const pendingQ = useQuery({
+    queryKey: ["tasks-pending-count", brandId],
+    queryFn: () => countPending({ data: { brandId: brandId! } }),
+    enabled: !!brandId,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+  const pendingCount = pendingQ.data?.count ?? 0;
   const featureEnabled = (key?: string) => {
     if (!key) return true;
     if (isSuper) return true;
@@ -151,17 +174,41 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        {visibleGroups.map((g) => (
-          <SidebarGroup key={g.label}>
+        {visibleGroups.map((g, idx) => (
+          <SidebarGroup
+            key={g.label}
+            className={idx === 0 ? "mt-2.5" : "mt-4"}
+          >
             <SidebarGroupLabel>{g.label}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {g.items.map((item) => (
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-                      <Link to={item.url} preload="intent" className="flex items-center gap-2">
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
+                      <Link to={item.url} preload="intent" className="group/nav relative flex items-center gap-3">
+                        {isActive(item.url) ? (
+                          <span
+                            aria-hidden
+                            className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-lime group-data-[collapsible=icon]:hidden"
+                          />
+                        ) : null}
+                        <item.icon
+                          className="h-[19px] w-[19px] shrink-0"
+                          strokeWidth={isActive(item.url) ? 2 : 1.8}
+                        />
+                        <span className={isActive(item.url) ? "font-semibold" : "font-medium"}>
+                          {item.title}
+                        </span>
+                        {item.badge === "tasks-pending" && pendingCount > 0 ? (
+                          <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold leading-none text-destructive-foreground group-data-[collapsible=icon]:hidden">
+                            {pendingCount > 99 ? "99+" : pendingCount}
+                          </span>
+                        ) : null}
+                        {item.badge === "beta" ? (
+                          <span className="ml-auto inline-flex items-center rounded-md bg-brand-lime/15 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-brand-lime-foreground group-data-[collapsible=icon]:hidden dark:text-brand-lime">
+                            beta
+                          </span>
+                        ) : null}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
