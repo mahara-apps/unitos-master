@@ -1,51 +1,100 @@
-## Diagnóstico
+## Diagnóstico confirmado
 
-O `MetaPortfolioDialog` mostra "Nenhuma conta do Instagram Business" porque o backend só encontra IG a partir das **Páginas do Facebook selecionadas** durante o consent screen da Meta. Sua conta pessoal Meta tem dezenas de IGs, mas o fluxo atual só os enxerga se:
+- **Nenhuma conta Meta foi realmente criada em `social_connections`**: a tabela está vazia para `provider='meta'`.
+- **Nenhum vínculo cliente ↔ conta existe em `client_social_accounts`**: por isso a aba **Canais** do cliente mostra “Nenhuma conta social conectada”.
+- **O cache atual de OAuth está inconsistente**: a sessão mais recente tem `pages_count=0`, enquanto sessões anteriores chegaram a ter `91/119` páginas e `75` contas Ads.
+- **O fluxo ainda pode consumir Graph API em excesso** porque cache vazio (`[]`) é tratado como “precisa buscar de novo”. Isso gera novo scan em cada abertura quando a Meta retorna vazio/rate limit.
+- **O link atual não atende multi-conta por canal**: `linkMetaAccount` apaga outras conexões do mesmo `brand + channel` antes de salvar a nova, o que explica comportamento de “página errada” e perda de seleção.
 
-1. o IG for **Business/Creator** (não Pessoal), **E**
-2. estiver **vinculado a uma Página do Facebook**, **E**
-3. o usuário **marcou aquela Página** na tela de "Choose what you allow" da Meta.
+## Do I know what the issue is?
 
-Três causas prováveis (não confirmadas ainda — a UI hoje não expõe o resultado bruto pra diagnosticar):
+Sim. O problema não é só UI: o fluxo precisa ser refeito porque mistura três responsabilidades que devem ser separadas:
 
-- **Consent granular da Meta (2024+)**: por padrão o modal da Meta vem com "Opt in to current and future Pages" desmarcado. Se o usuário clicou "Continue" sem marcar Páginas, `/me/accounts` retorna **zero Páginas** → zero IGs.
-- **Escopo `instagram_basic` negado**: `instagram_business_account` volta como `null` nas páginas mesmo autorizadas.
-- **Bug de paginação em `graphAbsolute`** (`src/lib/meta/provider.server.ts:363-365`): o `next` cursor não anexa `appsecret_proof`. Com App Secret Proof ativado no App Meta, chamadas paginadas quebram silenciosamente e páginas > 100 nunca são lidas.
+```text
+OAuth Meta
+  apenas autentica e salva token
 
-Além disso, existe um caminho **totalmente ausente**: contas IG conectadas via "Instagram Login" direto (sem Página FB) — Meta hoje permite IG Business sem FB Page, exposto por outro produto (`instagram_business_basic`).
+Portfólio Meta
+  carrega/cacheia contas com proteção anti-rate-limit
 
-## Plano
+Vínculo do cliente
+  atribui social_connection ao client_id ativo
+```
 
-**Fase 1 — Diagnóstico visível** (imprescindível pra saber qual das 3 causas está batendo)
+Hoje o app abre o seletor com sessão vazia, tenta varrer a Graph API repetidamente, não reaproveita corretamente o último portfólio válido, e ao selecionar uma conta cria vínculo global — não vínculo com o cliente.
 
-1. `getMetaPortfolio` passa a expor no `PortfolioResponse`:
-   - `pagesCount` total, `pagesWithIgCount`, `pagesWithoutIgCount`
-   - lista `pages` já contém nomes — só usar na UI
-2. `MetaPortfolioDialog`, aba Instagram, quando `igPages.length === 0`:
-   - Substituir texto genérico por um painel diagnóstico:
-     - "A Meta retornou **N Páginas** para esta autorização. **Nenhuma** tem Instagram Business vinculado."
-     - Lista das Páginas retornadas (nome + ID) para o usuário conferir se falta alguma.
-     - Se `N === 0`: mensagem "A Meta não devolveu nenhuma Página. Você provavelmente não marcou nenhuma na tela de permissões."
-     - Se `instagram_basic` estiver em `missingScopes`: destacar em vermelho "Permissão `instagram_basic` foi negada."
-   - Botão primário **"Autorizar novamente e liberar todas as Páginas"** que dispara `startMetaOAuth` de novo com `channel=instagram` e `authType=reauthenticate`.
+## Plano de correção 100% estrutural
 
-**Fase 2 — Correções no fetch**
+1. **Congelar o consumo da Graph API por padrão**
+   - O modal não fará scan automático quando abrir.
+   - Se existir portfólio válido anterior para o mesmo `brand_id + meta_user_id`, ele será reutilizado.
+   - A Graph API só será chamada por ação explícita: **Sincronizar portfólio**.
+   - Em rate limit, salvar um estado de cooldown no banco para bloquear novas tentativas automáticas por alguns minutos.
 
-3. Corrigir `graphAbsolute` em `src/lib/meta/provider.server.ts`: reinjetar `appsecret_proof` (e `access_token` se ausente) ao seguir o `paging.next`. Sem isto, portfólios grandes perdem páginas.
-4. `listPagesWithInstagram`: quando `instagram_business_account.id` vem mas `username`/`profile_picture_url` estão ausentes (acontece em contas privadas), fazer fallback por `/{ig_id}?fields=username,profile_picture_url` com o `page_access_token`, para o card não ficar vazio.
+2. **Adicionar metadados de cache na sessão Meta**
+   - Criar campos de controle em `meta_oauth_sessions`, por exemplo:
+     - `portfolio_loaded_at`
+     - `portfolio_load_status`
+     - `portfolio_error`
+     - `portfolio_rate_limited_until`
+   - Isso diferencia:
+     - “nunca carregou”
+     - “carregou e veio vazio”
+     - “falhou por rate limit”
+   - Assim `[]` deixa de ser gatilho para loop infinito.
 
-**Fase 3 — Cobertura de IGs sem FB Page (opcional, avisar antes)**
+3. **Reutilizar último portfólio válido**
+   - Ao finalizar OAuth, salvar só o token e identidade.
+   - Ao abrir o seletor, antes de consultar a Graph API, copiar/reaproveitar o último cache válido do mesmo usuário Meta e mesma marca.
+   - Isso evita perder as `91/119` páginas já descobertas em sessões anteriores.
 
-5. Adicionar caminho "Instagram Login direto": nova rota OAuth `channel=instagram_direct` usando `https://www.instagram.com/oauth/authorize` com escopos `instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights`. Requer adicionar o produto "Instagram" (Instagram API with Instagram Login) no App Meta Dashboard — só implementar após o usuário confirmar que o produto está habilitado.
+4. **Refatorar `linkMetaAccount` para multi-tenant real**
+   - Remover a lógica que apaga outras contas do mesmo canal.
+   - Permitir múltiplas contas Instagram/Facebook/Threads por marca.
+   - Corrigir o identificador usado para Instagram:
+     - Facebook usa `pageId`.
+     - Instagram usa `instagramBusinessId`.
+     - O payload de seleção precisa deixar isso explícito para não salvar a página errada.
 
-## Detalhes técnicos
+5. **Conectar e atribuir em uma única ação contextual**
+   - Quando o usuário estiver no perfil do cliente, selecionar uma conta deve:
+     1. criar/atualizar `social_connections`;
+     2. criar o vínculo em `client_social_accounts` para o `client_id` ativo.
+   - Quando o usuário estiver em `/connections`, selecionar uma conta cria apenas conexão global, sem cliente.
+   - A UI deve deixar isso claro: “Conectar ao workspace” vs “Atribuir a este cliente”.
 
-- Arquivos alterados: `src/lib/meta/provider.server.ts` (fix paginação + fallback IG fields), `src/lib/meta/portfolio.functions.ts` (expor contagens/lista), `src/components/connections/meta-portfolio-dialog.tsx` (painel diagnóstico + botão reauth), `src/components/connections/social-channel-card.tsx` (nenhuma mudança — reautorização vem do próprio dialog).
-- Nenhuma migração de banco: os dados já estão em `meta_oauth_sessions.pages` (JSONB).
-- Não altera `linkMetaAccount` nem o schema `social_connections`.
-- Fase 3 fica bloqueada por config do App Meta — confirmar antes de codar.
+6. **Corrigir a aba Canais do cliente**
+   - A aba deve listar todas as `social_connections` reais do workspace.
+   - O toggle deve operar apenas em `client_social_accounts`.
+   - Depois de conectar uma conta pelo seletor contextual, a lista deve invalidar/refazer a query e mostrar a conta imediatamente.
 
-## O que fica de fora deste plano
+7. **Corrigir o Calendário**
+   - O wizard **Novo agendamento** deve ler somente `client_social_accounts` do cliente ativo.
+   - Validar que o `connection_id` ainda existe e está `active`.
+   - Se não houver canais atribuídos, mostrar CTA direto para a aba **Perfil > Canais** do cliente.
 
-- Não adicionar retry automático de OAuth: o botão de reautorização é manual, para o usuário poder revisar a lista de Páginas antes.
-- Não alterar escopos padrão em `META_DEFAULT_SCOPES` — já pedem `instagram_basic`.
+8. **Reduzir drasticamente chamadas da Graph API**
+   - Para Instagram, buscar só páginas com `instagram_business_account`.
+   - Não varrer Ads/Business/Threads no fluxo de Instagram.
+   - Não fazer chamadas extras por perfil para imagem/nome quando esses dados já vierem no edge principal.
+   - Remover scan amplo do `business_management` do fluxo padrão; deixar como ação avançada/manual se necessário.
+
+9. **Validação final**
+   - Confirmar que clicar em **Conectar Instagram** não dispara loop.
+   - Confirmar que selecionar a página/IG cria linha em `social_connections`.
+   - Confirmar que atribuir no cliente cria linha em `client_social_accounts`.
+   - Confirmar que a aba **Canais** do cliente exibe a conta.
+   - Confirmar que o wizard do Calendário lista a conta atribuída.
+   - Confirmar que reabrir modal não aumenta consumo da Graph API sem clique em **Sincronizar**.
+
+## Observação importante
+
+Como o app já estourou o limite da Meta novamente, a correção deve priorizar **não chamar a Graph API automaticamente**. A primeira versão funcional deve operar sobre cache já salvo e só permitir nova varredura quando o usuário clicar conscientemente em sincronizar.
+
+<presentation-actions>
+  <presentation-open-history>View History</presentation-open-history>
+</presentation-actions>
+
+<presentation-actions>
+<presentation-link url="https://docs.lovable.dev/tips-tricks/troubleshooting">Troubleshooting docs</presentation-link>
+</presentation-actions>
