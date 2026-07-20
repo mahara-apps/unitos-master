@@ -844,8 +844,6 @@ function EditBody({
         ) : null}
 
           <Separator />
-          <ApprovalLinkSection postId={postId} />
-          <Separator />
           <Timeline items={data.timeline} />
         </div>
       </div>
@@ -1202,7 +1200,7 @@ function TaskLayout({
           </Select>
         </div>
 
-        <div className="col-span-2 space-y-1.5">
+        <div className="space-y-1.5">
           <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
             Tags
           </Label>
@@ -1237,12 +1235,17 @@ function TaskLayout({
           </div>
         </div>
 
-        <div className="col-span-2 flex items-center justify-between rounded-md border border-border/60 bg-background/60 px-3 py-2">
-          <Label className="text-xs">Visível no portal</Label>
-          <Switch
-            checked={state.visibleInPortal}
-            onCheckedChange={(v) => set("visibleInPortal", v)}
-          />
+        <div className="col-span-2 grid grid-cols-2 gap-3">
+          <div className="flex items-center justify-between rounded-md border border-border/60 bg-background/60 px-3 py-2">
+            <Label className="text-xs">Visível no portal</Label>
+            <Switch
+              checked={state.visibleInPortal}
+              onCheckedChange={(v) => set("visibleInPortal", v)}
+            />
+          </div>
+          {mode === "edit" && postId ? (
+            <ApprovalLinkSection postId={postId} />
+          ) : null}
         </div>
       </div>
     </div>
@@ -1426,33 +1429,28 @@ function ApprovalLinkSection({ postId }: { postId: string }) {
   );
 
   return (
-    <DashboardPanelSurface className="space-y-3 p-4">
-      <div className="flex items-center justify-between">
-        <Label className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+    <div className="space-y-1.5 rounded-md border border-border/60 bg-background/60 px-3 py-2">
+      <div className="flex items-center justify-between gap-2">
+        <Label className="flex items-center gap-1.5 text-xs">
           <Link2 className="h-3.5 w-3.5" /> Aprovação externa
         </Label>
         <Button
           type="button"
           size="sm"
           variant="outline"
-          className="h-9"
+          className="h-7 px-2 text-xs"
           onClick={() => create.mutate()}
           disabled={create.isPending}
         >
           {create.isPending ? (
-            <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
           ) : (
-            <Link2 className="mr-2 h-3.5 w-3.5" />
+            <Link2 className="mr-1 h-3 w-3" />
           )}
           Gerar link
         </Button>
       </div>
-      {active.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border/60 bg-card/40 px-3 py-4 text-xs text-muted-foreground">
-          Nenhum link ativo. Gere um link seguro para envio ao cliente aprovar
-          sem login.
-        </p>
-      ) : (
+      {active.length > 0 ? (
         <ul className="space-y-1.5">
           {active.map((t) => {
             const url =
@@ -1462,7 +1460,7 @@ function ApprovalLinkSection({ postId }: { postId: string }) {
             return (
               <li
                 key={t.id}
-                className="flex items-center gap-2 rounded-md border border-border/60 bg-background/60 px-2 py-1.5 text-xs"
+                className="flex items-center gap-2 rounded-md border border-border/60 bg-card/60 px-2 py-1 text-[11px]"
               >
                 <code className="flex-1 truncate font-mono">{url}</code>
                 <button
@@ -1488,8 +1486,8 @@ function ApprovalLinkSection({ postId }: { postId: string }) {
             );
           })}
         </ul>
-      )}
-    </DashboardPanelSurface>
+      ) : null}
+    </div>
   );
 }
 
