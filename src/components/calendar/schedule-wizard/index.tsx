@@ -205,7 +205,7 @@ export function ScheduleWizard({
     if (!pairs.length) return;
     setSubmitting(true);
     try {
-      await saveFn({
+      const res: any = await saveFn({
         data: {
           postId: seed?.postId ?? null,
           brandId,
@@ -229,17 +229,22 @@ export function ScheduleWizard({
           action,
         },
       });
-      toast.success(
-        action === "draft"
-          ? "Rascunho salvo"
-          : action === "publish"
-            ? "Publicação enfileirada"
-            : "Agendamento criado",
-      );
+      if (action === "publish") {
+        const okCount = res?.published ?? 0;
+        const failed = (res?.results ?? []).filter((r: any) => !r.ok);
+        if (okCount > 0) toast.success(`Publicado em ${okCount} canal(is)`);
+        if (failed.length) {
+          toast.error(
+            `Falha em ${failed.length}: ${failed.map((f: any) => `${f.channel}/${f.format} — ${f.error}`).join(" · ")}`,
+          );
+        }
+      } else {
+        toast.success(action === "draft" ? "Rascunho salvo" : "Agendamento criado");
+      }
       qc.invalidateQueries({ queryKey: ["calendar"] });
       qc.invalidateQueries({ queryKey: ["pending-schedule"] });
       onSaved?.();
-      onOpenChange(false);
+      if (action !== "publish" || (res?.published ?? 0) > 0) onOpenChange(false);
     } catch (e) {
       toast.error((e as Error).message || "Falha ao salvar agendamento");
     } finally {

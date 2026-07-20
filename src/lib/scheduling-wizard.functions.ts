@@ -288,5 +288,123 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       if (insErr) throw new Error(insErr.message);
     }
 
+    // ---- Publicar agora: dispara Meta para cada destino suportado ----
+    if (data.action === "publish") {
+      const { MetaPublishingService, formatPublishError } = await import(
+        "@/lib/meta/publishing.server"
+      );
+      const svc = new MetaPublishingService();
+      const results: Array<{ channel: string; format: string; ok: boolean; error?: string; permalink?: string | null }> = [];
+      for (const d of data.destinations) {
+        let placement: "instagram_feed" | "facebook_feed" | null = null;
+        if (d.format === "feed" && d.channel === "instagram") placement = "instagram_feed";
+        else if (d.format === "feed" && d.channel === "facebook") placement = "facebook_feed";
+        if (!placement) {
+          results.push({ channel: d.channel, format: d.format, ok: false, error: "Formato ainda não publicável (apenas Feed IG/FB)" });
+          continue;
+        }
+        try {
+          // Carrega conexão (isolada por brand/cliente)
+          const { data: conn, error: connErr } = await supabase
+            .from("social_connections")
+            .select(
+              "id, brand_id, client_id, provider, external_id, account_id, access_token_ciphertext, status",
+            )
+            .eq("id", d.connectionId)
+            .eq("brand_id", data.brandId)
+            .maybeSingle();
+          if (connErr) throw new Error(connErr.message);
+          if (!conn) throw new Error("Conexão não encontrada");
+          if (!conn.access_token_ciphertext) throw new Error("Conexão sem token — reconecte a página");
+          if (conn.client_id && conn.client_id !== data.clientId) {
+            throw new Error("Conexão não pertence a este cliente");
+          }
+
+          // Resolve mídia (signed URL curta para imagem privada)
+          const mediaOut: { imageUrl?: string; link?: string } = {};
+          if (data.linkUrl) mediaOut.link = data.linkUrl;
+          if (data.mediaPaths[0]) {
+            const path = data.mediaPaths[0];
+            if (!path.startsWith(`${data.brandId}/`)) throw new Error("Mídia fora do escopo da marca");
+            const { data: signed, error: sErr } = await supabase.storage
+              .from("brand-media")
+              .createSignedUrl(path, 3600);
+            if (sErr) throw new Error(`Falha ao assinar mídia: ${sErr.message}`);
+            mediaOut.imageUrl = signed.signedUrl;
+          }
+          if (placement === "instagram_feed" && !mediaOut.imageUrl) {
+            throw new Error("Feed do Instagram exige uma imagem");
+          }
+
+          const caption = [
+            data.copy,
+            ...(data.hashtags.length
+              ? [data.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")]
+              : []),
+          ]
+            .filter(Boolean)
+            .join("\n\n")
+            .trim() || undefined;
+
+          // Registro de auditoria em social_posts
+          const { data: sp, error: spErr } = await supabase
+            .from("social_posts")
+            .insert({
+              brand_id: data.brandId,
+              client_id: data.clientId,
+              connection_id: d.connectionId,
+              provider: conn.provider,
+              placement,
+              caption: caption ?? null,
+              hashtags: data.hashtags,
+              mentions: [],
+              media: data.mediaPaths[0]
+                ? { storagePath: data.mediaPaths[0], ...(data.linkUrl ? { link: data.linkUrl } : {}) }
+                : (data.linkUrl ? { link: data.linkUrl } : {}),
+              post_id: postId,
+              status: "publishing",
+              created_by: context.userId,
+            })
+            .select("id")
+            .single();
+          if (spErr) throw new Error(spErr.message);
+
+          try {
+            const result = await svc.publish(conn as any, { placement, caption, media: mediaOut });
+            await supabase
+              .from("social_posts")
+              .update({
+                status: "published",
+                published_at: new Date().toISOString(),
+                external_post_id: result.externalPostId,
+                external_permalink: result.externalPermalink,
+                provider_response: result.providerResponse as any,
+                last_error: null,
+              })
+              .eq("id", sp.id);
+            results.push({ channel: d.channel, format: d.format, ok: true, permalink: result.externalPermalink });
+          } catch (err) {
+            const msg = formatPublishError(err);
+            await supabase
+              .from("social_posts")
+              .update({ status: "failed", last_error: msg })
+              .eq("id", sp.id);
+            throw new Error(msg);
+          }
+        } catch (err) {
+          results.push({ channel: d.channel, format: d.format, ok: false, error: (err as Error).message });
+        }
+      }
+      const okCount = results.filter((r) => r.ok).length;
+      if (okCount > 0) {
+        await supabase
+          .from("posts")
+          .update({ stage: "published", published_at: new Date().toISOString() } as any)
+          .eq("id", postId)
+          .eq("brand_id", data.brandId);
+      }
+      return { ok: okCount > 0, postId, published: okCount, results };
+    }
+
     return { ok: true, postId };
   });
