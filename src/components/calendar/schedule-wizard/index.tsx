@@ -875,6 +875,29 @@ function StepEditor({
                 Sugerir formatos
               </Button>
             ) : null}
+            <input
+              ref={uploadRef}
+              type="file"
+              multiple
+              accept="image/*,video/*"
+              className="hidden"
+              onChange={(e) => handleUpload(e.target.files)}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-6 px-2 text-[10px]"
+              disabled={uploading}
+              onClick={() => uploadRef.current?.click()}
+            >
+              {uploading ? (
+                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+              ) : (
+                <Upload className="mr-1 h-3 w-3" />
+              )}
+              Enviar mídia
+            </Button>
           </div>
         </div>
         {mediaKind === "mixed" ? (
@@ -886,8 +909,24 @@ function StepEditor({
         {media.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
             <ImageIcon className="mx-auto mb-2 h-5 w-5" />
-            Nenhuma mídia na biblioteca. Faça upload de imagens ou vídeos na aba
-            <b> Mídias</b> do cliente.
+            <p className="mb-3">
+              Nenhuma mídia na biblioteca. Envie um arquivo agora ou faça upload em massa na aba{" "}
+              <b>Mídias</b> do cliente.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={uploading}
+              onClick={() => uploadRef.current?.click()}
+            >
+              {uploading ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Upload className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Enviar arquivo
+            </Button>
           </div>
         ) : (
           <ScrollArea className="h-56 rounded-lg border border-border/60">
