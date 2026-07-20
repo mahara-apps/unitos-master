@@ -117,9 +117,10 @@ export function AppSidebar() {
   const pendingQ = useQuery({
     queryKey: ["tasks-pending-count", brandId],
     queryFn: () => countPending({ data: { brandId: brandId! } }),
-    enabled: !!brandId,
+    enabled: !!brandId && !!superQ.data,
     staleTime: 30_000,
     refetchInterval: 60_000,
+    retry: false,
   });
   const pendingCount = pendingQ.data?.count ?? 0;
   const featureEnabled = (key?: string) => {
