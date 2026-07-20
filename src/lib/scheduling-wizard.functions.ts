@@ -246,7 +246,9 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         ? "scheduled"
         : data.action === "publish"
           ? "approved"
-          : "approved";
+          : data.action === "save_draft"
+            ? "idea"
+            : "approved";
 
     // ---- Upsert post ----
     let postId = data.postId ?? null;
@@ -262,8 +264,8 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           stage,
           scheduled_at: scheduledIso,
           created_by: context.userId,
-          approved_at: new Date().toISOString(),
-          review_status: "approved",
+          approved_at: data.action === "save_draft" ? null : new Date().toISOString(),
+          review_status: data.action === "save_draft" ? "pending" : "approved",
         })
         .select("id")
         .single();
