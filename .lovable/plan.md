@@ -1,21 +1,20 @@
 ## Objetivo
-Reduzir o ruído visual no header de cada coluna do Kanban (`/content`), mantendo apenas os elementos essenciais.
+Reduzir em ~50% o padding do topo e das laterais da tela `/content` (Kanban), sem afetar as demais páginas.
 
-## Escopo — `src/components/content/content-board.tsx` (componente `Column`)
+## Escopo
+Arquivo: `src/routes/_authenticated/content.tsx` (linha 262).
 
-**Manter no header:**
-1. Dot de cor + nome da etiqueta (com edição inline no clique)
-2. Badge de contagem de posts (`{posts.length}`)
-3. Badge vermelho de "atrasados" (quando `overdueCount > 0`)
-4. Chip único de ordenação por **Data de criação** (asc/desc)
-5. Menu `...` (renomear / novo post / excluir)
+O shell hoje aplica `px-4 py-6 sm:px-6 lg:px-8` via `DashboardPageShell`. Vamos sobrescrever apenas na rota de conteúdo, adicionando classes utilitárias que anulam o padding padrão:
 
-**Remover:**
-- Pill de SLA (`{stage.sla_days}d` com ícone Clock) — linhas 422–433
-- Chip de ordenação "Postagem" (`scheduled`) — linhas 459–465
+```tsx
+<DashboardPageShell className="flex h-[calc(100vh-3.5rem)] min-h-0 flex-col space-y-0 !px-2 !py-3 sm:!px-3 lg:!px-4">
+```
 
-## Detalhes técnicos
-- Manter `SortBy` type intacto em `content.functions` (usado em outros pontos), apenas parar de renderizar o chip `scheduled` no header.
-- Remover imports não utilizados após a limpeza: `Clock`, `CalendarClock` (verificar se ainda são usados no arquivo antes de remover).
-- Manter tooltip e comportamento de ciclagem asc → desc no chip de Criação.
-- Sem alterações em backend, tipos de banco ou lógica de SLA (as notificações de atraso continuam funcionando; só o pill visual sai do header).
+Resultado:
+- Topo/inferior: `py-6` (24px) → `py-3` (12px)
+- Laterais: `px-4/6/8` → `px-2/3/4` (metade em cada breakpoint)
+
+## Não fazer
+- Não alterar `DashboardPageShell` (impactaria outras páginas)
+- Não mexer no `p-4` interno do board (spacing entre colunas/cards)
+- Não mudar altura ni sticky do header do app
