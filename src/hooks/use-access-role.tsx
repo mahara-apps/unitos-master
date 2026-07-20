@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { listClients, listMyBrands } from "@/lib/workspace.functions";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { resolveAccessRole, type AccessRole } from "@/lib/permissions";
+import { useIsSuperAdmin } from "@/hooks/use-feature-access";
 
 type Result = {
   role: AccessRole;
@@ -23,6 +24,8 @@ type Result = {
 export function useAccessRole(): Result {
   const { brandId } = useActiveContext();
   const [userId, setUserId] = useState<string | null>(null);
+  const superQ = useIsSuperAdmin();
+  const isSuper = !!superQ.data?.isSuperAdmin;
 
   const listBrands = useServerFn(listMyBrands);
   const listCl = useServerFn(listClients);
@@ -44,6 +47,15 @@ export function useAccessRole(): Result {
   });
 
   return useMemo<Result>(() => {
+    if (isSuper) {
+      return {
+        role: "admin",
+        brandRole: "super_admin",
+        userId,
+        allowedClientIds: null,
+        isReady: userId !== null && !superQ.isLoading,
+      };
+    }
     const brandRole = brandsQ.data?.find((b) => b.id === brandId)?.role ?? null;
     const role = resolveAccessRole(brandRole);
     let allowed: Set<string> | null = null;
@@ -61,5 +73,5 @@ export function useAccessRole(): Result {
       allowedClientIds: allowed,
       isReady: !brandsQ.isLoading && (!brandId || !clientsQ.isLoading) && userId !== null,
     };
-  }, [brandsQ.data, brandsQ.isLoading, clientsQ.data, clientsQ.isLoading, brandId, userId]);
+  }, [brandsQ.data, brandsQ.isLoading, clientsQ.data, clientsQ.isLoading, brandId, userId, isSuper, superQ.isLoading]);
 }
