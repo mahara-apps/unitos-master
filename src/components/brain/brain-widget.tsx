@@ -107,18 +107,6 @@ export function BrainWidget({
   const { brandId, clientId: activeClientId } = useActiveContext();
   const load = useServerFn(loadBrainWidget);
 
-  const autoKey = collapseKey ?? `${spec.module}:${spec.topic}`;
-  const storageKey = `brain-widget:collapsed:${autoKey}`;
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    if (typeof window === "undefined" || !storageKey) return defaultCollapsed;
-    const stored = window.localStorage.getItem(storageKey);
-    return stored === null ? defaultCollapsed : stored === "1";
-  });
-  useEffect(() => {
-    if (typeof window === "undefined" || !storageKey) return;
-    window.localStorage.setItem(storageKey, collapsed ? "1" : "0");
-  }, [collapsed, storageKey]);
-
   const spec = useMemo<PresetSpec>(() => {
     if (preset !== "custom") return PRESETS[preset];
     return {
@@ -128,6 +116,18 @@ export function BrainWidget({
       hint: "Contexto consolidado pelo Brain.",
     };
   }, [preset, module, topic, title]);
+
+  const autoKey = collapseKey ?? `${spec.module}:${spec.topic}`;
+  const storageKey = `brain-widget:collapsed:${autoKey}`;
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return defaultCollapsed;
+    const stored = window.localStorage.getItem(storageKey);
+    return stored === null ? defaultCollapsed : stored === "1";
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(storageKey, collapsed ? "1" : "0");
+  }, [collapsed, storageKey]);
 
   const resolvedClientId = clientId ?? activeClientId ?? null;
 
