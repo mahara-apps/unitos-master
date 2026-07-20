@@ -4,7 +4,7 @@ import { z } from "zod";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Layers, Loader2, Pencil, Plus, Settings, Sparkles } from "lucide-react";
+import { Layers, Loader2, Pencil, Plus, Settings, Sparkles, ChevronDown } from "lucide-react";
 import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,7 +46,6 @@ import {
 import { PanelCard } from "@/components/ui/panel-card";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
-import { ComposerDialog } from "@/components/content/composer-dialog";
 import {
   ContentToolbar,
   DEFAULT_CONTENT_FILTERS,
@@ -72,25 +71,6 @@ export const Route = createFileRoute("/_authenticated/content")({
 function ContentPage() {
   const { brandId, clientId } = useActiveContext();
   const search = Route.useSearch();
-  const [composerOpen, setComposerOpen] = useState(false);
-
-  usePageHeader(
-    {
-      title: "Conteúdo",
-      subtitle: "Pipeline, calendário, biblioteca e publicações em um só lugar.",
-      actions: (
-        <Button
-          size="sm"
-          className="h-9"
-          onClick={() => setComposerOpen(true)}
-          disabled={!brandId}
-        >
-          <Sparkles className="mr-1.5 h-4 w-4" /> Novo conteúdo
-        </Button>
-      ),
-    },
-    [brandId],
-  );
 
   if (!brandId) {
     return (
@@ -116,13 +96,6 @@ function ContentPage() {
           autoOpenNewTask={!!search.new}
         />
       )}
-
-      <ComposerDialog
-        open={composerOpen}
-        onOpenChange={setComposerOpen}
-        brandId={brandId}
-        clientId={clientId ?? null}
-      />
     </DashboardPageShell>
   );
 }
@@ -174,11 +147,12 @@ function ContentReady({
 
   const pipelines = pipelinesQuery.data;
   const effectivePipelineId = activePipelineId ?? pipelines[0]?.id ?? null;
+  const [aiPlanOpen, setAiPlanOpen] = useState(false);
 
   usePageHeader(
     {
-      title: "Pipeline de conteúdo",
-      subtitle: "Do briefing à publicação, com D&D fluido e colunas customizáveis.",
+      title: "Conteúdo",
+      subtitle: "Pipeline de produção — do briefing à publicação.",
       actions: (
         <div className="flex items-center gap-2">
           <Select
@@ -217,19 +191,32 @@ function ContentReady({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button size="sm" className="h-9" onClick={() => { setNewTaskStageId(null); setOpenNewTask(true); }}>
-            <Plus className="mr-1.5 h-4 w-4" /> Nova tarefa
-          </Button>
-          <GeneratePlanDialog
-            brandId={brandId}
-            clientId={clientId}
-            onGenerated={() => {
-              setTimeout(() => {
-                qc.invalidateQueries({ queryKey: ["content-board", brandId, clientId] });
-                qc.invalidateQueries({ queryKey: ["calendar"] });
-              }, 1200);
-            }}
-          />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" className="h-9 gap-1.5">
+                <Plus className="h-4 w-4" /> Novo conteúdo
+                <ChevronDown className="h-3.5 w-3.5 opacity-80" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem
+                onClick={() => { setNewTaskStageId(null); setOpenNewTask(true); }}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                <div className="flex flex-col">
+                  <span>Manual</span>
+                  <span className="text-[11px] text-muted-foreground">Criar uma tarefa em branco</span>
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setAiPlanOpen(true)}>
+                <Sparkles className="mr-2 h-4 w-4 text-fuchsia-500" />
+                <div className="flex flex-col">
+                  <span>Gerar com IA</span>
+                  <span className="text-[11px] text-muted-foreground">Plano estratégico e distribuição</span>
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
     },
@@ -311,6 +298,19 @@ function ContentReady({
           />
         </Suspense>
       ) : null}
+
+      <GeneratePlanDialog
+        brandId={brandId}
+        clientId={clientId}
+        open={aiPlanOpen}
+        onOpenChange={setAiPlanOpen}
+        onGenerated={() => {
+          setTimeout(() => {
+            qc.invalidateQueries({ queryKey: ["content-board", brandId, clientId] });
+            qc.invalidateQueries({ queryKey: ["calendar"] });
+          }, 1200);
+        }}
+      />
     </DashboardPageShell>
   );
 }
