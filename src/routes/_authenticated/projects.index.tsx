@@ -56,6 +56,14 @@ import {
   listProjects,
   type ProjectStats,
 } from "@/lib/projects.functions";
+import { NewFromTemplateDialog } from "@/components/projects/new-from-template-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ChevronDown, Sparkles } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/projects/")({
   component: ProjectsIndexPage,
@@ -114,6 +122,7 @@ function ProjectsIndexPage() {
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
   const [clientFilter, setClientFilter] = useState<string>("all");
   const [formOpen, setFormOpen] = useState(false);
+  const [templateOpen, setTemplateOpen] = useState(false);
 
   const projectsQ = useQuery({
     queryKey: ["projects", brandId, statusFilter, ownerFilter, clientFilter],
@@ -187,10 +196,22 @@ function ProjectsIndexPage() {
             <FileBarChart2 className="mr-2 h-4 w-4" />
             Relatório
           </Button>
-          <Button size="sm" className="h-9" onClick={() => setFormOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Novo Projeto
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" className="h-9">
+                <Plus className="mr-2 h-4 w-4" /> Novo projeto
+                <ChevronDown className="ml-1 h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => setFormOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" /> Em branco
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setTemplateOpen(true)}>
+                <Sparkles className="mr-2 h-4 w-4" /> A partir de modelo
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
     },
@@ -390,6 +411,11 @@ function ProjectsIndexPage() {
         team={team}
         submitting={createMut.isPending}
         onSubmit={(v) => createMut.mutate(v)}
+      />
+      <NewFromTemplateDialog
+        open={templateOpen}
+        onOpenChange={setTemplateOpen}
+        brandId={brandId!}
       />
     </DashboardPageShell>
   );

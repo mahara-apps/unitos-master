@@ -61,6 +61,7 @@ import {
 } from "@/components/ui/dashboard-primitives";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
+import { JobsPanel } from "@/components/projects/jobs-panel";
 
 export const Route = createFileRoute("/_authenticated/projects/$projectId")({
   component: ProjectDetailPage,
@@ -464,6 +465,9 @@ function ProjectDetailPage() {
           </div>
         )}
       </DashboardPanelSurface>
+
+      {/* Jobs & Tarefas com Timesheet */}
+      <JobsPanel brandId={brandId!} projectId={projectId} />
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
