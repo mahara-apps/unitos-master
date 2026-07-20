@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 import {
   Activity,
   AlertTriangle,
@@ -28,6 +29,7 @@ import {
 } from "@/lib/brain/diagnostics.functions";
 
 export const Route = createFileRoute("/_authenticated/brain/diagnostics")({
+  beforeLoad: () => ensureFeatureEnabled("brain"),
   component: BrainDiagnosticsRoute,
 });
 

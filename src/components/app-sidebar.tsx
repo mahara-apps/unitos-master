@@ -50,17 +50,25 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { canAccessSidebarUrl } from "@/lib/permissions";
+import { useBrandFeatures } from "@/hooks/use-feature-access";
+import { useIsSuperAdmin } from "@/hooks/use-feature-access";
+import { ShieldAlert } from "lucide-react";
 
-type NavItem = { title: string; url: string; icon: React.ComponentType<{ className?: string }> };
+type NavItem = {
+  title: string;
+  url: string;
+  icon: React.ComponentType<{ className?: string }>;
+  featureKey?: string;
+};
 
 const groups: Array<{ label: string; items: NavItem[] }> = [
   {
     label: "Operação",
     items: [
       { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-      { title: "Conteúdo", url: "/content", icon: KanbanSquare },
+      { title: "Conteúdo", url: "/content", icon: KanbanSquare, featureKey: "blog_post" },
       { title: "Calendário", url: "/calendar", icon: CalendarDays },
-      { title: "Mídia paga", url: "/media-plans", icon: Target },
+      { title: "Mídia paga", url: "/media-plans", icon: Target, featureKey: "midia_paga" },
       { title: "Tarefas", url: "/tasks", icon: ListChecks },
       { title: "Projetos", url: "/projects", icon: FolderKanban },
       { title: "Clientes", url: "/customers", icon: Users },
@@ -72,9 +80,9 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { title: "Integrações", url: "/connections", icon: Plug },
       { title: "Agentes IA", url: "/agents", icon: Bot },
-      { title: "Brain", url: "/brain", icon: Brain },
-      { title: "Brain Diagnostics", url: "/brain/diagnostics", icon: Activity },
-      { title: "Chat", url: "/chat", icon: MessageSquare },
+      { title: "Brain", url: "/brain", icon: Brain, featureKey: "brain" },
+      { title: "Brain Diagnostics", url: "/brain/diagnostics", icon: Activity, featureKey: "brain" },
+      { title: "Chat", url: "/chat", icon: MessageSquare, featureKey: "chat" },
       { title: "Notificações", url: "/notifications", icon: Bell },
       { title: "Logs do sistema", url: "/settings/logs", icon: ScrollText },
       { title: "Configurações", url: "/settings", icon: SettingsIcon },
@@ -86,9 +94,33 @@ export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const isActive = (u: string) => pathname === u || pathname.startsWith(u + "/");
   const { role } = useAccessRole();
+  const featuresQ = useBrandFeatures();
+  const superQ = useIsSuperAdmin();
+  const isSuper = !!superQ.data?.isSuperAdmin;
+  const featureEnabled = (key?: string) => {
+    if (!key) return true;
+    if (isSuper) return true;
+    // Enquanto carrega, esconde módulos vendáveis para evitar CTA quebrada.
+    if (!featuresQ.data) return false;
+    const f = featuresQ.data.find((r) => r.key === key);
+    return !!f?.enabled;
+  };
   const visibleGroups = groups
-    .map((g) => ({ ...g, items: g.items.filter((i) => canAccessSidebarUrl(role, i.url)) }))
+    .map((g) => ({
+      ...g,
+      items: g.items.filter(
+        (i) => canAccessSidebarUrl(role, i.url) && featureEnabled(i.featureKey),
+      ),
+    }))
     .filter((g) => g.items.length > 0);
+  if (isSuper) {
+    visibleGroups.push({
+      label: "Super Admin",
+      items: [
+        { title: "Feature Flags", url: "/super-admin/features", icon: ShieldAlert },
+      ],
+    });
+  }
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="group/brand h-[68px] flex-row items-center justify-between gap-1 border-b border-sidebar-border/60 px-2 py-0 group-data-[collapsible=icon]:relative group-data-[collapsible=icon]:px-1">

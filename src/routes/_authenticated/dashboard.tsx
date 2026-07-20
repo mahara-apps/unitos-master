@@ -77,11 +77,28 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    blocked: typeof s.blocked === "string" ? s.blocked : undefined,
+  }),
   component: DashboardPage,
 });
 
 function DashboardPage() {
   const { brandId, clientId } = useActiveContext();
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
+  React.useEffect(() => {
+    if (!search.blocked) return;
+    const labels: Record<string, string> = {
+      brain: "Brain",
+      chat: "Chat",
+      midia_paga: "Mídia Paga",
+      blog_post: "Conteúdo/Blog",
+    };
+    const label = labels[search.blocked] ?? search.blocked;
+    toast.error(`Módulo "${label}" não disponível no seu plano`);
+    navigate({ search: {}, replace: true });
+  }, [search.blocked, navigate]);
   if (!brandId) {
     return (
       <div className="w-full px-6 py-10">

@@ -1,8 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { KnowledgeGraph } from "@/components/brain/knowledge-graph";
+import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 
 export const Route = createFileRoute("/_authenticated/brain/graph")({
+  beforeLoad: () => ensureFeatureEnabled("brain"),
   component: BrainGraphRoute,
 });
 

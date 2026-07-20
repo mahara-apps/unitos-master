@@ -65,6 +65,7 @@ import {
   type MediaPlan,
   type MediaPlanItem,
 } from "@/lib/media-plans.functions";
+import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 
 type MediaPlanSearch = {
   planId?: string;
@@ -78,6 +79,7 @@ const searchSchema = z.object({
 });
 
 export const Route = createFileRoute("/_authenticated/customers/$customerId/media-plan")({
+  beforeLoad: () => ensureFeatureEnabled("midia_paga"),
   validateSearch: (raw: Record<string, unknown>): MediaPlanSearch =>
     searchSchema.parse(raw),
   component: MediaPlanPage,
