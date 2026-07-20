@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, type ComponentType } from "react";
+import { useEffect, useState, type ComponentType } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -53,6 +53,7 @@ import {
   type SocialAccount,
   type SocialChannelDef,
 } from "@/components/connections/social-channel-card";
+import { MetaPortfolioDialog } from "@/components/connections/meta-portfolio-dialog";
 import { listMetaConnections } from "@/lib/meta/meta.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveContext } from "@/hooks/use-active-context";
