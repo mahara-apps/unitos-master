@@ -72,6 +72,11 @@ export function MetaPortfolioDialog({
   const unlinkFn = useServerFn(unlinkMetaAccount);
   const startFn = useServerFn(startMetaOAuth);
 
+  // "Sincronizar novamente" toggle — only when true do we ask the backend
+  // to re-scan the Meta Graph API. Default flow serves the cached portfolio
+  // stored in `meta_oauth_sessions` to avoid rate-limit loops.
+  const [refreshRequested, setRefreshRequested] = useState(false);
+
   async function reauthorize(channel: "instagram" | "facebook" | "threads") {
     const popup = window.open("", "meta-oauth", metaPopupFeatures());
     let completed = false;
@@ -123,9 +128,11 @@ export function MetaPortfolioDialog({
             brandId,
             sessionId: sessionId!,
             channel: channel ?? undefined,
+            refresh: refreshRequested || undefined,
           },
         });
         console.log("[MetaPortfolio] Graph API Response:", res);
+        setRefreshRequested(false);
         return res;
       } catch (err) {
         console.error("[MetaPortfolio] Graph API Error:", err);
@@ -135,19 +142,42 @@ export function MetaPortfolioDialog({
             : typeof err === "string"
               ? err
               : "Falha ao carregar contas da Meta";
-        toast.error(msg, { duration: 9000 });
+        const isRateLimit = msg.startsWith("RATE_LIMIT:");
+        toast.error(
+          isRateLimit
+            ? "Limite de requisições da Meta atingido. Por favor, aguarde alguns minutos antes de tentar novamente."
+            : msg,
+          { duration: 9000 },
+        );
+        setRefreshRequested(false);
         throw err instanceof Error ? err : new Error(msg);
       }
     },
     enabled: !!sessionId && open,
-    staleTime: 5 * 60_000,
+    // Cache-first: never auto-refetch. Only the explicit "Sincronizar
+    // novamente" button re-hits Meta.
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     retry: false,
   });
+
+  const isRateLimited =
+    !!error && (error as Error).message.startsWith("RATE_LIMIT:");
+
+  const handleResync = () => {
+    setRefreshRequested(true);
+    // Defer to next tick so the flag is set before queryFn runs.
+    setTimeout(() => refetch(), 0);
+  };
 
   const [pending, setPending] = useState<Set<string>>(new Set());
 
   const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ["meta-portfolio", brandId, sessionId] });
+    // Only refresh the "connected" map — do NOT invalidate the portfolio
+    // list, otherwise every toggle re-hits Meta's Graph API.
     qc.invalidateQueries({ queryKey: ["meta-connections", brandId] });
   };
 
@@ -294,10 +324,16 @@ export function MetaPortfolioDialog({
             <div className="flex items-start gap-2 text-destructive">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <div className="space-y-1">
-                <p className="font-medium">Não foi possível carregar as contas da Meta.</p>
+                <p className="font-medium">
+                  {isRateLimited
+                    ? "Limite de requisições da Meta atingido."
+                    : "Não foi possível carregar as contas da Meta."}
+                </p>
                 <p className="text-destructive/80">
-                  {(error as Error).message ||
-                    "Tente novamente ou reconecte sua conta Meta."}
+                  {isRateLimited
+                    ? "Por favor, aguarde alguns minutos antes de tentar novamente. O portfólio salvo será mantido."
+                    : (error as Error).message ||
+                      "Tente novamente ou reconecte sua conta Meta."}
                 </p>
               </div>
             </div>
@@ -305,8 +341,8 @@ export function MetaPortfolioDialog({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => refetch()}
-                disabled={isFetching}
+                onClick={handleResync}
+                disabled={isFetching || isRateLimited}
               >
                 {isFetching ? (
                   <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
