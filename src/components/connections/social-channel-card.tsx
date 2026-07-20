@@ -222,6 +222,87 @@ export function SocialChannelCard({
 }
 
 function ConnectButton({
+  // no-op marker
+  ...args
+}: any) { return _ConnectButton(args as any); }
+
+function AccountsSummary({
+  accounts,
+  channel,
+  brandLabel,
+}: {
+  accounts: SocialAccount[];
+  channel: SocialChannelDef;
+  brandLabel: string;
+}) {
+  const Icon = channel.icon;
+  if (accounts.length === 0) {
+    return (
+      <div className="mt-4 flex min-h-[54px] items-center justify-center rounded-lg border border-dashed border-border/60 bg-background/40 p-3 text-center font-mono text-[10px] text-muted-foreground">
+        Nenhuma conta conectada
+      </div>
+    );
+  }
+
+  if (accounts.length <= 2) {
+    return (
+      <div className="mt-4 space-y-1.5">
+        {accounts.map((acc) => (
+          <div
+            key={acc.id}
+            className="flex items-center gap-2 rounded-lg border border-border/60 bg-background/60 p-2.5"
+          >
+            <Avatar className="h-7 w-7 shrink-0">
+              <AvatarImage src={acc.avatarUrl ?? undefined} alt={acc.name} />
+              <AvatarFallback className={cn("text-[10px]", channel.tone)}>
+                <Icon className="h-3 w-3" />
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-xs font-medium">{acc.name}</div>
+              <div className="truncate font-mono text-[10px] text-muted-foreground">
+                sync {fmtSync(acc.updatedAt)}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  const preview = accounts.slice(0, 3);
+  const extra = accounts.length - preview.length;
+  return (
+    <div className="mt-4 flex items-center gap-3 rounded-lg border border-border/60 bg-background/60 p-3">
+      <div className="flex -space-x-2">
+        {preview.map((acc) => (
+          <Avatar
+            key={acc.id}
+            className="h-8 w-8 border-2 border-background ring-0"
+          >
+            <AvatarImage src={acc.avatarUrl ?? undefined} alt={acc.name} />
+            <AvatarFallback className={cn("text-[10px]", channel.tone)}>
+              <Icon className="h-3.5 w-3.5" />
+            </AvatarFallback>
+          </Avatar>
+        ))}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-xs font-medium">
+          {accounts.length} contas conectadas
+          {extra > 0 && (
+            <span className="ml-1 text-muted-foreground">· +{extra} além destas</span>
+          )}
+        </div>
+        <div className="truncate font-mono text-[10px] text-muted-foreground">
+          {brandLabel} · sync {fmtSync(accounts[0]?.updatedAt)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function _ConnectButton({
   kind,
   channel,
   brandId,
