@@ -60,6 +60,14 @@ export type PortfolioResponse = {
 const GetInput = z.object({
   brandId: z.string().uuid(),
   sessionId: z.string().uuid(),
+  /**
+   * When set, restricts the Graph API scan to only what the requested
+   * channel needs. Omit to scan everything (used by the unified selector
+   * without a channel context).
+   */
+  channel: z.enum(["facebook", "instagram", "threads", "ads"]).optional(),
+  /** Force a re-scan even if cached portfolio exists on the session. */
+  refresh: z.boolean().optional(),
 });
 
 export const getMetaPortfolio = createServerFn({ method: "GET" })
@@ -69,7 +77,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
     const { data: session, error } = await context.supabase
       .from("meta_oauth_sessions")
       .select(
-        "id, brand_id, meta_user_id, meta_user_name, meta_user_email, scopes, requested_scopes, pages, threads_accounts, ad_accounts, expires_at",
+        "id, brand_id, meta_user_id, meta_user_name, meta_user_email, scopes, requested_scopes, pages, threads_accounts, ad_accounts, user_token_ciphertext, expires_at",
       )
       .eq("id", data.sessionId)
       .eq("brand_id", data.brandId)
@@ -80,7 +88,89 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
       throw new Error("Sessão da Meta expirou. Refaça o login.");
     }
 
-    const pages = ((session.pages as unknown as PortfolioPage[]) ?? []).map((p) => ({
+    // Lazy scan: if the channel's cache is empty (or refresh requested), hit
+    // the Graph API now using the stored user token and persist results back
+    // to the session row so subsequent opens of the dialog are free.
+    let cachedPages =
+      (session.pages as unknown as Array<PortfolioPage & { pageAccessToken?: string }>) ?? [];
+    let cachedThreads =
+      (session.threads_accounts as unknown as Array<
+        PortfolioThreadsAccount & { accessToken?: string }
+      >) ?? [];
+    let cachedAds =
+      (session.ad_accounts as unknown as PortfolioAdAccount[]) ?? [];
+
+    const ch = data.channel ?? null;
+    const needPages =
+      (ch === null || ch === "facebook" || ch === "instagram" || ch === "threads") &&
+      (data.refresh || cachedPages.length === 0);
+    const needThreads =
+      (ch === null || ch === "threads") &&
+      (data.refresh || cachedThreads.length === 0);
+    const needAds =
+      (ch === null || ch === "ads") &&
+      (data.refresh || cachedAds.length === 0);
+
+    if (needPages || needThreads || needAds) {
+      const { decryptCredential } = await import("@/lib/credentials-crypto.server");
+      const { MetaProvider, MetaGraphError } = await import("./provider.server");
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const provider = new MetaProvider();
+      if (!session.user_token_ciphertext) {
+        throw new Error("Token do usuário Meta ausente. Refaça o login.");
+      }
+      const userToken = await decryptCredential(session.user_token_ciphertext);
+
+      try {
+        if (needPages) {
+          const scanned = await provider.listPagesWithInstagram(userToken);
+          cachedPages = scanned.map((p) => ({
+            pageId: p.pageId,
+            pageName: p.pageName,
+            category: p.category ?? null,
+            pagePictureUrl: p.pagePictureUrl ?? null,
+            instagramBusinessId: p.instagramBusinessId ?? null,
+            instagramUsername: p.instagramUsername ?? null,
+            instagramPictureUrl: p.instagramPictureUrl ?? null,
+            pageAccessToken: p.pageAccessToken,
+          }));
+        }
+        if (needThreads) {
+          const pagesForThreads = cachedPages.map((p) => ({
+            pageId: p.pageId,
+            pageName: p.pageName,
+            pageAccessToken: p.pageAccessToken ?? "",
+          }));
+          const scanned = await provider.listThreadsAccounts(
+            userToken,
+            pagesForThreads as never,
+          );
+          cachedThreads = scanned.map((t) => ({
+            threadsUserId: t.threadsUserId,
+            username: t.username ?? null,
+            name: t.name ?? null,
+            pictureUrl: t.pictureUrl ?? null,
+            linkedViaPageId: t.linkedViaPageId,
+            accessToken: t.accessToken,
+          }));
+        }
+        if (needAds) cachedAds = await provider.listAdAccounts(userToken);
+
+        await supabaseAdmin
+          .from("meta_oauth_sessions")
+          .update({
+            pages: cachedPages as unknown as import("@/integrations/supabase/types").Json,
+            threads_accounts: cachedThreads as unknown as import("@/integrations/supabase/types").Json,
+            ad_accounts: cachedAds as unknown as import("@/integrations/supabase/types").Json,
+          })
+          .eq("id", session.id);
+      } catch (err) {
+        if (err instanceof MetaGraphError) throw new Error(`Meta: ${err.message}`);
+        throw err;
+      }
+    }
+
+    const pages = cachedPages.map((p) => ({
       pageId: p.pageId,
       pageName: p.pageName,
       category: p.category ?? null,
@@ -90,9 +180,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
       instagramPictureUrl: p.instagramPictureUrl ?? null,
     }));
 
-    const threadsAccounts = (
-      (session.threads_accounts as unknown as PortfolioThreadsAccount[]) ?? []
-    ).map((t) => ({
+    const threadsAccounts = cachedThreads.map((t) => ({
       threadsUserId: t.threadsUserId,
       username: t.username ?? null,
       name: t.name ?? null,
@@ -100,9 +188,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
       linkedViaPageId: t.linkedViaPageId,
     }));
 
-    const adAccounts = (
-      (session.ad_accounts as unknown as PortfolioAdAccount[]) ?? []
-    ).map((a) => ({
+    const adAccounts = cachedAds.map((a) => ({
       adAccountId: a.adAccountId,
       name: a.name ?? null,
       currency: a.currency ?? null,

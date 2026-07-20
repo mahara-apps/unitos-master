@@ -60,55 +60,21 @@ export const Route = createFileRoute("/api/public/meta/callback")({
             shortLived.accessToken,
           );
 
-          // 3) Identify Meta user + list Pages/IG assets
+          // 3) Identify Meta user + granted scopes (NO Graph scans here — those
+          //    are lazy-loaded on demand when the user opens the portfolio
+          //    dialog, to stay well under Meta's per-app rate limits).
           const me = await provider.getMe(longLived.accessToken);
           const grantedScopes = await provider.listGrantedPermissions(
             longLived.accessToken,
           );
-          // Context-aware asset scan. When the user started the flow from a
-          // specific channel button we only fetch what that channel needs —
-          // this roughly halves the Graph calls per connect and keeps us
-          // under Meta's per-app rate limits.
-          const ch = state.channel ?? null;
-          const scanPages = ch !== "ads";
-          const scanAds = ch === "ads" || ch === null;
-          const scanThreads = ch === "threads" || ch === null;
-
-          const pages = scanPages
-            ? await provider.listPagesWithInstagram(longLived.accessToken)
-            : [];
-          const adAccounts = scanAds
-            ? await provider.listAdAccounts(longLived.accessToken)
-            : [];
-          const threadsAccounts = scanThreads
-            ? await provider.listThreadsAccounts(longLived.accessToken, pages)
-            : [];
-          const igCount = pages.filter((p) => p.instagramBusinessId).length;
-          const relevantCount =
-            state.channel === "instagram"
-              ? igCount
-              : state.channel === "facebook"
-                ? pages.length
-                : state.channel === "threads"
-                  ? threadsAccounts.length
-                  : state.channel === "ads"
-                    ? adAccounts.length
-                    : pages.length + adAccounts.length + threadsAccounts.length;
-          if (relevantCount === 0 && !state.channel) {
-            return htmlResult({
-              ok: false,
-              error:
-                "Nenhuma Página, conta de anúncio ou Threads encontrada. Verifique se você é admin de ao menos uma Página ou Conta.",
-            });
-          }
 
           const missingScopes = requestedScopes.filter(
             (s) => !grantedScopes.includes(s),
           );
 
-          // 4) Persist the full portfolio in a short-lived session row. The
-          //    frontend will read it via `getMetaPortfolio` and let the user
-          //    pick which Pages / IG accounts to link.
+          // 4) Persist ONLY the user token + identity in a short-lived session
+          //    row. Portfolio arrays start empty and are populated lazily by
+          //    `getMetaPortfolio` when the dialog is actually opened.
           const userTokenCiphertext = await encryptCredential(longLived.accessToken);
           const { data: sessionRow, error: sessErr } = await supabaseAdmin
             .from("meta_oauth_sessions")
@@ -122,23 +88,18 @@ export const Route = createFileRoute("/api/public/meta/callback")({
               user_token_expires_at: longLived.expiresAt?.toISOString() ?? null,
               scopes: grantedScopes,
               requested_scopes: requestedScopes,
-              pages: pages as unknown as import("@/integrations/supabase/types").Json,
-              threads_accounts: threadsAccounts as unknown as import("@/integrations/supabase/types").Json,
-              ad_accounts: adAccounts as unknown as import("@/integrations/supabase/types").Json,
+              pages: [] as unknown as import("@/integrations/supabase/types").Json,
+              threads_accounts: [] as unknown as import("@/integrations/supabase/types").Json,
+              ad_accounts: [] as unknown as import("@/integrations/supabase/types").Json,
             })
             .select("id")
             .single();
           if (sessErr) throw sessErr;
 
-          const parts = [
-            `${pages.length} ${pages.length === 1 ? "Página" : "Páginas"}`,
-            `${threadsAccounts.length} Threads`,
-            `${adAccounts.length} ${adAccounts.length === 1 ? "Conta Ads" : "Contas Ads"}`,
-          ].join(" · ");
-
           return htmlResult({
             ok: true,
-            message: `Portfólio Meta capturado (${parts}). Selecione as contas para vincular.`,
+            message:
+              "Login Meta concluído. Abra o seletor de contas para carregar seu portfólio.",
             redirectTo: appendSessionParam(
               state.redirectTo ?? "/connections",
               sessionRow.id,
