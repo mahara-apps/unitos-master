@@ -14,7 +14,7 @@ import {
 } from "@dnd-kit/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowDown, ArrowUp, ArrowUpDown, CalendarClock, CalendarPlus, Check, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarPlus, Check, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Paperclip, ImageIcon, CalendarDays, UserCircle2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,11 +47,10 @@ import {
 } from "@/lib/content.functions";
 import { STAGE_GRADIENT, PRIORITY_STYLES, PRIORITY_LABEL, FORMAT_STYLES, CHANNELS, CHANNEL_STYLES, normalizeFormat, type FormatKey } from "./stage-colors";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Clock, Settings2, AlarmClock } from "lucide-react";
+import { Settings2, AlarmClock } from "lucide-react";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import {
   DashboardCountBadge,
-  DashboardMutedPill,
   DashboardPanelSurface,
 } from "@/components/ui/dashboard-primitives";
 
