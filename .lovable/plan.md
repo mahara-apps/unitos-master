@@ -1,94 +1,91 @@
-
 ## Objetivo
+Evoluir o módulo **Projetos** para gestão de agência: hierarquia real (Projeto → Jobs → Tarefas), templates de projetos e sistema de Timesheet com timer + apontamento manual.
 
-Evoluir `/calendar` para exibir três tipos de eventos com cores distintas (Post, Compromisso, Data Sazonal) e mostrar ícones das redes sociais dos posts diretamente nas células do calendário — mantendo a estética Vercel/Supabase.
+## 1. Banco de dados (uma migração)
+Novas tabelas em `public.` (todas com RLS por `brand_id` via `is_brand_member`, GRANTs para `authenticated`/`service_role`, `updated_at` trigger):
 
-## 1. Backend — nova tabela `calendar_events`
+- **`project_jobs`** — agrupador dentro do projeto  
+  `id, project_id, brand_id, name, description, color, position, created_at, updated_at`
+- **`project_templates`** — modelo salvo pela agência  
+  `id, brand_id, name, description, icon, is_system, created_by`
+- **`project_template_jobs`** — jobs padrão do modelo  
+  `id, template_id, name, description, color, position`
+- **`project_template_tasks`** — tarefas padrão do job do modelo  
+  `id, template_job_id, title, description, priority, estimated_minutes, position`
+- **`task_time_entries`** — apontamento de horas por tarefa  
+  `id, task_id, user_id, brand_id, started_at, ended_at, minutes (int, nullable enquanto timer roda), description, is_rework (bool), source ('timer'|'manual'), created_at, updated_at`
+- Alterações:  
+  `tasks`: adicionar `job_id uuid REFERENCES project_jobs`, `estimated_minutes int`, `total_minutes int` (cache).  
+  Índices: `(project_id, job_id, position)`, `(task_id, user_id)`.
 
-Migration criando a tabela unificada para Compromissos e Datas Sazonais (Posts continuam vindo de `posts` + `post_placements`):
+Regras: horas sempre em **minutos inteiros** no banco; formatação HH:MM apenas no front. RPC `close_time_entry(entry_id)` para calcular minutos e atualizar `tasks.total_minutes`.
 
-```sql
-CREATE TYPE public.calendar_event_type AS ENUM ('appointment', 'seasonal');
+## 2. Server functions
+`src/lib/project-jobs.functions.ts` — list/create/update/delete/reorder de jobs.  
+`src/lib/project-templates.functions.ts` — list templates, criar template a partir de projeto existente, **`instantiateTemplateFn`** que clona jobs+tarefas para um novo projeto (transação SQL via RPC).  
+`src/lib/timesheet.functions.ts` — `startTimerFn`, `stopTimerFn`, `listActiveTimerFn` (apenas 1 timer ativo por usuário), `listTimeEntriesByTaskFn`, `createManualEntryFn`, `updateEntryFn`, `deleteEntryFn`, `sumProjectMinutesFn`.  
+Todas com `requireSupabaseAuth` + Zod.
 
-CREATE TABLE public.calendar_events (
-  id uuid primary key default gen_random_uuid(),
-  brand_id uuid not null references brands(id) on delete cascade,
-  client_id uuid references clients(id) on delete cascade, -- null = escopo brand
-  type calendar_event_type not null,
-  title text not null,
-  description text,
-  starts_at timestamptz not null,
-  ends_at timestamptz,
-  all_day boolean not null default false,
-  is_global boolean not null default false, -- sazonais globais (feriados)
-  color text, -- override opcional
-  created_by uuid references auth.users(id),
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
+## 3. UI / Rotas
+### `/projects` (index) — 2 abas no header
+- **Projetos** (atual, mantido) — cards com progresso, agora exibindo `Σ minutos apontados / estimativa`.
+- **Modelos** — grid de `ProjectTemplateCard` (nome, contagem de jobs/tarefas, botão "Usar modelo" que abre `UseTemplateDialog` para escolher cliente e nome do novo projeto).
+- Botão header: dropdown "Novo" → `[Novo projeto]` `[Novo modelo]` `[A partir de modelo]`.
+
+### `/projects/$projectId` — Overview do projeto (drill-down)
+Refatoração da rota existente para split view:
+- **Coluna esquerda (lista de Jobs)**: componente `JobsList` com cards de job (nome, cor, contagem de tarefas, minutos apontados). Botão "+ Novo job".
+- **Coluna direita (tarefas do job selecionado)**: `JobTasksPanel` — lista das tarefas do job com:
+  - Botão ▶ / ⏸ (timer) por linha, mostrando o timer ativo em vermelho pulsante.
+  - Título, responsável (avatar), status, prioridade, `HH:MM apontado / estimativa`.
+  - "+ Nova tarefa" inline.
+- **Header do projeto** contém contador global `00:00 apontado / estimativa total` (soma reativa).
+- Layout usando `ResizablePanelGroup` (shadcn resizable) — usuário pode ajustar 30/70.
+
+### Task Detail Panel (`Sheet` à direita)
+Ao clicar em uma tarefa, abre `TaskDetailSheet` com:
+- Cabeçalho: título editável, status, prioridade, responsável, botão ▶.
+- Tabs: **Comentários** | **Anexos** | **Timesheet** | **Histórico**
+  - Comentários: reusar `task_comments` existente.
+  - Anexos: placeholder inicial com upload básico (Supabase storage) — pode ser reduzido a "Em breve" se escopo apertar.
+  - **Timesheet**: lista extrato (usuário/data/HH:MM/RT/descrição), soma total. Botão "+ Apontar horas" abre `TimeEntryDialog`.
+  - Histórico: eventos existentes / stub.
+
+### `TimeEntryDialog` (modal de apontamento)
+Tabs no topo: **Apontamento Manual** | **Estimar**.  
+Manual: Data (default hoje) · Horas HH:MM (input com máscara) · Toggle RT · Select de Tarefa (default = tarefa aberta) · Textarea descrição (obrigatório).  
+Estimar: input `estimated_minutes` (HH:MM) para a tarefa selecionada.
+
+### Timer global
+Hook `useActiveTimer()` faz polling (5s) + `supabase.realtime` opcional em `task_time_entries`. Quando ativo, mostra badge fixa no header do projeto e ícone pulsante na linha da tarefa. Iniciar novo timer para outra tarefa fecha o anterior automaticamente (server-side).
+
+## 4. Componentes novos
+```
+src/components/projects/
+  jobs-list.tsx
+  job-tasks-panel.tsx
+  task-row.tsx           # com timer inline
+  task-detail-sheet.tsx  # tabs (comments/attachments/timesheet/history)
+  time-entry-dialog.tsx  # manual + estimar
+  timesheet-list.tsx
+  template-card.tsx
+  templates-grid.tsx
+  use-template-dialog.tsx
+  timer-badge.tsx        # header global
 ```
 
-RLS: membros da brand podem CRUD; sazonais `is_global=true` são SELECT público para todos os autenticados. Grants completos para `authenticated` e `service_role`. Índice em `(brand_id, starts_at)`.
+## 5. Hooks
+`src/hooks/use-active-timer.ts` · `src/hooks/use-timer-tick.ts` (setInterval 1s para atualizar UI enquanto rodando).
 
-## 2. Server functions — `src/lib/calendar-events.functions.ts`
+## 6. Utilidades
+`src/lib/time-format.ts` — `minutesToHHMM`, `hhmmToMinutes`, `formatDuration`.
 
-- `listCalendarEventsFn({ brandId, clientId, from, to })` — retorna eventos + sazonais globais no range.
-- `upsertCalendarEventFn` (Zod validated).
-- `deleteCalendarEventFn`.
-- `listScheduledPostsFn` existente permanece; frontend faz merge dos dois streams.
+## 7. Escopo desta rodada
+Entregar tudo acima **funcional**. Se algo precisar corte, cortar nesta ordem: (a) aba Anexos → placeholder; (b) aba Histórico → placeholder; (c) Realtime no timer → apenas polling.
 
-## 3. Frontend — refatoração do `/calendar`
-
-### 3.1 Tipos e cores unificados
-Novo `src/lib/calendar-tokens.ts` com:
-- `EVENT_TYPE_STYLES` — `{ post: neutral/brand, appointment: blue-500/10, seasonal: orange-500/10 }` (border, bg, text) em OKLCH consistentes com design system.
-- `SOCIAL_NETWORK_ICONS` — mapa `instagram|facebook|linkedin|tiktok|youtube|whatsapp|threads|x` → `{ Icon (lucide), brandColor }`.
-
-### 3.2 Célula do dia (`DayCell`)
-Nova estrutura dentro da grid (extraída em componente):
-- Cabeçalho: número do dia + contador + botão "+" (mantidos).
-- **Row de ícones de rede** (novo): agrupamento dos canais únicos de todos os posts do dia. Ícones `w-3 h-3` em `text-muted-foreground`, hover ganha cor da marca. Máx 4 visíveis; excedente vira `+N`.
-- Lista de eventos (mistura posts + compromissos + sazonais), ordenada por hora, limite 3 → popover "+X mais".
-
-### 3.3 Chip por tipo (`EventChip`)
-Substitui `PostChip`. Recebe union type e aplica:
-- `post` → estilo atual (canal/formato).
-- `appointment` → azul (`border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-400`).
-- `seasonal` → âmbar (`border-orange-500/20 bg-orange-500/10 text-orange-600 dark:text-orange-400`).
-Cada chip mostra hora (exceto `all_day`), título truncado e badge minúsculo do formato quando post.
-
-### 3.4 Header + Wizard
-- Botão dropdown "Novo": **Agendar publicação** (wizard atual) | **Novo compromisso** | **Nova data sazonal**.
-- Novo `EventDialog` (shadcn Dialog) com: tipo, título, descrição, `all_day` toggle, data/hora início e fim, escopo (workspace/cliente/global — global só super_admin), botão excluir em modo edit.
-- Clique em chip de compromisso/sazonal abre `EventDialog` em modo edit; clique em post mantém `TaskDialog`.
-
-### 3.5 KPIs
-Manter os 4 cards de formato existentes (Feed/Stories/Reels/Carrossel) — pedido não altera essa camada.
-
-## 4. Sazonais pré-carregados (opcional, mesma migration)
-
-Seed de ~12 datas comemorativas BR (Ano Novo, Carnaval, Dia das Mães, etc.) inseridas como `is_global=true, brand_id=null`... **descartado**: schema exige `brand_id not null`. Alternativa: manter `brand_id not null` e o super_admin popula quando quiser; ou permitir `brand_id null` quando `is_global=true` (RLS ajustada). **Decisão do plano: `brand_id nullable` + policy que só permite `is_global=true` quando null, gerenciado apenas por super_admin.**
-
-## 5. Ajustes técnicos
-
-- `useQuery` novo `["calendar-events", brandId, clientId, from, to]` em paralelo ao `["calendar", ...]`.
-- `invalidateKey` compartilhado atualizado nos dialogs.
-- `PendingSchedulePanel` inalterado.
-- Nenhuma mudança em `/content`.
-
-## Arquivos alterados/criados
-
-- Migration: `calendar_events` + enum + RLS + grants.
-- `src/lib/calendar-events.functions.ts` (novo).
-- `src/lib/calendar-tokens.ts` (novo).
-- `src/components/calendar/day-cell.tsx` (novo, extraído).
-- `src/components/calendar/event-chip.tsx` (novo).
-- `src/components/calendar/event-dialog.tsx` (novo).
-- `src/components/calendar/social-icons-row.tsx` (novo).
-- `src/routes/_authenticated/calendar.tsx` (refatorado header + grid + merge de queries).
-
-## Fora de escopo
-
-- Recorrência de eventos (RRULE) — versão futura.
-- Notificações/lembretes de compromissos.
-- Sincronização Google Calendar/iCal.
+## Detalhes técnicos-chave
+- `task_time_entries`: `minutes` calculado no `stopTimerFn` como `EXTRACT(EPOCH FROM (ended_at - started_at))/60` arredondado.
+- Constraint: **um único timer ativo por `user_id`** (parcial unique index onde `ended_at IS NULL`).
+- `instantiateTemplateFn`: SQL RPC `SECURITY DEFINER` que faz `INSERT ... SELECT` em uma transação, respeitando `brand_id` do chamador.
+- `templates` de sistema (`is_system=true`) visíveis a todas as brands; templates da brand visíveis apenas para membros.
+- Botão ▶ na linha usa mutation otimista (feedback instantâneo).
