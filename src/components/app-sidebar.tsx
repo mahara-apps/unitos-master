@@ -92,7 +92,7 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
     ],
   },
   {
-    label: "Gestão & Config",
+    label: "Gestão & Configurações",
     items: [
       { title: "Clientes", url: "/customers", icon: Users },
       { title: "Integrações", url: "/connections", icon: Plug },
