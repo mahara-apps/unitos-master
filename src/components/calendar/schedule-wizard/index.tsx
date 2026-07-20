@@ -126,26 +126,38 @@ export function ScheduleWizard({
   const [locationName, setLocationName] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const [submitting, setSubmitting] = useState<null | "draft" | "publish" | "schedule">(null);
+  const [submitting, setSubmitting] = useState<null | "draft" | "publish" | "schedule" | "save_draft">(null);
   const [previewChannel, setPreviewChannel] = useState<SocialChannel>("instagram");
 
   const uploadRef = useRef<HTMLInputElement>(null);
+  const wasOpenRef = useRef(false);
 
   useEffect(() => {
-    if (!open) return;
-    setTitle(seed?.title ?? "");
-    setCopy(seed?.copy ?? "");
-    setPairs([]);
-    setSelectedMedia([]);
-    setHashtags([]);
-    setTagInput("");
-    setFirstComment("");
-    setLinkUrl("");
-    setLocationName("");
-    const base = defaultDate ? new Date(defaultDate) : new Date(Date.now() + 60 * 60 * 1000);
-    base.setSeconds(0, 0);
-    setScheduleDate(fmtDate(base));
-    setScheduleTime(fmtTime(base));
+    // Só reseta na transição fechado → aberto para garantir tela limpa
+    // sempre que o wizard reabre (Novo, editar rascunho, etc).
+    if (open && !wasOpenRef.current) {
+      setTitle(seed?.title ?? "");
+      setCopy(seed?.copy ?? "");
+      setPairs([]);
+      setSelectedMedia([]);
+      setHashtags([]);
+      setTagInput("");
+      setFirstComment("");
+      setLinkUrl("");
+      setLocationName("");
+      setDragActive(false);
+      setUploading(false);
+      setSubmitting(null);
+      setPreviewChannel("instagram");
+      if (uploadRef.current) uploadRef.current.value = "";
+      const base = defaultDate
+        ? new Date(defaultDate)
+        : new Date(Date.now() + 60 * 60 * 1000);
+      base.setSeconds(0, 0);
+      setScheduleDate(fmtDate(base));
+      setScheduleTime(fmtTime(base));
+    }
+    wasOpenRef.current = open;
   }, [open, seed, defaultDate]);
 
   const connectionsQ = useQuery({
