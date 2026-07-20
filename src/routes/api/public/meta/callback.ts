@@ -184,6 +184,9 @@ function htmlResult(result: {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "no-store",
+      // Preserve window.opener across the Facebook cross-origin hop so
+      // postMessage back to the app succeeds and the popup can close itself.
+      "Cross-Origin-Opener-Policy": "unsafe-none",
     },
   });
 }
