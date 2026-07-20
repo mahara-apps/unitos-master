@@ -296,13 +296,18 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       const svc = new MetaPublishingService();
       const results: Array<{ channel: string; format: string; ok: boolean; error?: string; permalink?: string | null }> = [];
       for (const d of data.destinations) {
-        let placement: "instagram_feed" | "facebook_feed" | null = null;
-        if (d.format === "feed" && d.channel === "instagram") placement = "instagram_feed";
-        else if (d.format === "feed" && d.channel === "facebook") placement = "facebook_feed";
-        if (!placement) {
+        // Meta atualmente só publica Feed IG/FB. Reels/Stories vêm depois.
+        const supported =
+          d.format === "feed" && (d.channel === "instagram" || d.channel === "facebook");
+        if (!supported) {
           results.push({ channel: d.channel, format: d.format, ok: false, error: "Formato ainda não publicável (apenas Feed IG/FB)" });
           continue;
         }
+        // Valor persistido em social_posts.placement (CHECK constraint) e enviado
+        // ao provider como identificador de superfície.
+        const providerPlacement: "instagram_feed" | "facebook_feed" =
+          d.channel === "instagram" ? "instagram_feed" : "facebook_feed";
+        const dbPlacement = "feed" as const;
         try {
           // Carrega conexão (isolada por brand/cliente)
           const { data: conn, error: connErr } = await supabase
@@ -332,7 +337,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             if (sErr) throw new Error(`Falha ao assinar mídia: ${sErr.message}`);
             mediaOut.imageUrl = signed.signedUrl;
           }
-          if (placement === "instagram_feed" && !mediaOut.imageUrl) {
+          if (providerPlacement === "instagram_feed" && !mediaOut.imageUrl) {
             throw new Error("Feed do Instagram exige uma imagem");
           }
 
@@ -354,7 +359,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
               client_id: data.clientId,
               connection_id: d.connectionId,
               provider: conn.provider,
-              placement,
+              placement: dbPlacement,
               caption: caption ?? null,
               hashtags: data.hashtags,
               mentions: [],
@@ -370,7 +375,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           if (spErr) throw new Error(spErr.message);
 
           try {
-            const result = await svc.publish(conn as any, { placement, caption, media: mediaOut });
+            const result = await svc.publish(conn as any, { placement: providerPlacement, caption, media: mediaOut });
             await supabase
               .from("social_posts")
               .update({
