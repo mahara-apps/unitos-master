@@ -679,20 +679,6 @@ const CHANNEL_KINDS: Record<string, ChannelKind> = {
   },
 };
 
-function classifyChannel(raw: string): ChannelKind {
-  const k = (raw ?? "").toLowerCase();
-  if (k.includes("story") || k.includes("stories")) return CHANNEL_KINDS.stories;
-  if (k.includes("tiktok")) return CHANNEL_KINDS.tiktok;
-  if (k.includes("youtube") || k === "yt") return CHANNEL_KINDS.youtube;
-  if (k.includes("linkedin")) return CHANNEL_KINDS.linkedin;
-  if (k.includes("whats")) return CHANNEL_KINDS.whatsapp;
-  if (k.includes("blog")) return CHANNEL_KINDS.blog;
-  if (k.includes("insta") || k.includes("feed") || k.includes("facebook") || k === "x" || k.includes("twitter") || k.includes("threads")) {
-    return CHANNEL_KINDS.instagram;
-  }
-  return CHANNEL_KINDS.other;
-}
-
 const FORMAT_KINDS: ChannelKind[] = [
   {
     key: "feed",
