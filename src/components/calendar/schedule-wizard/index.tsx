@@ -11,6 +11,12 @@ import {
   Loader2,
   Send,
   X,
+  Video as VideoIcon,
+  Hash,
+  MessageCircle,
+  Link2,
+  MapPin,
+  AlertTriangle,
 } from "lucide-react";
 import {
   Dialog,
@@ -34,6 +40,11 @@ import {
   FORMAT_LABEL,
   tightestCaptionLimit,
   type PlacementFormat,
+  type MediaKind,
+  inferMediaKind,
+  isFormatCompatibleWithMedia,
+  formatIncompatibilityReason,
+  suggestFormatsForMedia,
 } from "@/lib/scheduling-formats";
 import { SOCIAL_CHANNELS, type SocialChannel } from "@/lib/social-core/capabilities";
 import {
@@ -87,6 +98,10 @@ export function ScheduleWizard({
   const [selectedMedia, setSelectedMedia] = useState<BrandMediaAsset[]>([]);
   const [scheduleAt, setScheduleAt] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
+  const [hashtags, setHashtags] = useState<string[]>([]);
+  const [firstComment, setFirstComment] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [locationName, setLocationName] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -95,6 +110,10 @@ export function ScheduleWizard({
     setCopy(seed?.copy ?? "");
     setPairs([]);
     setSelectedMedia([]);
+    setHashtags([]);
+    setFirstComment("");
+    setLinkUrl("");
+    setLocationName("");
     if (defaultDate) {
       const d = new Date(defaultDate);
       d.setSeconds(0, 0);
@@ -124,7 +143,9 @@ export function ScheduleWizard({
 
   const mediaQ = useQuery({
     enabled: open && step === "editor",
-    queryKey: ["wizard-media", brandId],
+    queryKey: ["wizard-media", brandId, "all"],
+    // Sem filtro de kind → biblioteca devolve imagem + vídeo. Vídeos ganham
+    // badge de duração no picker e destravam Reels/Stories no seletor de formato.
     queryFn: () => listMedia({ data: { brandId, limit: 60 } }),
   });
 
@@ -138,6 +159,18 @@ export function ScheduleWizard({
     return map;
   }, [connectionsQ.data]);
 
+  const mediaKind: MediaKind = useMemo(
+    () => inferMediaKind(selectedMedia),
+    [selectedMedia],
+  );
+
+  // Sempre que a mídia muda, remove pares incompatíveis do estado.
+  useEffect(() => {
+    setPairs((prev) =>
+      prev.filter((p) => isFormatCompatibleWithMedia(p.format, mediaKind)),
+    );
+  }, [mediaKind]);
+
   const captionLimit = useMemo(
     () => tightestCaptionLimit(pairs.map((p) => p.channel)),
     [pairs],
@@ -145,6 +178,16 @@ export function ScheduleWizard({
 
   const canContinueChannels = pairs.length > 0;
   const canContinueEditor = title.trim().length > 0 && copy.length <= captionLimit;
+
+  function autoSuggestPairs() {
+    // Preenche 1 formato sugerido por canal conectado, respeitando a mídia atual.
+    const suggested: typeof pairs = [];
+    for (const [channel, conn] of connByChannel.entries()) {
+      const [fmt] = suggestFormatsForMedia(channel, mediaKind);
+      if (fmt) suggested.push({ channel, format: fmt, connectionId: conn.connectionId });
+    }
+    if (suggested.length) setPairs(suggested);
+  }
 
   async function persist(action: "draft" | "publish" | "schedule") {
     if (!pairs.length) return;
@@ -158,7 +201,10 @@ export function ScheduleWizard({
           title: title.trim() || "Publicação sem título",
           copy,
           mediaPaths: selectedMedia.map((m) => m.storagePath),
-          hashtags: [],
+          hashtags,
+          firstComment: firstComment.trim() || null,
+          linkUrl: linkUrl.trim() || null,
+          locationName: locationName.trim() || null,
           destinations: pairs.map((p) => ({
             connectionId: p.connectionId,
             channel: p.channel,
@@ -207,9 +253,18 @@ export function ScheduleWizard({
               connByChannel={connByChannel}
               loading={connectionsQ.isLoading}
               pairs={pairs}
+              mediaKind={mediaKind}
+              selectedMediaCount={selectedMedia.length}
               onTogglePair={(channel, format) => {
                 const conn = connByChannel.get(channel);
                 if (!conn) return;
+                if (!isFormatCompatibleWithMedia(format, mediaKind)) {
+                  toast.error(
+                    formatIncompatibilityReason(format, mediaKind) ??
+                      "Formato incompatível com a mídia selecionada.",
+                  );
+                  return;
+                }
                 setPairs((prev) => {
                   const exists = prev.find(
                     (p) => p.channel === channel && p.format === format,
@@ -235,6 +290,17 @@ export function ScheduleWizard({
               captionLimit={captionLimit}
               media={mediaQ.data ?? []}
               selectedMedia={selectedMedia}
+              mediaKind={mediaKind}
+              hashtags={hashtags}
+              firstComment={firstComment}
+              linkUrl={linkUrl}
+              locationName={locationName}
+              onHashtags={setHashtags}
+              onFirstComment={setFirstComment}
+              onLinkUrl={setLinkUrl}
+              onLocationName={setLocationName}
+              onAutoSuggest={autoSuggestPairs}
+              hasPairs={pairs.length > 0}
               onTitle={setTitle}
               onCopy={setCopy}
               onToggleMedia={(m) => {
