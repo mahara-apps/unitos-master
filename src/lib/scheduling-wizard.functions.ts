@@ -160,6 +160,9 @@ const SaveInput = z.object({
   copy: z.string().default(""),
   mediaPaths: z.array(z.string()).default([]),
   hashtags: z.array(z.string()).default([]),
+  firstComment: z.string().max(2200).nullable().optional(),
+  linkUrl: z.string().url().nullable().optional(),
+  locationName: z.string().max(120).nullable().optional(),
   destinations: z.array(DestinationSchema).min(1),
   scheduledAt: z.string().nullable().optional(), // ISO
   action: z.enum(["draft", "publish", "schedule"]),
@@ -268,9 +271,15 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         client_id: data.clientId,
         format: d.format,
         scheduled_at: scheduledIso,
-        copy_override: d.copyOverride
-          ? { copy: d.copyOverride, connection_id: d.connectionId, channel: d.channel }
-          : { connection_id: d.connectionId, channel: d.channel },
+        copy_override: {
+          connection_id: d.connectionId,
+          channel: d.channel,
+          ...(d.copyOverride ? { copy: d.copyOverride } : {}),
+          ...(data.hashtags.length ? { hashtags: data.hashtags } : {}),
+          ...(data.firstComment ? { first_comment: data.firstComment } : {}),
+          ...(data.linkUrl ? { link: data.linkUrl } : {}),
+          ...(data.locationName ? { location_name: data.locationName } : {}),
+        },
         media: mediaJson,
         status: data.action === "schedule" ? "scheduled" : "draft",
         is_primary: i === 0,
