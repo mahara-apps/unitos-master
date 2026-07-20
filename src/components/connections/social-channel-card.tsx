@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { CheckCircle2, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { CheckCircle2, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -158,35 +158,11 @@ export function SocialChannelCard({
         <StatusPill status={status} count={accounts.length} />
       </div>
 
-      <div className="mt-4 min-h-[54px] rounded-lg border border-border/60 bg-background/60 p-3">
-        {primary ? (
-          <div className="flex items-start gap-2">
-            <Avatar className="h-8 w-8">
-              <AvatarImage src={primary.avatarUrl ?? undefined} alt={primary.name} />
-              <AvatarFallback className={cn("text-[10px]", channel.tone)}>
-                <Icon className="h-3.5 w-3.5" />
-              </AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-xs font-medium">
-                {primary.name}
-                {accounts.length > 1 && (
-                  <span className="ml-1 text-muted-foreground">
-                    +{accounts.length - 1}
-                  </span>
-                )}
-              </div>
-              <div className="truncate font-mono text-[10px] text-muted-foreground">
-                {brandLabel} · sync {fmtSync(primary.updatedAt)}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="flex h-full items-center justify-center text-center font-mono text-[10px] text-muted-foreground">
-            Nenhuma conta conectada
-          </div>
-        )}
-      </div>
+      <AccountsSummary
+        accounts={accounts}
+        channel={channel}
+        brandLabel={brandLabel}
+      />
 
       <Separator className="my-4" />
 
