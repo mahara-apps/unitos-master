@@ -1906,3 +1906,132 @@ function InstagramPreview({
   );
 }
 
+function MediaReferenceBlock({
+  refs,
+  signedUrls,
+  fileInput,
+  onFiles,
+  onRemove,
+  onGenerate,
+  uploading,
+  generating,
+}: {
+  refs: RefEntry[];
+  signedUrls: Record<string, string>;
+  fileInput: React.RefObject<HTMLInputElement | null>;
+  onFiles: (files: File[]) => void;
+  onRemove: (path: string) => void;
+  onGenerate: () => void;
+  uploading: boolean;
+  generating: boolean;
+}) {
+  const [dragActive, setDragActive] = useState(false);
+  return (
+    <div className="space-y-1.5">
+      <Label className="flex items-center gap-1.5">
+        <ImageIcon className="h-3.5 w-3.5" /> Mídias de referência
+        <span className="text-xs font-normal text-muted-foreground">
+          (feeds, stories, moodboard)
+        </span>
+      </Label>
+      <DashboardPanelSurface
+        className={cn(
+          "p-3 transition",
+          dragActive && "ring-2 ring-primary/60 ring-offset-2 ring-offset-background",
+        )}
+        onDragEnter={(e: React.DragEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.dataTransfer?.types?.includes("Files")) setDragActive(true);
+        }}
+        onDragOver={(e: React.DragEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.dataTransfer?.types?.includes("Files")) {
+            e.dataTransfer.dropEffect = "copy";
+            setDragActive(true);
+          }
+        }}
+        onDragLeave={(e: React.DragEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setDragActive(false);
+        }}
+        onDrop={(e: React.DragEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setDragActive(false);
+          const files = Array.from(e.dataTransfer?.files ?? []).filter((f) =>
+            /^(image|video)\//.test(f.type),
+          );
+          if (files.length > 0) onFiles(files);
+        }}
+      >
+        {refs.length === 0 ? (
+          <button
+            type="button"
+            onClick={() => fileInput.current?.click()}
+            className={cn(
+              "flex w-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed px-3 py-6 text-xs transition",
+              dragActive
+                ? "border-primary/70 bg-primary/5 text-foreground"
+                : "border-border/60 bg-card/40 text-muted-foreground hover:border-border hover:text-foreground",
+            )}
+          >
+            <Upload className="h-4 w-4" />
+            <span className="font-medium">Arraste e solte aqui</span>
+            <span>
+              ou clique para anexar. Ao inserir 2 ou mais, o post vira Carrossel.
+            </span>
+          </button>
+        ) : (
+          <InstagramPreview refs={refs} urls={signedUrls} onRemove={onRemove} />
+        )}
+        <div className="mt-2 flex justify-end">
+          <input
+            ref={fileInput}
+            type="file"
+            multiple
+            className="hidden"
+            accept="image/*,video/*"
+            onChange={(e) => {
+              const fs = Array.from(e.target.files ?? []);
+              if (fs.length > 0) onFiles(fs);
+              e.target.value = "";
+            }}
+          />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onGenerate}
+              disabled={generating}
+              title="Gerar imagem de referência usando o hook, headline e copy"
+            >
+              {generating ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="mr-2 h-4 w-4" />
+              )}
+              Gerar com IA
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fileInput.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="mr-2 h-4 w-4" />
+              )}
+              Anexar
+            </Button>
+          </div>
+        </div>
+      </DashboardPanelSurface>
+    </div>
+  );
+}
+
