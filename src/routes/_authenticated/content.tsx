@@ -50,6 +50,15 @@ import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashb
 import { MediaLibraryPanel } from "@/components/content/media-library-panel";
 import { PublicationsPanel } from "@/components/content/publications-panel";
 import { ComposerDialog } from "@/components/content/composer-dialog";
+import {
+  ContentToolbar,
+  DEFAULT_CONTENT_FILTERS,
+  applyContentFilters,
+  type ContentFilters,
+  type ViewMode,
+} from "@/components/content/content-toolbar";
+import { ContentList } from "@/components/content/content-list";
+import type { StageSort, SortBy } from "@/components/content/content-board";
 
 const CONTENT_TABS = [
   { value: "pipeline", label: "Pipeline" },
@@ -431,14 +440,59 @@ function BoardView({
       supabase.removeChannel(channel);
     };
   }, [pipelineId, qc, queryKey]);
+
+  const [filters, setFilters] = useState<ContentFilters>(DEFAULT_CONTENT_FILTERS);
+  const [view, setView] = useState<ViewMode>("kanban");
+  const [sortByStage, setSortByStage] = useState<Record<string, StageSort>>({});
+
+  const filteredPosts = useMemo(
+    () => applyContentFilters(data.posts, filters),
+    [data.posts, filters],
+  );
+  const filteredBoard = useMemo(
+    () => ({ ...data, posts: filteredPosts }),
+    [data, filteredPosts],
+  );
+
+  const handleCycleSort = (stageId: string, by: Exclude<SortBy, "position">) => {
+    setSortByStage((prev) => {
+      const cur = prev[stageId];
+      const next = { ...prev };
+      if (!cur || cur.by !== by) {
+        next[stageId] = { by, dir: "desc" };
+      } else if (cur.dir === "desc") {
+        next[stageId] = { by, dir: "asc" };
+      } else {
+        delete next[stageId];
+      }
+      return next;
+    });
+  };
+
   return (
-    <ContentBoard
-      board={data}
-      boardQueryKey={queryKey}
-      onOpenPost={onOpenPost}
-      onConfigureColumns={onConfigureColumns}
-      onNewTask={onNewTask}
-    />
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <ContentToolbar
+        filters={filters}
+        onFiltersChange={setFilters}
+        view={view}
+        onViewChange={setView}
+        total={data.posts.length}
+        filtered={filteredPosts.length}
+      />
+      {view === "kanban" ? (
+        <ContentBoard
+          board={filteredBoard}
+          boardQueryKey={queryKey}
+          onOpenPost={onOpenPost}
+          onConfigureColumns={onConfigureColumns}
+          onNewTask={onNewTask}
+          sortByStage={sortByStage}
+          onCycleSort={handleCycleSort}
+        />
+      ) : (
+        <ContentList board={data} posts={filteredPosts} onOpenPost={onOpenPost} />
+      )}
+    </div>
   );
 }
 
