@@ -139,7 +139,8 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
       setPaused(false);
       writePaused(taskId, false);
     },
-    onSuccess: () => {
+    onSuccess: (started) => {
+      setOptimisticActive(started);
       setPaused(false);
       writePaused(taskId, false);
       invalidateAll();
