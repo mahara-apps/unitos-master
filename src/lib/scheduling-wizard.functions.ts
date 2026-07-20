@@ -45,19 +45,23 @@ export const listClientSocialConnectionsFn = createServerFn({ method: "GET" })
       .parse(i),
   )
   .handler(async ({ data, context }): Promise<WizardConnection[]> => {
-    // Uma conta social pode ser:
-    //  - vinculada a um cliente específico (client_id = clientId), ou
-    //  - institucional/brand-level (client_id IS NULL), disponível para
-    //    todos os clientes daquela marca.
-    // O wizard aceita ambas.
+    // Contas sociais são globais na marca (/connections) e atribuídas ao
+    // cliente a partir do perfil do cliente (aba "Canais"). O wizard lê o
+    // vínculo em client_social_accounts.
+    const { data: assigns, error: aErr } = await context.supabase
+      .from("client_social_accounts")
+      .select("connection_id")
+      .eq("client_id", data.clientId)
+      .eq("brand_id", data.brandId);
+    if (aErr) throw new Error(aErr.message);
+    const ids = (assigns ?? []).map((a) => a.connection_id);
+    if (!ids.length) return [];
     const { data: rows, error } = await context.supabase
       .from("social_connections")
-      .select(
-        "id, channel, external_name, account_username, status, metadata, client_id",
-      )
+      .select("id, channel, external_name, account_username, status, metadata")
       .eq("brand_id", data.brandId)
-      .eq("status", "active")
-      .or(`client_id.eq.${data.clientId},client_id.is.null`);
+      .in("id", ids)
+      .eq("status", "active");
     console.log("[wizard] listClientSocialConnections", {
       brandId: data.brandId,
       clientId: data.clientId,
