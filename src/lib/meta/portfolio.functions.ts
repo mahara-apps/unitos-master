@@ -119,11 +119,28 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
       if (!session.user_token_ciphertext) {
         throw new Error("Token do usuário Meta ausente. Refaça o login.");
       }
-      const userToken = await decryptCredential(session.user_token_ciphertext);
+      let userToken: string;
+      try {
+        userToken = await decryptCredential(session.user_token_ciphertext);
+      } catch (err) {
+        console.error("[getMetaPortfolio] decrypt failed", err);
+        throw new Error(
+          "Falha ao descriptografar o token da Meta. Reconecte sua conta.",
+        );
+      }
+
+      console.log("[getMetaPortfolio] scanning", {
+        sessionId: session.id,
+        channel: ch,
+        needPages,
+        needThreads,
+        needAds,
+      });
 
       try {
         if (needPages) {
           const scanned = await provider.listPagesWithInstagram(userToken);
+          console.log("[getMetaPortfolio] pages fetched", scanned.length);
           cachedPages = scanned.map((p) => ({
             pageId: p.pageId,
             pageName: p.pageName,
@@ -145,6 +162,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
             userToken,
             pagesForThreads as never,
           );
+          console.log("[getMetaPortfolio] threads fetched", scanned.length);
           cachedThreads = scanned.map((t) => ({
             threadsUserId: t.threadsUserId,
             username: t.username ?? null,
@@ -154,9 +172,12 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
             accessToken: t.accessToken,
           }));
         }
-        if (needAds) cachedAds = await provider.listAdAccounts(userToken);
+        if (needAds) {
+          cachedAds = await provider.listAdAccounts(userToken);
+          console.log("[getMetaPortfolio] ad accounts fetched", cachedAds.length);
+        }
 
-        await supabaseAdmin
+        const { error: upErr } = await supabaseAdmin
           .from("meta_oauth_sessions")
           .update({
             pages: cachedPages as unknown as import("@/integrations/supabase/types").Json,
@@ -164,9 +185,12 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
             ad_accounts: cachedAds as unknown as import("@/integrations/supabase/types").Json,
           })
           .eq("id", session.id);
+        if (upErr) console.error("[getMetaPortfolio] cache write failed", upErr);
       } catch (err) {
+        console.error("[getMetaPortfolio] Graph API failure", err);
         if (err instanceof MetaGraphError) throw new Error(`Meta: ${err.message}`);
-        throw err;
+        if (err instanceof Error) throw err;
+        throw new Error("Falha ao consultar a Graph API da Meta.");
       }
     }
 

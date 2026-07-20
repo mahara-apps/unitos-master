@@ -112,18 +112,36 @@ export function MetaPortfolioDialog({
     data,
     isLoading,
     error,
+    refetch,
+    isFetching,
   } = useQuery({
     queryKey: ["meta-portfolio", brandId, sessionId, channel ?? "all"],
-    queryFn: () =>
-      getFn({
-        data: {
-          brandId,
-          sessionId: sessionId!,
-          channel: channel ?? undefined,
-        },
-      }),
+    queryFn: async () => {
+      try {
+        const res = await getFn({
+          data: {
+            brandId,
+            sessionId: sessionId!,
+            channel: channel ?? undefined,
+          },
+        });
+        console.log("[MetaPortfolio] Graph API Response:", res);
+        return res;
+      } catch (err) {
+        console.error("[MetaPortfolio] Graph API Error:", err);
+        const msg =
+          err instanceof Error
+            ? err.message
+            : typeof err === "string"
+              ? err
+              : "Falha ao carregar contas da Meta";
+        toast.error(msg, { duration: 9000 });
+        throw err instanceof Error ? err : new Error(msg);
+      }
+    },
     enabled: !!sessionId && open,
     staleTime: 5 * 60_000,
+    retry: false,
   });
 
   const [pending, setPending] = useState<Set<string>>(new Set());
@@ -272,9 +290,36 @@ export function MetaPortfolioDialog({
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : error ? (
-          <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
-            {(error as Error).message}
-          </p>
+          <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/10 p-4 text-xs">
+            <div className="flex items-start gap-2 text-destructive">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+              <div className="space-y-1">
+                <p className="font-medium">Não foi possível carregar as contas da Meta.</p>
+                <p className="text-destructive/80">
+                  {(error as Error).message ||
+                    "Tente novamente ou reconecte sua conta Meta."}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => refetch()}
+                disabled={isFetching}
+              >
+                {isFetching ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                )}
+                Tentar novamente
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => onOpenChange(false)}>
+                Fechar
+              </Button>
+            </div>
+          </div>
         ) : (
           <Tabs defaultValue={channel ?? "facebook"} className="w-full">
             {!channel && (
