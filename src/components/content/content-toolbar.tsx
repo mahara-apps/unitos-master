@@ -86,7 +86,7 @@ export function ContentToolbar({
       </div>
 
       <Select value={filters.createdRange} onValueChange={(v) => set("createdRange", v as CreatedRange)}>
-        <SelectTrigger size="sm" className="h-8 w-[160px] text-xs">
+        <SelectTrigger className="h-8 w-[160px] text-xs">
           <CalendarPlus className="h-3.5 w-3.5 text-muted-foreground" />
           <SelectValue placeholder="Data de criação" />
         </SelectTrigger>
@@ -99,7 +99,7 @@ export function ContentToolbar({
       </Select>
 
       <Select value={filters.scheduledRange} onValueChange={(v) => set("scheduledRange", v as ScheduledRange)}>
-        <SelectTrigger size="sm" className="h-8 w-[180px] text-xs">
+        <SelectTrigger className="h-8 w-[180px] text-xs">
           <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
           <SelectValue placeholder="Data de postagem" />
         </SelectTrigger>
@@ -111,7 +111,7 @@ export function ContentToolbar({
       </Select>
 
       <Select value={filters.channel} onValueChange={(v) => set("channel", v)}>
-        <SelectTrigger size="sm" className="h-8 w-[150px] text-xs">
+        <SelectTrigger className="h-8 w-[150px] text-xs">
           <SelectValue placeholder="Rede social" />
         </SelectTrigger>
         <SelectContent>
@@ -125,7 +125,7 @@ export function ContentToolbar({
       </Select>
 
       <Select value={filters.format} onValueChange={(v) => set("format", v)}>
-        <SelectTrigger size="sm" className="h-8 w-[140px] text-xs">
+        <SelectTrigger className="h-8 w-[140px] text-xs">
           <SelectValue placeholder="Formato" />
         </SelectTrigger>
         <SelectContent>
@@ -139,7 +139,7 @@ export function ContentToolbar({
       </Select>
 
       <Select value={filters.media} onValueChange={(v) => set("media", v as MediaFilter)}>
-        <SelectTrigger size="sm" className="h-8 w-[140px] text-xs">
+        <SelectTrigger className="h-8 w-[140px] text-xs">
           <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
           <SelectValue placeholder="Mídia" />
         </SelectTrigger>
