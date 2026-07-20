@@ -56,6 +56,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
+import { TaskTimerWidget } from "@/components/tasks/task-timer-widget";
 import {
   Popover,
   PopoverContent,
@@ -868,6 +869,17 @@ export function TaskDrawer({
                     />
                   </MetaRow>
                 </dl>
+              </div>
+
+              <Separator />
+
+              {/* Timesheet · Play / Pause / Stop */}
+              <div className="space-y-2 px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-semibold">Timesheet</h3>
+                </div>
+                <TaskTimerWidget brandId={brandId} taskId={task.id} />
               </div>
 
               <Separator />

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Play, Square, Plus, Trash2, Clock, RotateCcw } from "lucide-react";
+import { Plus, Trash2, Clock, RotateCcw } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,11 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { TaskTimerWidget } from "@/components/tasks/task-timer-widget";
 import {
   listTimeEntriesFn,
-  getMyActiveTimerFn,
-  startTimerFn,
-  stopTimerFn,
   addManualEntryFn,
   deleteEntryFn,
   formatMinutes,
@@ -37,17 +35,6 @@ function parseHHMM(v: string): number | null {
   return null;
 }
 
-function useElapsedMinutes(startedAt: string | null): number {
-  const [, tick] = useState(0);
-  useEffect(() => {
-    if (!startedAt) return;
-    const t = setInterval(() => tick((n) => n + 1), 1000);
-    return () => clearInterval(t);
-  }, [startedAt]);
-  if (!startedAt) return 0;
-  return Math.max(0, Math.round((Date.now() - new Date(startedAt).getTime()) / 60000));
-}
-
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -58,9 +45,6 @@ type Props = {
 export function TaskTimesheetSheet({ open, onOpenChange, brandId, task }: Props) {
   const qc = useQueryClient();
   const listFn = useServerFn(listTimeEntriesFn);
-  const activeFn = useServerFn(getMyActiveTimerFn);
-  const startFn = useServerFn(startTimerFn);
-  const stopFn = useServerFn(stopTimerFn);
   const addFn = useServerFn(addManualEntryFn);
   const delFn = useServerFn(deleteEntryFn);
   const patchTaskFn = useServerFn(updateJobTaskFn);
@@ -69,33 +53,6 @@ export function TaskTimesheetSheet({ open, onOpenChange, brandId, task }: Props)
     queryKey: ["time-entries", brandId, task?.id],
     queryFn: () => listFn({ data: { brandId, taskId: task!.id } }),
     enabled: open && !!task,
-  });
-
-  const activeQ = useQuery({
-    queryKey: ["active-timer", brandId],
-    queryFn: () => activeFn({ data: { brandId } }),
-    enabled: open,
-    refetchInterval: 30_000,
-  });
-  const activeTimer = activeQ.data;
-  const isRunningHere = activeTimer?.task_id === task?.id;
-  const elapsed = useElapsedMinutes(isRunningHere ? activeTimer!.started_at : null);
-
-  const startMut = useMutation({
-    mutationFn: () => startFn({ data: { brandId, taskId: task!.id } }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["active-timer", brandId] });
-      qc.invalidateQueries({ queryKey: ["time-entries", brandId, task?.id] });
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-  const stopMut = useMutation({
-    mutationFn: () => stopFn({ data: { entryId: activeTimer!.id } }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["active-timer", brandId] });
-      qc.invalidateQueries({ queryKey: ["time-entries", brandId, task?.id] });
-      qc.invalidateQueries({ queryKey: ["job-tasks"] });
-    },
   });
 
   const [manualTime, setManualTime] = useState("");
@@ -145,18 +102,10 @@ export function TaskTimesheetSheet({ open, onOpenChange, brandId, task }: Props)
   });
 
   const entries: TimeEntry[] = entriesQ.data ?? [];
-  const totals = useMemo(() => {
-    let total = 0;
-    let rework = 0;
-    for (const e of entries) {
-      if (e.minutes) {
-        total += e.minutes;
-        if (e.is_rework) rework += e.minutes;
-      }
-    }
-    if (isRunningHere) total += elapsed;
-    return { total, rework };
-  }, [entries, isRunningHere, elapsed]);
+  const reworkMinutes = useMemo(
+    () => entries.reduce((sum, e) => sum + (e.is_rework && e.minutes ? e.minutes : 0), 0),
+    [entries],
+  );
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -167,47 +116,17 @@ export function TaskTimesheetSheet({ open, onOpenChange, brandId, task }: Props)
 
         {task && (
           <div className="mt-6 space-y-6">
-            {/* Timer */}
-            <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                    Timer
-                  </div>
-                  <div className="mt-1 flex items-baseline gap-2 font-mono text-2xl tabular-nums">
-                    {formatMinutes(totals.total)}
-                    <span className="text-xs text-muted-foreground">
-                      {task.estimated_minutes ? `/ ${formatMinutes(task.estimated_minutes)}` : "sem estimativa"}
-                    </span>
-                  </div>
-                </div>
-                {isRunningHere ? (
-                  <Button size="sm" variant="destructive" onClick={() => stopMut.mutate()} disabled={stopMut.isPending}>
-                    <Square className="mr-2 h-4 w-4" /> Parar
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    onClick={() => startMut.mutate()}
-                    disabled={startMut.isPending}
-                    title={activeTimer ? "Isto vai parar seu timer atual em outra tarefa" : undefined}
-                  >
-                    <Play className="mr-2 h-4 w-4" />
-                    {activeTimer ? "Trocar timer" : "Iniciar"}
-                  </Button>
-                )}
+            {/* Timer (Play · Pause · Stop) */}
+            <TaskTimerWidget
+              brandId={brandId}
+              taskId={task.id}
+              estimatedMinutes={task.estimated_minutes}
+            />
+            {reworkMinutes > 0 && (
+              <div className="-mt-4 text-[11px] text-muted-foreground">
+                Retrabalho: <span className="font-mono">{formatMinutes(reworkMinutes)}</span>
               </div>
-              {isRunningHere && (
-                <div className="mt-2 text-xs text-emerald-500">
-                  Em execução · {formatMinutes(elapsed)}
-                </div>
-              )}
-              {totals.rework > 0 && (
-                <div className="mt-2 text-[11px] text-muted-foreground">
-                  Retrabalho: <span className="font-mono">{formatMinutes(totals.rework)}</span>
-                </div>
-              )}
-            </div>
+            )}
 
             {/* Estimativa */}
             <div className="grid gap-1.5">
