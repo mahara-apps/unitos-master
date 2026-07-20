@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -42,11 +42,13 @@ export function MetaPortfolioDialog({
   brandId,
   sessionId,
   open,
+  channel,
   onOpenChange,
 }: {
   brandId: string;
   sessionId: string | null;
   open: boolean;
+  channel?: "facebook" | "instagram" | "threads" | "ads" | null;
   onOpenChange: (open: boolean) => void;
 }) {
   const qc = useQueryClient();
@@ -139,6 +141,36 @@ export function MetaPortfolioDialog({
   const adAccounts: PortfolioAdAccount[] = data?.adAccounts ?? [];
   const missingScopes = data?.missingScopes ?? [];
 
+  // Emit a targeted toast when the user opened a channel-specific flow and
+  // the corresponding list came back empty.
+  const emptyToastFiredRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!open || !channel || !data) return;
+    const key = `${sessionId}:${channel}`;
+    if (emptyToastFiredRef.current === key) return;
+    const counts: Record<string, number> = {
+      facebook: fbPages.length,
+      instagram: igPages.length,
+      threads: threadsAccounts.length,
+      ads: adAccounts.length,
+    };
+    if (counts[channel] === 0) {
+      emptyToastFiredRef.current = key;
+      if (channel === "instagram") {
+        toast.error(
+          "Nenhuma conta do Instagram Business encontrada. Verifique se o seu Instagram está corretamente vinculado a uma Página do Facebook.",
+          { duration: 9000 },
+        );
+      } else if (channel === "facebook") {
+        toast.error("Nenhuma Página do Facebook encontrada nesta conta Meta.");
+      } else if (channel === "threads") {
+        toast.error("Nenhum perfil do Threads encontrado nas suas Páginas.");
+      } else if (channel === "ads") {
+        toast.error("Nenhuma Conta de Anúncios encontrada (requer permissão ads_read).");
+      }
+    }
+  }, [open, channel, data, sessionId, fbPages.length, igPages.length, threadsAccounts.length, adAccounts.length]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl border-border/60 bg-background/95 backdrop-blur">
@@ -148,8 +180,15 @@ export function MetaPortfolioDialog({
             {data?.metaUser.name
               ? `Logado como ${data.metaUser.name}. `
               : ""}
-            Escolha quais Páginas, Contas do Instagram, perfis do Threads e
-            Contas de Anúncio você deseja vincular a este projeto.
+            {channel === "instagram"
+              ? "Escolha quais contas do Instagram Business você deseja vincular a este projeto."
+              : channel === "facebook"
+                ? "Escolha quais Páginas do Facebook você deseja vincular a este projeto."
+                : channel === "threads"
+                  ? "Escolha quais perfis do Threads você deseja vincular a este projeto."
+                  : channel === "ads"
+                    ? "Escolha quais Contas de Anúncio você deseja vincular a este projeto."
+                    : "Escolha quais Páginas, Contas do Instagram, perfis do Threads e Contas de Anúncio você deseja vincular a este projeto."}
           </DialogDescription>
         </DialogHeader>
 
@@ -177,7 +216,8 @@ export function MetaPortfolioDialog({
             {(error as Error).message}
           </p>
         ) : (
-          <Tabs defaultValue="facebook" className="w-full">
+          <Tabs defaultValue={channel ?? "facebook"} className="w-full">
+            {!channel && (
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="facebook" className="gap-2 text-xs">
                 <Facebook className="h-3.5 w-3.5" />
@@ -208,6 +248,7 @@ export function MetaPortfolioDialog({
                 </Badge>
               </TabsTrigger>
             </TabsList>
+            )}
 
             <TabsContent value="facebook" className="mt-3">
               <ScrollArea className="h-[420px] rounded-lg border border-border/60">
@@ -272,7 +313,7 @@ export function MetaPortfolioDialog({
                 <ul className="divide-y divide-border/60">
                   {igPages.length === 0 ? (
                     <li className="p-6 text-center text-xs text-muted-foreground">
-                      Nenhuma conta do Instagram Business vinculada às suas Páginas.
+                      Nenhuma conta do Instagram Business encontrada. Verifique se o seu Instagram está corretamente vinculado a uma Página do Facebook.
                     </li>
                   ) : (
                     igPages.map((p) => {

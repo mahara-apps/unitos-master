@@ -386,7 +386,13 @@ function ConnectButton({
     const popup = window.open("", "meta-oauth", "width=640,height=760");
     setConnecting(true);
     try {
-      const { authorizeUrl } = await startFn({ data: { brandId } });
+      const metaChannel =
+        channel.id === "instagram" || channel.id === "facebook" || channel.id === "threads"
+          ? channel.id
+          : undefined;
+      const { authorizeUrl } = await startFn({
+        data: { brandId, ...(metaChannel ? { channel: metaChannel } : {}) },
+      });
       if (popup) popup.location.href = authorizeUrl;
       else window.location.href = authorizeUrl;
       // Detect popup closed without completing OAuth so the button doesn't
@@ -600,7 +606,13 @@ function ManageSheet({
   async function handleAddMeta() {
     const popup = window.open("", "meta-oauth", "width=640,height=760");
     try {
-      const { authorizeUrl } = await startOAuthFn({ data: { brandId } });
+      const metaChannel =
+        channel.id === "instagram" || channel.id === "facebook" || channel.id === "threads"
+          ? channel.id
+          : undefined;
+      const { authorizeUrl } = await startOAuthFn({
+        data: { brandId, ...(metaChannel ? { channel: metaChannel } : {}) },
+      });
       if (popup) popup.location.href = authorizeUrl;
     } catch (e) {
       popup?.close();

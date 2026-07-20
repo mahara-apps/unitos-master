@@ -68,7 +68,18 @@ export const Route = createFileRoute("/api/public/meta/callback")({
             longLived.accessToken,
             pages,
           );
-          if (pages.length === 0 && adAccounts.length === 0 && threadsAccounts.length === 0) {
+          const igCount = pages.filter((p) => p.instagramBusinessId).length;
+          const relevantCount =
+            state.channel === "instagram"
+              ? igCount
+              : state.channel === "facebook"
+                ? pages.length
+                : state.channel === "threads"
+                  ? threadsAccounts.length
+                  : state.channel === "ads"
+                    ? adAccounts.length
+                    : pages.length + adAccounts.length + threadsAccounts.length;
+          if (relevantCount === 0 && !state.channel) {
             return htmlResult({
               ok: false,
               error:
@@ -116,8 +127,10 @@ export const Route = createFileRoute("/api/public/meta/callback")({
             redirectTo: appendSessionParam(
               state.redirectTo ?? "/connections",
               sessionRow.id,
+              state.channel ?? null,
             ),
             sessionId: sessionRow.id,
+            channel: state.channel ?? null,
             missingScopes,
           });
         } catch (err) {
@@ -140,6 +153,7 @@ function htmlResult(result: {
   error?: string;
   redirectTo?: string;
   sessionId?: string;
+  channel?: string | null;
   missingScopes?: string[];
 }): Response {
   const target = result.redirectTo ?? "/connections";
@@ -168,7 +182,7 @@ function htmlResult(result: {
 <script>
   try {
     if (window.opener) {
-      window.opener.postMessage(${JSON.stringify({ source: "meta-oauth", ok: result.ok, error: result.error, message: result.message, sessionId: result.sessionId ?? null })}, "*");
+      window.opener.postMessage(${JSON.stringify({ source: "meta-oauth", ok: result.ok, error: result.error, message: result.message, sessionId: result.sessionId ?? null, channel: result.channel ?? null })}, "*");
       ${result.missingScopes && result.missingScopes.length > 0
         ? `window.opener.postMessage(${JSON.stringify({ source: "meta-oauth", type: "missing-scopes", scopes: result.missingScopes })}, "*");`
         : ""}
@@ -203,7 +217,8 @@ function escapeAttr(s: string): string {
   return escapeHtml(s).replace(/'/g, "&#39;");
 }
 
-function appendSessionParam(target: string, sessionId: string): string {
+function appendSessionParam(target: string, sessionId: string, channel: string | null): string {
   const sep = target.includes("?") ? "&" : "?";
-  return `${target}${sep}meta_session=${encodeURIComponent(sessionId)}`;
+  const ch = channel ? `&meta_channel=${encodeURIComponent(channel)}` : "";
+  return `${target}${sep}meta_session=${encodeURIComponent(sessionId)}${ch}`;
 }

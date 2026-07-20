@@ -433,9 +433,12 @@ export type MetaStatePayload = {
   brandId: string;
   userId: string;
   redirectTo?: string | null;
+  channel?: MetaChannel | null;
   nonce: string;
   exp: number; // unix seconds
 };
+
+export type MetaChannel = "facebook" | "instagram" | "threads" | "ads";
 
 function b64urlEncode(bytes: Uint8Array): string {
   let s = "";
@@ -465,6 +468,7 @@ export async function signOAuthState(payload: Omit<MetaStatePayload, "nonce" | "
     brandId: payload.brandId,
     userId: payload.userId,
     redirectTo: payload.redirectTo ?? null,
+    channel: payload.channel ?? null,
     nonce,
     exp,
   };

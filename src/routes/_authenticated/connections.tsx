@@ -268,6 +268,9 @@ function ConnectionsPage() {
   // Portfolio selector state (Meta OAuth post-callback).
   const [portfolioSessionId, setPortfolioSessionId] = useState<string | null>(null);
   const [portfolioOpen, setPortfolioOpen] = useState(false);
+  const [portfolioChannel, setPortfolioChannel] = useState<
+    "facebook" | "instagram" | "threads" | "ads" | null
+  >(null);
 
   // Global listener for postMessage from the OAuth popup.
   useEffect(() => {
@@ -277,6 +280,7 @@ function ConnectionsPage() {
         type?: string;
         ok?: boolean;
         sessionId?: string | null;
+        channel?: "facebook" | "instagram" | "threads" | "ads" | null;
         scopes?: string[];
       };
       if (!d || d.source !== "meta-oauth") return;
@@ -289,6 +293,7 @@ function ConnectionsPage() {
       }
       if (d.ok && d.sessionId) {
         setPortfolioSessionId(d.sessionId);
+        setPortfolioChannel(d.channel ?? null);
         setPortfolioOpen(true);
       }
     }
@@ -302,10 +307,18 @@ function ConnectionsPage() {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const sid = params.get("meta_session");
+    const ch = params.get("meta_channel") as
+      | "facebook"
+      | "instagram"
+      | "threads"
+      | "ads"
+      | null;
     if (sid) {
       setPortfolioSessionId(sid);
+      setPortfolioChannel(ch);
       setPortfolioOpen(true);
       params.delete("meta_session");
+      params.delete("meta_channel");
       const qs = params.toString();
       window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
     }
@@ -427,6 +440,7 @@ function ConnectionsPage() {
         brandId={brandId}
         sessionId={portfolioSessionId}
         open={portfolioOpen}
+        channel={portfolioChannel}
         onOpenChange={(v) => {
           setPortfolioOpen(v);
           if (!v) qc.invalidateQueries({ queryKey: ["meta-connections", brandId] });
