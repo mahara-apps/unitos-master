@@ -124,6 +124,26 @@ export const SIDEBAR_ALLOWED_URLS: Record<AccessRole, ReadonlySet<string>> = {
 export const canAccessSidebarUrl = (role: AccessRole, url: string) =>
   SIDEBAR_ALLOWED_URLS[role].has(url);
 
+/**
+ * Verifica se um usuário tem uma permissão granular. Super admins (flag
+ * `is_super_admin` no perfil) recebem `true` imediatamente, sem consultar
+ * `brand_members.permissions`.
+ *
+ * Uso client-side apenas para gating cosmético — o bloqueio real fica nas
+ * RLS/server functions. Passe `isSuperAdmin` como resolvido pela query
+ * `useIsSuperAdmin` (evita callback assíncrono no helper).
+ */
+export function hasPermission(
+  isSuperAdmin: boolean,
+  grantedPermissions: readonly string[] | null | undefined,
+  permissionId: PermissionId,
+): boolean {
+  if (isSuperAdmin) return true;
+  if (!grantedPermissions) return false;
+  if (grantedPermissions.includes("admin.full")) return true;
+  return grantedPermissions.includes(permissionId);
+}
+
 /** Dados básicos do cliente — apenas admin edita. */
 export const canEditBasicInfo = (role: AccessRole) => role === "admin";
 
