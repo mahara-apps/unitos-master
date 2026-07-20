@@ -36,6 +36,18 @@ import {
 } from "@/lib/meta/portfolio.functions";
 import { startMetaOAuth } from "@/lib/meta/meta.functions";
 
+function metaPopupFeatures(): string {
+  const width = 760;
+  const height = 820;
+  const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - width) / 2));
+  const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - height) / 2));
+  return `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`;
+}
+
+function metaStuckMessage(): string {
+  return "A conexão da Meta não foi concluída. Se a janela ficou em branco ou em /business/cancel, tente novamente mantendo as permissões do canal selecionadas.";
+}
+
 /**
  * Post-OAuth account selector. Reads the captured portfolio for a
  * `meta_oauth_sessions` id and lets the user toggle which Facebook Pages
@@ -61,12 +73,36 @@ export function MetaPortfolioDialog({
   const startFn = useServerFn(startMetaOAuth);
 
   async function reauthorize(channel: "instagram" | "facebook" | "threads") {
-    const popup = window.open("", "meta-oauth", "width=640,height=760");
+    const popup = window.open("", "meta-oauth", metaPopupFeatures());
+    let completed = false;
+    let timeoutId: number | undefined;
+    function onOAuthMessage(ev: MessageEvent) {
+      const d = ev.data as { source?: string };
+      if (d?.source !== "meta-oauth") return;
+      completed = true;
+      if (timeoutId) window.clearTimeout(timeoutId);
+      window.removeEventListener("message", onOAuthMessage);
+    }
+    window.addEventListener("message", onOAuthMessage);
+    if (popup) {
+      timeoutId = window.setTimeout(() => {
+        window.removeEventListener("message", onOAuthMessage);
+        if (completed || popup.closed) return;
+        try {
+          popup.close();
+        } catch {
+          /* noop */
+        }
+        toast.error(metaStuckMessage(), { duration: 9000 });
+      }, 120_000);
+    }
     try {
       const { authorizeUrl } = await startFn({ data: { brandId, channel } });
       if (popup) popup.location.href = authorizeUrl;
       else window.location.href = authorizeUrl;
     } catch (err) {
+      if (timeoutId) window.clearTimeout(timeoutId);
+      window.removeEventListener("message", onOAuthMessage);
       popup?.close();
       toast.error(err instanceof Error ? err.message : "Falha ao iniciar OAuth");
     }
