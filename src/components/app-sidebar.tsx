@@ -28,6 +28,7 @@ import {
   Settings as SettingsIcon,
   ScrollText,
   Target,
+  Gauge,
   Brain,
   MessageSquare,
   Activity,
@@ -96,6 +97,7 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { title: "Clientes", url: "/customers", icon: Users },
       { title: "Integrações", url: "/connections", icon: Plug },
+      { title: "Limites de IA", url: "/settings/ai-limits", icon: Gauge },
       { title: "Notificações", url: "/notifications", icon: Bell },
       { title: "Logs do sistema", url: "/settings/logs", icon: ScrollText },
       { title: "Configurações", url: "/settings", icon: SettingsIcon },

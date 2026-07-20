@@ -383,6 +383,21 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
   let errMsg: string | null = null;
 
   try {
+    // Enforce budget before spending tokens.
+    const { data: budget, error: budgetErr } = await opts.supabase.rpc(
+      "check_ai_usage_budget",
+      { _brand_id: opts.brandId, _client_id: opts.clientId, _user_id: opts.userId },
+    );
+    if (budgetErr) {
+      // Fail-open on infra errors — do not block user work if the RPC itself fails.
+      console.warn("[ai budget] check failed", budgetErr);
+    } else if (budget && (budget as { allowed?: boolean }).allowed === false) {
+      const b = budget as { blocked_by?: string; limit_usd?: number; spent_usd?: number };
+      throw new Error(
+        `ai_budget_exceeded:${b.blocked_by ?? "brand"}:${b.spent_usd ?? 0}:${b.limit_usd ?? 0}`,
+      );
+    }
+
     const res = await generateText({
       model,
       system: finalSystem,
@@ -417,6 +432,7 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
     try {
       const { error: usageErr } = await opts.supabase.from("brand_ai_usage").insert({
         brand_id: opts.brandId,
+        client_id: opts.clientId,
         agent: opts.agent,
         model: modelId,
         input_tokens: inTok,
