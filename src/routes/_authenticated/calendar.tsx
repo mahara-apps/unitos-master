@@ -28,6 +28,8 @@ import {
   DashboardIconFrame,
 } from "@/components/ui/dashboard-primitives";
 import { KpiCard, type KpiTone } from "@/components/ui/kpi-card";
+import { ScheduleWizard, type WizardSeed } from "@/components/calendar/schedule-wizard";
+import { PendingSchedulePanel } from "@/components/calendar/pending-schedule-panel";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   component: CalendarPage,
@@ -47,6 +49,10 @@ function CalendarPage() {
   const { brandId, clientId } = useActiveContext();
   const [cursor, setCursor] = useState(() => startOfMonth(new Date()));
   const [formatFilter, setFormatFilter] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"month" | "week">("month");
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardSeed, setWizardSeed] = useState<WizardSeed | null>(null);
+  const [wizardDate, setWizardDate] = useState<Date | null>(null);
   const list = useServerFn(listScheduledPostsFn);
   const qc = useQueryClient();
   const [openPost, setOpenPost] = useState<CalendarPost | null>(null);
@@ -149,6 +155,26 @@ function CalendarPage() {
   }, [filteredPosts]);
 
   const grid = useMemo(() => buildMonthGrid(cursor), [cursor]);
+  const visibleGrid = useMemo(() => {
+    if (viewMode === "month") return grid;
+    // week view: pega a semana contendo hoje (ou 1º dia do mês se fora)
+    const today = new Date();
+    const anchor =
+      today.getMonth() === cursor.getMonth() && today.getFullYear() === cursor.getFullYear()
+        ? today
+        : cursor;
+    const start = new Date(anchor);
+    start.setDate(anchor.getDate() - anchor.getDay());
+    start.setHours(0, 0, 0, 0);
+    const days: typeof grid = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      days.push({ date: d });
+    }
+    return days;
+  }, [grid, viewMode, cursor]);
+
   const monthLabel = cursor.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
   usePageHeader(
@@ -157,6 +183,32 @@ function CalendarPage() {
       subtitle: `Publicações agendadas · ${q.data?.length ?? 0} posts no mês`,
       actions: (
         <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-md border border-border/60 p-0.5">
+            <button
+              type="button"
+              onClick={() => setViewMode("week")}
+              className={cn(
+                "rounded px-2 py-1 text-xs font-medium transition-colors",
+                viewMode === "week"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Semana
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("month")}
+              className={cn(
+                "rounded px-2 py-1 text-xs font-medium transition-colors",
+                viewMode === "month"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Mês
+            </button>
+          </div>
           <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => setCursor((d) => addMonths(d, -1))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -166,6 +218,18 @@ function CalendarPage() {
           <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => setCursor((d) => addMonths(d, 1))}>
             <ChevronRight className="h-4 w-4" />
           </Button>
+          {brandId && clientId ? (
+            <Button
+              size="sm"
+              onClick={() => {
+                setWizardSeed(null);
+                setWizardDate(null);
+                setWizardOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4" /> Novo agendamento
+            </Button>
+          ) : null}
           {brandId ? (
             <GeneratePlanDialog
               brandId={brandId}
@@ -178,7 +242,7 @@ function CalendarPage() {
         </div>
       ),
     },
-    [monthLabel, q.data?.length, brandId, clientId],
+    [monthLabel, q.data?.length, brandId, clientId, viewMode],
   );
 
   if (!brandId) {
@@ -225,7 +289,8 @@ function CalendarPage() {
         ))}
       </section>
 
-      <DashboardPanelSurface>
+      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+        <DashboardPanelSurface>
           <div className="grid grid-cols-7 border-b border-border/60 bg-muted/40 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
             {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
               <div key={d} className="px-3 py-3 text-center">
@@ -234,7 +299,7 @@ function CalendarPage() {
             ))}
           </div>
           <div className="grid grid-cols-7 auto-rows-[minmax(140px,1fr)]">
-            {grid.map((day, i) => {
+            {visibleGrid.map((day, i) => {
               const key = day.date.toISOString().slice(0, 10);
               const posts = byDay.get(key) ?? [];
               const isCurrentMonth = day.date.getMonth() === cursor.getMonth();
@@ -329,7 +394,24 @@ function CalendarPage() {
               );
             })}
           </div>
-      </DashboardPanelSurface>
+        </DashboardPanelSurface>
+        {brandId && clientId ? (
+          <PendingSchedulePanel
+            brandId={brandId}
+            clientId={clientId}
+            onPick={(p) => {
+              setWizardSeed({
+                postId: p.postId,
+                title: p.title,
+                copy: p.copy,
+                coverUrl: p.coverUrl,
+              });
+              setWizardDate(null);
+              setWizardOpen(true);
+            }}
+          />
+        ) : null}
+      </div>
 
       <DashboardPanelSurface>
         <div className="flex items-center justify-between gap-3 border-b border-border/60 px-5 py-4">
@@ -425,6 +507,17 @@ function CalendarPage() {
           stages={createCtx.stages}
           defaultScheduledAt={createCtx.date.toISOString()}
           invalidateKey={["calendar", brandId, clientId, from, to] as const}
+        />
+      ) : null}
+
+      {brandId && clientId ? (
+        <ScheduleWizard
+          open={wizardOpen}
+          onOpenChange={setWizardOpen}
+          brandId={brandId}
+          clientId={clientId}
+          seed={wizardSeed}
+          defaultDate={wizardDate}
         />
       ) : null}
     </DashboardPageShell>

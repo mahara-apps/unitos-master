@@ -1,0 +1,739 @@
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
+import {
+  CalendarClock,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Image as ImageIcon,
+  Loader2,
+  Send,
+  X,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+import {
+  FORMATS_BY_CHANNEL,
+  FORMAT_LABEL,
+  tightestCaptionLimit,
+  type PlacementFormat,
+} from "@/lib/scheduling-formats";
+import { SOCIAL_CHANNELS, type SocialChannel } from "@/lib/social-core/capabilities";
+import {
+  listClientSocialConnectionsFn,
+  saveScheduledPostFn,
+  type WizardConnection,
+} from "@/lib/scheduling-wizard.functions";
+import {
+  listBrandMediaFn,
+  type BrandMediaAsset,
+} from "@/lib/brand-media.functions";
+import { Link } from "@tanstack/react-router";
+
+type WizardStep = "channels" | "editor" | "summary" | "schedule";
+
+export type WizardSeed = {
+  postId?: string;
+  title?: string;
+  copy?: string;
+  coverUrl?: string | null;
+};
+
+export function ScheduleWizard({
+  open,
+  onOpenChange,
+  brandId,
+  clientId,
+  seed,
+  defaultDate,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  brandId: string;
+  clientId: string;
+  seed?: WizardSeed | null;
+  defaultDate?: Date | null;
+  onSaved?: () => void;
+}) {
+  const qc = useQueryClient();
+  const listConnections = useServerFn(listClientSocialConnectionsFn);
+  const listMedia = useServerFn(listBrandMediaFn);
+  const saveFn = useServerFn(saveScheduledPostFn);
+
+  const [step, setStep] = useState<WizardStep>("channels");
+  const [title, setTitle] = useState("");
+  const [copy, setCopy] = useState("");
+  const [pairs, setPairs] = useState<
+    { channel: SocialChannel; format: PlacementFormat; connectionId: string }[]
+  >([]);
+  const [selectedMedia, setSelectedMedia] = useState<BrandMediaAsset[]>([]);
+  const [scheduleAt, setScheduleAt] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setStep("channels");
+    setTitle(seed?.title ?? "");
+    setCopy(seed?.copy ?? "");
+    setPairs([]);
+    setSelectedMedia([]);
+    if (defaultDate) {
+      const d = new Date(defaultDate);
+      d.setSeconds(0, 0);
+      setScheduleAt(toLocalInput(d));
+    } else {
+      setScheduleAt("");
+    }
+  }, [open, seed, defaultDate]);
+
+  const connectionsQ = useQuery({
+    enabled: open,
+    queryKey: ["wizard-connections", brandId, clientId],
+    queryFn: () => listConnections({ data: { brandId, clientId } }),
+  });
+
+  const mediaQ = useQuery({
+    enabled: open && step === "editor",
+    queryKey: ["wizard-media", brandId],
+    queryFn: () => listMedia({ data: { brandId, limit: 60 } }),
+  });
+
+  const connByChannel = useMemo(() => {
+    const map = new Map<SocialChannel, WizardConnection>();
+    (connectionsQ.data ?? []).forEach((c) => {
+      if (!map.has(c.channel as SocialChannel)) {
+        map.set(c.channel as SocialChannel, c);
+      }
+    });
+    return map;
+  }, [connectionsQ.data]);
+
+  const captionLimit = useMemo(
+    () => tightestCaptionLimit(pairs.map((p) => p.channel)),
+    [pairs],
+  );
+
+  const canContinueChannels = pairs.length > 0;
+  const canContinueEditor = title.trim().length > 0 && copy.length <= captionLimit;
+
+  async function persist(action: "draft" | "publish" | "schedule") {
+    if (!pairs.length) return;
+    setSubmitting(true);
+    try {
+      await saveFn({
+        data: {
+          postId: seed?.postId ?? null,
+          brandId,
+          clientId,
+          title: title.trim() || "Publicação sem título",
+          copy,
+          mediaPaths: selectedMedia.map((m) => m.storagePath),
+          hashtags: [],
+          destinations: pairs.map((p) => ({
+            connectionId: p.connectionId,
+            channel: p.channel,
+            format: p.format,
+          })),
+          scheduledAt:
+            action === "schedule" && scheduleAt
+              ? new Date(scheduleAt).toISOString()
+              : null,
+          action,
+        },
+      });
+      toast.success(
+        action === "draft"
+          ? "Rascunho salvo"
+          : action === "publish"
+            ? "Publicação enfileirada"
+            : "Agendamento criado",
+      );
+      qc.invalidateQueries({ queryKey: ["calendar"] });
+      qc.invalidateQueries({ queryKey: ["pending-schedule"] });
+      onSaved?.();
+      onOpenChange(false);
+    } catch (e) {
+      toast.error((e as Error).message || "Falha ao salvar agendamento");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl gap-0 overflow-hidden p-0">
+        <DialogHeader className="border-b border-border/60 px-6 py-4">
+          <DialogTitle className="text-base">Novo agendamento</DialogTitle>
+          <DialogDescription className="text-xs">
+            {stepLabel(step)}
+          </DialogDescription>
+          <WizardSteps active={step} />
+        </DialogHeader>
+
+        <div className="max-h-[65vh] overflow-y-auto px-6 py-5">
+          {step === "channels" ? (
+            <StepChannels
+              connections={connectionsQ.data ?? []}
+              connByChannel={connByChannel}
+              loading={connectionsQ.isLoading}
+              pairs={pairs}
+              onTogglePair={(channel, format) => {
+                const conn = connByChannel.get(channel);
+                if (!conn) return;
+                setPairs((prev) => {
+                  const exists = prev.find(
+                    (p) => p.channel === channel && p.format === format,
+                  );
+                  if (exists) {
+                    return prev.filter(
+                      (p) => !(p.channel === channel && p.format === format),
+                    );
+                  }
+                  return [
+                    ...prev,
+                    { channel, format, connectionId: conn.connectionId },
+                  ];
+                });
+              }}
+            />
+          ) : null}
+
+          {step === "editor" ? (
+            <StepEditor
+              title={title}
+              copy={copy}
+              captionLimit={captionLimit}
+              media={mediaQ.data ?? []}
+              selectedMedia={selectedMedia}
+              onTitle={setTitle}
+              onCopy={setCopy}
+              onToggleMedia={(m) => {
+                setSelectedMedia((prev) =>
+                  prev.find((x) => x.id === m.id)
+                    ? prev.filter((x) => x.id !== m.id)
+                    : [...prev, m],
+                );
+              }}
+            />
+          ) : null}
+
+          {step === "summary" ? (
+            <StepSummary
+              title={title}
+              copy={copy}
+              pairs={pairs}
+              connByChannel={connByChannel}
+              media={selectedMedia}
+            />
+          ) : null}
+
+          {step === "schedule" ? (
+            <StepSchedule value={scheduleAt} onChange={setScheduleAt} />
+          ) : null}
+        </div>
+
+        <DialogFooter className="flex items-center justify-between gap-2 border-t border-border/60 bg-muted/30 px-6 py-3">
+          <div className="flex items-center gap-2">
+            {step !== "channels" ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setStep(prevStep(step))}
+                disabled={submitting}
+              >
+                <ChevronLeft className="h-4 w-4" /> Voltar
+              </Button>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-2">
+            {step === "channels" ? (
+              <Button
+                size="sm"
+                disabled={!canContinueChannels}
+                onClick={() => setStep("editor")}
+              >
+                Continuar <ChevronRight className="h-4 w-4" />
+              </Button>
+            ) : null}
+            {step === "editor" ? (
+              <Button
+                size="sm"
+                disabled={!canContinueEditor}
+                onClick={() => setStep("summary")}
+              >
+                Continuar <ChevronRight className="h-4 w-4" />
+              </Button>
+            ) : null}
+            {step === "summary" ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={submitting}
+                  onClick={() => persist("draft")}
+                >
+                  Salvar rascunho
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={submitting}
+                  onClick={() => persist("publish")}
+                >
+                  <Send className="h-4 w-4" /> Publicar agora
+                </Button>
+                <Button size="sm" onClick={() => setStep("schedule")}>
+                  <CalendarClock className="h-4 w-4" /> Agendar
+                </Button>
+              </>
+            ) : null}
+            {step === "schedule" ? (
+              <Button
+                size="sm"
+                disabled={submitting || !scheduleAt}
+                onClick={() => persist("schedule")}
+              >
+                {submitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}{" "}
+                Confirmar agendamento
+              </Button>
+            ) : null}
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ============================================================
+// Helpers e sub-componentes
+// ============================================================
+
+function prevStep(s: WizardStep): WizardStep {
+  return s === "editor"
+    ? "channels"
+    : s === "summary"
+      ? "editor"
+      : s === "schedule"
+        ? "summary"
+        : "channels";
+}
+
+function stepLabel(s: WizardStep) {
+  return s === "channels"
+    ? "Passo 01 · Onde publicar"
+    : s === "editor"
+      ? "Passo 02 · Conteúdo e mídia"
+      : s === "summary"
+        ? "Passo 03 · Revisão"
+        : "Passo 04 · Data e horário";
+}
+
+function toLocalInput(d: Date) {
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function WizardSteps({ active }: { active: WizardStep }) {
+  const steps: { key: WizardStep; label: string }[] = [
+    { key: "channels", label: "Canais" },
+    { key: "editor", label: "Editor" },
+    { key: "summary", label: "Revisão" },
+    { key: "schedule", label: "Data" },
+  ];
+  const idx = steps.findIndex((s) => s.key === active);
+  return (
+    <div className="mt-3 flex items-center gap-1.5">
+      {steps.map((s, i) => (
+        <div key={s.key} className="flex items-center gap-1.5">
+          <div
+            className={cn(
+              "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold tabular-nums",
+              i < idx
+                ? "bg-primary/20 text-primary"
+                : i === idx
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground",
+            )}
+          >
+            {i + 1}
+          </div>
+          <span
+            className={cn(
+              "text-[10px] font-medium",
+              i === idx ? "text-foreground" : "text-muted-foreground",
+            )}
+          >
+            {s.label}
+          </span>
+          {i < steps.length - 1 ? (
+            <ChevronRight className="h-3 w-3 text-muted-foreground/50" />
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StepChannels({
+  connections,
+  connByChannel,
+  loading,
+  pairs,
+  onTogglePair,
+}: {
+  connections: WizardConnection[];
+  connByChannel: Map<SocialChannel, WizardConnection>;
+  loading: boolean;
+  pairs: { channel: SocialChannel; format: PlacementFormat; connectionId: string }[];
+  onTogglePair: (c: SocialChannel, f: PlacementFormat) => void;
+}) {
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-6 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> Carregando conexões…
+      </div>
+    );
+  }
+  if (!connections.length) {
+    return (
+      <div className="rounded-lg border border-dashed border-border/60 p-6 text-center">
+        <p className="text-sm font-medium">Este cliente ainda não tem redes conectadas.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Conecte uma conta social para começar a agendar publicações.
+        </p>
+        <Button asChild size="sm" className="mt-4">
+          <Link to="/connections">Ir para Conexões</Link>
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-4">
+      {SOCIAL_CHANNELS.map((channel) => {
+        const conn = connByChannel.get(channel);
+        const formats = FORMATS_BY_CHANNEL[channel] ?? [];
+        return (
+          <div
+            key={channel}
+            className={cn(
+              "rounded-lg border border-border/60 p-4",
+              !conn && "opacity-60",
+            )}
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={conn?.avatarUrl ?? undefined} />
+                  <AvatarFallback className="text-[10px] uppercase">
+                    {channel.slice(0, 2)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold capitalize">{channel}</div>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {conn
+                      ? conn.handle
+                        ? `@${conn.handle}`
+                        : conn.accountLabel
+                      : "Sem conta conectada"}
+                  </div>
+                </div>
+              </div>
+              {conn ? (
+                <Badge variant="secondary" className="text-[10px]">
+                  Conectado
+                </Badge>
+              ) : (
+                <Button asChild variant="outline" size="sm">
+                  <Link to="/connections">Conectar</Link>
+                </Button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {formats.map((f) => {
+                const selected = pairs.some(
+                  (p) => p.channel === channel && p.format === f,
+                );
+                return (
+                  <button
+                    key={f}
+                    type="button"
+                    disabled={!conn}
+                    onClick={() => onTogglePair(channel, f)}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                      selected
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border/60 hover:bg-muted",
+                      !conn && "cursor-not-allowed",
+                    )}
+                  >
+                    {FORMAT_LABEL[f]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function StepEditor({
+  title,
+  copy,
+  captionLimit,
+  media,
+  selectedMedia,
+  onTitle,
+  onCopy,
+  onToggleMedia,
+}: {
+  title: string;
+  copy: string;
+  captionLimit: number;
+  media: BrandMediaAsset[];
+  selectedMedia: BrandMediaAsset[];
+  onTitle: (v: string) => void;
+  onCopy: (v: string) => void;
+  onToggleMedia: (m: BrandMediaAsset) => void;
+}) {
+  const overLimit = copy.length > captionLimit;
+  return (
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <Label htmlFor="wiz-title">Título interno</Label>
+        <Input
+          id="wiz-title"
+          value={title}
+          onChange={(e) => onTitle(e.target.value)}
+          placeholder="Ex.: Lançamento de coleção — reels"
+        />
+      </div>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="wiz-copy">Legenda</Label>
+          <span
+            className={cn(
+              "text-[11px] tabular-nums",
+              overLimit ? "text-destructive" : "text-muted-foreground",
+            )}
+          >
+            {copy.length}/{captionLimit}
+          </span>
+        </div>
+        <Textarea
+          id="wiz-copy"
+          value={copy}
+          onChange={(e) => onCopy(e.target.value)}
+          rows={6}
+          placeholder="Escreva a legenda. O limite acima respeita a rede mais restritiva selecionada."
+        />
+      </div>
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label>Mídia</Label>
+          <span className="text-[11px] text-muted-foreground">
+            {selectedMedia.length} selecionada(s)
+          </span>
+        </div>
+        {media.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
+            <ImageIcon className="mx-auto mb-2 h-5 w-5" />
+            Nenhuma mídia na biblioteca. Faça upload em Mídias.
+          </div>
+        ) : (
+          <ScrollArea className="h-56 rounded-lg border border-border/60">
+            <div className="grid grid-cols-4 gap-2 p-2">
+              {media.map((m) => {
+                const selected = selectedMedia.some((x) => x.id === m.id);
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => onToggleMedia(m)}
+                    className={cn(
+                      "relative aspect-square overflow-hidden rounded-md border-2 bg-muted transition-all",
+                      selected ? "border-primary" : "border-transparent hover:border-border",
+                    )}
+                  >
+                    {m.publicUrl ? (
+                      <img
+                        src={m.publicUrl}
+                        alt={m.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
+                        {m.kind}
+                      </div>
+                    )}
+                    {selected ? (
+                      <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                        <Check className="h-3 w-3" />
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StepSummary({
+  title,
+  copy,
+  pairs,
+  connByChannel,
+  media,
+}: {
+  title: string;
+  copy: string;
+  pairs: { channel: SocialChannel; format: PlacementFormat; connectionId: string }[];
+  connByChannel: Map<SocialChannel, WizardConnection>;
+  media: BrandMediaAsset[];
+}) {
+  return (
+    <div className="space-y-5">
+      <div>
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Título
+        </div>
+        <div className="mt-1 text-sm">{title || "—"}</div>
+      </div>
+      <div>
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Legenda
+        </div>
+        <div className="mt-1 whitespace-pre-wrap text-sm text-foreground/90">
+          {copy || "—"}
+        </div>
+      </div>
+      <Separator />
+      <div>
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Destinos ({pairs.length})
+        </div>
+        <div className="space-y-2">
+          {pairs.map((p, i) => {
+            const conn = connByChannel.get(p.channel);
+            return (
+              <div
+                key={i}
+                className="flex items-center justify-between rounded-md border border-border/60 px-3 py-2 text-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-6 w-6">
+                    <AvatarImage src={conn?.avatarUrl ?? undefined} />
+                    <AvatarFallback className="text-[9px] uppercase">
+                      {p.channel.slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <div className="font-medium capitalize">{p.channel}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {conn?.handle ? `@${conn.handle}` : conn?.accountLabel ?? "—"}
+                    </div>
+                  </div>
+                </div>
+                <Badge variant="outline">{FORMAT_LABEL[p.format]}</Badge>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      {media.length ? (
+        <div>
+          <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Mídia ({media.length})
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {media.map((m) => (
+              <div
+                key={m.id}
+                className="h-14 w-14 overflow-hidden rounded-md border border-border/60"
+              >
+                {m.publicUrl ? (
+                  <img
+                    src={m.publicUrl}
+                    alt={m.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function StepSchedule({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const min = useMemo(() => {
+    const d = new Date(Date.now() + 5 * 60 * 1000);
+    d.setSeconds(0, 0);
+    return toLocalInput(d);
+  }, []);
+  const tz =
+    typeof Intl !== "undefined"
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone
+      : "";
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="wiz-when">Data e horário</Label>
+        <Input
+          id="wiz-when"
+          type="datetime-local"
+          value={value}
+          min={min}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <p className="text-[11px] text-muted-foreground">
+          Fuso horário: {tz}. Mínimo 5 minutos a partir de agora.
+        </p>
+      </div>
+      <div className="rounded-md border border-border/60 bg-muted/30 p-3 text-xs text-muted-foreground">
+        Ao confirmar, o post entra na fila de publicação e aparece no calendário
+        com status <span className="font-medium text-foreground">Agendado</span>.
+      </div>
+    </div>
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _keepXIcon = X;
