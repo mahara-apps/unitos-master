@@ -425,6 +425,8 @@ async function runOrchestrator(params: {
           stage: "idea" as const,
           position: nextPos,
           created_by: userId,
+          assignee_id: input.assigneeId ?? userId,
+          assignees: [input.assigneeId ?? userId],
           review_status: "pending",
           ai_phase: "idea",
           scheduled_at: scheduleFor(idx),
