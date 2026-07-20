@@ -3570,6 +3570,42 @@ export type Database = {
           },
         ]
       }
+      meta_compliance_events: {
+        Row: {
+          affected_connections: number
+          confirmation_code: string
+          created_at: string
+          event_type: string
+          id: string
+          meta_user_id: string
+          payload: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          affected_connections?: number
+          confirmation_code: string
+          created_at?: string
+          event_type: string
+          id?: string
+          meta_user_id: string
+          payload?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          affected_connections?: number
+          confirmation_code?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          meta_user_id?: string
+          payload?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       meta_oauth_sessions: {
         Row: {
           brand_id: string
