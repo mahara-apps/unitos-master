@@ -43,6 +43,9 @@ export type PortfolioResponse = {
   requestedScopes: string[];
   missingScopes: string[];
   pages: PortfolioPage[];
+  pagesCount: number;
+  pagesWithIgCount: number;
+  pagesWithoutIgCount: number;
   threadsAccounts: PortfolioThreadsAccount[];
   adAccounts: PortfolioAdAccount[];
   connected: {
@@ -151,6 +154,9 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
       requestedScopes,
       missingScopes,
       pages,
+      pagesCount: pages.length,
+      pagesWithIgCount: pages.filter((p) => !!p.instagramBusinessId).length,
+      pagesWithoutIgCount: pages.filter((p) => !p.instagramBusinessId).length,
       threadsAccounts,
       adAccounts,
       connected,
