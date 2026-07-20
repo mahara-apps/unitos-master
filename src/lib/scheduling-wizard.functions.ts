@@ -28,6 +28,7 @@ export type PendingSchedulePost = {
   coverUrl: string | null;
   channels: string[];
   approvedAt: string | null;
+  placements: Array<{ channel: string; format: string }>;
 };
 
 // ============================================================
