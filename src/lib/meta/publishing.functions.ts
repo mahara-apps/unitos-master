@@ -11,10 +11,22 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const PLACEMENTS = ["instagram_feed", "facebook_feed"] as const;
 
-const MediaSchema = z.object({
-  imageUrl: z.string().url().optional(),
-  link: z.string().url().optional(),
-});
+const MediaSchema = z
+  .object({
+    /**
+     * Path dentro do bucket privado `brand-media` (prefixo `<brandId>/`).
+     * Preferir SEMPRE `storagePath` sobre `imageUrl`: o worker assina no
+     * momento da publicação (TTL curto). Signed URLs não devem ser
+     * persistidas — elas expiram e quebram o retry.
+     */
+    storagePath: z.string().min(3).optional(),
+    imageUrl: z.string().url().optional(),
+    link: z.string().url().optional(),
+  })
+  .refine(
+    (m) => !m.storagePath || !m.storagePath.startsWith("/"),
+    { message: "storagePath deve ser relativo (sem barra inicial)" },
+  );
 
 const BasePublishSchema = z.object({
   brandId: z.string().uuid(),
@@ -38,10 +50,17 @@ const ScheduleSchema = BasePublishSchema.extend({
     }),
 });
 
-async function loadConnection(supabase: any, brandId: string, connectionId: string) {
+async function loadConnection(
+  supabase: any,
+  brandId: string,
+  connectionId: string,
+  clientId?: string | null,
+) {
   const { data, error } = await supabase
     .from("social_connections")
-    .select("id, brand_id, provider, external_id, account_id, access_token_ciphertext, status")
+    .select(
+      "id, brand_id, client_id, provider, external_id, account_id, access_token_ciphertext, status",
+    )
     .eq("id", connectionId)
     .eq("brand_id", brandId)
     .maybeSingle();
@@ -51,6 +70,14 @@ async function loadConnection(supabase: any, brandId: string, connectionId: stri
     throw new Error("Conexão não é da Meta");
   if (!data.access_token_ciphertext)
     throw new Error("Conexão sem token — reconecte a página");
+  // Isolamento por cliente: se o post é de um cliente específico, a conexão
+  // precisa ou ser da mesma conta desse cliente, ou institucional (client_id
+  // NULL — ex.: blog da agência). Nunca "primeira conexão da marca".
+  if (clientId && data.client_id && data.client_id !== clientId) {
+    throw new Error(
+      "A conexão selecionada não pertence a este cliente. Escolha uma conta do cliente ou reconecte em /connections.",
+    );
+  }
   return data;
 }
 
@@ -61,7 +88,12 @@ export const publishNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => PublishNowSchema.parse(i))
   .handler(async ({ data, context }) => {
-    const conn = await loadConnection(context.supabase, data.brandId, data.connectionId);
+    const conn = await loadConnection(
+      context.supabase,
+      data.brandId,
+      data.connectionId,
+      data.clientId ?? null,
+    );
 
     // Insert a row in publishing state first so we always have a paper trail.
     const { data: row, error: insErr } = await context.supabase
@@ -87,10 +119,15 @@ export const publishNow = createServerFn({ method: "POST" })
     try {
       const { MetaPublishingService } = await import("./publishing.server");
       const svc = new MetaPublishingService();
+      const media = await resolveMediaForPublish(
+        context.supabase,
+        data.brandId,
+        data.media,
+      );
       const result = await svc.publish(conn as any, {
         placement: data.placement,
         caption: buildCaption(data.caption, data.hashtags, data.mentions),
-        media: data.media,
+        media,
       });
       const { error: updErr } = await context.supabase
         .from("social_posts")
@@ -128,7 +165,12 @@ export const schedulePost = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => ScheduleSchema.parse(i))
   .handler(async ({ data, context }) => {
-    const conn = await loadConnection(context.supabase, data.brandId, data.connectionId);
+    const conn = await loadConnection(
+      context.supabase,
+      data.brandId,
+      data.connectionId,
+      data.clientId ?? null,
+    );
     // Placement is already narrowed by the Zod enum above.
 
     const { data: row, error } = await context.supabase
@@ -216,4 +258,31 @@ function buildCaption(base?: string, hashtags: string[] = [], mentions: string[]
   if (tags.length) parts.push(tags.join(" "));
   const out = parts.join("\n\n").trim();
   return out.length ? out : undefined;
+}
+
+/**
+ * Se a mídia veio como `storagePath` (bucket privado brand-media, dentro do
+ * escopo da marca), gera uma signed URL fresca (TTL 1h) agora. Nunca persistir
+ * signed URL: elas expiram e quebram tanto o retry quanto o histórico.
+ */
+async function resolveMediaForPublish(
+  supabase: any,
+  brandId: string,
+  media: { imageUrl?: string; storagePath?: string; link?: string },
+): Promise<{ imageUrl?: string; link?: string }> {
+  const out: { imageUrl?: string; link?: string } = {};
+  if (media?.link) out.link = media.link;
+  if (media?.storagePath) {
+    if (!media.storagePath.startsWith(`${brandId}/`)) {
+      throw new Error("storagePath fora do escopo da marca");
+    }
+    const { data, error } = await supabase.storage
+      .from("brand-media")
+      .createSignedUrl(media.storagePath, 3600);
+    if (error) throw new Error(`Falha ao assinar mídia: ${error.message}`);
+    out.imageUrl = data.signedUrl;
+    return out;
+  }
+  if (media?.imageUrl) out.imageUrl = media.imageUrl;
+  return out;
 }

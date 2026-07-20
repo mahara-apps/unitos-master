@@ -3843,6 +3843,7 @@ export type Database = {
           account_username: string | null
           brand_id: string
           channel: string
+          client_id: string | null
           created_at: string
           created_by: string | null
           external_id: string
@@ -3866,6 +3867,7 @@ export type Database = {
           account_username?: string | null
           brand_id: string
           channel: string
+          client_id?: string | null
           created_at?: string
           created_by?: string | null
           external_id: string
@@ -3889,6 +3891,7 @@ export type Database = {
           account_username?: string | null
           brand_id?: string
           channel?: string
+          client_id?: string | null
           created_at?: string
           created_by?: string | null
           external_id?: string
@@ -3921,6 +3924,13 @@ export type Database = {
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "social_connections_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
         ]
       }
       social_posts: {
@@ -3942,6 +3952,8 @@ export type Database = {
           post_id: string | null
           provider: string
           provider_response: Json
+          publish_attempts: number
+          publish_locked_at: string | null
           published_at: string | null
           scheduled_at: string | null
           status: string
@@ -3965,6 +3977,8 @@ export type Database = {
           post_id?: string | null
           provider: string
           provider_response?: Json
+          publish_attempts?: number
+          publish_locked_at?: string | null
           published_at?: string | null
           scheduled_at?: string | null
           status?: string
@@ -3988,6 +4002,8 @@ export type Database = {
           post_id?: string | null
           provider?: string
           provider_response?: Json
+          publish_attempts?: number
+          publish_locked_at?: string | null
           published_at?: string | null
           scheduled_at?: string | null
           status?: string
@@ -4278,6 +4294,22 @@ export type Database = {
         Args: { _client_id: string; _user_id: string }
         Returns: boolean
       }
+      claim_scheduled_social_posts: {
+        Args: { p_limit?: number }
+        Returns: {
+          brand_id: string
+          caption: string
+          client_id: string
+          connection_id: string
+          hashtags: string[]
+          id: string
+          media: Json
+          mentions: string[]
+          placement: string
+          provider: string
+          publish_attempts: number
+        }[]
+      }
       consolidate_brain_memory: {
         Args: { _brand_id?: string }
         Returns: number
@@ -4346,6 +4378,14 @@ export type Database = {
           status: string
           user_id: string
         }[]
+      }
+      mark_social_post_failed: {
+        Args: { p_error: string; p_post_id: string }
+        Returns: undefined
+      }
+      mark_social_post_published: {
+        Args: { p_external_id: string; p_permalink: string; p_post_id: string }
+        Returns: undefined
       }
       match_brain_events: {
         Args: { _brand_id: string; _match_count?: number; _query: string }

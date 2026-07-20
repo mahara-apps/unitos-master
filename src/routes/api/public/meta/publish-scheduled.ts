@@ -1,11 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 /**
- * Drains due `social_posts` where status='scheduled' and scheduled_at <= now().
- * Called by pg_cron every minute. Uses supabaseAdmin (service role) so it can
- * read encrypted tokens and update posts across all tenants.
+ * Drena `social_posts` agendados. pg_cron chama a cada minuto.
  *
- * Auth: bypass at edge via /api/public/*; caller must present anon apikey.
+ * Concorrência: usa `claim_scheduled_social_posts` (SECURITY DEFINER + FOR UPDATE
+ * SKIP LOCKED + lock de 10min) para reservar linhas sem risco de duplicar
+ * publicação quando duas execuções do cron rodam em paralelo.
+ *
+ * Isolamento: a RPC revalida que `social_connections.brand_id` bate com o
+ * post e que `client_id` do post é compatível com o `client_id` da conexão.
+ * Nunca escolher "a primeira conexão da marca" — a conexão vem do próprio
+ * `social_posts.connection_id` reservado.
+ *
+ * Retry: sucesso -> `mark_social_post_published`; erro -> `mark_social_post_failed`
+ * (incrementa `publish_attempts`, muda para `failed` após 5 tentativas).
+ *
+ * Auth: bypass no edge via /api/public/*; exige `apikey` = anon publishable key.
  */
 export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
   server: {
@@ -24,77 +34,89 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
           "@/lib/meta/publishing.server"
         );
 
-        // Claim due posts atomically-ish: flip to 'publishing' first.
-        const nowIso = new Date().toISOString();
-        const { data: due, error: dueErr } = await supabaseAdmin
-          .from("social_posts")
-          .select("id")
-          .eq("status", "scheduled")
-          .lte("scheduled_at", nowIso)
-          .limit(25);
-        if (dueErr) {
-          return Response.json({ ok: false, error: dueErr.message }, { status: 500 });
-        }
-        if (!due || due.length === 0) {
-          return Response.json({ ok: true, processed: 0 });
-        }
-
-        const ids = due.map((r) => r.id);
-        const { data: claimed, error: claimErr } = await supabaseAdmin
-          .from("social_posts")
-          .update({ status: "publishing" })
-          .in("id", ids)
-          .eq("status", "scheduled")
-          .select(
-            "id, brand_id, connection_id, placement, caption, hashtags, mentions, media",
-          );
+        // Claim atômico via RPC (FOR UPDATE SKIP LOCKED + lock de 10min).
+        const { data: claimed, error: claimErr } = await (supabaseAdmin as any).rpc(
+          "claim_scheduled_social_posts",
+          { p_limit: 25 },
+        );
         if (claimErr) {
           return Response.json({ ok: false, error: claimErr.message }, { status: 500 });
+        }
+        if (!claimed || claimed.length === 0) {
+          return Response.json({ ok: true, processed: 0 });
         }
 
         const svc = new MetaPublishingService();
         const results: Array<{ id: string; ok: boolean; error?: string }> = [];
 
-        for (const post of claimed ?? []) {
+        for (const post of claimed as Array<{
+          id: string;
+          brand_id: string;
+          client_id: string | null;
+          connection_id: string;
+          placement: string;
+          caption: string | null;
+          hashtags: string[] | null;
+          mentions: string[] | null;
+          media: any;
+        }>) {
           try {
             const { data: conn, error: connErr } = await supabaseAdmin
               .from("social_connections")
               .select(
-                "id, provider, external_id, account_id, access_token_ciphertext",
+                "id, brand_id, client_id, provider, external_id, account_id, access_token_ciphertext",
               )
               .eq("id", post.connection_id)
+              .eq("brand_id", post.brand_id)
               .maybeSingle();
             if (connErr) throw new Error(connErr.message);
             if (!conn) throw new Error("Conexão removida");
+            // Revalida isolamento no worker também (defesa em profundidade).
+            if (post.client_id && conn.client_id && conn.client_id !== post.client_id) {
+              throw new Error(
+                "Conexão não pertence ao mesmo cliente do post agendado",
+              );
+            }
 
             const caption = buildCaption(
               post.caption ?? undefined,
               (post.hashtags as string[] | null) ?? [],
               (post.mentions as string[] | null) ?? [],
             );
+            // Signed URL discipline: se a mídia guarda apenas o path do bucket
+            // privado (`storagePath`), assinamos AGORA (TTL curto) em vez de
+            // usar uma URL previamente persistida que já pode ter expirado.
+            const media = await resolveMediaForPublish(
+              supabaseAdmin,
+              post.brand_id,
+              (post.media as any) ?? {},
+            );
             const result = await svc.publish(conn as any, {
               placement: post.placement as any,
               caption,
-              media: (post.media as any) ?? {},
+              media,
             });
+            const { error: okErr } = await (supabaseAdmin as any).rpc(
+              "mark_social_post_published",
+              {
+                p_post_id: post.id,
+                p_external_id: result.externalPostId,
+                p_permalink: result.externalPermalink,
+              },
+            );
+            if (okErr) throw new Error(okErr.message);
+            // provider_response é metadado — atualização direta é OK, não altera lock/retry.
             await supabaseAdmin
               .from("social_posts")
-              .update({
-                status: "published",
-                published_at: new Date().toISOString(),
-                external_post_id: result.externalPostId,
-                external_permalink: result.externalPermalink,
-                provider_response: result.providerResponse as any,
-                last_error: null,
-              })
+              .update({ provider_response: result.providerResponse as any })
               .eq("id", post.id);
             results.push({ id: post.id, ok: true });
           } catch (err) {
             const msg = formatPublishError(err);
-            await supabaseAdmin
-              .from("social_posts")
-              .update({ status: "failed", last_error: msg })
-              .eq("id", post.id);
+            await (supabaseAdmin as any).rpc("mark_social_post_failed", {
+              p_post_id: post.id,
+              p_error: msg,
+            });
             results.push({ id: post.id, ok: false, error: msg });
           }
         }
@@ -114,4 +136,38 @@ function buildCaption(base?: string, hashtags: string[] = [], mentions: string[]
   if (tags.length) parts.push(tags.join(" "));
   const out = parts.join("\n\n").trim();
   return out.length ? out : undefined;
+}
+
+/**
+ * Resolve a mídia a ser enviada ao provider.
+ *
+ * Regra: se o post gravou `storagePath` (bucket privado `brand-media`, sob o
+ * prefixo `<brand_id>/`), o worker gera uma signed URL fresca (TTL 3600s)
+ * antes de chamar o Meta. Signed URLs NUNCA são persistidas no banco.
+ *
+ * Compat: se o post foi criado antes desta mudança e só tem `imageUrl`,
+ * usamos como estava. Novos composers devem preferir `storagePath`.
+ */
+async function resolveMediaForPublish(
+  supabaseAdmin: any,
+  brandId: string,
+  media: { imageUrl?: string; storagePath?: string; link?: string },
+): Promise<{ imageUrl?: string; link?: string }> {
+  const out: { imageUrl?: string; link?: string } = {};
+  if (media?.link) out.link = media.link;
+
+  if (media?.storagePath) {
+    if (!media.storagePath.startsWith(`${brandId}/`)) {
+      throw new Error("storagePath fora do escopo da marca");
+    }
+    const { data, error } = await supabaseAdmin.storage
+      .from("brand-media")
+      .createSignedUrl(media.storagePath, 3600);
+    if (error) throw new Error(`Falha ao assinar mídia: ${error.message}`);
+    out.imageUrl = data.signedUrl;
+    return out;
+  }
+
+  if (media?.imageUrl) out.imageUrl = media.imageUrl;
+  return out;
 }

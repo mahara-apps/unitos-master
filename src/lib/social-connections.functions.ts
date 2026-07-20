@@ -84,6 +84,7 @@ export const listBrandChannelsFn = createServerFn({ method: "GET" })
 // ---------------------------------------------------------------------------
 const ExistsInput = z.object({
   brandId: z.string().uuid(),
+  clientId: z.string().uuid().nullish(),
   channel: z.enum(SUPPORTED_CHANNELS),
 });
 
@@ -91,13 +92,16 @@ export const checkBrandChannelExistsFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => ExistsInput.parse(i))
   .handler(async ({ data, context }) => {
-    const { data: row, error } = await context.supabase
+    let q = context.supabase
       .from("social_connections")
       .select("id, external_name, account_username, provider")
       .eq("brand_id", data.brandId)
       .eq("channel", data.channel)
-      .in("status", ["active", "attention"])
-      .maybeSingle();
+      .in("status", ["active", "attention"]);
+    // Isolamento por cliente: se veio clientId, só considera conta desse cliente.
+    // Sem clientId, considera apenas conexões institucionais (client_id IS NULL).
+    q = data.clientId ? q.eq("client_id", data.clientId) : q.is("client_id", null);
+    const { data: row, error } = await q.maybeSingle();
     if (error) throw new Error(error.message);
     if (!row) return { exists: false as const };
     return {
@@ -115,6 +119,7 @@ export const checkBrandChannelExistsFn = createServerFn({ method: "GET" })
 // ---------------------------------------------------------------------------
 const ResolveInput = z.object({
   brandId: z.string().uuid(),
+  clientId: z.string().uuid().nullish(),
   channel: z.enum(SUPPORTED_CHANNELS),
 });
 
@@ -122,13 +127,15 @@ export const resolveBrandChannelFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => ResolveInput.parse(i))
   .handler(async ({ data, context }) => {
-    const { data: row, error } = await context.supabase
+    let q = context.supabase
       .from("social_connections")
       .select("id, provider, channel, external_id, external_name, account_username, status")
       .eq("brand_id", data.brandId)
       .eq("channel", data.channel)
-      .in("status", ["active", "attention"])
-      .maybeSingle();
+      .in("status", ["active", "attention"]);
+    // Brand-as-source-of-truth + isolamento por cliente. Nunca "primeira da marca".
+    q = data.clientId ? q.eq("client_id", data.clientId) : q.is("client_id", null);
+    const { data: row, error } = await q.maybeSingle();
     if (error) throw new Error(error.message);
     if (!row) {
       throw new Error(
