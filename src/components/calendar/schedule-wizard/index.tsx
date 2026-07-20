@@ -110,6 +110,18 @@ export function ScheduleWizard({
     queryFn: () => listConnections({ data: { brandId, clientId } }),
   });
 
+  useEffect(() => {
+    if (!open) return;
+    console.log("[wizard] channels step context", {
+      brandId,
+      clientId,
+      status: connectionsQ.status,
+      dataLength: connectionsQ.data?.length ?? 0,
+      data: connectionsQ.data,
+      error: connectionsQ.error,
+    });
+  }, [open, brandId, clientId, connectionsQ.status, connectionsQ.data, connectionsQ.error]);
+
   const mediaQ = useQuery({
     enabled: open && step === "editor",
     queryKey: ["wizard-media", brandId],
