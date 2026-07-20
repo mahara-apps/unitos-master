@@ -16,7 +16,6 @@ import {
 import { useActiveContext } from "@/hooks/use-active-context";
 import { listScheduledPostsFn, type CalendarPost } from "@/lib/calendar.functions";
 import { usePageHeader } from "@/hooks/use-page-header";
-import { GeneratePlanDialog } from "@/components/calendar/generate-plan-dialog";
 import { TaskDialog } from "@/components/content/task-dialog";
 import { loadBoardFn, ensureDefaultPipelineFn, type PipelineStage } from "@/lib/content.functions";
 import { toast } from "sonner";
