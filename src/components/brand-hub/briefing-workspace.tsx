@@ -89,6 +89,7 @@ type FormState = {
   dont_text: string;
   // Volumetria & Metas
   volumetry: Record<SocialKey, number>;
+  formats: Record<SocialKey, string[]>;
   goals: string;
 };
 
@@ -136,6 +137,13 @@ function toForm(client: BrandHubClient): FormState {
       linkedin: hub.volumetry?.linkedin ?? 0,
       youtube: hub.volumetry?.youtube ?? 0,
       facebook: hub.volumetry?.facebook ?? 0,
+    },
+    formats: {
+      instagram: hub.formats?.instagram ?? [],
+      tiktok: hub.formats?.tiktok ?? [],
+      linkedin: hub.formats?.linkedin ?? [],
+      youtube: hub.formats?.youtube ?? [],
+      facebook: hub.formats?.facebook ?? [],
     },
     goals: hub.goals ?? "",
   };
