@@ -190,6 +190,37 @@ export function AppSidebar() {
             <SidebarGroupLabel>{g.label}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
+                {g.items.map((item) => (
+                  <SidebarMenuItem key={item.url}>
+                    <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
+                      <Link to={item.url} preload="intent" className="group/nav relative flex items-center gap-3">
+                        {isActive(item.url) ? (
+                          <span
+                            aria-hidden
+                            className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-lime group-data-[collapsible=icon]:hidden"
+                          />
+                        ) : null}
+                        <item.icon
+                          className="h-[19px] w-[19px] shrink-0"
+                          strokeWidth={isActive(item.url) ? 2 : 1.8}
+                        />
+                        <span className={isActive(item.url) ? "font-semibold" : "font-medium"}>
+                          {item.title}
+                        </span>
+                        {item.badge === "tasks-pending" && pendingCount > 0 ? (
+                          <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold leading-none text-destructive-foreground group-data-[collapsible=icon]:hidden">
+                            {pendingCount > 99 ? "99+" : pendingCount}
+                          </span>
+                        ) : null}
+                        {item.badge === "beta" ? (
+                          <span className="ml-auto inline-flex items-center rounded-md bg-brand-lime/15 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-brand-lime-foreground group-data-[collapsible=icon]:hidden dark:text-brand-lime">
+                            beta
+                          </span>
+                        ) : null}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
                 {idx === 0 && activeClient ? (
                   <SidebarMenuItem>
                     <SidebarMenuButton
@@ -226,37 +257,6 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ) : null}
-                {g.items.map((item) => (
-                  <SidebarMenuItem key={item.url}>
-                    <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-                      <Link to={item.url} preload="intent" className="group/nav relative flex items-center gap-3">
-                        {isActive(item.url) ? (
-                          <span
-                            aria-hidden
-                            className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-lime group-data-[collapsible=icon]:hidden"
-                          />
-                        ) : null}
-                        <item.icon
-                          className="h-[19px] w-[19px] shrink-0"
-                          strokeWidth={isActive(item.url) ? 2 : 1.8}
-                        />
-                        <span className={isActive(item.url) ? "font-semibold" : "font-medium"}>
-                          {item.title}
-                        </span>
-                        {item.badge === "tasks-pending" && pendingCount > 0 ? (
-                          <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-semibold leading-none text-destructive-foreground group-data-[collapsible=icon]:hidden">
-                            {pendingCount > 99 ? "99+" : pendingCount}
-                          </span>
-                        ) : null}
-                        {item.badge === "beta" ? (
-                          <span className="ml-auto inline-flex items-center rounded-md bg-brand-lime/15 px-1.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-wider text-brand-lime-foreground group-data-[collapsible=icon]:hidden dark:text-brand-lime">
-                            beta
-                          </span>
-                        ) : null}
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
