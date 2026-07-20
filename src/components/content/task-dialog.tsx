@@ -621,6 +621,32 @@ function EditBody({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Autosave apenas do campo copy (Hook/Headline/Copy/CTA/Hashtags serializados)
+  // para evitar perda de texto gerado por IA quando o drawer é fechado sem Save.
+  const [copyAutosaveStatus, setCopyAutosaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const initialCopyRef = useRef(state.copy);
+  useEffect(() => {
+    initialCopyRef.current = post.copy ?? "";
+  }, [post.id, post.copy]);
+  useEffect(() => {
+    if (state.copy === initialCopyRef.current) return;
+    setCopyAutosaveStatus("saving");
+    const handle = setTimeout(async () => {
+      try {
+        await updatePost({
+          data: { postId, patch: { copy: state.copy.trim() || null } },
+        });
+        initialCopyRef.current = state.copy;
+        setCopyAutosaveStatus("saved");
+        qc.invalidateQueries({ queryKey: ["post-detail", postId] });
+      } catch {
+        setCopyAutosaveStatus("idle");
+      }
+    }, 1200);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.copy, postId]);
+
   const upload = useMutation({
     mutationFn: async (files: File[]) => {
       const isImage = (f: File) => f.type.startsWith("image/");
