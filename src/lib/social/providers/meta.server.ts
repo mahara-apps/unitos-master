@@ -57,7 +57,11 @@ export class MetaProvider implements SocialProvider {
         userId: opts.userId,
         redirectTo: opts.returnUrl ?? null,
       });
-      const authorizeUrl = this.graph.buildAuthorizeUrl({ state });
+      const authorizeUrl = this.graph.buildAuthorizeUrl({
+        state,
+        display: "popup",
+        authType: "reauthenticate",
+      });
       return { ok: true, data: { network: opts.network, authorizeUrl, state } };
     } catch (err) {
       return { ok: false, error: (err as Error).message };
