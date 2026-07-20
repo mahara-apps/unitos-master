@@ -65,12 +65,24 @@ export const Route = createFileRoute("/api/public/meta/callback")({
           const grantedScopes = await provider.listGrantedPermissions(
             longLived.accessToken,
           );
-          const pages = await provider.listPagesWithInstagram(longLived.accessToken);
-          const adAccounts = await provider.listAdAccounts(longLived.accessToken);
-          const threadsAccounts = await provider.listThreadsAccounts(
-            longLived.accessToken,
-            pages,
-          );
+          // Context-aware asset scan. When the user started the flow from a
+          // specific channel button we only fetch what that channel needs —
+          // this roughly halves the Graph calls per connect and keeps us
+          // under Meta's per-app rate limits.
+          const ch = state.channel ?? null;
+          const scanPages = ch !== "ads";
+          const scanAds = ch === "ads" || ch === null;
+          const scanThreads = ch === "threads" || ch === null;
+
+          const pages = scanPages
+            ? await provider.listPagesWithInstagram(longLived.accessToken)
+            : [];
+          const adAccounts = scanAds
+            ? await provider.listAdAccounts(longLived.accessToken)
+            : [];
+          const threadsAccounts = scanThreads
+            ? await provider.listThreadsAccounts(longLived.accessToken, pages)
+            : [];
           const igCount = pages.filter((p) => p.instagramBusinessId).length;
           const relevantCount =
             state.channel === "instagram"
