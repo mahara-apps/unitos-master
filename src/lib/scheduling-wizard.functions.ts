@@ -188,9 +188,17 @@ const SaveInput = z.object({
   firstComment: z.string().max(2200).nullable().optional(),
   linkUrl: z.string().url().nullable().optional(),
   locationName: z.string().max(120).nullable().optional(),
-  destinations: z.array(DestinationSchema).min(1),
+  destinations: z.array(DestinationSchema).default([]),
   scheduledAt: z.string().nullable().optional(), // ISO
-  action: z.enum(["draft", "publish", "schedule"]),
+  action: z.enum(["draft", "publish", "schedule", "save_draft"]),
+}).superRefine((v, ctx) => {
+  if (v.action !== "save_draft" && v.destinations.length < 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["destinations"],
+      message: "Selecione ao menos um canal.",
+    });
+  }
 });
 
 export const saveScheduledPostFn = createServerFn({ method: "POST" })
