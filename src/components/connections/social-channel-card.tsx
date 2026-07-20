@@ -654,7 +654,8 @@ function ManageSheet({
               const isRefreshing = refreshMut.isPending && refreshMut.variables === acc.id;
               const isDisconnecting =
                 disconnectMut.isPending && (disconnectMut.variables as SocialAccount)?.id === acc.id;
-              const active = !acc.status || acc.status === "active";
+              const health = accountHealth(acc);
+              const needsReconnect = health !== "active" && kind === "meta";
               return (
                 <div
                   key={acc.id}
@@ -669,11 +670,7 @@ function ManageSheet({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="truncate text-sm font-medium">{acc.name}</span>
-                      {!active && (
-                        <Badge variant="destructive" className="h-4 px-1 text-[9px]">
-                          {acc.status}
-                        </Badge>
-                      )}
+                      <HealthBadge health={health} />
                     </div>
                     <div className="truncate font-mono text-[10px] text-muted-foreground">
                       {acc.handle ?? acc.id} · sync {fmtSync(acc.updatedAt)}
@@ -687,21 +684,32 @@ function ManageSheet({
                       </p>
                     )}
                   </div>
-                  <div className="flex shrink-0 items-center gap-0.5 opacity-70 transition-opacity group-hover:opacity-100">
-                    {kind === "meta" && (
+                  <div className="flex shrink-0 items-center gap-1 opacity-70 transition-opacity group-hover:opacity-100">
+                    {needsReconnect ? (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        className="h-8 gap-1.5 px-2.5 text-[11px]"
+                        onClick={() => handleAddMeta()}
+                        title="Reautenticar esta conta na Meta"
+                      >
+                        <AlertTriangle className="h-3.5 w-3.5" />
+                        Reconectar
+                      </Button>
+                    ) : kind === "meta" ? (
                       <Button
                         size="icon"
                         variant="ghost"
                         className="h-8 w-8"
                         disabled={isRefreshing}
                         onClick={() => refreshMut.mutate(acc.id)}
-                        title="Reconectar"
+                        title="Revalidar token"
                       >
                         <RefreshCw
                           className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")}
                         />
                       </Button>
-                    )}
+                    ) : null}
                     <Button
                       size="icon"
                       variant="ghost"
