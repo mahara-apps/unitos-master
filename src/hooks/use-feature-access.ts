@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useActiveContextOptional } from "./use-active-context";
-import { listBrandFeatures } from "@/lib/feature-flags.functions";
+import { amISuperAdmin, listBrandFeatures } from "@/lib/feature-flags.functions";
 
 export function useBrandFeatures() {
   const { brandId } = useActiveContextOptional();
@@ -28,7 +28,10 @@ export function useFeatureAccess(featureKey: string): { enabled: boolean; loadin
 }
 
 export function useIsSuperAdmin() {
-  const q = useBrandFeatures();
-  void q; // placeholder; real check via server fn hook below
-  return null;
+  const fn = useServerFn(amISuperAdmin);
+  return useQuery({
+    queryKey: ["me-is-super-admin"],
+    queryFn: () => fn(),
+    staleTime: 5 * 60_000,
+  });
 }
