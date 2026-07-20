@@ -65,9 +65,22 @@ const SetFeatureInput = z.object({
 async function assertSuperAdmin(supabase: {
   rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
 }, userId: string) {
-  const { data, error } = await supabase.rpc("is_super_admin", { _user_id: userId });
-  if (error) throw error;
-  if (!data) throw new Error("Forbidden: super admin required");
+  const isSuper = await resolveIsSuperAdmin(supabase, userId);
+  if (!isSuper) throw new Error("Forbidden: super admin required");
+}
+
+async function resolveIsSuperAdmin(
+  supabase: { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }> },
+  userId: string,
+): Promise<boolean> {
+  // Two overloads exist: is_super_admin() (email allowlist via JWT) and
+  // is_super_admin(_user_id) (user_profiles.is_super_admin). Aceita qualquer uma.
+  const [byJwt, byProfile] = await Promise.all([
+    supabase.rpc("is_super_admin", {}),
+    supabase.rpc("is_super_admin", { _user_id: userId }),
+  ]);
+  if (byJwt.error && byProfile.error) throw byJwt.error;
+  return !!byJwt.data || !!byProfile.data;
 }
 
 export const setBrandFeature = createServerFn({ method: "POST" })
@@ -158,9 +171,6 @@ export const requireFeatureAccess = createServerFn({ method: "POST" })
 export const amISuperAdmin = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await context.supabase.rpc("is_super_admin", {
-      _user_id: context.userId,
-    });
-    if (error) throw error;
-    return { isSuperAdmin: !!data };
+    const isSuperAdmin = await resolveIsSuperAdmin(context.supabase as never, context.userId);
+    return { isSuperAdmin };
   });
