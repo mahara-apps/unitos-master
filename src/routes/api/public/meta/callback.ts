@@ -220,6 +220,17 @@ function escapeAttr(s: string): string {
   return escapeHtml(s).replace(/'/g, "&#39;");
 }
 
+function metaOAuthErrorMessage(raw: string): string {
+  const value = raw.toLowerCase();
+  if (value.includes("user_denied") || value.includes("access_denied")) {
+    return "Autorização cancelada na Meta. Para concluir, refaça o login e mantenha as permissões do canal selecionadas.";
+  }
+  if (value.includes("permissions")) {
+    return "A Meta recusou uma ou mais permissões necessárias. Refaça o login e mantenha as permissões do canal selecionadas.";
+  }
+  return raw;
+}
+
 function appendSessionParam(target: string, sessionId: string, channel: string | null): string {
   const sep = target.includes("?") ? "&" : "?";
   const ch = channel ? `&meta_channel=${encodeURIComponent(channel)}` : "";
