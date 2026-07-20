@@ -3,7 +3,12 @@ import { createFileRoute } from "@tanstack/react-router";
 /**
  * Meta OAuth landing (public). Meta redirects the browser here with
  * `?code=...&state=...`. State is an HMAC-signed token — no DB row required.
- * Persists one row per Page into `social_connections`.
+ *
+ * We DO NOT auto-link a connection here anymore. Instead we capture the
+ * complete portfolio (every Page + IG the user administers) into a short-lived
+ * row in `meta_oauth_sessions` and hand its id back to the popup opener so
+ * the "Meta Account Selector" dialog can let the user pick which accounts to
+ * bind to the current brand.
  */
 export const Route = createFileRoute("/api/public/meta/callback")({
   server: {
@@ -65,97 +70,35 @@ export const Route = createFileRoute("/api/public/meta/callback")({
             });
           }
 
-          // 4) Upsert one social_connections row per (brand, channel).
-          //    A single Meta Page yields up to two rows: `facebook` (always)
-          //    and `instagram` (when the Page has an IG Business account).
-          //    The unique partial index enforces one active row per channel
-          //    per brand — reconnecting replaces the previous account.
-          const now = new Date().toISOString();
+          // 4) Persist the full portfolio in a short-lived session row. The
+          //    frontend will read it via `getMetaPortfolio` and let the user
+          //    pick which Pages / IG accounts to link.
           const userTokenCiphertext = await encryptCredential(longLived.accessToken);
-          const page = pages[0]; // v1: one FB Page = one brand's Meta identity
-          const ciphertext = await encryptCredential(page.pageAccessToken);
-          const baseMetadata = {
-            category: page.category ?? null,
-            tasks: page.tasks ?? [],
-            linked_at: now,
-            user_email: me.email ?? null,
-            user_access_token_ciphertext: userTokenCiphertext,
-            user_token_expires_at:
-              longLived.expiresAt?.toISOString() ?? null,
-            page_id: page.pageId,
-            page_name: page.pageName,
-            instagram_business_id: page.instagramBusinessId ?? null,
-            instagram_username: page.instagramUsername ?? null,
-            page_picture_url: page.pagePictureUrl ?? null,
-            instagram_picture_url: page.instagramPictureUrl ?? null,
-          };
-
-          // For the "replace" rule, delete any existing active row for the
-          // same (brand, channel) that points at a DIFFERENT account, then
-          // upsert. Same account = idempotent refresh.
-          type SocialConnectionInsert =
-            import("@/integrations/supabase/types").Database["public"]["Tables"]["social_connections"]["Insert"];
-          async function upsertChannel(channel: "facebook" | "instagram", row: SocialConnectionInsert) {
-            await supabaseAdmin
-              .from("social_connections")
-              .delete()
-              .eq("brand_id", state.brandId)
-              .eq("channel", channel)
-              .neq("external_id", row.external_id);
-            const { error: upErr } = await supabaseAdmin
-              .from("social_connections")
-              .upsert(row, { onConflict: "brand_id,provider,external_id" });
-            if (upErr) throw upErr;
-          }
-
-          await upsertChannel("facebook", {
-            brand_id: state.brandId,
-            channel: "facebook",
-            provider: "meta",
-            external_id: page.pageId,
-            external_name: page.pageName,
-            account_id: page.pageId,
-            account_username: null,
-            owner_external_id: me.id,
-            owner_name: me.name ?? null,
-            access_token_ciphertext: ciphertext,
-            scopes: grantedScopes,
-            status: "active",
-            last_error: null,
-            last_synced_at: now,
-            token_expires_at: longLived.expiresAt?.toISOString() ?? null,
-            metadata: baseMetadata,
-            created_by: state.userId,
-          });
-
-          if (page.instagramBusinessId) {
-            await upsertChannel("instagram", {
+          const { data: sessionRow, error: sessErr } = await supabaseAdmin
+            .from("meta_oauth_sessions")
+            .insert({
               brand_id: state.brandId,
-              channel: "instagram",
-              provider: "meta",
-              external_id: page.instagramBusinessId,
-              external_name: page.instagramUsername ?? page.pageName,
-              account_id: page.instagramBusinessId,
-              account_username: page.instagramUsername ?? null,
-              owner_external_id: me.id,
-              owner_name: me.name ?? null,
-              access_token_ciphertext: ciphertext,
+              user_id: state.userId,
+              meta_user_id: me.id,
+              meta_user_name: me.name ?? null,
+              meta_user_email: me.email ?? null,
+              user_token_ciphertext: userTokenCiphertext,
+              user_token_expires_at: longLived.expiresAt?.toISOString() ?? null,
               scopes: grantedScopes,
-              status: "active",
-              last_error: null,
-              last_synced_at: now,
-              token_expires_at: longLived.expiresAt?.toISOString() ?? null,
-              metadata: baseMetadata,
-              created_by: state.userId,
-            });
-          }
+              pages: pages as unknown as import("@/integrations/supabase/types").Json,
+            })
+            .select("id")
+            .single();
+          if (sessErr) throw sessErr;
 
           return htmlResult({
             ok: true,
-            message: page.instagramBusinessId
-              ? `Facebook e Instagram conectados a ${page.pageName}`
-              : `Facebook conectado a ${page.pageName}`,
-            redirectTo: state.redirectTo ?? "/connections",
+            message: `Portfólio Meta capturado (${pages.length} ${pages.length === 1 ? "Página" : "Páginas"}). Selecione as contas para vincular.`,
+            redirectTo: appendSessionParam(
+              state.redirectTo ?? "/connections",
+              sessionRow.id,
+            ),
+            sessionId: sessionRow.id,
           });
         } catch (err) {
           const msg =
@@ -176,6 +119,7 @@ function htmlResult(result: {
   message?: string;
   error?: string;
   redirectTo?: string;
+  sessionId?: string;
 }): Response {
   const target = result.redirectTo ?? "/connections";
   const title = result.ok ? "Meta conectada" : "Falha ao conectar Meta";
@@ -203,7 +147,7 @@ function htmlResult(result: {
 <script>
   try {
     if (window.opener) {
-      window.opener.postMessage(${JSON.stringify({ source: "meta-oauth", ok: result.ok, error: result.error, message: result.message })}, "*");
+      window.opener.postMessage(${JSON.stringify({ source: "meta-oauth", ok: result.ok, error: result.error, message: result.message, sessionId: result.sessionId ?? null })}, "*");
       setTimeout(() => window.close(), 400);
     } else {
       setTimeout(() => { window.location.href = ${JSON.stringify(target)}; }, 1500);
@@ -229,4 +173,9 @@ function escapeHtml(s: string): string {
 }
 function escapeAttr(s: string): string {
   return escapeHtml(s).replace(/'/g, "&#39;");
+}
+
+function appendSessionParam(target: string, sessionId: string): string {
+  const sep = target.includes("?") ? "&" : "?";
+  return `${target}${sep}meta_session=${encodeURIComponent(sessionId)}`;
 }
