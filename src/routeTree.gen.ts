@@ -64,6 +64,7 @@ import { Route as ApiSocialTopPostsConnectionIdRouteImport } from './routes/api/
 import { Route as ApiSocialDashboardConnectionIdRouteImport } from './routes/api/social/dashboard/$connectionId'
 import { Route as ApiPublicMetaWebhookRouteImport } from './routes/api/public/meta/webhook'
 import { Route as ApiPublicMetaPublishScheduledRouteImport } from './routes/api/public/meta/publish-scheduled'
+import { Route as ApiPublicMetaDeletionStatusRouteImport } from './routes/api/public/meta/deletion-status'
 import { Route as ApiPublicMetaDeauthorizeRouteImport } from './routes/api/public/meta/deauthorize'
 import { Route as ApiPublicMetaDataDeletionRouteImport } from './routes/api/public/meta/data-deletion'
 import { Route as ApiPublicMetaCallbackRouteImport } from './routes/api/public/meta/callback'
@@ -372,6 +373,12 @@ const ApiPublicMetaPublishScheduledRoute =
     path: '/api/public/meta/publish-scheduled',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicMetaDeletionStatusRoute =
+  ApiPublicMetaDeletionStatusRouteImport.update({
+    id: '/api/public/meta/deletion-status',
+    path: '/api/public/meta/deletion-status',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicMetaDeauthorizeRoute =
   ApiPublicMetaDeauthorizeRouteImport.update({
     id: '/api/public/meta/deauthorize',
@@ -496,6 +503,7 @@ export interface FileRoutesByFullPath {
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
   '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
   '/api/public/meta/deauthorize': typeof ApiPublicMetaDeauthorizeRoute
+  '/api/public/meta/deletion-status': typeof ApiPublicMetaDeletionStatusRoute
   '/api/public/meta/publish-scheduled': typeof ApiPublicMetaPublishScheduledRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
@@ -559,6 +567,7 @@ export interface FileRoutesByTo {
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
   '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
   '/api/public/meta/deauthorize': typeof ApiPublicMetaDeauthorizeRoute
+  '/api/public/meta/deletion-status': typeof ApiPublicMetaDeletionStatusRoute
   '/api/public/meta/publish-scheduled': typeof ApiPublicMetaPublishScheduledRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
@@ -628,6 +637,7 @@ export interface FileRoutesById {
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
   '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
   '/api/public/meta/deauthorize': typeof ApiPublicMetaDeauthorizeRoute
+  '/api/public/meta/deletion-status': typeof ApiPublicMetaDeletionStatusRoute
   '/api/public/meta/publish-scheduled': typeof ApiPublicMetaPublishScheduledRoute
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
@@ -697,6 +707,7 @@ export interface FileRouteTypes {
     | '/api/public/meta/callback'
     | '/api/public/meta/data-deletion'
     | '/api/public/meta/deauthorize'
+    | '/api/public/meta/deletion-status'
     | '/api/public/meta/publish-scheduled'
     | '/api/public/meta/webhook'
     | '/api/social/dashboard/$connectionId'
@@ -760,6 +771,7 @@ export interface FileRouteTypes {
     | '/api/public/meta/callback'
     | '/api/public/meta/data-deletion'
     | '/api/public/meta/deauthorize'
+    | '/api/public/meta/deletion-status'
     | '/api/public/meta/publish-scheduled'
     | '/api/public/meta/webhook'
     | '/api/social/dashboard/$connectionId'
@@ -828,6 +840,7 @@ export interface FileRouteTypes {
     | '/api/public/meta/callback'
     | '/api/public/meta/data-deletion'
     | '/api/public/meta/deauthorize'
+    | '/api/public/meta/deletion-status'
     | '/api/public/meta/publish-scheduled'
     | '/api/public/meta/webhook'
     | '/api/social/dashboard/$connectionId'
@@ -861,6 +874,7 @@ export interface RootRouteChildren {
   ApiPublicMetaCallbackRoute: typeof ApiPublicMetaCallbackRoute
   ApiPublicMetaDataDeletionRoute: typeof ApiPublicMetaDataDeletionRoute
   ApiPublicMetaDeauthorizeRoute: typeof ApiPublicMetaDeauthorizeRoute
+  ApiPublicMetaDeletionStatusRoute: typeof ApiPublicMetaDeletionStatusRoute
   ApiPublicMetaPublishScheduledRoute: typeof ApiPublicMetaPublishScheduledRoute
   ApiPublicMetaWebhookRoute: typeof ApiPublicMetaWebhookRoute
   ApiSocialDashboardConnectionIdRoute: typeof ApiSocialDashboardConnectionIdRoute
@@ -1255,6 +1269,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMetaPublishScheduledRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/meta/deletion-status': {
+      id: '/api/public/meta/deletion-status'
+      path: '/api/public/meta/deletion-status'
+      fullPath: '/api/public/meta/deletion-status'
+      preLoaderRoute: typeof ApiPublicMetaDeletionStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/meta/deauthorize': {
       id: '/api/public/meta/deauthorize'
       path: '/api/public/meta/deauthorize'
@@ -1511,6 +1532,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicMetaCallbackRoute: ApiPublicMetaCallbackRoute,
   ApiPublicMetaDataDeletionRoute: ApiPublicMetaDataDeletionRoute,
   ApiPublicMetaDeauthorizeRoute: ApiPublicMetaDeauthorizeRoute,
+  ApiPublicMetaDeletionStatusRoute: ApiPublicMetaDeletionStatusRoute,
   ApiPublicMetaPublishScheduledRoute: ApiPublicMetaPublishScheduledRoute,
   ApiPublicMetaWebhookRoute: ApiPublicMetaWebhookRoute,
   ApiSocialDashboardConnectionIdRoute: ApiSocialDashboardConnectionIdRoute,
