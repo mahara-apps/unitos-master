@@ -144,9 +144,7 @@ export const requireFeatureAccess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => RequireInput.parse(i))
   .handler(async ({ data, context }) => {
-    const { data: isSuper } = await context.supabase.rpc("is_super_admin", {
-      _user_id: context.userId,
-    });
+    const isSuper = await resolveIsSuperAdmin(context.supabase as never, context.userId);
     if (isSuper) return { enabled: true, reason: "super_admin" as const };
 
     if (!data.brandId) return { enabled: false, reason: "no_brand" as const };
