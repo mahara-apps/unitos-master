@@ -26,8 +26,10 @@ import {
   type BrandMediaPlanRow,
 } from "@/lib/media-plans-index.functions";
 import { CreateMediaPlanDialog } from "@/components/media-plans/create-media-plan-dialog";
+import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 
 export const Route = createFileRoute("/_authenticated/media-plans")({
+  beforeLoad: () => ensureFeatureEnabled("midia_paga"),
   component: MediaPlansIndex,
 });
 
