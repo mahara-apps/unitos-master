@@ -5,7 +5,6 @@ import { useServerFn } from "@tanstack/react-start";
 import { ChevronLeft, ChevronRight, CalendarDays, Loader2, Plus, ChevronDown, CalendarClock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   TooltipProvider,
