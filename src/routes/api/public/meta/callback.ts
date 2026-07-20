@@ -68,7 +68,18 @@ export const Route = createFileRoute("/api/public/meta/callback")({
             longLived.accessToken,
             pages,
           );
-          if (pages.length === 0 && adAccounts.length === 0 && threadsAccounts.length === 0) {
+          const igCount = pages.filter((p) => p.instagramBusinessId).length;
+          const relevantCount =
+            state.channel === "instagram"
+              ? igCount
+              : state.channel === "facebook"
+                ? pages.length
+                : state.channel === "threads"
+                  ? threadsAccounts.length
+                  : state.channel === "ads"
+                    ? adAccounts.length
+                    : pages.length + adAccounts.length + threadsAccounts.length;
+          if (relevantCount === 0 && !state.channel) {
             return htmlResult({
               ok: false,
               error:
