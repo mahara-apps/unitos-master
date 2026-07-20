@@ -1,18 +1,33 @@
-# Remover Multi-publicação do drawer de tarefa
+# Refatorar headers de `/content` e `/calendar`
 
-Remover a seção "MULTI-PUBLICAÇÃO" (`PlacementsPanel`) do drawer de criar/editar em `src/components/content/task-dialog.tsx` e a lógica de placements extras que só ele consumia.
+Consolidar headers em um único componente por rota, cada um com um CTA primário claro. Remover o `GeneratePlanDialog` de `/calendar` e mover a geração por IA para `/content`.
 
-## Mudanças em `src/components/content/task-dialog.tsx`
+## `/content`
 
-- Remover render do `<PlacementsPanel>` + `<Separator>` adjacente (linhas ~866-873).
-- Remover a função `PlacementsPanel` (linhas ~2024-fim).
-- Em `EditBody`:
-  - Remover `extras`/`setExtras`, o tipo `ExtraPlacement`, o `useQuery` `placementsQ` e o `useEffect` de seed.
-  - Simplificar a mutation `save`: remover validação de conjunto de placements e a chamada `savePlacements`. Manter apenas o `updatePost`.
-- Remover imports que ficam sem uso: `listPlacements`, `savePlacements`, `validatePlacementSet`, `PlacementFormat` (se não usado em outro lugar do arquivo), e componentes UI usados só pelo painel.
+Hoje existem **dois** `usePageHeader` (um em `ContentPage`, outro em `ContentReady`) — o segundo sobrescreve o primeiro e cria confusão. Consolidar em um único header em `ContentReady` com:
 
-## Checagens
+- **Título**: `Conteúdo` · **Subtítulo**: `Pipeline de conteúdo · <n> tarefas`.
+- **Pipeline selector** + botão de settings (Novo/Renomear pipeline, Colunas) — mantidos.
+- **Botão primário `Novo conteúdo`** (split button / dropdown):
+  - `Manual` → abre `task-dialog` (Nova tarefa direta, sem IA).
+  - `Gerar com IA` → abre `GeneratePlanDialog` (o mesmo que está hoje em `/calendar`).
+- Remover o header duplicado de `ContentPage`, remover o `ComposerDialog` extra (`setComposerOpen`), e remover o `GeneratePlanDialog` isolado.
 
-- Confirmar que `listPlacements`/`savePlacements` não são usados em outros arquivos antes de remover imports.
-- Não alterar as tabelas `post_placements` nem o `scheduling-wizard` (`/calendar` continua criando placements normalmente).
-- Formato primário do card segue via `state.format` + `state.scheduledAt`.
+Resultado: 1 header enxuto, 1 CTA, 2 caminhos claros (manual vs IA).
+
+## `/calendar`
+
+- **Título**: `Calendário` · **Subtítulo**: `<mês/ano capitalizado> · <n> posts agendados`.
+- **Actions** (esquerda → direita, agrupadas visualmente):
+  - Toggle `Semana | Mês` (mantido).
+  - Navegação `‹  Hoje  ›` (mantido).
+  - CTA primário **`Agendar publicação`** (renomeia "Novo agendamento") → abre `ScheduleWizard` existente.
+- **Remover** o `GeneratePlanDialog` do header (geração por IA fica exclusiva em `/content`).
+- Remover import não utilizado do `GeneratePlanDialog` em `calendar.tsx`.
+
+## Arquivos
+
+- `src/routes/_authenticated/content.tsx` — consolidar headers, adicionar dropdown Manual/IA, remover `ComposerDialog` isolado.
+- `src/routes/_authenticated/calendar.tsx` — renomear CTA, remover `GeneratePlanDialog` + import.
+
+Sem mudanças em schema, server functions ou no `ScheduleWizard`/`GeneratePlanDialog` em si.
