@@ -860,6 +860,7 @@ function EditBody({
           mode="edit"
           postId={postId}
           createdAt={post.created_at}
+          copyAutosaveStatus={copyAutosaveStatus}
         />
 
         <div className="mt-6 space-y-5">
