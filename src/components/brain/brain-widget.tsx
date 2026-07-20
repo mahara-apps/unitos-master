@@ -107,7 +107,8 @@ export function BrainWidget({
   const { brandId, clientId: activeClientId } = useActiveContext();
   const load = useServerFn(loadBrainWidget);
 
-  const storageKey = collapseKey ? `brain-widget:collapsed:${collapseKey}` : null;
+  const autoKey = collapseKey ?? `${spec.module}:${spec.topic}`;
+  const storageKey = `brain-widget:collapsed:${autoKey}`;
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined" || !storageKey) return defaultCollapsed;
     const stored = window.localStorage.getItem(storageKey);
