@@ -75,7 +75,9 @@ export const startMetaOAuth = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => StartInput.parse(input))
   .handler(async ({ data, context }) => {
-    const { MetaProvider, signOAuthState } = await import("./provider.server");
+    const { MetaProvider, getMetaScopesForChannel, signOAuthState } = await import(
+      "./provider.server"
+    );
     const provider = new MetaProvider();
     const state = await signOAuthState({
       brandId: data.brandId,
@@ -83,11 +85,13 @@ export const startMetaOAuth = createServerFn({ method: "POST" })
       redirectTo: data.redirectTo ?? null,
       channel: data.channel ?? null,
     });
+    const scopes = getMetaScopesForChannel(data.channel ?? null);
     return {
       authorizeUrl: provider.buildAuthorizeUrl({
         state,
+        scopes,
         display: "popup",
-        authType: "reauthenticate",
+        authType: "rerequest",
       }),
       redirectUri: provider.redirectUri,
     };
