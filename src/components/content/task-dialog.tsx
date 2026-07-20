@@ -1074,6 +1074,7 @@ function TaskLayout({
   mode,
   postId,
   createdAt,
+  copyAutosaveStatus,
 }: {
   state: TaskState;
   setState: (fn: (prev: TaskState) => TaskState) => void;
@@ -1081,6 +1082,7 @@ function TaskLayout({
   mode: "create" | "edit";
   postId?: string;
   createdAt?: string | null;
+  copyAutosaveStatus?: "idle" | "saving" | "saved";
 }) {
   const [tagInput, setTagInput] = useState("");
   const set = <K extends keyof TaskState>(key: K, value: TaskState[K]) =>
