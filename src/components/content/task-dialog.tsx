@@ -75,13 +75,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { CHANNELS, CHANNEL_STYLES, FORMATS, FORMAT_STYLES, PRIORITY_STYLES } from "./stage-colors";
-import {
-  listPlacementsFn,
-  savePlacementsFn,
-  PLACEMENT_FORMATS,
-  validatePlacementSet,
-  type PlacementFormat,
-} from "@/lib/placements.functions";
+import { type PlacementFormat } from "@/lib/placements.functions";
 import { listProjects } from "@/lib/projects.functions";
 import { FolderKanban } from "lucide-react";
 import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
@@ -457,8 +451,6 @@ function EditBody({
   const removeRef = useServerFn(removePostReferenceMediaFn);
   const signRefs = useServerFn(signPostReferenceMediaFn);
   const generateRefImage = useServerFn(generatePostReferenceImageFn);
-  const listPlacements = useServerFn(listPlacementsFn);
-  const savePlacements = useServerFn(savePlacementsFn);
 
   const { data } = useSuspenseQuery({
     queryKey: ["post-detail", postId],
@@ -470,27 +462,6 @@ function EditBody({
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [approving, setApproving] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
-
-  // Multi-placement state: array of extra placements (beyond the primary one
-  // represented by state.format + state.scheduledAt).
-  type ExtraPlacement = { format: PlacementFormat; scheduled_at: string };
-  const [extras, setExtras] = useState<ExtraPlacement[]>([]);
-  const placementsQ = useQuery({
-    queryKey: ["post-placements", postId],
-    queryFn: () => listPlacements({ data: { postId } }),
-  });
-  useEffect(() => {
-    if (!placementsQ.data) return;
-    const primary = toEnum(state.format || post.format);
-    const seeded = placementsQ.data
-      .filter((p) => p.format !== primary)
-      .map((p) => ({
-        format: p.format,
-        scheduled_at: p.scheduled_at ? toLocalInputValue(p.scheduled_at) : "",
-      }));
-    setExtras(seeded);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [placementsQ.data, postId]);
 
   useEffect(() => {
     setState(stateFromPost(post, stages));
@@ -520,15 +491,6 @@ function EditBody({
 
   const save = useMutation({
     mutationFn: async () => {
-      // Validate placement combination first
-      const primary = toEnum(state.format);
-      const allFormats: PlacementFormat[] = [primary, ...extras.map((e) => e.format)];
-      if (new Set(allFormats).size !== allFormats.length) {
-        throw new Error("Cada formato só pode ser publicado uma vez neste card.");
-      }
-      const invalid = validatePlacementSet(allFormats);
-      if (invalid) throw new Error(invalid);
-
       await updatePost({
         data: {
           postId,
@@ -557,31 +519,11 @@ function EditBody({
           },
         },
       });
-
-      // Persist full placement set (primary + extras)
-      await savePlacements({
-        data: {
-          postId,
-          placements: [
-            {
-              format: primary,
-              scheduled_at: state.scheduledAt ? new Date(state.scheduledAt).toISOString() : null,
-              is_primary: true,
-            },
-            ...extras.map((e) => ({
-              format: e.format,
-              scheduled_at: e.scheduled_at ? new Date(e.scheduled_at).toISOString() : null,
-              is_primary: false,
-            })),
-          ],
-        },
-      });
     },
     onSuccess: () => {
       toast.success("Tarefa atualizada");
       qc.invalidateQueries({ queryKey: invalidateKey });
       qc.invalidateQueries({ queryKey: ["post-detail", postId] });
-      qc.invalidateQueries({ queryKey: ["post-placements", postId] });
       qc.invalidateQueries({ queryKey: ["projects", brandId] });
       if (state.projectId) qc.invalidateQueries({ queryKey: ["project", brandId, state.projectId] });
       onOpenChange(false);
@@ -865,12 +807,6 @@ function EditBody({
 
         <div className="mt-6 space-y-5">
           <Separator />
-        <PlacementsPanel
-          primaryFormat={toEnum(state.format)}
-          extras={extras}
-          onChange={setExtras}
-        />
-        <Separator />
         <div className="space-y-1.5">
           <Label className="flex items-center gap-1.5">
             <ImageIcon className="h-3.5 w-3.5" /> Mídias de referência
@@ -2019,115 +1955,3 @@ function InstagramPreview({
   );
 }
 
-// ----------------- Placements Panel -----------------
-
-function PlacementsPanel({
-  primaryFormat,
-  extras,
-  onChange,
-}: {
-  primaryFormat: PlacementFormat;
-  extras: Array<{ format: PlacementFormat; scheduled_at: string }>;
-  onChange: (
-    v: Array<{ format: PlacementFormat; scheduled_at: string }>,
-  ) => void;
-}) {
-  const available = PLACEMENT_FORMATS.filter(
-    (f) => f !== primaryFormat && !extras.some((e) => e.format === f),
-  );
-  // Filter out combinations that would be invalid with current selection
-  const validAvailable = available.filter((f) => {
-    const test = [primaryFormat, ...extras.map((e) => e.format), f];
-    return validatePlacementSet(test) === null;
-  });
-
-  return (
-    <DashboardPanelSurface className="space-y-3 p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <Label className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
-            <Sparkles className="h-3.5 w-3.5" /> Multi-publicação
-          </Label>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            Reaproveite este conceito em mais de um formato com agendamentos
-            independentes.
-          </p>
-        </div>
-        {validAvailable.length > 0 ? (
-          <Select
-            value=""
-            onValueChange={(v) =>
-              onChange([
-                ...extras,
-                { format: v as PlacementFormat, scheduled_at: "" },
-              ])
-            }
-          >
-            <SelectTrigger className="h-9 w-[180px] text-xs">
-              <SelectValue placeholder="+ Adicionar formato" />
-            </SelectTrigger>
-            <SelectContent>
-              {validAvailable.map((f) => (
-                <SelectItem key={f} value={f}>
-                  {ENUM_TO_LABEL[f]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : null}
-      </div>
-
-      <div className="space-y-2 rounded-lg border border-border/60 bg-background/60 p-2">
-        <div className="flex items-center justify-between gap-3 rounded-md border border-border/60 bg-card px-2 py-1.5 text-xs">
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="h-5">
-              {ENUM_TO_LABEL[primaryFormat]}
-            </Badge>
-            <span className="text-muted-foreground">Principal</span>
-          </div>
-          <span className="text-muted-foreground">
-            Usa a data de agendamento do card
-          </span>
-        </div>
-
-        {extras.length === 0 ? (
-          <p className="rounded-md border border-dashed border-border/60 bg-card/40 px-3 py-3 text-xs text-muted-foreground">
-            Nenhum formato adicional. Combinações válidas: Feed+Stories,
-            Reels+Stories, Carrossel+Stories.
-          </p>
-        ) : (
-          extras.map((p, idx) => (
-            <div
-              key={`${p.format}-${idx}`}
-              className="flex items-center gap-2 rounded-md border border-border/60 bg-card px-2 py-1.5"
-            >
-              <Badge variant="outline" className="h-5">
-                {ENUM_TO_LABEL[p.format]}
-              </Badge>
-              <Input
-                type="datetime-local"
-                value={p.scheduled_at}
-                onChange={(e) => {
-                  const next = [...extras];
-                  next[idx] = { ...p, scheduled_at: e.target.value };
-                  onChange(next);
-                }}
-                className="h-8 flex-1 text-xs"
-              />
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                onClick={() =>
-                  onChange(extras.filter((_, i) => i !== idx))
-                }
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          ))
-        )}
-      </div>
-    </DashboardPanelSurface>
-  );
-}
