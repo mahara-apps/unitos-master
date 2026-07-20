@@ -300,7 +300,7 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
           last_error: null,
           last_synced_at: now,
           token_expires_at: session.user_token_expires_at ?? null,
-          metadata,
+          metadata: metadata as unknown as import("@/integrations/supabase/types").Json,
           created_by: context.userId,
         },
         { onConflict: "brand_id,provider,external_id" },
