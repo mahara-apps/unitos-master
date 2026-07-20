@@ -4,7 +4,7 @@ import { z } from "zod";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Layers, Loader2, Pencil, Plus, Settings, Sparkles } from "lucide-react";
+import { Layers, Loader2, Pencil, Plus, Settings, Sparkles, ChevronDown } from "lucide-react";
 import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,7 +46,6 @@ import {
 import { PanelCard } from "@/components/ui/panel-card";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
-import { ComposerDialog } from "@/components/content/composer-dialog";
 import {
   ContentToolbar,
   DEFAULT_CONTENT_FILTERS,
@@ -72,25 +71,6 @@ export const Route = createFileRoute("/_authenticated/content")({
 function ContentPage() {
   const { brandId, clientId } = useActiveContext();
   const search = Route.useSearch();
-  const [composerOpen, setComposerOpen] = useState(false);
-
-  usePageHeader(
-    {
-      title: "Conteúdo",
-      subtitle: "Pipeline, calendário, biblioteca e publicações em um só lugar.",
-      actions: (
-        <Button
-          size="sm"
-          className="h-9"
-          onClick={() => setComposerOpen(true)}
-          disabled={!brandId}
-        >
-          <Sparkles className="mr-1.5 h-4 w-4" /> Novo conteúdo
-        </Button>
-      ),
-    },
-    [brandId],
-  );
 
   if (!brandId) {
     return (
@@ -116,13 +96,6 @@ function ContentPage() {
           autoOpenNewTask={!!search.new}
         />
       )}
-
-      <ComposerDialog
-        open={composerOpen}
-        onOpenChange={setComposerOpen}
-        brandId={brandId}
-        clientId={clientId ?? null}
-      />
     </DashboardPageShell>
   );
 }
