@@ -132,7 +132,7 @@ export function AppSidebar() {
     .map((g) => ({
       ...g,
       items: g.items.filter(
-        (i) => canAccessSidebarUrl(role, i.url) && featureEnabled(i.featureKey),
+        (i) => (isSuper || canAccessSidebarUrl(role, i.url)) && featureEnabled(i.featureKey),
       ),
     }))
     .filter((g) => g.items.length > 0);
