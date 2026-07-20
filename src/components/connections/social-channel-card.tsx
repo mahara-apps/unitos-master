@@ -189,7 +189,10 @@ export function SocialChannelCard({
   brandLabel: string;
   onChanged: () => void;
 }) {
-  const kind: Kind = channel.id === "instagram" || channel.id === "facebook" ? "meta" : "manual";
+  const kind: Kind =
+    channel.id === "instagram" || channel.id === "facebook" || channel.id === "threads"
+      ? "meta"
+      : "manual";
   const Icon = channel.icon;
   const status = overallStatus(accounts);
   const primary = accounts[0];
@@ -226,16 +229,22 @@ export function SocialChannelCard({
 
       <div className="flex gap-2">
         {accounts.length === 0 ? (
-          <ConnectButton
-            kind={kind}
-            channel={channel}
-            brandId={brandId}
-            hasExisting={false}
-            existingLabel={null}
-            manualOpen={manualOpen}
-            setManualOpen={setManualOpen}
-            onChanged={onChanged}
-          />
+          kind === "manual" ? (
+            <Button size="sm" variant="outline" className="flex-1" disabled>
+              Integração em breve
+            </Button>
+          ) : (
+            <ConnectButton
+              kind={kind}
+              channel={channel}
+              brandId={brandId}
+              hasExisting={false}
+              existingLabel={null}
+              manualOpen={manualOpen}
+              setManualOpen={setManualOpen}
+              onChanged={onChanged}
+            />
+          )
         ) : (
           <>
             <Button

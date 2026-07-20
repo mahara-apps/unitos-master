@@ -124,21 +124,18 @@ export const getChannelsKpis = createServerFn({ method: "GET" })
 
     let brandsCovered = 0;
     if (brandsTotal > 0) {
-      const connQ = await supabase
-        .from("brand_connections")
-        .select("brand_id, channels")
-        .in("brand_id", brandIds);
+      // Real source of truth = rows in social_connections (OAuth-established).
       const socialSet = new Set<string>(SOCIAL_CHANNEL_IDS as unknown as string[]);
+      const connQ = await supabase
+        .from("social_connections")
+        .select("brand_id, channel, status")
+        .in("brand_id", brandIds)
+        .eq("status", "active");
+      const covered = new Set<string>();
       for (const row of connQ.data ?? []) {
-        const chMap = (row.channels ?? {}) as Record<
-          string,
-          { connected?: boolean } | undefined
-        >;
-        const hasActive = Object.entries(chMap).some(
-          ([id, cfg]) => socialSet.has(id) && cfg?.connected === true,
-        );
-        if (hasActive) brandsCovered += 1;
+        if (socialSet.has(row.channel)) covered.add(row.brand_id);
       }
+      brandsCovered = covered.size;
     }
 
     return {
