@@ -394,6 +394,7 @@ export function BriefingWorkspace({
             palette: form.palette,
             do_dont: { do: form.do_text, dont: form.dont_text },
             volumetry: form.volumetry,
+            formats: form.formats,
             goals: form.goals,
             competitors,
           },
