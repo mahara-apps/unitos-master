@@ -31,6 +31,13 @@ export type BrandHubData = {
     youtube?: number;
     facebook?: number;
   };
+  formats?: {
+    instagram?: string[];
+    tiktok?: string[];
+    linkedin?: string[];
+    youtube?: string[];
+    facebook?: string[];
+  };
   goals?: string;
   tone_text?: string;
 };
@@ -130,6 +137,15 @@ const HubPatch = Scope.extend({
           linkedin: z.number().int().min(0).max(50).optional(),
           youtube: z.number().int().min(0).max(50).optional(),
           facebook: z.number().int().min(0).max(50).optional(),
+        })
+        .optional(),
+      formats: z
+        .object({
+          instagram: z.array(z.string().max(24)).max(8).optional(),
+          tiktok: z.array(z.string().max(24)).max(8).optional(),
+          linkedin: z.array(z.string().max(24)).max(8).optional(),
+          youtube: z.array(z.string().max(24)).max(8).optional(),
+          facebook: z.array(z.string().max(24)).max(8).optional(),
         })
         .optional(),
       goals: z.string().max(3000).optional(),
