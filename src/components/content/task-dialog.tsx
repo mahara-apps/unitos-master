@@ -1764,6 +1764,7 @@ function InstagramPreview({
   onRemove: (path: string) => void;
 }) {
   const [idx, setIdx] = useState(0);
+  // MediaReferenceBlock is declared below to keep RefEntry type in scope.
   useEffect(() => {
     if (idx > refs.length - 1) setIdx(Math.max(0, refs.length - 1));
   }, [refs.length, idx]);
