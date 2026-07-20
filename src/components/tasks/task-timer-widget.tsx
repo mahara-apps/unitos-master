@@ -13,6 +13,14 @@ import {
   type TimeEntry,
 } from "@/lib/timesheet.functions";
 
+function formatHMS(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+}
+
 function pausedKey(taskId: string) {
   return `unitos.timesheet.paused.${taskId}`;
 }
@@ -34,7 +42,7 @@ function writePaused(taskId: string, v: boolean) {
   }
 }
 
-function useElapsedMinutes(startedAt: string | null): number {
+function useElapsedSeconds(startedAt: string | null): number {
   const [, tick] = useState(0);
   useEffect(() => {
     if (!startedAt) return;
@@ -42,7 +50,7 @@ function useElapsedMinutes(startedAt: string | null): number {
     return () => clearInterval(t);
   }, [startedAt]);
   if (!startedAt) return 0;
-  return Math.max(0, Math.round((Date.now() - new Date(startedAt).getTime()) / 60000));
+  return Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
 }
 
 type Props = {
@@ -80,7 +88,7 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
 
   const active = activeQ.data;
   const runningHere = active?.task_id === taskId;
-  const elapsed = useElapsedMinutes(runningHere ? active!.started_at : null);
+  const elapsedSec = useElapsedSeconds(runningHere ? active!.started_at : null);
 
   const [paused, setPaused] = useState(false);
   useEffect(() => {
@@ -95,8 +103,8 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
   }, [runningHere, paused, taskId]);
 
   const entries: TimeEntry[] = entriesQ.data ?? [];
-  const totalSaved = entries.reduce((sum, e) => sum + (e.minutes ?? 0), 0);
-  const total = totalSaved + (runningHere ? elapsed : 0);
+  const totalSavedMin = entries.reduce((sum, e) => sum + (e.minutes ?? 0), 0);
+  const totalSeconds = totalSavedMin * 60 + (runningHere ? elapsedSec : 0);
 
   function invalidateAll() {
     qc.invalidateQueries({ queryKey: ["active-timer", brandId] });
@@ -153,7 +161,7 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
     >
       <div className="min-w-0">
         <div className="font-mono text-lg tabular-nums leading-none">
-          {formatMinutes(total)}
+          {formatHMS(totalSeconds)}
           {estimatedMinutes ? (
             <span className="ml-1 text-xs text-muted-foreground">
               / {formatMinutes(estimatedMinutes)}
