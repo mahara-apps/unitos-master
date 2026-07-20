@@ -183,7 +183,7 @@ export function PendingSchedulePanel({
                       </div>
                       {approved ? (
                         <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                          Aprovado{" "}
+                          {dateLabel}{" "}
                           {format(approved, "d MMM · HH:mm", { locale: ptBR })}
                         </div>
                       ) : null}
