@@ -873,6 +873,17 @@ export function TaskDrawer({
 
               <Separator />
 
+              {/* Timesheet · Play / Pause / Stop */}
+              <div className="space-y-2 px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <h3 className="text-sm font-semibold">Timesheet</h3>
+                </div>
+                <TaskTimerWidget brandId={brandId} taskId={task.id} />
+              </div>
+
+              <Separator />
+
               {/* Description */}
               <div className="space-y-1.5 px-6 py-5">
                 <label className="text-xs font-medium text-muted-foreground">Descrição</label>
