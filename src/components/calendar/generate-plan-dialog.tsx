@@ -315,6 +315,32 @@ export function GeneratePlanDialog({
             />
           </div>
 
+          <div className="grid gap-1.5">
+            <Label htmlFor="assignee" className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+              <UserCircle2 className="h-3 w-3" />
+              Responsável padrão
+            </Label>
+            <Select
+              value={assigneeId ?? "me"}
+              onValueChange={(v) => setAssigneeId(v === "me" ? null : v)}
+            >
+              <SelectTrigger id="assignee" className="h-8 text-xs">
+                <SelectValue placeholder="Selecionar responsável" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="me">Eu (usuário atual)</SelectItem>
+                {(members ?? []).map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground">
+              Todas as peças geradas serão atribuídas a esta pessoa.
+            </p>
+          </div>
+
           <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background/60 px-2.5 py-1.5 text-[11px]">
             <Info className="h-3 w-3 shrink-0 text-muted-foreground" />
             <div className="text-muted-foreground">
