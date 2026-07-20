@@ -14,7 +14,7 @@ import {
 } from "@dnd-kit/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowDown, ArrowUp, ArrowUpDown, CalendarClock, CalendarPlus, Check, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarPlus, Check, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Paperclip, ImageIcon, CalendarDays, UserCircle2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,11 +47,10 @@ import {
 } from "@/lib/content.functions";
 import { STAGE_GRADIENT, PRIORITY_STYLES, PRIORITY_LABEL, FORMAT_STYLES, CHANNELS, CHANNEL_STYLES, normalizeFormat, type FormatKey } from "./stage-colors";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Clock, Settings2, AlarmClock } from "lucide-react";
+import { Settings2, AlarmClock } from "lucide-react";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import {
   DashboardCountBadge,
-  DashboardMutedPill,
   DashboardPanelSurface,
 } from "@/components/ui/dashboard-primitives";
 
@@ -419,18 +418,6 @@ function Column({
           <Badge variant="secondary" className="h-5 shrink-0 rounded-md border border-border/60 bg-background/60 px-1.5 text-xs font-normal tabular-nums">
             {posts.length}
           </Badge>
-          {stage.sla_days ? (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DashboardMutedPill className="h-5 px-1.5 py-0 text-[10px]">
-                    <Clock className="h-2.5 w-2.5" /> {stage.sla_days}d
-                  </DashboardMutedPill>
-                </TooltipTrigger>
-                <TooltipContent>SLA: {stage.sla_days} dias</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : null}
         {(() => {
           const overdueCount = posts.filter((p) => p.is_overdue).length;
           return overdueCount > 0 ? (
@@ -455,13 +442,6 @@ function Column({
               active={sort?.by === "created"}
               dir={sort?.by === "created" ? sort.dir : null}
               onClick={() => onCycleSort("created")}
-            />
-            <SortChip
-              label="Postagem"
-              icon={<CalendarClock className="h-3 w-3" />}
-              active={sort?.by === "scheduled"}
-              dir={sort?.by === "scheduled" ? sort.dir : null}
-              onClick={() => onCycleSort("scheduled")}
             />
           </div>
         ) : null}
