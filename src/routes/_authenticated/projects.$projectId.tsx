@@ -466,6 +466,9 @@ function ProjectDetailPage() {
         )}
       </DashboardPanelSurface>
 
+      {/* Jobs & Tarefas com Timesheet */}
+      <JobsPanel brandId={brandId!} projectId={projectId} />
+
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
