@@ -65,6 +65,13 @@ const StartInput = z.object({
   brandId: z.string().uuid(),
   redirectTo: z.string().max(500).optional(),
   channel: z.enum(["facebook", "instagram", "threads", "ads"]).optional(),
+  /**
+   * When true, appends `auth_type=reauthenticate` to force Meta to re-prompt
+   * for login (used to switch the Meta user, or by explicit reconnect
+   * actions). Default flow uses `rerequest`, which reuses the existing
+   * Facebook session cookie and re-prompts only declined scopes.
+   */
+  forceReauth: z.boolean().optional(),
 });
 
 /**
@@ -91,10 +98,48 @@ export const startMetaOAuth = createServerFn({ method: "POST" })
         state,
         scopes,
         display: "popup",
-        authType: "rerequest",
+        authType: data.forceReauth ? "reauthenticate" : "rerequest",
       }),
       redirectUri: provider.redirectUri,
     };
+  });
+
+/**
+ * Reuses the most recent unexpired Meta user-token session for the current
+ * user on this brand and hands back its id, so the account-selector dialog
+ * can open without triggering a new OAuth popup. Returns `null` when no
+ * valid session exists (caller should fall back to `startMetaOAuth`).
+ *
+ * Reusing the session avoids re-scanning the Graph API on every click and
+ * keeps us well under Meta's rate limits.
+ */
+export const getActiveMetaSession = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => BrandInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const nowIso = new Date().toISOString();
+    const { data: row, error } = await context.supabase
+      .from("meta_oauth_sessions")
+      .select("id, user_token_expires_at, expires_at")
+      .eq("brand_id", data.brandId)
+      .eq("user_id", context.userId)
+      .or(`user_token_expires_at.is.null,user_token_expires_at.gt.${nowIso}`)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!row) return { sessionId: null as string | null };
+
+    // Bump the session's short-lived expiry so the dialog can consume it.
+    const { supabaseAdmin } = await import(
+      "@/integrations/supabase/client.server"
+    );
+    const nextExpiry = new Date(Date.now() + 30 * 60_000).toISOString();
+    await supabaseAdmin
+      .from("meta_oauth_sessions")
+      .update({ expires_at: nextExpiry, consumed_at: null })
+      .eq("id", row.id);
+    return { sessionId: row.id };
   });
 
 const ConnIdInput = z.object({

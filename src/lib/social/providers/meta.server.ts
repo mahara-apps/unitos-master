@@ -60,7 +60,7 @@ export class MetaProvider implements SocialProvider {
       const authorizeUrl = this.graph.buildAuthorizeUrl({
         state,
         display: "popup",
-        authType: "reauthenticate",
+        authType: "rerequest",
       });
       return { ok: true, data: { network: opts.network, authorizeUrl, state } };
     } catch (err) {
