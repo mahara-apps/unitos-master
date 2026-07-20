@@ -1037,7 +1037,7 @@ function DuePicker({
           <Input
             type="datetime-local"
             className="h-8 text-xs"
-            value={local ? local.toISOString().slice(0, 16) : ""}
+            value={local ? toLocalDatetimeInput(local) : ""}
             onChange={(e) => {
               onChange(e.target.value ? new Date(e.target.value).toISOString() : null);
             }}
