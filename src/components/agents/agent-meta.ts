@@ -98,6 +98,40 @@ export function getAgentMeta(id: string, name: string): AgentMeta {
   };
 }
 
+/** Descrição pública de cada agente para vitrine na tela `/agents`.
+ *  NUNCA usar o system prompt original — ele é confidencial. */
+const AGENT_DESCRIPTION: Record<string, string> = {
+  briefing_extractor:
+    "Lê briefings e documentos do cliente para extrair objetivos, público-alvo e diretrizes-chave.",
+  persona_generator:
+    "Sintetiza personas de compra a partir do briefing, entrevistas e sinais da marca.",
+  brand_brain:
+    "Consolida o cérebro estratégico da marca — posicionamento, promessa e territórios narrativos.",
+  planner_strategic:
+    "Planeja pautas mensais equilibrando pilares, formatos e canais com foco em resultado.",
+  visual_analyst:
+    "Interpreta referências visuais e traduz em diretrizes de arte para o time criativo.",
+  art_director_social:
+    "Define direção de arte de posts, priorizando consistência de identidade e legibilidade.",
+  copywriter_senior:
+    "Escreve legendas, ganchos e CTAs no tom de voz da marca prontos para publicação.",
+  roteirista_social:
+    "Estrutura roteiros de Reels/Shorts com abertura, desenvolvimento e chamada para ação.",
+  instagram_analyst:
+    "Analisa performance de Instagram e recomenda ajustes de conteúdo, horário e formato.",
+};
+
+export function getAgentDescription(id: string, name: string): string {
+  if (AGENT_DESCRIPTION[id]) return AGENT_DESCRIPTION[id];
+  const category = inferAgentCategory(id, name);
+  return {
+    intelligence: "Agente de inteligência que estrutura o conhecimento da marca.",
+    planning: "Agente de planejamento estratégico e direção de conteúdo.",
+    creation: "Agente de criação e copywriting para publicação social.",
+    analysis: "Agente de análise de performance e otimização.",
+  }[category];
+}
+
 export function getCategoryStyle(category: AgentCategory) {
   return CATEGORY_STYLE[category];
 }
