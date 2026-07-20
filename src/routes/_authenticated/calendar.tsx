@@ -2,19 +2,23 @@ import { useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ChevronLeft, ChevronRight, CalendarDays, Loader2, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Loader2, Plus, ChevronDown, CalendarClock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
-  Tooltip,
-  TooltipContent,
   TooltipProvider,
-  TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { listScheduledPostsFn, type CalendarPost } from "@/lib/calendar.functions";
+import { listCalendarEventsFn, type CalendarEvent } from "@/lib/calendar-events.functions";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { TaskDialog } from "@/components/content/task-dialog";
 import { loadBoardFn, ensureDefaultPipelineFn, type PipelineStage } from "@/lib/content.functions";
@@ -29,6 +33,10 @@ import {
 import { KpiCard, type KpiTone } from "@/components/ui/kpi-card";
 import { ScheduleWizard, type WizardSeed } from "@/components/calendar/schedule-wizard";
 import { PendingSchedulePanel } from "@/components/calendar/pending-schedule-panel";
+import { EventChip, type UnifiedEvent } from "@/components/calendar/event-chip";
+import { EventDialog } from "@/components/calendar/event-dialog";
+import { SocialIconsRow } from "@/components/calendar/social-icons-row";
+import { uniqueNetworks } from "@/lib/calendar-tokens";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   component: CalendarPage,
@@ -53,9 +61,15 @@ function CalendarPage() {
   const [wizardSeed, setWizardSeed] = useState<WizardSeed | null>(null);
   const [wizardDate, setWizardDate] = useState<Date | null>(null);
   const list = useServerFn(listScheduledPostsFn);
+  const listEvents = useServerFn(listCalendarEventsFn);
   const qc = useQueryClient();
   const [openPost, setOpenPost] = useState<CalendarPost | null>(null);
   const [openingPost, setOpeningPost] = useState(false);
+  const [openEvent, setOpenEvent] = useState<CalendarEvent | null>(null);
+  const [newEventCtx, setNewEventCtx] = useState<
+    | { type: "appointment" | "seasonal"; date: Date | null }
+    | null
+  >(null);
   const loadBoard = useServerFn(loadBoardFn);
   const ensurePipeline = useServerFn(ensureDefaultPipelineFn);
   const [createCtx, setCreateCtx] = useState<
@@ -135,6 +149,13 @@ function CalendarPage() {
       list({ data: { brandId: brandId!, clientId: clientId ?? null, from, to } }),
   });
 
+  const eventsQ = useQuery({
+    enabled: !!brandId,
+    queryKey: ["calendar-events", brandId, clientId, from, to],
+    queryFn: () =>
+      listEvents({ data: { brandId: brandId!, clientId: clientId ?? null, from, to } }),
+  });
+
   const volumetry = useMemo(() => computeVolumetry(q.data ?? []), [q.data]);
 
   const filteredPosts = useMemo(() => {
@@ -144,14 +165,27 @@ function CalendarPage() {
   }, [q.data, formatFilter]);
 
   const byDay = useMemo(() => {
-    const map = new Map<string, CalendarPost[]>();
+    const map = new Map<string, UnifiedEvent[]>();
     filteredPosts.forEach((p) => {
       const k = new Date(p.scheduled_at).toISOString().slice(0, 10);
       if (!map.has(k)) map.set(k, []);
-      map.get(k)!.push(p);
+      map.get(k)!.push({ kind: "post", data: p });
     });
+    (eventsQ.data ?? []).forEach((e) => {
+      const k = new Date(e.starts_at).toISOString().slice(0, 10);
+      if (!map.has(k)) map.set(k, []);
+      map.get(k)!.push({ kind: "event", data: e });
+    });
+    // sort each day by time
+    for (const [, items] of map) {
+      items.sort((a, b) => {
+        const at = a.kind === "post" ? a.data.scheduled_at : a.data.starts_at;
+        const bt = b.kind === "post" ? b.data.scheduled_at : b.data.starts_at;
+        return new Date(at).getTime() - new Date(bt).getTime();
+      });
+    }
     return map;
-  }, [filteredPosts]);
+  }, [filteredPosts, eventsQ.data]);
 
   const grid = useMemo(() => buildMonthGrid(cursor), [cursor]);
   const visibleGrid = useMemo(() => {
@@ -219,18 +253,39 @@ function CalendarPage() {
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>
-          {brandId && clientId ? (
-            <Button
-              size="sm"
-              className="h-9 gap-1.5"
-              onClick={() => {
-                setWizardSeed(null);
-                setWizardDate(null);
-                setWizardOpen(true);
-              }}
-            >
-              <Plus className="h-4 w-4" /> Agendar publicação
-            </Button>
+          {brandId ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" className="h-9 gap-1.5">
+                  <Plus className="h-4 w-4" /> Novo
+                  <ChevronDown className="ml-0.5 h-3.5 w-3.5 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                {clientId ? (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setWizardSeed(null);
+                      setWizardDate(null);
+                      setWizardOpen(true);
+                    }}
+                  >
+                    <CalendarClock className="mr-2 h-4 w-4" /> Agendar publicação
+                  </DropdownMenuItem>
+                ) : null}
+                {clientId ? <DropdownMenuSeparator /> : null}
+                <DropdownMenuItem
+                  onClick={() => setNewEventCtx({ type: "appointment", date: null })}
+                >
+                  <CalendarDays className="mr-2 h-4 w-4" /> Novo compromisso
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setNewEventCtx({ type: "seasonal", date: null })}
+                >
+                  <Sparkles className="mr-2 h-4 w-4" /> Nova data sazonal
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : null}
         </div>
       ),
@@ -294,7 +349,9 @@ function CalendarPage() {
           <div className="grid grid-cols-7 auto-rows-[minmax(140px,1fr)]">
             {visibleGrid.map((day, i) => {
               const key = day.date.toISOString().slice(0, 10);
-              const posts = byDay.get(key) ?? [];
+              const items = byDay.get(key) ?? [];
+              const postItems = items.filter((it) => it.kind === "post") as Extract<UnifiedEvent, { kind: "post" }>[];
+              const networks = uniqueNetworks(postItems.flatMap((it) => it.data.channels ?? []));
               const isCurrentMonth = day.date.getMonth() === cursor.getMonth();
               const isToday = key === new Date().toISOString().slice(0, 10);
               return (
@@ -307,20 +364,25 @@ function CalendarPage() {
                   )}
                 >
                   <div className="mb-1.5 flex items-center justify-between">
-                    <span
-                      className={cn(
-                        "inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums",
-                        isToday
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : "text-foreground/80",
-                      )}
-                    >
-                      {day.date.getDate()}
-                    </span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span
+                        className={cn(
+                          "inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums",
+                          isToday
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "text-foreground/80",
+                        )}
+                      >
+                        {day.date.getDate()}
+                      </span>
+                      {networks.length > 0 ? (
+                        <SocialIconsRow networks={networks} max={4} size="xs" />
+                      ) : null}
+                    </div>
                     <div className="flex items-center gap-1">
-                      {posts.length > 0 ? (
+                      {items.length > 0 ? (
                         <span className="text-[10px] font-medium text-muted-foreground">
-                          {posts.length}
+                          {items.length}
                         </span>
                       ) : null}
                       {isCurrentMonth ? (
@@ -338,17 +400,24 @@ function CalendarPage() {
                     </div>
                   </div>
                   <div className="space-y-1">
-                    {posts.slice(0, 3).map((p) => (
-                      <PostChip key={p.id} post={p} onOpen={handleOpenPost} />
+                    {items.slice(0, 3).map((it) => (
+                      <EventChip
+                        key={it.kind + ":" + it.data.id}
+                        item={it}
+                        onOpen={(x) => {
+                          if (x.kind === "post") handleOpenPost(x.data);
+                          else setOpenEvent(x.data);
+                        }}
+                      />
                     ))}
-                    {posts.length > 3 ? (
+                    {items.length > 3 ? (
                       <Popover>
                         <PopoverTrigger asChild>
                           <button
                             type="button"
                             className="block w-full rounded-md px-1.5 py-0.5 pl-0.5 text-left text-[10px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                           >
-                            +{posts.length - 3} mais
+                            +{items.length - 3} mais
                           </button>
                         </PopoverTrigger>
                         <PopoverContent align="start" className="w-72 p-2">
@@ -361,18 +430,25 @@ function CalendarPage() {
                               })}
                             </span>
                             <span className="text-[10px] text-muted-foreground">
-                              {posts.length} publicações
+                              {items.length} eventos
                             </span>
                           </div>
                           <div className="space-y-1 max-h-72 overflow-y-auto">
-                            {posts.map((p) => (
-                              <PostChip key={p.id} post={p} onOpen={handleOpenPost} />
+                            {items.map((it) => (
+                              <EventChip
+                                key={it.kind + ":" + it.data.id}
+                                item={it}
+                                onOpen={(x) => {
+                                  if (x.kind === "post") handleOpenPost(x.data);
+                                  else setOpenEvent(x.data);
+                                }}
+                              />
                             ))}
                           </div>
                         </PopoverContent>
                       </Popover>
                     ) : null}
-                    {posts.length === 0 && isCurrentMonth ? (
+                    {items.length === 0 && isCurrentMonth ? (
                       <button
                         type="button"
                         onClick={() => handleCreateOnDate(day.date)}
@@ -513,52 +589,26 @@ function CalendarPage() {
           defaultDate={wizardDate}
         />
       ) : null}
+
+      {brandId && (openEvent || newEventCtx) ? (
+        <EventDialog
+          open={!!(openEvent || newEventCtx)}
+          onOpenChange={(o) => {
+            if (!o) {
+              setOpenEvent(null);
+              setNewEventCtx(null);
+            }
+          }}
+          brandId={brandId}
+          clientId={clientId ?? null}
+          event={openEvent ?? undefined}
+          defaultType={newEventCtx?.type ?? "appointment"}
+          defaultDate={newEventCtx?.date ?? null}
+          invalidateKey={["calendar-events", brandId, clientId, from, to] as const}
+        />
+      ) : null}
     </DashboardPageShell>
     </TooltipProvider>
-  );
-}
-
-// -- Chip ---------------------------------------------------------------
-function PostChip({ post, onOpen }: { post: CalendarPost; onOpen: (p: CalendarPost) => void }) {
-  const kind = classifyChannel(post.channels?.[0] ?? "");
-  const t = new Date(post.scheduled_at).toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={() => onOpen(post)}
-          className={cn(
-            "flex w-full items-center gap-1.5 rounded-full border px-2 py-1 text-left text-[11px] transition-all hover:-translate-y-px hover:shadow-sm",
-            kind.chip,
-          )}
-          title={post.title}
-        >
-          <span className="tabular-nums font-semibold opacity-70">{t}</span>
-          <span className="truncate flex-1">{post.title}</span>
-          {post.author ? (
-            <Avatar className="h-4 w-4 ring-1 ring-background">
-              {post.author.avatar_url ? (
-                <AvatarImage src={post.author.avatar_url} alt={post.author.name ?? ""} />
-              ) : null}
-              <AvatarFallback className="text-[8px]">
-                {(post.author.name ?? "?").slice(0, 1).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-          ) : null}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-xs text-xs">
-        <div className="font-medium">{post.title}</div>
-        <div className="mt-0.5 text-muted-foreground">
-          {kind.label} · {t}
-          {post.author?.name ? ` · ${post.author.name}` : ""}
-        </div>
-      </TooltipContent>
-    </Tooltip>
   );
 }
 
@@ -628,20 +678,6 @@ const CHANNEL_KINDS: Record<string, ChannelKind> = {
     bar: "bg-muted-foreground/60",
   },
 };
-
-function classifyChannel(raw: string): ChannelKind {
-  const k = (raw ?? "").toLowerCase();
-  if (k.includes("story") || k.includes("stories")) return CHANNEL_KINDS.stories;
-  if (k.includes("tiktok")) return CHANNEL_KINDS.tiktok;
-  if (k.includes("youtube") || k === "yt") return CHANNEL_KINDS.youtube;
-  if (k.includes("linkedin")) return CHANNEL_KINDS.linkedin;
-  if (k.includes("whats")) return CHANNEL_KINDS.whatsapp;
-  if (k.includes("blog")) return CHANNEL_KINDS.blog;
-  if (k.includes("insta") || k.includes("feed") || k.includes("facebook") || k === "x" || k.includes("twitter") || k.includes("threads")) {
-    return CHANNEL_KINDS.instagram;
-  }
-  return CHANNEL_KINDS.other;
-}
 
 const FORMAT_KINDS: ChannelKind[] = [
   {
