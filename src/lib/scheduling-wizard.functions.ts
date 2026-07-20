@@ -132,14 +132,16 @@ export const listApprovedUnscheduledFn = createServerFn({ method: "GET" })
     if (postIds.length) {
       const { data: pls, error: plErr } = await context.supabase
         .from("post_placements")
-        .select("post_id, channel, format")
+        .select("post_id, format, copy_override")
         .in("post_id", postIds);
       if (plErr) throw new Error(plErr.message);
       for (const pl of pls ?? []) {
         const key = pl.post_id as string;
         const arr = placementsByPost.get(key) ?? [];
+        const co = (pl.copy_override ?? {}) as Record<string, unknown>;
+        const channel = typeof co.channel === "string" ? co.channel : "";
         arr.push({
-          channel: pl.channel as string,
+          channel,
           format: pl.format as string,
         });
         placementsByPost.set(key, arr);
