@@ -672,6 +672,7 @@ function ManageSheet({
         data: { brandId, ...(metaChannel ? { channel: metaChannel } : {}) },
       });
       if (popup) popup.location.href = authorizeUrl;
+      else window.location.href = authorizeUrl;
     } catch (e) {
       if (timeoutId) window.clearTimeout(timeoutId);
       window.removeEventListener("message", onOAuthMessage);
