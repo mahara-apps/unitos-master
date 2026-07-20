@@ -64,6 +64,7 @@ export const listMetaConnections = createServerFn({ method: "GET" })
 const StartInput = z.object({
   brandId: z.string().uuid(),
   redirectTo: z.string().max(500).optional(),
+  channel: z.enum(["facebook", "instagram", "threads", "ads"]).optional(),
 });
 
 /**
@@ -80,6 +81,7 @@ export const startMetaOAuth = createServerFn({ method: "POST" })
       brandId: data.brandId,
       userId: context.userId,
       redirectTo: data.redirectTo ?? null,
+      channel: data.channel ?? null,
     });
     return {
       authorizeUrl: provider.buildAuthorizeUrl({
