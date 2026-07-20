@@ -313,7 +313,7 @@ export function MetaPortfolioDialog({
                 <ul className="divide-y divide-border/60">
                   {igPages.length === 0 ? (
                     <li className="p-6 text-center text-xs text-muted-foreground">
-                      Nenhuma conta do Instagram Business vinculada às suas Páginas.
+                      Nenhuma conta do Instagram Business encontrada. Verifique se o seu Instagram está corretamente vinculado a uma Página do Facebook.
                     </li>
                   ) : (
                     igPages.map((p) => {
