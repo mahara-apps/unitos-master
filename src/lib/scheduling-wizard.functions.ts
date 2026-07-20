@@ -178,8 +178,16 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       "youtube",
       "blog",
     ]);
-    const channels = Array.from(new Set(data.destinations.map((d) => d.channel)))
-      .filter((c) => POST_CHANNEL_ENUM.has(c));
+    const channels = Array.from(
+      new Set(data.destinations.map((d) => d.channel)),
+    ).filter((c) => POST_CHANNEL_ENUM.has(c)) as (
+      | "instagram"
+      | "tiktok"
+      | "linkedin"
+      | "x"
+      | "youtube"
+      | "blog"
+    )[];
 
     const stage =
       data.action === "schedule"
