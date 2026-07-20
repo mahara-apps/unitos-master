@@ -28,6 +28,7 @@ import {
   Settings as SettingsIcon,
   ScrollText,
   Target,
+  Gauge,
   Brain,
   MessageSquare,
   Activity,
