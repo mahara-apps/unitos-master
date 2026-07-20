@@ -11,10 +11,22 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const PLACEMENTS = ["instagram_feed", "facebook_feed"] as const;
 
-const MediaSchema = z.object({
-  imageUrl: z.string().url().optional(),
-  link: z.string().url().optional(),
-});
+const MediaSchema = z
+  .object({
+    /**
+     * Path dentro do bucket privado `brand-media` (prefixo `<brandId>/`).
+     * Preferir SEMPRE `storagePath` sobre `imageUrl`: o worker assina no
+     * momento da publicação (TTL curto). Signed URLs não devem ser
+     * persistidas — elas expiram e quebram o retry.
+     */
+    storagePath: z.string().min(3).optional(),
+    imageUrl: z.string().url().optional(),
+    link: z.string().url().optional(),
+  })
+  .refine(
+    (m) => !m.storagePath || !m.storagePath.startsWith("/"),
+    { message: "storagePath deve ser relativo (sem barra inicial)" },
+  );
 
 const BasePublishSchema = z.object({
   brandId: z.string().uuid(),
