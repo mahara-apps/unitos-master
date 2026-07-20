@@ -122,7 +122,7 @@ export const listStageSlasFn = createServerFn({ method: "POST" })
     const nameById = new Map(pipes!.map((p) => [p.id, p.name as string]));
     const { data: stages, error } = await context.supabase
       .from("content_pipeline_stages")
-      .select("id, pipeline_id, name, position, sla_days")
+      .select("id, pipeline_id, label, position, sla_days")
       .in("pipeline_id", ids)
       .order("pipeline_id", { ascending: true })
       .order("position", { ascending: true });
@@ -131,7 +131,7 @@ export const listStageSlasFn = createServerFn({ method: "POST" })
       id: s.id as string,
       pipeline_id: s.pipeline_id as string,
       pipeline_name: nameById.get(s.pipeline_id as string) ?? "—",
-      name: s.name as string,
+      name: s.label as string,
       position: s.position as number,
       sla_days: (s.sla_days as number | null) ?? null,
     }));
