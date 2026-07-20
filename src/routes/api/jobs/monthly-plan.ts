@@ -197,13 +197,25 @@ async function runOrchestrator(params: {
       step_label: "Carregando prompts e contexto da marca",
     });
 
-    // 1) Load prompts
-    const { data: promptRows, error: promptErr } = await supabase
-      .from("agent_prompts")
-      .select("agent_id, system_prompt")
-      .in("agent_id", ["planner_strategic", "copywriter_senior"]);
-    if (promptErr) throw promptErr;
-    const prompts = new Map((promptRows ?? []).map((r) => [r.agent_id, r.system_prompt]));
+    // 1) Load prompts — brand override wins over the Unitos default.
+    const AGENT_IDS = ["planner_strategic", "copywriter_senior"] as const;
+    const [{ data: defaultRows, error: defErr }, { data: ovRows, error: ovErr }] =
+      await Promise.all([
+        supabase
+          .from("agent_prompts")
+          .select("agent_id, system_prompt")
+          .in("agent_id", AGENT_IDS as unknown as string[]),
+        supabase
+          .from("agent_prompt_overrides")
+          .select("agent_id, system_prompt")
+          .eq("brand_id", input.brandId)
+          .in("agent_id", AGENT_IDS as unknown as string[]),
+      ]);
+    if (defErr) throw defErr;
+    if (ovErr) throw ovErr;
+    const prompts = new Map<string, string>();
+    for (const r of defaultRows ?? []) prompts.set(r.agent_id, r.system_prompt);
+    for (const r of ovRows ?? []) prompts.set(r.agent_id, r.system_prompt); // override wins
     const plannerPrompt = prompts.get("planner_strategic");
     const copyPrompt = prompts.get("copywriter_senior");
     if (!plannerPrompt || !copyPrompt) {

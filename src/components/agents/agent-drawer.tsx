@@ -86,7 +86,10 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
   const resolved: ResolvedVariableMap = resolvedQuery.data ?? {};
 
   const vars = useMemo(
-    () => (agent ? extractPromptVariables(editing ? draftPrompt : agent.system_prompt) : []),
+    () =>
+      agent
+        ? extractPromptVariables(editing ? draftPrompt : agent.override_prompt ?? "")
+        : [],
     [agent, editing, draftPrompt],
   );
 
@@ -94,18 +97,20 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
     setTestOutput(null);
     setTestInput("");
     setEditing(false);
-    setDraftPrompt(agent?.system_prompt ?? "");
+    setDraftPrompt(agent?.override_prompt ?? "");
     setOverrides({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!agent) return;
-      await updateFn({ data: { agentId: agent.agent_id, systemPrompt: draftPrompt } });
+      if (!agent || !brandId) return;
+      await updateFn({
+        data: { brandId, agentId: agent.agent_id, systemPrompt: draftPrompt },
+      });
     },
     onSuccess: () => {
-      toast.success("Prompt atualizado.");
+      toast.success("Prompt customizado salvo para esta marca.");
       setEditing(false);
       qc.invalidateQueries({ queryKey: ["agent-prompts"] });
     },
@@ -114,12 +119,12 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
 
   const resetMutation = useMutation({
     mutationFn: async () => {
-      if (!agent) return null;
-      return await resetFn({ data: { agentId: agent.agent_id } });
+      if (!agent || !brandId) return null;
+      return await resetFn({ data: { brandId, agentId: agent.agent_id } });
     },
-    onSuccess: (res) => {
-      if (res?.systemPrompt) setDraftPrompt(res.systemPrompt);
-      toast.success("Prompt restaurado ao padrão original.");
+    onSuccess: () => {
+      setDraftPrompt("");
+      toast.success("Prompt customizado removido. O agente voltou ao padrão privado da Unitos.");
       setEditing(false);
       qc.invalidateQueries({ queryKey: ["agent-prompts"] });
     },
@@ -128,7 +133,7 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
 
   const runMutation = useMutation({
     mutationFn: async () => {
-      if (!agent) return null;
+      if (!agent || !brandId) return null;
       const values: Record<string, string> = {};
       for (const key of vars) {
         if (overrides[key]) values[key] = overrides[key];
@@ -136,6 +141,7 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
       }
       return await runFn({
         data: {
+          brandId,
           agentId: agent.agent_id,
           userInput: testInput,
           variables: values,
@@ -158,8 +164,9 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
   if (!agent) return null;
   const meta = getAgentMeta(agent.agent_id, agent.agent_name);
   const Icon = meta.icon;
-  const isDirty = draftPrompt !== agent.system_prompt;
-  const isCustomized = agent.system_prompt !== agent.default_prompt;
+  const currentPrompt = agent.override_prompt ?? "";
+  const isDirty = draftPrompt !== currentPrompt;
+  const isCustomized = agent.has_override;
   const testing = runMutation.isPending;
   const unresolvedCount = vars.filter(
     (v) =>
@@ -240,10 +247,14 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
             <div className="flex h-full flex-col">
               <div className="mb-2 flex items-center justify-between gap-2">
                 <Label className="text-xs text-muted-foreground">
-                  System prompt · variáveis em <code>{"{{VAR}}"}</code> são destacadas
-                  {isCustomized && (
+                  Prompt customizado da marca · variáveis em <code>{"{{VAR}}"}</code> são destacadas
+                  {isCustomized ? (
+                    <Badge variant="outline" className="ml-2 h-5 rounded-md px-1.5 text-[10px] border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300">
+                      ativo
+                    </Badge>
+                  ) : (
                     <Badge variant="outline" className="ml-2 h-5 rounded-md px-1.5 text-[10px]">
-                      customizado
+                      usando padrão privado
                     </Badge>
                   )}
                 </Label>
@@ -255,7 +266,7 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
                         variant="ghost"
                         className="h-7 gap-1.5 text-xs"
                         onClick={() => {
-                          setDraftPrompt(agent.system_prompt);
+                          setDraftPrompt(currentPrompt);
                           setEditing(false);
                         }}
                       >
@@ -284,28 +295,29 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
                             variant="ghost"
                             className="h-7 gap-1.5 text-xs"
                             disabled={!isCustomized || resetMutation.isPending}
-                            title={isCustomized ? "Restaurar prompt original" : "Já está no padrão"}
+                            title={isCustomized ? "Remover prompt customizado" : "Sem prompt customizado"}
                           >
                             {resetMutation.isPending ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" />
                             ) : (
                               <RotateCcw className="h-3.5 w-3.5" />
                             )}
-                            Restaurar padrão
+                            Remover customização
                           </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Restaurar prompt original?</AlertDialogTitle>
+                            <AlertDialogTitle>Remover prompt customizado?</AlertDialogTitle>
                             <AlertDialogDescription>
-                              Isto descarta as customizações e volta ao prompt seed do agente{" "}
-                              <strong>{toTitleCase(agent.agent_name)}</strong>. A ação não pode ser desfeita.
+                              O prompt customizado desta marca para o agente{" "}
+                              <strong>{toTitleCase(agent.agent_name)}</strong> será apagado.
+                              O agente voltará a usar o prompt padrão privado da Unitos.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
                             <AlertDialogAction onClick={() => resetMutation.mutate()}>
-                              Restaurar
+                              Remover
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
@@ -316,7 +328,7 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
                         className="h-7 gap-1.5 text-xs"
                         onClick={() => setEditing(true)}
                       >
-                        <Pencil className="h-3.5 w-3.5" /> Editar
+                        <Pencil className="h-3.5 w-3.5" /> {isCustomized ? "Editar" : "Criar prompt"}
                       </Button>
                     </>
                   )}
@@ -326,13 +338,28 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
                 <Textarea
                   value={draftPrompt}
                   onChange={(e) => setDraftPrompt(e.target.value)}
+                  placeholder="Escreva o system prompt desta marca usando variáveis como {{BRAND_NAME}}, {{BRAND_TONE}}, {{PERSONA}}…"
                   className="flex-1 resize-none rounded-md border bg-muted/40 font-mono text-xs leading-relaxed"
                 />
               ) : (
                 <ScrollArea className="flex-1 rounded-md border bg-muted/40">
-                  <pre className="whitespace-pre-wrap p-4 font-mono text-xs leading-relaxed">
-                    {highlightVars(agent.system_prompt)}
-                  </pre>
+                  {currentPrompt ? (
+                    <pre className="whitespace-pre-wrap p-4 font-mono text-xs leading-relaxed">
+                      {highlightVars(currentPrompt)}
+                    </pre>
+                  ) : (
+                    <div className="space-y-2 p-4 text-xs leading-relaxed text-muted-foreground">
+                      <p>
+                        Este agente está usando o <strong>prompt padrão privado da Unitos</strong>,
+                        que não é exibido por questões de propriedade intelectual.
+                      </p>
+                      <p>
+                        Você pode criar um prompt totalmente customizado para esta marca —
+                        ele terá prioridade sobre o padrão em toda execução do agente
+                        (playground, planejamento e pipelines).
+                      </p>
+                    </div>
+                  )}
                 </ScrollArea>
               )}
             </div>
