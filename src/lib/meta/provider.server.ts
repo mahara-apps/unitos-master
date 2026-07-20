@@ -22,11 +22,29 @@ export const META_DEFAULT_SCOPES = [
   // "threads_content_publish",
   // Meta Ads
   "ads_read",
-  // Business Manager — necessário para enumerar Páginas geridas via Business
-  // Portfolio (dono ou cliente). Sem isso, /me/accounts só devolve Páginas
-  // que o usuário administra diretamente pelo perfil pessoal.
-  "business_management",
 ];
+
+export const META_BUSINESS_PORTFOLIO_SCOPE = "business_management";
+
+export function getMetaScopesForChannel(channel?: MetaChannel | null): string[] {
+  if (channel === "instagram") {
+    return [
+      "pages_show_list",
+      "pages_read_engagement",
+      "pages_manage_posts",
+      "instagram_basic",
+      "instagram_manage_insights",
+      "instagram_content_publish",
+    ];
+  }
+  if (channel === "facebook") {
+    return ["pages_show_list", "pages_read_engagement", "pages_manage_posts"];
+  }
+  if (channel === "ads") {
+    return ["ads_read", META_BUSINESS_PORTFOLIO_SCOPE];
+  }
+  return META_DEFAULT_SCOPES;
+}
 
 export type MetaPageAsset = {
   pageId: string;
@@ -119,16 +137,22 @@ export class MetaProvider {
     display?: "page" | "popup";
     /** auth_type=rerequest re-prompts for previously declined scopes. */
     authType?: "rerequest" | "reauthenticate";
+    /** Instagram onboarding uses Meta's setup extras for the Business flow. */
+    extras?: Record<string, unknown>;
+    /** Optional Facebook Login for Business configuration ID. */
+    configId?: string | null;
   }): string {
     const scopes = (params.scopes ?? META_DEFAULT_SCOPES).join(",");
     const url = new URL(OAUTH_DIALOG);
     url.searchParams.set("client_id", this.appId);
     url.searchParams.set("redirect_uri", this.redirectUri);
     url.searchParams.set("state", params.state);
-    url.searchParams.set("scope", scopes);
+    if (params.configId) url.searchParams.set("config_id", params.configId);
+    else url.searchParams.set("scope", scopes);
     url.searchParams.set("response_type", "code");
     if (params.display) url.searchParams.set("display", params.display);
     if (params.authType) url.searchParams.set("auth_type", params.authType);
+    if (params.extras) url.searchParams.set("extras", JSON.stringify(params.extras));
     return url.toString();
   }
 

@@ -22,7 +22,9 @@ export const Route = createFileRoute("/api/public/meta/callback")({
           url.searchParams.get("error_description") ||
           url.searchParams.get("error");
 
-        if (errorReason) return htmlResult({ ok: false, error: errorReason });
+        if (errorReason) {
+          return htmlResult({ ok: false, error: metaOAuthErrorMessage(errorReason) });
+        }
         if (!code || !stateToken)
           return htmlResult({ ok: false, error: "Missing code or state" });
 
@@ -49,7 +51,8 @@ export const Route = createFileRoute("/api/public/meta/callback")({
 
         try {
           const provider = new MetaProvider();
-          const { META_DEFAULT_SCOPES } = await import("@/lib/meta/provider.server");
+          const { getMetaScopesForChannel } = await import("@/lib/meta/provider.server");
+          const requestedScopes = getMetaScopesForChannel(state.channel ?? null);
 
           // 2) code -> short-lived -> long-lived user token
           const shortLived = await provider.exchangeCode(code);
@@ -87,7 +90,7 @@ export const Route = createFileRoute("/api/public/meta/callback")({
             });
           }
 
-          const missingScopes = META_DEFAULT_SCOPES.filter(
+          const missingScopes = requestedScopes.filter(
             (s) => !grantedScopes.includes(s),
           );
 
@@ -106,7 +109,7 @@ export const Route = createFileRoute("/api/public/meta/callback")({
               user_token_ciphertext: userTokenCiphertext,
               user_token_expires_at: longLived.expiresAt?.toISOString() ?? null,
               scopes: grantedScopes,
-              requested_scopes: META_DEFAULT_SCOPES,
+              requested_scopes: requestedScopes,
               pages: pages as unknown as import("@/integrations/supabase/types").Json,
               threads_accounts: threadsAccounts as unknown as import("@/integrations/supabase/types").Json,
               ad_accounts: adAccounts as unknown as import("@/integrations/supabase/types").Json,
@@ -215,6 +218,17 @@ function escapeHtml(s: string): string {
 }
 function escapeAttr(s: string): string {
   return escapeHtml(s).replace(/'/g, "&#39;");
+}
+
+function metaOAuthErrorMessage(raw: string): string {
+  const value = raw.toLowerCase();
+  if (value.includes("user_denied") || value.includes("access_denied")) {
+    return "Autorização cancelada na Meta. Para concluir, refaça o login e mantenha as permissões do canal selecionadas.";
+  }
+  if (value.includes("permissions")) {
+    return "A Meta recusou uma ou mais permissões necessárias. Refaça o login e mantenha as permissões do canal selecionadas.";
+  }
+  return raw;
 }
 
 function appendSessionParam(target: string, sessionId: string, channel: string | null): string {

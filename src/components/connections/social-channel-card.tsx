@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -66,6 +66,23 @@ export type SocialChannelDef = {
 };
 
 type Kind = "meta" | "manual";
+type MetaConnectChannel = "facebook" | "instagram" | "threads";
+
+function metaChannelFromId(id: SocialChannelDef["id"]): MetaConnectChannel | undefined {
+  return id === "instagram" || id === "facebook" || id === "threads" ? id : undefined;
+}
+
+function metaPopupFeatures(): string {
+  const width = 760;
+  const height = 820;
+  const left = Math.max(0, Math.round(window.screenX + (window.outerWidth - width) / 2));
+  const top = Math.max(0, Math.round(window.screenY + (window.outerHeight - height) / 2));
+  return `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`;
+}
+
+function metaStuckMessage(): string {
+  return "A conexão da Meta não foi concluída. Se a janela ficou em branco ou em /business/cancel, tente novamente mantendo as permissões do canal selecionadas.";
+}
 
 function fmtSync(iso: string | null | undefined): string {
   if (!iso) return "nunca";
@@ -362,6 +379,7 @@ function ConnectButton({
   const startFn = useServerFn(startMetaOAuth);
   const [connecting, setConnecting] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false);
+  const oauthCompletedRef = useRef(false);
 
   // Listen for Meta OAuth popup postMessage.
   useEffect(() => {
@@ -369,6 +387,7 @@ function ConnectButton({
     function onMsg(ev: MessageEvent) {
       const d = ev.data as { source?: string; ok?: boolean; error?: string; message?: string };
       if (!d || d.source !== "meta-oauth") return;
+      oauthCompletedRef.current = true;
       setConnecting(false);
       if (d.ok) {
         toast.success(d.message ?? "Meta conectada");
@@ -383,13 +402,11 @@ function ConnectButton({
   }, [kind, brandId, qc, onChanged]);
 
   async function handleMetaConnect() {
-    const popup = window.open("", "meta-oauth", "width=640,height=760");
+    oauthCompletedRef.current = false;
+    const popup = window.open("", "meta-oauth", metaPopupFeatures());
     setConnecting(true);
     try {
-      const metaChannel =
-        channel.id === "instagram" || channel.id === "facebook" || channel.id === "threads"
-          ? channel.id
-          : undefined;
+      const metaChannel = metaChannelFromId(channel.id);
       const { authorizeUrl } = await startFn({
         data: { brandId, ...(metaChannel ? { channel: metaChannel } : {}) },
       });
@@ -398,11 +415,33 @@ function ConnectButton({
       // Detect popup closed without completing OAuth so the button doesn't
       // stay stuck on "Conectando…" forever.
       if (popup) {
+        const startedAt = Date.now();
         const timer = window.setInterval(() => {
+          if (oauthCompletedRef.current) {
+            window.clearInterval(timer);
+            return;
+          }
           if (popup.closed) {
             window.clearInterval(timer);
             setConnecting((prev) => {
-              if (prev) toast.message("Conexão cancelada");
+              if (prev && !oauthCompletedRef.current) {
+                toast.error(metaStuckMessage(), { duration: 9000 });
+              }
+              return false;
+            });
+            return;
+          }
+          if (Date.now() - startedAt > 120_000) {
+            window.clearInterval(timer);
+            try {
+              popup.close();
+            } catch {
+              /* noop */
+            }
+            setConnecting((prev) => {
+              if (prev && !oauthCompletedRef.current) {
+                toast.error(metaStuckMessage(), { duration: 9000 });
+              }
               return false;
             });
           }
@@ -604,17 +643,39 @@ function ManageSheet({
 
   const startOAuthFn = useServerFn(startMetaOAuth);
   async function handleAddMeta() {
-    const popup = window.open("", "meta-oauth", "width=640,height=760");
+    const popup = window.open("", "meta-oauth", metaPopupFeatures());
+    let completed = false;
+    let timeoutId: number | undefined;
+    function onOAuthMessage(ev: MessageEvent) {
+      const d = ev.data as { source?: string };
+      if (d?.source !== "meta-oauth") return;
+      completed = true;
+      if (timeoutId) window.clearTimeout(timeoutId);
+      window.removeEventListener("message", onOAuthMessage);
+    }
+    window.addEventListener("message", onOAuthMessage);
+    if (popup) {
+      timeoutId = window.setTimeout(() => {
+        window.removeEventListener("message", onOAuthMessage);
+        if (completed || popup.closed) return;
+        try {
+          popup.close();
+        } catch {
+          /* noop */
+        }
+        toast.error(metaStuckMessage(), { duration: 9000 });
+      }, 120_000);
+    }
     try {
-      const metaChannel =
-        channel.id === "instagram" || channel.id === "facebook" || channel.id === "threads"
-          ? channel.id
-          : undefined;
+      const metaChannel = metaChannelFromId(channel.id);
       const { authorizeUrl } = await startOAuthFn({
         data: { brandId, ...(metaChannel ? { channel: metaChannel } : {}) },
       });
       if (popup) popup.location.href = authorizeUrl;
+      else window.location.href = authorizeUrl;
     } catch (e) {
+      if (timeoutId) window.clearTimeout(timeoutId);
+      window.removeEventListener("message", onOAuthMessage);
       popup?.close();
       toast.error(e instanceof Error ? e.message : "Falha ao iniciar OAuth");
     }
