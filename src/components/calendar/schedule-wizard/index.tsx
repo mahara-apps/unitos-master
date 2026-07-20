@@ -297,6 +297,7 @@ export function ScheduleWizard({
 
           {step === "editor" ? (
             <StepEditor
+              brandId={brandId}
               title={title}
               copy={copy}
               captionLimit={captionLimit}
@@ -315,6 +316,15 @@ export function ScheduleWizard({
               hasPairs={pairs.length > 0}
               onTitle={setTitle}
               onCopy={setCopy}
+              onUploaded={(assets) => {
+                setSelectedMedia((prev) => {
+                  const merged = [...prev];
+                  for (const a of assets) {
+                    if (!merged.find((x) => x.id === a.id)) merged.push(a);
+                  }
+                  return merged;
+                });
+              }}
               onToggleMedia={(m) => {
                 setSelectedMedia((prev) =>
                   prev.find((x) => x.id === m.id)
