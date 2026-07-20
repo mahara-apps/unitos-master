@@ -48,7 +48,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { ContextSwitcher } from "./brand-client-switcher";
-import { CustomerAvatar } from "@/components/customer/customer-avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -210,20 +209,18 @@ export function AppSidebar() {
                             className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-lime group-data-[collapsible=icon]:hidden"
                           />
                         ) : null}
-                        <CustomerAvatar
-                          name={activeClient.name}
-                          logoUrl={activeClient.logo_url ?? null}
-                          className="h-[19px] w-[19px] shrink-0 rounded-md"
-                          textClassName="text-[9px]"
+                        <UserIcon
+                          className="h-[19px] w-[19px] shrink-0"
+                          strokeWidth={isActive(`/customers/${activeClient.id}`) ? 2 : 1.8}
                         />
                         <span
                           className={
                             isActive(`/customers/${activeClient.id}`)
-                              ? "truncate font-semibold"
-                              : "truncate font-medium"
+                              ? "font-semibold"
+                              : "font-medium"
                           }
                         >
-                          {activeClient.name}
+                          Perfil
                         </span>
                       </Link>
                     </SidebarMenuButton>
