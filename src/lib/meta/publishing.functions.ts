@@ -38,10 +38,17 @@ const ScheduleSchema = BasePublishSchema.extend({
     }),
 });
 
-async function loadConnection(supabase: any, brandId: string, connectionId: string) {
+async function loadConnection(
+  supabase: any,
+  brandId: string,
+  connectionId: string,
+  clientId?: string | null,
+) {
   const { data, error } = await supabase
     .from("social_connections")
-    .select("id, brand_id, provider, external_id, account_id, access_token_ciphertext, status")
+    .select(
+      "id, brand_id, client_id, provider, external_id, account_id, access_token_ciphertext, status",
+    )
     .eq("id", connectionId)
     .eq("brand_id", brandId)
     .maybeSingle();
@@ -51,6 +58,14 @@ async function loadConnection(supabase: any, brandId: string, connectionId: stri
     throw new Error("Conexão não é da Meta");
   if (!data.access_token_ciphertext)
     throw new Error("Conexão sem token — reconecte a página");
+  // Isolamento por cliente: se o post é de um cliente específico, a conexão
+  // precisa ou ser da mesma conta desse cliente, ou institucional (client_id
+  // NULL — ex.: blog da agência). Nunca "primeira conexão da marca".
+  if (clientId && data.client_id && data.client_id !== clientId) {
+    throw new Error(
+      "A conexão selecionada não pertence a este cliente. Escolha uma conta do cliente ou reconecte em /connections.",
+    );
+  }
   return data;
 }
 
@@ -61,7 +76,12 @@ export const publishNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => PublishNowSchema.parse(i))
   .handler(async ({ data, context }) => {
-    const conn = await loadConnection(context.supabase, data.brandId, data.connectionId);
+    const conn = await loadConnection(
+      context.supabase,
+      data.brandId,
+      data.connectionId,
+      data.clientId ?? null,
+    );
 
     // Insert a row in publishing state first so we always have a paper trail.
     const { data: row, error: insErr } = await context.supabase
@@ -128,7 +148,12 @@ export const schedulePost = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => ScheduleSchema.parse(i))
   .handler(async ({ data, context }) => {
-    const conn = await loadConnection(context.supabase, data.brandId, data.connectionId);
+    const conn = await loadConnection(
+      context.supabase,
+      data.brandId,
+      data.connectionId,
+      data.clientId ?? null,
+    );
     // Placement is already narrowed by the Zod enum above.
 
     const { data: row, error } = await context.supabase
