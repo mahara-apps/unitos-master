@@ -423,6 +423,16 @@ function ConnectionsPage() {
     <DashboardPageShell>
       <ConnectionsHeaderRegister />
 
+      <MetaPortfolioDialog
+        brandId={brandId}
+        sessionId={portfolioSessionId}
+        open={portfolioOpen}
+        onOpenChange={(v) => {
+          setPortfolioOpen(v);
+          if (!v) qc.invalidateQueries({ queryKey: ["meta-connections", brandId] });
+        }}
+      />
+
       <Tabs defaultValue="channels" className="space-y-4">
         <TabsList variant="bordered">
           <TabsTrigger value="channels">
