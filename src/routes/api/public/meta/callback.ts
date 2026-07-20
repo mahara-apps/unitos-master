@@ -172,7 +172,8 @@ function htmlResult(result: {
       ${result.missingScopes && result.missingScopes.length > 0
         ? `window.opener.postMessage(${JSON.stringify({ source: "meta-oauth", type: "missing-scopes", scopes: result.missingScopes })}, "*");`
         : ""}
-      setTimeout(() => window.close(), 400);
+      window.close();
+      setTimeout(() => window.close(), 100);
     } else {
       setTimeout(() => { window.location.href = ${JSON.stringify(target)}; }, 1500);
     }
