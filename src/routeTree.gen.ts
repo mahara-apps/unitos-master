@@ -47,6 +47,7 @@ import { Route as ApiJobsAnalyzeDocumentRouteImport } from './routes/api/jobs/an
 import { Route as ApiChatStreamRouteImport } from './routes/api/chat.stream'
 import { Route as AuthenticatedSuperAdminFeaturesRouteImport } from './routes/_authenticated/super-admin.features'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
+import { Route as AuthenticatedSettingsSlaRouteImport } from './routes/_authenticated/settings.sla'
 import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_authenticated/settings.profile'
 import { Route as AuthenticatedSettingsPermissionsRouteImport } from './routes/_authenticated/settings.permissions'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings.notifications'
@@ -269,6 +270,12 @@ const AuthenticatedSettingsTeamRoute =
     path: '/team',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsSlaRoute =
+  AuthenticatedSettingsSlaRouteImport.update({
+    id: '/sla',
+    path: '/sla',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsProfileRoute =
   AuthenticatedSettingsProfileRouteImport.update({
     id: '/profile',
@@ -443,6 +450,7 @@ export interface FileRoutesByFullPath {
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
+  '/settings/sla': typeof AuthenticatedSettingsSlaRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
@@ -502,6 +510,7 @@ export interface FileRoutesByTo {
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
+  '/settings/sla': typeof AuthenticatedSettingsSlaRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
@@ -567,6 +576,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
   '/_authenticated/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
   '/_authenticated/settings/profile': typeof AuthenticatedSettingsProfileRoute
+  '/_authenticated/settings/sla': typeof AuthenticatedSettingsSlaRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/_authenticated/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
@@ -632,6 +642,7 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/settings/permissions'
     | '/settings/profile'
+    | '/settings/sla'
     | '/settings/team'
     | '/super-admin/features'
     | '/api/chat/stream'
@@ -691,6 +702,7 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/settings/permissions'
     | '/settings/profile'
+    | '/settings/sla'
     | '/settings/team'
     | '/super-admin/features'
     | '/api/chat/stream'
@@ -755,6 +767,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/notifications'
     | '/_authenticated/settings/permissions'
     | '/_authenticated/settings/profile'
+    | '/_authenticated/settings/sla'
     | '/_authenticated/settings/team'
     | '/_authenticated/super-admin/features'
     | '/api/chat/stream'
@@ -1082,6 +1095,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsTeamRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/settings/sla': {
+      id: '/_authenticated/settings/sla'
+      path: '/sla'
+      fullPath: '/settings/sla'
+      preLoaderRoute: typeof AuthenticatedSettingsSlaRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/profile': {
       id: '/_authenticated/settings/profile'
       path: '/profile'
@@ -1340,6 +1360,7 @@ interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
   AuthenticatedSettingsPermissionsRoute: typeof AuthenticatedSettingsPermissionsRoute
   AuthenticatedSettingsProfileRoute: typeof AuthenticatedSettingsProfileRoute
+  AuthenticatedSettingsSlaRoute: typeof AuthenticatedSettingsSlaRoute
   AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
 }
@@ -1353,6 +1374,7 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
     AuthenticatedSettingsNotificationsRoute,
   AuthenticatedSettingsPermissionsRoute: AuthenticatedSettingsPermissionsRoute,
   AuthenticatedSettingsProfileRoute: AuthenticatedSettingsProfileRoute,
+  AuthenticatedSettingsSlaRoute: AuthenticatedSettingsSlaRoute,
   AuthenticatedSettingsTeamRoute: AuthenticatedSettingsTeamRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
 }
