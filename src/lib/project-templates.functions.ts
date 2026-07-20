@@ -73,7 +73,7 @@ export const instantiateTemplateFn = createServerFn({ method: "POST" })
       {
         _template_id: data.templateId,
         _brand_id: data.brandId,
-        _client_id: data.clientId ?? null,
+        _client_id: (data.clientId ?? null) as string,
         _project_name: data.projectName,
       },
     );
