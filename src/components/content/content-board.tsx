@@ -419,18 +419,6 @@ function Column({
           <Badge variant="secondary" className="h-5 shrink-0 rounded-md border border-border/60 bg-background/60 px-1.5 text-xs font-normal tabular-nums">
             {posts.length}
           </Badge>
-          {stage.sla_days ? (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <DashboardMutedPill className="h-5 px-1.5 py-0 text-[10px]">
-                    <Clock className="h-2.5 w-2.5" /> {stage.sla_days}d
-                  </DashboardMutedPill>
-                </TooltipTrigger>
-                <TooltipContent>SLA: {stage.sla_days} dias</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : null}
         {(() => {
           const overdueCount = posts.filter((p) => p.is_overdue).length;
           return overdueCount > 0 ? (
@@ -455,13 +443,6 @@ function Column({
               active={sort?.by === "created"}
               dir={sort?.by === "created" ? sort.dir : null}
               onClick={() => onCycleSort("created")}
-            />
-            <SortChip
-              label="Postagem"
-              icon={<CalendarClock className="h-3 w-3" />}
-              active={sort?.by === "scheduled"}
-              dir={sort?.by === "scheduled" ? sort.dir : null}
-              onClick={() => onCycleSort("scheduled")}
             />
           </div>
         ) : null}
