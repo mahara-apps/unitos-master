@@ -66,9 +66,25 @@ const GetInput = z.object({
    * without a channel context).
    */
   channel: z.enum(["facebook", "instagram", "threads", "ads"]).optional(),
-  /** Force a re-scan even if cached portfolio exists on the session. */
+  /**
+   * Force a re-scan even if cached portfolio exists on the session.
+   * Only set by the explicit "Sincronizar novamente" button in the UI —
+   * default flow is cache-first from `meta_oauth_sessions` to avoid
+   * hammering the Graph API and hitting Meta's rate limits.
+   */
   refresh: z.boolean().optional(),
 });
+
+/** Meta rate-limit error codes (Graph API + Business Manager). */
+const META_RATE_LIMIT_CODES = new Set([4, 17, 32, 613]);
+const RATE_LIMIT_PREFIX = "RATE_LIMIT:";
+function isMetaRateLimit(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as { status?: number; graph?: { code?: number } };
+  if (e.status === 429) return true;
+  if (e.graph?.code && META_RATE_LIMIT_CODES.has(e.graph.code)) return true;
+  return false;
+}
 
 export const getMetaPortfolio = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -188,6 +204,11 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
         if (upErr) console.error("[getMetaPortfolio] cache write failed", upErr);
       } catch (err) {
         console.error("[getMetaPortfolio] Graph API failure", err);
+        if (isMetaRateLimit(err)) {
+          throw new Error(
+            `${RATE_LIMIT_PREFIX} Limite de requisições da Meta atingido. Aguarde alguns minutos antes de tentar novamente.`,
+          );
+        }
         if (err instanceof MetaGraphError) throw new Error(`Meta: ${err.message}`);
         if (err instanceof Error) throw err;
         throw new Error("Falha ao consultar a Graph API da Meta.");
