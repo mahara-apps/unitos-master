@@ -3674,6 +3674,11 @@ export type Database = {
           meta_user_id: string
           meta_user_name: string | null
           pages: Json
+          portfolio_error: string | null
+          portfolio_load_status: string
+          portfolio_loaded_at: string | null
+          portfolio_rate_limited_until: string | null
+          portfolio_source_session_id: string | null
           requested_scopes: string[]
           scopes: string[]
           threads_accounts: Json
@@ -3692,6 +3697,11 @@ export type Database = {
           meta_user_id: string
           meta_user_name?: string | null
           pages?: Json
+          portfolio_error?: string | null
+          portfolio_load_status?: string
+          portfolio_loaded_at?: string | null
+          portfolio_rate_limited_until?: string | null
+          portfolio_source_session_id?: string | null
           requested_scopes?: string[]
           scopes?: string[]
           threads_accounts?: Json
@@ -3710,6 +3720,11 @@ export type Database = {
           meta_user_id?: string
           meta_user_name?: string | null
           pages?: Json
+          portfolio_error?: string | null
+          portfolio_load_status?: string
+          portfolio_loaded_at?: string | null
+          portfolio_rate_limited_until?: string | null
+          portfolio_source_session_id?: string | null
           requested_scopes?: string[]
           scopes?: string[]
           threads_accounts?: Json
@@ -3730,6 +3745,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meta_oauth_sessions_portfolio_source_session_id_fkey"
+            columns: ["portfolio_source_session_id"]
+            isOneToOne: false
+            referencedRelation: "meta_oauth_sessions"
             referencedColumns: ["id"]
           },
         ]

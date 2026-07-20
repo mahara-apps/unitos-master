@@ -39,6 +39,10 @@ export type PortfolioAdAccount = {
 export type PortfolioResponse = {
   sessionId: string;
   metaUser: { id: string; name: string | null; email: string | null };
+  portfolioStatus: "not_loaded" | "loaded" | "empty" | "error" | "rate_limited";
+  portfolioLoadedAt: string | null;
+  portfolioError: string | null;
+  portfolioRateLimitedUntil: string | null;
   scopes: string[];
   requestedScopes: string[];
   missingScopes: string[];
@@ -93,7 +97,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
     const { data: session, error } = await context.supabase
       .from("meta_oauth_sessions")
       .select(
-        "id, brand_id, meta_user_id, meta_user_name, meta_user_email, scopes, requested_scopes, pages, threads_accounts, ad_accounts, user_token_ciphertext, expires_at",
+        "id, brand_id, meta_user_id, meta_user_name, meta_user_email, scopes, requested_scopes, pages, threads_accounts, ad_accounts, user_token_ciphertext, expires_at, portfolio_loaded_at, portfolio_load_status, portfolio_error, portfolio_rate_limited_until",
       )
       .eq("id", data.sessionId)
       .eq("brand_id", data.brandId)
@@ -104,9 +108,26 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
       throw new Error("Sessão da Meta expirou. Refaça o login.");
     }
 
-    // Lazy scan: if the channel's cache is empty (or refresh requested), hit
-    // the Graph API now using the stored user token and persist results back
-    // to the session row so subsequent opens of the dialog are free.
+    const sessionState = session as typeof session & {
+      portfolio_loaded_at?: string | null;
+      portfolio_load_status?:
+        | "not_loaded"
+        | "loaded"
+        | "empty"
+        | "error"
+        | "rate_limited"
+        | null;
+      portfolio_error?: string | null;
+      portfolio_rate_limited_until?: string | null;
+    };
+    let portfolioStatus = sessionState.portfolio_load_status ?? "not_loaded";
+    let portfolioLoadedAt = sessionState.portfolio_loaded_at ?? null;
+    let portfolioError = sessionState.portfolio_error ?? null;
+    let portfolioRateLimitedUntil = sessionState.portfolio_rate_limited_until ?? null;
+
+    // Cache-first by default. Opening the dialog must never trigger a Meta
+    // Graph scan; the scan only happens when the user explicitly clicks
+    // "Sincronizar" and sends refresh=true.
     let cachedPages =
       (session.pages as unknown as Array<PortfolioPage & { pageAccessToken?: string }>) ?? [];
     let cachedThreads =
@@ -119,15 +140,26 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
     const ch = data.channel ?? null;
     const needPages =
       (ch === null || ch === "facebook" || ch === "instagram" || ch === "threads") &&
-      (data.refresh || cachedPages.length === 0);
+      data.refresh;
     const needThreads =
       (ch === null || ch === "threads") &&
-      (data.refresh || cachedThreads.length === 0);
+      data.refresh;
     const needAds =
       (ch === null || ch === "ads") &&
-      (data.refresh || cachedAds.length === 0);
+      data.refresh;
 
     if (needPages || needThreads || needAds) {
+      if (
+        sessionState.portfolio_rate_limited_until &&
+        new Date(sessionState.portfolio_rate_limited_until).getTime() > Date.now()
+      ) {
+        throw new Error(
+          `${RATE_LIMIT_PREFIX} Limite de requisições da Meta atingido. Tente novamente após ${new Date(
+            sessionState.portfolio_rate_limited_until,
+          ).toLocaleString("pt-BR")}.`,
+        );
+      }
+
       const { decryptCredential } = await import("@/lib/credentials-crypto.server");
       const { MetaProvider, MetaGraphError } = await import("./provider.server");
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -193,24 +225,73 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
           console.log("[getMetaPortfolio] ad accounts fetched", cachedAds.length);
         }
 
+        const loadedCount =
+          ch === "instagram"
+            ? cachedPages.filter((p) => !!p.instagramBusinessId).length
+            : ch === "facebook"
+              ? cachedPages.length
+              : ch === "threads"
+                ? cachedThreads.length
+                : ch === "ads"
+                  ? cachedAds.length
+                  : cachedPages.length + cachedThreads.length + cachedAds.length;
+
+        const loadedAt = nowIso();
+        const nextStatus = loadedCount > 0 ? "loaded" : "empty";
         const { error: upErr } = await supabaseAdmin
           .from("meta_oauth_sessions")
           .update({
             pages: cachedPages as unknown as import("@/integrations/supabase/types").Json,
             threads_accounts: cachedThreads as unknown as import("@/integrations/supabase/types").Json,
             ad_accounts: cachedAds as unknown as import("@/integrations/supabase/types").Json,
+            portfolio_loaded_at: loadedAt,
+            portfolio_load_status: nextStatus,
+            portfolio_error: null,
+            portfolio_rate_limited_until: null,
           })
           .eq("id", session.id);
         if (upErr) console.error("[getMetaPortfolio] cache write failed", upErr);
+        portfolioStatus = nextStatus;
+        portfolioLoadedAt = loadedAt;
+        portfolioError = null;
+        portfolioRateLimitedUntil = null;
       } catch (err) {
         console.error("[getMetaPortfolio] Graph API failure", err);
+        const updateErrorStatus = async (
+          status: "error" | "rate_limited",
+          message: string,
+          until: string | null = null,
+        ) => {
+          const { error: statusErr } = await supabaseAdmin
+            .from("meta_oauth_sessions")
+            .update({
+              portfolio_load_status: status,
+              portfolio_error: message,
+              portfolio_rate_limited_until: until,
+            })
+            .eq("id", session.id);
+          if (statusErr) console.error("[getMetaPortfolio] status write failed", statusErr);
+        };
         if (isMetaRateLimit(err)) {
+          const until = new Date(Date.now() + 15 * 60_000).toISOString();
+          await updateErrorStatus(
+            "rate_limited",
+            "Limite de requisições da Meta atingido.",
+            until,
+          );
           throw new Error(
             `${RATE_LIMIT_PREFIX} Limite de requisições da Meta atingido. Aguarde alguns minutos antes de tentar novamente.`,
           );
         }
-        if (err instanceof MetaGraphError) throw new Error(`Meta: ${err.message}`);
-        if (err instanceof Error) throw err;
+        if (err instanceof MetaGraphError) {
+          await updateErrorStatus("error", err.message);
+          throw new Error(`Meta: ${err.message}`);
+        }
+        if (err instanceof Error) {
+          await updateErrorStatus("error", err.message);
+          throw err;
+        }
+        await updateErrorStatus("error", "Falha ao consultar a Graph API da Meta.");
         throw new Error("Falha ao consultar a Graph API da Meta.");
       }
     }
@@ -281,6 +362,10 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
         name: session.meta_user_name ?? null,
         email: session.meta_user_email ?? null,
       },
+      portfolioStatus,
+      portfolioLoadedAt,
+      portfolioError,
+      portfolioRateLimitedUntil,
       scopes: grantedScopes,
       requestedScopes,
       missingScopes,
@@ -298,6 +383,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
 const LinkInput = z.object({
   brandId: z.string().uuid(),
   sessionId: z.string().uuid(),
+  clientId: z.string().uuid().optional(),
   /** Page ID (facebook/instagram), Threads user id, or ad account id */
   targetId: z.string().min(1),
   channel: z.enum(["facebook", "instagram", "threads", "ads"]),
@@ -319,6 +405,17 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
     if (!session) throw new Error("Sessão da Meta não encontrada.");
     if (new Date(session.expires_at).getTime() < Date.now()) {
       throw new Error("Sessão da Meta expirou. Refaça o login.");
+    }
+
+    if (data.clientId) {
+      const { data: client, error: clientErr } = await context.supabase
+        .from("clients")
+        .select("id")
+        .eq("id", data.clientId)
+        .eq("brand_id", data.brandId)
+        .maybeSingle();
+      if (clientErr) throw clientErr;
+      if (!client) throw new Error("Cliente não pertence a esta marca.");
     }
 
     const { encryptCredential } = await import("@/lib/credentials-crypto.server");
@@ -408,16 +505,6 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
       user_token_expires_at: session.user_token_expires_at ?? null,
     };
 
-    // Replace any active row for the same (brand, channel) pointing to a
-    // different account. Same account = idempotent refresh via upsert.
-    await supabaseAdmin
-      .from("social_connections")
-      .delete()
-      .eq("brand_id", data.brandId)
-      .eq("channel", data.channel)
-      .eq("provider", "meta")
-      .neq("external_id", externalId);
-
     const { data: upserted, error: upErr } = await supabaseAdmin
       .from("social_connections")
       .upsert(
@@ -446,8 +533,27 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
       .single();
     if (upErr) throw upErr;
 
+    if (data.clientId) {
+      const { error: assignErr } = await supabaseAdmin
+        .from("client_social_accounts")
+        .upsert(
+          {
+            brand_id: data.brandId,
+            client_id: data.clientId,
+            connection_id: upserted.id,
+            created_by: context.userId,
+          },
+          { onConflict: "client_id,connection_id" },
+        );
+      if (assignErr) throw assignErr;
+    }
+
     return { ok: true, connectionId: upserted.id };
   });
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
 
 const UnlinkInput = z.object({
   brandId: z.string().uuid(),

@@ -257,26 +257,6 @@ export class MetaProvider {
           pagePictureUrl: p.picture?.data?.url,
           instagramPictureUrl: p.instagram_business_account?.profile_picture_url,
         };
-        if (
-          asset.instagramBusinessId &&
-          (!asset.instagramUsername || !asset.instagramPictureUrl) &&
-          p.access_token
-        ) {
-          try {
-            const ig = await this.graph<{
-              username?: string;
-              profile_picture_url?: string;
-            }>(`/${asset.instagramBusinessId}`, {
-              accessToken: p.access_token,
-              query: { fields: "username,profile_picture_url" },
-            });
-            asset.instagramUsername = asset.instagramUsername ?? ig.username;
-            asset.instagramPictureUrl =
-              asset.instagramPictureUrl ?? ig.profile_picture_url;
-          } catch {
-            /* keep partial data */
-          }
-        }
         out.push(asset);
       }
     };
@@ -302,41 +282,6 @@ export class MetaProvider {
 
     // 1) Páginas admin'd diretamente pelo perfil do usuário.
     await pageLoop("/me/accounts", { fields: PAGE_FIELDS, limit: "100" });
-
-    // 2) Páginas geridas via Business Portfolios (Meta Business Suite).
-    //    Sem essa varredura, IGs cujas Páginas pertencem a um Business
-    //    (mesmo com o usuário como admin do Business) não aparecem em
-    //    /me/accounts. Requer o escopo `business_management`; se estiver
-    //    faltando, ignoramos silenciosamente.
-    try {
-      type Business = { id: string };
-      let bizNext: string | null = null;
-      let firstBiz = true;
-      while (firstBiz || bizNext) {
-        const bizRes: Paged<Business> = firstBiz
-          ? await this.graph<Paged<Business>>("/me/businesses", {
-              accessToken: userAccessToken,
-              query: { fields: "id", limit: "100" },
-            })
-          : await this.graphAbsolute<Paged<Business>>(bizNext!, userAccessToken);
-        for (const biz of bizRes.data ?? []) {
-          for (const edge of ["owned_pages", "client_pages"] as const) {
-            try {
-              await pageLoop(`/${biz.id}/${edge}`, {
-                fields: PAGE_FIELDS,
-                limit: "100",
-              });
-            } catch {
-              /* escopo/role insuficiente para esse business — segue */
-            }
-          }
-        }
-        bizNext = bizRes.paging?.next ?? null;
-        firstBiz = false;
-      }
-    } catch {
-      /* business_management não concedido — mantém apenas /me/accounts */
-    }
 
     return out;
   }

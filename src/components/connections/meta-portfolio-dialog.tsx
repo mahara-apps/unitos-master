@@ -31,6 +31,7 @@ import {
   linkMetaAccount,
   unlinkMetaAccount,
   type PortfolioPage,
+  type PortfolioResponse,
   type PortfolioThreadsAccount,
   type PortfolioAdAccount,
 } from "@/lib/meta/portfolio.functions";
@@ -55,12 +56,14 @@ function metaStuckMessage(): string {
  */
 export function MetaPortfolioDialog({
   brandId,
+  clientId,
   sessionId,
   open,
   channel,
   onOpenChange,
 }: {
   brandId: string;
+  clientId?: string;
   sessionId: string | null;
   open: boolean;
   channel?: "facebook" | "instagram" | "threads" | "ads" | null;
@@ -72,10 +75,16 @@ export function MetaPortfolioDialog({
   const unlinkFn = useServerFn(unlinkMetaAccount);
   const startFn = useServerFn(startMetaOAuth);
 
-  // "Sincronizar novamente" toggle — only when true do we ask the backend
-  // to re-scan the Meta Graph API. Default flow serves the cached portfolio
-  // stored in `meta_oauth_sessions` to avoid rate-limit loops.
-  const [refreshRequested, setRefreshRequested] = useState(false);
+  // Only the explicit "Sincronizar" action flips this ref. Opening the modal
+  // reads cache only and never starts a Graph API scan.
+  const refreshNextRef = useRef(false);
+  const queryKey = [
+    "meta-portfolio",
+    brandId,
+    sessionId,
+    channel ?? "all",
+    clientId ?? "workspace",
+  ] as const;
 
   async function reauthorize(channel: "instagram" | "facebook" | "threads") {
     const popup = window.open("", "meta-oauth", metaPopupFeatures());
@@ -120,22 +129,30 @@ export function MetaPortfolioDialog({
     refetch,
     isFetching,
   } = useQuery({
-    queryKey: ["meta-portfolio", brandId, sessionId, channel ?? "all"],
+    queryKey,
     queryFn: async () => {
+      const refresh = refreshNextRef.current;
       try {
         const res = await getFn({
           data: {
             brandId,
             sessionId: sessionId!,
             channel: channel ?? undefined,
-            refresh: refreshRequested || undefined,
+            refresh: refresh || undefined,
           },
         });
-        console.log("[MetaPortfolio] Graph API Response:", res);
-        setRefreshRequested(false);
+        console.log("[MetaPortfolio] portfolio response", {
+          sessionId: res.sessionId,
+          status: res.portfolioStatus,
+          pages: res.pagesCount,
+          pagesWithIg: res.pagesWithIgCount,
+          channel,
+          refresh,
+        });
+        refreshNextRef.current = false;
         return res;
       } catch (err) {
-        console.error("[MetaPortfolio] Graph API Error:", err);
+        console.error("[MetaPortfolio] portfolio error", { err, channel, refresh });
         const msg =
           err instanceof Error
             ? err.message
@@ -149,7 +166,7 @@ export function MetaPortfolioDialog({
             : msg,
           { duration: 9000 },
         );
-        setRefreshRequested(false);
+        refreshNextRef.current = false;
         throw err instanceof Error ? err : new Error(msg);
       }
     },
@@ -168,9 +185,8 @@ export function MetaPortfolioDialog({
     !!error && (error as Error).message.startsWith("RATE_LIMIT:");
 
   const handleResync = () => {
-    setRefreshRequested(true);
-    // Defer to next tick so the flag is set before queryFn runs.
-    setTimeout(() => refetch(), 0);
+    refreshNextRef.current = true;
+    void refetch();
   };
 
   const [pending, setPending] = useState<Set<string>>(new Set());
@@ -179,6 +195,15 @@ export function MetaPortfolioDialog({
     // Only refresh the "connected" map — do NOT invalidate the portfolio
     // list, otherwise every toggle re-hits Meta's Graph API.
     qc.invalidateQueries({ queryKey: ["meta-connections", brandId] });
+    qc.invalidateQueries({ queryKey: ["channels-kpis", brandId] });
+    qc.invalidateQueries({
+      queryKey: clientId
+        ? ["client-channels", brandId, clientId]
+        : ["client-channels", brandId],
+    });
+    if (clientId) {
+      qc.invalidateQueries({ queryKey: ["wizard-connections", brandId, clientId] });
+    }
   };
 
   const mut = useMutation({
@@ -192,6 +217,7 @@ export function MetaPortfolioDialog({
         return linkFn({
           data: {
             brandId,
+            ...(clientId ? { clientId } : {}),
             sessionId: sessionId!,
             targetId: input.targetId,
             channel: input.channel,
@@ -202,6 +228,29 @@ export function MetaPortfolioDialog({
       return unlinkFn({ data: { brandId, connectionId: input.existingConnectionId } });
     },
     onSuccess: (_r, vars) => {
+      qc.setQueryData<PortfolioResponse>(queryKey, (old) => {
+        if (!old) return old;
+        const connected = {
+          facebook: { ...old.connected.facebook },
+          instagram: { ...old.connected.instagram },
+          threads: { ...old.connected.threads },
+          ads: { ...old.connected.ads },
+        };
+        const lookupId =
+          vars.channel === "instagram"
+            ? (old.pages.find((p) => p.pageId === vars.targetId)?.instagramBusinessId ??
+              vars.targetId)
+            : vars.targetId;
+        if (vars.connect) {
+          const result = _r as Record<string, unknown>;
+          if (typeof result.connectionId === "string") {
+            connected[vars.channel][lookupId] = result.connectionId;
+          }
+        } else {
+          delete connected[vars.channel][lookupId];
+        }
+        return { ...old, connected };
+      });
       toast.success(
         vars.connect
           ? "Conta vinculada"
@@ -254,6 +303,7 @@ export function MetaPortfolioDialog({
   const emptyToastFiredRef = useRef<string | null>(null);
   useEffect(() => {
     if (!open || !channel || !data) return;
+    if (data.portfolioStatus === "not_loaded" || data.portfolioStatus === "rate_limited") return;
     const key = `${sessionId}:${channel}`;
     if (emptyToastFiredRef.current === key) return;
     const counts: Record<string, number> = {
@@ -278,6 +328,9 @@ export function MetaPortfolioDialog({
       }
     }
   }, [open, channel, data, sessionId, fbPages.length, igPages.length, threadsAccounts.length, adAccounts.length]);
+
+  const showNotLoadedState = data?.portfolioStatus === "not_loaded";
+  const showStoredRateLimitState = data?.portfolioStatus === "rate_limited";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -338,6 +391,29 @@ export function MetaPortfolioDialog({
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
+        ) : showNotLoadedState ? (
+          <PortfolioActionState
+            title="Portfólio ainda não carregado"
+            description="Para proteger o limite da Graph API, o Unitos não busca contas automaticamente. Clique em Sincronizar uma única vez para carregar o portfólio salvo nesta sessão."
+            actionLabel="Sincronizar agora"
+            loading={isFetching}
+            onAction={handleResync}
+            onClose={() => onOpenChange(false)}
+          />
+        ) : showStoredRateLimitState ? (
+          <PortfolioActionState
+            title="Limite da Meta em resfriamento"
+            description={
+              data?.portfolioRateLimitedUntil
+                ? `A Meta bloqueou novas leituras temporariamente. Tente novamente após ${new Date(data.portfolioRateLimitedUntil).toLocaleString("pt-BR")}.`
+                : "A Meta bloqueou novas leituras temporariamente. Aguarde alguns minutos antes de tentar novamente."
+            }
+            actionLabel="Tentar novamente"
+            loading={isFetching}
+            onAction={handleResync}
+            onClose={() => onOpenChange(false)}
+            disabled={isFetching}
+          />
         ) : error ? (
           <div className="space-y-3 rounded-md border border-destructive/40 bg-destructive/10 p-4 text-xs">
             <div className="flex items-start gap-2 text-destructive">
@@ -691,6 +767,45 @@ export function MetaPortfolioDialog({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function PortfolioActionState({
+  title,
+  description,
+  actionLabel,
+  loading,
+  disabled,
+  onAction,
+  onClose,
+}: {
+  title: string;
+  description: string;
+  actionLabel: string;
+  loading: boolean;
+  disabled?: boolean;
+  onAction: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="space-y-3 rounded-md border border-border/60 bg-muted/30 p-4 text-xs">
+      <div className="flex items-start gap-2">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+        <div className="space-y-1">
+          <p className="text-sm font-medium">{title}</p>
+          <p className="text-muted-foreground">{description}</p>
+        </div>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" onClick={onAction} disabled={disabled || loading} className="gap-2">
+          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          {actionLabel}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onClose}>
+          Fechar
+        </Button>
+      </div>
+    </div>
   );
 }
 
