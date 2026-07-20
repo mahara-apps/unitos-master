@@ -78,5 +78,5 @@ export const instantiateTemplateFn = createServerFn({ method: "POST" })
       },
     );
     if (error) throw error;
-    return { projectId: projectId as string };
+    return { projectId: (projectId as unknown as string) ?? "" };
   });
