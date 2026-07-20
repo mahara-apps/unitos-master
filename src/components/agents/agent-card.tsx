@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Play, Settings2 } from "lucide-react";
 import type { AgentPromptRow } from "@/lib/agents.functions";
-import { cleanPromptSynopsis, getAgentMeta, toTitleCase } from "./agent-meta";
+import { getAgentDescription, getAgentMeta, toTitleCase } from "./agent-meta";
 
 type Props = {
   agent: AgentPromptRow;
@@ -13,7 +13,7 @@ type Props = {
 export function AgentCard({ agent, onOpen }: Props) {
   const meta = getAgentMeta(agent.agent_id, agent.agent_name);
   const Icon = meta.icon;
-  const synopsis = cleanPromptSynopsis(agent.system_prompt);
+  const synopsis = getAgentDescription(agent.agent_id, agent.agent_name);
   const title = toTitleCase(agent.agent_name);
 
   return (
@@ -45,9 +45,24 @@ export function AgentCard({ agent, onOpen }: Props) {
       </div>
 
       <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3">
+        {agent.has_override ? (
+          <Badge
+            variant="outline"
+            className="h-5 rounded-md px-1.5 text-[10px] font-normal border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300"
+          >
+            Prompt customizado
+          </Badge>
+        ) : (
+          <Badge
+            variant="secondary"
+            className="h-5 rounded-md px-1.5 font-mono text-[10px] font-normal"
+          >
+            Padrão Unitos
+          </Badge>
+        )}
         <Badge
           variant="secondary"
-          className="h-5 rounded-md px-1.5 font-mono text-[10px] font-normal"
+          className="hidden h-5 rounded-md px-1.5 font-mono text-[10px] font-normal"
         >
           {meta.model}
         </Badge>
