@@ -11,7 +11,6 @@ import {
   User as UserIcon,
   Trash2,
   ShieldAlert,
-  Gauge,
 } from "lucide-react";
 
 import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
@@ -154,7 +153,6 @@ function AiLimitsPage() {
   usePageHeader({
     title: "Limites de IA",
     subtitle: "Controle mensal de gasto por agência, cliente e usuário.",
-    icon: Gauge,
   });
 
   const qc = useQueryClient();
