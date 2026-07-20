@@ -70,7 +70,13 @@ export const startTimerFn = createServerFn({ method: "POST" })
       _brand_id: data.brandId,
     });
     if (error) throw error;
-    return { id: id as string };
+    const { data: row, error: rowError } = await context.supabase
+      .from("task_time_entries")
+      .select("id, task_id, started_at, brand_id")
+      .eq("id", id as string)
+      .single();
+    if (rowError) throw rowError;
+    return row as { id: string; task_id: string; started_at: string; brand_id: string };
   });
 
 export const stopTimerFn = createServerFn({ method: "POST" })

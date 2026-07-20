@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -42,16 +42,18 @@ function writePaused(taskId: string, v: boolean) {
   }
 }
 
-function useElapsedSeconds(startedAt: string | null): number {
-  const [, tick] = useState(0);
+function useNowTick(enabled: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (!startedAt) return;
-    const t = setInterval(() => tick((n) => n + 1), 1000);
+    if (!enabled) return;
+    setNow(Date.now());
+    const t = window.setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
-  }, [startedAt]);
-  if (!startedAt) return 0;
-  return Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
+  }, [enabled]);
+  return now;
 }
+
+type ActiveTimer = { id: string; task_id: string; started_at: string; brand_id: string };
 
 type Props = {
   brandId: string;
@@ -73,6 +75,7 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
   const activeFn = useServerFn(getMyActiveTimerFn);
   const startFn = useServerFn(startTimerFn);
   const stopFn = useServerFn(stopTimerFn);
+  const [optimisticActive, setOptimisticActive] = useState<ActiveTimer | null>(null);
 
   const entriesQ = useQuery({
     queryKey: ["time-entries", brandId, taskId],
@@ -86,9 +89,20 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
     refetchInterval: 30_000,
   });
 
-  const active = activeQ.data;
+  const serverActive = (activeQ.data ?? null) as ActiveTimer | null;
+  const active = optimisticActive ?? serverActive;
   const runningHere = active?.task_id === taskId;
-  const elapsedSec = useElapsedSeconds(runningHere ? active!.started_at : null);
+  const now = useNowTick(runningHere);
+  const elapsedSec = useMemo(() => {
+    if (!runningHere || !active?.started_at) return 0;
+    return Math.max(0, Math.floor((now - new Date(active.started_at).getTime()) / 1000));
+  }, [active?.started_at, now, runningHere]);
+
+  useEffect(() => {
+    if (!optimisticActive) return;
+    if (serverActive?.id === optimisticActive.id) setOptimisticActive(null);
+    if (serverActive && serverActive.id !== optimisticActive.id) setOptimisticActive(null);
+  }, [optimisticActive, serverActive]);
 
   const [paused, setPaused] = useState(false);
   useEffect(() => {
@@ -115,15 +129,29 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
 
   const startMut = useMutation({
     mutationFn: () => startFn({ data: { brandId, taskId } }),
+    onMutate: () => {
+      setOptimisticActive({
+        id: `local-${taskId}-${Date.now()}`,
+        task_id: taskId,
+        brand_id: brandId,
+        started_at: new Date().toISOString(),
+      });
+      setPaused(false);
+      writePaused(taskId, false);
+    },
     onSuccess: () => {
       setPaused(false);
       writePaused(taskId, false);
       invalidateAll();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      setOptimisticActive(null);
+      toast.error(e.message);
+    },
   });
   const pauseMut = useMutation({
     mutationFn: () => stopFn({ data: { entryId: active!.id } }),
+    onMutate: () => setOptimisticActive(null),
     onSuccess: () => {
       setPaused(true);
       writePaused(taskId, true);
@@ -136,6 +164,7 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
       if (runningHere && active) await stopFn({ data: { entryId: active.id } });
       return true;
     },
+    onMutate: () => setOptimisticActive(null),
     onSuccess: () => {
       setPaused(false);
       writePaused(taskId, false);
