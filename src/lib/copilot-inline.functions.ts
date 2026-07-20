@@ -6,6 +6,18 @@ import { createLovableAiGatewayProvider } from "./ai-gateway.server";
 import { buildBrandContextBlueprint } from "./ai-agents.functions";
 
 const FIELD_PROMPTS: Record<string, { system: string; wrap: (post: PostContext, hint: string) => string }> = {
+  hook: {
+    system:
+      "Você é especialista em ganchos (hooks) para redes sociais. Devolva 3 opções curtas (máx. 12 palavras cada) numeradas 1) 2) 3), em pt-BR, com forte carga de curiosidade/quebra de padrão, aderentes ao formato e briefing. Sem emojis, sem hashtags, sem explicação.",
+    wrap: (p, hint) =>
+      `Post: ${p.title}\nFormato: ${p.format ?? "-"}\nBriefing interno: ${p.internal_briefing ?? "-"}\nBriefing p/ cliente: ${p.client_briefing ?? "-"}\nCopy atual: ${p.copy ?? "-"}\nDica: ${hint || "(nenhuma)"}\n\nRetorne apenas as 3 opções de hook.`,
+  },
+  headline: {
+    system:
+      "Você é editor de headlines para redes sociais. Devolva UMA única frase (máx. 14 palavras), direta, em pt-BR, que resuma a promessa central do post. Sem emojis, sem hashtags, sem aspas, sem explicação.",
+    wrap: (p, hint) =>
+      `Post: ${p.title}\nFormato: ${p.format ?? "-"}\nBriefing interno: ${p.internal_briefing ?? "-"}\nBriefing p/ cliente: ${p.client_briefing ?? "-"}\nCopy atual: ${p.copy ?? "-"}\nDica: ${hint || "(nenhuma)"}\n\nRetorne apenas a headline.`,
+  },
   copy: {
     system:
       "Você é o copywriter chefe da agência. Escreva legendas curtas para redes sociais em pt-BR, no tom da marca, com CTA e hashtags relevantes. Máximo 220 palavras. Nunca use emojis excessivamente.",
@@ -52,7 +64,7 @@ export const aiInlineGenerateFn = createServerFn({ method: "POST" })
     z
       .object({
         postId: z.string().uuid(),
-        field: z.enum(["copy", "hashtags", "cta", "script", "briefing"]),
+        field: z.enum(["copy", "hashtags", "cta", "script", "briefing", "hook", "headline"]),
         hint: z.string().max(500).optional(),
       })
       .parse(i),

@@ -621,6 +621,32 @@ function EditBody({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Autosave apenas do campo copy (Hook/Headline/Copy/CTA/Hashtags serializados)
+  // para evitar perda de texto gerado por IA quando o drawer é fechado sem Save.
+  const [copyAutosaveStatus, setCopyAutosaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const initialCopyRef = useRef(state.copy);
+  useEffect(() => {
+    initialCopyRef.current = post.copy ?? "";
+  }, [post.id, post.copy]);
+  useEffect(() => {
+    if (state.copy === initialCopyRef.current) return;
+    setCopyAutosaveStatus("saving");
+    const handle = setTimeout(async () => {
+      try {
+        await updatePost({
+          data: { postId, patch: { copy: state.copy.trim() || null } },
+        });
+        initialCopyRef.current = state.copy;
+        setCopyAutosaveStatus("saved");
+        qc.invalidateQueries({ queryKey: ["post-detail", postId] });
+      } catch {
+        setCopyAutosaveStatus("idle");
+      }
+    }, 1200);
+    return () => clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.copy, postId]);
+
   const upload = useMutation({
     mutationFn: async (files: File[]) => {
       const isImage = (f: File) => f.type.startsWith("image/");
@@ -834,6 +860,7 @@ function EditBody({
           mode="edit"
           postId={postId}
           createdAt={post.created_at}
+          copyAutosaveStatus={copyAutosaveStatus}
         />
 
         <div className="mt-6 space-y-5">
@@ -1048,6 +1075,7 @@ function TaskLayout({
   mode,
   postId,
   createdAt,
+  copyAutosaveStatus,
 }: {
   state: TaskState;
   setState: (fn: (prev: TaskState) => TaskState) => void;
@@ -1055,6 +1083,7 @@ function TaskLayout({
   mode: "create" | "edit";
   postId?: string;
   createdAt?: string | null;
+  copyAutosaveStatus?: "idle" | "saving" | "saved";
 }) {
   const [tagInput, setTagInput] = useState("");
   const set = <K extends keyof TaskState>(key: K, value: TaskState[K]) =>
@@ -1143,11 +1172,22 @@ function TaskLayout({
           </div>
         </div>
 
-        <CopyEditor
-          value={state.copy}
-          onChange={(v) => set("copy", v)}
-          postId={mode === "edit" ? postId : undefined}
-        />
+        <div className="space-y-1">
+          <CopyEditor
+            value={state.copy}
+            onChange={(v) => set("copy", v)}
+            postId={mode === "edit" ? postId : undefined}
+          />
+          {mode === "edit" ? (
+            <div className="flex justify-end px-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              {copyAutosaveStatus === "saving"
+                ? "Salvando…"
+                : copyAutosaveStatus === "saved"
+                  ? "Salvo automaticamente"
+                  : ""}
+            </div>
+          ) : null}
+        </div>
 
         <Tabs defaultValue="internal" className="w-full">
           <TabsList variant="grid" className="grid w-full grid-cols-3">
@@ -1415,7 +1455,7 @@ function AiFieldButton({
   size = "sm",
 }: {
   postId: string;
-  field: "copy" | "hashtags" | "cta" | "script" | "briefing";
+  field: "copy" | "hashtags" | "cta" | "script" | "briefing" | "hook" | "headline";
   label: string;
   onText: (t: string) => void;
   size?: "xs" | "sm";
@@ -1606,10 +1646,10 @@ const COPY_FIELDS: Array<{
   label: string;
   placeholder: string;
   rows: number;
-  aiField?: "copy" | "hashtags" | "cta";
+  aiField?: "copy" | "hashtags" | "cta" | "hook" | "headline";
 }> = [
-  { key: "gancho", label: "HOOK", placeholder: "Primeira linha que segura o scroll…", rows: 2 },
-  { key: "headline", label: "Headline", placeholder: "Ideia central em uma frase…", rows: 2 },
+  { key: "gancho", label: "HOOK", placeholder: "Primeira linha que segura o scroll…", rows: 2, aiField: "hook" },
+  { key: "headline", label: "Headline", placeholder: "Ideia central em uma frase…", rows: 2, aiField: "headline" },
   { key: "body", label: "Copy principal", placeholder: "Desenvolva o argumento…", rows: 6, aiField: "copy" },
   { key: "cta", label: "CTA", placeholder: "Chamada para ação…", rows: 2, aiField: "cta" },
   { key: "hashtags", label: "Hashtags", placeholder: "#marca #categoria #campanha", rows: 2, aiField: "hashtags" },
@@ -1696,7 +1736,7 @@ function MicroAiButton({
   onText,
 }: {
   postId: string;
-  field: "copy" | "hashtags" | "cta" | "script" | "briefing";
+  field: "copy" | "hashtags" | "cta" | "script" | "briefing" | "hook" | "headline";
   tooltip: string;
   icon: "sparkles" | "wand";
   onText: (t: string) => void;
