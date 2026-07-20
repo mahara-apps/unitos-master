@@ -1,39 +1,31 @@
 ## Objetivo
-
-Todo conteúdo — manual, quick-add no board, ou gerado por IA (plano mensal) — precisa nascer com um **responsável** já atribuído. Adicionar seleção explícita na criação manual/IA e fallback determinístico (usuário atual) quando não escolhido.
-
-## Situação atual (verificada)
-
-- `task-dialog.tsx` já tem `AssigneeSelect`, mas o estado inicial é `assigneeId: null` — o usuário precisa lembrar de escolher.
-- Quick-add no `content-board.tsx` (`addPost`) só envia `title` — sem responsável.
-- `generate-plan-dialog.tsx` (Gerar plano por IA) não coleta responsável.
-- `POST /api/jobs/monthly-plan` insere posts em `posts` sem `assignee_id`/`assignees` (linhas ~409-434 de `src/routes/api/jobs/monthly-plan.ts`).
-- `createPostFn` (`src/lib/content.functions.ts`) já tem fallback para o **owner** da marca quando nenhum assignee é passado, mas isso raramente é o operador correto.
+Otimizar o drawer de conteúdo (`src/components/content/task-dialog.tsx`) reduzindo altura vertical ao agrupar campos correlatos em linhas duplas.
 
 ## Mudanças
 
-### 1. `src/components/content/task-dialog.tsx` (criação manual)
-- Ao abrir em modo criação, pré-selecionar `assigneeId` com o usuário atual (`supabase.auth.getUser()` já disponível via hook existente) em vez de `null`.
-- Manter o `AssigneeSelect` visível e obrigatório no bloco do topo (já é).
+### 1. Prioridade + Tags na mesma linha (grid 2 colunas)
+Hoje: "Prioridade" ocupa 1 coluna e "Tags" ocupa `col-span-2` (linha inteira, empurrando tudo pra baixo).
+Alterar `Tags` para ocupar apenas 1 coluna (remover `col-span-2`), ficando lado a lado com Prioridade.
+- Manter input de adicionar tag + botão `+` compactos.
+- Chips das tags fluem abaixo do input dentro da mesma célula.
 
-### 2. `src/components/content/content-board.tsx` (quick-add coluna)
-- Passar `assignees: [currentUserId]` no `createPost` do quick-add para o responsável não ficar em branco.
+### 2. Visível no portal + Aprovação externa na mesma linha
+Hoje: bloco "Visível no portal" (`col-span-2`, dentro do grid superior) e `ApprovalLinkSection` (renderizado separadamente em outro painel, linha 847) estão em linhas distintas.
+Alterar:
+- Remover `ApprovalLinkSection` do local atual (linha 847).
+- Substituir o bloco "Visível no portal" por um container `grid grid-cols-2 gap-3` contendo:
+  - **Esquerda**: toggle "Visível no portal" (mantém estilo atual — card com border/switch).
+  - **Direita**: `ApprovalLinkSection` compactado (mesma altura do card do switch — header com label + botão "Gerar link"; lista de tokens ativos abaixo permanece igual).
+- Ajustar `ApprovalLinkSection` para não usar `DashboardPanelSurface` pesado; usar `rounded-md border border-border/60 bg-background/60 px-3 py-2` para casar visualmente com o card do switch ao lado.
 
-### 3. `src/components/calendar/generate-plan-dialog.tsx` (IA)
-- Adicionar campo **"Responsável padrão"** (Select com membros da marca via `listBrandAssigneesFn`, default = usuário atual).
-- Enviar `assigneeId` no body do `POST /api/jobs/monthly-plan`.
+### 3. Sem alterações de negócio
+- Zero mudança em mutations, schemas, persistência ou permissões.
+- Apenas layout/JSX no `task-dialog.tsx`.
 
-### 4. `src/routes/api/jobs/monthly-plan.ts` (backend do plano IA)
-- Estender `BodySchema` com `assigneeId: z.string().uuid().optional()`.
-- Ao montar `rows` (linha ~415), incluir:
-  - `assignee_id: input.assigneeId ?? userId`
-  - `assignees: [input.assigneeId ?? userId]`
-- Assim, mesmo se o front não mandar, o dono da execução vira responsável (garantia zero-post-órfão).
+## Arquivo afetado
+- `src/components/content/task-dialog.tsx` (único)
 
-### 5. Fallback global em `createPostFn` (`src/lib/content.functions.ts`)
-- Trocar o fallback atual (owner da marca) por: **usuário chamador (`userId` do middleware)**, mantendo o owner apenas como último recurso. Assim posts criados por qualquer via já pertencem a quem operou.
-
-## Fora de escopo
-
-- Notificação automática ao responsável recém-atribuído (já existe fluxo de bell em outros pontos; podemos abordar depois se necessário).
-- Regras de balanceamento/round-robin entre membros na geração por IA (o pedido é apenas atribuir — round-robin fica para próxima iteração).
+## Verificação
+- Abrir drawer em `/content` → confirmar Prioridade e Tags lado a lado.
+- Confirmar toggle "Visível no portal" e card "Aprovação externa" na mesma linha, com botão "Gerar link" funcional.
+- Rodar typecheck.
