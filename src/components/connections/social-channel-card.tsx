@@ -221,11 +221,6 @@ export function SocialChannelCard({
   );
 }
 
-function ConnectButton({
-  // no-op marker
-  ...args
-}: any) { return _ConnectButton(args as any); }
-
 function AccountsSummary({
   accounts,
   channel,
@@ -302,7 +297,7 @@ function AccountsSummary({
   );
 }
 
-function _ConnectButton({
+function ConnectButton({
   kind,
   channel,
   brandId,
