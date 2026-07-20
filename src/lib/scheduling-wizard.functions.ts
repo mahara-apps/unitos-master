@@ -162,6 +162,44 @@ export const listApprovedUnscheduledFn = createServerFn({ method: "GET" })
 // saveScheduledPostFn — cria/atualiza post + placements
 // ============================================================
 
+// ============================================================
+// listDraftsFn — rascunhos (stage=idea) do wizard
+// ============================================================
+
+export const listDraftsFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid().nullable().optional(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }): Promise<PendingSchedulePost[]> => {
+    let q = context.supabase
+      .from("posts")
+      .select("id, title, copy, cover_url, channels, updated_at")
+      .eq("brand_id", data.brandId)
+      .eq("stage", "idea")
+      .is("scheduled_at", null)
+      .is("deleted_at", null)
+      .order("updated_at", { ascending: false })
+      .limit(50);
+    if (data.clientId) q = q.eq("client_id", data.clientId);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    return (rows ?? []).map((p) => ({
+      postId: p.id as string,
+      title: (p.title as string) ?? "Sem título",
+      copy: (p.copy as string) ?? "",
+      coverUrl: (p.cover_url as string | null) ?? null,
+      channels: (p.channels as string[] | null) ?? [],
+      approvedAt: (p.updated_at as string | null) ?? null,
+      placements: [],
+    }));
+  });
+
 const DestinationSchema = z.object({
   connectionId: z.string().uuid(),
   channel: z.enum([
