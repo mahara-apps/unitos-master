@@ -9,6 +9,7 @@ import {
   Facebook,
   Instagram,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -23,6 +24,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   getMetaPortfolio,
@@ -32,6 +34,7 @@ import {
   type PortfolioThreadsAccount,
   type PortfolioAdAccount,
 } from "@/lib/meta/portfolio.functions";
+import { startMetaOAuth } from "@/lib/meta/meta.functions";
 
 /**
  * Post-OAuth account selector. Reads the captured portfolio for a
@@ -55,6 +58,19 @@ export function MetaPortfolioDialog({
   const getFn = useServerFn(getMetaPortfolio);
   const linkFn = useServerFn(linkMetaAccount);
   const unlinkFn = useServerFn(unlinkMetaAccount);
+  const startFn = useServerFn(startMetaOAuth);
+
+  async function reauthorize(channel: "instagram" | "facebook" | "threads") {
+    const popup = window.open("", "meta-oauth", "width=640,height=760");
+    try {
+      const { authorizeUrl } = await startFn({ data: { brandId, channel } });
+      if (popup) popup.location.href = authorizeUrl;
+      else window.location.href = authorizeUrl;
+    } catch (err) {
+      popup?.close();
+      toast.error(err instanceof Error ? err.message : "Falha ao iniciar OAuth");
+    }
+  }
 
   const {
     data,
@@ -309,14 +325,22 @@ export function MetaPortfolioDialog({
             </TabsContent>
 
             <TabsContent value="instagram" className="mt-3">
-              <ScrollArea className="h-[420px] rounded-lg border border-border/60">
-                <ul className="divide-y divide-border/60">
-                  {igPages.length === 0 ? (
-                    <li className="p-6 text-center text-xs text-muted-foreground">
-                      Nenhuma conta do Instagram Business encontrada. Verifique se o seu Instagram está corretamente vinculado a uma Página do Facebook.
-                    </li>
-                  ) : (
-                    igPages.map((p) => {
+              {igPages.length === 0 ? (
+                <InstagramEmptyDiagnostic
+                  pagesCount={data?.pagesCount ?? fbPages.length}
+                  pages={fbPages}
+                  missingInstagramScope={(data?.missingScopes ?? []).includes(
+                    "instagram_basic",
+                  )}
+                  missingPagesScope={(data?.missingScopes ?? []).includes(
+                    "pages_show_list",
+                  )}
+                  onReauthorize={() => reauthorize("instagram")}
+                />
+              ) : (
+                <ScrollArea className="h-[420px] rounded-lg border border-border/60">
+                  <ul className="divide-y divide-border/60">
+                    {igPages.map((p) => {
                       const key = `instagram:${p.pageId}`;
                       const connectionId = p.instagramBusinessId
                         ? (data?.connected.instagram[p.instagramBusinessId] ?? null)
@@ -372,10 +396,10 @@ export function MetaPortfolioDialog({
                           </div>
                         </li>
                       );
-                    })
-                  )}
-                </ul>
-              </ScrollArea>
+                    })}
+                  </ul>
+                </ScrollArea>
+              )}
             </TabsContent>
 
             <TabsContent value="threads" className="mt-3">
@@ -523,5 +547,93 @@ export function MetaPortfolioDialog({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function InstagramEmptyDiagnostic({
+  pagesCount,
+  pages,
+  missingInstagramScope,
+  missingPagesScope,
+  onReauthorize,
+}: {
+  pagesCount: number;
+  pages: PortfolioPage[];
+  missingInstagramScope: boolean;
+  missingPagesScope: boolean;
+  onReauthorize: () => void;
+}) {
+  return (
+    <div className="space-y-3 rounded-lg border border-border/60 p-4">
+      <div className="flex items-start gap-2">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+        <div className="space-y-1">
+          <p className="text-sm font-medium">
+            Nenhuma conta do Instagram Business foi encontrada.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            O Graph API só devolve IGs que estejam <b>vinculados a uma Página do Facebook</b>{" "}
+            e que você tenha <b>marcado</b> na tela de permissões da Meta.
+          </p>
+        </div>
+      </div>
+
+      {missingPagesScope || missingInstagramScope ? (
+        <div className="rounded-md border border-red-500/40 bg-red-500/10 p-2.5 text-[11px] text-red-700 dark:text-red-300">
+          Permissão negada:{" "}
+          <code className="font-mono">
+            {[missingPagesScope && "pages_show_list", missingInstagramScope && "instagram_basic"]
+              .filter(Boolean)
+              .join(", ")}
+          </code>
+          . Sem essas permissões o Instagram nunca aparece — refaça o login e mantenha-as marcadas.
+        </div>
+      ) : null}
+
+      <div className="rounded-md border border-border/60 bg-muted/30 p-3 text-xs">
+        <p className="mb-2 font-medium">
+          A Meta devolveu{" "}
+          <span className="font-mono">{pagesCount}</span>{" "}
+          {pagesCount === 1 ? "Página" : "Páginas"} nesta autorização
+          {pagesCount > 0 ? " — nenhuma com Instagram Business vinculado:" : "."}
+        </p>
+        {pagesCount === 0 ? (
+          <p className="text-muted-foreground">
+            Você provavelmente não marcou nenhuma Página na tela &ldquo;Choose what you allow&rdquo;.
+            Refaça o login e escolha <b>Opt in to all current and future Pages</b> (ou selecione
+            manualmente todas as Páginas que administram seus IGs).
+          </p>
+        ) : (
+          <ScrollArea className="max-h-32">
+            <ul className="space-y-1 pr-2 font-mono text-[10px] text-muted-foreground">
+              {pages.map((p) => (
+                <li key={p.pageId} className="truncate">
+                  · {p.pageName}{" "}
+                  <span className="opacity-60">
+                    (ID {p.pageId}
+                    {p.instagramBusinessId ? "" : ", sem IG"})
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </ScrollArea>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-2 pt-1 sm:flex-row">
+        <Button onClick={onReauthorize} className="gap-2">
+          <RefreshCw className="h-3.5 w-3.5" />
+          Autorizar novamente e liberar todas as Páginas
+        </Button>
+        <a
+          href="https://www.facebook.com/business/help/898752960195806"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center justify-center rounded-md border border-border/60 px-3 py-2 text-xs text-muted-foreground hover:bg-muted"
+        >
+          Como vincular Instagram a uma Página →
+        </a>
+      </div>
+    </div>
   );
 }

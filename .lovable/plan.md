@@ -1,62 +1,51 @@
-# Meta Integration Multi-Tenant
+## Diagnóstico
 
-Hoje o callback do OAuth já pede os escopos corretos e lista todas as Páginas via `listPagesWithInstagram`, **mas** salva automaticamente apenas `pages[0]`. Vamos separar consentimento (captura do portfólio) da vinculação (seleção explícita por canal), e adicionar um endpoint de webhook que roteia eventos FB × IG para o `brand` correto.
+O `MetaPortfolioDialog` mostra "Nenhuma conta do Instagram Business" porque o backend só encontra IG a partir das **Páginas do Facebook selecionadas** durante o consent screen da Meta. Sua conta pessoal Meta tem dezenas de IGs, mas o fluxo atual só os enxerga se:
 
-## 1. Backend — captura do portfólio no callback
+1. o IG for **Business/Creator** (não Pessoal), **E**
+2. estiver **vinculado a uma Página do Facebook**, **E**
+3. o usuário **marcou aquela Página** na tela de "Choose what you allow" da Meta.
 
-- Alterar `src/routes/api/public/meta/callback.ts`: em vez de gravar em `social_connections`, persistir uma **sessão temporária** com o token de longa duração, o `me` do usuário, escopos concedidos e o array completo de Pages+IG.
-- Nova tabela `meta_oauth_sessions` (id, brand_id, user_id, user_token_ciphertext, expires_at, scopes, pages jsonb, consumed_at) com RLS por `brand_id` (via `brand_members`) e TTL curto (ex. 30 min).
-- Callback redireciona o popup para `/connections?meta_session=<id>` (postMessage inclui `sessionId`).
+Três causas prováveis (não confirmadas ainda — a UI hoje não expõe o resultado bruto pra diagnosticar):
 
-## 2. Backend — server functions do seletor
+- **Consent granular da Meta (2024+)**: por padrão o modal da Meta vem com "Opt in to current and future Pages" desmarcado. Se o usuário clicou "Continue" sem marcar Páginas, `/me/accounts` retorna **zero Páginas** → zero IGs.
+- **Escopo `instagram_basic` negado**: `instagram_business_account` volta como `null` nas páginas mesmo autorizadas.
+- **Bug de paginação em `graphAbsolute`** (`src/lib/meta/provider.server.ts:363-365`): o `next` cursor não anexa `appsecret_proof`. Com App Secret Proof ativado no App Meta, chamadas paginadas quebram silenciosamente e páginas > 100 nunca são lidas.
 
-Novo arquivo `src/lib/meta/portfolio.functions.ts`:
-- `getMetaPortfolio({ brandId, sessionId })` → retorna Pages/IG + estado "já conectado" cruzando com `social_connections`.
-- `linkMetaAccount({ brandId, sessionId, pageId, channel })` → grava/atualiza uma linha em `social_connections` para o canal escolhido (`facebook` ou `instagram`), reusa o page access token da sessão, cifra e faz upsert por `(brand_id, provider, external_id)` respeitando a regra "1 conta ativa por canal por brand".
-- `unlinkMetaAccount({ brandId, connectionId })` → delete (reaproveita `disconnectMeta` existente).
+Além disso, existe um caminho **totalmente ausente**: contas IG conectadas via "Instagram Login" direto (sem Página FB) — Meta hoje permite IG Business sem FB Page, exposto por outro produto (`instagram_business_basic`).
 
-## 3. Frontend — Seletor de Contas
+## Plano
 
-Novo componente `src/components/connections/meta-portfolio-dialog.tsx` (dark, minimalista, alto contraste, bordas sutis — padrão Vercel/Supabase):
-- Abre automaticamente quando o postMessage do OAuth traz `sessionId`.
-- Tabs `Páginas do Facebook` e `Contas do Instagram` (Radix Tabs já usado no projeto).
-- Cada item: avatar (`picture`/`profile_picture_url`), nome, handle (IG), badge do estado ("Conectada" / "Disponível") e `Switch` chamando `linkMetaAccount`/`unlinkMetaAccount` com feedback via `sonner`.
-- Ajustar `meta-integration-card.tsx` para (a) abrir o dialog após conectar, (b) exibir todas as linhas ativas agrupadas por canal.
+**Fase 1 — Diagnóstico visível** (imprescindível pra saber qual das 3 causas está batendo)
 
-## 4. Backend — Webhooks
+1. `getMetaPortfolio` passa a expor no `PortfolioResponse`:
+   - `pagesCount` total, `pagesWithIgCount`, `pagesWithoutIgCount`
+   - lista `pages` já contém nomes — só usar na UI
+2. `MetaPortfolioDialog`, aba Instagram, quando `igPages.length === 0`:
+   - Substituir texto genérico por um painel diagnóstico:
+     - "A Meta retornou **N Páginas** para esta autorização. **Nenhuma** tem Instagram Business vinculado."
+     - Lista das Páginas retornadas (nome + ID) para o usuário conferir se falta alguma.
+     - Se `N === 0`: mensagem "A Meta não devolveu nenhuma Página. Você provavelmente não marcou nenhuma na tela de permissões."
+     - Se `instagram_basic` estiver em `missingScopes`: destacar em vermelho "Permissão `instagram_basic` foi negada."
+   - Botão primário **"Autorizar novamente e liberar todas as Páginas"** que dispara `startMetaOAuth` de novo com `channel=instagram` e `authType=reauthenticate`.
 
-Novo endpoint `src/routes/api/public/meta/webhook.ts` (público, verificação própria):
-- `GET`: verificação de subscrição (`hub.mode=subscribe`, valida `hub.verify_token` contra `META_WEBHOOK_VERIFY_TOKEN`, retorna `hub.challenge`).
-- `POST`: valida assinatura `X-Hub-Signature-256` com HMAC-SHA256(body, `META_APP_SECRET`) em tempo constante.
-- Roteador:
-  - `object === "page"` → cada `entry.id` é um Page ID → busca `social_connections` por `channel='facebook'` + `external_id`.
-  - `object === "instagram"` → `entry.id` é o IG Business ID → busca por `channel='instagram'` + `external_id`.
-  - Ignora entries sem match (log estruturado, retorna 200 rapidamente conforme exigência Meta).
-- Persiste evento em `brain_events` (`kind='meta_webhook'`, `brand_id` derivado) para processamento assíncrono. Retorna `200 OK` em < 500ms.
+**Fase 2 — Correções no fetch**
 
-## 5. Migração
+3. Corrigir `graphAbsolute` em `src/lib/meta/provider.server.ts`: reinjetar `appsecret_proof` (e `access_token` se ausente) ao seguir o `paging.next`. Sem isto, portfólios grandes perdem páginas.
+4. `listPagesWithInstagram`: quando `instagram_business_account.id` vem mas `username`/`profile_picture_url` estão ausentes (acontece em contas privadas), fazer fallback por `/{ig_id}?fields=username,profile_picture_url` com o `page_access_token`, para o card não ficar vazio.
 
-Uma migration criando:
-- `public.meta_oauth_sessions` + GRANTs + RLS (SELECT/DELETE próprios via `user_id = auth.uid()` e membership; `service_role` full).
-- Índice em `social_connections(channel, external_id)` para lookup de webhook.
+**Fase 3 — Cobertura de IGs sem FB Page (opcional, avisar antes)**
 
-## 6. Secrets
-
-- Verificar `META_WEBHOOK_VERIFY_TOKEN` (gerar via `generate_secret` se ausente) — o usuário só precisa configurar a URL de webhook e o verify token no App Dashboard da Meta.
+5. Adicionar caminho "Instagram Login direto": nova rota OAuth `channel=instagram_direct` usando `https://www.instagram.com/oauth/authorize` com escopos `instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights`. Requer adicionar o produto "Instagram" (Instagram API with Instagram Login) no App Meta Dashboard — só implementar após o usuário confirmar que o produto está habilitado.
 
 ## Detalhes técnicos
 
-- Reaproveita `MetaProvider`, `encryptCredential`/`decryptCredential`, `signOAuthState`/`verifyOAuthState` já existentes.
-- `listPagesWithInstagram` já traz `picture` e `profile_picture_url` — nenhum campo novo na Graph API.
-- Regra de idempotência mantida: `(brand_id, provider, external_id)` unique upsert; troca de conta no mesmo canal apaga a antiga (mesmo helper `upsertChannel` extraído para função reutilizável).
-- Webhook nunca faz chamadas pesadas inline; apenas classifica + enfileira em `brain_events`.
+- Arquivos alterados: `src/lib/meta/provider.server.ts` (fix paginação + fallback IG fields), `src/lib/meta/portfolio.functions.ts` (expor contagens/lista), `src/components/connections/meta-portfolio-dialog.tsx` (painel diagnóstico + botão reauth), `src/components/connections/social-channel-card.tsx` (nenhuma mudança — reautorização vem do próprio dialog).
+- Nenhuma migração de banco: os dados já estão em `meta_oauth_sessions.pages` (JSONB).
+- Não altera `linkMetaAccount` nem o schema `social_connections`.
+- Fase 3 fica bloqueada por config do App Meta — confirmar antes de codar.
 
-## Arquivos afetados
+## O que fica de fora deste plano
 
-- `supabase/migrations/*` (nova migration)
-- `src/routes/api/public/meta/callback.ts` (grava sessão em vez de conexão)
-- `src/routes/api/public/meta/webhook.ts` (novo)
-- `src/lib/meta/portfolio.functions.ts` (novo)
-- `src/lib/meta/provider.server.ts` (helpers de verify signature, se necessário)
-- `src/components/connections/meta-portfolio-dialog.tsx` (novo)
-- `src/components/connections/meta-integration-card.tsx` (integração com o dialog + listagem por canal)
+- Não adicionar retry automático de OAuth: o botão de reautorização é manual, para o usuário poder revisar a lista de Páginas antes.
+- Não alterar escopos padrão em `META_DEFAULT_SCOPES` — já pedem `instagram_basic`.
