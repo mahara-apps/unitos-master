@@ -5,6 +5,8 @@ import {
   CheckCircle2,
   Facebook,
   Instagram,
+  AtSign,
+  BarChart3,
   RefreshCw,
   Settings2,
   Trash2,
@@ -94,12 +96,21 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
     function onMessage(ev: MessageEvent) {
       const d = ev.data as {
         source?: string;
+        type?: string;
+        scopes?: string[];
         ok?: boolean;
         error?: string;
         message?: string;
         sessionId?: string | null;
       };
       if (!d || d.source !== "meta-oauth") return;
+      if (d.type === "missing-scopes" && d.scopes && d.scopes.length > 0) {
+        toast.warning(
+          `Algumas permissões foram negadas (${d.scopes.join(", ")}). Funcionalidades ligadas a elas ficarão limitadas.`,
+          { duration: 8000 },
+        );
+        return;
+      }
       setConnecting(null);
       if (d.ok) {
         toast.success(d.message ?? "Meta conectada");
@@ -180,8 +191,8 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
       <CardContent className="space-y-2">
         {connections.length === 0 ? (
           <p className="rounded-md border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
-            Nenhuma página conectada ainda. Autorize o acesso para publicar e ler
-            insights de Facebook e Instagram Business.
+            Nenhuma conta conectada ainda. Autorize o acesso para publicar e ler
+            insights de Facebook, Instagram, Threads e Meta Ads.
           </p>
         ) : (
           <ul className="space-y-2">
@@ -195,6 +206,23 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
                 refreshMut.isPending && refreshMut.variables === c.id;
               const isDisconnecting =
                 disconnectMut.isPending && disconnectMut.variables === c.id;
+              const channel = (c as unknown as { channel?: string }).channel ?? "facebook";
+              const ChannelIcon =
+                channel === "instagram"
+                  ? Instagram
+                  : channel === "threads"
+                    ? AtSign
+                    : channel === "ads"
+                      ? BarChart3
+                      : Facebook;
+              const iconClass =
+                channel === "instagram"
+                  ? "bg-gradient-to-tr from-[#F58529] via-[#DD2A7B] to-[#8134AF] text-white"
+                  : channel === "threads"
+                    ? "bg-foreground/10 text-foreground"
+                    : channel === "ads"
+                      ? "bg-blue-500/10 text-blue-500"
+                      : "bg-[#1877F2]/10 text-[#1877F2]";
               return (
                 <li
                   key={c.id}
@@ -203,9 +231,12 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-3">
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={pagePic} alt={c.externalName ?? ""} />
-                        <AvatarFallback className="bg-[#1877F2]/10 text-[#1877F2]">
-                          <Facebook className="h-4 w-4" />
+                        <AvatarImage
+                          src={channel === "instagram" ? igPic : pagePic}
+                          alt={c.externalName ?? ""}
+                        />
+                        <AvatarFallback className={iconClass}>
+                          <ChannelIcon className="h-4 w-4" />
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 space-y-1">
@@ -213,6 +244,9 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
                           <span className="truncate text-sm font-medium">
                             {c.externalName ?? c.externalId}
                           </span>
+                          <Badge variant="outline" className="h-5 px-1.5 text-[10px] capitalize">
+                            {channel}
+                          </Badge>
                           {isActive ? (
                             <Badge
                               variant="outline"
@@ -228,7 +262,7 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
                           )}
                         </div>
                         <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                          {igUsername ? (
+                          {channel === "instagram" && igUsername ? (
                             <span className="flex items-center gap-1.5">
                               <Avatar className="h-4 w-4">
                                 <AvatarImage src={igPic} alt={igUsername} />
@@ -238,6 +272,14 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
                               </Avatar>
                               @{igUsername}
                             </span>
+                          ) : channel === "facebook" && igUsername ? (
+                            <span className="text-muted-foreground">
+                              + Instagram @{igUsername}
+                            </span>
+                          ) : channel === "ads" ? (
+                            <span>Meta Ads · pronto para insights e sync</span>
+                          ) : channel === "threads" ? (
+                            <span>Threads · pronto para publicação e insights</span>
                           ) : (
                             <span className="text-amber-600">sem Instagram Business</span>
                           )}
