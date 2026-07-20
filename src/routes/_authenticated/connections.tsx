@@ -376,15 +376,15 @@ function ConnectionsPage() {
     <DashboardPageShell>
       <ConnectionsHeaderRegister />
 
-      <Tabs defaultValue="ai" className="space-y-4">
+      <Tabs defaultValue="channels" className="space-y-4">
         <TabsList variant="bordered">
-          <TabsTrigger value="ai">
-            <Sparkles className="h-3.5 w-3.5" />
-            IA
-          </TabsTrigger>
           <TabsTrigger value="channels">
             <Radio className="h-3.5 w-3.5" />
             Canais
+          </TabsTrigger>
+          <TabsTrigger value="ai">
+            <Sparkles className="h-3.5 w-3.5" />
+            IA
           </TabsTrigger>
           <TabsTrigger value="messaging">
             <Send className="h-3.5 w-3.5" />
