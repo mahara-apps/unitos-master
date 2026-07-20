@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   useMutation,
   useQuery,
@@ -967,7 +967,7 @@ function TaskLayout({
   postId?: string;
   createdAt?: string | null;
   copyAutosaveStatus?: "idle" | "saving" | "saved";
-  mediaSlot?: React.ReactNode;
+  mediaSlot?: ReactNode;
 }) {
   const [tagInput, setTagInput] = useState("");
   const set = <K extends keyof TaskState>(key: K, value: TaskState[K]) =>
@@ -1055,6 +1055,8 @@ function TaskLayout({
             ))}
           </div>
         </div>
+
+        {mediaSlot ? <div>{mediaSlot}</div> : null}
 
         <div className="space-y-1">
           <CopyEditor
