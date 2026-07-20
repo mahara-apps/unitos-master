@@ -92,14 +92,32 @@ export const getAnalytics = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { brand_id, start, end } = data;
 
-    // Membership check
-    const { data: member } = await supabase
-      .from("brand_members")
-      .select("brand_id")
-      .eq("brand_id", brand_id)
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (!member) throw new Error("forbidden");
+    // Membership check — aceita membro da marca, dono da marca ou super admin.
+    const [memberRes, brandRes, adminRes] = await Promise.all([
+      supabase
+        .from("brand_members")
+        .select("brand_id")
+        .eq("brand_id", brand_id)
+        .eq("user_id", userId)
+        .maybeSingle(),
+      supabase
+        .from("brands")
+        .select("owner_id")
+        .eq("id", brand_id)
+        .maybeSingle(),
+      supabase
+        .from("user_profiles")
+        .select("is_super_admin")
+        .eq("id", userId)
+        .maybeSingle(),
+    ]);
+    const isMember = Boolean(memberRes.data);
+    const isOwner =
+      (brandRes.data as { owner_id?: string } | null)?.owner_id === userId;
+    const isSuper = Boolean(
+      (adminRes.data as { is_super_admin?: boolean } | null)?.is_super_admin,
+    );
+    if (!isMember && !isOwner && !isSuper) throw new Error("forbidden");
 
     // -------- Posts ---------
     let postsQ = supabase
