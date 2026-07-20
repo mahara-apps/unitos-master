@@ -3,6 +3,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+
+// Format a Date as the local `YYYY-MM-DDTHH:mm` string a
+// <input type="datetime-local"> expects. Using .toISOString() here would
+// show the UTC hour and, on re-save, drift the value by the timezone offset.
+function toLocalDatetimeInput(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` +
+    `T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  );
+}
 import {
   CalendarIcon,
   CheckCircle2,
@@ -1037,7 +1048,7 @@ function DuePicker({
           <Input
             type="datetime-local"
             className="h-8 text-xs"
-            value={local ? local.toISOString().slice(0, 16) : ""}
+            value={local ? toLocalDatetimeInput(local) : ""}
             onChange={(e) => {
               onChange(e.target.value ? new Date(e.target.value).toISOString() : null);
             }}

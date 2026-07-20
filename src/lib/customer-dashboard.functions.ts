@@ -20,7 +20,7 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
     const [client, portalTokens, activity, pipelinesRes, tasks, usage, aiJobsCountRes, briefingRes] = await Promise.all([
       context.supabase
         .from("clients")
-        .select("id,name,niche,color,socials,contact_name,contact_email,tone_of_voice,is_active,created_at,updated_at")
+        .select("id,name,niche,color,socials,contact_name,contact_email,tone_of_voice,is_active,created_at,updated_at,brand_hub")
         .eq("id", data.clientId)
         .maybeSingle(),
       context.supabase
@@ -66,6 +66,22 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
         .eq("client_id", data.clientId)
         .maybeSingle(),
     ]);
+
+    // Cérebro da marca is persisted in clients.brand_hub (jsonb). Treat a
+    // non-empty brand_hub as an effective briefing and derive the updated_at
+    // from the clients row; fall back to the legacy client_briefings table.
+    const brandHub =
+      ((client.data as { brand_hub?: Record<string, unknown> } | null)?.brand_hub as
+        | Record<string, unknown>
+        | null
+        | undefined) ?? null;
+    const brandHubFilled =
+      !!brandHub &&
+      typeof brandHub === "object" &&
+      Object.keys(brandHub).length > 0;
+    const briefingUpdatedAt: string | null = brandHubFilled
+      ? ((client.data as { updated_at?: string } | null)?.updated_at ?? null)
+      : ((briefingRes?.data?.updated_at as string | null) ?? null);
 
     const defaultPipeline = (pipelinesRes.data ?? [])[0] ?? null;
 
@@ -189,7 +205,7 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
         due_at: t.due_at,
       })),
       posts: postsForHealth,
-      briefingUpdatedAt: (briefingRes?.data?.updated_at as string | null) ?? null,
+      briefingUpdatedAt,
     });
 
     const aiJobRows = (aiJobsCountRes?.data ?? []) as Array<{
@@ -224,7 +240,7 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
       description?: string;
       count?: number;
     }> = [];
-    const briefingUpdated = (briefingRes?.data?.updated_at as string | null) ?? null;
+    const briefingUpdated = briefingUpdatedAt;
     if (!briefingUpdated || now - new Date(briefingUpdated).getTime() > 7 * 86_400_000) {
       alerts.push({
         severity: "critical",
