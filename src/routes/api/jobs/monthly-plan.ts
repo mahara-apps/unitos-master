@@ -29,6 +29,7 @@ const BodySchema = z.object({
   channelMix: z.record(z.string(), z.number().int().min(0).max(180)).optional(),
   direction: z.string().max(2000).optional(),
   startFrom: z.enum(["current-remaining", "next-month"]).optional(),
+  assigneeId: z.string().uuid().optional(),
 });
 
 const STRATEGIC_MODEL = "google/gemini-2.5-flash";
