@@ -56,6 +56,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
+import { TaskTimerWidget } from "@/components/tasks/task-timer-widget";
 import {
   Popover,
   PopoverContent,
