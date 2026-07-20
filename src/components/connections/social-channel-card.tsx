@@ -34,6 +34,7 @@ import {
   disconnectMeta,
   refreshMetaConnection,
   startMetaOAuth,
+  getActiveMetaSession,
 } from "@/lib/meta/meta.functions";
 import { upsertChannel } from "@/lib/connections.functions";
 
@@ -642,7 +643,41 @@ function ManageSheet({
   });
 
   const startOAuthFn = useServerFn(startMetaOAuth);
-  async function handleAddMeta() {
+  const getActiveSessionFn = useServerFn(getActiveMetaSession);
+
+  /**
+   * Adds a Meta account. When `forceReauth` is false (default, "Adicionar
+   * conta"), we first check for an existing valid user token — if present,
+   * we simply open the account selector using the cached session instead of
+   * triggering an OAuth popup. `forceReauth: true` skips the reuse path and
+   * always opens the OAuth popup with `auth_type=reauthenticate` (used for
+   * "Conectar outro perfil Meta" and per-account "Reconectar" actions).
+   */
+  async function handleAddMeta(opts?: { forceReauth?: boolean }) {
+    const forceReauth = !!opts?.forceReauth;
+    const metaChannel = metaChannelFromId(channel.id);
+
+    // Fast-path: reuse an existing session and skip the popup entirely.
+    if (!forceReauth) {
+      try {
+        const { sessionId } = await getActiveSessionFn({ data: { brandId } });
+        if (sessionId) {
+          window.postMessage(
+            {
+              source: "meta-oauth",
+              ok: true,
+              sessionId,
+              channel: metaChannel ?? null,
+            },
+            "*",
+          );
+          return;
+        }
+      } catch {
+        /* fall through to the OAuth popup */
+      }
+    }
+
     const popup = window.open("", "meta-oauth", metaPopupFeatures());
     let completed = false;
     let timeoutId: number | undefined;
@@ -667,9 +702,12 @@ function ManageSheet({
       }, 120_000);
     }
     try {
-      const metaChannel = metaChannelFromId(channel.id);
       const { authorizeUrl } = await startOAuthFn({
-        data: { brandId, ...(metaChannel ? { channel: metaChannel } : {}) },
+        data: {
+          brandId,
+          ...(metaChannel ? { channel: metaChannel } : {}),
+          forceReauth,
+        },
       });
       if (popup) popup.location.href = authorizeUrl;
       else window.location.href = authorizeUrl;
@@ -763,7 +801,7 @@ function ManageSheet({
                         size="sm"
                         variant="default"
                         className="h-8 gap-1.5 px-2.5 text-[11px]"
-                        onClick={() => handleAddMeta()}
+                        onClick={() => handleAddMeta({ forceReauth: true })}
                         title="Reautenticar esta conta na Meta"
                       >
                         <AlertTriangle className="h-3.5 w-3.5" />
@@ -801,16 +839,29 @@ function ManageSheet({
         </div>
 
         <Separator className="my-4" />
-        <Button
-          className="w-full"
-          variant="outline"
-          onClick={() => {
-            if (kind === "meta") handleAddMeta();
-            else onAddNew();
-          }}
-        >
-          <Plus className="mr-2 h-4 w-4" /> Adicionar conta
-        </Button>
+        <div className="space-y-2">
+          <Button
+            className="w-full"
+            variant="outline"
+            onClick={() => {
+              if (kind === "meta") handleAddMeta();
+              else onAddNew();
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" /> Adicionar conta
+          </Button>
+          {kind === "meta" && (
+            <Button
+              className="w-full text-xs text-muted-foreground"
+              variant="ghost"
+              size="sm"
+              onClick={() => handleAddMeta({ forceReauth: true })}
+              title="Faz logout na Meta e permite entrar com outro usuário"
+            >
+              Conectar outro perfil Meta
+            </Button>
+          )}
+        </div>
       </SheetContent>
     </Sheet>
   );
