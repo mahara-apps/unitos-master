@@ -32,8 +32,8 @@ function AgentsPage() {
   const listJobs = useServerFn(listAgentJobsFn);
 
   const prompts = useQuery({
-    queryKey: ["agent-prompts"],
-    queryFn: () => listPrompts(),
+    queryKey: ["agent-prompts", brandId],
+    queryFn: () => listPrompts({ data: { brandId: brandId ?? null } }),
   });
 
   const jobs = useQuery({
