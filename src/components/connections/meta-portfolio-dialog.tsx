@@ -283,7 +283,26 @@ export function MetaPortfolioDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl border-border/60 bg-background/95 backdrop-blur">
         <DialogHeader>
-          <DialogTitle className="text-base">Selecione as contas da Meta</DialogTitle>
+          <div className="flex items-start justify-between gap-3">
+            <DialogTitle className="text-base">Selecione as contas da Meta</DialogTitle>
+            {data && !isRateLimited && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 gap-1.5 text-[11px]"
+                onClick={handleResync}
+                disabled={isFetching}
+                title="Buscar novamente as contas na Meta"
+              >
+                {isFetching ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-3 w-3" />
+                )}
+                Sincronizar
+              </Button>
+            )}
+          </div>
           <DialogDescription className="text-xs">
             {data?.metaUser.name
               ? `Logado como ${data.metaUser.name}. `
