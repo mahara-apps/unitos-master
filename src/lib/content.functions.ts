@@ -721,19 +721,24 @@ export const createPostFn = createServerFn({ method: "POST" })
       if (data[k] !== undefined) insertRow[k as string] = data[k];
     }
 
-    // Fallback: if no assignee provided, attribute to brand owner (admin).
+    // Fallback: se nenhum responsável foi fornecido, atribui ao usuário que
+    // criou o conteúdo (operador atual). Como último recurso, ao owner da marca.
     const hasAssignees = Array.isArray(data.assignees) && data.assignees.length > 0;
     if (hasAssignees) {
       insertRow.assignee_id = data.assignees![0];
     } else {
-      const { data: ownerRow } = await context.supabase
-        .from("brand_members")
-        .select("user_id")
-        .eq("brand_id", data.brandId)
-        .eq("role", "owner")
-        .limit(1)
-        .maybeSingle();
-      const fallback = (ownerRow?.user_id as string | undefined) ?? context.userId;
+      let fallback: string = context.userId;
+      // Se por algum motivo o userId não existir, cai para o owner.
+      if (!fallback) {
+        const { data: ownerRow } = await context.supabase
+          .from("brand_members")
+          .select("user_id")
+          .eq("brand_id", data.brandId)
+          .eq("role", "owner")
+          .limit(1)
+          .maybeSingle();
+        fallback = (ownerRow?.user_id as string | undefined) ?? context.userId;
+      }
       insertRow.assignee_id = fallback;
       insertRow.assignees = [fallback];
     }

@@ -1,7 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Sparkles, Loader2, Info, Minus, Plus } from "lucide-react";
+import { Sparkles, Loader2, Info, Minus, Plus, UserCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { listBrandAssigneesFn } from "@/lib/content.functions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -75,6 +78,22 @@ export function GeneratePlanDialog({
   const [pending, setPending] = useState(false);
   const [stepIdx, setStepIdx] = useState(0);
   const [mix, setMix] = useState<Record<PlanChannel, number>>(DEFAULT_MIX);
+  const [assigneeId, setAssigneeId] = useState<string | null>(null);
+
+  const fetchMembers = useServerFn(listBrandAssigneesFn);
+  const { data: members } = useQuery({
+    queryKey: ["brand-assignees", brandId],
+    queryFn: () => fetchMembers({ data: { brandId } }),
+    staleTime: 60_000,
+    enabled: !!brandId && open,
+  });
+  useEffect(() => {
+    if (assigneeId) return;
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id ?? null;
+      if (uid) setAssigneeId((prev) => prev ?? uid);
+    });
+  }, [assigneeId]);
 
   const totalPosts = useMemo(
     () => PLAN_CHANNELS.reduce((acc, c) => acc + (mix[c] || 0), 0),
@@ -139,6 +158,7 @@ export function GeneratePlanDialog({
           startFrom,
           direction: direction.trim() || undefined,
           channelMix,
+          assigneeId: assigneeId ?? undefined,
         }),
       });
       if (!res.ok) {
@@ -293,6 +313,32 @@ export function GeneratePlanDialog({
               maxLength={2000}
               className="text-xs"
             />
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor="assignee" className="flex items-center gap-1.5 text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+              <UserCircle2 className="h-3 w-3" />
+              Responsável padrão
+            </Label>
+            <Select
+              value={assigneeId ?? "me"}
+              onValueChange={(v) => setAssigneeId(v === "me" ? null : v)}
+            >
+              <SelectTrigger id="assignee" className="h-8 text-xs">
+                <SelectValue placeholder="Selecionar responsável" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="me">Eu (usuário atual)</SelectItem>
+                {(members ?? []).map((m) => (
+                  <SelectItem key={m.id} value={m.id}>
+                    {m.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground">
+              Todas as peças geradas serão atribuídas a esta pessoa.
+            </p>
           </div>
 
           <div className="flex items-center gap-2 rounded-md border border-border/60 bg-background/60 px-2.5 py-1.5 text-[11px]">
