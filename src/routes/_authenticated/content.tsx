@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { Layers, Loader2, Pencil, Plus, Settings, Sparkles } from "lucide-react";
 import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -47,8 +46,6 @@ import {
 import { PanelCard } from "@/components/ui/panel-card";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
-import { MediaLibraryPanel } from "@/components/content/media-library-panel";
-import { PublicationsPanel } from "@/components/content/publications-panel";
 import { ComposerDialog } from "@/components/content/composer-dialog";
 import {
   ContentToolbar,
@@ -60,16 +57,6 @@ import {
 import { ContentList } from "@/components/content/content-list";
 import type { StageSort, SortBy } from "@/components/content/content-board";
 
-const CONTENT_TABS = [
-  { value: "pipeline", label: "Pipeline" },
-  { value: "calendar", label: "Calendário" },
-  { value: "scheduled", label: "Agendados" },
-  { value: "library", label: "Biblioteca" },
-  { value: "publications", label: "Publicações" },
-  { value: "approvals", label: "Aprovações" },
-] as const;
-type ContentTab = (typeof CONTENT_TABS)[number]["value"];
-
 export const Route = createFileRoute("/_authenticated/content")({
   beforeLoad: () => ensureFeatureEnabled("blog_post"),
   validateSearch: (s: Record<string, unknown>) =>
@@ -77,9 +64,6 @@ export const Route = createFileRoute("/_authenticated/content")({
       .object({
         project: z.string().uuid().optional(),
         new: z.coerce.boolean().optional(),
-        tab: z
-          .enum(["pipeline", "calendar", "scheduled", "library", "publications", "approvals"])
-          .optional(),
       })
       .parse(s),
   component: ContentPage,
@@ -88,7 +72,6 @@ export const Route = createFileRoute("/_authenticated/content")({
 function ContentPage() {
   const { brandId, clientId } = useActiveContext();
   const search = Route.useSearch();
-  const tab: ContentTab = (search.tab as ContentTab | undefined) ?? "pipeline";
   const [composerOpen, setComposerOpen] = useState(false);
 
   usePageHeader(
@@ -120,67 +103,19 @@ function ContentPage() {
 
   return (
     <DashboardPageShell className="flex min-h-0 flex-col space-y-4">
-      <ContentTabsBar current={tab} />
-
-      {tab === "pipeline" && !clientId ? (
+      {!clientId ? (
         <BoardEmpty
           title="Selecione uma conta"
           description="O pipeline é organizado por cliente. Selecione uma conta ativa."
         />
-      ) : tab === "pipeline" && clientId ? (
+      ) : (
         <ContentReady
           brandId={brandId}
           clientId={clientId}
           defaultProjectId={search.project ?? null}
           autoOpenNewTask={!!search.new}
         />
-      ) : null}
-
-      {tab === "calendar" ? (
-        <DashboardPanelSurface>
-          <div className="flex items-center justify-between p-5">
-            <div>
-              <div className="text-sm font-semibold">Calendário editorial</div>
-              <div className="text-xs text-muted-foreground">
-                Visualização mensal completa em página dedicada.
-              </div>
-            </div>
-            <Button size="sm" asChild>
-              <Link to="/calendar">Abrir calendário</Link>
-            </Button>
-          </div>
-        </DashboardPanelSurface>
-      ) : null}
-
-      {tab === "scheduled" ? (
-        <PublicationsPanel
-          brandId={brandId}
-          onlyStatus="scheduled"
-          title="Publicações agendadas"
-          subtitle="Serão publicadas automaticamente pelo worker Meta."
-        />
-      ) : null}
-
-      {tab === "library" ? <MediaLibraryPanel brandId={brandId} /> : null}
-
-      {tab === "publications" ? (
-        <PublicationsPanel
-          brandId={brandId}
-          title="Publicações"
-          subtitle="Histórico completo por marca (agendadas, publicadas, falhas)."
-        />
-      ) : null}
-
-      {tab === "approvals" ? (
-        <DashboardPanelSurface>
-          <div className="p-8">
-            <PanelEmptyState
-              icon={<Layers className="h-5 w-5" />}
-              text="Fluxo de aprovações em breve — por enquanto use o portal do cliente."
-            />
-          </div>
-        </DashboardPanelSurface>
-      ) : null}
+      )}
 
       <ComposerDialog
         open={composerOpen}
@@ -189,26 +124,6 @@ function ContentPage() {
         clientId={clientId ?? null}
       />
     </DashboardPageShell>
-  );
-}
-
-function ContentTabsBar({ current }: { current: ContentTab }) {
-  return (
-    <Tabs value={current}>
-      <TabsList>
-        {CONTENT_TABS.map((t) => (
-          <TabsTrigger key={t.value} value={t.value} asChild>
-            <Link
-              to="/content"
-              search={(prev: Record<string, unknown>) => ({ ...prev, tab: t.value })}
-              className="cursor-pointer"
-            >
-              {t.label}
-            </Link>
-          </TabsTrigger>
-        ))}
-      </TabsList>
-    </Tabs>
   );
 }
 
