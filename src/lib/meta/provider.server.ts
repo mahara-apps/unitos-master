@@ -15,10 +15,11 @@ export const META_DEFAULT_SCOPES = [
   "instagram_basic",
   "instagram_manage_insights",
   "instagram_content_publish",
-  // Threads
-  "threads_basic",
-  "threads_manage_insights",
-  "threads_content_publish",
+  // Threads — requer o produto "Threads API" adicionado no App Meta Dashboard.
+  // Reative quando o produto estiver ativo:
+  // "threads_basic",
+  // "threads_manage_insights",
+  // "threads_content_publish",
   // Meta Ads
   "ads_read",
 ];
