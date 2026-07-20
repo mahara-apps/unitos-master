@@ -665,17 +665,11 @@ function accountsForChannel(
         };
       });
   }
-  if (legacy?.connected) {
-    return [
-      {
-        id: `${channel.id}-manual`,
-        name: legacy.handle ?? channel.name,
-        handle: legacy.handle ?? undefined,
-        updatedAt: legacy.updatedAt ?? null,
-        status: "active",
-      },
-    ];
-  }
+  // Channels without a real OAuth pipeline (TikTok, YouTube, LinkedIn, X)
+  // stay empty until we ship provider integration. Legacy manual toggles
+  // stored in brand_connections.channels are ignored so the UI never shows
+  // an "account" that has never been authorized.
+  void legacy;
   return [];
 }
 
