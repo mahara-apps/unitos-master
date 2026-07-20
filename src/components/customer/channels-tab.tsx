@@ -3,7 +3,20 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Facebook, Instagram, Loader2, Plus, Radio } from "lucide-react";
+import {
+  Facebook,
+  Instagram,
+  Loader2,
+  Plus,
+  Radio,
+  Music2,
+  Youtube,
+  Linkedin,
+  Twitter,
+  AtSign,
+  Lock,
+  type LucideIcon,
+} from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +29,36 @@ import {
   toggleClientChannelFn,
   type ClientChannelRow,
 } from "@/lib/client-channels.functions";
+
+type ChannelKey =
+  | "instagram"
+  | "facebook"
+  | "tiktok"
+  | "youtube"
+  | "linkedin"
+  | "twitter"
+  | "threads";
+
+type ChannelDef = {
+  key: ChannelKey;
+  label: string;
+  icon: LucideIcon;
+  tone: string;
+  /** true = OAuth já implementado (Meta). false = placeholder "em breve". */
+  available: boolean;
+  /** Fluxo de conexão do provider (só para available=true). */
+  provider?: "meta";
+};
+
+const CHANNELS: ChannelDef[] = [
+  { key: "instagram", label: "Instagram", icon: Instagram, tone: "text-pink-500", available: true, provider: "meta" },
+  { key: "facebook", label: "Facebook", icon: Facebook, tone: "text-sky-600", available: true, provider: "meta" },
+  { key: "tiktok", label: "TikTok", icon: Music2, tone: "text-foreground", available: false },
+  { key: "linkedin", label: "LinkedIn", icon: Linkedin, tone: "text-sky-700", available: false },
+  { key: "youtube", label: "YouTube", icon: Youtube, tone: "text-red-500", available: false },
+  { key: "threads", label: "Threads", icon: AtSign, tone: "text-foreground", available: false },
+  { key: "twitter", label: "X / Twitter", icon: Twitter, tone: "text-foreground", available: false },
+];
 
 export function ChannelsTab({
   brandId,
