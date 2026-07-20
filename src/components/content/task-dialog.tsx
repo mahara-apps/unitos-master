@@ -1200,7 +1200,7 @@ function TaskLayout({
           </Select>
         </div>
 
-        <div className="col-span-2 space-y-1.5">
+        <div className="space-y-1.5">
           <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
             Tags
           </Label>
@@ -1235,12 +1235,17 @@ function TaskLayout({
           </div>
         </div>
 
-        <div className="col-span-2 flex items-center justify-between rounded-md border border-border/60 bg-background/60 px-3 py-2">
-          <Label className="text-xs">Visível no portal</Label>
-          <Switch
-            checked={state.visibleInPortal}
-            onCheckedChange={(v) => set("visibleInPortal", v)}
-          />
+        <div className="col-span-2 grid grid-cols-2 gap-3">
+          <div className="flex items-center justify-between rounded-md border border-border/60 bg-background/60 px-3 py-2">
+            <Label className="text-xs">Visível no portal</Label>
+            <Switch
+              checked={state.visibleInPortal}
+              onCheckedChange={(v) => set("visibleInPortal", v)}
+            />
+          </div>
+          {mode === "edit" && postId ? (
+            <ApprovalLinkSection postId={postId} />
+          ) : null}
         </div>
       </div>
     </div>
