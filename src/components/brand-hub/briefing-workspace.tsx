@@ -59,6 +59,9 @@ import {
 } from "@/lib/brand-hub.functions";
 import { computeBriefingCompletion, briefingProgressLabel } from "@/lib/briefing-progress";
 import { supabase } from "@/integrations/supabase/client";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CHANNELS, CHANNEL_STYLES } from "@/components/content/stage-colors";
+import { FORMATS_BY_CHANNEL, FORMAT_LABEL, type PlacementFormat } from "@/lib/scheduling-formats";
 
 /* ----------------------------- Types / helpers ----------------------------- */
 
