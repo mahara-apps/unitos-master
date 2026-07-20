@@ -222,9 +222,9 @@ export class MetaProvider {
               limit: "100",
             },
           })
-        : await this.graphAbsolute<Paged<PageRow>>(nextUrl!);
+        : await this.graphAbsolute<Paged<PageRow>>(nextUrl!, userAccessToken);
       for (const p of res.data ?? []) {
-        out.push({
+        const asset: MetaPageAsset = {
           pageId: p.id,
           pageName: p.name,
           pageAccessToken: p.access_token,
@@ -234,7 +234,30 @@ export class MetaProvider {
           instagramUsername: p.instagram_business_account?.username,
           pagePictureUrl: p.picture?.data?.url,
           instagramPictureUrl: p.instagram_business_account?.profile_picture_url,
-        });
+        };
+        // Fallback: some IGs return only `id` on the /me/accounts expansion
+        // (private / recently-connected). Hydrate username & avatar with a
+        // direct read using the page token so the selector isn't empty.
+        if (
+          asset.instagramBusinessId &&
+          (!asset.instagramUsername || !asset.instagramPictureUrl)
+        ) {
+          try {
+            const ig = await this.graph<{
+              username?: string;
+              profile_picture_url?: string;
+            }>(`/${asset.instagramBusinessId}`, {
+              accessToken: p.access_token,
+              query: { fields: "username,profile_picture_url" },
+            });
+            asset.instagramUsername = asset.instagramUsername ?? ig.username;
+            asset.instagramPictureUrl =
+              asset.instagramPictureUrl ?? ig.profile_picture_url;
+          } catch {
+            /* keep partial data */
+          }
+        }
+        out.push(asset);
       }
       nextUrl = res.paging?.next ?? null;
       first = false;
@@ -360,8 +383,30 @@ export class MetaProvider {
     return this.doFetch<T>(url.toString(), opts.method ?? "GET", opts.body);
   }
 
-  private async graphAbsolute<T>(absoluteUrl: string): Promise<T> {
-    return this.doFetch<T>(absoluteUrl, "GET");
+  private async graphAbsolute<T>(
+    absoluteUrl: string,
+    accessToken?: string,
+  ): Promise<T> {
+    // Meta's `paging.next` URL keeps the original `access_token` but does NOT
+    // re-sign with `appsecret_proof`. When the app requires proof, following
+    // that URL as-is returns 400 and pagination silently truncates. Rebuild
+    // both parameters here.
+    try {
+      const url = new URL(absoluteUrl);
+      const token = accessToken ?? url.searchParams.get("access_token") ?? "";
+      if (token) {
+        if (!url.searchParams.get("access_token")) {
+          url.searchParams.set("access_token", token);
+        }
+        url.searchParams.set(
+          "appsecret_proof",
+          await hmacSha256Hex(this.appSecret, token),
+        );
+      }
+      return this.doFetch<T>(url.toString(), "GET");
+    } catch {
+      return this.doFetch<T>(absoluteUrl, "GET");
+    }
   }
 
   private async doFetch<T>(
