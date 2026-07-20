@@ -14,7 +14,7 @@ import {
 } from "@dnd-kit/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Check, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarClock, CalendarPlus, Check, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Paperclip, ImageIcon, CalendarDays, UserCircle2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -118,7 +118,16 @@ type Props = {
   onNewTask?: (stageId?: string) => void;
 };
 
-export function ContentBoard({ board, boardQueryKey, onOpenPost, onConfigureColumns, onNewTask }: Props) {
+export type SortBy = "position" | "created" | "scheduled";
+export type SortDir = "asc" | "desc";
+export type StageSort = { by: SortBy; dir: SortDir };
+
+type PropsExt = Props & {
+  sortByStage?: Record<string, StageSort>;
+  onCycleSort?: (stageId: string, by: Exclude<SortBy, "position">) => void;
+};
+
+export function ContentBoard({ board, boardQueryKey, onOpenPost, onConfigureColumns, onNewTask, sortByStage, onCycleSort }: PropsExt) {
   const qc = useQueryClient();
   const movePost = useServerFn(movePostFn);
   const createStage = useServerFn(createStageFn);
@@ -140,9 +149,27 @@ export function ContentBoard({ board, boardQueryKey, onOpenPost, onConfigureColu
       if (!m.has(p.stage_id)) m.set(p.stage_id, []);
       m.get(p.stage_id)!.push(p);
     }
-    for (const list of m.values()) list.sort((a, b) => a.position - b.position);
+    for (const [stageId, list] of m.entries()) {
+      const sort = sortByStage?.[stageId];
+      if (!sort || sort.by === "position") {
+        list.sort((a, b) => a.position - b.position);
+      } else {
+        const pick = (p: BoardPost) =>
+          sort.by === "created"
+            ? new Date(p.created_at).getTime()
+            : p.scheduled_at
+              ? new Date(p.scheduled_at).getTime()
+              : sort.dir === "asc"
+                ? Number.POSITIVE_INFINITY
+                : Number.NEGATIVE_INFINITY;
+        list.sort((a, b) => {
+          const diff = pick(a) - pick(b);
+          return sort.dir === "asc" ? diff : -diff;
+        });
+      }
+    }
     return m;
-  }, [board]);
+  }, [board, sortByStage]);
 
   const activePost = useMemo(
     () => (activeId ? board.posts.find((p) => p.id === activeId) ?? null : null),
@@ -256,6 +283,8 @@ export function ContentBoard({ board, boardQueryKey, onOpenPost, onConfigureColu
             adding={addPost.isPending}
             onOpenRichCreate={onNewTask ? () => onNewTask(stage.id) : undefined}
             onConfigure={onConfigureColumns}
+            sort={sortByStage?.[stage.id]}
+            onCycleSort={onCycleSort ? (by) => onCycleSort(stage.id, by) : undefined}
           />
         ))}
         <button
@@ -293,6 +322,8 @@ function Column({
   adding,
   onOpenRichCreate,
   onConfigure,
+  sort,
+  onCycleSort,
 }: {
   stage: PipelineStage;
   posts: BoardPost[];
@@ -307,6 +338,8 @@ function Column({
   adding: boolean;
   onOpenRichCreate?: () => void;
   onConfigure?: () => void;
+  sort?: StageSort;
+  onCycleSort?: (by: Exclude<SortBy, "position">) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   const [editing, setEditing] = useState(false);
@@ -414,6 +447,24 @@ function Column({
           ) : null;
         })()}
         </div>
+        {onCycleSort ? (
+          <div className="flex shrink-0 items-center gap-0.5">
+            <SortChip
+              label="Criação"
+              icon={<CalendarPlus className="h-3 w-3" />}
+              active={sort?.by === "created"}
+              dir={sort?.by === "created" ? sort.dir : null}
+              onClick={() => onCycleSort("created")}
+            />
+            <SortChip
+              label="Postagem"
+              icon={<CalendarClock className="h-3 w-3" />}
+              active={sort?.by === "scheduled"}
+              dir={sort?.by === "scheduled" ? sort.dir : null}
+              onClick={() => onCycleSort("scheduled")}
+            />
+          </div>
+        ) : null}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 opacity-60 hover:opacity-100">
@@ -508,6 +559,60 @@ function Column({
 }
 
 function DraggablePostCard({ post, onOpen }: { post: BoardPost; onOpen: (id: string) => void }) {
+  return (
+    <DraggablePostCardInner post={post} onOpen={onOpen} />
+  );
+}
+
+function SortChip({
+  label,
+  icon,
+  active,
+  dir,
+  onClick,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  active: boolean;
+  dir: SortDir | null;
+  onClick: () => void;
+}) {
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={onClick}
+            className={`inline-flex h-5 items-center gap-0.5 rounded-md border px-1 text-[10px] transition ${
+              active
+                ? "border-primary/40 bg-primary/10 text-primary"
+                : "border-border/60 bg-background/60 text-muted-foreground hover:text-foreground"
+            }`}
+            aria-label={`Ordenar por ${label.toLowerCase()}`}
+          >
+            {icon}
+            {active ? (
+              dir === "asc" ? (
+                <ArrowUp className="h-2.5 w-2.5" />
+              ) : (
+                <ArrowDown className="h-2.5 w-2.5" />
+              )
+            ) : (
+              <ArrowUpDown className="h-2.5 w-2.5" />
+            )}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>
+          Ordenar por {label.toLowerCase()}
+          {active ? ` (${dir === "asc" ? "crescente" : "decrescente"})` : ""}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function DraggablePostCardInner({ post, onOpen }: { post: BoardPost; onOpen: (id: string) => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: post.id });
   return (
     <div
