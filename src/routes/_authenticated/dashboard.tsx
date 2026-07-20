@@ -741,8 +741,6 @@ function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }
 
   return (
     <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      <ClientHeroCard client={client ?? null} health={health ?? null} loading={customer.isLoading} />
-
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           icon={<TrendingUp className="h-4 w-4" />}
