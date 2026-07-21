@@ -306,7 +306,11 @@ function ProjectsIndexPage() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={clientFilter} onValueChange={setClientFilter}>
+        <Select
+          value={clientFilter}
+          onValueChange={setClientFilter}
+          disabled={!!activeClientId}
+        >
           <SelectTrigger className="h-9 w-[180px] text-xs">
             <CalendarIcon className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
             <SelectValue placeholder="Cliente" />
