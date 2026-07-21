@@ -517,14 +517,20 @@ function FilterSelect({
   value,
   onChange,
   options,
+  disabled = false,
 }: {
   placeholder: string;
   value: string | null;
   onChange: (v: string | null) => void;
   options: Array<{ value: string; label: string }>;
+  disabled?: boolean;
 }) {
   return (
-    <Select value={value ?? ALL} onValueChange={(v) => onChange(v === ALL ? null : v)}>
+    <Select
+      value={value ?? ALL}
+      onValueChange={(v) => onChange(v === ALL ? null : v)}
+      disabled={disabled}
+    >
       <SelectTrigger className="h-8 w-[160px] text-xs">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
