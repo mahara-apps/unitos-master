@@ -47,14 +47,27 @@ type Filters = {
 
 const ALL = "__all__";
 
-export function BrainDashboard({ brandId }: { brandId?: string | null }) {
+export function BrainDashboard({
+  brandId,
+  clientId: activeClientId = null,
+  lockClient = false,
+}: {
+  brandId?: string | null;
+  clientId?: string | null;
+  lockClient?: boolean;
+}) {
   const [filters, setFilters] = useState<Filters>({
-    clientId: null,
+    clientId: activeClientId,
     projectId: null,
     actorId: null,
     category: null,
     days: 30,
   });
+
+  // Mantém o filtro sincronizado com o cliente ativo da sidebar.
+  useEffect(() => {
+    setFilters((f) => (f.clientId === activeClientId ? f : { ...f, clientId: activeClientId }));
+  }, [activeClientId]);
 
   const fetchIntel = useServerFn(brainIntelligenceFn);
   const q = useQuery({
@@ -116,6 +129,7 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
       <FiltersBar
         data={d}
         filters={filters}
+        lockClient={lockClient}
         onChange={(patch) => setFilters((f) => ({ ...f, ...patch }))}
       />
 
