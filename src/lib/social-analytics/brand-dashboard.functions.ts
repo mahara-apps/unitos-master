@@ -568,6 +568,24 @@ function resolveRange(input: { period: string; since?: string; until?: string })
   return { since: since.toISOString(), until: until.toISOString() };
 }
 
+function resolvePrevRange(range: { since: string; until: string }): {
+  since: string;
+  until: string;
+} {
+  const s = new Date(range.since).getTime();
+  const u = new Date(range.until).getTime();
+  const span = Math.max(u - s, 24 * 60 * 60 * 1000);
+  return {
+    since: new Date(s - span).toISOString(),
+    until: new Date(s).toISOString(),
+  };
+}
+
+function delta(curr: number, prev: number): number | null {
+  if (!prev || prev === 0) return null;
+  return round2(((curr - prev) / prev) * 100);
+}
+
 function mv(list: { key: string; value: number }[] | undefined, key: string) {
   if (!list) return null;
   const m = list.find((x) => x.key === key);
