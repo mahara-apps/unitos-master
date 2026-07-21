@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -450,10 +450,12 @@ export function BrainDashboard({
 function FiltersBar({
   data,
   filters,
+  lockClient = false,
   onChange,
 }: {
   data: BrainIntelligence | undefined;
   filters: Filters;
+  lockClient?: boolean;
   onChange: (patch: Partial<Filters>) => void;
 }) {
   return (
@@ -467,6 +469,7 @@ function FiltersBar({
         value={filters.clientId}
         onChange={(v) => onChange({ clientId: v })}
         options={(data?.clientsAvailable ?? []).map((c) => ({ value: c.id, label: c.name }))}
+        disabled={lockClient}
       />
       <FilterSelect
         placeholder="Projeto"
