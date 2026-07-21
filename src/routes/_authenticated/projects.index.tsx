@@ -110,7 +110,7 @@ function fmtDate(iso?: string | null) {
 }
 
 function ProjectsIndexPage() {
-  const { brandId } = useActiveContext();
+  const { brandId, clientId: activeClientId } = useActiveContext();
   const qc = useQueryClient();
   const list = useServerFn(listProjects);
   const create = useServerFn(createProject);
@@ -120,7 +120,11 @@ function ProjectsIndexPage() {
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
-  const [clientFilter, setClientFilter] = useState<string>("all");
+  const [clientFilter, setClientFilter] = useState<string>(activeClientId ?? "all");
+  // Trava o filtro no cliente ativo da sidebar (modo agência = "all").
+  useEffect(() => {
+    setClientFilter(activeClientId ?? "all");
+  }, [activeClientId]);
   const [formOpen, setFormOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
 
