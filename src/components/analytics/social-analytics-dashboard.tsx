@@ -633,3 +633,12 @@ function LoadingSkeleton() {
     </div>
   );
 }
+
+function SectionSkeleton({ title, height }: { title: string; height: number }) {
+  return (
+    <section className="space-y-3">
+      <SectionTitle icon={<Loader2 className="h-4 w-4 animate-spin" />} title={title} subtitle="Carregando…" />
+      <Skeleton className="w-full" style={{ height }} />
+    </section>
+  );
+}
