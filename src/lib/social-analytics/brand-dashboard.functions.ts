@@ -250,12 +250,17 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
       const followers = profile?.followers ?? null;
       const gained = mv(totals, "followers_gained") ?? 0;
       const lost = mv(totals, "followers_lost") ?? 0;
+      const posts =
+        mv(totals, "posts") ??
+        mv(totals, "posts_count") ??
+        (dashboard.series?.length ?? 0);
 
       totalReach += reach;
       totalImpressions += impressions;
       totalEngagement += engagement;
       totalGained += gained;
       totalLost += lost;
+      totalPosts += posts;
       if (followers) totalFollowers += followers;
 
       const engagementRate =
@@ -263,7 +268,9 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
           ? round2((engagement / followers) * 100)
           : reach > 0
             ? round2((engagement / reach) * 100)
-            : null;
+            : impressions > 0
+              ? round2((engagement / impressions) * 100)
+              : null;
 
       channels.push({
         network: target.network,
@@ -274,7 +281,7 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
         reach,
         impressions,
         engagement,
-        posts: 0,
+        posts,
         engagementRate,
         warnings: dashboard.warnings ?? [],
       });
@@ -293,7 +300,9 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
         bucket.impressions += mv(p.metrics, "impressions") ?? 0;
         bucket.engagement += mv(p.metrics, "engagement") ?? 0;
         const f = mv(p.metrics, "followers");
-        if (f != null) bucket.followers = (bucket.followers ?? 0) + f;
+        // Snapshot: mantém o maior valor por dia entre as redes em vez de somar,
+        // para não estourar a escala do gráfico de evolução.
+        if (f != null) bucket.followers = Math.max(bucket.followers ?? 0, f);
         seriesAgg.set(p.date, bucket);
       }
     }
