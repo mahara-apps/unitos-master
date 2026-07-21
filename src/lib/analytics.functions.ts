@@ -12,6 +12,8 @@ const FiltersSchema = z.object({
   project_ids: z.array(z.string().uuid()).optional().default([]),
   tags: z.array(z.string()).optional().default([]),
   channels: z.array(z.string()).optional().default([]),
+  /** Quando presente, escopo forçado ao cliente ativo — sobrescreve client_ids. */
+  client_id: z.string().uuid().nullish(),
 });
 
 export type AnalyticsFilters = z.infer<typeof FiltersSchema>;
@@ -91,7 +93,9 @@ export const getAnalytics = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<AnalyticsResult> => {
     const { supabase, userId } = context;
     const { brand_id, start, end } = data;
-
+    if (data.client_id) {
+      data.client_ids = [data.client_id];
+    }
     // Membership check — aceita membro da marca, dono da marca ou super admin.
     const [memberRes, brandRes, adminRes] = await Promise.all([
       supabase
