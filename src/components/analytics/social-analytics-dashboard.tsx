@@ -36,6 +36,9 @@ import {
   Music2,
   Youtube,
   AlertTriangle,
+  Play,
+  Heart,
+  MessageCircle,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
