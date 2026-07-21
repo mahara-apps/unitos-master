@@ -399,8 +399,16 @@ export const getBrandSocialTopPayloadFn = createServerFn({ method: "POST" })
           `${context.userId}:${t.connectionId}`,
         );
         (resolved as any).network = t.network;
-        const top = await svc.getTopPosts(resolved, { limit: 6 }).catch(() => [] as any[]);
-        return { target: t, top };
+        // Coletamos até 30 posts para melhorar as agregações de formato/timing,
+        // mas exibimos apenas os 12 melhores no grid.
+        const topWarnings: string[] = [];
+        const top = await svc
+          .getTopPosts(resolved, { limit: 30 })
+          .catch((err: Error) => {
+            topWarnings.push(`[${t.network}] top-posts: ${err.message}`);
+            return [] as any[];
+          });
+        return { target: t, top, warnings: topWarnings };
       }),
     );
 
@@ -415,7 +423,8 @@ export const getBrandSocialTopPayloadFn = createServerFn({ method: "POST" })
         warnings.push(String((r.reason as Error)?.message ?? "provider error"));
         continue;
       }
-      const { target, top } = r.value;
+      const { target, top, warnings: tw } = r.value;
+      if (tw?.length) warnings.push(...tw);
       for (const post of top) {
         const eng =
           mv(post.metrics, "engagement") ??
