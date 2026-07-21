@@ -35,20 +35,26 @@ export type ProviderMetricMap = Readonly<{
 const INSTAGRAM: ProviderMetricMap = {
   account: {
     followers_count: "followers",
-    impressions: "impressions",
+    // v22+: `impressions` deprecated at account level. `views` is the
+    // replacement in the `total_value` endpoint.
+    views: "impressions",
     reach: "reach",
     profile_views: "profile_visits",
     website_clicks: "link_clicks",
+    accounts_engaged: "engagement",
+    total_interactions: "engagement",
+    follower_count: "followers_gained",
   },
   post: {
-    impressions: "impressions",
+    // v22+: media `impressions` was removed. `views` is the canonical
+    // replacement for feed/reels/video.
+    views: "impressions",
     reach: "reach",
     likes: "likes",
     comments: "comments",
     saved: "saves",
     shares: "shares",
-    video_views: "video_views",
-    plays: "video_views",
+    total_interactions: "engagement",
   },
 };
 
@@ -63,8 +69,9 @@ const FACEBOOK: ProviderMetricMap = {
     page_impressions: "impressions",
     page_impressions_unique: "reach",
     page_post_engagements: "engagement",
-    page_fan_adds: "followers_gained",
-    page_fan_removes: "followers_lost",
+    page_actions_post_reactions_total: "engagement",
+    page_fan_adds_unique: "followers_gained",
+    page_fan_removes_unique: "followers_lost",
     page_views_total: "profile_visits",
   },
   post: {

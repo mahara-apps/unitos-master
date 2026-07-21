@@ -2,7 +2,7 @@
 // Server-only. Encapsulates OAuth, token lifecycle and Graph calls so the
 // rest of the app never talks to graph.facebook.com directly.
 
-const GRAPH_VERSION = "v21.0";
+const GRAPH_VERSION = "v22.0";
 const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
 const OAUTH_DIALOG = `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth`;
 
