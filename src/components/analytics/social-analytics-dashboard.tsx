@@ -14,6 +14,8 @@ import {
   YAxis,
   BarChart,
   Bar,
+  Legend,
+  Cell,
 } from "recharts";
 import {
   Activity,
@@ -83,6 +85,36 @@ const FORMAT_LABEL: Record<string, string> = {
 };
 
 const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+const FORMAT_COLOR: Record<string, string> = {
+  image: "hsl(var(--primary))",
+  video: "#ef4444",
+  carousel: "#8b5cf6",
+  text: "#10b981",
+  other: "hsl(var(--muted-foreground))",
+};
+
+const DATE_AXIS_FMT = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "short",
+});
+const DATE_TOOLTIP_FMT = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "long",
+  year: "numeric",
+});
+function formatDateAxis(value: string): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return DATE_AXIS_FMT.format(d).replace(".", "");
+}
+function formatDateTooltip(value: string): string {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return DATE_TOOLTIP_FMT.format(d);
+}
 
 function fmt(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -377,38 +409,64 @@ function ChannelPerformanceCard({ channels }: { channels: ChannelPerformance[] }
 }
 
 function FormatPerformanceCard({ formats }: { formats: FormatPerformance[] }) {
+  const rows = formats.map((f) => ({
+    key: f.format,
+    label: FORMAT_LABEL[f.format] ?? f.format,
+    posts: f.posts,
+    engagement: f.engagement,
+    avg: f.avgEngagement,
+    color: FORMAT_COLOR[f.format] ?? FORMAT_COLOR.other,
+  }));
   return (
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-sm">Performance por formato</CardTitle>
-        <CardDescription>Engajamento médio por tipo de mídia</CardDescription>
+        <CardDescription>Engajamento médio por publicação</CardDescription>
       </CardHeader>
-      <CardContent className="h-64">
-        {formats.length === 0 ? (
-          <PanelEmptyState icon={<Layers className="h-4 w-4" />} text="Sem posts no período." />
+      <CardContent>
+        {rows.length === 0 ? (
+          <div className="h-52 flex items-center justify-center">
+            <PanelEmptyState icon={<Layers className="h-4 w-4" />} text="Sem posts no período." />
+          </div>
         ) : (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={formats.map((f) => ({
-                format: FORMAT_LABEL[f.format] ?? f.format,
-                Engajamento: f.engagement,
-                Alcance: f.reach,
-              }))}
-            >
-              <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-              <XAxis dataKey="format" fontSize={11} stroke="hsl(var(--muted-foreground))" />
-              <YAxis fontSize={11} stroke="hsl(var(--muted-foreground))" />
-              <Tooltip
-                contentStyle={{
-                  background: "hsl(var(--popover))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: 8,
-                }}
-              />
-              <Bar dataKey="Engajamento" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Alcance" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
+            <div className="h-52">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={rows} layout="vertical" margin={{ left: 8, right: 16, top: 4, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.2} horizontal={false} />
+                  <XAxis type="number" fontSize={11} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => fmt(v as number)} />
+                  <YAxis type="category" dataKey="label" fontSize={11} stroke="hsl(var(--muted-foreground))" width={78} />
+                  <Tooltip
+                    cursor={{ fill: "hsl(var(--muted) / 0.4)" }}
+                    contentStyle={{
+                      background: "hsl(var(--popover))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: 8,
+                      fontSize: 12,
+                    }}
+                    formatter={(v: number) => [fmt(v), "Engaj. médio"]}
+                    labelFormatter={(l) => `Formato: ${l}`}
+                  />
+                  <Bar dataKey="avg" radius={[0, 6, 6, 0]}>
+                    {rows.map((r) => (
+                      <Cell key={r.key} fill={r.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <ul className="grid content-start gap-1.5 self-center text-xs">
+              {rows.map((r) => (
+                <li key={r.key} className="flex items-center gap-2">
+                  <span className="h-2.5 w-2.5 rounded-sm" style={{ background: r.color }} />
+                  <span className="min-w-16 font-medium">{r.label}</span>
+                  <span className="tabular-nums text-muted-foreground">
+                    {r.posts} post{r.posts === 1 ? "" : "s"} · {fmt(r.engagement)} eng
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </CardContent>
     </Card>
@@ -427,40 +485,36 @@ function TimeSeriesCard({ series }: { series: SocialTimePoint[] }) {
           <PanelEmptyState icon={<Activity className="h-4 w-4" />} text="Sem série temporal disponível para o período." />
         ) : (
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={series}>
-              <defs>
-                <linearGradient id="reach-fill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                </linearGradient>
-              </defs>
+            <LineChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-              <XAxis dataKey="date" fontSize={11} stroke="hsl(var(--muted-foreground))" />
-              <YAxis fontSize={11} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
+              <XAxis
+                dataKey="date"
+                fontSize={11}
+                stroke="hsl(var(--muted-foreground))"
+                tickFormatter={formatDateAxis}
+                minTickGap={24}
+              />
+              <YAxis
+                fontSize={11}
+                stroke="hsl(var(--muted-foreground))"
+                allowDecimals={false}
+                tickFormatter={(v) => fmt(v as number)}
+              />
               <Tooltip
                 contentStyle={{
                   background: "hsl(var(--popover))",
                   border: "1px solid hsl(var(--border))",
                   borderRadius: 8,
+                  fontSize: 12,
                 }}
+                labelFormatter={(l) => formatDateTooltip(String(l))}
+                formatter={(v: number, name: string) => [fmt(v), name]}
               />
-              <Area
-                type="monotone"
-                dataKey="reach"
-                name="Alcance"
-                stroke="hsl(var(--primary))"
-                fill="url(#reach-fill)"
-                strokeWidth={2}
-              />
-              <Line
-                type="monotone"
-                dataKey="engagement"
-                name="Engajamento"
-                stroke="#f59e0b"
-                strokeWidth={2}
-                dot={false}
-              />
-            </AreaChart>
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Line type="monotone" dataKey="reach" name="Alcance" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+              <Line type="monotone" dataKey="impressions" name="Impressões" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+              <Line type="monotone" dataKey="engagement" name="Engajamento" stroke="#f59e0b" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+            </LineChart>
           </ResponsiveContainer>
         )}
       </CardContent>

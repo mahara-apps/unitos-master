@@ -1,40 +1,59 @@
 
 ## Objetivo
+Elevar a tela `/analytics` a um padrão premium com comparativos de período, gráficos revisados, filtros de data honrados em todas as camadas (KPIs, séries, top posts, timing) e Insights do Brain escopados exclusivamente ao cliente ativo.
 
-Quando um cliente estiver selecionado no seletor da sidebar, **todos** os módulos das seções **Visão Geral**, **Operação** e **Inteligência** devem exibir apenas dados daquele cliente. Sem cliente ativo (modo agência), continuam mostrando tudo da marca.
+## 1. KPIs com comparativo de período
+Em `src/lib/social-analytics/brand-dashboard.functions.ts` (`getBrandSocialDashboardFn`):
+- Calcular o range anterior de igual duração (`prevSince/prevUntil` = janela imediatamente anterior a `since`).
+- Rodar um segundo `Promise.allSettled` de `svc.getDashboard(resolved, { range: prevRange })` em paralelo.
+- Consolidar totais anteriores (followers, reach, impressions, engagement, posts, growth).
+- Preencher `deltaPct` de cada `SocialKpi` como `((atual - anterior) / anterior) * 100`, `null` quando anterior=0.
+- Reaproveitar cache (chave já inclui since/until).
 
-## Estado atual (verificado)
+## 2. Gráfico de Performance por Formato
+Em `FormatPerformanceCard` (`social-analytics-dashboard.tsx`):
+- Trocar Bar duplo (Engajamento+Alcance) por gráfico horizontal (`layout="vertical"`) com barras arredondadas mostrando **Engajamento médio por post** (`avgEngagement`) — métrica que já vem do backend mas está ignorada.
+- Adicionar chip lateral com totais absolutos (posts, engajamento total) por formato.
+- Cores por formato (imagem/vídeo/carrossel/texto) via tokens semânticos.
+- Tooltip PT-BR com legenda por formato.
 
-Já escopam corretamente por `clientId` ativo: Dashboard, Analytics, Conteúdo, Calendário, Tarefas, Agentes IA.
+## 3. Gráfico de Evolução Temporal
+Em `TimeSeriesCard`:
+- Substituir por `LineChart` puro com 3 linhas (Alcance, Impressões, Engajamento), cada uma com `dot` e cor distinta — hoje mistura `<Area>` dentro de `<AreaChart>` com uma `<Line>` órfã que não cruza corretamente.
+- Formatar `XAxis` com `tickFormatter` usando `Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" })`.
+- Tooltip com `labelFormatter` PT-BR completo (`dd 'de' MMM`).
+- Adicionar `<Legend>` PT-BR embaixo.
 
-Ainda **não** escopam:
-- **Brain** (`/brain`, `/brain/diagnostics`) — a rota passa `brandId={null}` e não lê o contexto ativo; o filtro de cliente é manual dentro do componente.
-- **Chat** (`/chat`) — não recebe brand/client em lugar nenhum; conversas não são vinculadas ao cliente ativo.
-- **Mídia paga** (`/media-plans`) — lista todos os planos da marca; ignora `clientId`.
-- **Projetos** (`/projects`) — tem filtro interno "clientFilter" que começa em `"all"` independente do cliente ativo.
+## 4. Top publicações com limite 10 e filtro de data
+- Backend (`getBrandSocialTopPayloadFn`): repassar `range { since, until }` na chamada `svc.getTopPosts(resolved, { range, limit: 30 })`.
+- Filtrar por `publishedAt` dentro de `[since, until]` antes de rankear (garantia se o provider não filtrar).
+- Reduzir cap final de `.slice(0, 12)` para `.slice(0, 10)`.
+- Ajustar `svc.getTopPosts` (`service.server.ts`) para aceitar `range` no cache key e repassar ao provider.
 
-## Mudanças
+## 5. Métricas de Timing reais e escopadas
+- Timing (`bestHours`, `bestDays`) já é derivado dos top posts — depois da correção acima, passa a respeitar automaticamente o filtro de data.
+- Garantir que posts sem `publishedAt` sejam ignorados (já são) e que o cálculo use apenas posts dentro do range.
 
-### 1. Brain
-- Em `src/routes/_authenticated/brain.tsx` e `brain.diagnostics.tsx`: ler `useActiveContext()` e passar `brandId` e `clientId` reais para `<BrainDashboard>`.
-- Em `src/components/brain/brain-dashboard.tsx`: inicializar `filters.clientId` a partir do prop e reagir a mudanças; quando `clientId` vier travado do contexto, esconder o seletor de cliente interno (ou deixá-lo em modo "somente leitura" mostrando o cliente ativo).
+## 6. Filtro de data em todas as métricas
+Auditar chamadas:
+- `getDashboard` → já passa `range` ✔
+- `getTopPosts` → passará `range` (item 4)
+- Cache keys em `service.server.ts` para `top`/`posts` incluirão `s/u` do range para evitar contaminação entre janelas.
+- Insights do Brain: filtrar por `created_at` dentro do range no `brain.insights.list` (parâmetro `since/until`) ou pós-filtro no array.
 
-### 2. Mídia paga
-- Em `src/routes/_authenticated/media-plans.tsx`: incluir `clientId` na `queryKey` e no `data` do `listFn`; passar `clientId` para o dialog de criação para pré-selecionar o cliente.
-- Confirmar que o server fn `listBrandMediaPlansFn` aceita `clientId` opcional (ajustar validador/handler se necessário).
+## 7. Brain escopado ao cliente ativo
+Em `getBrandSocialTopPayloadFn`, na chamada `brain.insights.list`:
+- Passar `clientId: data.clientId` no contexto quando presente.
+- Se a API `brain.insights.list` não aceitar `clientId`, adicionar filtro `.eq("client_id", clientId)` na query subjacente (verificar `src/lib/brain/api`).
+- Frontend permanece igual — apenas recebe insights já filtrados.
 
-### 3. Projetos
-- Em `src/routes/_authenticated/projects.index.tsx`: quando houver `clientId` ativo, inicializar `clientFilter` com ele, forçar o filtro (desabilitar o `Select`) e mostrar um chip "Filtrado por cliente ativo". Se o usuário limpar o cliente na sidebar, o filtro volta para `all`.
+## Detalhes técnicos
 
-### 4. Chat (Inteligência)
-- Em `src/routes/_authenticated/chat.tsx` / `chat.index.tsx` / `chat.$conversationId.tsx`: passar `brandId` e `clientId` do contexto ativo para o `<ChatShell>` e conversas.
-- Nova conversa criada com cliente ativo deve nascer vinculada a ele (persistir `client_id` na row de conversa, se a coluna existir; se não, apenas filtrar a listagem por `client_id` quando ativo).
-- Este item depende do schema atual da tabela de conversas. Antes de codar, o primeiro passo é ler `src/lib/chat.functions.ts` e o schema para confirmar se `client_id` já existe. Se não existir, adicionar migração pequena `ALTER TABLE ... ADD COLUMN client_id uuid` + índice + RLS, mantendo compatibilidade (nullable).
+**Arquivos a editar:**
+1. `src/lib/social-analytics/brand-dashboard.functions.ts` — comparativo período anterior, range em top posts, filtro Brain por clientId, slice 10.
+2. `src/lib/social-analytics/service.server.ts` — `getTopPosts` aceita `range`, cache key inclui since/until.
+3. `src/lib/social-analytics/providers/meta.server.ts` — se necessário, propagar `range` para filtrar `publishedAt` no top posts.
+4. `src/lib/brain/api` (verificar) — suporte a `clientId` em `insights.list`; se ausente, adicionar param.
+5. `src/components/analytics/social-analytics-dashboard.tsx` — refactor de `FormatPerformanceCard`, `TimeSeriesCard`, delta visual nos KPIs (já suportado via `sub`), limite de 10 no grid.
 
-### 5. Verificações finais
-- Rodar Playwright: selecionar um cliente na sidebar, navegar por Dashboard → Analytics → Conteúdo → Calendário → Tarefas → Projetos → Mídia paga → Agentes IA → Brain → Chat, confirmar visualmente que cada tela mostra apenas dados do cliente. Depois limpar o cliente e confirmar que voltam a mostrar tudo da marca.
-
-## Fora de escopo
-
-- Gestão & Configurações (Clientes, Integrações, Notificações, Configurações) permanecem em escopo de marca/workspace — não devem ser filtradas por cliente.
-- Rotas `/customers/$customerId/*` já são naturalmente escopadas.
+**Fora de escopo:** mudanças no seletor de datas, permissões, ou nas outras rotas de analytics fora de `/analytics`.

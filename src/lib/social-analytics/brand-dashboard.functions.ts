@@ -203,6 +203,7 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
 
     // 2) Carrega SocialAnalyticsService uma vez e itera em paralelo
     const svc = await import("./service.server");
+    const prevRange = resolvePrevRange(range);
     const results = await Promise.allSettled(
       targets.map(async (t) => {
         const resolved = await svc.resolveConnection(
@@ -211,11 +212,13 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
           `${context.userId}:${t.connectionId}`,
         );
         (resolved as any).network = t.network;
-        const dashboard = await svc.getDashboard(resolved, {
-          period: data.period,
-          range,
-        });
-        return { target: t, dashboard };
+        const [dashboard, prevDashboard] = await Promise.all([
+          svc.getDashboard(resolved, { period: data.period, range }),
+          svc
+            .getDashboard(resolved, { period: data.period, range: prevRange })
+            .catch(() => null),
+        ]);
+        return { target: t, dashboard, prevDashboard };
       }),
     );
 
@@ -234,13 +237,21 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
     let totalLost = 0;
     let activeCount = 0;
 
+    let prevFollowers = 0;
+    let prevReach = 0;
+    let prevImpressions = 0;
+    let prevEngagement = 0;
+    let prevPosts = 0;
+    let prevGained = 0;
+    let prevLost = 0;
+
     for (const r of results) {
       if (r.status === "rejected") {
         warnings.push(String((r.reason as Error)?.message ?? "provider error"));
         continue;
       }
       activeCount++;
-      const { target, dashboard } = r.value;
+      const { target, dashboard, prevDashboard } = r.value;
       const totals = dashboard.totals ?? [];
       const profile = dashboard.profile;
       networks.add(target.network);
@@ -263,6 +274,21 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
       totalLost += lost;
       totalPosts += posts;
       if (followers) totalFollowers += followers;
+
+      if (prevDashboard) {
+        const pt = prevDashboard.totals ?? [];
+        prevReach += mv(pt, "reach") ?? 0;
+        prevImpressions += mv(pt, "impressions") ?? 0;
+        prevEngagement += mv(pt, "engagement") ?? 0;
+        prevGained += mv(pt, "followers_gained") ?? 0;
+        prevLost += mv(pt, "followers_lost") ?? 0;
+        prevPosts +=
+          mv(pt, "posts") ??
+          mv(pt, "posts_count") ??
+          (prevDashboard.series?.length ?? 0);
+        const pf = prevDashboard.profile?.followers;
+        if (pf) prevFollowers += pf;
+      }
 
       const engagementRate =
         followers && followers > 0
@@ -319,12 +345,12 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
         : null;
 
     const summary: SocialKpi[] = [
-      { key: "followers", label: "Seguidores", value: totalFollowers, deltaPct: null },
-      { key: "reach", label: "Alcance", value: totalReach, deltaPct: null },
-      { key: "impressions", label: "Impressões", value: totalImpressions, deltaPct: null },
-      { key: "engagement", label: "Engajamento", value: totalEngagement, deltaPct: null },
-      { key: "posts", label: "Publicações", value: totalPosts, deltaPct: null },
-      { key: "growth", label: "Crescimento", value: totalGained - totalLost, deltaPct: growthPct },
+      { key: "followers", label: "Seguidores", value: totalFollowers, deltaPct: delta(totalFollowers, prevFollowers) },
+      { key: "reach", label: "Alcance", value: totalReach, deltaPct: delta(totalReach, prevReach) },
+      { key: "impressions", label: "Impressões", value: totalImpressions, deltaPct: delta(totalImpressions, prevImpressions) },
+      { key: "engagement", label: "Engajamento", value: totalEngagement, deltaPct: delta(totalEngagement, prevEngagement) },
+      { key: "posts", label: "Publicações", value: totalPosts, deltaPct: delta(totalPosts, prevPosts) },
+      { key: "growth", label: "Crescimento", value: totalGained - totalLost, deltaPct: growthPct ?? delta(totalGained - totalLost, prevGained - prevLost) },
     ];
 
     return {
@@ -355,6 +381,7 @@ export const getBrandSocialTopPayloadFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => TopInput.parse(i))
   .handler(async ({ data, context }): Promise<BrandSocialTopPayload> => {
+    const range = resolveRange(data);
     let allowedConnIds: Set<string> | null = null;
     if (data.clientId) {
       const { data: links, error: linkErr } = await context.supabase
@@ -404,12 +431,20 @@ export const getBrandSocialTopPayloadFn = createServerFn({ method: "POST" })
         // mas exibimos apenas os 12 melhores no grid.
         const topWarnings: string[] = [];
         const top = await svc
-          .getTopPosts(resolved, { limit: 30 })
+          .getTopPosts(resolved, { limit: 30, range })
           .catch((err: Error) => {
             topWarnings.push(`[${t.network}] top-posts: ${err.message}`);
             return [] as any[];
           });
-        return { target: t, top, warnings: topWarnings };
+        // Filtro por publishedAt dentro do range (garantia caso o provider ignore).
+        const sinceMs = new Date(range.since).getTime();
+        const untilMs = new Date(range.until).getTime();
+        const filtered = top.filter((p: any) => {
+          if (!p.publishedAt) return false;
+          const t = new Date(p.publishedAt).getTime();
+          return t >= sinceMs && t <= untilMs;
+        });
+        return { target: t, top: filtered, warnings: topWarnings };
       }),
     );
 
@@ -480,7 +515,7 @@ export const getBrandSocialTopPayloadFn = createServerFn({ method: "POST" })
       .map((f) => ({ ...f, avgEngagement: f.posts ? round2(f.engagement / f.posts) : 0 }))
       .sort((a, b) => b.engagement - a.engagement);
 
-    const topPosts = topPostsAll.sort((a, b) => b.score - a.score).slice(0, 12);
+    const topPosts = topPostsAll.sort((a, b) => b.score - a.score).slice(0, 10);
     const bestHours = Array.from(slotAgg.values()).sort((a, b) => b.score - a.score).slice(0, 5);
     const bestDays = Array.from(weekdayAgg.values()).sort((a, b) => b.score - a.score);
 
@@ -540,6 +575,24 @@ function resolveRange(input: { period: string; since?: string; until?: string })
   const until = new Date();
   const since = new Date(until.getTime() - days * 24 * 60 * 60 * 1000);
   return { since: since.toISOString(), until: until.toISOString() };
+}
+
+function resolvePrevRange(range: { since: string; until: string }): {
+  since: string;
+  until: string;
+} {
+  const s = new Date(range.since).getTime();
+  const u = new Date(range.until).getTime();
+  const span = Math.max(u - s, 24 * 60 * 60 * 1000);
+  return {
+    since: new Date(s - span).toISOString(),
+    until: new Date(s).toISOString(),
+  };
+}
+
+function delta(curr: number, prev: number): number | null {
+  if (!prev || prev === 0) return null;
+  return round2(((curr - prev) / prev) * 100);
 }
 
 function mv(list: { key: string; value: number }[] | undefined, key: string) {
