@@ -15,6 +15,7 @@ export type SocialConnectionRow = {
   id: string;
   brandId: string;
   provider: string;
+  channel: string;
   externalId: string;
   externalName: string | null;
   accountId: string | null;
@@ -36,7 +37,7 @@ export const listMetaConnections = createServerFn({ method: "GET" })
     const { data: rows, error } = await context.supabase
       .from("social_connections")
       .select(
-        "id, brand_id, provider, external_id, external_name, account_id, account_username, owner_name, scopes, status, token_expires_at, last_error, metadata, created_at, updated_at",
+        "id, brand_id, provider, channel, external_id, external_name, account_id, account_username, owner_name, scopes, status, token_expires_at, last_error, metadata, created_at, updated_at",
       )
       .eq("brand_id", data.brandId)
       .eq("provider", "meta")
@@ -46,6 +47,7 @@ export const listMetaConnections = createServerFn({ method: "GET" })
       id: r.id,
       brandId: r.brand_id,
       provider: r.provider,
+      channel: r.channel,
       externalId: r.external_id,
       externalName: r.external_name,
       accountId: r.account_id,
