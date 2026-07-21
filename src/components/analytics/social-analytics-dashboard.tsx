@@ -87,20 +87,22 @@ function fmt(n: number): string {
 export function SocialAnalyticsDashboard({
   brandId,
   period,
+  clientId,
 }: {
   brandId: string;
   period: string;
+  clientId?: string | null;
 }) {
   const fetchFn = useServerFn(getBrandSocialDashboardFn);
   const fetchTopFn = useServerFn(getBrandSocialTopPayloadFn);
   const q = useQuery({
-    queryKey: ["social-analytics", brandId, period],
-    queryFn: () => fetchFn({ data: { brandId, period } }),
+    queryKey: ["social-analytics", brandId, clientId ?? "all", period],
+    queryFn: () => fetchFn({ data: { brandId, period, clientId: clientId ?? undefined } }),
     staleTime: 60_000,
   });
   const qTop = useQuery({
-    queryKey: ["social-analytics-top", brandId, period],
-    queryFn: () => fetchTopFn({ data: { brandId, period } }),
+    queryKey: ["social-analytics-top", brandId, clientId ?? "all", period],
+    queryFn: () => fetchTopFn({ data: { brandId, period, clientId: clientId ?? undefined } }),
     staleTime: 60_000,
     enabled: !!q.data && q.data.connectionsTotal > 0,
   });
