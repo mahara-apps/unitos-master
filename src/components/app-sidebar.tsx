@@ -121,7 +121,18 @@ export function AppSidebar() {
   const countPending = useServerFn(countMyPendingTasksFn);
   const pendingQ = useQuery({
     queryKey: ["tasks-pending-count", brandId],
-    queryFn: () => countPending({ data: { brandId: brandId! } }),
+    queryFn: async () => {
+      try {
+        return await countPending({ data: { brandId: brandId! } });
+      } catch (err) {
+        // Session may have expired mid-refetch; swallow auth errors so the
+        // sidebar badge never blanks the app before the auth gate redirects.
+        if (err instanceof Error && /Unauthorized/i.test(err.message)) {
+          return { count: 0 };
+        }
+        throw err;
+      }
+    },
     enabled: !!brandId && !!superQ.data,
     staleTime: 30_000,
     refetchInterval: 60_000,
