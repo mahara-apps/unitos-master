@@ -113,6 +113,8 @@ const Input = z.object({
   brandId: z.string().uuid(),
   /** Ex.: "7d", "30d", "90d". */
   period: z.string().regex(/^\d{1,3}d$/).default("30d"),
+  /** Escopo por cliente ativo — restringe conexões via client_social_accounts. */
+  clientId: z.string().uuid().nullish(),
 });
 
 // Input separado para o payload pesado de top posts / formatos / timing.
@@ -143,13 +145,56 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
     const since = new Date(until.getTime() - days * 24 * 60 * 60 * 1000);
     const range = { since: since.toISOString(), until: until.toISOString() };
 
+    // 0) Se houver cliente ativo, descobre as conexões vinculadas a ele.
+    let allowedConnIds: Set<string> | null = null;
+    if (data.clientId) {
+      const { data: links, error: linkErr } = await context.supabase
+        .from("client_social_accounts")
+        .select("connection_id")
+        .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId);
+      if (linkErr) throw new Error(linkErr.message);
+      allowedConnIds = new Set((links ?? []).map((r: any) => r.connection_id));
+    }
+
     // 1) Descobre TODAS as conexões da marca
-    const { data: conns, error: connErr } = await context.supabase
+    let connQ = context.supabase
       .from("social_connections")
       .select(
         "id, provider, external_name, account_id, account_username, status, metadata",
       )
       .eq("brand_id", data.brandId);
+    if (allowedConnIds) {
+      if (allowedConnIds.size === 0) {
+        // Cliente sem canais vinculados — devolve dashboard vazio.
+        return {
+          brandId: data.brandId,
+          period: data.period,
+          generatedAt: new Date().toISOString(),
+          connectionsTotal: 0,
+          connectionsActive: 0,
+          networks: [],
+          summary: [
+            { key: "followers", label: "Seguidores", value: 0, deltaPct: null },
+            { key: "reach", label: "Alcance", value: 0, deltaPct: null },
+            { key: "impressions", label: "Impressões", value: 0, deltaPct: null },
+            { key: "engagement", label: "Engajamento", value: 0, deltaPct: null },
+            { key: "posts", label: "Publicações", value: 0, deltaPct: null },
+            { key: "growth", label: "Crescimento", value: 0, deltaPct: null },
+          ],
+          channels: [],
+          formats: [],
+          series: [],
+          topPosts: [],
+          bestHours: [],
+          bestDays: [],
+          insights: [],
+          warnings: [],
+        };
+      }
+      connQ = connQ.in("id", Array.from(allowedConnIds));
+    }
+    const { data: conns, error: connErr } = await connQ;
     if (connErr) throw new Error(connErr.message);
 
     // Expand cada linha para as networks publicáveis (Meta → FB + IG)
