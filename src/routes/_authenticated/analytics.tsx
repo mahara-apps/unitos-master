@@ -114,7 +114,7 @@ const STAGE_LABEL: Record<string, string> = {
 };
 
 function AnalyticsPage() {
-  const { brandId } = useActiveContext();
+  const { brandId, clientId } = useActiveContext();
   const [range, setRange] = useState<DateRange | undefined>(() =>
     daysToDateRange(30),
   );
@@ -143,14 +143,15 @@ function AnalyticsPage() {
 
   const analyticsQuery = useQuery({
     enabled: !!brandId,
-    queryKey: ["analytics", brandId, period, filters],
+    queryKey: ["analytics", brandId, clientId ?? "all", period, filters],
     queryFn: () =>
       analyticsFn({
         data: {
           brand_id: brandId!,
           start,
           end,
-          client_ids: filters.client_ids,
+          client_id: clientId ?? undefined,
+          client_ids: clientId ? [clientId] : filters.client_ids,
           assignee_ids: filters.assignee_ids,
           project_ids: filters.project_ids,
           tags: filters.tags,
@@ -184,7 +185,9 @@ function AnalyticsPage() {
   usePageHeader(
     {
       title: "Análises",
-      subtitle: "Visão executiva de produção, social, equipe e clientes",
+      subtitle: clientId
+        ? "Visão do cliente ativo — canais e métricas do escopo"
+        : "Visão executiva da agência — produção, social, equipe e clientes",
       actions: (
         <div className="flex items-center gap-2">
           <DateRangePicker
@@ -195,14 +198,14 @@ function AnalyticsPage() {
           <FiltersSheet
             filters={filters}
             setFilters={setFilters}
-            clients={clientsQuery.data ?? []}
+            clients={clientId ? [] : (clientsQuery.data ?? [])}
             team={teamQuery.data?.members ?? []}
             projects={projectsQuery.data?.projects ?? []}
           />
         </div>
       ),
     },
-    [range, filters, clientsQuery.data, teamQuery.data, projectsQuery.data],
+    [range, filters, clientId, clientsQuery.data, teamQuery.data, projectsQuery.data],
   );
 
   if (!brandId) {
@@ -225,11 +228,11 @@ function AnalyticsPage() {
           <TabsTrigger value="social">Social</TabsTrigger>
           <TabsTrigger value="production">Produção</TabsTrigger>
           <TabsTrigger value="team">Equipe</TabsTrigger>
-          <TabsTrigger value="clients">Clientes</TabsTrigger>
+          {!clientId && <TabsTrigger value="clients">Clientes</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="social" className="space-y-6">
-          <SocialAnalyticsDashboard brandId={brandId} period={period} />
+          <SocialAnalyticsDashboard brandId={brandId} period={period} clientId={clientId} />
         </TabsContent>
         <TabsContent value="production" className="space-y-6">
           <ProductionTab loading={analyticsQuery.isLoading} data={data?.production} />
@@ -238,9 +241,11 @@ function AnalyticsPage() {
           <TeamTab loading={analyticsQuery.isLoading} data={data?.team} />
           <SlaPanel data={slaQuery.data} />
         </TabsContent>
-        <TabsContent value="clients" className="space-y-6">
-          <ClientsTab loading={analyticsQuery.isLoading} data={data?.clients} />
-        </TabsContent>
+        {!clientId && (
+          <TabsContent value="clients" className="space-y-6">
+            <ClientsTab loading={analyticsQuery.isLoading} data={data?.clients} />
+          </TabsContent>
+        )}
       </Tabs>
     </DashboardPageShell>
   );
