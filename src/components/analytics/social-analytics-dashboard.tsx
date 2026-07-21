@@ -463,66 +463,206 @@ function TimeSeriesCard({ series }: { series: SocialTimePoint[] }) {
 }
 
 function TopPostsSection({ posts }: { posts: UnifiedTopPost[] }) {
+function TopPostsSection({ posts }: { posts: UnifiedTopPost[] }) {
+  const networks = useMemo(
+    () => Array.from(new Set(posts.map((p) => p.network))),
+    [posts],
+  );
+  const [network, setNetwork] = useState<string>("all");
+  const [sort, setSort] = useState<"engagement" | "reach" | "recent">(
+    "engagement",
+  );
+
+  const filtered = useMemo(() => {
+    let arr = network === "all" ? posts : posts.filter((p) => p.network === network);
+    arr = [...arr].sort((a, b) => {
+      if (sort === "engagement") return b.engagement - a.engagement;
+      if (sort === "reach") return b.reach - a.reach;
+      const ta = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+      const tb = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+      return tb - ta;
+    });
+    return arr;
+  }, [posts, network, sort]);
+
   return (
     <section className="space-y-3">
-      <SectionTitle icon={<Trophy className="h-4 w-4" />} title="Top publicações" subtitle="Ranqueadas por engajamento" />
-      {posts.length === 0 ? (
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <SectionTitle
+          icon={<Trophy className="h-4 w-4" />}
+          title="Top publicações"
+          subtitle={
+            filtered.length
+              ? `${filtered.length} post(s) no período`
+              : "Ranqueadas por engajamento"
+          }
+        />
+        {posts.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            {networks.length > 1 && (
+              <div className="flex items-center gap-1 rounded-md border border-border/60 bg-muted/40 p-0.5">
+                <FeedChip
+                  active={network === "all"}
+                  onClick={() => setNetwork("all")}
+                  label="Todas"
+                />
+                {networks.map((n) => {
+                  const meta = NETWORK_META[n];
+                  const Icon = meta?.Icon ?? Layers;
+                  return (
+                    <FeedChip
+                      key={n}
+                      active={network === n}
+                      onClick={() => setNetwork(n)}
+                      label={
+                        <span className="inline-flex items-center gap-1">
+                          <Icon className={cn("h-3 w-3", meta?.tone)} />
+                          {meta?.label ?? n}
+                        </span>
+                      }
+                    />
+                  );
+                })}
+              </div>
+            )}
+            <div className="flex items-center gap-1 rounded-md border border-border/60 bg-muted/40 p-0.5">
+              <FeedChip
+                active={sort === "engagement"}
+                onClick={() => setSort("engagement")}
+                label="Engajamento"
+              />
+              <FeedChip
+                active={sort === "reach"}
+                onClick={() => setSort("reach")}
+                label="Alcance"
+              />
+              <FeedChip
+                active={sort === "recent"}
+                onClick={() => setSort("recent")}
+                label="Recentes"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {filtered.length === 0 ? (
         <Card>
-          <CardContent className="py-6">
-            <PanelEmptyState icon={<Trophy className="h-4 w-4" />} text="Sem publicações no período." />
+          <CardContent className="py-10">
+            <PanelEmptyState
+              icon={<Trophy className="h-4 w-4" />}
+              text="Sem publicações no período."
+            />
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {posts.map((p) => {
-            const meta = NETWORK_META[p.network];
-            const Icon = meta?.Icon ?? Layers;
-            return (
-              <Card key={`${p.connectionId}:${p.externalPostId}`} className="overflow-hidden">
-                <div className="relative aspect-video w-full bg-muted">
-                  {p.thumbnailUrl ? (
-                    <img
-                      src={p.thumbnailUrl}
-                      alt=""
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-muted-foreground">
-                      <Layers className="h-6 w-6" />
-                    </div>
-                  )}
-                  <Badge className="absolute right-2 top-2 gap-1 bg-background/90 text-foreground">
-                    <Icon className={cn("h-3 w-3", meta?.tone)} />
-                    {meta?.label ?? p.network}
-                  </Badge>
-                </div>
-                <CardContent className="space-y-2 p-3">
-                  <p className="line-clamp-2 text-xs">
-                    {p.caption ?? <span className="italic text-muted-foreground">Sem legenda</span>}
-                  </p>
-                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                    <span>{p.channelLabel}</span>
-                    <span className="tabular-nums">{fmt(p.engagement)} eng · {fmt(p.reach)} alc</span>
-                  </div>
-                  {p.permalink ? (
-                    <a
-                      href={p.permalink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
-                    >
-                      Abrir <ExternalLink className="h-3 w-3" />
-                    </a>
-                  ) : null}
-                </CardContent>
-              </Card>
-            );
-          })}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          {filtered.map((p) => (
+            <FeedTile key={`${p.connectionId}:${p.externalPostId}`} post={p} />
+          ))}
         </div>
       )}
     </section>
   );
+}
+
+function FeedChip({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded px-2 py-1 text-[11px] font-medium transition-colors",
+        active
+          ? "bg-background text-foreground shadow-sm"
+          : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+const DATE_FMT = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "short",
+});
+
+function FeedTile({ post: p }: { post: UnifiedTopPost }) {
+  const meta = NETWORK_META[p.network];
+  const Icon = meta?.Icon ?? Layers;
+  const isVideo = p.mediaType === "video";
+  const date = p.publishedAt ? DATE_FMT.format(new Date(p.publishedAt)) : null;
+  const content = (
+    <div className="group relative block aspect-square overflow-hidden rounded-lg border border-border/60 bg-muted">
+      {p.thumbnailUrl ? (
+        <img
+          src={p.thumbnailUrl}
+          alt={p.caption ?? ""}
+          loading="lazy"
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+      ) : (
+        <div className="flex h-full items-center justify-center text-muted-foreground">
+          <Icon className={cn("h-8 w-8 opacity-40", meta?.tone)} />
+        </div>
+      )}
+
+      {/* Badge de rede */}
+      <div className="absolute right-2 top-2 rounded-md bg-black/55 p-1 backdrop-blur-sm">
+        <Icon className="h-3.5 w-3.5 text-white" />
+      </div>
+
+      {/* Play para vídeo */}
+      {isVideo && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="rounded-full bg-black/45 p-2.5 backdrop-blur-sm">
+            <Play className="h-5 w-5 fill-white text-white" />
+          </div>
+        </div>
+      )}
+
+      {/* Métricas sempre visíveis, com overlay que reforça no hover */}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/45 to-transparent p-2.5 text-white">
+        <div className="flex items-center gap-3 text-[11px] font-semibold tabular-nums">
+          <span className="inline-flex items-center gap-1">
+            <Heart className="h-3 w-3" /> {fmt(p.engagement)}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <Eye className="h-3 w-3" /> {fmt(p.reach)}
+          </span>
+          {date && <span className="ml-auto text-[10px] opacity-80">{date}</span>}
+        </div>
+        {p.caption && (
+          <p className="mt-1 line-clamp-2 text-[10px] leading-tight opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+            {p.caption}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
+  if (p.permalink) {
+    return (
+      <a
+        href={p.permalink}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Abrir publicação de ${p.channelLabel}`}
+      >
+        {content}
+      </a>
+    );
+  }
+  return content;
 }
 
 function TimingSection({ data }: { data: BrandSocialDashboard }) {
