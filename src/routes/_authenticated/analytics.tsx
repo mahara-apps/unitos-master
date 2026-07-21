@@ -232,7 +232,13 @@ function AnalyticsPage() {
         </TabsList>
 
         <TabsContent value="social" className="space-y-6">
-          <SocialAnalyticsDashboard brandId={brandId} period={period} clientId={clientId} />
+          <SocialAnalyticsDashboard
+            brandId={brandId}
+            period={period}
+            since={start}
+            until={end}
+            clientId={clientId}
+          />
         </TabsContent>
         <TabsContent value="production" className="space-y-6">
           <ProductionTab loading={analyticsQuery.isLoading} data={data?.production} />
