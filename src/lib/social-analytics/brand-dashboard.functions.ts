@@ -381,6 +381,7 @@ export const getBrandSocialTopPayloadFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => TopInput.parse(i))
   .handler(async ({ data, context }): Promise<BrandSocialTopPayload> => {
+    const range = resolveRange(data);
     let allowedConnIds: Set<string> | null = null;
     if (data.clientId) {
       const { data: links, error: linkErr } = await context.supabase
@@ -430,12 +431,20 @@ export const getBrandSocialTopPayloadFn = createServerFn({ method: "POST" })
         // mas exibimos apenas os 12 melhores no grid.
         const topWarnings: string[] = [];
         const top = await svc
-          .getTopPosts(resolved, { limit: 30 })
+          .getTopPosts(resolved, { limit: 30, range })
           .catch((err: Error) => {
             topWarnings.push(`[${t.network}] top-posts: ${err.message}`);
             return [] as any[];
           });
-        return { target: t, top, warnings: topWarnings };
+        // Filtro por publishedAt dentro do range (garantia caso o provider ignore).
+        const sinceMs = new Date(range.since).getTime();
+        const untilMs = new Date(range.until).getTime();
+        const filtered = top.filter((p: any) => {
+          if (!p.publishedAt) return false;
+          const t = new Date(p.publishedAt).getTime();
+          return t >= sinceMs && t <= untilMs;
+        });
+        return { target: t, top: filtered, warnings: topWarnings };
       }),
     );
 
@@ -506,7 +515,7 @@ export const getBrandSocialTopPayloadFn = createServerFn({ method: "POST" })
       .map((f) => ({ ...f, avgEngagement: f.posts ? round2(f.engagement / f.posts) : 0 }))
       .sort((a, b) => b.engagement - a.engagement);
 
-    const topPosts = topPostsAll.sort((a, b) => b.score - a.score).slice(0, 12);
+    const topPosts = topPostsAll.sort((a, b) => b.score - a.score).slice(0, 10);
     const bestHours = Array.from(slotAgg.values()).sort((a, b) => b.score - a.score).slice(0, 5);
     const bestDays = Array.from(weekdayAgg.values()).sort((a, b) => b.score - a.score);
 
