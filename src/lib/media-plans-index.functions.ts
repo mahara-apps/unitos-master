@@ -22,16 +22,22 @@ export type BrandMediaPlanRow = {
 export const listBrandMediaPlans = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) =>
-    z.object({ brandId: z.string().uuid() }).parse(d),
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid().nullable().optional(),
+      })
+      .parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { data: plans, error } = await context.supabase
+    let q = context.supabase
       .from("media_plans")
       .select(
         "id,title,status,monthly_budget,period_start,period_end,updated_at,created_at,client_id,share_token",
       )
-      .eq("brand_id", data.brandId)
-      .order("updated_at", { ascending: false });
+      .eq("brand_id", data.brandId);
+    if (data.clientId) q = q.eq("client_id", data.clientId);
+    const { data: plans, error } = await q.order("updated_at", { ascending: false });
     if (error) throw new Error(error.message);
     const rows = plans ?? [];
     if (rows.length === 0) return { plans: [] as BrandMediaPlanRow[] };
