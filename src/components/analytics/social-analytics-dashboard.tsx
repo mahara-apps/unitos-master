@@ -36,6 +36,8 @@ import {
   Youtube,
   AlertTriangle,
 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -126,17 +128,7 @@ export function SocialAnalyticsDashboard({
     );
 
   if (data.connectionsTotal === 0) {
-    return (
-      <Card>
-        <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
-          <Sparkles className="h-8 w-8 text-muted-foreground" />
-          <p className="max-w-md text-sm text-muted-foreground">
-            Esta marca ainda não tem canais sociais conectados. Vá em{" "}
-            <b>Integrações</b> para conectar Instagram, Facebook e outras redes.
-          </p>
-        </CardContent>
-      </Card>
-    );
+    return <NoChannelsEmpty clientId={clientId ?? null} />;
   }
 
   const top = qTop.data;
@@ -181,6 +173,58 @@ export function SocialAnalyticsDashboard({
 }
 
 function WarningsBanner({ warnings }: { warnings: string[] }) {
+  return _WarningsBanner({ warnings });
+}
+
+function NoChannelsEmpty({ clientId }: { clientId: string | null }) {
+  if (clientId) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
+          <Sparkles className="h-8 w-8 text-muted-foreground" />
+          <div className="max-w-md space-y-1.5">
+            <p className="text-sm font-medium">Nenhum canal atribuído a este cliente</p>
+            <p className="text-sm text-muted-foreground">
+              As contas conectadas à marca ainda não foram vinculadas a este cliente.
+              Abra <b>Perfil → Canais</b> para atribuir Instagram, Facebook e outras
+              redes já autorizadas.
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button asChild size="sm">
+              <Link
+                to="/customers/$customerId"
+                params={{ customerId: clientId }}
+                search={{ tab: "channels" } as never}
+              >
+                Ir para Canais
+              </Link>
+            </Button>
+            <Button asChild size="sm" variant="outline">
+              <Link to="/connections">Conectar nova conta</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+  return (
+    <Card>
+      <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+        <Sparkles className="h-8 w-8 text-muted-foreground" />
+        <p className="max-w-md text-sm text-muted-foreground">
+          Esta marca ainda não tem canais sociais conectados. Vá em{" "}
+          <b>Integrações</b> para conectar Instagram, Facebook e outras redes.
+        </p>
+        <Button asChild size="sm">
+          <Link to="/connections">Abrir Integrações</Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function _WarningsBanner({ warnings }: { warnings: string[] }) {
   if (!warnings?.length) return null;
   return (
     <details className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
