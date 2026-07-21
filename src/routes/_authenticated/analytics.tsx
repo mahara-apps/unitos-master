@@ -189,7 +189,7 @@ function AnalyticsPage() {
         <div className="flex items-center gap-2">
           <DateRangePicker
             value={range}
-            onChange={(r) => r && setRange(r)}
+            onChange={(r: DateRange | undefined) => r && setRange(r)}
             maxDate={new Date()}
           />
           <FiltersSheet
