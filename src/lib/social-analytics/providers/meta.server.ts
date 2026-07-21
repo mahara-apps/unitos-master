@@ -466,6 +466,14 @@ function sumSeries(series: TimeSeriesPoint[]): Metric[] {
   return Array.from(totals.entries()).map(([key, value]) => ({ key, value }));
 }
 
+function mergeMetrics(...groups: Metric[][]): Metric[] {
+  const totals = new Map<string, number>();
+  for (const g of groups) {
+    for (const m of g) totals.set(m.key, (totals.get(m.key) ?? 0) + m.value);
+  }
+  return Array.from(totals.entries()).map(([key, value]) => ({ key, value }));
+}
+
 function toPostMetrics(
   rows: InsightsResponse["data"],
   map: Record<string, Metric["key"]>,
