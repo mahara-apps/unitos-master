@@ -30,6 +30,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { brainIntelligenceFn, type BrainIntelligence } from "@/lib/brain/api";
+import {
+  DateRangePicker,
+  daysToDateRange,
+  dateRangeToDays,
+} from "@/components/ui/date-range-picker";
+import type { DateRange } from "react-day-picker";
 
 type Filters = {
   clientId: string | null;
@@ -466,18 +472,13 @@ function FiltersBar({
         onChange={(v) => onChange({ category: v })}
         options={(data?.categoriesAvailable ?? []).map((c) => ({ value: c, label: c }))}
       />
-      <Select value={String(filters.days)} onValueChange={(v) => onChange({ days: Number(v) })}>
-        <SelectTrigger className="h-8 w-[140px] text-xs">
-          <SelectValue placeholder="Período" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="1">Últimas 24h</SelectItem>
-          <SelectItem value="7">Últimos 7 dias</SelectItem>
-          <SelectItem value="14">Últimos 14 dias</SelectItem>
-          <SelectItem value="30">Últimos 30 dias</SelectItem>
-          <SelectItem value="90">Últimos 90 dias</SelectItem>
-        </SelectContent>
-      </Select>
+      <DateRangePicker
+        value={daysToDateRange(filters.days)}
+        onChange={(r: DateRange | undefined) => {
+          if (r?.from && r?.to) onChange({ days: dateRangeToDays(r) });
+        }}
+        maxDate={new Date()}
+      />
       {(filters.clientId || filters.projectId || filters.actorId || filters.category) && (
         <Button
           variant="ghost"
