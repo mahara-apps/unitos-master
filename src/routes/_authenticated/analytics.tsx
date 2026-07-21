@@ -37,6 +37,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { SocialAnalyticsDashboard } from "@/components/analytics/social-analytics-dashboard";
+import {
+  DateRangePicker,
+  daysToDateRange,
+  dateRangeToPeriod,
+} from "@/components/ui/date-range-picker";
+import type { DateRange } from "react-day-picker";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
