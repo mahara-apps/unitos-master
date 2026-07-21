@@ -635,7 +635,7 @@ function accountsForChannel(
   meta: MetaConnRow[],
 ): SocialAccount[] {
   if (channel.id === "facebook") {
-    return meta.map((c) => {
+    return meta.filter((c) => c.channel === "facebook").map((c) => {
       const md = (c.metadata ?? {}) as { page_picture_url?: string | null };
       return {
         id: c.id,
@@ -651,6 +651,7 @@ function accountsForChannel(
   }
   if (channel.id === "instagram") {
     return meta
+      .filter((c) => c.channel === "instagram")
       .filter((c) => {
         const md = (c.metadata ?? {}) as { instagram_username?: string | null };
         return c.accountUsername || md.instagram_username;
