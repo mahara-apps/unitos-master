@@ -34,6 +34,7 @@ import {
   Linkedin,
   Music2,
   Youtube,
+  AlertTriangle,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -129,12 +130,33 @@ export function SocialAnalyticsDashboard({
 
   return (
     <div className="space-y-6">
+      <WarningsBanner warnings={data.warnings} />
       <ResumoSection data={data} />
       <PerformanceSection data={data} />
       <TopPostsSection posts={data.topPosts} />
       <TimingSection data={data} />
       <InsightsSection data={data} />
     </div>
+  );
+}
+
+function WarningsBanner({ warnings }: { warnings: string[] }) {
+  if (!warnings?.length) return null;
+  return (
+    <details className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm text-amber-700 dark:text-amber-300">
+      <summary className="flex cursor-pointer items-center gap-2 font-medium">
+        <AlertTriangle className="h-4 w-4" />
+        {warnings.length === 1
+          ? "1 métrica não pôde ser carregada"
+          : `${warnings.length} métricas não puderam ser carregadas`}
+        <span className="ml-auto text-xs opacity-70">clique para detalhes</span>
+      </summary>
+      <ul className="mt-2 space-y-1 pl-6 text-xs font-mono text-amber-800/80 dark:text-amber-200/80">
+        {warnings.map((w, i) => (
+          <li key={i}>• {w}</li>
+        ))}
+      </ul>
+    </details>
   );
 }
 
