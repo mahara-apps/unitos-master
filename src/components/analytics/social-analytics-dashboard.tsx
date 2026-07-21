@@ -14,6 +14,8 @@ import {
   YAxis,
   BarChart,
   Bar,
+  Legend,
+  Cell,
 } from "recharts";
 import {
   Activity,
