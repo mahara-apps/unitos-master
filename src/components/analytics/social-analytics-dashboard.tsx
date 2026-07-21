@@ -256,8 +256,7 @@ function ResumoSection({ data }: { data: BrandSocialDashboard }) {
   );
 }
 
-function PerformanceSection({ data }: { data: BrandSocialDashboard }) {
-  // Second arg kept for future granular skeletons.
+function PerformanceSection({ data }: { data: BrandSocialDashboard; loadingTop?: boolean }) {
   return (
     <section className="space-y-3">
       <SectionTitle
