@@ -393,13 +393,19 @@ export class MetaAnalyticsProvider implements SocialAnalyticsProvider {
     try {
       return await fn();
     } catch (err) {
-      const msg =
-        err instanceof MetaGraphError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : "Erro desconhecido";
-      warnings.push(`${label}: ${msg}`);
+      let msg = "Erro desconhecido";
+      let code: number | undefined;
+      let sub: number | undefined;
+      if (err instanceof MetaGraphError) {
+        msg = err.message;
+        code = err.graph?.code;
+        sub = err.graph?.error_subcode;
+      } else if (err instanceof Error) {
+        msg = err.message;
+      }
+      const suffix = code != null ? ` (#${code}${sub ? `/${sub}` : ""})` : "";
+      warnings.push(`${label}: ${msg}${suffix}`);
+      console.warn("[meta-analytics]", label, { msg, code, sub });
       return null;
     }
   }
