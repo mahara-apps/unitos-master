@@ -1,54 +1,47 @@
 ## Objetivo
 
-Criar **um único componente de filtro de data** — inspirado no modelo enviado (calendário com presets laterais), 100% em português — e trocar todos os filtros de período do app por ele.
+Hoje `/analytics` sempre agrega tudo da agência (brand), mesmo quando o usuário selecionou um cliente específico no switcher. Vamos fazer com que:
 
-## Componente novo
+- **Modo Cliente ativo** (`clientId` presente no `useActiveContext`) → analytics mostra somente os canais sociais vinculados àquele cliente (via `client_social_accounts`) e as métricas de produção/equipe/tarefas filtradas por `client_id`.
+- **Modo Gestão** (nenhum cliente ativo, só `brandId`) → comportamento atual, agregando todas as contas e clientes da agência.
 
-**`src/components/ui/date-range-picker.tsx`** — combina Popover + Calendar (react-day-picker, já instalado) + coluna de presets.
+## Mudanças
 
-- Trigger: botão outline com ícone `CalendarIcon` e label "01 out — 30 out" (formatado com `date-fns` locale `ptBR`).
-- Popover: presets à esquerda + calendário 2 meses à direita.
-- Locale `ptBR` no `<Calendar locale={ptBR}>` (nomes de dias/meses traduzidos automaticamente).
-- Presets PT-BR:
-  - Hoje
-  - Ontem
-  - Últimos 7 dias
-  - Últimos 30 dias
-  - Últimos 90 dias
-  - Este mês
-  - Mês passado
-  - Este ano
-  - Ano passado
-  - Personalizado (calendário aberto para seleção manual)
-- Props: `value: DateRange | undefined`, `onChange(range)`, `align?`, `disabled?`, `maxDate?` (default: `new Date()`).
-- Também expõe helper `dateRangeToPeriodKey(range)` → `"7d" | "30d" | "90d" | "custom"` e `periodKeyToDateRange(key)` — para retrocompatibilidade com endpoints que aceitam `"30d"`.
+### 1. Server functions
 
-## Filtros a substituir
+- **`src/lib/social-analytics/brand-dashboard.functions.ts`**
+  - Adicionar `clientId: z.string().uuid().optional()` nos schemas `Input` e `TopInput` de `getBrandSocialDashboardFn` e `getBrandSocialTopPayloadFn`.
+  - Quando `clientId` vier preenchido, buscar em `client_social_accounts` os `connection_id`s daquele cliente e filtrar `social_connections` por esse conjunto (retorno vazio = zerar dashboard sem quebrar).
 
-Todos os locais que hoje usam Select "7d/30d/90d" ou date pickers próprios:
+- **`src/lib/analytics.functions.ts`** (`getAnalytics`)
+  - Já aceita `client_ids[]` no filtro. Adicionar `clientId?` no input; quando presente, forçar `client_ids = [clientId]` antes das queries de posts/tasks/projetos/cohorts, ignorando o filtro manual da UI (para não permitir escapar do escopo).
 
-1. **`src/routes/_authenticated/analytics.tsx`** — remove `PRESETS` + Select, usa `<DateRangePicker>`. Converte range → `period` string (`Xd`) ou passa `since/until` para `SocialAnalyticsDashboard` (mantém contrato atual convertendo pra `Xd` quando bate um preset, `custom` cai num novo caminho — ver seção "Backend").
-2. **`src/components/brain/brain-dashboard.tsx`** (linhas 470-472 e 510-512) — os dois `SelectTrigger` de período.
-3. **`src/routes/_authenticated/dashboard.tsx`** — filtro de período do painel principal.
-4. **`src/components/media-plans/create-media-plan-dialog.tsx`**, **`src/components/customer/monthly-plan-dialog.tsx`**, **`src/components/calendar/generate-plan-dialog.tsx`**, **`src/routes/_authenticated/customers.$customerId.media-plan.tsx`**, **`src/routes/_authenticated/media-plans.tsx`**, **`src/routes/plano.$planId.tsx`** — todos os inputs de "data início/fim" e "mês de referência" viram um único `<DateRangePicker>` (ou variante `mode="single"` do mesmo componente quando for data única).
-5. **`src/components/brand-hub/briefing-workspace.tsx`** — datas de campanha.
+### 2. Rota `src/routes/_authenticated/analytics.tsx`
 
-## Backend (mínimo)
+- Ler `clientId` de `useActiveContext()` junto com `brandId`.
+- Incluir `clientId` nas `queryKey`s (`["analytics", brandId, clientId, …]` etc.) e passar para as três chamadas: `analyticsFn`, `SocialAnalyticsDashboard` (novo prop opcional `clientId`) e o payload pesado de top posts.
+- Ajustar `usePageHeader`:
+  - Título continua "Análises"; subtítulo dinâmico: `"Visão do cliente {nome}"` vs `"Visão executiva da agência"`.
+- Ocultar a aba **Clientes** quando `clientId` estiver ativo (redundante — já é o próprio cliente); manter Social/Produção/Equipe.
+- No `FiltersSheet`, remover o seletor de "Clientes" quando `clientId` estiver ativo (o filtro fica travado).
 
-Para preservar cache das server fns atuais (`period: "30d"`), o wrapper converte:
+### 3. `src/components/social/SocialAnalyticsDashboard.tsx`
 
-- Range que bate exatamente um preset → mantém `period` string.
-- Range custom → estende `getBrandSocialDashboardFn` / `getBrandSocialTopPayloadFn` para aceitar `{ since, until }` alternativo ao `period` (chave de cache passa a incluir since/until). Nenhuma mudança em providers.
+- Aceitar `clientId?: string` e repassar para `getBrandSocialDashboardFn` / `getBrandSocialTopPayloadFn`. Incluir na `queryKey` para invalidar corretamente ao trocar de cliente.
 
-## Escopo desta entrega
+### 4. `ClientsTab`
 
-- Criar o componente + helpers.
-- Trocar os filtros em **Analytics, Brain, Dashboard** (os três com filtro de período global) nesta primeira passada.
-- Diálogos de plano/briefing (item 4-5) ficam como follow-up separado se você aprovar — envolvem `react-hook-form` e merecem PR próprio pra não misturar mudança visual com refactor de forms.
+- Sem mudanças estruturais; só deixa de ser renderizada no modo cliente (esconder a `TabsTrigger` + `TabsContent`).
 
-## Não faço
+## Detalhes técnicos
 
-- Não altero visual do calendário mensal principal (`/calendar` route) — aquilo é um calendário de agendamento, não um filtro de intervalo.
-- Não adiciono novas dependências (react-day-picker e date-fns já estão no projeto).
+- O filtro de conexões por cliente sai de `client_social_accounts` (colunas `client_id`, `connection_id`). Já existem RLS/tipos para essa tabela.
+- Nenhuma migração de banco: toda a lógica é do lado do servidor filtrando por `IN (...)`.
+- Cache: as `queryKey`s ganham `clientId ?? "all"` para não misturar caches entre gestão e cliente.
+- Contagens/KPIs continuam somando só o que restou após o filtro — quando o cliente não tem canais vinculados, o dashboard social exibe estado vazio com CTA para ir em Perfil → Canais (já existente).
 
-Confirma que topa começar por **Analytics + Brain + Dashboard** e deixar diálogos de plano/briefing para um segundo passo?
+## Fora de escopo
+
+- Novos gráficos comparativos entre clientes na visão gestão.
+- Mudanças no dashboard `/dashboard` (só `/analytics`).
+- Alterações em Brain/Calendar (já são escopados por outro caminho).
