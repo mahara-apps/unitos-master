@@ -46,7 +46,9 @@ import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { cn } from "@/lib/utils";
 import {
   getBrandSocialDashboardFn,
+  getBrandSocialTopPayloadFn,
   type BrandSocialDashboard,
+  type BrandSocialTopPayload,
   type ChannelPerformance,
   type FormatPerformance,
   type UnifiedTopPost,
@@ -90,10 +92,17 @@ export function SocialAnalyticsDashboard({
   period: string;
 }) {
   const fetchFn = useServerFn(getBrandSocialDashboardFn);
+  const fetchTopFn = useServerFn(getBrandSocialTopPayloadFn);
   const q = useQuery({
     queryKey: ["social-analytics", brandId, period],
     queryFn: () => fetchFn({ data: { brandId, period } }),
     staleTime: 60_000,
+  });
+  const qTop = useQuery({
+    queryKey: ["social-analytics-top", brandId, period],
+    queryFn: () => fetchTopFn({ data: { brandId, period } }),
+    staleTime: 60_000,
+    enabled: !!q.data && q.data.connectionsTotal > 0,
   });
 
   if (q.isLoading) return <LoadingSkeleton />;
@@ -128,14 +137,43 @@ export function SocialAnalyticsDashboard({
     );
   }
 
+  const top = qTop.data;
+  const topLoading = qTop.isLoading || qTop.isFetching;
+  const merged: BrandSocialDashboard = top
+    ? {
+        ...data,
+        formats: top.formats,
+        topPosts: top.topPosts,
+        bestHours: top.bestHours,
+        bestDays: top.bestDays,
+        insights: top.insights,
+        warnings: [...data.warnings, ...top.warnings],
+        summary: data.summary.map((k) =>
+          k.key === "posts" ? { ...k, value: top.topPosts.length } : k,
+        ),
+      }
+    : data;
+
   return (
     <div className="space-y-6">
-      <WarningsBanner warnings={data.warnings} />
-      <ResumoSection data={data} />
-      <PerformanceSection data={data} />
-      <TopPostsSection posts={data.topPosts} />
-      <TimingSection data={data} />
-      <InsightsSection data={data} />
+      <WarningsBanner warnings={merged.warnings} />
+      <ResumoSection data={merged} />
+      <PerformanceSection data={merged} loadingTop={topLoading && !top} />
+      {topLoading && !top ? (
+        <SectionSkeleton title="Top publicações" height={220} />
+      ) : (
+        <TopPostsSection posts={merged.topPosts} />
+      )}
+      {topLoading && !top ? (
+        <SectionSkeleton title="Timing" height={220} />
+      ) : (
+        <TimingSection data={merged} />
+      )}
+      {topLoading && !top ? (
+        <SectionSkeleton title="Insights do Brain" height={120} />
+      ) : (
+        <InsightsSection data={merged} />
+      )}
     </div>
   );
 }
@@ -218,7 +256,7 @@ function ResumoSection({ data }: { data: BrandSocialDashboard }) {
   );
 }
 
-function PerformanceSection({ data }: { data: BrandSocialDashboard }) {
+function PerformanceSection({ data }: { data: BrandSocialDashboard; loadingTop?: boolean }) {
   return (
     <section className="space-y-3">
       <SectionTitle
@@ -593,5 +631,14 @@ function LoadingSkeleton() {
       <Skeleton className="h-64 w-full" />
       <Skeleton className="h-72 w-full" />
     </div>
+  );
+}
+
+function SectionSkeleton({ title, height }: { title: string; height: number }) {
+  return (
+    <section className="space-y-3">
+      <SectionTitle icon={<Loader2 className="h-4 w-4 animate-spin" />} title={title} subtitle="Carregando…" />
+      <Skeleton className="w-full" style={{ height }} />
+    </section>
   );
 }
