@@ -463,7 +463,6 @@ function TimeSeriesCard({ series }: { series: SocialTimePoint[] }) {
 }
 
 function TopPostsSection({ posts }: { posts: UnifiedTopPost[] }) {
-function TopPostsSection({ posts }: { posts: UnifiedTopPost[] }) {
   const networks = useMemo(
     () => Array.from(new Set(posts.map((p) => p.network))),
     [posts],
