@@ -529,6 +529,19 @@ function parseDays(period: string): number {
   return Math.min(Math.max(Number.parseInt(period, 10) || 30, 1), 365);
 }
 
+function resolveRange(input: { period: string; since?: string; until?: string }): {
+  since: string;
+  until: string;
+} {
+  if (input.since && input.until) {
+    return { since: input.since, until: input.until };
+  }
+  const days = parseDays(input.period);
+  const until = new Date();
+  const since = new Date(until.getTime() - days * 24 * 60 * 60 * 1000);
+  return { since: since.toISOString(), until: until.toISOString() };
+}
+
 function mv(list: { key: string; value: number }[] | undefined, key: string) {
   if (!list) return null;
   const m = list.find((x) => x.key === key);
