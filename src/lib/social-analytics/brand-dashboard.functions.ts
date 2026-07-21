@@ -115,6 +115,21 @@ const Input = z.object({
   period: z.string().regex(/^\d{1,3}d$/).default("30d"),
 });
 
+// Input separado para o payload pesado de top posts / formatos / timing.
+const TopInput = Input;
+
+export type BrandSocialTopPayload = {
+  brandId: string;
+  period: string;
+  generatedAt: string;
+  formats: FormatPerformance[];
+  topPosts: UnifiedTopPost[];
+  bestHours: BestSlot[];
+  bestDays: BestSlot[];
+  insights: BrainSocialInsight[];
+  warnings: string[];
+};
+
 // ---------------------------------------------------------------------------
 // Server function
 // ---------------------------------------------------------------------------
@@ -142,38 +157,27 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
 
     // 2) Carrega SocialAnalyticsService uma vez e itera em paralelo
     const svc = await import("./service.server");
-    // O middleware `requireSupabaseAuth` valida o bearer; para chamar
-    // resolveConnection precisamos do próprio Supabase client autenticado.
-    // O `context.supabase` já é esse cliente.
     const results = await Promise.allSettled(
       targets.map(async (t) => {
         const resolved = await svc.resolveConnection(
           context.supabase as any,
           t.connectionId,
-          // cacheScope-only. O provider decripta o token internamente.
           `${context.userId}:${t.connectionId}`,
         );
-        // Força a network correta (Meta expõe ambos FB/IG na mesma row)
         (resolved as any).network = t.network;
-        const [dashboard, top] = await Promise.all([
-          svc.getDashboard(resolved, { period: data.period, range }),
-          svc
-            .getTopPosts(resolved, { limit: 10 })
-            .catch(() => [] as any[]),
-        ]);
-        return { target: t, dashboard, top };
+        const dashboard = await svc.getDashboard(resolved, {
+          period: data.period,
+          range,
+        });
+        return { target: t, dashboard };
       }),
     );
 
     // 3) Consolida
     const warnings: string[] = [];
     const channels: ChannelPerformance[] = [];
-    const formatAgg = new Map<string, FormatPerformance>();
     const seriesAgg = new Map<string, SocialTimePoint>();
-    const topPostsAll: UnifiedTopPost[] = [];
     const networks = new Set<SocialNetwork>();
-    const slotAgg = new Map<string, BestSlot>(); // key = weekday-hour
-    const weekdayAgg = new Map<number, BestSlot>();
 
     let totalFollowers = 0;
     let totalReach = 0;
@@ -190,14 +194,14 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
         continue;
       }
       activeCount++;
-      const { target, dashboard, top } = r.value;
+      const { target, dashboard } = r.value;
       const totals = dashboard.totals ?? [];
       const profile = dashboard.profile;
       networks.add(target.network);
 
       const reach = mv(totals, "reach") ?? 0;
       const impressions = mv(totals, "impressions") ?? 0;
-      const engagement = mv(totals, "engagement") ?? sumInteractions(top);
+      const engagement = mv(totals, "engagement") ?? 0;
       const followers = profile?.followers ?? null;
       const gained = mv(totals, "followers_gained") ?? 0;
       const lost = mv(totals, "followers_lost") ?? 0;
@@ -205,7 +209,6 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
       totalReach += reach;
       totalImpressions += impressions;
       totalEngagement += engagement;
-      totalPosts += top.length;
       totalGained += gained;
       totalLost += lost;
       if (followers) totalFollowers += followers;
@@ -226,7 +229,7 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
         reach,
         impressions,
         engagement,
-        posts: top.length,
+        posts: 0,
         engagementRate,
         warnings: dashboard.warnings ?? [],
       });
@@ -248,8 +251,91 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
         if (f != null) bucket.followers = (bucket.followers ?? 0) + f;
         seriesAgg.set(p.date, bucket);
       }
+    }
 
-      // Top posts / formatos / melhor horário
+    // Séries: ordena por data
+    const series = Array.from(seriesAgg.values()).sort((a, b) =>
+      a.date.localeCompare(b.date),
+    );
+
+    const growthPct =
+      totalFollowers > 0
+        ? round2(((totalGained - totalLost) / totalFollowers) * 100)
+        : null;
+
+    const summary: SocialKpi[] = [
+      { key: "followers", label: "Seguidores", value: totalFollowers, deltaPct: null },
+      { key: "reach", label: "Alcance", value: totalReach, deltaPct: null },
+      { key: "impressions", label: "Impressões", value: totalImpressions, deltaPct: null },
+      { key: "engagement", label: "Engajamento", value: totalEngagement, deltaPct: null },
+      { key: "posts", label: "Publicações", value: totalPosts, deltaPct: null },
+      { key: "growth", label: "Crescimento", value: totalGained - totalLost, deltaPct: growthPct },
+    ];
+
+    return {
+      brandId: data.brandId,
+      period: data.period,
+      generatedAt: new Date().toISOString(),
+      connectionsTotal: targets.length,
+      connectionsActive: activeCount,
+      networks: Array.from(networks),
+      summary,
+      channels: channels.sort((a, b) => b.engagement - a.engagement),
+      formats: [],
+      series,
+      topPosts: [],
+      bestHours: [],
+      bestDays: [],
+      insights: [],
+      warnings,
+    };
+  });
+
+// ---------------------------------------------------------------------------
+// Payload pesado — top posts, formatos, timing, insights do Brain.
+// Split para não bloquear o render de KPIs / séries.
+// ---------------------------------------------------------------------------
+
+export const getBrandSocialTopPayloadFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => TopInput.parse(i))
+  .handler(async ({ data, context }): Promise<BrandSocialTopPayload> => {
+    const { data: conns, error: connErr } = await context.supabase
+      .from("social_connections")
+      .select(
+        "id, provider, external_name, account_id, account_username, status, metadata",
+      )
+      .eq("brand_id", data.brandId);
+    if (connErr) throw new Error(connErr.message);
+
+    const targets = expandConnections(conns ?? []);
+    const svc = await import("./service.server");
+
+    const results = await Promise.allSettled(
+      targets.map(async (t) => {
+        const resolved = await svc.resolveConnection(
+          context.supabase as any,
+          t.connectionId,
+          `${context.userId}:${t.connectionId}`,
+        );
+        (resolved as any).network = t.network;
+        const top = await svc.getTopPosts(resolved, { limit: 6 }).catch(() => [] as any[]);
+        return { target: t, top };
+      }),
+    );
+
+    const warnings: string[] = [];
+    const formatAgg = new Map<string, FormatPerformance>();
+    const topPostsAll: UnifiedTopPost[] = [];
+    const slotAgg = new Map<string, BestSlot>();
+    const weekdayAgg = new Map<number, BestSlot>();
+
+    for (const r of results) {
+      if (r.status === "rejected") {
+        warnings.push(String((r.reason as Error)?.message ?? "provider error"));
+        continue;
+      }
+      const { target, top } = r.value;
       for (const post of top) {
         const eng =
           mv(post.metrics, "engagement") ??
@@ -276,13 +362,7 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
 
         const fmt = (post.mediaType ?? "other") as FormatPerformance["format"];
         const bucket =
-          formatAgg.get(fmt) ?? {
-            format: fmt,
-            posts: 0,
-            engagement: 0,
-            reach: 0,
-            avgEngagement: 0,
-          };
+          formatAgg.get(fmt) ?? { format: fmt, posts: 0, engagement: 0, reach: 0, avgEngagement: 0 };
         bucket.posts += 1;
         bucket.engagement += eng;
         bucket.reach += postReach;
@@ -293,19 +373,12 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
           const weekday = d.getUTCDay();
           const hour = d.getUTCHours();
           const key = `${weekday}-${hour}`;
-          const slot =
-            slotAgg.get(key) ?? { weekday, hour, score: 0, posts: 0 };
+          const slot = slotAgg.get(key) ?? { weekday, hour, score: 0, posts: 0 };
           slot.score += eng;
           slot.posts += 1;
           slotAgg.set(key, slot);
 
-          const w =
-            weekdayAgg.get(weekday) ?? {
-              weekday,
-              hour: 0,
-              score: 0,
-              posts: 0,
-            };
+          const w = weekdayAgg.get(weekday) ?? { weekday, hour: 0, score: 0, posts: 0 };
           w.score += eng;
           w.posts += 1;
           weekdayAgg.set(weekday, w);
@@ -313,44 +386,14 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
       }
     }
 
-    // Fecha formatos: média
     const formats = Array.from(formatAgg.values())
       .map((f) => ({ ...f, avgEngagement: f.posts ? round2(f.engagement / f.posts) : 0 }))
       .sort((a, b) => b.engagement - a.engagement);
 
-    // Séries: ordena por data
-    const series = Array.from(seriesAgg.values()).sort((a, b) =>
-      a.date.localeCompare(b.date),
-    );
+    const topPosts = topPostsAll.sort((a, b) => b.score - a.score).slice(0, 12);
+    const bestHours = Array.from(slotAgg.values()).sort((a, b) => b.score - a.score).slice(0, 5);
+    const bestDays = Array.from(weekdayAgg.values()).sort((a, b) => b.score - a.score);
 
-    // Top posts: score desc
-    const topPosts = topPostsAll
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 12);
-
-    const bestHours = Array.from(slotAgg.values())
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 5);
-
-    const bestDays = Array.from(weekdayAgg.values()).sort(
-      (a, b) => b.score - a.score,
-    );
-
-    const growthPct =
-      totalFollowers > 0
-        ? round2(((totalGained - totalLost) / totalFollowers) * 100)
-        : null;
-
-    const summary: SocialKpi[] = [
-      { key: "followers", label: "Seguidores", value: totalFollowers, deltaPct: null },
-      { key: "reach", label: "Alcance", value: totalReach, deltaPct: null },
-      { key: "impressions", label: "Impressões", value: totalImpressions, deltaPct: null },
-      { key: "engagement", label: "Engajamento", value: totalEngagement, deltaPct: null },
-      { key: "posts", label: "Publicações", value: totalPosts, deltaPct: null },
-      { key: "growth", label: "Crescimento", value: totalGained - totalLost, deltaPct: growthPct },
-    ];
-
-    // 4) Brain insights (não bloqueante)
     let insights: BrainSocialInsight[] = [];
     try {
       const { brain } = await import("@/lib/brain/api");
@@ -379,13 +422,7 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
       brandId: data.brandId,
       period: data.period,
       generatedAt: new Date().toISOString(),
-      connectionsTotal: targets.length,
-      connectionsActive: activeCount,
-      networks: Array.from(networks),
-      summary,
-      channels: channels.sort((a, b) => b.engagement - a.engagement),
       formats,
-      series,
       topPosts,
       bestHours,
       bestDays,
