@@ -345,12 +345,38 @@ export const getBrandSocialTopPayloadFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => TopInput.parse(i))
   .handler(async ({ data, context }): Promise<BrandSocialTopPayload> => {
-    const { data: conns, error: connErr } = await context.supabase
+    let allowedConnIds: Set<string> | null = null;
+    if (data.clientId) {
+      const { data: links, error: linkErr } = await context.supabase
+        .from("client_social_accounts")
+        .select("connection_id")
+        .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId);
+      if (linkErr) throw new Error(linkErr.message);
+      allowedConnIds = new Set((links ?? []).map((r: any) => r.connection_id));
+      if (allowedConnIds.size === 0) {
+        return {
+          brandId: data.brandId,
+          period: data.period,
+          generatedAt: new Date().toISOString(),
+          formats: [],
+          topPosts: [],
+          bestHours: [],
+          bestDays: [],
+          insights: [],
+          warnings: [],
+        };
+      }
+    }
+
+    let connQ = context.supabase
       .from("social_connections")
       .select(
         "id, provider, external_name, account_id, account_username, status, metadata",
       )
       .eq("brand_id", data.brandId);
+    if (allowedConnIds) connQ = connQ.in("id", Array.from(allowedConnIds));
+    const { data: conns, error: connErr } = await connQ;
     if (connErr) throw new Error(connErr.message);
 
     const targets = expandConnections(conns ?? []);
