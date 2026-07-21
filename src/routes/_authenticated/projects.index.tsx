@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import {
@@ -110,7 +110,7 @@ function fmtDate(iso?: string | null) {
 }
 
 function ProjectsIndexPage() {
-  const { brandId } = useActiveContext();
+  const { brandId, clientId: activeClientId } = useActiveContext();
   const qc = useQueryClient();
   const list = useServerFn(listProjects);
   const create = useServerFn(createProject);
@@ -120,7 +120,11 @@ function ProjectsIndexPage() {
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
-  const [clientFilter, setClientFilter] = useState<string>("all");
+  const [clientFilter, setClientFilter] = useState<string>(activeClientId ?? "all");
+  // Trava o filtro no cliente ativo da sidebar (modo agência = "all").
+  useEffect(() => {
+    setClientFilter(activeClientId ?? "all");
+  }, [activeClientId]);
   const [formOpen, setFormOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
 
@@ -302,7 +306,11 @@ function ProjectsIndexPage() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={clientFilter} onValueChange={setClientFilter}>
+        <Select
+          value={clientFilter}
+          onValueChange={setClientFilter}
+          disabled={!!activeClientId}
+        >
           <SelectTrigger className="h-9 w-[180px] text-xs">
             <CalendarIcon className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
             <SelectValue placeholder="Cliente" />

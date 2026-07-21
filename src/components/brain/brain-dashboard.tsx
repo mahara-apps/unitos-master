@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -47,14 +47,27 @@ type Filters = {
 
 const ALL = "__all__";
 
-export function BrainDashboard({ brandId }: { brandId?: string | null }) {
+export function BrainDashboard({
+  brandId,
+  clientId: activeClientId = null,
+  lockClient = false,
+}: {
+  brandId?: string | null;
+  clientId?: string | null;
+  lockClient?: boolean;
+}) {
   const [filters, setFilters] = useState<Filters>({
-    clientId: null,
+    clientId: activeClientId,
     projectId: null,
     actorId: null,
     category: null,
     days: 30,
   });
+
+  // Mantém o filtro sincronizado com o cliente ativo da sidebar.
+  useEffect(() => {
+    setFilters((f) => (f.clientId === activeClientId ? f : { ...f, clientId: activeClientId }));
+  }, [activeClientId]);
 
   const fetchIntel = useServerFn(brainIntelligenceFn);
   const q = useQuery({
@@ -116,6 +129,7 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
       <FiltersBar
         data={d}
         filters={filters}
+        lockClient={lockClient}
         onChange={(patch) => setFilters((f) => ({ ...f, ...patch }))}
       />
 
@@ -436,10 +450,12 @@ export function BrainDashboard({ brandId }: { brandId?: string | null }) {
 function FiltersBar({
   data,
   filters,
+  lockClient = false,
   onChange,
 }: {
   data: BrainIntelligence | undefined;
   filters: Filters;
+  lockClient?: boolean;
   onChange: (patch: Partial<Filters>) => void;
 }) {
   return (
@@ -453,6 +469,7 @@ function FiltersBar({
         value={filters.clientId}
         onChange={(v) => onChange({ clientId: v })}
         options={(data?.clientsAvailable ?? []).map((c) => ({ value: c.id, label: c.name }))}
+        disabled={lockClient}
       />
       <FilterSelect
         placeholder="Projeto"
@@ -500,14 +517,20 @@ function FilterSelect({
   value,
   onChange,
   options,
+  disabled = false,
 }: {
   placeholder: string;
   value: string | null;
   onChange: (v: string | null) => void;
   options: Array<{ value: string; label: string }>;
+  disabled?: boolean;
 }) {
   return (
-    <Select value={value ?? ALL} onValueChange={(v) => onChange(v === ALL ? null : v)}>
+    <Select
+      value={value ?? ALL}
+      onValueChange={(v) => onChange(v === ALL ? null : v)}
+      disabled={disabled}
+    >
       <SelectTrigger className="h-8 w-[160px] text-xs">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>

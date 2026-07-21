@@ -47,11 +47,11 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 function MediaPlansIndex() {
-  const { brandId } = useActiveContext();
+  const { brandId, clientId } = useActiveContext();
   const listFn = useServerFn(listBrandMediaPlans);
   const q = useQuery({
-    queryKey: ["brand-media-plans", brandId],
-    queryFn: () => listFn({ data: { brandId: brandId! } }),
+    queryKey: ["brand-media-plans", brandId, clientId ?? "all"],
+    queryFn: () => listFn({ data: { brandId: brandId!, clientId: clientId ?? null } }),
     enabled: !!brandId,
   });
 

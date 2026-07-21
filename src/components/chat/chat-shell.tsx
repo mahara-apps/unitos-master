@@ -27,6 +27,7 @@ import {
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useActiveContext } from "@/hooks/use-active-context";
 
 export function ChatShell({ children }: { children: ReactNode }) {
   const list = useServerFn(listChatConversationsFn);
@@ -37,6 +38,7 @@ export function ChatShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const params = useParams({ strict: false }) as { conversationId?: string };
   const activeId = params.conversationId;
+  const { brandId, clientId } = useActiveContext();
 
   const [query, setQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -44,20 +46,26 @@ export function ChatShell({ children }: { children: ReactNode }) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const conversations = useQuery({
-    queryKey: ["chat", "conversations"],
+    queryKey: ["chat", "conversations", brandId ?? "all", clientId ?? "all"],
     queryFn: () => list(),
     staleTime: 30_000,
   });
 
   const filtered = useMemo(() => {
-    const rows = conversations.data ?? [];
+    let rows = conversations.data ?? [];
+    // Escopa pela conta ativa: cliente selecionado -> só conversas dele.
+    // Modo agência (sem cliente) -> só conversas não vinculadas a cliente.
+    rows = clientId
+      ? rows.filter((r) => r.client_id === clientId)
+      : rows.filter((r) => !r.client_id);
     if (!query.trim()) return rows;
     const q = query.toLowerCase();
     return rows.filter((r) => r.title.toLowerCase().includes(q));
-  }, [conversations.data, query]);
+  }, [conversations.data, query, clientId]);
 
   const newChat = useMutation({
-    mutationFn: () => create({ data: {} }),
+    mutationFn: () =>
+      create({ data: { brandId: brandId ?? null, clientId: clientId ?? null } }),
     onSuccess: (row) => {
       qc.invalidateQueries({ queryKey: ["chat", "conversations"] });
       navigate({ to: "/chat/$conversationId", params: { conversationId: row.id } });
