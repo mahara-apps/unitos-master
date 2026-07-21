@@ -113,6 +113,10 @@ const Input = z.object({
   brandId: z.string().uuid(),
   /** Ex.: "7d", "30d", "90d". */
   period: z.string().regex(/^\d{1,3}d$/).default("30d"),
+  /** Início explícito (ISO). Sobrepõe o cálculo por `period`. */
+  since: z.string().datetime().optional(),
+  /** Fim explícito (ISO). Sobrepõe o cálculo por `period`. */
+  until: z.string().datetime().optional(),
   /** Escopo por cliente ativo — restringe conexões via client_social_accounts. */
   clientId: z.string().uuid().nullish(),
 });
@@ -140,10 +144,7 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => Input.parse(i))
   .handler(async ({ data, context }): Promise<BrandSocialDashboard> => {
-    const days = parseDays(data.period);
-    const until = new Date();
-    const since = new Date(until.getTime() - days * 24 * 60 * 60 * 1000);
-    const range = { since: since.toISOString(), until: until.toISOString() };
+    const range = resolveRange(data);
 
     // 0) Se houver cliente ativo, descobre as conexões vinculadas a ele.
     let allowedConnIds: Set<string> | null = null;
@@ -526,6 +527,19 @@ export const getBrandSocialTopPayloadFn = createServerFn({ method: "POST" })
 
 function parseDays(period: string): number {
   return Math.min(Math.max(Number.parseInt(period, 10) || 30, 1), 365);
+}
+
+function resolveRange(input: { period: string; since?: string; until?: string }): {
+  since: string;
+  until: string;
+} {
+  if (input.since && input.until) {
+    return { since: input.since, until: input.until };
+  }
+  const days = parseDays(input.period);
+  const until = new Date();
+  const since = new Date(until.getTime() - days * 24 * 60 * 60 * 1000);
+  return { since: since.toISOString(), until: until.toISOString() };
 }
 
 function mv(list: { key: string; value: number }[] | undefined, key: string) {

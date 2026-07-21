@@ -279,6 +279,8 @@ export async function getDashboard(
     socialCacheKey("dash", conn.cacheScope, {
       n: conn.network,
       p: opts.period,
+      s: opts.range?.since,
+      u: opts.range?.until,
     }),
     () =>
       conn.provider.getDashboard(conn.ctx, {
