@@ -203,7 +203,11 @@ export function MetaPortfolioDialog({
     });
     if (clientId) {
       qc.invalidateQueries({ queryKey: ["wizard-connections", brandId, clientId] });
+      qc.invalidateQueries({ queryKey: ["social-analytics", brandId, clientId] });
+      qc.invalidateQueries({ queryKey: ["social-analytics-top", brandId, clientId] });
     }
+    qc.invalidateQueries({ queryKey: ["social-analytics", brandId] });
+    qc.invalidateQueries({ queryKey: ["social-analytics-top", brandId] });
   };
 
   const mut = useMutation({

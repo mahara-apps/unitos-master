@@ -171,6 +171,8 @@ export function ChannelsTab({
     onSuccess: (_r, v) => {
       toast.success(v.assigned ? "Canal vinculado" : "Vínculo removido");
       qc.invalidateQueries({ queryKey: ["wizard-connections", brandId, clientId] });
+      qc.invalidateQueries({ queryKey: ["social-analytics", brandId, clientId] });
+      qc.invalidateQueries({ queryKey: ["social-analytics-top", brandId, clientId] });
     },
   });
 

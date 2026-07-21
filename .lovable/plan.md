@@ -1,47 +1,43 @@
-## Objetivo
+## Diagnóstico (confirmado no banco)
 
-Hoje `/analytics` sempre agrega tudo da agência (brand), mesmo quando o usuário selecionou um cliente específico no switcher. Vamos fazer com que:
+O Instagram **está sim conectado** na marca (`social_connections`: `leodaacademia_`, status `active`), mas o Analytics do cliente aparece vazio porque **nenhum registro existe em `client_social_accounts`** para o cliente "Vereador Léo da Academia" (nem para nenhum outro cliente da marca).
 
-- **Modo Cliente ativo** (`clientId` presente no `useActiveContext`) → analytics mostra somente os canais sociais vinculados àquele cliente (via `client_social_accounts`) e as métricas de produção/equipe/tarefas filtradas por `client_id`.
-- **Modo Gestão** (nenhum cliente ativo, só `brandId`) → comportamento atual, agregando todas as contas e clientes da agência.
+Como o Analytics agora é escopado por cliente ativo (mudança anterior), ele filtra as conexões via a junction `client_social_accounts` — vazia → empty state "Esta marca ainda não tem canais sociais conectados". A mensagem induz ao erro: sugere ir em **Integrações**, quando o problema é o **vínculo com o cliente**, feito em **Perfil do Cliente → Canais**.
 
-## Mudanças
+Além disso o print da tela de Integrações mostra "Facebook · 1 conta", mas no banco só existe 1 conexão de canal `instagram`. O contador do card de Facebook está lendo `metadata.page_*` da conexão de Instagram, o que é enganoso.
 
-### 1. Server functions
+## Escopo do fix
 
-- **`src/lib/social-analytics/brand-dashboard.functions.ts`**
-  - Adicionar `clientId: z.string().uuid().optional()` nos schemas `Input` e `TopInput` de `getBrandSocialDashboardFn` e `getBrandSocialTopPayloadFn`.
-  - Quando `clientId` vier preenchido, buscar em `client_social_accounts` os `connection_id`s daquele cliente e filtrar `social_connections` por esse conjunto (retorno vazio = zerar dashboard sem quebrar).
+1. **Corrigir a mensagem de empty state do Analytics do cliente** (`social-analytics-dashboard.tsx` no bloco em que não há canais):
+   - Detectar `clientId` ativo e trocar o texto para: "Este cliente ainda não tem canais atribuídos. Abra **Perfil → Canais** para vincular contas já conectadas na marca."
+   - Botão primário "Ir para Canais" → navega para `/app/customers/$customerId?tab=channels`.
+   - Botão secundário "Conectar nova conta" → `/app/connections` (fluxo atual).
 
-- **`src/lib/analytics.functions.ts`** (`getAnalytics`)
-  - Já aceita `client_ids[]` no filtro. Adicionar `clientId?` no input; quando presente, forçar `client_ids = [clientId]` antes das queries de posts/tasks/projetos/cohorts, ignorando o filtro manual da UI (para não permitir escapar do escopo).
+2. **Auto-vincular ao cliente ativo na conexão nova** (`src/lib/meta/*` handler do callback OAuth / finalização do Portfolio):
+   - Após criar/atualizar linhas em `social_connections`, se o usuário disparou o OAuth a partir de um contexto de cliente (passar `clientId` no `state` do OAuth já suportado pelo `startMetaOAuth`), inserir automaticamente em `client_social_accounts` (upsert por `client_id,connection_id`).
+   - Quando não houver `clientId` no state (conexão feita no hub global `/connections`), manter comportamento atual (sem vínculo automático) e apenas mostrar toast "Conta conectada — atribua a um cliente em Perfil → Canais".
 
-### 2. Rota `src/routes/_authenticated/analytics.tsx`
+3. **Corrigir contadores da tela `/connections`** (`connections/*` — card por rede):
+   - Contar por `channel` (`instagram`, `facebook`, `tiktok`…) em vez de derivar de metadata; se não há linha com `channel='facebook'` e status ativo, mostrar "Desconectado" mesmo que exista Instagram na mesma sessão Meta.
+   - Um botão "Ativar Facebook" no card, que reabre o `MetaPortfolioDialog` filtrado para páginas do Facebook (o Portfolio já traz as páginas — só falta persistir a linha `channel='facebook'`).
 
-- Ler `clientId` de `useActiveContext()` junto com `brandId`.
-- Incluir `clientId` nas `queryKey`s (`["analytics", brandId, clientId, …]` etc.) e passar para as três chamadas: `analyticsFn`, `SocialAnalyticsDashboard` (novo prop opcional `clientId`) e o payload pesado de top posts.
-- Ajustar `usePageHeader`:
-  - Título continua "Análises"; subtítulo dinâmico: `"Visão do cliente {nome}"` vs `"Visão executiva da agência"`.
-- Ocultar a aba **Clientes** quando `clientId` estiver ativo (redundante — já é o próprio cliente); manter Social/Produção/Equipe.
-- No `FiltersSheet`, remover o seletor de "Clientes" quando `clientId` estiver ativo (o filtro fica travado).
+4. **Atalho de "Atribuir a cliente" no card conectado em `/connections`**:
+   - Dropdown com clientes da marca; toggle usa o mesmo `toggleClientChannelFn`.
+   - Mesma ação já existe em Canais do cliente — reaproveitar `useServerFn(toggleClientChannelFn)`.
 
-### 3. `src/components/social/SocialAnalyticsDashboard.tsx`
-
-- Aceitar `clientId?: string` e repassar para `getBrandSocialDashboardFn` / `getBrandSocialTopPayloadFn`. Incluir na `queryKey` para invalidar corretamente ao trocar de cliente.
-
-### 4. `ClientsTab`
-
-- Sem mudanças estruturais; só deixa de ser renderizada no modo cliente (esconder a `TabsTrigger` + `TabsContent`).
+5. **Invalidação de cache**:
+   - Após vincular/desvincular (`toggleClientChannelFn`), invalidar as chaves `["brand-social-dashboard", brandId, period, clientId]` e `["brand-social-top", ...]` (hoje só invalida `client-channels`), para o Analytics recarregar sem F5.
 
 ## Detalhes técnicos
 
-- O filtro de conexões por cliente sai de `client_social_accounts` (colunas `client_id`, `connection_id`). Já existem RLS/tipos para essa tabela.
-- Nenhuma migração de banco: toda a lógica é do lado do servidor filtrando por `IN (...)`.
-- Cache: as `queryKey`s ganham `clientId ?? "all"` para não misturar caches entre gestão e cliente.
-- Contagens/KPIs continuam somando só o que restou após o filtro — quando o cliente não tem canais vinculados, o dashboard social exibe estado vazio com CTA para ir em Perfil → Canais (já existente).
+- Arquivos alterados:
+  - `src/components/analytics/social-analytics-dashboard.tsx` — empty state contextual.
+  - `src/components/customer/channels-tab.tsx` — nada estrutural; garantir invalidate cruzado.
+  - `src/lib/meta/meta.functions.ts` / `portfolio.functions.ts` — auto-link quando `state.clientId` presente; persistir `channel='facebook'` separado do `instagram`.
+  - `src/routes/_authenticated/connections.tsx` (ou equivalente) — contadores por `channel`; dropdown de atribuição a cliente.
+- **Sem migração** — schema já suporta tudo (`client_social_accounts` com `onConflict client_id,connection_id`; `social_connections.channel` já existe).
+- Sem mudança de RLS — políticas atuais em `client_social_accounts` já cobrem insert/delete via `has_workspace_access`.
 
-## Fora de escopo
-
-- Novos gráficos comparativos entre clientes na visão gestão.
-- Mudanças no dashboard `/dashboard` (só `/analytics`).
-- Alterações em Brain/Calendar (já são escopados por outro caminho).
+## Fora do escopo
+- Novos providers (TikTok/LinkedIn/YouTube) continuam "em breve".
+- Refactor visual da tela `/connections` — só ajuste de contador + dropdown.
