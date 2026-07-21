@@ -107,17 +107,11 @@ const STAGE_LABEL: Record<string, string> = {
   published: "Publicado",
 };
 
-const PRESETS = [
-  { key: "7d", label: "Últimos 7 dias", days: 7 },
-  { key: "30d", label: "Últimos 30 dias", days: 30 },
-  { key: "90d", label: "Últimos 90 dias", days: 90 },
-  { key: "180d", label: "Últimos 180 dias", days: 180 },
-  { key: "365d", label: "Último ano", days: 365 },
-] as const;
-
 function AnalyticsPage() {
   const { brandId } = useActiveContext();
-  const [rangeKey, setRangeKey] = useState<(typeof PRESETS)[number]["key"]>("30d");
+  const [range, setRange] = useState<DateRange | undefined>(() =>
+    daysToDateRange(30),
+  );
   const [filters, setFilters] = useState<{
     client_ids: string[];
     assignee_ids: string[];
@@ -126,15 +120,15 @@ function AnalyticsPage() {
     tags: string[];
   }>({ client_ids: [], assignee_ids: [], project_ids: [], channels: [], tags: [] });
 
-  const { start, end } = useMemo(() => {
-    const preset = PRESETS.find((p) => p.key === rangeKey) ?? PRESETS[1];
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(endDate.getDate() - preset.days);
-    return { start: startDate.toISOString(), end: endDate.toISOString() };
-  }, [rangeKey]);
-
-  const preset = PRESETS.find((p) => p.key === rangeKey) ?? PRESETS[1];
+  const { start, end, period } = useMemo(() => {
+    const to = range?.to ?? new Date();
+    const from = range?.from ?? to;
+    return {
+      start: from.toISOString(),
+      end: to.toISOString(),
+      period: dateRangeToPeriod(range),
+    };
+  }, [range]);
 
   const analyticsFn = useServerFn(getAnalytics);
   const clientsFn = useServerFn(listClients);
@@ -143,7 +137,7 @@ function AnalyticsPage() {
 
   const analyticsQuery = useQuery({
     enabled: !!brandId,
-    queryKey: ["analytics", brandId, rangeKey, filters],
+    queryKey: ["analytics", brandId, period, filters],
     queryFn: () =>
       analyticsFn({
         data: {
@@ -187,27 +181,11 @@ function AnalyticsPage() {
       subtitle: "Visão executiva de produção, social, equipe e clientes",
       actions: (
         <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <CalendarDays className="h-4 w-4" />
-                {preset.label}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>Período</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {PRESETS.map((p) => (
-                <DropdownMenuItem
-                  key={p.key}
-                  onClick={() => setRangeKey(p.key)}
-                  className={cn(rangeKey === p.key && "bg-accent")}
-                >
-                  {p.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <DateRangePicker
+            value={range}
+            onChange={(r) => r && setRange(r)}
+            maxDate={new Date()}
+          />
           <FiltersSheet
             filters={filters}
             setFilters={setFilters}
@@ -218,7 +196,7 @@ function AnalyticsPage() {
         </div>
       ),
     },
-    [rangeKey, filters, clientsQuery.data, teamQuery.data, projectsQuery.data],
+    [range, filters, clientsQuery.data, teamQuery.data, projectsQuery.data],
   );
 
   if (!brandId) {
@@ -245,7 +223,7 @@ function AnalyticsPage() {
         </TabsList>
 
         <TabsContent value="social" className="space-y-6">
-          <SocialAnalyticsDashboard brandId={brandId} period={rangeKey} />
+          <SocialAnalyticsDashboard brandId={brandId} period={period} />
         </TabsContent>
         <TabsContent value="production" className="space-y-6">
           <ProductionTab loading={analyticsQuery.isLoading} data={data?.production} />
