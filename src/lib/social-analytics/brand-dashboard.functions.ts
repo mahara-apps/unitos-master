@@ -203,6 +203,7 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
 
     // 2) Carrega SocialAnalyticsService uma vez e itera em paralelo
     const svc = await import("./service.server");
+    const prevRange = resolvePrevRange(range);
     const results = await Promise.allSettled(
       targets.map(async (t) => {
         const resolved = await svc.resolveConnection(
@@ -211,11 +212,13 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
           `${context.userId}:${t.connectionId}`,
         );
         (resolved as any).network = t.network;
-        const dashboard = await svc.getDashboard(resolved, {
-          period: data.period,
-          range,
-        });
-        return { target: t, dashboard };
+        const [dashboard, prevDashboard] = await Promise.all([
+          svc.getDashboard(resolved, { period: data.period, range }),
+          svc
+            .getDashboard(resolved, { period: data.period, range: prevRange })
+            .catch(() => null),
+        ]);
+        return { target: t, dashboard, prevDashboard };
       }),
     );
 
@@ -234,13 +237,21 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
     let totalLost = 0;
     let activeCount = 0;
 
+    let prevFollowers = 0;
+    let prevReach = 0;
+    let prevImpressions = 0;
+    let prevEngagement = 0;
+    let prevPosts = 0;
+    let prevGained = 0;
+    let prevLost = 0;
+
     for (const r of results) {
       if (r.status === "rejected") {
         warnings.push(String((r.reason as Error)?.message ?? "provider error"));
         continue;
       }
       activeCount++;
-      const { target, dashboard } = r.value;
+      const { target, dashboard, prevDashboard } = r.value;
       const totals = dashboard.totals ?? [];
       const profile = dashboard.profile;
       networks.add(target.network);
@@ -263,6 +274,21 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
       totalLost += lost;
       totalPosts += posts;
       if (followers) totalFollowers += followers;
+
+      if (prevDashboard) {
+        const pt = prevDashboard.totals ?? [];
+        prevReach += mv(pt, "reach") ?? 0;
+        prevImpressions += mv(pt, "impressions") ?? 0;
+        prevEngagement += mv(pt, "engagement") ?? 0;
+        prevGained += mv(pt, "followers_gained") ?? 0;
+        prevLost += mv(pt, "followers_lost") ?? 0;
+        prevPosts +=
+          mv(pt, "posts") ??
+          mv(pt, "posts_count") ??
+          (prevDashboard.series?.length ?? 0);
+        const pf = prevDashboard.profile?.followers;
+        if (pf) prevFollowers += pf;
+      }
 
       const engagementRate =
         followers && followers > 0
@@ -319,12 +345,12 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
         : null;
 
     const summary: SocialKpi[] = [
-      { key: "followers", label: "Seguidores", value: totalFollowers, deltaPct: null },
-      { key: "reach", label: "Alcance", value: totalReach, deltaPct: null },
-      { key: "impressions", label: "Impressões", value: totalImpressions, deltaPct: null },
-      { key: "engagement", label: "Engajamento", value: totalEngagement, deltaPct: null },
-      { key: "posts", label: "Publicações", value: totalPosts, deltaPct: null },
-      { key: "growth", label: "Crescimento", value: totalGained - totalLost, deltaPct: growthPct },
+      { key: "followers", label: "Seguidores", value: totalFollowers, deltaPct: delta(totalFollowers, prevFollowers) },
+      { key: "reach", label: "Alcance", value: totalReach, deltaPct: delta(totalReach, prevReach) },
+      { key: "impressions", label: "Impressões", value: totalImpressions, deltaPct: delta(totalImpressions, prevImpressions) },
+      { key: "engagement", label: "Engajamento", value: totalEngagement, deltaPct: delta(totalEngagement, prevEngagement) },
+      { key: "posts", label: "Publicações", value: totalPosts, deltaPct: delta(totalPosts, prevPosts) },
+      { key: "growth", label: "Crescimento", value: totalGained - totalLost, deltaPct: growthPct ?? delta(totalGained - totalLost, prevGained - prevLost) },
     ];
 
     return {
