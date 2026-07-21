@@ -43,7 +43,10 @@ import {
 export const Route = createFileRoute("/_authenticated/customers/$customerId")({
   validateSearch: (s) =>
     z
-      .object({ onboarding: z.union([z.literal("1"), z.literal(1), z.boolean()]).optional() })
+      .object({
+        onboarding: z.union([z.literal("1"), z.literal(1), z.boolean()]).optional(),
+        tab: z.enum(["overview", "brain", "channels", "cadastro"]).optional(),
+      })
       .parse(s),
   component: CustomerDetail,
 });
@@ -60,7 +63,7 @@ const isUuid = (v: string | null | undefined): v is string => !!v && UUID_RE.tes
 
 function CustomerDetail() {
   const { customerId } = Route.useParams();
-  const { onboarding } = Route.useSearch();
+  const { onboarding, tab } = Route.useSearch();
   const { brandId, setClientId } = useActiveContext();
   const { role, allowedClientIds, isReady } = useAccessRole();
   const navigate = useNavigate();
@@ -104,6 +107,7 @@ function CustomerDetail() {
         brandId={brandId}
         customerId={customerId}
         openOnboarding={!!onboarding}
+        initialTab={tab}
       />
     </Suspense>
   );
@@ -144,15 +148,17 @@ function CustomerDetailReady({
   brandId,
   customerId,
   openOnboarding,
+  initialTab,
 }: {
   brandId: string;
   customerId: string;
   openOnboarding: boolean;
+  initialTab?: "overview" | "brain" | "channels" | "cadastro";
 }) {
   const list = useServerFn(listClients);
   const fetchHub = useServerFn(getBrandHub);
   const qc = useQueryClient();
-  const [activeTab, setActiveTab] = useState<string>("overview");
+  const [activeTab, setActiveTab] = useState<string>(initialTab ?? "overview");
   const [wizardOpen, setWizardOpen] = useState(false);
   const navigate = useNavigate();
 
