@@ -323,11 +323,18 @@ export async function getPost(
 
 export async function getTopPosts(
   conn: ResolvedConnection,
-  opts: Omit<GetTopPostsOptions, "network"> = {},
+  opts: Omit<GetTopPostsOptions, "network"> & {
+    range?: { since?: string; until?: string };
+  } = {},
 ): Promise<SocialPost[]> {
   const limit = opts.limit ?? 10;
   const res = await withSocialCache(
-    socialCacheKey("top", conn.cacheScope, { n: conn.network, l: limit }),
+    socialCacheKey("top", conn.cacheScope, {
+      n: conn.network,
+      l: limit,
+      s: opts.range?.since,
+      u: opts.range?.until,
+    }),
     () =>
       conn.provider.getTopPosts(conn.ctx, {
         network: conn.network,
