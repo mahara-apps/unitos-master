@@ -56,24 +56,75 @@ export class MetaAnalyticsProvider implements SocialAnalyticsProvider {
     }, warnings, "followers_count");
 
     const IG_ACCOUNT_MAP = metricMapFor("instagram", "account");
-    const IG_METRICS = Object.keys(IG_ACCOUNT_MAP).filter((k) => k !== "followers_count");
-    const points = await this.safe(
+
+    // v22+: Instagram Business account insights are split into two families.
+    // Only `follower_count` still supports the classic period=day time series.
+    // Everything else (reach, views, profile_views, website_clicks,
+    // accounts_engaged, total_interactions) MUST use metric_type=total_value.
+    const series = await this.safe(
+      async () => {
+        const r = await this.meta.graph<InsightsResponse>(
+          `/${ctx.accountId}/insights`,
+          {
+            accessToken: ctx.accessToken,
+            query: {
+              metric: "follower_count",
+              period: "day",
+              since: String(since),
+              until: String(until),
+            },
+          },
+        );
+        return toSeries(r.data ?? [], IG_ACCOUNT_MAP);
+      },
+      warnings,
+      "instagram_series",
+    );
+
+    // total_value endpoint — one value per metric across the window.
+    const totalsMetrics = [
+      "reach",
+      "views",
+      "profile_views",
+      "website_clicks",
+      "accounts_engaged",
+      "total_interactions",
+    ];
+    const totalsRes = await this.safe(
       () =>
         this.meta.graph<InsightsResponse>(`/${ctx.accountId}/insights`, {
           accessToken: ctx.accessToken,
           query: {
-            metric: IG_METRICS.join(","),
+            metric: totalsMetrics.join(","),
+            metric_type: "total_value",
             period: "day",
             since: String(since),
             until: String(until),
           },
         }),
       warnings,
-      "instagram_insights",
+      "instagram_totals",
     );
 
-    const series = toSeries(points?.data ?? [], IG_ACCOUNT_MAP);
-    const totals = sumSeries(series);
+    const totalsFromEndpoint: Metric[] = [];
+    for (const row of totalsRes?.data ?? []) {
+      const key = IG_ACCOUNT_MAP[row.name];
+      if (!key) continue;
+      // total_value shape: values[0].value OR total_value.value
+      const anyRow = row as unknown as {
+        values?: InsightValue[];
+        total_value?: { value?: number };
+      };
+      const v =
+        (typeof anyRow.total_value?.value === "number" ? anyRow.total_value.value : null) ??
+        (typeof anyRow.values?.[0]?.value === "number"
+          ? (anyRow.values![0].value as number)
+          : null);
+      if (typeof v === "number") totalsFromEndpoint.push({ key, value: v });
+    }
+
+    // Merge: sum-per-key so `follower_count` growth also lives in totals.
+    const totals = mergeMetrics(sumSeries(series ?? []), totalsFromEndpoint);
 
     return {
       ok: true,
@@ -86,7 +137,7 @@ export class MetaAnalyticsProvider implements SocialAnalyticsProvider {
         range: opts.range,
         followers: followers ?? null,
         metrics: totals,
-        series,
+        series: series ?? [],
         warnings,
       },
     };
@@ -108,9 +159,17 @@ export class MetaAnalyticsProvider implements SocialAnalyticsProvider {
     }, warnings, "page_followers");
 
     const FB_ACCOUNT_MAP = metricMapFor("facebook", "account");
-    const FB_METRICS = Object.keys(FB_ACCOUNT_MAP).filter(
-      (k) => k !== "fan_count" && k !== "followers_count" && k !== "page_followers",
-    );
+    // Only page-level native metrics that Graph v22 still returns as a
+    // day-series. Deprecated: page_engaged_users, page_post_engagements at
+    // page level, page_fan_adds/page_fan_removes (non-unique).
+    const FB_METRICS = [
+      "page_impressions",
+      "page_impressions_unique",
+      "page_actions_post_reactions_total",
+      "page_fan_adds_unique",
+      "page_fan_removes_unique",
+      "page_views_total",
+    ];
     const points = await this.safe(
       () =>
         this.meta.graph<InsightsResponse>(`/${ctx.externalId}/insights`, {
@@ -172,10 +231,16 @@ export class MetaAnalyticsProvider implements SocialAnalyticsProvider {
     );
 
     const IG_POST_MAP = metricMapFor("instagram", "post");
-    const IG_POST_METRICS = ["impressions", "reach", "likes", "comments", "saved", "shares"];
-    if (meta?.media_type === "VIDEO" || meta?.media_type === "REELS") {
-      IG_POST_METRICS.push("video_views");
-    }
+    // v22+: media `impressions` is gone — `views` covers image/carousel/reel.
+    const IG_POST_METRICS = [
+      "views",
+      "reach",
+      "likes",
+      "comments",
+      "saved",
+      "shares",
+      "total_interactions",
+    ];
 
     const insights = await this.safe(
       () =>
@@ -328,13 +393,19 @@ export class MetaAnalyticsProvider implements SocialAnalyticsProvider {
     try {
       return await fn();
     } catch (err) {
-      const msg =
-        err instanceof MetaGraphError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : "Erro desconhecido";
-      warnings.push(`${label}: ${msg}`);
+      let msg = "Erro desconhecido";
+      let code: number | undefined;
+      let sub: number | undefined;
+      if (err instanceof MetaGraphError) {
+        msg = err.message;
+        code = err.graph?.code;
+        sub = err.graph?.error_subcode;
+      } else if (err instanceof Error) {
+        msg = err.message;
+      }
+      const suffix = code != null ? ` (#${code}${sub ? `/${sub}` : ""})` : "";
+      warnings.push(`${label}: ${msg}${suffix}`);
+      console.warn("[meta-analytics]", label, { msg, code, sub });
       return null;
     }
   }
@@ -397,6 +468,14 @@ function sumSeries(series: TimeSeriesPoint[]): Metric[] {
     for (const m of point.metrics) {
       totals.set(m.key, (totals.get(m.key) ?? 0) + m.value);
     }
+  }
+  return Array.from(totals.entries()).map(([key, value]) => ({ key, value }));
+}
+
+function mergeMetrics(...groups: Metric[][]): Metric[] {
+  const totals = new Map<string, number>();
+  for (const g of groups) {
+    for (const m of g) totals.set(m.key, (totals.get(m.key) ?? 0) + m.value);
   }
   return Array.from(totals.entries()).map(([key, value]) => ({ key, value }));
 }

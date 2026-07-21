@@ -1,46 +1,59 @@
-## Objetivo
-Corrigir três problemas do wizard "Novo agendamento" e validar o fluxo de agendamento.
+## Diagnóstico (não confirmado ainda no runtime)
 
-## 1) Wizard não abre em branco
-No `ScheduleWizard` (`src/components/calendar/schedule-wizard/index.tsx`), o `useEffect` de reset (linhas 134-149) reseta título/copy/mídias, mas usa `seed` como identidade estável. Quando o usuário edita um card pendente e depois clica "Novo" (que faz `setWizardSeed(null)`), certas transições mantêm `pairs`, `hashtags`, `previewChannel` ou upload em estado sujo dependendo da ordem de renders. Além disso, hoje o efeito só roda quando `open` muda, mas não zera o `submitting` nem o `previewChannel`.
+Estado verificado até agora:
+- A marca ativa tem 1 conexão Meta real (`superiaofc`, provider=`meta`, IG business vinculado, `status=active`, token presente) — os dados existem no banco.
+- A rota `/analytics` → `SocialAnalyticsDashboard` → `getBrandSocialDashboardFn` → `SocialAnalyticsService.getDashboard/getTopPosts` → `MetaProvider` (`src/lib/social/providers/meta.server.ts`) → `MetaAnalyticsProvider` (`src/lib/social-analytics/providers/meta.server.ts`) → Graph API `v21.0`.
+- O provider Meta engloba TODAS as chamadas de insights num helper `safe()` que **converte qualquer erro em `warning` e devolve `null`**. Isso zera silenciosamente todos os totais e séries quando a Graph rejeita métricas, então a UI renderiza "0" ou vazio sem sinal de erro.
 
-Correção:
-- Reforçar o reset: separar em uma função `resetAll()` que zera 100% dos estados (title, copy, pairs, selectedMedia, scheduleDate/Time, hashtags, tagInput, firstComment, linkUrl, locationName, previewChannel, submitting, dragActive, uploading).
-- Chamar `resetAll()` sempre que `open` transiciona `false → true` (rastrear com `useRef` do estado anterior) e, quando não houver `seed`, garantir campos totalmente vazios.
-- Também limpar o `<input type="file">` (`uploadRef.current.value = ""`).
+Causa suspeita (a confirmar como passo 1 do plano): a partir da Graph API v19 (abr/2024) e v22 (set/2024) a Meta descontinuou várias métricas que o código ainda pede — no Instagram Business (`impressions`, `profile_views`, `website_clicks`) e no Facebook Page (`page_impressions`, `page_engaged_users`, `page_post_engagements`). Como o app usa v21, os endpoints já retornam `400 (#100) metric ... is not valid` para essas keys — o `safe()` engole tudo e a dashboard fica zerada.
 
-## 2) Botão "Salvar rascunho" (retomar depois)
-Adicionar na sticky bottom bar um botão terciário "Salvar rascunho" ao lado de "Cancelar" / "Enviar para aprovação". Ele chama uma nova action `"save_draft"` em `saveScheduledPostFn` que persiste em `posts` com `stage = 'idea'` (ou `'production'`) sem exigir canais/data, e permite reabrir depois via lista de rascunhos. O botão "Enviar para aprovação" continua exigindo canais.
+Não vou afirmar isso como causa antes de rodar a diagnose.
 
-Backend (`src/lib/scheduling-wizard.functions.ts`): permitir `action = "save_draft"` que:
-- Cria/atualiza o `posts` com `stage = 'idea'`, salva copy, título, hashtags, mídia, sem `scheduled_at`, sem criar `post_placements` obrigatórios.
-- Retorna `{ postId }` para o wizard fechar.
+## Plano
 
-Frontend: mostrar rascunhos salvos no painel lateral (novo bloco "Rascunhos" ou reaproveitar o `PendingSchedulePanel` com uma aba). Ao clicar, reabre o wizard com `seed` preenchido.
+### 1. Diagnóstico ao vivo (obrigatório antes de qualquer edição)
+- Adicionar logs temporários em `MetaAnalyticsProvider.safe()` para imprimir `label`, mensagem crua e `graph.error.code`/`error_subcode` sempre que uma chamada falhar.
+- Executar `/api/social/dashboard/c793392c-…?period=30d` autenticado (via preview) e coletar os warnings reais.
+- Confirmar quais métricas retornam erro e quais retornam dados. A partir daí, o plano abaixo se aplica só ao que estiver quebrado — nada é substituído "no escuro".
 
-## 3) Barra de progresso durante publicação/agendamento
-Hoje o botão apenas mostra `Loader2` girando. Adicionar feedback visual real:
-- Enquanto `submitting !== null`, renderizar uma barra de progresso fina (shadcn `Progress` ou barra indeterminada animada) fixa no topo da sticky bottom bar.
-- Para `action = "publish"`, o backend já processa canal por canal em loop; vamos aproveitar isso: retornar progresso incremental via streaming não vale a pena (custo alto) — em vez disso, mostrar barra indeterminada + label "Publicando em X canal(is)..." usando `pairs.length`, e ao terminar exibir toast por canal (já existe).
-- Desabilitar todos os botões e overlay leve sobre as 3 colunas para evitar edição durante submit.
+### 2. Atualizar vocabulário de métricas para a Graph API atual
 
-## 4) Validar agendamento
-Confirmar que o fluxo `action = "schedule"`:
-- Persiste `posts.stage = 'scheduled'` com `scheduled_at` no ISO correto.
-- Cria os `post_placements` esperados.
-- Aparece no calendário no dia certo.
-- Roda um teste manual via Playwright em `/app/calendar`: criar agendamento futuro, verificar que aparece no dia, reabrir, confirmar dados.
+Instagram Business — trocar chamadas `/{ig_id}/insights` para o novo schema:
+- `impressions` → `views` (com `metric_type=total_value`)
+- `reach` → mantido, mas exige `metric_type=total_value` + `period=day`
+- `profile_views` → `profile_views` sob `total_value`
+- `website_clicks` → `website_clicks` sob `total_value`
+- Adicionar `accounts_engaged`, `total_interactions` como fontes canônicas de `engagement`.
+
+Facebook Page — trocar por métricas suportadas em v21+:
+- `page_impressions` → `page_impressions` (segue válida) + `page_impressions_unique` para `reach`
+- `page_engaged_users` / `page_post_engagements` → `page_post_engagements` só via posts; nível página usar `page_actions_post_reactions_total`.
+- Fãs: `page_fan_adds_unique` / `page_fan_removes_unique`.
+
+Post-level IG — migrar para o novo endpoint `/media/{id}/insights?metric_type=total_value` com `views`, `reach`, `likes`, `comments`, `saved`, `shares`, `total_interactions`.
+
+Todas as substituições vão para `src/lib/social-analytics/metric-mapping.ts` (INSTAGRAM/FACEBOOK) e para as listas de métricas em `MetaAnalyticsProvider.fetchInstagramAccount/fetchFacebookAccount/fetchInstagramPost/fetchFacebookPost`.
+
+### 3. Ajustes no chamador do Graph
+- `MetaProvider.graph()` já monta querystring — adicionar suporte a `metric_type` (só passa quando informado) sem quebrar as chamadas antigas.
+- Em `MetaAnalyticsProvider`, quando a métrica exigir `metric_type=total_value`, mover para uma segunda chamada isolada (essa flag conflita com `period=day` em algumas métricas — precisa dividir por família).
+
+### 4. Tornar falhas visíveis
+- Propagar `warnings` do `SocialDashboard` para o `BrandSocialDashboard.warnings` (já existe) e exibir um banner discreto no topo do `SocialAnalyticsDashboard` quando `warnings.length > 0` (ex.: "Algumas métricas do Instagram não puderam ser carregadas — clique para detalhes"). Hoje o array existe mas nunca é renderizado.
+- Assim regressões futuras da Graph API aparecem para o usuário em vez de silenciosamente virar zero.
+
+### 5. Validação
+- Rodar de novo `/api/social/dashboard/:id?period=30d` e conferir: `metrics.followers`, `metrics.reach`, `metrics.impressions`, `metrics.engagement` diferentes de `null`/`0`; `series` populada.
+- Abrir `/analytics` no preview: os KPIs "Seguidores / Alcance / Impressões / Engajamento" devem ter valores; "Performance por canal" deve mostrar `superiaofc`; "Top publicações" listar posts recentes com thumbnail.
+- Revalidar cache: como `withSocialCache` é in-memory, um restart do worker já basta; documentar isso.
 
 ## Detalhes técnicos
 
-Arquivos:
-- `src/components/calendar/schedule-wizard/index.tsx` — reset completo, botão "Salvar rascunho", barra de progresso, overlay durante submit.
-- `src/lib/scheduling-wizard.functions.ts` — nova action `"save_draft"` em `saveScheduledPostFn`; nova server fn `listDraftsFn` (posts do brand/client com `stage='idea'` sem `scheduled_at`).
-- `src/components/calendar/pending-schedule-panel.tsx` — adicionar seção/aba "Rascunhos" reutilizando o card já enriquecido.
-- `src/routes/_authenticated/calendar.tsx` — nenhuma mudança de contrato; pode passar `seed` também para rascunhos.
+Arquivos que serão tocados:
+- `src/lib/social-analytics/providers/meta.server.ts` (listas de métricas + `safe()` com log detalhado temporário)
+- `src/lib/social-analytics/metric-mapping.ts` (traduções nativas → canônicas)
+- `src/lib/meta/provider.server.ts` (suporte a `metric_type` no builder de query, se necessário)
+- `src/components/analytics/social-analytics-dashboard.tsx` (banner de warnings)
+- Possivelmente `src/lib/social/providers/meta.server.ts` se o `getTopPosts` também depender de métricas descontinuadas.
 
-Sem migração de banco — reutiliza `posts.stage='idea'` que já existe no enum.
-
-## Fora de escopo
-- Progresso real por canal via SSE/streaming.
-- Novos formatos além de Feed IG/FB (Stories/Reels seguem bloqueados como hoje).
+Fora de escopo: LinkedIn/TikTok/YouTube/X/Threads permanecem stubs; nenhum trabalho em provedores não-Meta.
