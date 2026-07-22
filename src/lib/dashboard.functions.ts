@@ -632,6 +632,13 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
     updated_at: string | null;
     created_at: string | null;
   }>;
+  const socialPublished = (socialPublishedRes?.data ?? []) as Array<{
+    id: string;
+    post_id: string | null;
+    provider: string | null;
+    published_at: string | null;
+    client_id: string | null;
+  }>;
   const briefings = new Map<string, string>(
     ((briefingsRes?.data ?? []) as Array<{ client_id: string; updated_at: string }>).map((b) => [
       b.client_id,
