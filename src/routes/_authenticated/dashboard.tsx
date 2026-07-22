@@ -28,19 +28,12 @@ import {
   ExternalLink,
   Flame,
   Gauge,
-  Instagram,
   Layers,
-  Linkedin,
-  Mail,
-  Music2,
-  Phone,
   Plus,
   Radar,
   Sparkles,
   TrendingUp,
-  UserPlus,
   Users,
-  Youtube,
   Zap,
 } from "lucide-react";
 
@@ -62,7 +55,6 @@ import {
 } from "@/lib/customer-dashboard.functions";
 import { Sparkline } from "@/components/dashboard/sparkline";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { HealthBar } from "@/components/dashboard/health-bar";
 import { PanelCard as Card } from "@/components/ui/panel-card";
 import { PanelEmptyState as EmptyState } from "@/components/ui/panel-empty";
 import { PanelSkeletonList as SkeletonList } from "@/components/ui/panel-skeleton";
@@ -791,141 +783,6 @@ function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }
   );
 }
 
-type ClientRow = NonNullable<
-  Awaited<ReturnType<typeof loadCustomerDashboardFn>>["client"]
->;
-
-function ClientHeroCard({
-  client,
-  health,
-  loading,
-}: {
-  client: ClientRow | null;
-  health: ClientHealth | null;
-  loading: boolean;
-}) {
-  if (loading) return <div className="h-40 animate-pulse rounded-2xl border border-border/60 bg-card" />;
-  if (!client) {
-    return (
-      <div className="rounded-2xl border border-dashed border-border/60 bg-card/40 p-8 text-center text-sm text-muted-foreground">
-        Cliente não encontrado.
-      </div>
-    );
-  }
-  const socials = (client.socials && typeof client.socials === "object"
-    ? (client.socials as Record<string, string | undefined>)
-    : {}) ?? {};
-  const initials = client.name.split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]?.toUpperCase() ?? "").join("") || "?";
-
-  return (
-    <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-gradient-to-br from-primary/5 via-card to-card p-5">
-      <div className="pointer-events-none absolute right-0 top-0 h-40 w-40 rounded-full bg-primary/10 blur-3xl" />
-      <div className="relative flex flex-wrap items-start gap-5">
-        <div
-          className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl text-lg font-semibold text-white shadow-lg"
-          style={{ background: client.color ?? "linear-gradient(135deg,#6366f1,#ec4899)" }}
-        >
-          {initials}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-2">
-            <h1 className="text-xl font-semibold tracking-tight">{client.name}</h1>
-            {client.is_active && (
-              <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-500">
-                Ativo
-              </span>
-            )}
-          </div>
-          <div className="mt-0.5 text-sm text-muted-foreground">{client.niche ?? "Sem nicho definido"}</div>
-          <div className="mt-3 flex flex-wrap gap-4 text-xs text-muted-foreground">
-            {client.contact_name && (
-              <span className="inline-flex items-center gap-1.5">
-                <UserPlus className="h-3 w-3" /> {client.contact_name}
-              </span>
-            )}
-            {client.contact_email && (
-              <a href={`mailto:${client.contact_email}`} className="inline-flex items-center gap-1.5 hover:text-foreground">
-                <Mail className="h-3 w-3" /> {client.contact_email}
-              </a>
-            )}
-            {socials.phone && (
-              <span className="inline-flex items-center gap-1.5">
-                <Phone className="h-3 w-3" /> {socials.phone}
-              </span>
-            )}
-          </div>
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {renderSocial("instagram", socials.instagram, Instagram, "https://instagram.com/")}
-            {renderSocial("tiktok", socials.tiktok, Music2, "https://tiktok.com/@")}
-            {renderSocial("linkedin", socials.linkedin, Linkedin, "https://linkedin.com/in/")}
-            {renderSocial("youtube", socials.youtube, Youtube, "https://youtube.com/@")}
-          </div>
-        </div>
-
-        {health && (
-          <div className="min-w-[220px] rounded-xl border border-border/60 bg-background/60 p-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                Saúde da conta
-              </span>
-              <span className="font-mono text-lg font-semibold tabular-nums">{health.score}%</span>
-            </div>
-            <HealthBar score={health.score} className="mt-2" />
-            <div className="mt-3 grid grid-cols-2 gap-2 text-[10px]">
-              <HealthCell label="Pontualidade" value={health.breakdown.onTime} max={40} />
-              <HealthCell label="Aprovações" value={health.breakdown.approvals} max={30} />
-              <HealthCell label="Briefing" value={health.breakdown.briefing} max={15} />
-              <HealthCell label="Agenda" value={health.breakdown.schedule} max={15} />
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function HealthCell({ label, value, max }: { label: string; value: number; max: number }) {
-  const pct = Math.round((value / max) * 100);
-  return (
-    <div>
-      <div className="flex items-center justify-between text-muted-foreground">
-        <span>{label}</span>
-        <span className="font-mono">{pct}%</span>
-      </div>
-      <div className="mt-1 h-1 overflow-hidden rounded-full bg-muted/50">
-        <div
-          className={cn(
-            "h-full rounded-full",
-            pct >= 75 ? "bg-emerald-500" : pct >= 50 ? "bg-amber-500" : "bg-rose-500",
-          )}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function renderSocial(
-  key: string,
-  handle: string | undefined,
-  Icon: React.ComponentType<{ className?: string }>,
-  prefix: string,
-) {
-  if (!handle) return null;
-  const clean = handle.replace(/^@/, "");
-  return (
-    <a
-      key={key}
-      href={`${prefix}${clean}`}
-      target="_blank"
-      rel="noreferrer"
-      className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-background/60 px-2 py-1 text-[11px] text-muted-foreground transition hover:border-border hover:text-foreground"
-    >
-      <Icon className="h-3 w-3" />@{clean}
-      <ExternalLink className="h-2.5 w-2.5 opacity-60" />
-    </a>
-  );
-}
 
 type PortalToken = {
   id: string;
