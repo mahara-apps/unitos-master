@@ -46,7 +46,7 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
     z
       .object({
         onboarding: z.union([z.literal("1"), z.literal(1), z.boolean()]).optional(),
-        tab: z.enum(["overview", "brain", "channels", "cadastro"]).optional(),
+        tab: z.enum(["overview", "briefing", "brain", "channels", "cadastro"]).optional(),
       })
       .parse(s),
   component: CustomerDetail,
@@ -54,7 +54,7 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
 
 const ALL_TABS = [
   { value: "overview", label: "Visão geral" },
-  { value: "brain", label: "Cérebro da Marca" },
+  { value: "briefing", label: "Briefing & Estratégia" },
   { value: "channels", label: "Canais" },
   { value: "cadastro", label: "Cadastro" },
 ] as const;
@@ -154,20 +154,20 @@ function CustomerDetailReady({
   brandId: string;
   customerId: string;
   openOnboarding: boolean;
-  initialTab?: "overview" | "brain" | "channels" | "cadastro";
+  initialTab?: "overview" | "briefing" | "brain" | "channels" | "cadastro";
 }) {
   const list = useServerFn(listClients);
   const fetchHub = useServerFn(getBrandHub);
   const qc = useQueryClient();
   const brainEnabled = useFeatureAccess("brain").enabled;
-  const TABS = brainEnabled ? ALL_TABS : ALL_TABS.filter((t) => t.value !== "brain");
+  const TABS = ALL_TABS;
   const [activeTab, setActiveTab] = useState<string>(initialTab ?? "overview");
   const [wizardOpen, setWizardOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!brainEnabled && activeTab === "brain") setActiveTab("overview");
-  }, [brainEnabled, activeTab]);
+    if (activeTab === "brain") setActiveTab("briefing");
+  }, [activeTab]);
 
   // Lista de customers do brand ativo — só para nome/cor do header.
   const customersQ = useQuery({
@@ -198,13 +198,13 @@ function CustomerDetailReady({
   const completion = hubQ.data
     ? computeBriefingCompletion(hubQ.data.brand_hub ?? {}, hubQ.data)
     : 0;
-  const needsOnboarding = !!hubQ.data && completion < 60 && brainEnabled;
+  const needsOnboarding = !!hubQ.data && completion < 60;
 
   // Auto-open when the customer was just created (?onboarding=1).
   useEffect(() => {
     if (openOnboarding) {
       setWizardOpen(true);
-      setActiveTab("brain");
+      setActiveTab("briefing");
       // Clear the query param so a manual refresh doesn't reopen it.
       navigate({
         to: "/customers/$customerId",
@@ -238,7 +238,7 @@ function CustomerDetailReady({
               variant="outline"
               className="h-8 gap-1.5 border-fuchsia-500/40 text-fuchsia-300 hover:bg-fuchsia-500/10 hover:text-fuchsia-200"
               onClick={() => {
-                setActiveTab("brain");
+                setActiveTab("briefing");
                 setWizardOpen(true);
               }}
               title="Completar onboarding rápido"
@@ -288,11 +288,11 @@ function CustomerDetailReady({
                 <CustomerDashboard
                   brandId={brandId}
                   clientId={customerId}
-                  onOpenBriefing={() => setActiveTab(brainEnabled ? "brain" : "cadastro")}
+                  onOpenBriefing={() => setActiveTab("briefing")}
                 />
               </div>
             </TabsContent>
-            {brainEnabled && <TabsContent value="brain">
+            <TabsContent value="briefing">
               <BriefingWorkspace
                 brandId={brandId}
                 clientId={customerId}
@@ -322,7 +322,7 @@ function CustomerDetailReady({
                   </>
                 }
               />
-            </TabsContent>}
+            </TabsContent>
             <TabsContent value="cadastro">
               <BasicInfoTab brandId={brandId} clientId={customerId} />
             </TabsContent>
@@ -338,7 +338,7 @@ function CustomerDetailReady({
         clientId={customerId}
         open={wizardOpen}
         onOpenChange={setWizardOpen}
-        onOpenFullBriefing={() => setActiveTab("brain")}
+        onOpenFullBriefing={() => setActiveTab("briefing")}
       />
     </ScrollArea>
   );

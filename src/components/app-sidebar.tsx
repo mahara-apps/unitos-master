@@ -30,6 +30,7 @@ import {
   Target,
   Gauge,
   Brain,
+  BrainCircuit,
   MessageSquare,
   Activity,
 } from "lucide-react";
@@ -233,6 +234,7 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 ))}
                 {idx === 0 && activeClient ? (
+                  <>
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
@@ -267,6 +269,41 @@ export function AppSidebar() {
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={isActive(`/customers/${activeClient.id}/briefing`)}
+                      tooltip="Briefing & Estratégia"
+                    >
+                      <Link
+                        to="/customers/$customerId/briefing"
+                        params={{ customerId: activeClient.id }}
+                        preload="intent"
+                        className="group/nav relative flex items-center gap-3"
+                      >
+                        {isActive(`/customers/${activeClient.id}/briefing`) ? (
+                          <span
+                            aria-hidden
+                            className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-lime group-data-[collapsible=icon]:hidden"
+                          />
+                        ) : null}
+                        <BrainCircuit
+                          className="h-[19px] w-[19px] shrink-0"
+                          strokeWidth={isActive(`/customers/${activeClient.id}/briefing`) ? 2 : 1.8}
+                        />
+                        <span
+                          className={
+                            isActive(`/customers/${activeClient.id}/briefing`)
+                              ? "font-semibold"
+                              : "font-medium"
+                          }
+                        >
+                          Briefing
+                        </span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  </>
                 ) : null}
               </SidebarMenu>
             </SidebarGroupContent>
