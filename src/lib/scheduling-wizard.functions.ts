@@ -293,6 +293,9 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
 
     // ---- Upsert post ----
     let postId = data.postId ?? null;
+    const targetConnIds = Array.from(
+      new Set(data.destinations.map((d) => d.connectionId)),
+    );
     if (!postId) {
       const { data: inserted, error } = await supabase
         .from("posts")
@@ -302,6 +305,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           title: data.title,
           copy: data.copy,
           channels,
+          target_connection_ids: targetConnIds,
           stage,
           scheduled_at: scheduledIso,
           created_by: context.userId,
@@ -319,6 +323,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           title: data.title,
           copy: data.copy,
           channels,
+          target_connection_ids: targetConnIds,
           stage,
           scheduled_at: scheduledIso,
         })
