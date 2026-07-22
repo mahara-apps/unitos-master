@@ -222,7 +222,7 @@ function CustomerDetailReady({
   usePageHeader(
     {
       title: customer?.name ?? (customersQ.isLoading ? "Carregando…" : "Cliente"),
-      subtitle: `${customer?.niche ?? "—"} · ${customerId.slice(0, 8)}`,
+      subtitle: customer?.niche ?? "—",
       actions: (
         <div className="flex items-center gap-1">
           {needsOnboarding && (
