@@ -156,6 +156,7 @@ async function computeStats(
     postsApproved30dRes,
     postsFullRes,
     aiUsage,
+    socialPublishedRes,
   ] = await Promise.all([
     ignore(
       supabase
@@ -293,6 +294,18 @@ async function computeStats(
       ),
     ),
     computeAiUsage(supabase, brandId),
+    // Fonte adicional de publicações realizadas: worker de agendamento grava aqui,
+    // não em posts.published_at. Necessário para o Ritmo de publicações refletir a realidade.
+    ignore(
+      scope(
+        supabase
+          .from("social_posts")
+          .select("id,post_id,provider,published_at")
+          .eq("brand_id", brandId)
+          .eq("status", "published")
+          .gte("published_at", sinceIso(14)),
+      ),
+    ),
   ]);
 
   const activityAll = (activityRes?.data ?? []) as ActivityEvent[];
@@ -386,19 +399,40 @@ async function computeStats(
     created_at: string;
     published_at: string | null;
   }>;
+  const socialPublished = (socialPublishedRes?.data ?? []) as Array<{
+    id: string;
+    post_id: string | null;
+    provider: string | null;
+    published_at: string | null;
+  }>;
   const channelCounts: Record<string, number> = {};
   for (const p of postsFull) {
     for (const ch of p.channels ?? []) channelCounts[ch] = (channelCounts[ch] ?? 0) + 1;
   }
+  // Enriquecer com provider real dos posts publicados via worker (não gravam posts.channels legado).
+  for (const sp of socialPublished) {
+    if (!sp.provider) continue;
+    channelCounts[sp.provider] = (channelCounts[sp.provider] ?? 0) + 1;
+  }
   const nowMs = Date.now();
+  // publishTrend14d = união de posts.published_at (fluxo "Publicar agora") +
+  // social_posts.published_at (worker de agendamento). Deduplica por post_id no mesmo dia.
   const publishTrend14d = Array.from({ length: 14 }, (_, i) => {
     const start = nowMs - (13 - i) * 86_400_000;
     const end = start + 86_400_000;
-    return postsFull.filter((p) => {
-      if (!p.published_at) return false;
+    const seen = new Set<string>();
+    for (const p of postsFull) {
+      if (!p.published_at) continue;
       const t = new Date(p.published_at).getTime();
-      return t >= start && t < end;
-    }).length;
+      if (t >= start && t < end) seen.add(`post|${p.id}`);
+    }
+    for (const sp of socialPublished) {
+      if (!sp.published_at) continue;
+      const t = new Date(sp.published_at).getTime();
+      if (t < start || t >= end) continue;
+      seen.add(sp.post_id ? `post|${sp.post_id}` : `sp|${sp.id}`);
+    }
+    return seen.size;
   });
   const publishedWithLead = postsFull.filter((p) => p.published_at);
   const avgLeadTimeDays =
@@ -505,7 +539,7 @@ export type AgencyDashboard = {
 
 async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashboard> {
   const { supabase } = ctx;
-  const [clientsRes, tasksRes, postsRes, briefingsRes, activityRes, upcomingRes, approvalsRes, approvalsAggRes, aiUsage] =
+  const [clientsRes, tasksRes, postsRes, briefingsRes, activityRes, upcomingRes, approvalsRes, approvalsAggRes, aiUsage, socialPublishedRes] =
     await Promise.all([
       ignore(
         supabase
@@ -565,6 +599,15 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
           .gte("updated_at", sinceIso(30)),
       ),
       computeAiUsage(supabase, brandId),
+      // Publicações realizadas pelo worker de agendamento (não gravam posts.published_at).
+      ignore(
+        supabase
+          .from("social_posts")
+          .select("id,post_id,provider,published_at,client_id")
+          .eq("brand_id", brandId)
+          .eq("status", "published")
+          .gte("published_at", sinceIso(14)),
+      ),
     ]);
 
   const clients = (clientsRes?.data ?? []) as Array<{ id: string; name: string; color: string | null }>;
@@ -588,6 +631,13 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
     client_id: string;
     updated_at: string | null;
     created_at: string | null;
+  }>;
+  const socialPublished = (socialPublishedRes?.data ?? []) as Array<{
+    id: string;
+    post_id: string | null;
+    provider: string | null;
+    published_at: string | null;
+    client_id: string | null;
   }>;
   const briefings = new Map<string, string>(
     ((briefingsRes?.data ?? []) as Array<{ client_id: string; updated_at: string }>).map((b) => [
@@ -847,19 +897,32 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
     (a, b) => a.position - b.position,
   );
 
+  // União posts.published_at + social_posts.published_at (worker). Dedupe por post_id/dia.
   const publishTrend14d = Array.from({ length: 14 }, (_, i) => {
     const start = now - (13 - i) * 86_400_000;
     const end = start + 86_400_000;
-    return posts.filter((p) => {
-      if (!p.published_at) return false;
+    const seen = new Set<string>();
+    for (const p of posts) {
+      if (!p.published_at) continue;
       const t = new Date(p.published_at).getTime();
-      return t >= start && t < end;
-    }).length;
+      if (t >= start && t < end) seen.add(`post|${p.id}`);
+    }
+    for (const sp of socialPublished) {
+      if (!sp.published_at) continue;
+      const t = new Date(sp.published_at).getTime();
+      if (t < start || t >= end) continue;
+      seen.add(sp.post_id ? `post|${sp.post_id}` : `sp|${sp.id}`);
+    }
+    return seen.size;
   });
 
   const channelAgg = new Map<string, number>();
   for (const p of posts) {
     for (const ch of p.channels ?? []) channelAgg.set(ch, (channelAgg.get(ch) ?? 0) + 1);
+  }
+  for (const sp of socialPublished) {
+    if (!sp.provider) continue;
+    channelAgg.set(sp.provider, (channelAgg.get(sp.provider) ?? 0) + 1);
   }
   const topChannels = Array.from(channelAgg.entries())
     .map(([channel, count]) => ({ channel, count }))
