@@ -1,50 +1,47 @@
+## Diagnóstico (confirmado por logs)
 
-## Problema
+Rodei query em `ai_jobs` e em `ai_gateway_logs`. Padrão é inequívoco:
 
-O `DateRangePicker` nos dashboards (agência, cliente e customer) só entra na `queryKey` — o range nunca chega no servidor. As fns (`getStatsFn`, `getAgencyFn`, `getCustomerDashboardFn`) usam janelas fixas hardcoded (`sinceIso(7|14|30|60)`), então mudar o filtro visualmente não muda nenhum número.
+- Últimos 8 jobs `customer_strategy` → todos travaram em `progress=20` ou `55` ("Modelando voz e personas" / "Construindo cohorts") e foram mortos pelo reaper (`reap_stuck_ai_jobs`, migration `20260714211842`) após 5min sem `updated_at`.
+- Logs do gateway para `google/gemini-2.5-pro`: 9 chamadas, duração média **26–33s**. Metade retorna 200, **metade é cancelada com HTTP 499 (~30–33s)** — bate exatamente no teto de subrequisição do Cloudflare Worker.
+- Job atual (`e5289bb3…`, iniciado 01:47) está travado no passo Voice+Personas em `Promise.all`. A chamada de `personas` (strategic → gemini-2.5-pro) foi cancelada às 01:48 (HTTP 499, 33.3s). O handler engole a exceção via `Promise.all` sem `catch` → o job fica pendurado até o reaper matar.
 
-Além disso, cada bloco usa um campo de data diferente (`updated_at`, `done_at`, `published_at`, `scheduled_at`), o que dificulta um filtro consistente.
+Causa raiz: `runPhase1` em `src/routes/api/jobs/customer-pipeline.ts` usa modelo de geração anterior (`gemini-2.5-pro`) que, com structured output do AI SDK, encosta no limite de subrequest do Worker. Quando cancela, não há retry, telemetria de erro nem `patch({ status: 'failed' })` — o reaper mata em silêncio.
 
-## Objetivo
+## Correções
 
-Fazer o range escolhido no header filtrar de verdade os dados, usando **`created_at` como campo padrão** (conforme pedido). Campos de eventos naturalmente temporais (agendamento futuro, "atrasadas hoje") permanecem intactos porque não fazem sentido serem filtrados pelo range histórico.
+### 1. Trocar modelos para geração atual (arquivo: `src/routes/api/jobs/customer-pipeline.ts`)
 
-## Escopo por fn
+- `STRATEGIC_MODEL`: `google/gemini-2.5-pro` → `google/gemini-3.1-pro-preview` (Pro atual, mais rápido).
+- `OPERATIONAL_MODEL`: `google/gemini-2.5-flash` → `google/gemini-3.6-flash` (Flash atual, muito mais rápido).
+- Manter os `modelOverride: OPERATIONAL_MODEL` já usados em `voice` e `cohorts`.
+- Para `swot` (a chamada strategic mais longa) usar override para `gemini-3.6-flash` também — o schema é pequeno e volume alto.
 
-### `src/lib/dashboard.functions.ts`
-- Adicionar input opcional `range: { from: string; to: string }` em `BrandInput` (ISO strings), com fallback: últimos 30 dias.
-- Substituir todo `sinceIso(N)` que hoje filtra dados retroativos por `range.from` / `range.to` sobre **`created_at`**, exceto:
-  - `upcomingPosts` / `upcoming` (agendamentos futuros) — mantém `scheduled_at >= now`, `<= now+7d`.
-  - `tasks_overdue` — mantém `due_at < now`.
-  - `tasks_done_7d` → renomear conceitualmente para "concluídas no período" usando `done_at` dentro do range.
-  - `heatmap` (60d fixo) e `sparkline`/`publishTrend14d` — trocar o tamanho fixo pelo tamanho do range (dias entre from/to, cap 60/90) e usar `created_at`/`published_at` conforme aplicável dentro do range.
-- Aprovações: `approvals_pending` continua absoluto; `posts_approved_30d` passa a usar `post_approvals.created_at` dentro do range (label "aprovadas no período").
-- `computeAiUsage`: aceitar range e filtrar `brand_ai_usage.created_at` por ele; `cost7d` / `spark14d` recomputados sobre o range.
+### 2. Falhar rápido em vez de esperar o reaper
 
-### `src/lib/customer-dashboard.functions.ts`
-- Mesmo tratamento: input `range`, filtros por `created_at` no range em vez de `since30d` hardcoded.
-- `social_posts` published metrics: filtrar `published_at` dentro do range (a métrica é sobre publicação, mas o range escolhido pelo usuário passa a ser respeitado).
+Envolver cada `runStructured` em um `Promise.race` com timeout de 60s. Se estourar, lançar erro claro → o `catch` externo já grava `status='failed'` com mensagem legível, em vez de "timeout: worker interrompido".
 
-### `src/routes/_authenticated/dashboard.tsx`
-- Nos três `useQuery` (`dashboard-agency`, `dashboard-client`, `customer-dashboard`): passar `data: { brandId, clientId?, range: { from: range.from.toISOString(), to: range.to.toISOString() } }`.
-- Manter `days` na queryKey para invalidar cache (já está).
+### 3. Isolar falha do `Promise.all` Voice+Personas
 
-## Regra padrão do filtro
+Trocar `Promise.all` por `Promise.allSettled` e, se qualquer um falhar, retornar erro específico ("Falha ao gerar voz" / "Falha ao gerar personas") antes de prosseguir. Hoje uma rejeição derruba os dois em silêncio.
 
-- Campo padrão: **`posts.created_at`, `tasks.created_at`, `activity_events.created_at`, `brand_ai_usage.created_at`, `post_approvals.created_at`**.
-- Exceções mantêm o campo semântico correto:
-  - Agendamentos futuros: `scheduled_at`.
-  - Atrasadas: `due_at < now`.
-  - Publicações realizadas (worker): `social_posts.published_at`.
-- Sparkline/heatmap/trend adaptam seu tamanho ao range (`Math.min(90, daysBetween(from,to))`).
+### 4. Heartbeat entre chamadas longas
+
+Chamar `patch({ progress: <mesmo valor> })` no início de cada `runStructured` para renovar `updated_at`, garantindo que o reaper de 5min não mate jobs que ainda estão de fato executando.
+
+### 5. Marcar o job travado atual como falho
+
+Após deploy, rodar `SELECT public.reap_stuck_ai_jobs();` uma vez para limpar o job `e5289bb3-d0b7-4341-8d94-43db344e7ef1` que já está em execução.
 
 ## Fora de escopo
 
-- UI do `DateRangePicker` (já existe e funciona).
-- Filtros de outras rotas (analytics, brain) — só o Dashboard nesta iteração.
-- Backfill de `posts.published_at`.
+- Não mexer no reaper SQL nem no intervalo de 5min.
+- Não mudar prompts nem schemas.
+- Não tocar em `generate-ideas` / Fase 2 (nenhum sinal de falha).
 
-## Validação
+## Como validar
 
-- `tsgo --noEmit`.
-- Preview: trocar preset (7d / 30d / 90d) e conferir que KPIs, sparkline, ritmo de publicações e AI usage mudam de valor.
+1. Abrir `/customers/<id>` e rodar "Gerar estratégia" com briefing curto.
+2. Acompanhar `ai_jobs` — deve avançar 5 → 20 → 55 → 70 → 100 em < 2min.
+3. Verificar no gateway que todas as chamadas ficam < 20s e retornam 200.
+4. Confirmar `brand_briefings`, `brand_voice_cards`, `brand_personas`, `brand_cohorts`, `brand_swot` populados para o cliente.
