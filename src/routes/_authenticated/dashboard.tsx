@@ -24,6 +24,7 @@ import {
   CalendarClock,
   CheckCircle2,
   Clock,
+  Copy,
   ExternalLink,
   Flame,
   Gauge,
