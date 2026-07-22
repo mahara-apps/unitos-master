@@ -682,6 +682,7 @@ export const createPostFn = createServerFn({ method: "POST" })
         title: z.string().min(1).max(160),
         copy: z.string().max(6000).nullable().optional(),
         channels: z.array(z.string().max(40)).max(12).optional(),
+        target_connection_ids: z.array(z.string().uuid()).max(20).optional(),
         format: z.string().max(60).nullable().optional(),
         priority: z.enum(["low", "medium", "high", "urgent"]).nullable().optional(),
         tags: z.array(z.string().max(40)).max(20).optional(),
@@ -717,7 +718,7 @@ export const createPostFn = createServerFn({ method: "POST" })
       created_by: context.userId,
     };
     const optional: Array<keyof typeof data> = [
-      "copy", "channels", "format", "priority", "tags", "scheduled_at",
+      "copy", "channels", "target_connection_ids", "format", "priority", "tags", "scheduled_at",
       "remind_at", "internal_briefing", "client_briefing", "script",
       "assignees", "project_id", "visible_in_portal", "recurrence",
     ];
@@ -779,6 +780,7 @@ export const updatePostFn = createServerFn({ method: "POST" })
             channels: z
               .array(z.enum(["instagram", "tiktok", "linkedin", "x", "youtube", "blog"]))
               .optional(),
+            target_connection_ids: z.array(z.string().uuid()).max(20).optional(),
             reference_media: z
               .array(
                 z.object({
