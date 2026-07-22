@@ -146,11 +146,6 @@ export function QuickOnboardingWizard({
         goals: state.goals,
       });
 
-      const briefing = buildBriefing(state, hubQ.data?.name, hubQ.data?.niche);
-      if (briefing.length < 40) {
-        toast.error("Preencha ao menos alguns campos antes de gerar.");
-        return;
-      }
       const { data: session } = await supabase.auth.getSession();
       const token = session.session?.access_token;
       if (!token) throw new Error("Sessão expirada");
@@ -163,7 +158,6 @@ export function QuickOnboardingWizard({
         body: JSON.stringify({
           brandId,
           clientId,
-          texto: briefing,
           pautasQuantidade: 8,
           pautasPeriodo: "próximos 15 dias",
         }),
