@@ -293,7 +293,20 @@ async function computeStats(
       ),
     ),
     computeAiUsage(supabase, brandId),
+    // Fonte adicional de publicações realizadas: worker de agendamento grava aqui,
+    // não em posts.published_at. Necessário para o Ritmo de publicações refletir a realidade.
+    ignore(
+      scope(
+        supabase
+          .from("social_posts")
+          .select("id,post_id,provider,published_at")
+          .eq("brand_id", brandId)
+          .eq("status", "published")
+          .gte("published_at", sinceIso(14)),
+      ),
+    ),
   ]);
+  const socialPublishedRes = arguments as unknown; // placeholder — replaced below
 
   const activityAll = (activityRes?.data ?? []) as ActivityEvent[];
   const activity = clientId ? activityAll.filter((a) => a.client_id === clientId) : activityAll;
