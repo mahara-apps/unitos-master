@@ -1006,6 +1006,17 @@ function TaskLayout({
         ? prev.channels.filter((c) => c !== id)
         : [...prev.channels, id],
     }));
+  const toggleTargetConnection = (row: ClientChannelRow) =>
+    setState((prev) => {
+      const has = prev.targetConnectionIds.includes(row.connectionId);
+      const nextIds = has
+        ? prev.targetConnectionIds.filter((id) => id !== row.connectionId)
+        : [...prev.targetConnectionIds, row.connectionId];
+      // Deriva channels a partir das conexões selecionadas (para preservar
+      // compat com filtros/legendas atuais que ainda usam posts.channels).
+      // Nota: só entra no array quando não é adição de string livre.
+      return { ...prev, targetConnectionIds: nextIds };
+    });
   const addTag = () => {
     const v = tagInput.trim();
     if (!v) return;
