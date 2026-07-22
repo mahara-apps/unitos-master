@@ -897,19 +897,32 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
     (a, b) => a.position - b.position,
   );
 
+  // União posts.published_at + social_posts.published_at (worker). Dedupe por post_id/dia.
   const publishTrend14d = Array.from({ length: 14 }, (_, i) => {
     const start = now - (13 - i) * 86_400_000;
     const end = start + 86_400_000;
-    return posts.filter((p) => {
-      if (!p.published_at) return false;
+    const seen = new Set<string>();
+    for (const p of posts) {
+      if (!p.published_at) continue;
       const t = new Date(p.published_at).getTime();
-      return t >= start && t < end;
-    }).length;
+      if (t >= start && t < end) seen.add(`post|${p.id}`);
+    }
+    for (const sp of socialPublished) {
+      if (!sp.published_at) continue;
+      const t = new Date(sp.published_at).getTime();
+      if (t < start || t >= end) continue;
+      seen.add(sp.post_id ? `post|${sp.post_id}` : `sp|${sp.id}`);
+    }
+    return seen.size;
   });
 
   const channelAgg = new Map<string, number>();
   for (const p of posts) {
     for (const ch of p.channels ?? []) channelAgg.set(ch, (channelAgg.get(ch) ?? 0) + 1);
+  }
+  for (const sp of socialPublished) {
+    if (!sp.provider) continue;
+    channelAgg.set(sp.provider, (channelAgg.get(sp.provider) ?? 0) + 1);
   }
   const topChannels = Array.from(channelAgg.entries())
     .map(([channel, count]) => ({ channel, count }))
