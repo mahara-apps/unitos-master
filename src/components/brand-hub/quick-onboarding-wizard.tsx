@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -16,7 +16,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Textarea } from "@/components/ui/textarea";
-import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import {
   getBrandHub,
@@ -175,27 +174,26 @@ export function QuickOnboardingWizard({
   };
 
   const totalSteps = 3;
-  const progressPct = step > totalSteps ? 100 : Math.round(((step - 1) / totalSteps) * 100);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl gap-0 overflow-hidden p-0">
-        <DialogHeader className="border-b border-border/60 px-6 pb-4 pt-5">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <DialogTitle className="text-base">Onboarding rápido</DialogTitle>
-              <DialogDescription className="text-xs">
+      <DialogContent className="max-w-[640px] gap-0 overflow-hidden rounded-2xl border border-border/60 p-0 shadow-2xl">
+        <DialogHeader className="space-y-0 px-8 pb-6 pt-8">
+          <div className="mb-1 flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <DialogTitle className="text-xl font-semibold tracking-tight">
+                Onboarding rápido
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
                 Só o essencial para a IA gerar a primeira estratégia.
               </DialogDescription>
             </div>
             <StepBadge step={step} total={totalSteps} />
           </div>
-          <div className="mt-3">
-            <Progress value={progressPct} className="h-1" />
-          </div>
+          <StepTrack step={step} total={totalSteps} />
         </DialogHeader>
 
-        <div className="max-h-[60vh] overflow-y-auto px-6 py-5">
+        <div className="max-h-[64vh] overflow-y-auto px-8 pb-8">
           {hubQ.isLoading ? (
             <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando…
@@ -211,21 +209,21 @@ export function QuickOnboardingWizard({
           )}
         </div>
 
-        <footer className="flex items-center justify-between gap-2 border-t border-border/60 bg-muted/20 px-6 py-3">
+        <footer className="flex items-center justify-between gap-2 border-t border-border/60 bg-muted/30 px-8 py-4">
           <button
             type="button"
             onClick={skipAll}
-            className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             Pular e ver tudo
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             {step <= totalSteps && (
               <button
                 type="button"
                 onClick={skip}
-                className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
                 disabled={save.isPending}
               >
                 Pular esta etapa
@@ -234,7 +232,7 @@ export function QuickOnboardingWizard({
 
             {step === 1 && (
               <Button
-                size="sm"
+                size="default"
                 onClick={() =>
                   advance({
                     tone_text: state.tone_text,
@@ -243,17 +241,18 @@ export function QuickOnboardingWizard({
                   })
                 }
                 disabled={save.isPending}
+                className="gap-1.5 shadow-sm transition-transform active:scale-[0.98]"
               >
                 {save.isPending ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : null}
                 Próximo
-                <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                <ChevronRight className="h-4 w-4" />
               </Button>
             )}
             {step === 2 && (
               <Button
-                size="sm"
+                size="default"
                 onClick={() =>
                   advance({
                     offer: state.offer,
@@ -263,34 +262,36 @@ export function QuickOnboardingWizard({
                   })
                 }
                 disabled={save.isPending}
+                className="gap-1.5 shadow-sm transition-transform active:scale-[0.98]"
               >
                 {save.isPending ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : null}
                 Próximo
-                <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                <ChevronRight className="h-4 w-4" />
               </Button>
             )}
             {step === 3 && (
               <Button
-                size="sm"
+                size="default"
                 onClick={() =>
                   advance({ volumetry: state.volumetry, goals: state.goals })
                 }
                 disabled={save.isPending}
+                className="gap-1.5 shadow-sm transition-transform active:scale-[0.98]"
               >
                 {save.isPending ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : null}
                 Concluir
-                <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                <ChevronRight className="h-4 w-4" />
               </Button>
             )}
             {step > totalSteps && (
               <>
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="default"
                   onClick={() => {
                     onOpenChange(false);
                     onOpenFullBriefing?.();
@@ -299,15 +300,15 @@ export function QuickOnboardingWizard({
                   Ver briefing completo
                 </Button>
                 <Button
-                  size="sm"
+                  size="default"
                   onClick={runStrategy}
                   disabled={genLoading}
-                  className="gap-1.5 bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white hover:from-fuchsia-500 hover:to-violet-500"
+                  className="gap-1.5 bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white shadow-md transition-transform hover:from-fuchsia-500 hover:to-violet-500 active:scale-[0.98]"
                 >
                   {genLoading ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Sparkles className="h-3.5 w-3.5" />
+                    <Sparkles className="h-4 w-4" />
                   )}
                   Gerar Inteligência com IA
                 </Button>
@@ -321,11 +322,32 @@ export function QuickOnboardingWizard({
 }
 
 function StepBadge({ step, total }: { step: number; total: number }) {
-  const label = step > total ? "Concluído" : `${step} de ${total}`;
+  const label = step > total ? "Concluído" : `Passo ${step} de ${total}`;
   return (
-    <span className="rounded-full border border-border/60 bg-background px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+    <span className="whitespace-nowrap rounded-md bg-muted px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
       {label}
     </span>
+  );
+}
+
+function StepTrack({ step, total }: { step: number; total: number }) {
+  return (
+    <div className="mt-6 flex gap-1.5" aria-label={`Progresso: ${Math.min(step, total)} de ${total}`}>
+      {Array.from({ length: total }).map((_, i) => {
+        const idx = i + 1;
+        const done = step > idx;
+        const current = step === idx;
+        return (
+          <div
+            key={i}
+            className={cn(
+              "h-1 flex-1 rounded-full transition-colors duration-500",
+              done || current ? "bg-primary" : "bg-muted",
+            )}
+          />
+        );
+      })}
+    </div>
   );
 }
 
@@ -339,10 +361,12 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-1.5">
-      <Label className="text-xs">{label}</Label>
+    <div className="group space-y-2">
+      <Label className="text-sm font-medium text-foreground transition-colors group-focus-within:text-primary">
+        {label}
+      </Label>
       {children}
-      {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -365,25 +389,26 @@ function StepIdentity({
   const hasCapturedData = !!(client?.name || client?.niche || igHandle || color || client?.logo_url);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8 pt-2">
       {hasCapturedData ? (
-        <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5">
-          <div className="mb-1.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            Já capturado no cadastro
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-start justify-between gap-4 rounded-xl border border-border/60 bg-muted/40 px-4 py-3">
+          <div className="min-w-0 space-y-1.5">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Já capturado no cadastro
+            </div>
+            <div className="flex flex-wrap items-center gap-2.5">
             {client?.logo_url ? (
               <img
                 src={client.logo_url}
                 alt=""
-                className="h-8 w-8 rounded-md border border-border object-contain bg-background"
+                className="h-7 w-7 rounded-md border border-border bg-background object-contain"
               />
             ) : null}
             {client?.name ? (
-              <span className="text-sm font-semibold text-foreground">{client.name}</span>
+              <span className="truncate text-sm font-semibold text-foreground">{client.name}</span>
             ) : null}
             {client?.niche ? (
-              <span className="rounded-full border border-border/60 bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
+              <span className="rounded-full border border-border/60 bg-background px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                 {client.niche}
               </span>
             ) : null}
@@ -392,7 +417,7 @@ function StepIdentity({
                 href={`https://instagram.com/${igHandle}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
               >
                 <InstagramIcon className="h-3 w-3" />@{igHandle}
                 <ExternalLink className="h-2.5 w-2.5 opacity-70" />
@@ -401,19 +426,28 @@ function StepIdentity({
             {color ? (
               <span className="inline-flex items-center gap-1.5">
                 <span
-                  className="h-3.5 w-3.5 rounded-full border border-border"
-                  style={{ background: color }}
+                  className="h-2.5 w-2.5 rounded-full ring-4 ring-offset-0"
+                  style={{
+                    background: color,
+                    // subtle ring using the color itself at low opacity
+                    boxShadow: `0 0 0 4px ${color}1a`,
+                  }}
                 />
                 <span className="font-mono text-[11px] uppercase text-muted-foreground">{color}</span>
               </span>
             ) : null}
+            </div>
           </div>
         </div>
       ) : null}
-      <h3 className="text-sm font-semibold tracking-tight">Identidade</h3>
+      <div className="space-y-6">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">
+          Identidade
+        </h3>
+        <div className="space-y-5">
       <Field label="Tom de voz" hint="Ex.: próximo, provocador, direto, com humor.">
         <Textarea
-          rows={2}
+          rows={3}
           value={state.tone_text}
           onChange={(e) => setField("tone_text", e.target.value)}
           placeholder="Como a marca fala com o público?"
@@ -421,7 +455,7 @@ function StepIdentity({
       </Field>
       <Field label="Missão">
         <Textarea
-          rows={2}
+          rows={3}
           value={state.mission}
           onChange={(e) => setField("mission", e.target.value)}
           placeholder="Por que essa marca existe?"
@@ -435,6 +469,8 @@ function StepIdentity({
           placeholder="Para quem, contra quem, com que promessa."
         />
       </Field>
+        </div>
+      </div>
     </div>
   );
 }
@@ -447,8 +483,11 @@ function StepProductAudience({
   setField: <K extends keyof State>(k: K, v: State[K]) => void;
 }) {
   return (
-    <div className="space-y-4">
-      <h3 className="text-sm font-semibold tracking-tight">Produto & Público</h3>
+    <div className="space-y-6 pt-2">
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">
+        Produto & Público
+      </h3>
+      <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Oferta principal">
           <Input
@@ -481,6 +520,7 @@ function StepProductAudience({
           placeholder="Frustrações que esse público sente hoje."
         />
       </Field>
+      </div>
     </div>
   );
 }
@@ -493,10 +533,12 @@ function StepGoals({
   setField: <K extends keyof State>(k: K, v: State[K]) => void;
 }) {
   return (
-    <div className="space-y-5">
-      <h3 className="text-sm font-semibold tracking-tight">Metas</h3>
+    <div className="space-y-6 pt-2">
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">
+        Metas
+      </h3>
 
-      <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
+      <div className="space-y-3 rounded-xl border border-border/60 bg-muted/40 p-4">
         <div className="flex items-center justify-between">
           <Label className="text-xs">Volumetria semanal por canal</Label>
           <span className="text-[11px] text-muted-foreground">posts / semana</span>
