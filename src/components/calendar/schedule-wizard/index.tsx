@@ -135,7 +135,8 @@ export function ScheduleWizard({
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [submitting, setSubmitting] = useState<null | "draft" | "publish" | "schedule" | "save_draft">(null);
-  const [previewChannel, setPreviewChannel] = useState<SocialChannel>("instagram");
+  const [previewKey, setPreviewKey] = useState<string>("instagram::feed");
+  const [locationId, setLocationId] = useState<string | null>(null);
 
   const uploadRef = useRef<HTMLInputElement>(null);
   const wasOpenRef = useRef(false);
@@ -153,10 +154,11 @@ export function ScheduleWizard({
       setFirstComment("");
       setLinkUrl("");
       setLocationName("");
+      setLocationId(null);
       setDragActive(false);
       setUploading(false);
       setSubmitting(null);
-      setPreviewChannel("instagram");
+      setPreviewKey("instagram::feed");
       if (uploadRef.current) uploadRef.current.value = "";
       const base = defaultDate
         ? new Date(defaultDate)
