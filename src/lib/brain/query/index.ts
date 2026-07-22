@@ -31,10 +31,13 @@ export async function semantic(
 
 /** Contadores operacionais leves — nunca faz dump de linhas. */
 export async function stats(ctx: BrainContext): Promise<BrainStats> {
-  const cacheKey = `brain:stats:${ctx.brandId ?? "global"}`;
+  const cacheKey = `brain:stats:${ctx.brandId ?? "global"}:${ctx.clientId ?? "-"}`;
   return withCache<BrainStats>(cacheKey, 60_000, async () => {
     const out: BrainStats = {};
-    if (ctx.brandId) {
+    // Fast path via MV only faz sentido em escopo de brand inteira. Quando há
+    // um client_id ativo precisamos de contadores estritos por cliente para
+    // não vazar posts/tarefas/projetos de outros clientes da mesma marca.
+    if (ctx.brandId && !ctx.clientId) {
       // Fast path: leitura O(1) da view materializada (refresh a cada 5min via pg_cron).
       const { data, error } = await ctx.supabase
         .from("brain_stats_mv")
@@ -49,13 +52,18 @@ export async function stats(ctx: BrainContext): Promise<BrainStats> {
       }
       // Fallback (linha ainda não materializada): counts diretos.
     }
+    const scope = <B extends { eq: (c: string, v: string) => B }>(b: B): B => {
+      let q: B = ctx.brandId ? b.eq("brand_id", ctx.brandId) : b;
+      if (ctx.clientId) q = q.eq("client_id", ctx.clientId);
+      return q;
+    };
     const postsQ = ctx.supabase.from("posts").select("*", { count: "exact", head: true });
     const tasksQ = ctx.supabase.from("tasks").select("*", { count: "exact", head: true });
     const projectsQ = ctx.supabase.from("projects").select("*", { count: "exact", head: true });
     const [posts, tasks, projects] = await Promise.all([
-      ctx.brandId ? postsQ.eq("brand_id", ctx.brandId) : postsQ,
-      ctx.brandId ? tasksQ.eq("brand_id", ctx.brandId) : tasksQ,
-      ctx.brandId ? projectsQ.eq("brand_id", ctx.brandId) : projectsQ,
+      scope(postsQ),
+      scope(tasksQ),
+      scope(projectsQ),
     ]);
     if (typeof posts.count === "number") out.posts = posts.count;
     if (typeof tasks.count === "number") out.tasks = tasks.count;
