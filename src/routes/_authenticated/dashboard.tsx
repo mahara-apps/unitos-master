@@ -156,7 +156,16 @@ function AgencyMode({ brandId }: { brandId: string }) {
 
   const q = useQuery({
     queryKey: ["dashboard-agency", brandId, days],
-    queryFn: () => fn({ data: { brandId } }),
+    queryFn: () =>
+      fn({
+        data: {
+          brandId,
+          range:
+            range?.from && range?.to
+              ? { from: range.from.toISOString(), to: range.to.toISOString() }
+              : undefined,
+        },
+      }),
     staleTime: 30_000,
   });
 
@@ -721,12 +730,32 @@ function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }
 
   const stats = useQuery({
     queryKey: ["dashboard-client", brandId, clientId, days],
-    queryFn: () => statsFn({ data: { brandId, clientId } }),
+    queryFn: () =>
+      statsFn({
+        data: {
+          brandId,
+          clientId,
+          range:
+            range?.from && range?.to
+              ? { from: range.from.toISOString(), to: range.to.toISOString() }
+              : undefined,
+        },
+      }),
     staleTime: 30_000,
   });
   const customer = useQuery({
     queryKey: ["customer-dashboard", brandId, clientId, days],
-    queryFn: () => customerFn({ data: { brandId, clientId } }),
+    queryFn: () =>
+      customerFn({
+        data: {
+          brandId,
+          clientId,
+          range:
+            range?.from && range?.to
+              ? { from: range.from.toISOString(), to: range.to.toISOString() }
+              : undefined,
+        },
+      }),
     staleTime: 30_000,
   });
 
