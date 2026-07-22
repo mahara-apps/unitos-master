@@ -1180,7 +1180,7 @@ function UpcomingClientCard({
   return (
     <Card
       title="Próximas publicações"
-      subtitle="7 dias"
+      subtitle="Agenda dos próximos 7 dias"
       icon={<CalendarClock className="h-4 w-4" />}
       action={<Link to="/calendar" className="text-xs text-muted-foreground hover:text-foreground">Calendário →</Link>}
     >
@@ -1214,7 +1214,7 @@ function RecentActivityCard({
   return (
     <Card
       title="Atividade recente"
-      subtitle="Eventos das últimas 2 semanas"
+      subtitle="Eventos no período selecionado"
       icon={<Sparkles className="h-4 w-4" />}
       action={<Link to="/notifications" className="text-xs text-muted-foreground hover:text-foreground">Ver tudo →</Link>}
     >
