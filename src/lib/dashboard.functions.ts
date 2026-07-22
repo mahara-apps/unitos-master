@@ -359,9 +359,11 @@ async function computeStats(
   const activityAll = (activityRes?.data ?? []) as ActivityEvent[];
   const activity = clientId ? activityAll.filter((a) => a.client_id === clientId) : activityAll;
 
-  const sparkline = Array.from({ length: 14 }, (_, i) => {
-    const start = Date.now() - (13 - i) * 86_400_000;
-    const end = start + 86_400_000;
+  const sparkBuckets = Math.max(1, Math.min(range.days, 60));
+  const sparkStep = (range.toMs - range.fromMs) / sparkBuckets;
+  const sparkline = Array.from({ length: sparkBuckets }, (_, i) => {
+    const start = range.fromMs + i * sparkStep;
+    const end = start + sparkStep;
     return activity.filter((a) => {
       const t = new Date(a.created_at).getTime();
       return t >= start && t < end;
@@ -462,12 +464,11 @@ async function computeStats(
     if (!sp.provider) continue;
     channelCounts[sp.provider] = (channelCounts[sp.provider] ?? 0) + 1;
   }
-  const nowMs = Date.now();
   // publishTrend14d = união de posts.published_at (fluxo "Publicar agora") +
-  // social_posts.published_at (worker de agendamento). Deduplica por post_id no mesmo dia.
-  const publishTrend14d = Array.from({ length: 14 }, (_, i) => {
-    const start = nowMs - (13 - i) * 86_400_000;
-    const end = start + 86_400_000;
+  // social_posts.published_at (worker de agendamento). Deduplica por post_id no mesmo bucket.
+  const publishTrend14d = Array.from({ length: sparkBuckets }, (_, i) => {
+    const start = range.fromMs + i * sparkStep;
+    const end = start + sparkStep;
     const seen = new Set<string>();
     for (const p of postsFull) {
       if (!p.published_at) continue;
