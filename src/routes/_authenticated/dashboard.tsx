@@ -413,17 +413,25 @@ function ClientHealthRanking({
                 }
                 meta={
                   <>
-                    {h.overdueTasks > 0 && <span className="text-rose-500">{h.overdueTasks} atr.</span>}
-                    {h.overdueTasks > 0 && h.approvalsPending > 0 && " · "}
-                    {h.approvalsPending > 0 && <span className="text-amber-500">{h.approvalsPending} aprov.</span>}
-                    {h.overdueTasks === 0 && h.approvalsPending === 0 && (
-                      <span>
-                        {h.openTasks} tarefas ·{" "}
-                        {h.lastPostAt
-                          ? formatDistanceToNow(new Date(h.lastPostAt), { locale: ptBR, addSuffix: true })
-                          : "sem posts"}
-                      </span>
+                    <span>{h.openTasks} tarefas abertas</span>
+                    {h.overdueTasks > 0 && (
+                      <>
+                        {" · "}
+                        <span className="text-rose-500">{h.overdueTasks} atrasadas</span>
+                      </>
                     )}
+                    {h.approvalsPending > 0 && (
+                      <>
+                        {" · "}
+                        <span className="text-amber-500">{h.approvalsPending} aprovações</span>
+                      </>
+                    )}
+                    {" · "}
+                    <span>
+                      {h.lastPostAt
+                        ? `último ${formatDistanceToNow(new Date(h.lastPostAt), { locale: ptBR, addSuffix: true })}`
+                        : "sem posts"}
+                    </span>
                   </>
                 }
               />
@@ -481,13 +489,30 @@ function FunnelCard({
           color: funnelColorFor(s.key, s.color),
         }))}
       />
-      {avgLead !== null && (
-        <div className="border-t border-border/60 px-4 py-2.5 text-xs text-muted-foreground">
-          <Clock className="mr-1 inline h-3 w-3" />
-          Lead time médio ideia→publicação:{" "}
-          <span className="font-mono font-medium text-foreground">{avgLead.toFixed(1)}d</span>
+      <div className="grid grid-cols-3 divide-x divide-border/60 border-t border-border/60 text-xs">
+        <div className="px-4 py-2">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            Backlog
+          </div>
+          <div className="mt-0.5 font-mono text-sm font-semibold tabular-nums">
+            {(postsByStage["idea"] ?? 0) + (postsByStage["production"] ?? 0)}
+          </div>
         </div>
-      )}
+        <div className="px-4 py-2">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            Conversão
+          </div>
+          <div className="mt-0.5 font-mono text-sm font-semibold tabular-nums">{conv}%</div>
+        </div>
+        <div className="px-4 py-2">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            Lead time
+          </div>
+          <div className="mt-0.5 font-mono text-sm font-semibold tabular-nums">
+            {avgLead !== null ? `${avgLead.toFixed(1)}d` : "—"}
+          </div>
+        </div>
+      </div>
     </Card>
   );
 }
