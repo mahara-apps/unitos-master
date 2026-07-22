@@ -30,6 +30,7 @@ import {
   Target,
   Gauge,
   Brain,
+  BrainCircuit,
   MessageSquare,
   Activity,
 } from "lucide-react";
