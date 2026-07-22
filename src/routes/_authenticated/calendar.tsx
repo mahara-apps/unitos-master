@@ -475,6 +475,7 @@ function CalendarPage() {
                   title: p.title,
                   copy: p.copy,
                   coverUrl: p.coverUrl,
+                  targetConnectionIds: p.targetConnectionIds,
                 });
                 setWizardDate(null);
                 setWizardOpen(true);
@@ -490,6 +491,7 @@ function CalendarPage() {
                   title: p.title,
                   copy: p.copy,
                   coverUrl: p.coverUrl,
+                  targetConnectionIds: p.targetConnectionIds,
                 });
                 setWizardDate(null);
                 setWizardOpen(true);
