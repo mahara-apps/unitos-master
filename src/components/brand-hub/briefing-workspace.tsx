@@ -807,7 +807,22 @@ function IdentidadeTab({
         hint="Dados capturados no onboarding do cliente. Edite na aba Cadastro."
         className="lg:col-span-3"
       >
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-6">
+          <FieldReadonly
+            label="Logo"
+            value={
+              client.logo_url ? (
+                <img
+                  src={client.logo_url}
+                  alt="Logo do cliente"
+                  className="h-10 w-10 rounded-md border border-border object-contain bg-background"
+                />
+              ) : (
+                "—"
+              )
+            }
+            muted={!client.logo_url}
+          />
           <FieldReadonly label="Nome" value={client.name || "—"} />
           <FieldReadonly label="Nicho" value={client.niche?.trim() || "—"} muted={!client.niche} />
           <FieldReadonly
@@ -857,6 +872,29 @@ function IdentidadeTab({
               )
             }
             muted={!color}
+          />
+          <FieldReadonly
+            label="Contato"
+            value={
+              client.contact_name || client.contact_email ? (
+                <div className="flex flex-col leading-tight">
+                  {client.contact_name ? (
+                    <span className="text-sm text-foreground">{client.contact_name}</span>
+                  ) : null}
+                  {client.contact_email ? (
+                    <a
+                      href={`mailto:${client.contact_email}`}
+                      className="truncate text-[11px] text-primary hover:underline"
+                    >
+                      {client.contact_email}
+                    </a>
+                  ) : null}
+                </div>
+              ) : (
+                "—"
+              )
+            }
+            muted={!client.contact_name && !client.contact_email}
           />
         </div>
         <div className="mt-3 text-[11px] text-muted-foreground">
