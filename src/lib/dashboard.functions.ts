@@ -172,8 +172,10 @@ async function computeStats(
   ctx: SupaCtx,
   brandId: string,
   clientId?: string | null,
+  rangeInput?: { from?: string; to?: string },
 ): Promise<DashboardStats> {
   const { supabase, userId } = ctx;
+  const range = resolveRange(rangeInput);
   const scope = <
     Q extends { eq: (col: string, val: string) => Q },
   >(
@@ -240,7 +242,8 @@ async function computeStats(
           .select("id", { count: "exact", head: true })
           .eq("brand_id", brandId)
           .eq("done", true)
-          .gte("done_at", sinceIso(7)),
+            .gte("done_at", range.fromIso)
+            .lte("done_at", range.toIso),
       ),
     ),
     ignore(
@@ -297,7 +300,8 @@ async function computeStats(
         .from("activity_events")
         .select("id,verb,entity_type,payload,created_at,actor_id,client_id")
         .eq("brand_id", brandId)
-        .gte("created_at", sinceIso(14))
+          .gte("created_at", range.fromIso)
+          .lte("created_at", range.toIso)
         .order("created_at", { ascending: false })
         .limit(200),
     ),
@@ -316,13 +320,15 @@ async function computeStats(
             .eq("status", "approved")
             .eq("posts.brand_id", brandId)
             .eq("posts.client_id", clientId)
-            .gte("updated_at", sinceIso(30))
+              .gte("created_at", range.fromIso)
+              .lte("created_at", range.toIso)
         : supabase
             .from("post_approvals")
             .select("id, posts!inner(brand_id)", { count: "exact", head: true })
             .eq("status", "approved")
             .eq("posts.brand_id", brandId)
-            .gte("updated_at", sinceIso(30))),
+              .gte("created_at", range.fromIso)
+              .lte("created_at", range.toIso)),
     ),
     ignore(
       scope(
@@ -330,10 +336,11 @@ async function computeStats(
           .from("posts")
           .select("id,channels,created_at,published_at")
           .eq("brand_id", brandId)
-          .gte("created_at", sinceIso(60)),
+            .gte("created_at", range.fromIso)
+            .lte("created_at", range.toIso),
       ),
     ),
-    computeAiUsage(supabase, brandId),
+      computeAiUsage(supabase, brandId, range),
     // Fonte adicional de publicações realizadas: worker de agendamento grava aqui,
     // não em posts.published_at. Necessário para o Ritmo de publicações refletir a realidade.
     ignore(
@@ -343,7 +350,8 @@ async function computeStats(
           .select("id,post_id,provider,published_at")
           .eq("brand_id", brandId)
           .eq("status", "published")
-          .gte("published_at", sinceIso(14)),
+            .gte("published_at", range.fromIso)
+            .lte("published_at", range.toIso),
       ),
     ),
   ]);
