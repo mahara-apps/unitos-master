@@ -29,6 +29,8 @@ import {
   Flame,
   Gauge,
   Layers,
+  ListChecks,
+  PieChart as PieIcon,
   Plus,
   Radar,
   Sparkles,
@@ -197,9 +199,9 @@ function AgencyMode({ brandId }: { brandId: string }) {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           icon={<TrendingUp className="h-4 w-4" />}
-          label="Publicações aprovadas · 30d"
+          label="Publicações aprovadas"
           value={d?.counts.posts_approved_30d ?? 0}
-          sub={`${d?.counts.posts_total ?? 0} no total`}
+          sub={`${d?.counts.posts_total ?? 0} no pipeline · ${d?.rangeDays ?? 30}d`}
           tone="emerald"
           spark={d?.publishTrend14d}
         />
@@ -214,16 +216,16 @@ function AgencyMode({ brandId }: { brandId: string }) {
           icon={<AlertTriangle className="h-4 w-4" />}
           label="Tarefas atrasadas"
           value={d?.counts.tasks_overdue ?? 0}
-          sub={`${d?.counts.tasks_open ?? 0} abertas · ${d?.counts.tasks_done_7d ?? 0} concluídas 7d`}
+          sub={`${d?.counts.tasks_open ?? 0} abertas · ${d?.counts.tasks_done_7d ?? 0} concluídas no período`}
           tone="rose"
         />
         <KpiCard
           icon={<Bot className="h-4 w-4" />}
-          label="Custo IA · 30d"
-          value={`$${(d?.aiUsage.cost30d ?? 0).toFixed(2)}`}
-          sub={`${d?.aiUsage.jobs30d ?? 0} execuções · $${(d?.aiUsage.cost7d ?? 0).toFixed(2)} nos 7d`}
+          label="Custo IA no período"
+          value={`$${(d?.aiUsage.cost ?? 0).toFixed(2)}`}
+          sub={`${d?.aiUsage.jobs ?? 0} execuções · ${((d?.aiUsage.tokens ?? 0) / 1000).toFixed(1)}k tokens`}
           tone="violet"
-          spark={d?.aiUsage.spark14d.map((v) => Math.round(v * 100))}
+          spark={d?.aiUsage.spark.map((v: number) => Math.round(v * 100))}
         />
       </div>
 
@@ -246,10 +248,26 @@ function AgencyMode({ brandId }: { brandId: string }) {
         />
       </div>
 
+      {/* Distribuição de tarefas + Mix de canais */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <TaskDistributionCard buckets={d?.tasksByBucket} loading={q.isLoading} />
+        <ChannelMixCard channels={d?.topChannels ?? []} />
+      </div>
+
       {/* AI usage + Publish trend */}
       <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
         <AiUsageCard usage={d?.aiUsage} />
-        <PublishTrendCard trend={d?.publishTrend14d ?? []} channels={d?.topChannels ?? []} />
+        <PublishTrendCard
+          trend={d?.publishTrend14d ?? []}
+          channels={d?.topChannels ?? []}
+          rangeDays={d?.rangeDays ?? 30}
+        />
+      </div>
+
+      {/* Aprovações por cliente */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ApprovalsByClientCard rows={d?.approvalsByClient ?? []} loading={q.isLoading} />
+        <HeatmapCard heatmap={d?.heatmap ?? []} rangeDays={d?.rangeDays ?? 30} />
       </div>
 
       {/* Approvals queue + Upcoming */}
@@ -257,9 +275,6 @@ function AgencyMode({ brandId }: { brandId: string }) {
         <ApprovalsQueueCard items={d?.approvalsQueue ?? []} loading={q.isLoading} />
         <UpcomingCard items={d?.upcoming ?? []} loading={q.isLoading} />
       </div>
-
-      {/* Heatmap 60d */}
-      <HeatmapCard heatmap={d?.heatmap ?? []} />
     </div>
   );
 }
