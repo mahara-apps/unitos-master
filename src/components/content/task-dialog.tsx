@@ -997,6 +997,13 @@ function TaskLayout({
   clientId?: string;
 }) {
   const [tagInput, setTagInput] = useState("");
+  const listClientChannels = useServerFn(listClientChannelAssignmentsFn);
+  const clientChannelsQ = useQuery({
+    enabled: !!(brandId && clientId),
+    queryKey: ["task-dialog-client-channels", brandId, clientId],
+    queryFn: () => listClientChannels({ data: { brandId: brandId!, clientId: clientId! } }),
+  });
+  const assignedConnections = (clientChannelsQ.data ?? []).filter((r) => r.assigned);
   const set = <K extends keyof TaskState>(key: K, value: TaskState[K]) =>
     setState((prev) => ({ ...prev, [key]: value }));
   const toggleChannel = (id: string) =>
