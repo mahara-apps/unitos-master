@@ -491,7 +491,8 @@ export const loadBoardFn = createServerFn({ method: "POST" })
     }
 
     // Derive cover_url from first image in reference_media when missing.
-    // Uses signed URLs so private brand-assets renders in the card.
+    // Uses signed URLs so private brand media renders in the card. Suporta
+    // tanto o bucket unificado `brand-media` quanto legado `brand-assets`.
     const needsCover = (posts ?? []).filter((p) => {
       if (p.cover_url) return false;
       const refs = Array.isArray(p.reference_media)
@@ -518,8 +519,10 @@ export const loadBoardFn = createServerFn({ method: "POST" })
             typeof firstImg?.path === "string" ? (firstImg.path as string) : null;
           const target = thumbPath ?? originalPath;
           if (!target) return;
+          const bucket =
+            typeof firstImg?.bucket === "string" ? (firstImg.bucket as string) : "brand-assets";
           const { data: signed } = await context.supabase.storage
-            .from("brand-assets")
+            .from(bucket)
             .createSignedUrl(target, 60 * 60 * 24 * 7);
           if (signed?.signedUrl) p.cover_url = signed.signedUrl;
         }),
@@ -1205,7 +1208,7 @@ export const generatePostReferenceImageFn = createServerFn({ method: "POST" })
     const filename = `ai-${Date.now()}.${ext}`;
     const path = `${post.brand_id}/${post.client_id}/posts/${post.id}/${filename}`;
     const { error: ue } = await context.supabase.storage
-      .from("brand-assets")
+      .from("brand-media")
       .upload(path, bin, { contentType, upsert: false });
     if (ue) throw ue;
 
@@ -1215,6 +1218,7 @@ export const generatePostReferenceImageFn = createServerFn({ method: "POST" })
       type: contentType,
       size: bin.byteLength,
       source: "ai" as const,
+      bucket: "brand-media" as const,
     };
     const current = Array.isArray(post.reference_media)
       ? (post.reference_media as Array<Record<string, unknown>>)
