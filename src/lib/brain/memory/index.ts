@@ -14,12 +14,19 @@ export async function list(
   ctx: BrainContext,
   opts: { limit?: number } = {},
 ): Promise<BrainMemoryRow[]> {
-  const q = ctx.supabase
+  let q = ctx.supabase
     .from("brain_memory")
-    .select("topic, summary, confidence, brand_id")
+    .select("topic, summary, confidence, brand_id, metadata")
     .order("confidence", { ascending: false })
     .limit(opts.limit ?? 15);
-  const { data } = ctx.brandId ? await q.eq("brand_id", ctx.brandId) : await q.is("brand_id", null);
+  q = ctx.brandId ? q.eq("brand_id", ctx.brandId) : q.is("brand_id", null);
+  // brain_memory não tem coluna client_id — quando há cliente ativo, restringe
+  // a memórias explicitamente marcadas com este client_id em metadata
+  // (ou genéricas, sem client_id em metadata) para não vazar entre clientes.
+  if (ctx.clientId) {
+    q = q.or(`metadata->>client_id.eq.${ctx.clientId},metadata->>client_id.is.null`);
+  }
+  const { data } = await q;
   return ((data ?? []) as Array<BrainMemoryRow>).slice(0, opts.limit ?? 15).map((r) => ({
     topic: r.topic,
     summary: r.summary,
