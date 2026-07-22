@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { BrainWidget } from "@/components/brain/brain-widget";
+import { useFeatureAccess } from "@/hooks/use-feature-access";
 import {
   Select,
   SelectContent,
@@ -112,6 +113,7 @@ function fmtDate(iso?: string | null) {
 function ProjectsIndexPage() {
   const { brandId, clientId: activeClientId } = useActiveContext();
   const qc = useQueryClient();
+  const brainEnabled = useFeatureAccess("brain").enabled;
   const list = useServerFn(listProjects);
   const create = useServerFn(createProject);
   const clientsFn = useServerFn(listClients);
@@ -326,7 +328,7 @@ function ProjectsIndexPage() {
         </Select>
       </DashboardPanelSurface>
 
-      <BrainWidget preset="projects" />
+      {brainEnabled && <BrainWidget preset="projects" />}
 
       {/* Grid de projetos */}
       {projectsQ.isLoading ? (

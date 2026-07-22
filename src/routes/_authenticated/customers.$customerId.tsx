@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { useAccessRole } from "@/hooks/use-access-role";
+import { useFeatureAccess } from "@/hooks/use-feature-access";
 import { FALLBACK_ROUTE } from "@/lib/permissions";
 import { toast } from "sonner";
 import { listClients } from "@/lib/workspace.functions";
@@ -51,7 +52,7 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
   component: CustomerDetail,
 });
 
-const TABS = [
+const ALL_TABS = [
   { value: "overview", label: "Visão geral" },
   { value: "brain", label: "Cérebro da Marca" },
   { value: "channels", label: "Canais" },
@@ -158,9 +159,15 @@ function CustomerDetailReady({
   const list = useServerFn(listClients);
   const fetchHub = useServerFn(getBrandHub);
   const qc = useQueryClient();
+  const brainEnabled = useFeatureAccess("brain").enabled;
+  const TABS = brainEnabled ? ALL_TABS : ALL_TABS.filter((t) => t.value !== "brain");
   const [activeTab, setActiveTab] = useState<string>(initialTab ?? "overview");
   const [wizardOpen, setWizardOpen] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!brainEnabled && activeTab === "brain") setActiveTab("overview");
+  }, [brainEnabled, activeTab]);
 
   // Lista de customers do brand ativo — só para nome/cor do header.
   const customersQ = useQuery({
@@ -191,7 +198,7 @@ function CustomerDetailReady({
   const completion = hubQ.data
     ? computeBriefingCompletion(hubQ.data.brand_hub ?? {}, hubQ.data)
     : 0;
-  const needsOnboarding = !!hubQ.data && completion < 60;
+  const needsOnboarding = !!hubQ.data && completion < 60 && brainEnabled;
 
   // Auto-open when the customer was just created (?onboarding=1).
   useEffect(() => {
@@ -277,15 +284,15 @@ function CustomerDetailReady({
             </TabsList>
             <TabsContent value="overview">
               <div className="space-y-4">
-                <BrainWidget preset="customers" clientId={customerId} />
+                {brainEnabled && <BrainWidget preset="customers" clientId={customerId} />}
                 <CustomerDashboard
                   brandId={brandId}
                   clientId={customerId}
-                  onOpenBriefing={() => setActiveTab("brain")}
+                  onOpenBriefing={() => setActiveTab(brainEnabled ? "brain" : "cadastro")}
                 />
               </div>
             </TabsContent>
-            <TabsContent value="brain">
+            {brainEnabled && <TabsContent value="brain">
               <BriefingWorkspace
                 brandId={brandId}
                 clientId={customerId}
@@ -315,7 +322,7 @@ function CustomerDetailReady({
                   </>
                 }
               />
-            </TabsContent>
+            </TabsContent>}
             <TabsContent value="cadastro">
               <BasicInfoTab brandId={brandId} clientId={customerId} />
             </TabsContent>
