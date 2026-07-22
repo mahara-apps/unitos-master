@@ -495,10 +495,12 @@ function FunnelCard({
 function AiUsageCard({ usage }: { usage: AiUsageSummary | undefined }) {
   const rows = usage?.byAgent ?? [];
   const max = Math.max(0.01, ...rows.map((r) => r.cost));
+  const byClient = usage?.byClient ?? [];
+  const maxClient = Math.max(0.01, ...byClient.map((r) => r.cost));
   return (
     <Card
       title="IA & performance"
-      subtitle="Consumo por agente · últimos 30 dias"
+      subtitle="Consumo por agente e cliente no período"
       icon={<Bot className="h-4 w-4" />}
       action={
         <Link to="/connections" className="text-xs text-muted-foreground hover:text-foreground">
@@ -510,15 +512,15 @@ function AiUsageCard({ usage }: { usage: AiUsageSummary | undefined }) {
         <div className="mb-3 flex items-end justify-between">
           <div>
             <div className="font-mono text-2xl font-semibold tabular-nums">
-              ${(usage?.cost30d ?? 0).toFixed(2)}
+              ${(usage?.cost ?? 0).toFixed(2)}
             </div>
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              Custo · 30d · {usage?.jobs30d ?? 0} execuções
+              Custo no período · {usage?.jobs ?? 0} execuções · {((usage?.tokens ?? 0) / 1000).toFixed(1)}k tokens
             </div>
           </div>
-          {usage && usage.spark14d.some((v) => v > 0) && (
+          {usage && usage.spark.some((v: number) => v > 0) && (
             <Sparkline
-              data={usage.spark14d.map((v) => Math.round(v * 1000))}
+              data={usage.spark.map((v: number) => Math.round(v * 1000))}
               className="h-8 w-24 text-violet-500"
             />
           )}
@@ -526,13 +528,39 @@ function AiUsageCard({ usage }: { usage: AiUsageSummary | undefined }) {
         {rows.length === 0 ? (
           <EmptyState icon={<Zap className="h-5 w-5" />} text="Nenhum agente executado ainda." />
         ) : (
-          <ul className="space-y-2">
-            {rows.map((r) => (
-              <li key={r.agent}>
-                <AgentUsageBar agent={r.agent} cost={r.cost} jobs={r.jobs} max={max} />
-              </li>
-            ))}
-          </ul>
+          <div className="space-y-4">
+            <div>
+              <div className="mb-1.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Por agente
+              </div>
+              <ul className="space-y-2">
+                {rows.map((r) => (
+                  <li key={r.agent}>
+                    <AgentUsageBar agent={r.agent} cost={r.cost} jobs={r.jobs} max={max} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {byClient.length > 0 && (
+              <div>
+                <div className="mb-1.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                  Por cliente
+                </div>
+                <ul className="space-y-2">
+                  {byClient.map((r) => (
+                    <li key={r.client_id ?? "global"}>
+                      <AgentUsageBar
+                        agent={r.client_name}
+                        cost={r.cost}
+                        jobs={r.jobs}
+                        max={maxClient}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </Card>
