@@ -716,14 +716,16 @@ function HeatmapCard({ heatmap }: { heatmap: number[] }) {
 function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }) {
   const statsFn = useServerFn(getDashboardStats);
   const customerFn = useServerFn(loadCustomerDashboardFn);
+  const [range, setRange] = useDefaultRange();
+  const days = dateRangeToDays(range);
 
   const stats = useQuery({
-    queryKey: ["dashboard-client", brandId, clientId],
+    queryKey: ["dashboard-client", brandId, clientId, days],
     queryFn: () => statsFn({ data: { brandId, clientId } }),
     staleTime: 30_000,
   });
   const customer = useQuery({
-    queryKey: ["customer-dashboard", brandId, clientId],
+    queryKey: ["customer-dashboard", brandId, clientId, days],
     queryFn: () => customerFn({ data: { brandId, clientId } }),
     staleTime: 30_000,
   });
@@ -734,8 +736,9 @@ function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }
     {
       title: client?.name ?? "Cliente",
       subtitle: client?.niche ?? "Painel do cliente selecionado",
+      actions: <DateRangePicker value={range} onChange={setRange} />,
     },
-    [client?.name, client?.niche],
+    [client?.name, client?.niche, range?.from?.getTime(), range?.to?.getTime()],
   );
 
   return (
