@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { BrainWidget } from "@/components/brain/brain-widget";
+import { useFeatureAccess } from "@/hooks/use-feature-access";
 import {
   Select,
   SelectContent,
