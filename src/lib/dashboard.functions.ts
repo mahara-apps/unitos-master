@@ -11,7 +11,41 @@ type SupaCtx = { supabase: SupabaseClient<Database>; userId: string };
 const BrandInput = z.object({
   brandId: z.string().uuid(),
   clientId: z.string().uuid().nullable().optional(),
+  range: z
+    .object({
+      from: z.string().datetime().optional(),
+      to: z.string().datetime().optional(),
+    })
+    .optional(),
 });
+
+type ResolvedRange = {
+  fromIso: string;
+  toIso: string;
+  fromMs: number;
+  toMs: number;
+  days: number;
+};
+
+function resolveRange(input?: { from?: string; to?: string }): ResolvedRange {
+  const now = Date.now();
+  const toMs = input?.to ? new Date(input.to).getTime() : now;
+  const fromMs = input?.from
+    ? new Date(input.from).getTime()
+    : toMs - 30 * 86_400_000;
+  const safeFrom = Math.min(fromMs, toMs);
+  const days = Math.max(
+    1,
+    Math.min(90, Math.ceil((toMs - safeFrom) / 86_400_000) || 1),
+  );
+  return {
+    fromIso: new Date(safeFrom).toISOString(),
+    toIso: new Date(toMs).toISOString(),
+    fromMs: safeFrom,
+    toMs,
+    days,
+  };
+}
 
 async function ignore<T>(p: PromiseLike<T>): Promise<T | null> {
   try {
@@ -94,24 +128,30 @@ export type AiUsageSummary = {
 async function computeAiUsage(
   supabase: SupabaseClient<Database>,
   brandId: string,
+  range: ResolvedRange,
 ): Promise<AiUsageSummary> {
   const res = await ignore(
     supabase
       .from("brand_ai_usage")
       .select("agent,cost_usd,created_at")
       .eq("brand_id", brandId)
-      .gte("created_at", sinceIso(30)),
+      .gte("created_at", range.fromIso)
+      .lte("created_at", range.toIso),
   );
   const rows = ((res?.data ?? []) as Array<{ agent: string | null; cost_usd: number | string | null; created_at: string }>).map(
     (r) => ({ agent: r.agent ?? "outros", cost: Number(r.cost_usd ?? 0), at: new Date(r.created_at).getTime() }),
   );
-  const now = Date.now();
   const cost30d = rows.reduce((s, r) => s + r.cost, 0);
-  const cost7d = rows.filter((r) => r.at > now - 7 * 86_400_000).reduce((s, r) => s + r.cost, 0);
+  const cutoff7d = range.toMs - 7 * 86_400_000;
+  const cost7d = rows
+    .filter((r) => r.at >= Math.max(cutoff7d, range.fromMs))
+    .reduce((s, r) => s + r.cost, 0);
   const jobs30d = rows.length;
-  const spark14d = Array.from({ length: 14 }, (_, i) => {
-    const start = now - (13 - i) * 86_400_000;
-    const end = start + 86_400_000;
+  const bucketCount = Math.max(1, Math.min(range.days, 60));
+  const bucketMs = (range.toMs - range.fromMs) / bucketCount;
+  const spark14d = Array.from({ length: bucketCount }, (_, i) => {
+    const start = range.fromMs + i * bucketMs;
+    const end = start + bucketMs;
     return rows.filter((r) => r.at >= start && r.at < end).reduce((s, r) => s + r.cost, 0);
   });
   const agg = new Map<string, { cost: number; jobs: number }>();
