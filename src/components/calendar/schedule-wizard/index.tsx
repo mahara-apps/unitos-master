@@ -366,6 +366,7 @@ export function ScheduleWizard({
           firstComment: firstComment.trim() || null,
           linkUrl: linkUrl.trim() || null,
           locationName: locationName.trim() || null,
+          locationId: locationId ?? null,
           destinations: pairs.map((p) => ({
             connectionId: p.connectionId,
             channel: p.channel,
