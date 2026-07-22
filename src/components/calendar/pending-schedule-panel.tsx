@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dashboard-primitives";
 import {
   deleteDraftPostFn,
+  deleteApprovedPostFn,
   listApprovedUnscheduledFn,
   listDraftsFn,
   type PendingSchedulePost,
@@ -116,14 +117,20 @@ export function PendingSchedulePanel({
   const listPending = useServerFn(listApprovedUnscheduledFn);
   const listDrafts = useServerFn(listDraftsFn);
   const deleteDraft = useServerFn(deleteDraftPostFn);
+  const deleteApproved = useServerFn(deleteApprovedPostFn);
   const queryClient = useQueryClient();
   const [pendingDelete, setPendingDelete] = useState<PendingSchedulePost | null>(null);
   const deleteMutation = useMutation({
     mutationFn: (postId: string) =>
-      deleteDraft({ data: { postId, brandId } }),
+      isDrafts
+        ? deleteDraft({ data: { postId, brandId } })
+        : deleteApproved({ data: { postId, brandId } }),
     onSuccess: () => {
-      toast.success("Rascunho excluído.");
-      queryClient.invalidateQueries({ queryKey: ["wizard-drafts", brandId, clientId] });
+      toast.success(isDrafts ? "Rascunho excluído." : "Post excluído.");
+      queryClient.invalidateQueries({
+        queryKey: [isDrafts ? "wizard-drafts" : "pending-schedule", brandId, clientId],
+      });
+      queryClient.invalidateQueries({ queryKey: ["calendar"] });
       setPendingDelete(null);
     },
     onError: (err) => toast.error(describeError(err)),
@@ -257,21 +264,19 @@ export function PendingSchedulePanel({
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    {isDrafts ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Excluir rascunho"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPendingDelete(p);
-                        }}
-                        className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    ) : null}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={isDrafts ? "Excluir rascunho" : "Excluir post"}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPendingDelete(p);
+                      }}
+                      className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 </li>
               );
@@ -285,10 +290,13 @@ export function PendingSchedulePanel({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir rascunho?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {isDrafts ? "Excluir rascunho?" : "Excluir post aprovado?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              O rascunho “{pendingDelete?.title}” será removido permanentemente.
-              Esta ação não pode ser desfeita.
+              {isDrafts
+                ? `O rascunho “${pendingDelete?.title}” será removido permanentemente. Esta ação não pode ser desfeita.`
+                : `O post “${pendingDelete?.title}” será removido permanentemente e não poderá mais ser agendado. Esta ação não pode ser desfeita.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
