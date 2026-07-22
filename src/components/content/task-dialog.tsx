@@ -427,6 +427,8 @@ function CreateBody({
           setState={setState}
           stages={stages}
           mode="create"
+          brandId={brandId}
+          clientId={clientId}
         />
       </div>
       <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border/60 bg-background/95 px-6 py-3 backdrop-blur">
