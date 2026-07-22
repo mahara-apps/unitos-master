@@ -539,7 +539,7 @@ export type AgencyDashboard = {
 
 async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashboard> {
   const { supabase } = ctx;
-  const [clientsRes, tasksRes, postsRes, briefingsRes, activityRes, upcomingRes, approvalsRes, approvalsAggRes, aiUsage] =
+  const [clientsRes, tasksRes, postsRes, briefingsRes, activityRes, upcomingRes, approvalsRes, approvalsAggRes, aiUsage, socialPublishedRes] =
     await Promise.all([
       ignore(
         supabase
@@ -599,6 +599,15 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
           .gte("updated_at", sinceIso(30)),
       ),
       computeAiUsage(supabase, brandId),
+      // Publicações realizadas pelo worker de agendamento (não gravam posts.published_at).
+      ignore(
+        supabase
+          .from("social_posts")
+          .select("id,post_id,provider,published_at,client_id")
+          .eq("brand_id", brandId)
+          .eq("status", "published")
+          .gte("published_at", sinceIso(14)),
+      ),
     ]);
 
   const clients = (clientsRes?.data ?? []) as Array<{ id: string; name: string; color: string | null }>;
