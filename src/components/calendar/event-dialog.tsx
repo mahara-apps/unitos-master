@@ -11,6 +11,16 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -29,6 +39,7 @@ import {
   type CalendarEvent,
 } from "@/lib/calendar-events.functions";
 import { useIsSuperAdmin } from "@/hooks/use-feature-access";
+import { describeError } from "@/lib/errors";
 
 export type EventDialogProps = {
   open: boolean;
@@ -81,6 +92,7 @@ export function EventDialog({
   const upsert = useServerFn(upsertCalendarEventFn);
   const del = useServerFn(deleteCalendarEventFn);
   const isEdit = !!event;
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const [type, setType] = useState<"appointment" | "seasonal">(
     event?.type ?? defaultType,
@@ -173,10 +185,9 @@ export function EventDialog({
     onSuccess: () => {
       toast.success(isEdit ? "Evento atualizado." : "Evento criado.");
       if (invalidateKey) qc.invalidateQueries({ queryKey: [...invalidateKey] as unknown[] });
-      qc.invalidateQueries({ queryKey: ["calendar-events"] });
       onOpenChange(false);
     },
-    onError: (e) => toast.error((e as Error).message || "Falha ao salvar."),
+    onError: (e) => toast.error(describeError(e)),
   });
 
   const delMut = useMutation({
@@ -187,10 +198,10 @@ export function EventDialog({
     onSuccess: () => {
       toast.success("Evento excluído.");
       if (invalidateKey) qc.invalidateQueries({ queryKey: [...invalidateKey] as unknown[] });
-      qc.invalidateQueries({ queryKey: ["calendar-events"] });
+      setConfirmDelete(false);
       onOpenChange(false);
     },
-    onError: (e) => toast.error((e as Error).message || "Falha ao excluir."),
+    onError: (e) => toast.error(describeError(e)),
   });
 
   const canGlobal = isSuper;
@@ -296,7 +307,7 @@ export function EventDialog({
                 variant="ghost"
                 size="sm"
                 className="text-destructive hover:text-destructive"
-                onClick={() => delMut.mutate()}
+                onClick={() => setConfirmDelete(true)}
                 disabled={delMut.isPending}
               >
                 {delMut.isPending ? (
@@ -315,7 +326,7 @@ export function EventDialog({
             <Button
               type="button"
               onClick={() => saveMut.mutate()}
-              disabled={saveMut.isPending}
+              disabled={saveMut.isPending || !title.trim()}
             >
               {saveMut.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
               {isEdit ? "Salvar" : "Criar"}
@@ -323,6 +334,35 @@ export function EventDialog({
           </div>
         </DialogFooter>
       </DialogContent>
+      <AlertDialog open={confirmDelete} onOpenChange={(o) => !delMut.isPending && setConfirmDelete(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir evento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O evento “{event?.title}” será removido permanentemente. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={delMut.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={delMut.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                delMut.mutate();
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {delMut.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> Excluindo…
+                </>
+              ) : (
+                "Excluir"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

@@ -64,13 +64,6 @@ export const listClientSocialConnectionsFn = createServerFn({ method: "GET" })
       .eq("brand_id", data.brandId)
       .in("id", ids)
       .eq("status", "active");
-    console.log("[wizard] listClientSocialConnections", {
-      brandId: data.brandId,
-      clientId: data.clientId,
-      rowsCount: rows?.length ?? 0,
-      rows,
-      error,
-    });
     if (error) throw new Error(error.message);
 
     return (rows ?? []).map((r) => {

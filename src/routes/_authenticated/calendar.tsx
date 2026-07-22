@@ -37,9 +37,23 @@ import { EventChip, type UnifiedEvent } from "@/components/calendar/event-chip";
 import { EventDialog } from "@/components/calendar/event-dialog";
 import { SocialIconsRow } from "@/components/calendar/social-icons-row";
 import { uniqueNetworks } from "@/lib/calendar-tokens";
+import { describeError } from "@/lib/errors";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   component: CalendarPage,
+  errorComponent: ({ error, reset }) => (
+    <div className="mx-auto max-w-lg space-y-3 rounded-lg border border-destructive/40 bg-destructive/5 p-6 text-sm">
+      <div className="font-semibold text-destructive">Não foi possível carregar o calendário.</div>
+      <div className="text-muted-foreground">{describeError(error)}</div>
+      <button
+        type="button"
+        onClick={() => reset()}
+        className="inline-flex items-center rounded-md border border-border/60 bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted"
+      >
+        Tentar novamente
+      </button>
+    </div>
+  ),
 });
 
 function startOfMonth(d: Date) {
@@ -89,7 +103,7 @@ function CalendarPage() {
         });
         setOpenPost({ ...p, pipeline_id: pipe.id });
       } catch (e) {
-        toast.error((e as Error).message || "Não foi possível abrir este conteúdo");
+        toast.error(describeError(e));
       } finally {
         setOpeningPost(false);
       }
@@ -120,7 +134,7 @@ function CalendarPage() {
         stages: board.stages,
       });
     } catch (e) {
-      toast.error((e as Error).message || "Falha ao preparar novo conteúdo");
+      toast.error(describeError(e));
     } finally {
       setCreating(false);
     }
@@ -213,7 +227,15 @@ function CalendarPage() {
   usePageHeader(
     {
       title: "Calendário",
-      subtitle: `${monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)} · ${q.data?.length ?? 0} posts agendados`,
+      subtitle: (() => {
+        const total = q.data?.length ?? 0;
+        const shown = filteredPosts.length;
+        const label =
+          formatFilter && shown !== total
+            ? `${shown} de ${total} posts agendados`
+            : `${total} posts agendados`;
+        return `${monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)} · ${label}`;
+      })(),
       actions: (
         <div className="flex items-center gap-2">
           <div className="flex items-center rounded-md border border-border/60 p-0.5">
@@ -246,7 +268,7 @@ function CalendarPage() {
             <Button variant="ghost" size="icon" className="h-9 w-9 rounded-r-none" onClick={() => setCursor((d) => addMonths(d, -1))}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" className="h-9 rounded-none border-x border-border/60" onClick={() => setCursor(startOfMonth(new Date()))}>
+            <Button variant="ghost" size="sm" className="h-9 rounded-none border-x border-border/60" onClick={() => { setCursor(startOfMonth(new Date())); setViewMode("month"); }}>
               Hoje
             </Button>
             <Button variant="ghost" size="icon" className="h-9 w-9 rounded-l-none" onClick={() => setCursor((d) => addMonths(d, 1))}>
@@ -320,6 +342,11 @@ function CalendarPage() {
   return (
     <TooltipProvider delayDuration={200}>
     <DashboardPageShell>
+      {q.isError || eventsQ.isError ? (
+        <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+          {describeError(q.error ?? eventsQ.error)}
+        </div>
+      ) : null}
       {/* Volumetria */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {volumetry.map((v) => (

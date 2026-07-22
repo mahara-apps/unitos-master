@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { describeError } from "@/lib/errors";
 import {
   CalendarClock,
   Check,
@@ -298,7 +299,7 @@ export function ScheduleWizard({
         qc.invalidateQueries({ queryKey: ["brand-media", brandId] });
         toast.success(`${uploaded.length} arquivo(s) enviados`);
       } catch (e) {
-        toast.error((e as Error).message);
+        toast.error(describeError(e));
       } finally {
         setUploading(false);
         if (uploadRef.current) uploadRef.current.value = "";
@@ -382,7 +383,7 @@ export function ScheduleWizard({
       onSaved?.();
       if (action !== "publish" || (res?.published ?? 0) > 0) onOpenChange(false);
     } catch (e) {
-      toast.error((e as Error).message || "Falha ao salvar agendamento");
+      toast.error(describeError(e));
     } finally {
       setSubmitting(null);
     }
