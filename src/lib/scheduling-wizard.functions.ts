@@ -424,6 +424,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             status: "scheduled",
             scheduled_at: scheduledIso,
             created_by: context.userId,
+            location_id: data.locationId ?? null,
           });
           if (spErr) throw new Error(spErr.message);
           enqueueResults.push({ channel: d.channel, format: d.format, ok: true });
@@ -528,6 +529,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
               post_id: postId,
               status: "publishing",
               created_by: context.userId,
+              location_id: data.locationId ?? null,
             })
             .select("id")
             .single();
