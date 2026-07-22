@@ -735,7 +735,7 @@ function UpcomingCard({
       {loading ? (
         <SkeletonList />
       ) : items.length === 0 ? (
-        <EmptyState icon={<CalendarClock className="h-5 w-5" />} text="Semana vazia. Bora produzir!" />
+        <EmptyState icon={<CalendarClock className="h-5 w-5" />} text="Nenhuma entrega nos próximos 7 dias." />
       ) : (
         <ul className="divide-y divide-border/40">
           {items.slice(0, 6).map((it) => (
@@ -1019,15 +1019,15 @@ function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           icon={<TrendingUp className="h-4 w-4" />}
-          label="Publicações aprovadas · 30d"
+          label="Publicações aprovadas"
           value={stats.data?.counts.posts_approved_30d ?? 0}
-          sub={`${stats.data?.counts.posts_total ?? 0} peças no total`}
+          sub={`${stats.data?.counts.posts_total ?? 0} peças no pipeline`}
           tone="emerald"
           spark={stats.data?.publishTrend14d}
         />
         <KpiCard
           icon={<CalendarClock className="h-4 w-4" />}
-          label="Agendadas · 7d"
+          label="Próximas agendadas"
           value={stats.data?.upcomingPosts.length ?? 0}
           sub={stats.data?.upcomingPosts[0]?.title ?? "Sem agendas"}
           tone="violet"
@@ -1043,7 +1043,7 @@ function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }
           icon={<AlertTriangle className="h-4 w-4" />}
           label="Tarefas atrasadas"
           value={stats.data?.counts.tasks_overdue ?? 0}
-          sub={`${stats.data?.counts.tasks_open ?? 0} abertas · ${stats.data?.counts.tasks_done_7d ?? 0} feitas 7d`}
+          sub={`${stats.data?.counts.tasks_open ?? 0} abertas · ${stats.data?.counts.tasks_done_7d ?? 0} feitas no período`}
           tone="rose"
         />
       </div>
