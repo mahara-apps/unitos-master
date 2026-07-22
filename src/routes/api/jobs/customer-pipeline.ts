@@ -308,7 +308,7 @@ async function runPhase1(params: {
 
     // Voice + Personas run in parallel (both depend only on the briefing).
     await patch({ progress: 20, step_label: "Modelando voz e personas" });
-    const [voiceRaw, personasRaw] = await Promise.all([
+    const settled = await Promise.allSettled([
       runStructured({
         system: P.voice,
         prompt: `Briefing estruturado:\n${JSON.stringify(briefing, null, 2)}`,
@@ -323,6 +323,14 @@ async function runPhase1(params: {
         strategic: true,
       }),
     ]);
+    if (settled[0].status === "rejected") {
+      throw new Error(`Falha ao gerar voz: ${(settled[0].reason as Error)?.message ?? settled[0].reason}`);
+    }
+    if (settled[1].status === "rejected") {
+      throw new Error(`Falha ao gerar personas: ${(settled[1].reason as Error)?.message ?? settled[1].reason}`);
+    }
+    const voiceRaw = settled[0].value;
+    const personasRaw = settled[1].value;
     const voice = normalizeVoicePayload(voiceRaw);
     const personas = normalizePersonasPayload(personasRaw);
     if (!personas.personas.length) throw new Error("Nenhuma persona gerada — tente novamente.");
@@ -384,6 +392,7 @@ async function runPhase1(params: {
       ].join("\n\n"),
       schema: SwotSchema,
       strategic: true,
+      modelOverride: OPERATIONAL_MODEL, // flash — schema pequeno, evita subrequest timeout
     });
     const swot = normalizeSwotPayload(swotRaw);
     await supabase
