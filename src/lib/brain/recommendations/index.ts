@@ -20,12 +20,15 @@ export async function list(
   ctx: BrainContext,
   opts: { limit?: number } = {},
 ): Promise<BrainRecommendationRow[]> {
-  const q = ctx.supabase
+  let q = ctx.supabase
     .from("brain_recommendations")
-    .select("recommendation_type, title, description, confidence, brand_id")
+    .select("recommendation_type, title, description, confidence, brand_id, client_id")
     .order("created_at", { ascending: false })
     .limit(opts.limit ?? 15);
-  const { data } = ctx.brandId ? await q.eq("brand_id", ctx.brandId) : await q;
+  if (ctx.brandId) q = q.eq("brand_id", ctx.brandId);
+  // Restringe por cliente ativo (ou recomendações genéricas sem client_id).
+  if (ctx.clientId) q = q.or(`client_id.eq.${ctx.clientId},client_id.is.null`);
+  const { data } = await q;
   return ((data ?? []) as Array<BrainRecommendationRow>).map((r) => ({
     recommendation_type: r.recommendation_type,
     title: r.title,
