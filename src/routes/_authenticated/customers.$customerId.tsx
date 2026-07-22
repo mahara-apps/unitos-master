@@ -46,7 +46,7 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
     z
       .object({
         onboarding: z.union([z.literal("1"), z.literal(1), z.boolean()]).optional(),
-        tab: z.enum(["overview", "brain", "channels", "cadastro"]).optional(),
+        tab: z.enum(["overview", "briefing", "brain", "channels", "cadastro"]).optional(),
       })
       .parse(s),
   component: CustomerDetail,
@@ -54,6 +54,7 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
 
 const ALL_TABS = [
   { value: "overview", label: "Visão geral" },
+  { value: "briefing", label: "Briefing & Estratégia" },
   { value: "brain", label: "Cérebro da Marca" },
   { value: "channels", label: "Canais" },
   { value: "cadastro", label: "Cadastro" },
