@@ -6,6 +6,12 @@ import { computeClientHealthScore } from "@/lib/client-health";
 const scope = z.object({
   brandId: z.string().uuid(),
   clientId: z.string().uuid(),
+  range: z
+    .object({
+      from: z.string().datetime().optional(),
+      to: z.string().datetime().optional(),
+    })
+    .optional(),
 });
 
 export type CustomerDashboardData = Awaited<ReturnType<typeof loadCustomerDashboardFn>>;
@@ -14,8 +20,20 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => scope.parse(i))
   .handler(async ({ data, context }) => {
-    const since14d = new Date(Date.now() - 14 * 24 * 3600 * 1000).toISOString();
-    const since30d = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+    const nowMs = Date.now();
+    const toMs = data.range?.to ? new Date(data.range.to).getTime() : nowMs;
+    const fromMs = data.range?.from
+      ? new Date(data.range.from).getTime()
+      : toMs - 30 * 86_400_000;
+    const safeFrom = Math.min(fromMs, toMs);
+    const rangeDays = Math.max(
+      1,
+      Math.min(90, Math.ceil((toMs - safeFrom) / 86_400_000) || 1),
+    );
+    const fromIso = new Date(safeFrom).toISOString();
+    const toIso = new Date(toMs).toISOString();
+    const midCut = Math.max(safeFrom, toMs - Math.floor(rangeDays / 2) * 86_400_000);
+    const midCutIso = new Date(midCut).toISOString();
 
     const [client, portalTokens, activity, pipelinesRes, tasks, usage, aiJobsCountRes, briefingRes] = await Promise.all([
       context.supabase
@@ -52,14 +70,16 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
         .from("brand_ai_usage")
         .select("cost_usd,created_at")
         .eq("brand_id", data.brandId)
-        .gte("created_at", since30d)
+        .gte("created_at", fromIso)
+        .lte("created_at", toIso)
         .order("created_at", { ascending: true }),
       context.supabase
         .from("ai_jobs")
         .select("id,kind,created_at")
         .eq("brand_id", data.brandId)
         .eq("client_id", data.clientId)
-        .gte("created_at", since30d),
+        .gte("created_at", fromIso)
+        .lte("created_at", toIso),
       context.supabase
         .from("client_briefings")
         .select("updated_at")
@@ -132,11 +152,11 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
     const stageById = new Map(stageRows.map((s) => [s.id, s]));
     const stageByKey = new Map(stageRows.map((s) => [s.key.toLowerCase(), s]));
 
-    // Bucket AI cost per-day (last 14d) for sparkline
-    const days: string[] = Array.from({ length: 14 }, (_, i) => {
-      const d = new Date();
+    // Bucket AI cost per-day across the selected range for sparkline
+    const sparkBuckets = Math.max(1, Math.min(rangeDays, 60));
+    const days: string[] = Array.from({ length: sparkBuckets }, (_, i) => {
+      const d = new Date(safeFrom + i * 86_400_000);
       d.setUTCHours(0, 0, 0, 0);
-      d.setUTCDate(d.getUTCDate() - (13 - i));
       return d.toISOString().slice(0, 10);
     });
     const bucket = new Map<string, number>(days.map((d) => [d, 0]));
@@ -147,7 +167,7 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
     const costSpark = Array.from(bucket.values());
     const costTotal30d = (usage.data ?? []).reduce((s, r) => s + Number(r.cost_usd ?? 0), 0);
     const costTotal14d = (usage.data ?? [])
-      .filter((r) => (r.created_at as string) >= since14d)
+      .filter((r) => (r.created_at as string) >= midCutIso)
       .reduce((s, r) => s + Number(r.cost_usd ?? 0), 0);
 
     // Count posts per real Kanban stage (id first, fallback to legacy text key).
@@ -195,7 +215,9 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
       .select("id", { count: "exact", head: true })
       .eq("brand_id", data.brandId)
       .eq("client_id", data.clientId)
-      .eq("status", "published");
+      .eq("status", "published")
+      .gte("published_at", fromIso)
+      .lte("published_at", toIso);
     // Fonte de verdade: social_posts. Fallback só quando não há nenhum registro
     // em social_posts (workspace sem conexões sociais), para não duplicar.
     const publishedPostsFallback = scopedPosts.filter((p) => p.published_at != null).length;

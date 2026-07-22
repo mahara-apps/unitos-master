@@ -11,7 +11,41 @@ type SupaCtx = { supabase: SupabaseClient<Database>; userId: string };
 const BrandInput = z.object({
   brandId: z.string().uuid(),
   clientId: z.string().uuid().nullable().optional(),
+  range: z
+    .object({
+      from: z.string().datetime().optional(),
+      to: z.string().datetime().optional(),
+    })
+    .optional(),
 });
+
+type ResolvedRange = {
+  fromIso: string;
+  toIso: string;
+  fromMs: number;
+  toMs: number;
+  days: number;
+};
+
+function resolveRange(input?: { from?: string; to?: string }): ResolvedRange {
+  const now = Date.now();
+  const toMs = input?.to ? new Date(input.to).getTime() : now;
+  const fromMs = input?.from
+    ? new Date(input.from).getTime()
+    : toMs - 30 * 86_400_000;
+  const safeFrom = Math.min(fromMs, toMs);
+  const days = Math.max(
+    1,
+    Math.min(90, Math.ceil((toMs - safeFrom) / 86_400_000) || 1),
+  );
+  return {
+    fromIso: new Date(safeFrom).toISOString(),
+    toIso: new Date(toMs).toISOString(),
+    fromMs: safeFrom,
+    toMs,
+    days,
+  };
+}
 
 async function ignore<T>(p: PromiseLike<T>): Promise<T | null> {
   try {
@@ -94,24 +128,30 @@ export type AiUsageSummary = {
 async function computeAiUsage(
   supabase: SupabaseClient<Database>,
   brandId: string,
+  range: ResolvedRange,
 ): Promise<AiUsageSummary> {
   const res = await ignore(
     supabase
       .from("brand_ai_usage")
       .select("agent,cost_usd,created_at")
       .eq("brand_id", brandId)
-      .gte("created_at", sinceIso(30)),
+      .gte("created_at", range.fromIso)
+      .lte("created_at", range.toIso),
   );
   const rows = ((res?.data ?? []) as Array<{ agent: string | null; cost_usd: number | string | null; created_at: string }>).map(
     (r) => ({ agent: r.agent ?? "outros", cost: Number(r.cost_usd ?? 0), at: new Date(r.created_at).getTime() }),
   );
-  const now = Date.now();
   const cost30d = rows.reduce((s, r) => s + r.cost, 0);
-  const cost7d = rows.filter((r) => r.at > now - 7 * 86_400_000).reduce((s, r) => s + r.cost, 0);
+  const cutoff7d = range.toMs - 7 * 86_400_000;
+  const cost7d = rows
+    .filter((r) => r.at >= Math.max(cutoff7d, range.fromMs))
+    .reduce((s, r) => s + r.cost, 0);
   const jobs30d = rows.length;
-  const spark14d = Array.from({ length: 14 }, (_, i) => {
-    const start = now - (13 - i) * 86_400_000;
-    const end = start + 86_400_000;
+  const bucketCount = Math.max(1, Math.min(range.days, 60));
+  const bucketMs = (range.toMs - range.fromMs) / bucketCount;
+  const spark14d = Array.from({ length: bucketCount }, (_, i) => {
+    const start = range.fromMs + i * bucketMs;
+    const end = start + bucketMs;
     return rows.filter((r) => r.at >= start && r.at < end).reduce((s, r) => s + r.cost, 0);
   });
   const agg = new Map<string, { cost: number; jobs: number }>();
@@ -132,8 +172,10 @@ async function computeStats(
   ctx: SupaCtx,
   brandId: string,
   clientId?: string | null,
+  rangeInput?: { from?: string; to?: string },
 ): Promise<DashboardStats> {
   const { supabase, userId } = ctx;
+  const range = resolveRange(rangeInput);
   const scope = <
     Q extends { eq: (col: string, val: string) => Q },
   >(
@@ -200,7 +242,8 @@ async function computeStats(
           .select("id", { count: "exact", head: true })
           .eq("brand_id", brandId)
           .eq("done", true)
-          .gte("done_at", sinceIso(7)),
+            .gte("done_at", range.fromIso)
+            .lte("done_at", range.toIso),
       ),
     ),
     ignore(
@@ -257,7 +300,8 @@ async function computeStats(
         .from("activity_events")
         .select("id,verb,entity_type,payload,created_at,actor_id,client_id")
         .eq("brand_id", brandId)
-        .gte("created_at", sinceIso(14))
+          .gte("created_at", range.fromIso)
+          .lte("created_at", range.toIso)
         .order("created_at", { ascending: false })
         .limit(200),
     ),
@@ -276,13 +320,15 @@ async function computeStats(
             .eq("status", "approved")
             .eq("posts.brand_id", brandId)
             .eq("posts.client_id", clientId)
-            .gte("updated_at", sinceIso(30))
+              .gte("created_at", range.fromIso)
+              .lte("created_at", range.toIso)
         : supabase
             .from("post_approvals")
             .select("id, posts!inner(brand_id)", { count: "exact", head: true })
             .eq("status", "approved")
             .eq("posts.brand_id", brandId)
-            .gte("updated_at", sinceIso(30))),
+              .gte("created_at", range.fromIso)
+              .lte("created_at", range.toIso)),
     ),
     ignore(
       scope(
@@ -290,10 +336,11 @@ async function computeStats(
           .from("posts")
           .select("id,channels,created_at,published_at")
           .eq("brand_id", brandId)
-          .gte("created_at", sinceIso(60)),
+            .gte("created_at", range.fromIso)
+            .lte("created_at", range.toIso),
       ),
     ),
-    computeAiUsage(supabase, brandId),
+      computeAiUsage(supabase, brandId, range),
     // Fonte adicional de publicações realizadas: worker de agendamento grava aqui,
     // não em posts.published_at. Necessário para o Ritmo de publicações refletir a realidade.
     ignore(
@@ -303,7 +350,8 @@ async function computeStats(
           .select("id,post_id,provider,published_at")
           .eq("brand_id", brandId)
           .eq("status", "published")
-          .gte("published_at", sinceIso(14)),
+            .gte("published_at", range.fromIso)
+            .lte("published_at", range.toIso),
       ),
     ),
   ]);
@@ -311,9 +359,11 @@ async function computeStats(
   const activityAll = (activityRes?.data ?? []) as ActivityEvent[];
   const activity = clientId ? activityAll.filter((a) => a.client_id === clientId) : activityAll;
 
-  const sparkline = Array.from({ length: 14 }, (_, i) => {
-    const start = Date.now() - (13 - i) * 86_400_000;
-    const end = start + 86_400_000;
+  const sparkBuckets = Math.max(1, Math.min(range.days, 60));
+  const sparkStep = (range.toMs - range.fromMs) / sparkBuckets;
+  const sparkline = Array.from({ length: sparkBuckets }, (_, i) => {
+    const start = range.fromMs + i * sparkStep;
+    const end = start + sparkStep;
     return activity.filter((a) => {
       const t = new Date(a.created_at).getTime();
       return t >= start && t < end;
@@ -414,12 +464,11 @@ async function computeStats(
     if (!sp.provider) continue;
     channelCounts[sp.provider] = (channelCounts[sp.provider] ?? 0) + 1;
   }
-  const nowMs = Date.now();
   // publishTrend14d = união de posts.published_at (fluxo "Publicar agora") +
-  // social_posts.published_at (worker de agendamento). Deduplica por post_id no mesmo dia.
-  const publishTrend14d = Array.from({ length: 14 }, (_, i) => {
-    const start = nowMs - (13 - i) * 86_400_000;
-    const end = start + 86_400_000;
+  // social_posts.published_at (worker de agendamento). Deduplica por post_id no mesmo bucket.
+  const publishTrend14d = Array.from({ length: sparkBuckets }, (_, i) => {
+    const start = range.fromMs + i * sparkStep;
+    const end = start + sparkStep;
     const seen = new Set<string>();
     for (const p of postsFull) {
       if (!p.published_at) continue;
@@ -475,7 +524,7 @@ export const getDashboardStats = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => BrandInput.parse(input))
   .handler(async ({ data, context }) =>
-    computeStats(context, data.brandId, data.clientId ?? null),
+    computeStats(context, data.brandId, data.clientId ?? null, data.range),
   );
 
 // ==================== Agency dashboard ====================
@@ -537,8 +586,13 @@ export type AgencyDashboard = {
   topChannels: Array<{ channel: string; count: number }>;
 };
 
-async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashboard> {
+async function computeAgency(
+  ctx: SupaCtx,
+  brandId: string,
+  rangeInput?: { from?: string; to?: string },
+): Promise<AgencyDashboard> {
   const { supabase } = ctx;
+  const range = resolveRange(rangeInput);
   const [clientsRes, tasksRes, postsRes, briefingsRes, activityRes, upcomingRes, approvalsRes, approvalsAggRes, aiUsage, socialPublishedRes] =
     await Promise.all([
       ignore(
@@ -566,7 +620,8 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
           .from("activity_events")
           .select("id,created_at,client_id")
           .eq("brand_id", brandId)
-          .gte("created_at", sinceIso(60))
+          .gte("created_at", range.fromIso)
+          .lte("created_at", range.toIso)
           .order("created_at", { ascending: false })
           .limit(1000),
       ),
@@ -596,9 +651,10 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
           .from("post_approvals")
           .select("id,status,updated_at,posts!inner(brand_id)")
           .eq("posts.brand_id", brandId)
-          .gte("updated_at", sinceIso(30)),
+          .gte("created_at", range.fromIso)
+          .lte("created_at", range.toIso),
       ),
-      computeAiUsage(supabase, brandId),
+      computeAiUsage(supabase, brandId, range),
       // Publicações realizadas pelo worker de agendamento (não gravam posts.published_at).
       ignore(
         supabase
@@ -606,7 +662,8 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
           .select("id,post_id,provider,published_at,client_id")
           .eq("brand_id", brandId)
           .eq("status", "published")
-          .gte("published_at", sinceIso(14)),
+          .gte("published_at", range.fromIso)
+          .lte("published_at", range.toIso),
       ),
     ]);
 
@@ -656,9 +713,7 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
     updated_at: string;
   }>;
   const approvalsPendingReal = approvalRows.filter((a) => a.status === "pending").length;
-  const postsApproved30dReal = approvalRows.filter(
-    (a) => a.status === "approved" && new Date(a.updated_at).getTime() > now - 30 * 86_400_000,
-  ).length;
+  const postsApproved30dReal = approvalRows.filter((a) => a.status === "approved").length;
 
   const counts: DashboardStats["counts"] = {
     clients: clients.length,
@@ -668,25 +723,33 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
       (t) => !t.done && t.due_at && new Date(t.due_at).getTime() < now,
     ).length,
     tasks_done_7d: tasks.filter(
-      (t) => t.done && t.done_at && new Date(t.done_at).getTime() > now - 7 * 86_400_000,
+      (t) =>
+        t.done &&
+        t.done_at &&
+        new Date(t.done_at).getTime() >= range.fromMs &&
+        new Date(t.done_at).getTime() <= range.toMs,
     ).length,
     posts_total: posts.length,
     approvals_pending: approvalsPendingReal,
     posts_approved_30d: postsApproved30dReal,
   };
 
-  const sparkline = Array.from({ length: 14 }, (_, i) => {
-    const start = now - (13 - i) * 86_400_000;
-    const end = start + 86_400_000;
+  const sparkBuckets = Math.max(1, Math.min(range.days, 60));
+  const sparkStep = (range.toMs - range.fromMs) / sparkBuckets;
+  const sparkline = Array.from({ length: sparkBuckets }, (_, i) => {
+    const start = range.fromMs + i * sparkStep;
+    const end = start + sparkStep;
     return activity.filter((a) => {
       const t = new Date(a.created_at).getTime();
       return t >= start && t < end;
     }).length;
   });
 
-  const heatmap = Array.from({ length: 60 }, (_, i) => {
-    const start = now - (59 - i) * 86_400_000;
-    const end = start + 86_400_000;
+  const heatBuckets = Math.max(7, Math.min(range.days, 60));
+  const heatStep = (range.toMs - range.fromMs) / heatBuckets;
+  const heatmap = Array.from({ length: heatBuckets }, (_, i) => {
+    const start = range.fromMs + i * heatStep;
+    const end = start + heatStep;
     return posts.filter((p) => {
       if (!p.published_at) return false;
       const t = new Date(p.published_at).getTime();
@@ -897,10 +960,10 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
     (a, b) => a.position - b.position,
   );
 
-  // União posts.published_at + social_posts.published_at (worker). Dedupe por post_id/dia.
-  const publishTrend14d = Array.from({ length: 14 }, (_, i) => {
-    const start = now - (13 - i) * 86_400_000;
-    const end = start + 86_400_000;
+  // União posts.published_at + social_posts.published_at (worker). Dedupe por post_id/bucket.
+  const publishTrend14d = Array.from({ length: sparkBuckets }, (_, i) => {
+    const start = range.fromMs + i * sparkStep;
+    const end = start + sparkStep;
     const seen = new Set<string>();
     for (const p of posts) {
       if (!p.published_at) continue;
@@ -963,8 +1026,20 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
 
 export const getAgencyDashboardFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ brandId: z.string().uuid() }).parse(input))
-  .handler(async ({ data, context }) => computeAgency(context, data.brandId));
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        range: z
+          .object({
+            from: z.string().datetime().optional(),
+            to: z.string().datetime().optional(),
+          })
+          .optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => computeAgency(context, data.brandId, data.range));
 
 // ==================== AI Insights ====================
 
