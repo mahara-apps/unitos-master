@@ -1099,11 +1099,11 @@ function TaskLayout({
                         ? CHANNEL_STYLES[row.channel] ?? "border-primary bg-primary/10 text-foreground"
                         : "border-border/60 bg-background/60 text-muted-foreground hover:border-border hover:text-foreground"
                     }`}
-                    title={row.accountName ?? row.channel}
+                    title={row.accountLabel ?? row.channel}
                   >
                     {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
                     <span className="truncate max-w-[140px]">
-                      {row.accountName ?? meta?.label ?? row.channel}
+                      {row.accountLabel ?? meta?.label ?? row.channel}
                     </span>
                   </button>
                 );
