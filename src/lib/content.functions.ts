@@ -977,9 +977,12 @@ export const uploadPostReferenceMediaFn = createServerFn({ method: "POST" })
     if (bin.byteLength > maxBytes) throw new Error("file_too_large");
     const safeName = data.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
     const subdir = data.variant === "thumb" ? "thumbs/" : "";
+    // Unificado com o pipeline de publicação: sempre gravar em `brand-media`
+    // para que qualquer mídia de referência do Kanban possa ser reaproveitada
+    // diretamente pelo agendador/publicador via storagePath.
     const path = `${post.brand_id}/${post.client_id}/posts/${post.id}/${subdir}${Date.now()}-${safeName}`;
     const { error: ue } = await context.supabase.storage
-      .from("brand-assets")
+      .from("brand-media")
       .upload(path, bin, { contentType: data.contentType, upsert: false });
     if (ue) throw ue;
 
@@ -999,11 +1002,11 @@ export const uploadPostReferenceMediaFn = createServerFn({ method: "POST" })
     if (data.variant === "thumb" && data.originalPath) {
       // Attach thumb to existing entry identified by originalPath
       next = current.map((r) =>
-        r?.path === data.originalPath ? { ...r, thumb_path: path } : r,
+        r?.path === data.originalPath ? { ...r, thumb_path: path, bucket: "brand-media" } : r,
       );
-      entry = { path, thumb_path: path, originalPath: data.originalPath };
+      entry = { path, thumb_path: path, originalPath: data.originalPath, bucket: "brand-media" } as MediaEntry & { bucket: string };
     } else {
-      entry = { path, name: data.filename, type: data.contentType, size: bin.byteLength };
+      entry = { path, name: data.filename, type: data.contentType, size: bin.byteLength, bucket: "brand-media" } as MediaEntry & { bucket: string };
       next = [...current, entry];
     }
     const { error: upErr } = await context.supabase
@@ -1013,7 +1016,7 @@ export const uploadPostReferenceMediaFn = createServerFn({ method: "POST" })
     if (upErr) throw upErr;
 
     const { data: signed } = await context.supabase.storage
-      .from("brand-assets")
+      .from("brand-media")
       .createSignedUrl(path, 60 * 60 * 24 * 7);
     return { path, url: signed?.signedUrl ?? null, entry };
   });
@@ -1031,10 +1034,12 @@ export const removePostReferenceMediaFn = createServerFn({ method: "POST" })
       .single();
     if (pe || !post) throw pe ?? new Error("Post not found");
 
-    await context.supabase.storage.from("brand-assets").remove([data.path]);
     const current = Array.isArray(post.reference_media)
       ? (post.reference_media as Array<Record<string, unknown>>)
       : [];
+    const entry = current.find((r) => r?.path === data.path);
+    const bucket = (typeof entry?.bucket === "string" ? (entry.bucket as string) : null) ?? "brand-assets";
+    await context.supabase.storage.from(bucket).remove([data.path]);
     const next = current.filter((r) => r?.path !== data.path);
     const { error } = await context.supabase
       .from("posts")
@@ -1051,13 +1056,28 @@ export const signPostReferenceMediaFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     if (data.paths.length === 0) return { urls: {} as Record<string, string> };
-    const { data: signed } = await context.supabase.storage
-      .from("brand-assets")
-      .createSignedUrls(data.paths, 60 * 60);
+    // Buckets legados (brand-assets) e novo bucket unificado (brand-media)
+    // coexistem — tentamos primeiro brand-media e recorremos ao legado para
+    // os paths que ainda não migraram.
     const urls: Record<string, string> = {};
-    (signed ?? []).forEach((s) => {
-      if (s.path && s.signedUrl) urls[s.path] = s.signedUrl;
+    const remaining = new Set(data.paths);
+    const { data: signedNew } = await context.supabase.storage
+      .from("brand-media")
+      .createSignedUrls(data.paths, 60 * 60);
+    (signedNew ?? []).forEach((s) => {
+      if (s.path && s.signedUrl && !s.error) {
+        urls[s.path] = s.signedUrl;
+        remaining.delete(s.path);
+      }
     });
+    if (remaining.size > 0) {
+      const { data: signedLegacy } = await context.supabase.storage
+        .from("brand-assets")
+        .createSignedUrls(Array.from(remaining), 60 * 60);
+      (signedLegacy ?? []).forEach((s) => {
+        if (s.path && s.signedUrl && !s.error) urls[s.path] = s.signedUrl;
+      });
+    }
     return { urls };
   });
 
