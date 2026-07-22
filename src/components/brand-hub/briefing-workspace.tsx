@@ -15,6 +15,9 @@ import {
   Upload,
   X,
   Minus,
+  Instagram as InstagramIcon,
+  Palette as PaletteIcon,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
