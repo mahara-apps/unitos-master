@@ -353,6 +353,9 @@ function CreateBody({
           stageId: state.stageId,
           title: state.title.trim(),
           channels: state.channels.length ? state.channels : undefined,
+          target_connection_ids: state.targetConnectionIds.length
+            ? state.targetConnectionIds
+            : undefined,
           format: state.format || null,
           copy: state.copy.trim() || null,
           internal_briefing: state.internalBriefing.trim() || null,
