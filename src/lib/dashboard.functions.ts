@@ -399,19 +399,40 @@ async function computeStats(
     created_at: string;
     published_at: string | null;
   }>;
+  const socialPublished = (socialPublishedRes?.data ?? []) as Array<{
+    id: string;
+    post_id: string | null;
+    provider: string | null;
+    published_at: string | null;
+  }>;
   const channelCounts: Record<string, number> = {};
   for (const p of postsFull) {
     for (const ch of p.channels ?? []) channelCounts[ch] = (channelCounts[ch] ?? 0) + 1;
   }
+  // Enriquecer com provider real dos posts publicados via worker (não gravam posts.channels legado).
+  for (const sp of socialPublished) {
+    if (!sp.provider) continue;
+    channelCounts[sp.provider] = (channelCounts[sp.provider] ?? 0) + 1;
+  }
   const nowMs = Date.now();
+  // publishTrend14d = união de posts.published_at (fluxo "Publicar agora") +
+  // social_posts.published_at (worker de agendamento). Deduplica por post_id no mesmo dia.
   const publishTrend14d = Array.from({ length: 14 }, (_, i) => {
     const start = nowMs - (13 - i) * 86_400_000;
     const end = start + 86_400_000;
-    return postsFull.filter((p) => {
-      if (!p.published_at) return false;
+    const seen = new Set<string>();
+    for (const p of postsFull) {
+      if (!p.published_at) continue;
       const t = new Date(p.published_at).getTime();
-      return t >= start && t < end;
-    }).length;
+      if (t >= start && t < end) seen.add(`post|${p.id}`);
+    }
+    for (const sp of socialPublished) {
+      if (!sp.published_at) continue;
+      const t = new Date(sp.published_at).getTime();
+      if (t < start || t >= end) continue;
+      seen.add(sp.post_id ? `post|${sp.post_id}` : `sp|${sp.id}`);
+    }
+    return seen.size;
   });
   const publishedWithLead = postsFull.filter((p) => p.published_at);
   const avgLeadTimeDays =
