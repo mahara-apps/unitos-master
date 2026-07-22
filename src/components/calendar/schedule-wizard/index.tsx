@@ -699,7 +699,7 @@ export function ScheduleWizard({
                       </Label>
                       <LocationCombobox
                         brandId={brandId}
-                        instagramConnectionId={instagramConn?.id ?? null}
+                        instagramConnectionId={instagramConn?.connectionId ?? null}
                         value={locationName}
                         onChange={(name, id) => {
                           setLocationName(name);
