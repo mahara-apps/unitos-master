@@ -70,8 +70,14 @@ import {
   registerBrandMediaFn,
   type BrandMediaAsset,
 } from "@/lib/brand-media.functions";
+import { searchInstagramLocationsFn } from "@/lib/meta/locations.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "@tanstack/react-router";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 function slugifyMediaName(name: string) {
   return name
