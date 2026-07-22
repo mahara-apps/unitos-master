@@ -17,6 +17,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useState } from "react";
 import { toast } from "sonner";
+import { describeError } from "@/lib/errors";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -66,16 +67,17 @@ const FORMAT_LABELS: Record<string, string> = {
   carrossel: "Carrossel",
 };
 
-// Cores oficiais por rede — badge colorido para leitura rápida.
+// Estilos por rede — usam tokens/utilitários do design system (sem hex hardcoded)
+// para respeitar temas light/dark.
 const CHANNEL_STYLES: Record<string, string> = {
   instagram:
-    "border-transparent bg-gradient-to-r from-[#f58529] via-[#dd2a7b] to-[#8134af] text-white",
-  facebook: "border-transparent bg-[#1877F2] text-white",
-  linkedin: "border-transparent bg-[#0A66C2] text-white",
-  youtube: "border-transparent bg-[#FF0000] text-white",
-  tiktok: "border-transparent bg-black text-white dark:bg-white dark:text-black",
-  x: "border-transparent bg-black text-white dark:bg-white dark:text-black",
-  threads: "border-transparent bg-black text-white dark:bg-white dark:text-black",
+    "border-transparent bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 text-white",
+  facebook: "border-transparent bg-blue-600 text-white",
+  linkedin: "border-transparent bg-sky-700 text-white",
+  youtube: "border-transparent bg-red-600 text-white",
+  tiktok: "border-transparent bg-foreground text-background",
+  x: "border-transparent bg-foreground text-background",
+  threads: "border-transparent bg-foreground text-background",
 };
 
 const FORMAT_STYLES: Record<string, string> = {
@@ -124,7 +126,7 @@ export function PendingSchedulePanel({
       queryClient.invalidateQueries({ queryKey: ["wizard-drafts", brandId, clientId] });
       setPendingDelete(null);
     },
-    onError: (err: Error) => toast.error(err.message || "Falha ao excluir rascunho."),
+    onError: (err) => toast.error(describeError(err)),
   });
   const q = useQuery({
     enabled: !!brandId,
@@ -162,6 +164,10 @@ export function PendingSchedulePanel({
       {q.isLoading ? (
         <div className="flex items-center gap-2 px-4 py-6 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
+        </div>
+      ) : q.isError ? (
+        <div className="px-4 py-6 text-center text-xs text-destructive">
+          {describeError(q.error)}
         </div>
       ) : !q.data?.length ? (
         <div className="px-4 py-6 text-center text-xs text-muted-foreground">
