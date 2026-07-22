@@ -50,10 +50,10 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Settings2, AlarmClock } from "lucide-react";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import {
-import { describeError } from "@/lib/errors";
   DashboardCountBadge,
   DashboardPanelSurface,
 } from "@/components/ui/dashboard-primitives";
+import { describeError } from "@/lib/errors";
 
 // Dot de cor da coluna — segue paleta semântica do DESIGN_SYSTEM.
 // (`cyan` mapeado para `sky` para manter uma cor = um significado.)
