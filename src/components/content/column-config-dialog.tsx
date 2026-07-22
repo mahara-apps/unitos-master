@@ -41,6 +41,7 @@ import {
 } from "@/lib/content.functions";
 import { STAGE_BG } from "./stage-colors";
 import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
+import { describeError } from "@/lib/errors";
 
 type Props = {
   open: boolean;
@@ -87,7 +88,7 @@ export function ColumnConfigDialog({
       qc.invalidateQueries({ queryKey: invalidateKey });
       onOpenChange(false);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(describeError(e)),
   });
 
   async function patchStage(stageId: string, patch: Partial<PipelineStage>) {
@@ -102,7 +103,7 @@ export function ColumnConfigDialog({
       setItems((prev) => prev.filter((s) => s.id !== stageId));
       qc.invalidateQueries({ queryKey: invalidateKey });
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeError(e));
     }
   }
 
@@ -112,7 +113,7 @@ export function ColumnConfigDialog({
       setItems((prev) => [...prev, st]);
       qc.invalidateQueries({ queryKey: invalidateKey });
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(describeError(e));
     }
   }
 

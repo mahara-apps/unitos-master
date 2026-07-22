@@ -80,6 +80,7 @@ import { type PlacementFormat } from "@/lib/placements.functions";
 import { listProjects } from "@/lib/projects.functions";
 import { FolderKanban } from "lucide-react";
 import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
+import { describeError } from "@/lib/errors";
 
 // UI helpers to bridge display strings ("Feed"/"Story"/"Reels"/"Carrossel")
 // used elsewhere in this component with the DB enum used by placements.
@@ -175,7 +176,7 @@ function QuickApprovalLinkButton({ postId }: { postId: string }) {
       toast.success("Link de aprovação copiado");
       qc.invalidateQueries({ queryKey: ["approval-tokens", postId] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(describeError(e)),
   });
   return (
     <Button
@@ -383,7 +384,7 @@ function CreateBody({
       if (state.projectId) qc.invalidateQueries({ queryKey: ["project", brandId, state.projectId] });
       onOpenChange(false);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(describeError(e)),
   });
 
   return (
@@ -548,7 +549,7 @@ function EditBody({
       if (state.projectId) qc.invalidateQueries({ queryKey: ["project", brandId, state.projectId] });
       onOpenChange(false);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(describeError(e)),
   });
 
   const remove = useMutation({
@@ -558,7 +559,7 @@ function EditBody({
       qc.invalidateQueries({ queryKey: invalidateKey });
       onOpenChange(false);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(describeError(e)),
   });
 
   const rework = useMutation({
@@ -569,7 +570,7 @@ function EditBody({
       qc.invalidateQueries({ queryKey: ["post-detail", postId] });
       onOpenChange(false);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(describeError(e)),
   });
 
   const approveOnly = useMutation({
@@ -580,7 +581,7 @@ function EditBody({
       qc.invalidateQueries({ queryKey: invalidateKey });
       qc.invalidateQueries({ queryKey: ["post-detail", postId] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(describeError(e)),
   });
 
   // Autosave apenas do campo copy (Hook/Headline/Copy/CTA/Hashtags serializados)
@@ -683,7 +684,7 @@ function EditBody({
       }
       qc.invalidateQueries({ queryKey: ["post-detail", postId] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(describeError(e)),
   });
 
   const removeMedia = useMutation({
@@ -691,7 +692,7 @@ function EditBody({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["post-detail", postId] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(describeError(e)),
   });
 
   const generateMedia = useMutation({
@@ -700,7 +701,7 @@ function EditBody({
       toast.success("Imagem gerada pela IA");
       qc.invalidateQueries({ queryKey: ["post-detail", postId] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(describeError(e)),
   });
 
   async function handleApproveAndGenerate() {
@@ -1436,7 +1437,7 @@ function AiFieldButton({
       onText(r.text);
       toast.success(`${label} gerado`);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(describeError(e)),
   });
   const cls =
     size === "xs"
@@ -1476,13 +1477,13 @@ function ApprovalLinkSection({ postId }: { postId: string }) {
       toast.success("Link de aprovação gerado");
       qc.invalidateQueries({ queryKey: ["approval-tokens", postId] });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(describeError(e)),
   });
   const revoke = useMutation({
     mutationFn: (tokenId: string) => revokeTok({ data: { tokenId } }),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: ["approval-tokens", postId] }),
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(describeError(e)),
   });
 
   const active = useMemo(
@@ -1712,7 +1713,7 @@ function MicroAiButton({
       onText(r.text);
       toast.success("Atualizado com IA");
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(describeError(e)),
   });
   const Icon = icon === "sparkles" ? Sparkles : Wand2;
   return (

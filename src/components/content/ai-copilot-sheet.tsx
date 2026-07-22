@@ -19,6 +19,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { ContextSourceBadge } from "@/components/ai-agents/context-source-badge";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
+import { describeError } from "@/lib/errors";
 
 type ContentType = "reel" | "carousel" | "image" | "short_copy";
 type Channel = "instagram" | "tiktok" | "linkedin";
@@ -97,7 +98,7 @@ export function AiCopilotSheet({
       setBriefing("");
       onOpenChange(false);
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(describeError(e)),
   });
 
   const canGenerate = Boolean(brandId && clientId && briefing.trim().length >= 4 && channels.length && !enqueueMut.isPending);

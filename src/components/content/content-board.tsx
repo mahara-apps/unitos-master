@@ -50,6 +50,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Settings2, AlarmClock } from "lucide-react";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import {
+import { describeError } from "@/lib/errors";
   DashboardCountBadge,
   DashboardPanelSurface,
 } from "@/components/ui/dashboard-primitives";
@@ -179,7 +180,7 @@ export function ContentBoard({ board, boardQueryKey, onOpenPost, onConfigureColu
     mutationFn: (v: { postId: string; toStageId: string; toPosition: number }) =>
       movePost({ data: v }),
     onError: (e: Error) => {
-      toast.error(e.message);
+      toast.error(describeError(e));
       qc.invalidateQueries({ queryKey: boardQueryKey });
     },
     onSuccess: () => {
@@ -229,7 +230,7 @@ export function ContentBoard({ board, boardQueryKey, onOpenPost, onConfigureColu
   const addStage = useMutation({
     mutationFn: () => createStage({ data: { pipelineId: board.pipeline.id, label: "Nova coluna", color: "muted" } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: boardQueryKey }),
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(describeError(e)),
   });
 
   const [creatingIn, setCreatingIn] = useState<string | null>(null);
@@ -249,7 +250,7 @@ export function ContentBoard({ board, boardQueryKey, onOpenPost, onConfigureColu
       setCreatingIn(null);
       qc.invalidateQueries({ queryKey: boardQueryKey });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => toast.error(describeError(e)),
   });
 
   return (
@@ -274,7 +275,7 @@ export function ContentBoard({ board, boardQueryKey, onOpenPost, onConfigureColu
               .then(() => qc.invalidateQueries({ queryKey: boardQueryKey }))}
             onDelete={() => deleteStage({ data: { stageId: stage.id } })
               .then(() => qc.invalidateQueries({ queryKey: boardQueryKey }))
-              .catch((e: Error) => toast.error(e.message))}
+              .catch((e: Error) => toast.error(describeError(e)))}
             creating={creatingIn === stage.id}
             onStartCreate={() => setCreatingIn(stage.id)}
             onCancelCreate={() => setCreatingIn(null)}
