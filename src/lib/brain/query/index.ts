@@ -20,9 +20,28 @@ export async function semantic(
   const { data } = await ctx.supabase.rpc("match_brain_events", {
     _brand_id: ctx.brandId,
     _query: vec as unknown as string,
-    _match_count: args.matchCount ?? 6,
+    // Se houver cliente ativo, pedimos mais candidatos porque vamos filtrar
+    // por client_id abaixo (o RPC não conhece client_id).
+    _match_count: (args.matchCount ?? 6) * (ctx.clientId ? 4 : 1),
   });
-  return ((data ?? []) as Array<SemanticMemoryHit>).map((r) => ({
+  const rows = (data ?? []) as Array<SemanticMemoryHit & { event_id?: string }>;
+  let filtered = rows;
+  if (ctx.clientId && rows.length) {
+    const ids = rows.map((r) => r.event_id).filter((v): v is string => Boolean(v));
+    if (ids.length) {
+      const { data: scoped } = await ctx.supabase
+        .from("brain_events")
+        .select("id, client_id")
+        .in("id", ids);
+      const allow = new Set(
+        ((scoped ?? []) as Array<{ id: string; client_id: string | null }>)
+          .filter((e) => e.client_id === ctx.clientId || e.client_id === null)
+          .map((e) => e.id),
+      );
+      filtered = rows.filter((r) => r.event_id && allow.has(r.event_id));
+    }
+  }
+  return filtered.slice(0, args.matchCount ?? 6).map((r) => ({
     content_summary: r.content_summary,
     similarity: r.similarity,
     event_type: r.event_type,
