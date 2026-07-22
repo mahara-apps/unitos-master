@@ -238,25 +238,43 @@ function AgencyMode({ brandId }: { brandId: string }) {
         </div>
       )}
 
-      {/* Balanced 2-col masonry — CSS columns auto-equalize column heights. */}
-      <div className="gap-4 lg:columns-2 [&>*]:mb-4 [&>*]:break-inside-avoid">
-        <ClientHealthRanking healths={d?.healths ?? []} loading={q.isLoading} />
-        <ApprovalsQueueCard items={d?.approvalsQueue ?? []} loading={q.isLoading} />
-        <AiUsageCard usage={d?.aiUsage} />
-        <FunnelCard
-          stages={d?.pipelineStages ?? []}
-          postsByStage={d?.postsByStage ?? {}}
-          avgLead={d?.avgLeadTimeDays ?? null}
-        />
-        <PublishTrendCard
-          trend={d?.publishTrend14d ?? []}
-          channels={d?.topChannels ?? []}
-          rangeDays={d?.rangeDays ?? 30}
-        />
-        <TaskDistributionCard buckets={d?.tasksByBucket} loading={q.isLoading} />
-        <ApprovalsByClientCard rows={d?.approvalsByClient ?? []} loading={q.isLoading} />
-        <UpcomingCard items={d?.upcoming ?? []} loading={q.isLoading} />
-        <ChannelMixCard channels={d?.topChannels ?? []} />
+      {/* Grid rígido 2-col com alturas fixas e scroll interno por widget. */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="h-[520px]">
+          <ClientHealthRanking healths={d?.healths ?? []} loading={q.isLoading} />
+        </div>
+        <div className="h-[520px]">
+          <AiUsageCard usage={d?.aiUsage} />
+        </div>
+        <div className="h-[420px]">
+          <FunnelCard
+            stages={d?.pipelineStages ?? []}
+            postsByStage={d?.postsByStage ?? {}}
+            avgLead={d?.avgLeadTimeDays ?? null}
+          />
+        </div>
+        <div className="h-[420px]">
+          <ApprovalsQueueCard items={d?.approvalsQueue ?? []} loading={q.isLoading} />
+        </div>
+        <div className="h-[420px]">
+          <PublishTrendCard
+            trend={d?.publishTrend14d ?? []}
+            channels={d?.topChannels ?? []}
+            rangeDays={d?.rangeDays ?? 30}
+          />
+        </div>
+        <div className="h-[420px]">
+          <ApprovalsByClientCard rows={d?.approvalsByClient ?? []} loading={q.isLoading} />
+        </div>
+        <div className="h-[340px]">
+          <TaskDistributionCard buckets={d?.tasksByBucket} loading={q.isLoading} />
+        </div>
+        <div className="h-[340px]">
+          <UpcomingCard items={d?.upcoming ?? []} loading={q.isLoading} />
+        </div>
+        <div className="h-[340px] lg:col-span-2">
+          <ChannelMixCard channels={d?.topChannels ?? []} />
+        </div>
       </div>
     </div>
   );
