@@ -234,6 +234,7 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 ))}
                 {idx === 0 && activeClient ? (
+                  <>
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
@@ -302,6 +303,7 @@ export function AppSidebar() {
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
+                  </>
                 ) : null}
               </SidebarMenu>
             </SidebarGroupContent>
