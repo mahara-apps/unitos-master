@@ -498,7 +498,7 @@ export type AgencyDashboard = {
 
 async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashboard> {
   const { supabase } = ctx;
-  const [clientsRes, tasksRes, postsRes, briefingsRes, activityRes, upcomingRes, approvalsRes, aiUsage] =
+  const [clientsRes, tasksRes, postsRes, briefingsRes, activityRes, upcomingRes, approvalsRes, approvalsAggRes, aiUsage] =
     await Promise.all([
       ignore(
         supabase
@@ -549,6 +549,14 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
           .order("updated_at", { ascending: true })
           .limit(12),
       ),
+      // post_approvals (fonte de verdade) — join com posts para escopar por brand.
+      ignore(
+        supabase
+          .from("post_approvals")
+          .select("id,status,updated_at,posts!inner(brand_id)")
+          .eq("posts.brand_id", brandId)
+          .gte("updated_at", sinceIso(30)),
+      ),
       computeAiUsage(supabase, brandId),
     ]);
 
@@ -585,6 +593,16 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
   const now = Date.now();
   const nameById = new Map(clients.map((c) => [c.id, c.name] as const));
 
+  const approvalRows = (approvalsAggRes?.data ?? []) as Array<{
+    id: string;
+    status: string;
+    updated_at: string;
+  }>;
+  const approvalsPendingReal = approvalRows.filter((a) => a.status === "pending").length;
+  const postsApproved30dReal = approvalRows.filter(
+    (a) => a.status === "approved" && new Date(a.updated_at).getTime() > now - 30 * 86_400_000,
+  ).length;
+
   const counts: DashboardStats["counts"] = {
     clients: clients.length,
     projects_active: 0,
@@ -596,13 +614,8 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
       (t) => t.done && t.done_at && new Date(t.done_at).getTime() > now - 7 * 86_400_000,
     ).length,
     posts_total: posts.length,
-    approvals_pending: posts.filter((p) => p.stage === "review").length,
-    posts_approved_30d: posts.filter(
-      (p) =>
-        p.stage === "approved" &&
-        p.updated_at &&
-        new Date(p.updated_at).getTime() > now - 30 * 86_400_000,
-    ).length,
+    approvals_pending: approvalsPendingReal,
+    posts_approved_30d: postsApproved30dReal,
   };
 
   const sparkline = Array.from({ length: 14 }, (_, i) => {
