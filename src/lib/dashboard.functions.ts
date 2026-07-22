@@ -1051,6 +1051,53 @@ async function computeAgency(
           return s + Math.max(0, (end - start) / 86_400_000);
         }, 0) / publishedPosts.length;
 
+  // Backfill client_name in aiUsage.byClient with real names.
+  const aiUsageEnriched: AiUsageSummary = {
+    ...aiUsage,
+    byClient: aiUsage.byClient.map((r) => ({
+      ...r,
+      client_name: r.client_id
+        ? nameById.get(r.client_id) ?? r.client_name
+        : "Global / sem cliente",
+    })),
+  };
+
+  // Task buckets (open/in_progress/review/done/overdue) — todos filtrados por range para "done".
+  const tasksByBucket = {
+    open: tasks.filter((t) => !t.done && t.status !== "in_progress" && t.status !== "review").length,
+    in_progress: tasks.filter((t) => !t.done && t.status === "in_progress").length,
+    review: tasks.filter((t) => !t.done && t.status === "review").length,
+    done: tasks.filter(
+      (t) => t.done && t.done_at && new Date(t.done_at).getTime() >= range.fromMs && new Date(t.done_at).getTime() <= range.toMs,
+    ).length,
+    overdue: counts.tasks_overdue,
+  };
+
+  // Aprovações agrupadas por cliente (a partir de approvalRows + join com posts.client_id)
+  const approvalsWithClient = ((approvalsAggRes?.data ?? []) as Array<{
+    id: string;
+    status: string;
+    posts: { brand_id: string; client_id?: string | null } | null;
+  }>);
+  const abcMap = new Map<string, { pending: number; approved: number }>();
+  for (const a of approvalsWithClient) {
+    const cid = a.posts?.client_id;
+    if (!cid) continue;
+    const cur = abcMap.get(cid) ?? { pending: 0, approved: 0 };
+    if (a.status === "pending") cur.pending += 1;
+    else if (a.status === "approved") cur.approved += 1;
+    abcMap.set(cid, cur);
+  }
+  const approvalsByClient = Array.from(abcMap.entries())
+    .map(([client_id, v]) => ({
+      client_id,
+      client_name: nameById.get(client_id) ?? "—",
+      pending: v.pending,
+      approved: v.approved,
+    }))
+    .sort((a, b) => b.pending + b.approved - (a.pending + a.approved))
+    .slice(0, 8);
+
   return {
     counts,
     sparkline,
@@ -1062,9 +1109,12 @@ async function computeAgency(
     postsByStage,
     pipelineStages,
     publishTrend14d,
-    aiUsage,
+    aiUsage: aiUsageEnriched,
     avgLeadTimeDays,
     topChannels,
+    tasksByBucket,
+    approvalsByClient,
+    rangeDays: range.days,
   };
 }
 
