@@ -78,6 +78,7 @@ export type BrandHubClient = {
   favicon_url: string | null;
   tone_of_voice: string | null;
   brand_hub: BrandHubData;
+  socials: Record<string, string | undefined> | null;
   updated_at: string | null;
 };
 
@@ -88,7 +89,7 @@ export const getBrandHub = createServerFn({ method: "GET" })
     const { data: row, error } = await context.supabase
       .from("clients")
       .select(
-        "id, name, niche, color, logo_url, logo_secondary_url, favicon_url, tone_of_voice, brand_hub, updated_at" as never,
+        "id, name, niche, color, logo_url, logo_secondary_url, favicon_url, tone_of_voice, brand_hub, socials, updated_at" as never,
       )
       .eq("id", data.clientId)
       .eq("brand_id", data.brandId)

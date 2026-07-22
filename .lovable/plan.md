@@ -1,47 +1,61 @@
-## Diagnóstico (confirmado por logs)
 
-Rodei query em `ai_jobs` e em `ai_gateway_logs`. Padrão é inequívoco:
+## Diagnóstico
 
-- Últimos 8 jobs `customer_strategy` → todos travaram em `progress=20` ou `55` ("Modelando voz e personas" / "Construindo cohorts") e foram mortos pelo reaper (`reap_stuck_ai_jobs`, migration `20260714211842`) após 5min sem `updated_at`.
-- Logs do gateway para `google/gemini-2.5-pro`: 9 chamadas, duração média **26–33s**. Metade retorna 200, **metade é cancelada com HTTP 499 (~30–33s)** — bate exatamente no teto de subrequisição do Cloudflare Worker.
-- Job atual (`e5289bb3…`, iniciado 01:47) está travado no passo Voice+Personas em `Promise.all`. A chamada de `personas` (strategic → gemini-2.5-pro) foi cancelada às 01:48 (HTTP 499, 33.3s). O handler engole a exceção via `Promise.all` sem `catch` → o job fica pendurado até o reaper matar.
+O modal **Novo Cliente** (`quick-create-customer-drawer.tsx`) persiste 5 campos em `clients`: `name`, `niche`, `color`, `logo_url` e `socials.instagram`. Já o formulário **Cérebro da Marca › Identidade** (`briefing-workspace.tsx` → `IdentidadeTab`) só exibe **1 desses 5 dados** (o `Nome`, e ainda em input desabilitado). Nicho, cor da marca, Instagram e a pré-visualização do logo simplesmente não aparecem — mesmo com `getBrandHub` já retornando todos esses campos no payload (`BrandHubClient` inclui `niche`, `color`, `logo_url`, `logo_secondary_url`, `favicon_url`).
 
-Causa raiz: `runPhase1` em `src/routes/api/jobs/customer-pipeline.ts` usa modelo de geração anterior (`gemini-2.5-pro`) que, com structured output do AI SDK, encosta no limite de subrequest do Worker. Quando cancela, não há retry, telemetria de erro nem `patch({ status: 'failed' })` — o reaper mata em silêncio.
+Outras inconsistências confirmadas nessa área:
 
-## Correções
+1. **Logo sem preview**: `AssetSlot` sempre mostra o dropzone; quando `currentUrl` existe deveria renderizar a imagem com botão "trocar/remover" (hoje o usuário acha que o upload do modal se perdeu).
+2. **Nicho duplicado sem espelho**: existe em `Cadastro` (basic-info-tab) e é usado pelo `buildStrategyBriefing()`, mas não aparece nem como leitura no Cérebro.
+3. **Instagram do modal invisível**: `socials.instagram` é salvo em `clients.socials` e usado por `channels-tab`, mas o Cérebro não o mostra nem o oferece como semente para "concorrentes/handles".
+4. **Cor da marca perdida**: `color` fica só no avatar do sidebar; o Cérebro não a exibe, e a `palette` do `brand_hub` inicia vazia mesmo tendo a cor do onboarding disponível.
+5. **`updated_at` do cliente**: `getBrandHub` devolve `clients.updated_at`, mas ao salvar em `basic-info-tab` (Cadastro) a query `["brand-hub", brandId, clientId]` não é invalidada, então mudanças de Nome/Nicho/Instagram só aparecem no Cérebro após F5.
+6. **Nome "vazio" no screenshot**: o input renderiza `client.name` diretamente, mas o form já pode ter carregado antes do `hubQ.data` estabilizar; em recarregamentos rápidos o valor pisca vazio. Precisa cair para skeleton enquanto `hubQ.isPending`.
 
-### 1. Trocar modelos para geração atual (arquivo: `src/routes/api/jobs/customer-pipeline.ts`)
+Escopo desta correção: **apenas Cérebro da Marca › Identidade** e a ponte com o Cadastro/modal. Sem tocar em pipeline de IA, tabs de Produto/Público/Concorrentes/etc.
 
-- `STRATEGIC_MODEL`: `google/gemini-2.5-pro` → `google/gemini-3.1-pro-preview` (Pro atual, mais rápido).
-- `OPERATIONAL_MODEL`: `google/gemini-2.5-flash` → `google/gemini-3.6-flash` (Flash atual, muito mais rápido).
-- Manter os `modelOverride: OPERATIONAL_MODEL` já usados em `voice` e `cohorts`.
-- Para `swot` (a chamada strategic mais longa) usar override para `gemini-3.6-flash` também — o schema é pequeno e volume alto.
+## Mudanças
 
-### 2. Falhar rápido em vez de esperar o reaper
+### 1. `src/components/brand-hub/briefing-workspace.tsx` — `IdentidadeTab`
+- Skeleton enquanto `hubQ.isPending || !form` (evita "Nome vazio" no primeiro paint).
+- Novo bloco **"Cadastro rápido"** (grid 4 colunas, read-only, com link "Editar em Cadastro") mostrando:
+  - **Nome** (`client.name`)
+  - **Nicho** (`client.niche` ou placeholder "—")
+  - **Instagram** (de `client.socials.instagram`, com ícone + link `instagram.com/handle`)
+  - **Cor da marca** (swatch `client.color` + hex)
+- Manter os textareas Missão / Posicionamento / Valores / Tom de voz como estão hoje.
+- Quando `client.color` existe e `form.palette` está vazia, sugerir botão "Adicionar cor da marca à paleta" (um clique, sem auto-save silencioso).
 
-Envolver cada `runStructured` em um `Promise.race` com timeout de 60s. Se estourar, lançar erro claro → o `catch` externo já grava `status='failed'` com mensagem legível, em vez de "timeout: worker interrompido".
+### 2. `src/components/brand-hub/briefing-workspace.tsx` — `AssetSlot`
+- Se `currentUrl` presente, renderizar `<img>` (thumb 88×88, `object-contain`, fundo xadrez para transparência) + ações "Trocar" e "Remover" (a remoção já existe via `updateBrandVisuals`, só exposta).
+- Se ausente, manter dropzone atual.
 
-### 3. Isolar falha do `Promise.all` Voice+Personas
+### 3. `src/components/customer/basic-info-tab.tsx`
+- Após `mutation.onSuccess`, invalidar também `["brand-hub", brandId, clientId]` além do que já invalida — assim Nome/Nicho/Instagram/logo editados no Cadastro refletem imediatamente no Cérebro.
 
-Trocar `Promise.all` por `Promise.allSettled` e, se qualquer um falhar, retornar erro específico ("Falha ao gerar voz" / "Falha ao gerar personas") antes de prosseguir. Hoje uma rejeição derruba os dois em silêncio.
+### 4. `src/components/customer/quick-create-customer-drawer.tsx`
+- Nenhuma mudança de schema. Só garantir que o `onCreated` navegue com `?tab=cerebro` opcional (fora de escopo; deixar como está — o onboarding=1 já cobre).
 
-### 4. Heartbeat entre chamadas longas
+## Diagrama do fluxo de dados
 
-Chamar `patch({ progress: <mesmo valor> })` no início de cada `runStructured` para renovar `updated_at`, garantindo que o reaper de 5min não mate jobs que ainda estão de fato executando.
+```text
+Modal Novo Cliente
+   │ name, niche, color, logo_url, socials.instagram
+   ▼
+clients (Supabase)
+   │
+   ├── getBrandHub ──► BriefingWorkspace
+   │                     ├─ Cadastro rápido (novo): name, niche, instagram, color, logo
+   │                     └─ Identidade (existente): missão, posicionamento, valores, tom
+   │
+   └── getClient ────► BasicInfoTab (Cadastro)
+                          └─ onSuccess → invalida [brand-hub] (novo)
+```
 
-### 5. Marcar o job travado atual como falho
+## Fora deste plano (posso abrir plano separado depois)
 
-Após deploy, rodar `SELECT public.reap_stuck_ai_jobs();` uma vez para limpar o job `e5289bb3-d0b7-4341-8d94-43db344e7ef1` que já está em execução.
+- Auditoria completa das outras abas (Produto, Público, Concorrentes, Estética, Volumetria, Documentos, Estratégia IA, Personas, SWOT) e sua consistência com o Brain.
+- Migração para unificar Nicho/Instagram em um único ponto de edição (hoje moram em Cadastro; se quiser, mover a edição para dentro do Cérebro e aposentar a aba Cadastro).
+- Seed automático de `brand_hub.palette` a partir de `clients.color` no `createClient` do servidor.
 
-## Fora de escopo
-
-- Não mexer no reaper SQL nem no intervalo de 5min.
-- Não mudar prompts nem schemas.
-- Não tocar em `generate-ideas` / Fase 2 (nenhum sinal de falha).
-
-## Como validar
-
-1. Abrir `/customers/<id>` e rodar "Gerar estratégia" com briefing curto.
-2. Acompanhar `ai_jobs` — deve avançar 5 → 20 → 55 → 70 → 100 em < 2min.
-3. Verificar no gateway que todas as chamadas ficam < 20s e retornam 200.
-4. Confirmar `brand_briefings`, `brand_voice_cards`, `brand_personas`, `brand_cohorts`, `brand_swot` populados para o cliente.
+Confirma este recorte para eu implementar?

@@ -15,6 +15,9 @@ import {
   Upload,
   X,
   Minus,
+  Instagram as InstagramIcon,
+  Palette as PaletteIcon,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -797,6 +800,19 @@ function IdentidadeTab({
   form: FormState;
   setForm: (f: FormState) => void;
 }) {
+  const socials = (client.socials ?? {}) as Record<string, string | undefined>;
+  const igRaw = (socials.instagram ?? "").trim();
+  const igHandle = igRaw ? igRaw.replace(/^@+/, "").replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/\/+$/, "") : "";
+  const color = (client.color ?? "").trim();
+  const paletteHasColor = !!color && form.palette.some((p) => p.hex.toLowerCase() === color.toLowerCase());
+  const addColorToPalette = () => {
+    if (!color || paletteHasColor) return;
+    setForm({
+      ...form,
+      palette: [...form.palette, { label: "Cor da marca", hex: color }],
+    });
+  };
+
   return (
     <div className="grid gap-4 lg:grid-cols-3">
       <AssetSlot
@@ -823,6 +839,75 @@ function IdentidadeTab({
         hint="ICO/PNG 32-256 px"
         currentUrl={client.favicon_url}
       />
+
+      <SectionCard
+        title="Cadastro rápido"
+        hint="Dados capturados no onboarding do cliente. Edite na aba Cadastro."
+        className="lg:col-span-3"
+      >
+        <div className="grid gap-3 md:grid-cols-4">
+          <FieldReadonly label="Nome" value={client.name || "—"} />
+          <FieldReadonly label="Nicho" value={client.niche?.trim() || "—"} muted={!client.niche} />
+          <FieldReadonly
+            label="Instagram"
+            value={
+              igHandle ? (
+                <a
+                  href={`https://instagram.com/${igHandle}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-primary hover:underline"
+                >
+                  <InstagramIcon className="h-3.5 w-3.5" />@{igHandle}
+                  <ExternalLink className="h-3 w-3 opacity-70" />
+                </a>
+              ) : (
+                "—"
+              )
+            }
+            muted={!igHandle}
+          />
+          <FieldReadonly
+            label="Cor da marca"
+            value={
+              color ? (
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-4 w-4 shrink-0 rounded-full border border-border"
+                    style={{ background: color }}
+                  />
+                  <span className="font-mono text-xs uppercase">{color}</span>
+                  {!paletteHasColor ? (
+                    <button
+                      type="button"
+                      onClick={addColorToPalette}
+                      className="ml-auto inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                      title="Adicionar à paleta"
+                    >
+                      <PaletteIcon className="h-3 w-3" /> paleta
+                    </button>
+                  ) : (
+                    <span className="ml-auto text-[11px] text-muted-foreground">na paleta</span>
+                  )}
+                </div>
+              ) : (
+                "—"
+              )
+            }
+            muted={!color}
+          />
+        </div>
+        <div className="mt-3 text-[11px] text-muted-foreground">
+          <Link
+            to="/customers/$customerId"
+            params={{ customerId: clientId }}
+            search={{ tab: "cadastro" } as never}
+            className="text-primary hover:underline"
+          >
+            Editar em Cadastro →
+          </Link>
+        </div>
+      </SectionCard>
 
       <SectionCard
         title="Identidade da marca"
@@ -876,6 +961,25 @@ function IdentidadeTab({
           />
         </div>
       </SectionCard>
+    </div>
+  );
+}
+
+function FieldReadonly({
+  label,
+  value,
+  muted,
+}: {
+  label: string;
+  value: React.ReactNode;
+  muted?: boolean;
+}) {
+  return (
+    <div className="space-y-1 rounded-lg border border-border/60 bg-background/40 px-3 py-2">
+      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+        {label}
+      </div>
+      <div className={cn("text-sm", muted && "text-muted-foreground")}>{value}</div>
     </div>
   );
 }
