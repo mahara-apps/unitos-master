@@ -67,6 +67,17 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
+import { DateRangePicker, dateRangeToDays } from "@/components/ui/date-range-picker";
+import type { DateRange } from "react-day-picker";
+import { subDays } from "date-fns";
+
+function useDefaultRange(): [DateRange | undefined, (r: DateRange | undefined) => void] {
+  const [range, setRange] = React.useState<DateRange | undefined>(() => {
+    const today = new Date();
+    return { from: subDays(today, 29), to: today };
+  });
+  return [range, setRange];
+}
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   validateSearch: (s: Record<string, unknown>) => ({
@@ -114,6 +125,8 @@ function DashboardPage() {
 function AgencyMode({ brandId }: { brandId: string }) {
   const fn = useServerFn(getAgencyDashboardFn);
   const [greeting, setGreeting] = React.useState("Olá!");
+  const [range, setRange] = useDefaultRange();
+  const days = dateRangeToDays(range);
   React.useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getUser();
@@ -142,7 +155,7 @@ function AgencyMode({ brandId }: { brandId: string }) {
   }, []);
 
   const q = useQuery({
-    queryKey: ["dashboard-agency", brandId],
+    queryKey: ["dashboard-agency", brandId, days],
     queryFn: () => fn({ data: { brandId } }),
     staleTime: 30_000,
   });
@@ -157,8 +170,9 @@ function AgencyMode({ brandId }: { brandId: string }) {
     {
       title: greeting,
       subtitle: `Visão consolidada · ${d?.counts.clients ?? 0} contas ativas · saúde média ${avgHealth}%`,
+      actions: <DateRangePicker value={range} onChange={setRange} />,
     },
-    [greeting, d?.counts.clients, avgHealth],
+    [greeting, d?.counts.clients, avgHealth, range?.from?.getTime(), range?.to?.getTime()],
   );
 
   return (
