@@ -75,8 +75,8 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
 
 const tokenIn = z.object({ token: z.string().min(8) });
 
-async function signCover(c: SupabaseClient, path: string): Promise<string | null> {
-  const { data } = await c.storage.from("brand-assets").createSignedUrl(path, 60 * 60 * 24 * 7);
+async function signCover(c: SupabaseClient, path: string, bucket: string): Promise<string | null> {
+  const { data } = await c.storage.from(bucket).createSignedUrl(path, 60 * 60 * 24 * 7);
   return data?.signedUrl ?? null;
 }
 
@@ -85,7 +85,10 @@ async function fillCovers(c: SupabaseClient, posts: PortalPost[]): Promise<void>
     if (p.cover_url) continue;
     const refs = Array.isArray(p.reference_media) ? (p.reference_media as Array<Record<string, unknown>>) : [];
     const first = refs.find((r) => typeof r?.path === "string");
-    if (first?.path) p.cover_url = await signCover(c, first.path as string);
+    if (first?.path) {
+      const bucket = typeof first.bucket === "string" ? (first.bucket as string) : "brand-assets";
+      p.cover_url = await signCover(c, first.path as string, bucket);
+    }
   }
 }
 
@@ -133,7 +136,8 @@ export const getPortalPostFn = createServerFn({ method: "POST" })
         refs.map(async (r) => {
           const path = typeof r?.path === "string" ? r.path : null;
           if (!path) return null;
-          const url = await signCover(c, path);
+          const bucket = typeof r?.bucket === "string" ? (r.bucket as string) : "brand-assets";
+          const url = await signCover(c, path, bucket);
           return url ? { url, type: (r?.type as string) ?? "" } : null;
         }),
       )

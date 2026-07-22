@@ -63,9 +63,24 @@ export const Route = createFileRoute("/api/public/media/prune")({
 
           if (toRemove.length === 0) continue;
 
-          const { error: rmErr } = await supabaseAdmin.storage
-            .from("brand-assets")
-            .remove(toRemove);
+          // Agrupa por bucket (legado `brand-assets` vs unificado `brand-media`).
+          const bucketOf = (p: string): string => {
+            const found = refs.find((r) => r?.path === p);
+            return typeof found?.bucket === "string" ? (found.bucket as string) : "brand-assets";
+          };
+          const byBucket = new Map<string, string[]>();
+          for (const p of toRemove) {
+            const b = bucketOf(p);
+            byBucket.set(b, [...(byBucket.get(b) ?? []), p]);
+          }
+          let rmErr: unknown = null;
+          for (const [b, paths] of byBucket) {
+            const { error } = await supabaseAdmin.storage.from(b).remove(paths);
+            if (error) {
+              rmErr = error;
+              break;
+            }
+          }
           if (rmErr) {
             console.error("[prune] storage remove", post.id, rmErr);
             continue;
