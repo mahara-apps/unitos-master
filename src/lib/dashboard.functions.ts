@@ -156,6 +156,7 @@ async function computeStats(
     postsApproved30dRes,
     postsFullRes,
     aiUsage,
+    socialPublishedRes,
   ] = await Promise.all([
     ignore(
       supabase
@@ -306,7 +307,6 @@ async function computeStats(
       ),
     ),
   ]);
-  const socialPublishedRes = arguments as unknown; // placeholder — replaced below
 
   const activityAll = (activityRes?.data ?? []) as ActivityEvent[];
   const activity = clientId ? activityAll.filter((a) => a.client_id === clientId) : activityAll;
