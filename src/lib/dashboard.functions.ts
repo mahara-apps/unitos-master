@@ -713,9 +713,7 @@ async function computeAgency(
     updated_at: string;
   }>;
   const approvalsPendingReal = approvalRows.filter((a) => a.status === "pending").length;
-  const postsApproved30dReal = approvalRows.filter(
-    (a) => a.status === "approved" && new Date(a.updated_at).getTime() > now - 30 * 86_400_000,
-  ).length;
+  const postsApproved30dReal = approvalRows.filter((a) => a.status === "approved").length;
 
   const counts: DashboardStats["counts"] = {
     clients: clients.length,
@@ -725,25 +723,33 @@ async function computeAgency(
       (t) => !t.done && t.due_at && new Date(t.due_at).getTime() < now,
     ).length,
     tasks_done_7d: tasks.filter(
-      (t) => t.done && t.done_at && new Date(t.done_at).getTime() > now - 7 * 86_400_000,
+      (t) =>
+        t.done &&
+        t.done_at &&
+        new Date(t.done_at).getTime() >= range.fromMs &&
+        new Date(t.done_at).getTime() <= range.toMs,
     ).length,
     posts_total: posts.length,
     approvals_pending: approvalsPendingReal,
     posts_approved_30d: postsApproved30dReal,
   };
 
-  const sparkline = Array.from({ length: 14 }, (_, i) => {
-    const start = now - (13 - i) * 86_400_000;
-    const end = start + 86_400_000;
+  const sparkBuckets = Math.max(1, Math.min(range.days, 60));
+  const sparkStep = (range.toMs - range.fromMs) / sparkBuckets;
+  const sparkline = Array.from({ length: sparkBuckets }, (_, i) => {
+    const start = range.fromMs + i * sparkStep;
+    const end = start + sparkStep;
     return activity.filter((a) => {
       const t = new Date(a.created_at).getTime();
       return t >= start && t < end;
     }).length;
   });
 
-  const heatmap = Array.from({ length: 60 }, (_, i) => {
-    const start = now - (59 - i) * 86_400_000;
-    const end = start + 86_400_000;
+  const heatBuckets = Math.max(7, Math.min(range.days, 60));
+  const heatStep = (range.toMs - range.fromMs) / heatBuckets;
+  const heatmap = Array.from({ length: heatBuckets }, (_, i) => {
+    const start = range.fromMs + i * heatStep;
+    const end = start + heatStep;
     return posts.filter((p) => {
       if (!p.published_at) return false;
       const t = new Date(p.published_at).getTime();
@@ -954,10 +960,10 @@ async function computeAgency(
     (a, b) => a.position - b.position,
   );
 
-  // União posts.published_at + social_posts.published_at (worker). Dedupe por post_id/dia.
-  const publishTrend14d = Array.from({ length: 14 }, (_, i) => {
-    const start = now - (13 - i) * 86_400_000;
-    const end = start + 86_400_000;
+  // União posts.published_at + social_posts.published_at (worker). Dedupe por post_id/bucket.
+  const publishTrend14d = Array.from({ length: sparkBuckets }, (_, i) => {
+    const start = range.fromMs + i * sparkStep;
+    const end = start + sparkStep;
     const seen = new Set<string>();
     for (const p of posts) {
       if (!p.published_at) continue;
