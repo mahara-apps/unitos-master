@@ -549,11 +549,11 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
       ),
       ignore(
         supabase
-          .from("posts")
-          .select("id,title,client_id,channels,updated_at")
-          .eq("brand_id", brandId)
-          .eq("stage", "review")
-          .order("updated_at", { ascending: true })
+          .from("post_approvals")
+          .select("id,created_at,posts!inner(id,title,client_id,channels,brand_id)")
+          .eq("status", "pending")
+          .eq("posts.brand_id", brandId)
+          .order("created_at", { ascending: true })
           .limit(12),
       ),
       // post_approvals (fonte de verdade) — join com posts para escopar por brand.
@@ -725,18 +725,23 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
 
   const approvalsQueue = ((approvalsRes?.data ?? []) as Array<{
     id: string;
-    title: string;
-    client_id: string;
-    channels: string[] | null;
-    updated_at: string;
-  }>).map((p) => ({
-    id: p.id,
-    title: p.title,
-    client_id: p.client_id,
-    client_name: nameById.get(p.client_id) ?? "—",
-    channels: (p.channels ?? []) as string[],
-    waiting_since: p.updated_at,
-  }));
+    created_at: string;
+    posts: {
+      id: string;
+      title: string;
+      client_id: string;
+      channels: string[] | null;
+    } | null;
+  }>)
+    .filter((r) => !!r.posts)
+    .map((r) => ({
+      id: r.id,
+      title: r.posts!.title,
+      client_id: r.posts!.client_id,
+      client_name: nameById.get(r.posts!.client_id) ?? "—",
+      channels: (r.posts!.channels ?? []) as string[],
+      waiting_since: r.created_at,
+    }));
 
   const upcomingTasks = tasks
     .filter(
