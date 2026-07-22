@@ -4,7 +4,8 @@ import { z } from "zod";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Layers, Loader2, Pencil, Plus, Settings, Sparkles, ChevronDown } from "lucide-react";
+import { AlertTriangle, Layers, Loader2, Pencil, Plus, Settings, Sparkles, ChevronDown } from "lucide-react";
+import { describeError } from "@/lib/errors";
 import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 import { Button } from "@/components/ui/button";
 import {
@@ -67,7 +68,27 @@ export const Route = createFileRoute("/_authenticated/content")({
       })
       .parse(s),
   component: ContentPage,
+  errorComponent: ContentErrorBoundary,
 });
+
+function ContentErrorBoundary({ error, reset }: { error: unknown; reset: () => void }) {
+  return (
+    <DashboardPageShell>
+      <PanelCard
+        title="Não foi possível carregar o módulo"
+        subtitle="Tivemos um problema ao buscar seu pipeline de conteúdo."
+        icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
+      >
+        <div className="flex flex-col items-start gap-3 p-4">
+          <p className="text-sm text-muted-foreground">{describeError(error)}</p>
+          <Button size="sm" onClick={() => reset()}>
+            Tentar novamente
+          </Button>
+        </div>
+      </PanelCard>
+    </DashboardPageShell>
+  );
+}
 
 function ContentPage() {
   const { brandId, clientId } = useActiveContext();
