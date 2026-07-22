@@ -238,43 +238,71 @@ function AgencyMode({ brandId }: { brandId: string }) {
         </div>
       )}
 
-      {/* Health ranking + Funnel */}
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <ClientHealthRanking healths={d?.healths ?? []} loading={q.isLoading} />
-        <FunnelCard
-          stages={d?.pipelineStages ?? []}
-          postsByStage={d?.postsByStage ?? {}}
-          avgLead={d?.avgLeadTimeDays ?? null}
-        />
+      {/* ═══ Operação ═══════════════════════════════════════════════ */}
+      <SectionHeader title="Operação" hint="Onde a agência precisa agir agora" />
+      <div className="grid gap-4 lg:grid-cols-12">
+        <div className="lg:col-span-7">
+          <ClientHealthRanking healths={d?.healths ?? []} loading={q.isLoading} />
+        </div>
+        <div className="flex flex-col gap-4 lg:col-span-5">
+          <ApprovalsQueueCard items={d?.approvalsQueue ?? []} loading={q.isLoading} />
+          <UpcomingCard items={d?.upcoming ?? []} loading={q.isLoading} />
+        </div>
       </div>
 
-      {/* Distribuição de tarefas + Mix de canais */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <TaskDistributionCard buckets={d?.tasksByBucket} loading={q.isLoading} />
-        <ChannelMixCard channels={d?.topChannels ?? []} />
+      {/* ═══ Pipeline & Produção ════════════════════════════════════ */}
+      <SectionHeader title="Pipeline & produção" hint="Fluxo de conteúdo e execução de tarefas" />
+      <div className="grid gap-4 lg:grid-cols-12">
+        <div className="lg:col-span-7">
+          <FunnelCard
+            stages={d?.pipelineStages ?? []}
+            postsByStage={d?.postsByStage ?? {}}
+            avgLead={d?.avgLeadTimeDays ?? null}
+          />
+        </div>
+        <div className="lg:col-span-5">
+          <TaskDistributionCard buckets={d?.tasksByBucket} loading={q.isLoading} />
+        </div>
       </div>
 
-      {/* AI usage + Publish trend */}
-      <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
-        <AiUsageCard usage={d?.aiUsage} />
-        <PublishTrendCard
-          trend={d?.publishTrend14d ?? []}
-          channels={d?.topChannels ?? []}
-          rangeDays={d?.rangeDays ?? 30}
-        />
+      {/* ═══ Performance ════════════════════════════════════════════ */}
+      <SectionHeader title="Performance" hint="Ritmo de publicações e canais no período" />
+      <div className="grid gap-4 lg:grid-cols-12">
+        <div className="lg:col-span-8">
+          <PublishTrendCard
+            trend={d?.publishTrend14d ?? []}
+            channels={d?.topChannels ?? []}
+            rangeDays={d?.rangeDays ?? 30}
+          />
+        </div>
+        <div className="lg:col-span-4">
+          <ChannelMixCard channels={d?.topChannels ?? []} />
+        </div>
       </div>
 
-      {/* Aprovações por cliente */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ApprovalsByClientCard rows={d?.approvalsByClient ?? []} loading={q.isLoading} />
-        <HeatmapCard heatmap={d?.heatmap ?? []} rangeDays={d?.rangeDays ?? 30} />
+      {/* ═══ Inteligência ═══════════════════════════════════════════ */}
+      <SectionHeader title="Inteligência" hint="IA, custo e fluxo de aprovações por cliente" />
+      <div className="grid gap-4 lg:grid-cols-12">
+        <div className="lg:col-span-7">
+          <AiUsageCard usage={d?.aiUsage} />
+        </div>
+        <div className="lg:col-span-5">
+          <ApprovalsByClientCard rows={d?.approvalsByClient ?? []} loading={q.isLoading} />
+        </div>
       </div>
+    </div>
+  );
+}
 
-      {/* Approvals queue + Upcoming */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <ApprovalsQueueCard items={d?.approvalsQueue ?? []} loading={q.isLoading} />
-        <UpcomingCard items={d?.upcoming ?? []} loading={q.isLoading} />
-      </div>
+function SectionHeader({ title, hint }: { title: string; hint?: string }) {
+  return (
+    <div className="flex items-baseline justify-between border-b border-border/40 pb-1.5 pt-2">
+      <h2 className="text-[11px] font-mono font-semibold uppercase tracking-[0.18em] text-foreground/80">
+        {title}
+      </h2>
+      {hint && (
+        <span className="text-[11px] text-muted-foreground">{hint}</span>
+      )}
     </div>
   );
 }
