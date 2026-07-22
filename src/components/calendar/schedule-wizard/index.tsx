@@ -403,8 +403,43 @@ export function ScheduleWizard({
     }
   }
 
-  const primaryConn = connByChannel.get(previewChannel) ?? connectionsQ.data?.[0];
+  const primaryConn =
+    (previewPair ? connByChannel.get(previewPair.channel) : null) ??
+    connectionsQ.data?.[0];
   const previewMedia = selectedMedia[0];
+
+  // Política de link por rede/formato — feed do IG/Reels/TikTok não
+  // renderiza URL clicável; Stories vira sticker; LinkedIn/FB/X funcionam.
+  const linkPolicy = useMemo(() => {
+    if (!pairs.length) return "none" as const;
+    const policies = pairs.map((p) => classifyLinkPolicy(p.channel, p.format));
+    const unique = Array.from(new Set(policies));
+    if (unique.length === 1) return unique[0];
+    return "mixed" as const;
+  }, [pairs]);
+
+  // Conexão Instagram para o autocomplete de local.
+  const instagramConn = useMemo(
+    () => (connectionsQ.data ?? []).find((c) => c.channel === "instagram") ?? null,
+    [connectionsQ.data],
+  );
+
+  // Atalho ESC — fecha o sheet quando não estiver enviando.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !submitting) {
+        e.preventDefault();
+        onOpenChange(false);
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (!submitting) void persist("save_draft");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, submitting]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
