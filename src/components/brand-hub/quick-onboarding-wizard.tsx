@@ -494,27 +494,3 @@ function StepDone() {
     </div>
   );
 }
-
-function buildBriefing(s: State, name?: string, niche?: string | null): string {
-  const lines: string[] = [];
-  const push = (k: string, v?: string | null) => {
-    const t = (v ?? "").trim();
-    if (t) lines.push(`${k}: ${t}`);
-  };
-  push("Marca", name);
-  push("Nicho", niche ?? undefined);
-  push("Tom de voz", s.tone_text);
-  push("Missão", s.mission);
-  push("Posicionamento", s.positioning);
-  push("Oferta", s.offer);
-  push("Faixa de preço", s.price_range);
-  push("Público", s.audience);
-  push("Dores", s.pain_points);
-  push("Metas", s.goals);
-  const vol = Object.entries(s.volumetry)
-    .filter(([, n]) => (n ?? 0) > 0)
-    .map(([k, n]) => `${k}: ${n}/sem`)
-    .join(", ");
-  push("Volumetria semanal", vol);
-  return lines.join("\n");
-}
