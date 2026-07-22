@@ -211,15 +211,20 @@ async function computeStats(
       ),
     ),
     // Aprovações pendentes = tabela real post_approvals (única fonte de verdade).
-    // Filtramos via join implícito por posts do brand/cliente, feito em pós-processamento.
+    // Join com posts para filtrar por brand/cliente.
     ignore(
-      scope(
-        supabase
-          .from("posts")
-          .select("id, post_approvals!inner(status)")
-          .eq("brand_id", brandId)
-          .eq("post_approvals.status", "pending"),
-      ),
+      (clientId
+        ? supabase
+            .from("post_approvals")
+            .select("id, posts!inner(brand_id,client_id)", { count: "exact", head: true })
+            .eq("status", "pending")
+            .eq("posts.brand_id", brandId)
+            .eq("posts.client_id", clientId)
+        : supabase
+            .from("post_approvals")
+            .select("id, posts!inner(brand_id)", { count: "exact", head: true })
+            .eq("status", "pending")
+            .eq("posts.brand_id", brandId)),
     ),
     ignore(
       scope(
