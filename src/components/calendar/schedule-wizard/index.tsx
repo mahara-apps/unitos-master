@@ -179,7 +179,7 @@ export function ScheduleWizard({
       if (prev.length > 0) return prev;
       const next: Pair[] = [];
       for (const id of ids) {
-        const c = conns.find((x) => x.id === id);
+        const c = conns.find((x) => x.connectionId === id);
         if (!c) continue;
         next.push({
           channel: c.channel as SocialChannel,
