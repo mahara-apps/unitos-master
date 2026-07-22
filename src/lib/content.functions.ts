@@ -506,26 +506,39 @@ export const loadBoardFn = createServerFn({ method: "POST" })
       });
     });
     if (needsCover.length > 0) {
+      // Agrupa por bucket e usa `createSignedUrls` (batch) para eliminar N+1
+      // de chamadas ao Storage — antes: 1 request por post.
+      const byBucket = new Map<string, { path: string; post: (typeof needsCover)[number] }[]>();
+      for (const p of needsCover) {
+        const refs = (p.reference_media as Array<Record<string, unknown>>) ?? [];
+        const firstImg = refs.find((r) => {
+          const type = typeof r?.type === "string" ? (r.type as string) : "";
+          const path = typeof r?.path === "string" ? (r.path as string) : "";
+          return path && (type.startsWith("image/") || !type);
+        });
+        const thumbPath =
+          typeof firstImg?.thumb_path === "string" ? (firstImg.thumb_path as string) : null;
+        const originalPath =
+          typeof firstImg?.path === "string" ? (firstImg.path as string) : null;
+        const target = thumbPath ?? originalPath;
+        if (!target) continue;
+        const bucket =
+          typeof firstImg?.bucket === "string" ? (firstImg.bucket as string) : "brand-assets";
+        const list = byBucket.get(bucket) ?? [];
+        list.push({ path: target, post: p });
+        byBucket.set(bucket, list);
+      }
       await Promise.all(
-        needsCover.map(async (p) => {
-          const refs = (p.reference_media as Array<Record<string, unknown>>) ?? [];
-          const firstImg = refs.find((r) => {
-            const type = typeof r?.type === "string" ? (r.type as string) : "";
-            const path = typeof r?.path === "string" ? (r.path as string) : "";
-            return path && (type.startsWith("image/") || !type);
-          });
-          const thumbPath =
-            typeof firstImg?.thumb_path === "string" ? (firstImg.thumb_path as string) : null;
-          const originalPath =
-            typeof firstImg?.path === "string" ? (firstImg.path as string) : null;
-          const target = thumbPath ?? originalPath;
-          if (!target) return;
-          const bucket =
-            typeof firstImg?.bucket === "string" ? (firstImg.bucket as string) : "brand-assets";
-          const { data: signed } = await context.supabase.storage
+        Array.from(byBucket.entries()).map(async ([bucket, entries]) => {
+          const paths = entries.map((e) => e.path);
+          const { data: signedList } = await context.supabase.storage
             .from(bucket)
-            .createSignedUrl(target, 60 * 60 * 24 * 7);
-          if (signed?.signedUrl) p.cover_url = signed.signedUrl;
+            .createSignedUrls(paths, 60 * 60 * 24 * 7);
+          if (!signedList) return;
+          signedList.forEach((signed, idx) => {
+            const url = signed?.signedUrl;
+            if (url) entries[idx].post.cover_url = url;
+          });
         }),
       );
     }
