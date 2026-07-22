@@ -516,7 +516,7 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
       ignore(
         supabase
           .from("posts")
-          .select("id,title,stage,stage_id,channels,scheduled_at,published_at,client_id,updated_at")
+          .select("id,title,stage,stage_id,channels,scheduled_at,published_at,client_id,updated_at,created_at")
           .eq("brand_id", brandId),
       ),
       ignore(supabase.from("client_briefings").select("client_id,updated_at")),
@@ -572,6 +572,7 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
     published_at: string | null;
     client_id: string;
     updated_at: string | null;
+    created_at: string | null;
   }>;
   const briefings = new Map<string, string>(
     ((briefingsRes?.data ?? []) as Array<{ client_id: string; updated_at: string }>).map((b) => [
@@ -841,12 +842,16 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
     .slice(0, 6);
 
   const publishedPosts = posts.filter((p) => p.published_at);
-  // posts rows include updated_at not created_at; approximate lead time via updated_at vs published_at
+  // Lead time canônico: created_at → published_at (mesma fórmula do computeStats).
   const avgLeadTimeDays =
     publishedPosts.length === 0
       ? null
       : publishedPosts.reduce((s, p) => {
-          const start = p.updated_at ? new Date(p.updated_at).getTime() : new Date(p.published_at as string).getTime();
+          const start = p.created_at
+            ? new Date(p.created_at).getTime()
+            : p.updated_at
+              ? new Date(p.updated_at).getTime()
+              : new Date(p.published_at as string).getTime();
           const end = new Date(p.published_at as string).getTime();
           return s + Math.max(0, (end - start) / 86_400_000);
         }, 0) / publishedPosts.length;
