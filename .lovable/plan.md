@@ -1,44 +1,37 @@
-## Objetivo
+## Problema
 
-Hoje o painel lateral do `/calendar` só permite excluir itens na aba **Rascunhos**. Na aba **Aguardando agendamento** (posts aprovados sem data) não há caminho para remover um post enviado indevidamente. Vamos habilitar a exclusão também nesse modo, mantendo a mesma UX (ícone lixeira no hover + `AlertDialog` de confirmação).
+A tabela `brand_media_assets` só tem `brand_id`. A "Biblioteca do cliente" no wizard, no composer de conteúdo e nos media plans lista **todas as mídias da marca**, então todo cliente vinculado à mesma marca vê a mesma biblioteca. Precisamos separar por `client_id`.
 
 ## Escopo
 
-- Painel `PendingSchedulePanel` (`src/components/calendar/pending-schedule-panel.tsx`)
-- Server function em `src/lib/scheduling-wizard.functions.ts`
+Manter compatibilidade com mídias existentes (sem `client_id` = biblioteca geral da marca) e permitir mídias específicas por cliente.
 
-## Mudanças
+## Passos
 
-1. **Server function `deleteApprovedPostFn`** (novo) em `scheduling-wizard.functions.ts`
-   - Middleware: `requireSupabaseAuth`
-   - Input: `{ postId: uuid, brandId: uuid }`
-   - Regras:
-     - Carrega o post por `id + brand_id` (defesa em profundidade além do RLS).
-     - Bloqueia exclusão se já existir registro em `social_posts` com `status` diferente de `scheduled` (ex.: `publishing`, `published`, `failed`) — para não apagar posts que já foram/estão sendo publicados. Se houver apenas linhas `scheduled`, elas são removidas em cascata junto com o post.
-     - Apaga `post_placements` e `social_posts` vinculados e depois o `posts` (na mesma ordem já usada por `deleteDraftPostFn`, para respeitar FKs).
-   - Retorna `{ ok: true }`.
+### 1. Migração
+- `ALTER TABLE public.brand_media_assets ADD COLUMN client_id uuid REFERENCES public.clients(id) ON DELETE CASCADE;`
+- Index em `(brand_id, client_id, created_at desc)`.
+- Atualizar RLS: permitir SELECT/INSERT/DELETE quando o usuário tem acesso à marca **e** (client_id é null **ou** o usuário tem acesso ao cliente).
+- Storage path novo: `<brand_id>/<client_id>/...` para novos uploads (retrocompat: paths antigos sem client segment permanecem).
 
-2. **UI — `PendingSchedulePanel`**
-   - Remover o `isDrafts ? … : null` que hoje esconde o botão excluir; exibir o ícone lixeira **em ambos os modos**.
-   - Reaproveitar o `AlertDialog` já existente. Ajustar título/descrição conforme o modo:
-     - Drafts: “Excluir rascunho?” (texto atual).
-     - Pending: “Excluir post aprovado?” + descrição avisando que o post será removido permanentemente e que não poderá mais ser agendado.
-   - Selecionar dinamicamente a mutation:
-     - `mode="drafts"` → `deleteDraftPostFn` (comportamento atual).
-     - `mode="pending"` → `deleteApprovedPostFn`.
-   - Após sucesso: `toast.success` correspondente + `invalidateQueries` da chave do modo atual (`wizard-drafts` ou `pending-schedule`) e também `calendar` para refletir remoção imediata.
-   - Manter `describeError` no `onError` (já adotado no módulo).
+### 2. Server functions (`src/lib/brand-media.functions.ts`)
+- `listBrandMediaFn`: aceitar `clientId` opcional. Quando presente, filtrar `client_id = clientId`; quando ausente, filtrar `client_id IS NULL` (biblioteca geral da marca).
+- `registerBrandMediaFn`: aceitar `clientId` opcional; validar prefixo do storage path (`<brand_id>/<client_id>/` quando cliente informado).
+- `deleteBrandMediaFn`: sem mudança de assinatura, mas RLS garante escopo.
+- `signBrandMediaFn`: sem mudança.
 
-3. **Sem novas funcionalidades além da exclusão** — nada de bulk delete, undo ou lixeira; escopo mínimo do pedido.
+### 3. Callers
+- `src/components/calendar/schedule-wizard/index.tsx`: passar `clientId` para `listMedia` e para uploads via `registerMedia` + path de storage.
+- `src/lib/content.functions.ts`: se o composer/content usa a biblioteca em contexto de cliente, passar `client_id` do post/task.
+- `src/routes/_authenticated/media-plans.tsx` e `src/components/media-plans/create-media-plan-dialog.tsx`: passar `clientId` do plano.
+- `src/lib/meta/publishing.functions.ts` e `src/routes/api/public/meta/publish-scheduled.ts`: apenas leem storage path para publicar — nenhum ajuste de filtro necessário; só verificar que o path continue válido.
+- `src/routes/api/public/media/prune.ts`: revisar se prune remove por `brand_id` — manter (client_id null cobre biblioteca geral).
 
-## Fora de escopo
+### 4. UI
+- Rótulo permanece "Biblioteca do cliente" no wizard (já está no contexto do cliente ativo).
+- Nenhuma tela nova; opcionalmente uma aba "Biblioteca da marca" fica fora do escopo desta correção.
 
-- Excluir posts já publicados (bloqueado por segurança).
-- Alterar Kanban / TaskDialog.
-- Alterar contagem/KPIs do calendário (invalidations garantem refresh).
-
-## Detalhes técnicos
-
-- FKs: `social_posts.post_id` e `post_placements.post_id` referenciam `posts.id`. A ordem de delete replica `deleteDraftPostFn` (placements → social_posts scheduled → posts).
-- RLS: consulta preliminar `select id, brand_id from posts where id = :id and brand_id = :brandId` para retornar erro amigável (“Post não encontrado ou sem permissão.”) antes de tentar deletar.
-- Verificação de status já publicado é feita via `select status from social_posts where post_id = :id` — se qualquer linha tiver `status not in ('scheduled')`, lança erro pt-BR: “Não é possível excluir: já existem publicações em andamento ou publicadas.”
+## Verificação
+- Upload em Cliente A não aparece para Cliente B na mesma marca.
+- Mídias antigas (sem client_id) continuam visíveis quando nenhum `clientId` é passado (contexto de marca).
+- Publicação Meta continua funcionando (signed URL depende só de storage_path).
