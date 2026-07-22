@@ -586,8 +586,13 @@ export type AgencyDashboard = {
   topChannels: Array<{ channel: string; count: number }>;
 };
 
-async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashboard> {
+async function computeAgency(
+  ctx: SupaCtx,
+  brandId: string,
+  rangeInput?: { from?: string; to?: string },
+): Promise<AgencyDashboard> {
   const { supabase } = ctx;
+  const range = resolveRange(rangeInput);
   const [clientsRes, tasksRes, postsRes, briefingsRes, activityRes, upcomingRes, approvalsRes, approvalsAggRes, aiUsage, socialPublishedRes] =
     await Promise.all([
       ignore(
@@ -615,7 +620,8 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
           .from("activity_events")
           .select("id,created_at,client_id")
           .eq("brand_id", brandId)
-          .gte("created_at", sinceIso(60))
+          .gte("created_at", range.fromIso)
+          .lte("created_at", range.toIso)
           .order("created_at", { ascending: false })
           .limit(1000),
       ),
@@ -645,9 +651,10 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
           .from("post_approvals")
           .select("id,status,updated_at,posts!inner(brand_id)")
           .eq("posts.brand_id", brandId)
-          .gte("updated_at", sinceIso(30)),
+          .gte("created_at", range.fromIso)
+          .lte("created_at", range.toIso),
       ),
-      computeAiUsage(supabase, brandId),
+      computeAiUsage(supabase, brandId, range),
       // Publicações realizadas pelo worker de agendamento (não gravam posts.published_at).
       ignore(
         supabase
@@ -655,7 +662,8 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
           .select("id,post_id,provider,published_at,client_id")
           .eq("brand_id", brandId)
           .eq("status", "published")
-          .gte("published_at", sinceIso(14)),
+          .gte("published_at", range.fromIso)
+          .lte("published_at", range.toIso),
       ),
     ]);
 
