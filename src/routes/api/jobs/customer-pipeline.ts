@@ -384,7 +384,7 @@ async function runPhase1(params: {
   jobId: string;
   token: string;
   userId: string;
-  input: z.infer<typeof BodySchema>;
+  input: z.infer<typeof BodySchema> & { texto: string };
 }) {
   const { jobId, token, userId, input } = params;
   const supabase = buildUserClient(token);
