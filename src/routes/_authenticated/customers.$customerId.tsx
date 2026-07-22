@@ -239,7 +239,7 @@ function CustomerDetailReady({
               variant="outline"
               className="h-8 gap-1.5 border-fuchsia-500/40 text-fuchsia-300 hover:bg-fuchsia-500/10 hover:text-fuchsia-200"
               onClick={() => {
-                setActiveTab("brain");
+                setActiveTab("briefing");
                 setWizardOpen(true);
               }}
               title="Completar onboarding rápido"
