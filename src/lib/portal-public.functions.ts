@@ -136,7 +136,8 @@ export const getPortalPostFn = createServerFn({ method: "POST" })
         refs.map(async (r) => {
           const path = typeof r?.path === "string" ? r.path : null;
           if (!path) return null;
-          const url = await signCover(c, path);
+          const bucket = typeof r?.bucket === "string" ? (r.bucket as string) : "brand-assets";
+          const url = await signCover(c, path, bucket);
           return url ? { url, type: (r?.type as string) ?? "" } : null;
         }),
       )
