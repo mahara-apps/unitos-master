@@ -222,6 +222,7 @@ const SaveInput = z.object({
   firstComment: z.string().max(2200).nullable().optional(),
   linkUrl: z.string().url().nullable().optional(),
   locationName: z.string().max(120).nullable().optional(),
+  locationId: z.string().max(64).nullable().optional(),
   destinations: z.array(DestinationSchema).default([]),
   scheduledAt: z.string().nullable().optional(), // ISO
   action: z.enum(["draft", "publish", "schedule", "save_draft"]),
@@ -353,6 +354,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           ...(data.firstComment ? { first_comment: data.firstComment } : {}),
           ...(data.linkUrl ? { link: data.linkUrl } : {}),
           ...(data.locationName ? { location_name: data.locationName } : {}),
+          ...(data.locationId ? { location_id: data.locationId } : {}),
         },
         media: mediaJson,
         status: data.action === "schedule" ? "scheduled" : "draft",
@@ -422,6 +424,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             status: "scheduled",
             scheduled_at: scheduledIso,
             created_by: context.userId,
+            location_id: data.locationId ?? null,
           });
           if (spErr) throw new Error(spErr.message);
           enqueueResults.push({ channel: d.channel, format: d.format, ok: true });
@@ -526,6 +529,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
               post_id: postId,
               status: "publishing",
               created_by: context.userId,
+              location_id: data.locationId ?? null,
             })
             .select("id")
             .single();

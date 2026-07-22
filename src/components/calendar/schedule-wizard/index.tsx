@@ -70,8 +70,14 @@ import {
   registerBrandMediaFn,
   type BrandMediaAsset,
 } from "@/lib/brand-media.functions";
+import { searchInstagramLocationsFn } from "@/lib/meta/locations.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "@tanstack/react-router";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 function slugifyMediaName(name: string) {
   return name
@@ -129,7 +135,8 @@ export function ScheduleWizard({
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [submitting, setSubmitting] = useState<null | "draft" | "publish" | "schedule" | "save_draft">(null);
-  const [previewChannel, setPreviewChannel] = useState<SocialChannel>("instagram");
+  const [previewKey, setPreviewKey] = useState<string>("instagram::feed");
+  const [locationId, setLocationId] = useState<string | null>(null);
 
   const uploadRef = useRef<HTMLInputElement>(null);
   const wasOpenRef = useRef(false);
@@ -147,10 +154,11 @@ export function ScheduleWizard({
       setFirstComment("");
       setLinkUrl("");
       setLocationName("");
+      setLocationId(null);
       setDragActive(false);
       setUploading(false);
       setSubmitting(null);
-      setPreviewChannel("instagram");
+      setPreviewKey("instagram::feed");
       if (uploadRef.current) uploadRef.current.value = "";
       const base = defaultDate
         ? new Date(defaultDate)
@@ -217,10 +225,15 @@ export function ScheduleWizard({
   // Ensure preview channel is one we have selected — else fall back to first pair
   useEffect(() => {
     if (!pairs.length) return;
-    if (!pairs.some((p) => p.channel === previewChannel)) {
-      setPreviewChannel(pairs[0].channel);
+    if (!pairs.some((p) => `${p.channel}::${p.format}` === previewKey)) {
+      setPreviewKey(`${pairs[0].channel}::${pairs[0].format}`);
     }
-  }, [pairs, previewChannel]);
+  }, [pairs, previewKey]);
+
+  const previewPair = useMemo(() => {
+    const found = pairs.find((p) => `${p.channel}::${p.format}` === previewKey);
+    return found ?? pairs[0] ?? null;
+  }, [pairs, previewKey]);
 
   const captionLimit = useMemo(
     () => tightestCaptionLimit(pairs.map((p) => p.channel)),
@@ -353,6 +366,7 @@ export function ScheduleWizard({
           firstComment: firstComment.trim() || null,
           linkUrl: linkUrl.trim() || null,
           locationName: locationName.trim() || null,
+          locationId: locationId ?? null,
           destinations: pairs.map((p) => ({
             connectionId: p.connectionId,
             channel: p.channel,
@@ -390,8 +404,43 @@ export function ScheduleWizard({
     }
   }
 
-  const primaryConn = connByChannel.get(previewChannel) ?? connectionsQ.data?.[0];
+  const primaryConn =
+    (previewPair ? connByChannel.get(previewPair.channel) : null) ??
+    connectionsQ.data?.[0];
   const previewMedia = selectedMedia[0];
+
+  // Política de link por rede/formato — feed do IG/Reels/TikTok não
+  // renderiza URL clicável; Stories vira sticker; LinkedIn/FB/X funcionam.
+  const linkPolicy = useMemo(() => {
+    if (!pairs.length) return "none" as const;
+    const policies = pairs.map((p) => classifyLinkPolicy(p.channel, p.format));
+    const unique = Array.from(new Set(policies));
+    if (unique.length === 1) return unique[0];
+    return "mixed" as const;
+  }, [pairs]);
+
+  // Conexão Instagram para o autocomplete de local.
+  const instagramConn = useMemo(
+    () => (connectionsQ.data ?? []).find((c) => c.channel === "instagram") ?? null,
+    [connectionsQ.data],
+  );
+
+  // Atalho ESC — fecha o sheet quando não estiver enviando.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !submitting) {
+        e.preventDefault();
+        onOpenChange(false);
+      } else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (!submitting) void persist("save_draft");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, submitting]);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -432,10 +481,10 @@ export function ScheduleWizard({
 
         {/* Body — 3 columns */}
         <div className="min-h-0 flex-1 overflow-hidden">
-          <div className="grid h-full grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="grid h-full grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1.35fr)_minmax(0,0.9fr)]">
             {/* Column 1 — Context & Copy */}
             <ScrollArea className="h-full border-b border-border/60 lg:border-b-0 lg:border-r">
-              <div className="space-y-5 p-6">
+              <div className="space-y-4 px-4 py-4 lg:px-5">
                 <SectionTitle index={1} title="Contexto & Copy" />
 
                 {/* Channels */}
@@ -648,12 +697,24 @@ export function ScheduleWizard({
                       <Label htmlFor="wiz-location" className="flex items-center gap-1.5 text-xs">
                         <MapPin className="h-3 w-3" /> Local
                       </Label>
-                      <Input
-                        id="wiz-location"
+                      <LocationCombobox
+                        brandId={brandId}
+                        instagramConnectionId={instagramConn?.connectionId ?? null}
                         value={locationName}
-                        onChange={(e) => setLocationName(e.target.value)}
-                        placeholder="Ex.: São Paulo, SP"
+                        onChange={(name, id) => {
+                          setLocationName(name);
+                          setLocationId(id);
+                        }}
                       />
+                      {linkUrl && linkPolicy !== "clickable" && linkPolicy !== "none" ? (
+                        <p className="text-[10.5px] text-amber-600 dark:text-amber-400">
+                          {linkPolicy === "not-clickable"
+                            ? "Instagram/TikTok/Reels não tornam links clicáveis na legenda — use link na bio."
+                            : linkPolicy === "sticker"
+                              ? "Em Stories o link vira sticker (link vertical) — a URL não aparece no texto."
+                              : "Seleções mistas: o link só é clicável em algumas redes (Facebook/LinkedIn/X)."}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                 </div>
@@ -662,7 +723,7 @@ export function ScheduleWizard({
 
             {/* Column 2 — Media & Schedule */}
             <ScrollArea className="h-full border-b border-border/60 lg:border-b-0 lg:border-r">
-              <div className="space-y-5 p-6">
+              <div className="space-y-4 px-4 py-4 lg:px-5">
                 <SectionTitle index={2} title="Mídia & Agendamento" />
 
                 {/* Drag & drop */}
@@ -678,7 +739,7 @@ export function ScheduleWizard({
                     handleUpload(e.dataTransfer.files);
                   }}
                   className={cn(
-                    "flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-center transition-colors",
+                    "flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-4 text-center transition-colors",
                     dragActive
                       ? "border-primary bg-primary/5"
                       : "border-border/70 bg-muted/20 hover:bg-muted/40",
@@ -787,7 +848,7 @@ export function ScheduleWizard({
                       Biblioteca vazia — envie seu primeiro arquivo acima.
                     </div>
                   ) : (
-                    <div className="grid grid-cols-4 gap-1.5">
+                    <div className="grid grid-cols-5 gap-1.5">
                       {(mediaQ.data ?? []).map((m) => {
                         const selected = selectedMedia.some((x) => x.id === m.id);
                         const isVideo = m.kind === "video";
@@ -866,37 +927,42 @@ export function ScheduleWizard({
 
             {/* Column 3 — Live Preview */}
             <div className="flex h-full min-h-0 flex-col bg-muted/30">
-              <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-5 py-3">
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-4 py-2.5">
                 <SectionTitle index={3} title="Preview" compact />
-                {pairs.length ? (
-                  <div className="flex items-center gap-1">
-                    {Array.from(new Set(pairs.map((p) => p.channel))).map((ch) => (
-                      <button
-                        key={ch}
-                        type="button"
-                        onClick={() => setPreviewChannel(ch)}
-                        className={cn(
-                          "rounded-md border px-2 py-0.5 text-[10.5px] capitalize transition-colors",
-                          previewChannel === ch
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border/60 text-muted-foreground hover:bg-muted",
-                        )}
-                      >
-                        {ch}
-                      </button>
-                    ))}
+                {pairs.length > 1 ? (
+                  <div className="flex flex-wrap items-center justify-end gap-1">
+                    {pairs.map((p) => {
+                      const k = `${p.channel}::${p.format}`;
+                      return (
+                        <button
+                          key={k}
+                          type="button"
+                          onClick={() => setPreviewKey(k)}
+                          className={cn(
+                            "rounded-md border px-1.5 py-0.5 text-[10px] capitalize transition-colors",
+                            previewKey === k
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border/60 text-muted-foreground hover:bg-muted",
+                          )}
+                        >
+                          {p.channel} · {FORMAT_LABEL[p.format]}
+                        </button>
+                      );
+                    })}
                   </div>
                 ) : null}
               </div>
               <ScrollArea className="min-h-0 flex-1">
-                <div className="flex items-start justify-center p-6">
+                <div className="flex items-start justify-center px-4 py-5">
                   <PostPreview
-                    channel={previewChannel}
+                    channel={previewPair?.channel ?? "instagram"}
+                    format={previewPair?.format ?? "feed"}
                     handle={primaryConn?.handle ?? primaryConn?.accountLabel ?? "sua_marca"}
                     avatarUrl={primaryConn?.avatarUrl ?? null}
                     copy={copy}
                     hashtags={hashtags}
                     media={previewMedia}
+                    mediaCount={selectedMedia.length}
                     location={locationName}
                   />
                 </div>
@@ -946,6 +1012,13 @@ export function ScheduleWizard({
             ) : (
               <span>Selecione ao menos um canal para habilitar as ações.</span>
             )}
+            <span className="ml-2 hidden items-center gap-1 text-[10px] text-muted-foreground/70 md:inline-flex">
+              <kbd className="rounded border border-border/60 bg-muted px-1 py-[1px] font-mono text-[9.5px]">Esc</kbd>
+              fechar
+              <span className="mx-1">·</span>
+              <kbd className="rounded border border-border/60 bg-muted px-1 py-[1px] font-mono text-[9.5px]">⌘S</kbd>
+              salvar rascunho
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -1064,32 +1137,104 @@ function SectionTitle({
 
 function PostPreview({
   channel,
+  format,
   handle,
   avatarUrl,
   copy,
   hashtags,
   media,
+  mediaCount,
   location,
 }: {
   channel: SocialChannel;
+  format: PlacementFormat;
   handle: string;
   avatarUrl: string | null;
   copy: string;
   hashtags: string[];
   media: BrandMediaAsset | undefined;
+  mediaCount: number;
   location: string;
 }) {
   const fullCopy = [copy.trim(), hashtags.map((t) => `#${t}`).join(" ")]
     .filter(Boolean)
     .join("\n\n");
   const initials = (handle || "?").slice(0, 2).toUpperCase();
+  const vertical =
+    format === "reels" ||
+    format === "stories" ||
+    channel === "tiktok" ||
+    channel === "youtube";
+  const wideMedia = channel === "linkedin" || channel === "x";
+  const isStories = format === "stories";
+  const isReels = format === "reels" || channel === "tiktok" || channel === "youtube";
+  const chromeStyle = channelChromeStyle(channel);
 
+  if (vertical) {
+    // Reels/TikTok/Shorts/Stories — full-bleed 9:16 com overlay.
+    return (
+      <div className="relative w-full max-w-[300px] overflow-hidden rounded-2xl border border-border/60 bg-black shadow-lg" style={{ aspectRatio: "9 / 16" }}>
+        {media?.publicUrl ? (
+          media.kind === "video" ? (
+            <video src={media.publicUrl} className="absolute inset-0 h-full w-full object-cover" muted playsInline loop autoPlay />
+          ) : (
+            <img src={media.publicUrl} alt="preview" className="absolute inset-0 h-full w-full object-cover" />
+          )
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-white/60">
+            <ImageIcon className="h-6 w-6" />
+            <span className="text-[10.5px]">Nenhuma mídia selecionada</span>
+          </div>
+        )}
+        {/* Top gradient + header (Stories mostra barra de progresso) */}
+        <div className="absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-black/60 to-transparent p-3">
+          {isStories ? (
+            <div className="mb-2 flex gap-1">
+              <div className="h-0.5 flex-1 rounded-full bg-white/80" />
+              <div className="h-0.5 flex-1 rounded-full bg-white/30" />
+              <div className="h-0.5 flex-1 rounded-full bg-white/30" />
+            </div>
+          ) : null}
+          <div className="flex items-center gap-2 text-white">
+            <Avatar className="h-6 w-6 shrink-0 ring-1 ring-white/60">
+              <AvatarImage src={avatarUrl ?? undefined} />
+              <AvatarFallback className="text-[9px] uppercase">{initials}</AvatarFallback>
+            </Avatar>
+            <span className="text-[11px] font-semibold drop-shadow">{handle}</span>
+            {location ? (
+              <span className="truncate text-[10px] text-white/80 drop-shadow">· {location}</span>
+            ) : null}
+          </div>
+        </div>
+        {/* Right rail — Reels/TikTok */}
+        {isReels ? (
+          <div className="absolute bottom-16 right-2 z-10 flex flex-col items-center gap-3 text-white drop-shadow">
+            <Heart className="h-5 w-5" />
+            <MessageSquare className="h-5 w-5" />
+            <Share className="h-5 w-5" />
+            <Bookmark className="h-5 w-5" />
+          </div>
+        ) : null}
+        {/* Bottom overlay copy (Reels/TikTok) */}
+        {isReels ? (
+          <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-black/70 to-transparent p-3 text-white">
+            <div className="text-[11px] font-semibold drop-shadow">{handle}</div>
+            <div className="mt-0.5 line-clamp-2 whitespace-pre-wrap text-[10.5px] drop-shadow">
+              {fullCopy || <span className="text-white/60">Sua legenda aparece aqui…</span>}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  // Feed padrão (IG/FB/LinkedIn/X)
   return (
-    <div className="w-full max-w-[360px] overflow-hidden rounded-2xl border border-border/60 bg-background shadow-sm">
-      {/* Post header */}
+    <div className={cn("w-full max-w-[380px] overflow-hidden rounded-2xl border shadow-sm", chromeStyle.card)}>
+      {/* Header (X mostra @handle · texto acima da mídia) */}
       <div className="flex items-center justify-between px-3 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
-          <Avatar className="h-8 w-8 shrink-0 ring-2 ring-primary/30">
+          <Avatar className={cn("h-8 w-8 shrink-0", chromeStyle.avatarRing)}>
             <AvatarImage src={avatarUrl ?? undefined} />
             <AvatarFallback className="text-[10px] uppercase">{initials}</AvatarFallback>
           </Avatar>
@@ -1098,27 +1243,25 @@ function PostPreview({
             {location ? (
               <div className="truncate text-[10px] text-muted-foreground">{location}</div>
             ) : (
-              <div className="truncate text-[10px] capitalize text-muted-foreground">
-                {channel}
-              </div>
+              <div className="truncate text-[10px] capitalize text-muted-foreground">{channel}</div>
             )}
           </div>
         </div>
         <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
       </div>
 
+      {/* Copy acima da mídia — LinkedIn/X */}
+      {(channel === "linkedin" || channel === "x") && fullCopy ? (
+        <div className="px-3 pb-2 text-[11.5px] leading-snug">
+          <span className="whitespace-pre-wrap text-foreground/90">{fullCopy}</span>
+        </div>
+      ) : null}
+
       {/* Media */}
-      <div className="relative aspect-square w-full bg-muted">
+      <div className="relative w-full bg-muted" style={{ aspectRatio: wideMedia ? "1.91 / 1" : "1 / 1" }}>
         {media?.publicUrl ? (
           media.kind === "video" ? (
-            <video
-              src={media.publicUrl}
-              className="h-full w-full object-cover"
-              muted
-              playsInline
-              loop
-              autoPlay
-            />
+            <video src={media.publicUrl} className="h-full w-full object-cover" muted playsInline loop autoPlay />
           ) : (
             <img src={media.publicUrl} alt="preview" className="h-full w-full object-cover" />
           )
@@ -1128,30 +1271,212 @@ function PostPreview({
             <span className="text-[10.5px]">Nenhuma mídia selecionada</span>
           </div>
         )}
+        {/* Carousel dots */}
+        {format === "carrossel" && mediaCount > 1 ? (
+          <div className="absolute inset-x-0 bottom-2 z-10 flex items-center justify-center gap-1">
+            {Array.from({ length: Math.min(mediaCount, 10) }).map((_, i) => (
+              <span
+                key={i}
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  i === 0 ? "bg-white" : "bg-white/50",
+                )}
+              />
+            ))}
+          </div>
+        ) : null}
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center justify-between px-3 pt-2.5">
-        <div className="flex items-center gap-3 text-foreground">
-          <Heart className="h-5 w-5" />
-          <MessageSquare className="h-5 w-5" />
-          <Share className="h-5 w-5" />
+      {/* Actions bar — Instagram/Facebook only */}
+      {(channel === "instagram" || channel === "facebook") ? (
+        <div className="flex items-center justify-between px-3 pt-2.5">
+          <div className="flex items-center gap-3 text-foreground">
+            <Heart className="h-5 w-5" />
+            <MessageSquare className="h-5 w-5" />
+            <Share className="h-5 w-5" />
+          </div>
+          <Bookmark className="h-5 w-5" />
         </div>
-        <Bookmark className="h-5 w-5" />
-      </div>
+      ) : null}
 
-      {/* Copy */}
-      <div className="px-3 pb-3 pt-2">
-        <div className="text-[11.5px] leading-snug">
-          <span className="font-semibold">{handle}</span>{" "}
-          <span className="whitespace-pre-wrap text-foreground/90">
-            {fullCopy || (
-              <span className="text-muted-foreground">Sua legenda aparece aqui…</span>
-            )}
-          </span>
+      {/* Copy abaixo — IG/FB */}
+      {(channel === "instagram" || channel === "facebook") ? (
+        <div className="px-3 pb-3 pt-2">
+          <div className="text-[11.5px] leading-snug">
+            <span className="font-semibold">{handle}</span>{" "}
+            <span className="whitespace-pre-wrap text-foreground/90">
+              {fullCopy || (
+                <span className="text-muted-foreground">Sua legenda aparece aqui…</span>
+              )}
+            </span>
+          </div>
         </div>
-      </div>
+      ) : null}
     </div>
+  );
+}
+
+function channelChromeStyle(channel: SocialChannel) {
+  switch (channel) {
+    case "linkedin":
+      return {
+        card: "border-[#0A66C2]/20 bg-background",
+        avatarRing: "ring-2 ring-[#0A66C2]/30",
+      };
+    case "x":
+      return {
+        card: "border-neutral-800 bg-background",
+        avatarRing: "ring-2 ring-neutral-500/40",
+      };
+    case "facebook":
+      return {
+        card: "border-[#1877F2]/20 bg-background",
+        avatarRing: "ring-2 ring-[#1877F2]/30",
+      };
+    default:
+      return {
+        card: "border-border/60 bg-background",
+        avatarRing: "ring-2 ring-primary/30",
+      };
+  }
+}
+
+// ============================================================
+// Link policy — sinaliza se o link será clicável na rede escolhida.
+// ============================================================
+
+export type LinkPolicy =
+  | "none"
+  | "clickable"
+  | "sticker"
+  | "not-clickable"
+  | "mixed";
+
+function classifyLinkPolicy(
+  channel: SocialChannel,
+  format: PlacementFormat,
+): LinkPolicy {
+  // Stories: Instagram/Facebook viram sticker de link.
+  if (format === "stories") return "sticker";
+  // Instagram feed/reels/carrossel: link não é clicável na legenda.
+  if (channel === "instagram") return "not-clickable";
+  // TikTok / YouTube Shorts (mapeados como reels): também não clicáveis na caption.
+  if (channel === "tiktok" || channel === "youtube") return "not-clickable";
+  // Facebook / LinkedIn / X / Threads: link clicável no feed.
+  return "clickable";
+}
+
+// ============================================================
+// LocationCombobox — busca locais do Graph com debounce.
+// ============================================================
+
+function LocationCombobox({
+  brandId,
+  instagramConnectionId,
+  value,
+  onChange,
+}: {
+  brandId: string;
+  instagramConnectionId: string | null;
+  value: string;
+  onChange: (name: string, id: string | null) => void;
+}) {
+  const searchFn = useServerFn(searchInstagramLocationsFn);
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState(value);
+  const [debounced, setDebounced] = useState("");
+
+  useEffect(() => {
+    setQ(value);
+  }, [value]);
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(q.trim()), 250);
+    return () => clearTimeout(id);
+  }, [q]);
+
+  const searchQ = useQuery({
+    enabled: open && !!instagramConnectionId && debounced.length >= 2,
+    queryKey: ["ig-location", instagramConnectionId, debounced],
+    queryFn: () =>
+      searchFn({
+        data: {
+          brandId,
+          connectionId: instagramConnectionId!,
+          query: debounced,
+        },
+      }),
+  });
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Input
+          value={q}
+          onChange={(e) => {
+            setQ(e.target.value);
+            onChange(e.target.value, null);
+            if (!open) setOpen(true);
+          }}
+          onFocus={() => setOpen(true)}
+          placeholder={
+            instagramConnectionId
+              ? "Digite para buscar no Instagram…"
+              : "Ex.: São Paulo, SP"
+          }
+        />
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-[--radix-popover-trigger-width] p-1"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        {!instagramConnectionId ? (
+          <div className="p-2 text-[11px] text-muted-foreground">
+            Conecte um Instagram para buscar locais reais.
+          </div>
+        ) : debounced.length < 2 ? (
+          <div className="p-2 text-[11px] text-muted-foreground">
+            Digite ao menos 2 letras para buscar.
+          </div>
+        ) : searchQ.isFetching ? (
+          <div className="flex items-center gap-2 p-2 text-[11px] text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" /> Buscando…
+          </div>
+        ) : searchQ.data && !searchQ.data.ok ? (
+          <div className="p-2 text-[11px] text-destructive">
+            {searchQ.data.error ?? "Falha na busca."}
+          </div>
+        ) : (searchQ.data?.results ?? []).length === 0 ? (
+          <div className="p-2 text-[11px] text-muted-foreground">
+            Nenhum local encontrado para “{debounced}”.
+          </div>
+        ) : (
+          <ul className="max-h-64 overflow-auto">
+            {(searchQ.data?.results ?? []).map((r) => (
+              <li key={r.id}>
+                <button
+                  type="button"
+                  className="flex w-full flex-col items-start rounded-md px-2 py-1.5 text-left text-[11.5px] hover:bg-muted"
+                  onClick={() => {
+                    onChange(r.name, r.id);
+                    setQ(r.name);
+                    setOpen(false);
+                  }}
+                >
+                  <span className="font-medium">{r.name}</span>
+                  {r.subtitle ? (
+                    <span className="text-[10px] text-muted-foreground">
+                      {r.subtitle}
+                    </span>
+                  ) : null}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 
