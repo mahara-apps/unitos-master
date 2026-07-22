@@ -4015,6 +4015,7 @@ export type Database = {
           stage_entered_at: string | null
           stage_id: string | null
           tags: string[]
+          target_connection_ids: string[]
           title: string
           updated_at: string
           visible_in_portal: boolean
@@ -4055,6 +4056,7 @@ export type Database = {
           stage_entered_at?: string | null
           stage_id?: string | null
           tags?: string[]
+          target_connection_ids?: string[]
           title: string
           updated_at?: string
           visible_in_portal?: boolean
@@ -4095,6 +4097,7 @@ export type Database = {
           stage_entered_at?: string | null
           stage_id?: string | null
           tags?: string[]
+          target_connection_ids?: string[]
           title?: string
           updated_at?: string
           visible_in_portal?: boolean
