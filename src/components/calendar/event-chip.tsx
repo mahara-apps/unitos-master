@@ -35,7 +35,6 @@ export function EventChip({
               "flex w-full items-center gap-1.5 rounded-md border px-1.5 py-1 text-left text-[11px] transition-all hover:-translate-y-px hover:shadow-sm",
               EVENT_TYPE_STYLES.post.chip,
             )}
-            title={p.title}
           >
             <NetIcon className="h-3 w-3 shrink-0 text-muted-foreground" strokeWidth={2} />
             <span className="tabular-nums font-semibold opacity-70">{t}</span>
@@ -81,7 +80,6 @@ export function EventChip({
             "flex w-full items-center gap-1.5 rounded-md border px-1.5 py-1 text-left text-[11px] transition-all hover:-translate-y-px hover:shadow-sm",
             style.chip,
           )}
-          title={e.title}
         >
           <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", style.dot)} />
           {!e.all_day ? (
