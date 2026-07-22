@@ -914,37 +914,42 @@ export function ScheduleWizard({
 
             {/* Column 3 — Live Preview */}
             <div className="flex h-full min-h-0 flex-col bg-muted/30">
-              <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-5 py-3">
+              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-4 py-2.5">
                 <SectionTitle index={3} title="Preview" compact />
-                {pairs.length ? (
-                  <div className="flex items-center gap-1">
-                    {Array.from(new Set(pairs.map((p) => p.channel))).map((ch) => (
-                      <button
-                        key={ch}
-                        type="button"
-                        onClick={() => setPreviewChannel(ch)}
-                        className={cn(
-                          "rounded-md border px-2 py-0.5 text-[10.5px] capitalize transition-colors",
-                          previewChannel === ch
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border/60 text-muted-foreground hover:bg-muted",
-                        )}
-                      >
-                        {ch}
-                      </button>
-                    ))}
+                {pairs.length > 1 ? (
+                  <div className="flex flex-wrap items-center justify-end gap-1">
+                    {pairs.map((p) => {
+                      const k = `${p.channel}::${p.format}`;
+                      return (
+                        <button
+                          key={k}
+                          type="button"
+                          onClick={() => setPreviewKey(k)}
+                          className={cn(
+                            "rounded-md border px-1.5 py-0.5 text-[10px] capitalize transition-colors",
+                            previewKey === k
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border/60 text-muted-foreground hover:bg-muted",
+                          )}
+                        >
+                          {p.channel} · {FORMAT_LABEL[p.format]}
+                        </button>
+                      );
+                    })}
                   </div>
                 ) : null}
               </div>
               <ScrollArea className="min-h-0 flex-1">
-                <div className="flex items-start justify-center p-6">
+                <div className="flex items-start justify-center px-4 py-5">
                   <PostPreview
-                    channel={previewChannel}
+                    channel={previewPair?.channel ?? "instagram"}
+                    format={previewPair?.format ?? "feed"}
                     handle={primaryConn?.handle ?? primaryConn?.accountLabel ?? "sua_marca"}
                     avatarUrl={primaryConn?.avatarUrl ?? null}
                     copy={copy}
                     hashtags={hashtags}
                     media={previewMedia}
+                    mediaCount={selectedMedia.length}
                     location={locationName}
                   />
                 </div>
