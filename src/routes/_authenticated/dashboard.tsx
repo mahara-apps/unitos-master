@@ -581,18 +581,21 @@ const CHANNEL_LABELS: Record<string, string> = {
 function PublishTrendCard({
   trend,
   channels,
+  rangeDays,
 }: {
   trend: number[];
   channels: Array<{ channel: string; count: number }>;
+  rangeDays?: number;
 }) {
+  const days = rangeDays ?? trend.length;
   const chartData = trend.map((v, i) => {
     const d = new Date();
-    d.setDate(d.getDate() - (13 - i));
+    d.setDate(d.getDate() - (trend.length - 1 - i));
     return { day: format(d, "dd/MM"), posts: v };
   });
   return (
     <Card
-      title="Publicações · 14 dias"
+      title={`Publicações · ${days} dias`}
       subtitle="Ritmo de publicações e canais mais usados"
       icon={<TrendingUp className="h-4 w-4" />}
     >
