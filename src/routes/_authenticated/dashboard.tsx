@@ -55,7 +55,6 @@ import {
 } from "@/lib/customer-dashboard.functions";
 import { Sparkline } from "@/components/dashboard/sparkline";
 import { KpiCard } from "@/components/ui/kpi-card";
-import { HealthBar } from "@/components/dashboard/health-bar";
 import { PanelCard as Card } from "@/components/ui/panel-card";
 import { PanelEmptyState as EmptyState } from "@/components/ui/panel-empty";
 import { PanelSkeletonList as SkeletonList } from "@/components/ui/panel-skeleton";
