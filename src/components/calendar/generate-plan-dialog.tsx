@@ -171,7 +171,7 @@ export function GeneratePlanDialog({
       setOpen(false);
       onGenerated?.();
     } catch (err) {
-      toast.error((err as Error).message ?? "Não foi possível iniciar o plano.");
+      toast.error(describeError(err));
     } finally {
       clearInterval(interval);
       setPending(false);

@@ -37,9 +37,23 @@ import { EventChip, type UnifiedEvent } from "@/components/calendar/event-chip";
 import { EventDialog } from "@/components/calendar/event-dialog";
 import { SocialIconsRow } from "@/components/calendar/social-icons-row";
 import { uniqueNetworks } from "@/lib/calendar-tokens";
+import { describeError } from "@/lib/errors";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   component: CalendarPage,
+  errorComponent: ({ error, reset }) => (
+    <div className="mx-auto max-w-lg space-y-3 rounded-lg border border-destructive/40 bg-destructive/5 p-6 text-sm">
+      <div className="font-semibold text-destructive">Não foi possível carregar o calendário.</div>
+      <div className="text-muted-foreground">{describeError(error)}</div>
+      <button
+        type="button"
+        onClick={() => reset()}
+        className="inline-flex items-center rounded-md border border-border/60 bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted"
+      >
+        Tentar novamente
+      </button>
+    </div>
+  ),
 });
 
 function startOfMonth(d: Date) {
@@ -89,7 +103,7 @@ function CalendarPage() {
         });
         setOpenPost({ ...p, pipeline_id: pipe.id });
       } catch (e) {
-        toast.error((e as Error).message || "Não foi possível abrir este conteúdo");
+        toast.error(describeError(e));
       } finally {
         setOpeningPost(false);
       }
@@ -120,7 +134,7 @@ function CalendarPage() {
         stages: board.stages,
       });
     } catch (e) {
-      toast.error((e as Error).message || "Falha ao preparar novo conteúdo");
+      toast.error(describeError(e));
     } finally {
       setCreating(false);
     }
