@@ -614,6 +614,20 @@ export type AgencyDashboard = {
   aiUsage: AiUsageSummary;
   avgLeadTimeDays: number | null;
   topChannels: Array<{ channel: string; count: number }>;
+  tasksByBucket: {
+    open: number;
+    in_progress: number;
+    review: number;
+    done: number;
+    overdue: number;
+  };
+  approvalsByClient: Array<{
+    client_id: string;
+    client_name: string;
+    pending: number;
+    approved: number;
+  }>;
+  rangeDays: number;
 };
 
 async function computeAgency(
