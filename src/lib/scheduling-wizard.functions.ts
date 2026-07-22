@@ -608,3 +608,58 @@ export const deleteDraftPostFn = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+// ============================================================
+// deleteApprovedPostFn — remove post aprovado aguardando agendamento
+// ============================================================
+
+export const deleteApprovedPostFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        postId: z.string().uuid(),
+        brandId: z.string().uuid(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: row, error: rErr } = await context.supabase
+      .from("posts")
+      .select("id, stage")
+      .eq("id", data.postId)
+      .eq("brand_id", data.brandId)
+      .maybeSingle();
+    if (rErr) throw new Error(rErr.message);
+    if (!row) throw new Error("Post não encontrado ou sem permissão.");
+    // Bloqueia exclusão quando há publicações em andamento ou já publicadas.
+    const { data: spRows, error: spErr } = await context.supabase
+      .from("social_posts")
+      .select("id, status")
+      .eq("post_id", data.postId);
+    if (spErr) throw new Error(spErr.message);
+    const blocking = (spRows ?? []).filter(
+      (r) => r.status && r.status !== "scheduled",
+    );
+    if (blocking.length > 0) {
+      throw new Error(
+        "Não é possível excluir: já existem publicações em andamento ou publicadas.",
+      );
+    }
+    // Ordem: social_posts (scheduled) → placements → posts
+    await context.supabase
+      .from("social_posts")
+      .delete()
+      .eq("post_id", data.postId);
+    await context.supabase
+      .from("post_placements")
+      .delete()
+      .eq("post_id", data.postId);
+    const { error } = await context.supabase
+      .from("posts")
+      .delete()
+      .eq("id", data.postId)
+      .eq("brand_id", data.brandId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
