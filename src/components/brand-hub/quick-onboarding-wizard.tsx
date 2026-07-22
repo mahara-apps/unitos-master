@@ -361,10 +361,12 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div className="space-y-1.5">
-      <Label className="text-xs">{label}</Label>
+    <div className="group space-y-2">
+      <Label className="text-sm font-medium text-foreground transition-colors group-focus-within:text-primary">
+        {label}
+      </Label>
       {children}
-      {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -387,25 +389,26 @@ function StepIdentity({
   const hasCapturedData = !!(client?.name || client?.niche || igHandle || color || client?.logo_url);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8 pt-2">
       {hasCapturedData ? (
-        <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5">
-          <div className="mb-1.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            Já capturado no cadastro
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-start justify-between gap-4 rounded-xl border border-border/60 bg-muted/40 px-4 py-3">
+          <div className="min-w-0 space-y-1.5">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Já capturado no cadastro
+            </div>
+            <div className="flex flex-wrap items-center gap-2.5">
             {client?.logo_url ? (
               <img
                 src={client.logo_url}
                 alt=""
-                className="h-8 w-8 rounded-md border border-border object-contain bg-background"
+                className="h-7 w-7 rounded-md border border-border bg-background object-contain"
               />
             ) : null}
             {client?.name ? (
-              <span className="text-sm font-semibold text-foreground">{client.name}</span>
+              <span className="truncate text-sm font-semibold text-foreground">{client.name}</span>
             ) : null}
             {client?.niche ? (
-              <span className="rounded-full border border-border/60 bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
+              <span className="rounded-full border border-border/60 bg-background px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
                 {client.niche}
               </span>
             ) : null}
@@ -414,7 +417,7 @@ function StepIdentity({
                 href={`https://instagram.com/${igHandle}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
               >
                 <InstagramIcon className="h-3 w-3" />@{igHandle}
                 <ExternalLink className="h-2.5 w-2.5 opacity-70" />
@@ -423,19 +426,28 @@ function StepIdentity({
             {color ? (
               <span className="inline-flex items-center gap-1.5">
                 <span
-                  className="h-3.5 w-3.5 rounded-full border border-border"
-                  style={{ background: color }}
+                  className="h-2.5 w-2.5 rounded-full ring-4 ring-offset-0"
+                  style={{
+                    background: color,
+                    // subtle ring using the color itself at low opacity
+                    boxShadow: `0 0 0 4px ${color}1a`,
+                  }}
                 />
                 <span className="font-mono text-[11px] uppercase text-muted-foreground">{color}</span>
               </span>
             ) : null}
+            </div>
           </div>
         </div>
       ) : null}
-      <h3 className="text-sm font-semibold tracking-tight">Identidade</h3>
+      <div className="space-y-6">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">
+          Identidade
+        </h3>
+        <div className="space-y-5">
       <Field label="Tom de voz" hint="Ex.: próximo, provocador, direto, com humor.">
         <Textarea
-          rows={2}
+          rows={3}
           value={state.tone_text}
           onChange={(e) => setField("tone_text", e.target.value)}
           placeholder="Como a marca fala com o público?"
@@ -443,7 +455,7 @@ function StepIdentity({
       </Field>
       <Field label="Missão">
         <Textarea
-          rows={2}
+          rows={3}
           value={state.mission}
           onChange={(e) => setField("mission", e.target.value)}
           placeholder="Por que essa marca existe?"
@@ -457,6 +469,8 @@ function StepIdentity({
           placeholder="Para quem, contra quem, com que promessa."
         />
       </Field>
+        </div>
+      </div>
     </div>
   );
 }
@@ -469,8 +483,11 @@ function StepProductAudience({
   setField: <K extends keyof State>(k: K, v: State[K]) => void;
 }) {
   return (
-    <div className="space-y-4">
-      <h3 className="text-sm font-semibold tracking-tight">Produto & Público</h3>
+    <div className="space-y-6 pt-2">
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">
+        Produto & Público
+      </h3>
+      <div className="space-y-5">
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Oferta principal">
           <Input
@@ -503,6 +520,7 @@ function StepProductAudience({
           placeholder="Frustrações que esse público sente hoje."
         />
       </Field>
+      </div>
     </div>
   );
 }
@@ -515,10 +533,12 @@ function StepGoals({
   setField: <K extends keyof State>(k: K, v: State[K]) => void;
 }) {
   return (
-    <div className="space-y-5">
-      <h3 className="text-sm font-semibold tracking-tight">Metas</h3>
+    <div className="space-y-6 pt-2">
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">
+        Metas
+      </h3>
 
-      <div className="space-y-3 rounded-lg border border-border/60 bg-muted/20 p-4">
+      <div className="space-y-3 rounded-xl border border-border/60 bg-muted/40 p-4">
         <div className="flex items-center justify-between">
           <Label className="text-xs">Volumetria semanal por canal</Label>
           <span className="text-[11px] text-muted-foreground">posts / semana</span>
