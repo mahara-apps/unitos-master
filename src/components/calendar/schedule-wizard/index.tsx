@@ -1012,6 +1012,13 @@ export function ScheduleWizard({
             ) : (
               <span>Selecione ao menos um canal para habilitar as ações.</span>
             )}
+            <span className="ml-2 hidden items-center gap-1 text-[10px] text-muted-foreground/70 md:inline-flex">
+              <kbd className="rounded border border-border/60 bg-muted px-1 py-[1px] font-mono text-[9.5px]">Esc</kbd>
+              fechar
+              <span className="mx-1">·</span>
+              <kbd className="rounded border border-border/60 bg-muted px-1 py-[1px] font-mono text-[9.5px]">⌘S</kbd>
+              salvar rascunho
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <Button
