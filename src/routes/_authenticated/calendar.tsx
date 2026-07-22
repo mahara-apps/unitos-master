@@ -227,7 +227,15 @@ function CalendarPage() {
   usePageHeader(
     {
       title: "Calendário",
-      subtitle: `${monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)} · ${q.data?.length ?? 0} posts agendados`,
+      subtitle: (() => {
+        const total = q.data?.length ?? 0;
+        const shown = filteredPosts.length;
+        const label =
+          formatFilter && shown !== total
+            ? `${shown} de ${total} posts agendados`
+            : `${total} posts agendados`;
+        return `${monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)} · ${label}`;
+      })(),
       actions: (
         <div className="flex items-center gap-2">
           <div className="flex items-center rounded-md border border-border/60 p-0.5">
@@ -260,7 +268,7 @@ function CalendarPage() {
             <Button variant="ghost" size="icon" className="h-9 w-9 rounded-r-none" onClick={() => setCursor((d) => addMonths(d, -1))}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="sm" className="h-9 rounded-none border-x border-border/60" onClick={() => setCursor(startOfMonth(new Date()))}>
+            <Button variant="ghost" size="sm" className="h-9 rounded-none border-x border-border/60" onClick={() => { setCursor(startOfMonth(new Date())); setViewMode("month"); }}>
               Hoje
             </Button>
             <Button variant="ghost" size="icon" className="h-9 w-9 rounded-l-none" onClick={() => setCursor((d) => addMonths(d, 1))}>
