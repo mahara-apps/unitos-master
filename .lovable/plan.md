@@ -1,43 +1,50 @@
-# Ritmo de publicações — corrigir fonte de dados
 
-## Diagnóstico (confirmado)
+## Problema
 
-O card "Ritmo de publicações" (agência e conta) e o sparkline de "Publicações aprovadas · 30d" leem exclusivamente `posts.published_at`. Na base atual:
+O `DateRangePicker` nos dashboards (agência, cliente e customer) só entra na `queryKey` — o range nunca chega no servidor. As fns (`getStatsFn`, `getAgencyFn`, `getCustomerDashboardFn`) usam janelas fixas hardcoded (`sinceIso(7|14|30|60)`), então mudar o filtro visualmente não muda nenhum número.
 
-- `posts` total: **127** · com `published_at`: **3** (últimos 14d: **2**)
-- `social_posts` total: **0** · com `status='published'`: **0**
+Além disso, cada bloco usa um campo de data diferente (`updated_at`, `done_at`, `published_at`, `scheduled_at`), o que dificulta um filtro consistente.
 
-Ou seja, hoje só o fluxo "Publicar agora" do wizard grava `posts.published_at`. Todo agendamento processado pelo worker (`publish-scheduled`) grava em `social_posts` (status/published_at por placement), e por isso o gráfico fica sempre próximo de zero — mesmo quando há publicações reais.
+## Objetivo
 
-Arquivos-fonte:
-- `src/lib/dashboard.functions.ts` → `computeStats` (linhas 383–402, conta) e `computeAgency` (linhas 850–867, agência).
-- `src/routes/_authenticated/dashboard.tsx` → `PublishTrendCard` consome `publishTrend14d` + `topChannels`/`channelCounts`.
+Fazer o range escolhido no header filtrar de verdade os dados, usando **`created_at` como campo padrão** (conforme pedido). Campos de eventos naturalmente temporais (agendamento futuro, "atrasadas hoje") permanecem intactos porque não fazem sentido serem filtrados pelo range histórico.
 
-## O que fazer
+## Escopo por fn
 
-Unificar a fonte de "publicações realizadas" em ambos os modos, sem mexer na UI:
+### `src/lib/dashboard.functions.ts`
+- Adicionar input opcional `range: { from: string; to: string }` em `BrandInput` (ISO strings), com fallback: últimos 30 dias.
+- Substituir todo `sinceIso(N)` que hoje filtra dados retroativos por `range.from` / `range.to` sobre **`created_at`**, exceto:
+  - `upcomingPosts` / `upcoming` (agendamentos futuros) — mantém `scheduled_at >= now`, `<= now+7d`.
+  - `tasks_overdue` — mantém `due_at < now`.
+  - `tasks_done_7d` → renomear conceitualmente para "concluídas no período" usando `done_at` dentro do range.
+  - `heatmap` (60d fixo) e `sparkline`/`publishTrend14d` — trocar o tamanho fixo pelo tamanho do range (dias entre from/to, cap 60/90) e usar `created_at`/`published_at` conforme aplicável dentro do range.
+- Aprovações: `approvals_pending` continua absoluto; `posts_approved_30d` passa a usar `post_approvals.created_at` dentro do range (label "aprovadas no período").
+- `computeAiUsage`: aceitar range e filtrar `brand_ai_usage.created_at` por ele; `cost7d` / `spark14d` recomputados sobre o range.
 
-1. **`computeAgency` (agência):**
-   - Buscar `social_posts` do brand (`published_at, platform, client_id`) com `status='published'` e `published_at >= now-14d`, escopado pelos `client_id` do brand.
-   - Compor `publishTrend14d` por dia como `UNION` de duas séries: um evento por `posts.published_at` **e** um evento por linha de `social_posts` publicada. Deduplicar por `(post_id, platform, dia)` quando `social_posts.post_id` estiver setado, para não contar duas vezes o mesmo placement.
-   - `topChannels`: somar `posts.channels[]` (legado) + `social_posts.platform` (fonte de verdade quando existir), mantendo o mesmo shape `{ channel, count }`.
-   - `avgLeadTimeDays`: manter `posts.created_at → posts.published_at` (fórmula canônica atual); adicionar fallback para usar `min(social_posts.published_at)` do post quando `posts.published_at` for null, para não subestimar o lead time.
+### `src/lib/customer-dashboard.functions.ts`
+- Mesmo tratamento: input `range`, filtros por `created_at` no range em vez de `since30d` hardcoded.
+- `social_posts` published metrics: filtrar `published_at` dentro do range (a métrica é sobre publicação, mas o range escolhido pelo usuário passa a ser respeitado).
 
-2. **`computeStats` (conta):**
-   - Mesmo tratamento, escopado por `client_id` ativo.
-   - `channelCounts` idem (union `posts.channels` + `social_posts.platform`).
+### `src/routes/_authenticated/dashboard.tsx`
+- Nos três `useQuery` (`dashboard-agency`, `dashboard-client`, `customer-dashboard`): passar `data: { brandId, clientId?, range: { from: range.from.toISOString(), to: range.to.toISOString() } }`.
+- Manter `days` na queryKey para invalidar cache (já está).
 
-3. **Sparkline do KPI "Publicações aprovadas · 30d":**
-   - Continua vindo de `publishTrend14d`, agora consistente com o card. Sem alteração no componente.
+## Regra padrão do filtro
 
-4. **Sem migrações.** Somente leitura adicional a `social_posts` (já com RLS por brand). Sem mudança de tipos exportados — o shape `publishTrend14d: number[]` e `topChannels: {channel,count}[]` permanece.
-
-## Verificação
-
-- Rodar a query de sanidade novamente após o deploy: contagem por dia dos últimos 14d deve refletir `posts.published_at ∪ social_posts.published_at` (dedupe por placement).
-- Abrir Dashboard agência e Dashboard de uma conta com posts publicados via agendamento — o gráfico e o KPI devem apresentar barras não-zero condizentes.
+- Campo padrão: **`posts.created_at`, `tasks.created_at`, `activity_events.created_at`, `brand_ai_usage.created_at`, `post_approvals.created_at`**.
+- Exceções mantêm o campo semântico correto:
+  - Agendamentos futuros: `scheduled_at`.
+  - Atrasadas: `due_at < now`.
+  - Publicações realizadas (worker): `social_posts.published_at`.
+- Sparkline/heatmap/trend adaptam seu tamanho ao range (`Math.min(90, daysBetween(from,to))`).
 
 ## Fora de escopo
 
-- Não mexer em `PublishTrendCard` (UI), no filtro de data range do header, nem na regra de `posts_approved_30d`.
-- Não alterar o worker `publish-scheduled` nem o fluxo "Publicar agora".
+- UI do `DateRangePicker` (já existe e funciona).
+- Filtros de outras rotas (analytics, brain) — só o Dashboard nesta iteração.
+- Backfill de `posts.published_at`.
+
+## Validação
+
+- `tsgo --noEmit`.
+- Preview: trocar preset (7d / 30d / 90d) e conferir que KPIs, sparkline, ritmo de publicações e AI usage mudam de valor.
