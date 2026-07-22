@@ -112,6 +112,7 @@ function fmtDate(iso?: string | null) {
 function ProjectsIndexPage() {
   const { brandId, clientId: activeClientId } = useActiveContext();
   const qc = useQueryClient();
+  const brainEnabled = useFeatureAccess("brain").enabled;
   const list = useServerFn(listProjects);
   const create = useServerFn(createProject);
   const clientsFn = useServerFn(listClients);
