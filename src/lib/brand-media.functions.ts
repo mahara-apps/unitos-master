@@ -10,6 +10,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 export type BrandMediaAsset = {
   id: string;
   brandId: string;
+  clientId: string | null;
   storagePath: string;
   name: string;
   mimeType: string;
@@ -24,6 +25,7 @@ export type BrandMediaAsset = {
 
 const BrandInput = z.object({
   brandId: z.string().uuid(),
+  clientId: z.string().uuid().nullish(),
   kind: z.enum(["image", "video", "other"]).optional(),
   limit: z.number().int().min(1).max(200).default(60),
 });
@@ -49,11 +51,16 @@ export const listBrandMediaFn = createServerFn({ method: "GET" })
     let q = context.supabase
       .from("brand_media_assets")
       .select(
-        "id, brand_id, storage_path, name, mime_type, size_bytes, kind, width, height, tags, created_at",
+        "id, brand_id, client_id, storage_path, name, mime_type, size_bytes, kind, width, height, tags, created_at",
       )
       .eq("brand_id", data.brandId)
       .order("created_at", { ascending: false })
       .limit(data.limit);
+    if (data.clientId) {
+      q = q.eq("client_id", data.clientId);
+    } else {
+      q = q.is("client_id", null);
+    }
     if (data.kind) q = q.eq("kind", data.kind);
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
@@ -61,6 +68,7 @@ export const listBrandMediaFn = createServerFn({ method: "GET" })
       (rows ?? []).map(async (r) => ({
         id: r.id,
         brandId: r.brand_id,
+        clientId: r.client_id ?? null,
         storagePath: r.storage_path,
         name: r.name,
         mimeType: r.mime_type,
@@ -78,6 +86,7 @@ export const listBrandMediaFn = createServerFn({ method: "GET" })
 
 const RegisterInput = z.object({
   brandId: z.string().uuid(),
+  clientId: z.string().uuid().nullish(),
   storagePath: z.string().min(3),
   name: z.string().min(1).max(200),
   mimeType: z.string().min(1).max(100),
@@ -99,6 +108,7 @@ export const registerBrandMediaFn = createServerFn({ method: "POST" })
       .from("brand_media_assets")
       .insert({
         brand_id: data.brandId,
+        client_id: data.clientId ?? null,
         uploaded_by: context.userId,
         storage_path: data.storagePath,
         name: data.name,
@@ -109,12 +119,13 @@ export const registerBrandMediaFn = createServerFn({ method: "POST" })
         kind,
         tags: data.tags,
       })
-      .select("id, brand_id, storage_path, name, mime_type, size_bytes, kind, width, height, tags, created_at")
+      .select("id, brand_id, client_id, storage_path, name, mime_type, size_bytes, kind, width, height, tags, created_at")
       .single();
     if (error) throw new Error(error.message);
     return {
       id: row.id,
       brandId: row.brand_id,
+      clientId: row.client_id ?? null,
       storagePath: row.storage_path,
       name: row.name,
       mimeType: row.mime_type,
