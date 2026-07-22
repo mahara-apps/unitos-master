@@ -2,6 +2,34 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+async function resolveIsSuperAdmin(
+  supabase: {
+    rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
+  },
+  userId: string,
+): Promise<boolean> {
+  const [byJwt, byProfile] = await Promise.all([
+    supabase.rpc("is_super_admin", {}),
+    supabase.rpc("is_super_admin", { _user_id: userId }),
+  ]);
+  return !!byJwt.data || !!byProfile.data;
+}
+
+async function assertBrandAccess(
+  supabase: { from: (t: string) => any },
+  brandId: string,
+): Promise<void> {
+  // RLS on `brands` limits SELECT to brands the user can access.
+  // If the row isn't visible, the user has no access to this brand.
+  const { data, error } = await supabase
+    .from("brands")
+    .select("id")
+    .eq("id", brandId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Você não tem acesso a este workspace.");
+}
+
 export type CalendarEvent = {
   id: string;
   brand_id: string | null;
@@ -72,6 +100,28 @@ export const upsertCalendarEventFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => upsertSchema.parse(i))
   .handler(async ({ data, context }): Promise<CalendarEvent> => {
+    // Defense in depth: RLS is the primary guard, but we also enforce
+    // (a) super admin required for is_global=true, and (b) the caller
+    // has access to the informed brand.
+    if (data.isGlobal) {
+      const isSuper = await resolveIsSuperAdmin(
+        context.supabase as never,
+        context.userId,
+      );
+      if (!isSuper) throw new Error("Apenas super admins podem criar datas globais.");
+    } else if (data.brandId) {
+      await assertBrandAccess(context.supabase as never, data.brandId);
+    }
+    if (data.id) {
+      // Ensure the target row is visible to this user (RLS SELECT ok).
+      const { data: existing, error: exErr } = await context.supabase
+        .from("calendar_events")
+        .select("id,brand_id,is_global")
+        .eq("id", data.id)
+        .maybeSingle();
+      if (exErr) throw exErr;
+      if (!existing) throw new Error("Evento não encontrado ou sem permissão.");
+    }
     const payload = {
       brand_id: data.isGlobal ? null : data.brandId,
       client_id: data.isGlobal ? null : data.clientId ?? null,
@@ -112,6 +162,20 @@ export const deleteCalendarEventFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ id: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
+    const { data: existing, error: exErr } = await context.supabase
+      .from("calendar_events")
+      .select("id,brand_id,is_global")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (exErr) throw exErr;
+    if (!existing) throw new Error("Evento não encontrado ou sem permissão.");
+    if (existing.is_global) {
+      const isSuper = await resolveIsSuperAdmin(
+        context.supabase as never,
+        context.userId,
+      );
+      if (!isSuper) throw new Error("Apenas super admins podem excluir datas globais.");
+    }
     const { error } = await context.supabase
       .from("calendar_events")
       .delete()
