@@ -1,61 +1,65 @@
+## Objetivo
 
-## Diagnóstico
+Fazer com que o "texto" que alimenta o pipeline de estratégia (Briefing · Voz · Personas · Cohorts · SWOT) venha exclusivamente de duas fontes já persistidas — **modal de novo cliente** (`clients.*`) + **Cérebro da Marca** (`clients.brand_hub`) — em vez de ser montado no cliente. E garantir que essas mesmas fontes fiquem visíveis no wizard "Onboarding rápido" e na aba "Identidade" antes de qualquer chamada de IA.
 
-O modal **Novo Cliente** (`quick-create-customer-drawer.tsx`) persiste 5 campos em `clients`: `name`, `niche`, `color`, `logo_url` e `socials.instagram`. Já o formulário **Cérebro da Marca › Identidade** (`briefing-workspace.tsx` → `IdentidadeTab`) só exibe **1 desses 5 dados** (o `Nome`, e ainda em input desabilitado). Nicho, cor da marca, Instagram e a pré-visualização do logo simplesmente não aparecem — mesmo com `getBrandHub` já retornando todos esses campos no payload (`BrandHubClient` inclui `niche`, `color`, `logo_url`, `logo_secondary_url`, `favicon_url`).
+Sem esta correção, o pipeline continua sendo alimentado por strings compostas no browser (`buildBriefing`/`buildStrategyBriefing`), que ignoram parte do que já foi capturado (logo, cor, socials completos, contato, tone_of_voice legado) e podem ir para a IA com contexto insuficiente ou divergente do que aparece na UI.
 
-Outras inconsistências confirmadas nessa área:
+## O que muda
 
-1. **Logo sem preview**: `AssetSlot` sempre mostra o dropzone; quando `currentUrl` existe deveria renderizar a imagem com botão "trocar/remover" (hoje o usuário acha que o upload do modal se perdeu).
-2. **Nicho duplicado sem espelho**: existe em `Cadastro` (basic-info-tab) e é usado pelo `buildStrategyBriefing()`, mas não aparece nem como leitura no Cérebro.
-3. **Instagram do modal invisível**: `socials.instagram` é salvo em `clients.socials` e usado por `channels-tab`, mas o Cérebro não o mostra nem o oferece como semente para "concorrentes/handles".
-4. **Cor da marca perdida**: `color` fica só no avatar do sidebar; o Cérebro não a exibe, e a `palette` do `brand_hub` inicia vazia mesmo tendo a cor do onboarding disponível.
-5. **`updated_at` do cliente**: `getBrandHub` devolve `clients.updated_at`, mas ao salvar em `basic-info-tab` (Cadastro) a query `["brand-hub", brandId, clientId]` não é invalidada, então mudanças de Nome/Nicho/Instagram só aparecem no Cérebro após F5.
-6. **Nome "vazio" no screenshot**: o input renderiza `client.name` diretamente, mas o form já pode ter carregado antes do `hubQ.data` estabilizar; em recarregamentos rápidos o valor pisca vazio. Precisa cair para skeleton enquanto `hubQ.isPending`.
+### 1) Backend passa a montar o briefing a partir do banco
 
-Escopo desta correção: **apenas Cérebro da Marca › Identidade** e a ponte com o Cadastro/modal. Sem tocar em pipeline de IA, tabs de Produto/Público/Concorrentes/etc.
+Arquivo: `src/routes/api/jobs/customer-pipeline.ts`
 
-## Mudanças
+- Tornar o campo `texto` **opcional** no schema de input (manter min só quando enviado).
+- No handler, antes de disparar `runPhase1`, ler no Supabase (via `context.supabase`, já autenticado):
+  - `clients`: `name, niche, color, logo_url, tone_of_voice, contact_name, contact_email, socials, brand_hub`
+- Compor o `raw_text` no servidor usando **todos** os campos disponíveis (Cadastro rápido + Cérebro completo). Ordem sugerida: identidade (nome, nicho, tom, missão, posicionamento, valores) → produto (oferta, preço, diferenciais, objeções) → público (audiência, jornada, dores, desejos) → concorrentes/inspirações → hashtags/paleta/do-dont → volumetria + metas → contato + canais sociais.
+- Se o cliente também enviou `texto` (compat: wizard/briefing atuais), usar como **complemento** ao final ("Notas adicionais do usuário: …"), nunca como substituto.
+- Validar comprimento mínimo pós-composição; se ainda for insuficiente, devolver 400 com mensagem clara ("preencha ao menos Nome + Nicho + um bloco do Cérebro").
 
-### 1. `src/components/brand-hub/briefing-workspace.tsx` — `IdentidadeTab`
-- Skeleton enquanto `hubQ.isPending || !form` (evita "Nome vazio" no primeiro paint).
-- Novo bloco **"Cadastro rápido"** (grid 4 colunas, read-only, com link "Editar em Cadastro") mostrando:
-  - **Nome** (`client.name`)
-  - **Nicho** (`client.niche` ou placeholder "—")
-  - **Instagram** (de `client.socials.instagram`, com ícone + link `instagram.com/handle`)
-  - **Cor da marca** (swatch `client.color` + hex)
-- Manter os textareas Missão / Posicionamento / Valores / Tom de voz como estão hoje.
-- Quando `client.color` existe e `form.palette` está vazia, sugerir botão "Adicionar cor da marca à paleta" (um clique, sem auto-save silencioso).
+### 2) Front deixa de compor o texto
 
-### 2. `src/components/brand-hub/briefing-workspace.tsx` — `AssetSlot`
-- Se `currentUrl` presente, renderizar `<img>` (thumb 88×88, `object-contain`, fundo xadrez para transparência) + ações "Trocar" e "Remover" (a remoção já existe via `updateBrandVisuals`, só exposta).
-- Se ausente, manter dropzone atual.
+Arquivos: `src/components/brand-hub/quick-onboarding-wizard.tsx`, `src/components/brand-hub/briefing-workspace.tsx`
 
-### 3. `src/components/customer/basic-info-tab.tsx`
-- Após `mutation.onSuccess`, invalidar também `["brand-hub", brandId, clientId]` além do que já invalida — assim Nome/Nicho/Instagram/logo editados no Cadastro refletem imediatamente no Cérebro.
+- Remover `buildBriefing`/`buildStrategyBriefing`. A chamada `fetch("/api/jobs/customer-pipeline")` passa a enviar só `{ brandId, clientId, pautasQuantidade, pautasPeriodo }`.
+- Antes de disparar, salvar o estado corrente do wizard/form em `brand_hub` (já faz), garantindo que o backend leia dados atualizados.
 
-### 4. `src/components/customer/quick-create-customer-drawer.tsx`
-- Nenhuma mudança de schema. Só garantir que o `onCreated` navegue com `?tab=cerebro` opcional (fora de escopo; deixar como está — o onboarding=1 já cobre).
+### 3) Wizard "Onboarding rápido" mostra o que já veio do modal
 
-## Diagrama do fluxo de dados
+Arquivo: `src/components/brand-hub/quick-onboarding-wizard.tsx`
 
-```text
-Modal Novo Cliente
-   │ name, niche, color, logo_url, socials.instagram
-   ▼
-clients (Supabase)
-   │
-   ├── getBrandHub ──► BriefingWorkspace
-   │                     ├─ Cadastro rápido (novo): name, niche, instagram, color, logo
-   │                     └─ Identidade (existente): missão, posicionamento, valores, tom
-   │
-   └── getClient ────► BasicInfoTab (Cadastro)
-                          └─ onSuccess → invalida [brand-hub] (novo)
-```
+- Ao carregar `hubQ`, também expor `name`, `niche`, `socials`, `color`, `logo_url` (o `getBrandHub` já retorna isso desde o fix anterior).
+- Adicionar bloco **"Já capturado no cadastro"** no topo da Step 1 (Identidade), read-only: chip de logo (ou avatar de iniciais), Nome, Nicho, Instagram (link), Cor da marca (swatch). Evita a percepção de "form vazio" quando na verdade parte da identidade já existe.
+- Manter o restante do fluxo idêntico; nada de novos campos editáveis nesse bloco.
 
-## Fora deste plano (posso abrir plano separado depois)
+### 4) Aba "Identidade" (Cérebro da Marca) — completude visual
 
-- Auditoria completa das outras abas (Produto, Público, Concorrentes, Estética, Volumetria, Documentos, Estratégia IA, Personas, SWOT) e sua consistência com o Brain.
-- Migração para unificar Nicho/Instagram em um único ponto de edição (hoje moram em Cadastro; se quiser, mover a edição para dentro do Cérebro e aposentar a aba Cadastro).
-- Seed automático de `brand_hub.palette` a partir de `clients.color` no `createClient` do servidor.
+Arquivo: `src/components/brand-hub/briefing-workspace.tsx` (`IdentidadeTab`)
 
-Confirma este recorte para eu implementar?
+- O bloco "Cadastro rápido" já existe (Nome/Nicho/Instagram/Cor). Adicionar preview do **logo** (thumb 40×40 quando `client.logo_url` existir) e do **contato principal** (`contact_name` + `contact_email`, ambos opcionais).
+- Nenhuma mudança em campos editáveis; só reflete o que já foi capturado.
+
+### 5) Compatibilidade e regressões
+
+- Manter o schema `texto` opcional para não quebrar chamadas antigas em cache do navegador.
+- Nenhuma migração de banco.
+- Nenhum ajuste em `waitUntil`/timeout do worker nesta rodada — é o próximo passo depois desta correção.
+
+## Detalhes técnicos
+
+- `getBrandHub` já expõe `socials` e demais campos de `clients` (fix da rodada anterior). Não precisa alterar server function.
+- Composição de `raw_text` no servidor deve reutilizar a mesma ordem/labels que `buildStrategyBriefing` usa hoje (Marca / Nicho / Tom / …) para não regredir a qualidade do prompt já validado.
+- `runStructured` do pipeline continua igual; só a origem do `input.texto` muda.
+
+## O que fica de fora desta rodada
+
+- Correção do timeout do worker (`waitUntil` + `AbortController` + heartbeat + quebra do pipeline em jobs menores) — plano separado.
+- Correção do KPI "Consumo de IA" que agrega marca inteira em vez de cliente — plano separado.
+- Unificação dos modelos `gemini-2.5-*` vs `gemini-3.x` entre pipeline automático e regeneração manual — plano separado.
+
+## Critério de aceite
+
+1. Criar um cliente novo pelo modal, pular todo o wizard e clicar "Gerar Inteligência com IA": o job roda com contexto (Nome + Nicho + Instagram + Cor + qualquer coisa em `brand_hub`), sem enviar `texto` do browser.
+2. No wizard, Step 1 mostra bloco "Já capturado no cadastro" com logo/nome/nicho/instagram/cor.
+3. Na aba Identidade, o mesmo bloco lista também logo e contato principal quando existirem.
+4. Nenhuma referência a `buildBriefing`/`buildStrategyBriefing` no front após o patch.
