@@ -4589,6 +4589,7 @@ export type Database = {
           hashtags: string[]
           id: string
           last_error: string | null
+          location_id: string | null
           media: Json
           mentions: string[]
           placement: string
@@ -4614,6 +4615,7 @@ export type Database = {
           hashtags?: string[]
           id?: string
           last_error?: string | null
+          location_id?: string | null
           media?: Json
           mentions?: string[]
           placement?: string
@@ -4639,6 +4641,7 @@ export type Database = {
           hashtags?: string[]
           id?: string
           last_error?: string | null
+          location_id?: string | null
           media?: Json
           mentions?: string[]
           placement?: string
