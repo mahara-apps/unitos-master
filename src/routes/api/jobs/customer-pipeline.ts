@@ -124,12 +124,16 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
     opts.modelOverride ?? (opts.strategic ? STRATEGIC_MODEL : OPERATIONAL_MODEL),
   );
   try {
-    const res = await generateText({
-      model,
-      system: opts.system,
-      prompt: opts.prompt,
-      output: Output.object({ schema: opts.schema }),
-    });
+    const res = await withTimeout(
+      generateText({
+        model,
+        system: opts.system,
+        prompt: opts.prompt,
+        output: Output.object({ schema: opts.schema }),
+      }),
+      LLM_TIMEOUT_MS,
+      opts.modelOverride ?? (opts.strategic ? STRATEGIC_MODEL : OPERATIONAL_MODEL),
+    );
     return res.output as z.infer<T>;
   } catch (err) {
     if (NoObjectGeneratedError.isInstance(err)) {
