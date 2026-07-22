@@ -16,7 +16,8 @@ const BrandInput = z.object({
 async function ignore<T>(p: PromiseLike<T>): Promise<T | null> {
   try {
     return await p;
-  } catch {
+  } catch (err) {
+    console.error("[dashboard.ignore]", err);
     return null;
   }
 }
