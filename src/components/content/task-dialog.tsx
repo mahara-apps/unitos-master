@@ -1054,29 +1054,62 @@ function TaskLayout({
 
         <div className="space-y-2">
           <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
-            Vai publicar? Selecione o canal
+            Vai publicar? Selecione a conta de destino
           </Label>
-          <div className="flex flex-wrap gap-1.5">
-            {CHANNELS.map((c) => {
-              const active = state.channels.includes(c.id);
-              const Icon = c.icon;
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => toggleChannel(c.id)}
-                  className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition ${
-                    active
-                      ? CHANNEL_STYLES[c.id] ?? "border-primary bg-primary/10 text-foreground"
-                      : "border-border/60 bg-background/60 text-muted-foreground hover:border-border hover:text-foreground"
-                  }`}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {c.label}
-                </button>
-              );
-            })}
-          </div>
+          {assignedConnections.length === 0 ? (
+            <div className="rounded-md border border-dashed border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
+              {clientChannelsQ.isLoading
+                ? "Carregando canais do cliente..."
+                : "Nenhum canal social vinculado a este cliente. Vincule contas em Perfil do Cliente › Canais para poder agendar publicações."}
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {CHANNELS.filter((c) => c.id === "blog" || c.id === "graphic").map((c) => {
+                  const active = state.channels.includes(c.id);
+                  const Icon = c.icon;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => toggleChannel(c.id)}
+                      className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition ${
+                        active
+                          ? CHANNEL_STYLES[c.id] ?? "border-primary bg-primary/10 text-foreground"
+                          : "border-border/60 bg-background/60 text-muted-foreground hover:border-border hover:text-foreground"
+                      }`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {c.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {assignedConnections.map((row) => {
+                const meta = CHANNELS.find((c) => c.id === row.channel);
+                const Icon = meta?.icon;
+                const active = state.targetConnectionIds.includes(row.connectionId);
+                return (
+                  <button
+                    key={row.connectionId}
+                    type="button"
+                    onClick={() => toggleTargetConnection(row)}
+                    className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition ${
+                      active
+                        ? CHANNEL_STYLES[row.channel] ?? "border-primary bg-primary/10 text-foreground"
+                        : "border-border/60 bg-background/60 text-muted-foreground hover:border-border hover:text-foreground"
+                    }`}
+                    title={row.accountName ?? row.channel}
+                  >
+                    {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
+                    <span className="truncate max-w-[140px]">
+                      {row.accountName ?? meta?.label ?? row.channel}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
