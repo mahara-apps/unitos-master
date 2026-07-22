@@ -723,7 +723,7 @@ export function ScheduleWizard({
 
             {/* Column 2 — Media & Schedule */}
             <ScrollArea className="h-full border-b border-border/60 lg:border-b-0 lg:border-r">
-              <div className="space-y-5 p-6">
+              <div className="space-y-4 px-4 py-4 lg:px-5">
                 <SectionTitle index={2} title="Mídia & Agendamento" />
 
                 {/* Drag & drop */}
@@ -739,7 +739,7 @@ export function ScheduleWizard({
                     handleUpload(e.dataTransfer.files);
                   }}
                   className={cn(
-                    "flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-center transition-colors",
+                    "flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-4 text-center transition-colors",
                     dragActive
                       ? "border-primary bg-primary/5"
                       : "border-border/70 bg-muted/20 hover:bg-muted/40",
@@ -848,7 +848,7 @@ export function ScheduleWizard({
                       Biblioteca vazia — envie seu primeiro arquivo acima.
                     </div>
                   ) : (
-                    <div className="grid grid-cols-4 gap-1.5">
+                    <div className="grid grid-cols-5 gap-1.5">
                       {(mediaQ.data ?? []).map((m) => {
                         const selected = selectedMedia.some((x) => x.id === m.id);
                         const isVideo = m.kind === "video";
