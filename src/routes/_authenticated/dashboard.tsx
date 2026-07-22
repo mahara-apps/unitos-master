@@ -29,6 +29,8 @@ import {
   Flame,
   Gauge,
   Layers,
+  ListChecks,
+  PieChart as PieIcon,
   Plus,
   Radar,
   Sparkles,
@@ -197,9 +199,9 @@ function AgencyMode({ brandId }: { brandId: string }) {
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           icon={<TrendingUp className="h-4 w-4" />}
-          label="Publicações aprovadas · 30d"
+          label="Publicações aprovadas"
           value={d?.counts.posts_approved_30d ?? 0}
-          sub={`${d?.counts.posts_total ?? 0} no total`}
+          sub={`${d?.counts.posts_total ?? 0} no pipeline · ${d?.rangeDays ?? 30}d`}
           tone="emerald"
           spark={d?.publishTrend14d}
         />
@@ -214,16 +216,16 @@ function AgencyMode({ brandId }: { brandId: string }) {
           icon={<AlertTriangle className="h-4 w-4" />}
           label="Tarefas atrasadas"
           value={d?.counts.tasks_overdue ?? 0}
-          sub={`${d?.counts.tasks_open ?? 0} abertas · ${d?.counts.tasks_done_7d ?? 0} concluídas 7d`}
+          sub={`${d?.counts.tasks_open ?? 0} abertas · ${d?.counts.tasks_done_7d ?? 0} concluídas no período`}
           tone="rose"
         />
         <KpiCard
           icon={<Bot className="h-4 w-4" />}
-          label="Custo IA · 30d"
-          value={`$${(d?.aiUsage.cost30d ?? 0).toFixed(2)}`}
-          sub={`${d?.aiUsage.jobs30d ?? 0} execuções · $${(d?.aiUsage.cost7d ?? 0).toFixed(2)} nos 7d`}
+          label="Custo IA no período"
+          value={`$${(d?.aiUsage.cost ?? 0).toFixed(2)}`}
+          sub={`${d?.aiUsage.jobs ?? 0} execuções · ${((d?.aiUsage.tokens ?? 0) / 1000).toFixed(1)}k tokens`}
           tone="violet"
-          spark={d?.aiUsage.spark14d.map((v) => Math.round(v * 100))}
+          spark={d?.aiUsage.spark.map((v: number) => Math.round(v * 100))}
         />
       </div>
 
@@ -246,10 +248,26 @@ function AgencyMode({ brandId }: { brandId: string }) {
         />
       </div>
 
+      {/* Distribuição de tarefas + Mix de canais */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <TaskDistributionCard buckets={d?.tasksByBucket} loading={q.isLoading} />
+        <ChannelMixCard channels={d?.topChannels ?? []} />
+      </div>
+
       {/* AI usage + Publish trend */}
       <div className="grid gap-4 lg:grid-cols-[1fr_1.4fr]">
         <AiUsageCard usage={d?.aiUsage} />
-        <PublishTrendCard trend={d?.publishTrend14d ?? []} channels={d?.topChannels ?? []} />
+        <PublishTrendCard
+          trend={d?.publishTrend14d ?? []}
+          channels={d?.topChannels ?? []}
+          rangeDays={d?.rangeDays ?? 30}
+        />
+      </div>
+
+      {/* Aprovações por cliente */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ApprovalsByClientCard rows={d?.approvalsByClient ?? []} loading={q.isLoading} />
+        <HeatmapCard heatmap={d?.heatmap ?? []} rangeDays={d?.rangeDays ?? 30} />
       </div>
 
       {/* Approvals queue + Upcoming */}
@@ -257,9 +275,6 @@ function AgencyMode({ brandId }: { brandId: string }) {
         <ApprovalsQueueCard items={d?.approvalsQueue ?? []} loading={q.isLoading} />
         <UpcomingCard items={d?.upcoming ?? []} loading={q.isLoading} />
       </div>
-
-      {/* Heatmap 60d */}
-      <HeatmapCard heatmap={d?.heatmap ?? []} />
     </div>
   );
 }
@@ -398,17 +413,25 @@ function ClientHealthRanking({
                 }
                 meta={
                   <>
-                    {h.overdueTasks > 0 && <span className="text-rose-500">{h.overdueTasks} atr.</span>}
-                    {h.overdueTasks > 0 && h.approvalsPending > 0 && " · "}
-                    {h.approvalsPending > 0 && <span className="text-amber-500">{h.approvalsPending} aprov.</span>}
-                    {h.overdueTasks === 0 && h.approvalsPending === 0 && (
-                      <span>
-                        {h.openTasks} tarefas ·{" "}
-                        {h.lastPostAt
-                          ? formatDistanceToNow(new Date(h.lastPostAt), { locale: ptBR, addSuffix: true })
-                          : "sem posts"}
-                      </span>
+                    <span>{h.openTasks} tarefas abertas</span>
+                    {h.overdueTasks > 0 && (
+                      <>
+                        {" · "}
+                        <span className="text-rose-500">{h.overdueTasks} atrasadas</span>
+                      </>
                     )}
+                    {h.approvalsPending > 0 && (
+                      <>
+                        {" · "}
+                        <span className="text-amber-500">{h.approvalsPending} aprovações</span>
+                      </>
+                    )}
+                    {" · "}
+                    <span>
+                      {h.lastPostAt
+                        ? `último ${formatDistanceToNow(new Date(h.lastPostAt), { locale: ptBR, addSuffix: true })}`
+                        : "sem posts"}
+                    </span>
                   </>
                 }
               />
@@ -466,13 +489,30 @@ function FunnelCard({
           color: funnelColorFor(s.key, s.color),
         }))}
       />
-      {avgLead !== null && (
-        <div className="border-t border-border/60 px-4 py-2.5 text-xs text-muted-foreground">
-          <Clock className="mr-1 inline h-3 w-3" />
-          Lead time médio ideia→publicação:{" "}
-          <span className="font-mono font-medium text-foreground">{avgLead.toFixed(1)}d</span>
+      <div className="grid grid-cols-3 divide-x divide-border/60 border-t border-border/60 text-xs">
+        <div className="px-4 py-2">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            Backlog
+          </div>
+          <div className="mt-0.5 font-mono text-sm font-semibold tabular-nums">
+            {(postsByStage["idea"] ?? 0) + (postsByStage["production"] ?? 0)}
+          </div>
         </div>
-      )}
+        <div className="px-4 py-2">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            Conversão
+          </div>
+          <div className="mt-0.5 font-mono text-sm font-semibold tabular-nums">{conv}%</div>
+        </div>
+        <div className="px-4 py-2">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            Lead time
+          </div>
+          <div className="mt-0.5 font-mono text-sm font-semibold tabular-nums">
+            {avgLead !== null ? `${avgLead.toFixed(1)}d` : "—"}
+          </div>
+        </div>
+      </div>
     </Card>
   );
 }
@@ -480,10 +520,12 @@ function FunnelCard({
 function AiUsageCard({ usage }: { usage: AiUsageSummary | undefined }) {
   const rows = usage?.byAgent ?? [];
   const max = Math.max(0.01, ...rows.map((r) => r.cost));
+  const byClient = usage?.byClient ?? [];
+  const maxClient = Math.max(0.01, ...byClient.map((r) => r.cost));
   return (
     <Card
       title="IA & performance"
-      subtitle="Consumo por agente · últimos 30 dias"
+      subtitle="Consumo por agente e cliente no período"
       icon={<Bot className="h-4 w-4" />}
       action={
         <Link to="/connections" className="text-xs text-muted-foreground hover:text-foreground">
@@ -495,15 +537,15 @@ function AiUsageCard({ usage }: { usage: AiUsageSummary | undefined }) {
         <div className="mb-3 flex items-end justify-between">
           <div>
             <div className="font-mono text-2xl font-semibold tabular-nums">
-              ${(usage?.cost30d ?? 0).toFixed(2)}
+              ${(usage?.cost ?? 0).toFixed(2)}
             </div>
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              Custo · 30d · {usage?.jobs30d ?? 0} execuções
+              Custo no período · {usage?.jobs ?? 0} execuções · {((usage?.tokens ?? 0) / 1000).toFixed(1)}k tokens
             </div>
           </div>
-          {usage && usage.spark14d.some((v) => v > 0) && (
+          {usage && usage.spark.some((v: number) => v > 0) && (
             <Sparkline
-              data={usage.spark14d.map((v) => Math.round(v * 1000))}
+              data={usage.spark.map((v: number) => Math.round(v * 1000))}
               className="h-8 w-24 text-violet-500"
             />
           )}
@@ -511,13 +553,39 @@ function AiUsageCard({ usage }: { usage: AiUsageSummary | undefined }) {
         {rows.length === 0 ? (
           <EmptyState icon={<Zap className="h-5 w-5" />} text="Nenhum agente executado ainda." />
         ) : (
-          <ul className="space-y-2">
-            {rows.map((r) => (
-              <li key={r.agent}>
-                <AgentUsageBar agent={r.agent} cost={r.cost} jobs={r.jobs} max={max} />
-              </li>
-            ))}
-          </ul>
+          <div className="space-y-4">
+            <div>
+              <div className="mb-1.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Por agente
+              </div>
+              <ul className="space-y-2">
+                {rows.map((r) => (
+                  <li key={r.agent}>
+                    <AgentUsageBar agent={r.agent} cost={r.cost} jobs={r.jobs} max={max} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {byClient.length > 0 && (
+              <div>
+                <div className="mb-1.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                  Por cliente
+                </div>
+                <ul className="space-y-2">
+                  {byClient.map((r) => (
+                    <li key={r.client_id ?? "global"}>
+                      <AgentUsageBar
+                        agent={r.client_name}
+                        cost={r.cost}
+                        jobs={r.jobs}
+                        max={maxClient}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </Card>
@@ -538,18 +606,21 @@ const CHANNEL_LABELS: Record<string, string> = {
 function PublishTrendCard({
   trend,
   channels,
+  rangeDays,
 }: {
   trend: number[];
   channels: Array<{ channel: string; count: number }>;
+  rangeDays?: number;
 }) {
+  const days = rangeDays ?? trend.length;
   const chartData = trend.map((v, i) => {
     const d = new Date();
-    d.setDate(d.getDate() - (13 - i));
+    d.setDate(d.getDate() - (trend.length - 1 - i));
     return { day: format(d, "dd/MM"), posts: v };
   });
   return (
     <Card
-      title="Publicações · 14 dias"
+      title={`Publicações · ${days} dias`}
       subtitle="Ritmo de publicações e canais mais usados"
       icon={<TrendingUp className="h-4 w-4" />}
     >
@@ -664,7 +735,7 @@ function UpcomingCard({
       {loading ? (
         <SkeletonList />
       ) : items.length === 0 ? (
-        <EmptyState icon={<CalendarClock className="h-5 w-5" />} text="Semana vazia. Bora produzir!" />
+        <EmptyState icon={<CalendarClock className="h-5 w-5" />} text="Nenhuma entrega nos próximos 7 dias." />
       ) : (
         <ul className="divide-y divide-border/40">
           {items.slice(0, 6).map((it) => (
@@ -693,11 +764,12 @@ function UpcomingCard({
   );
 }
 
-function HeatmapCard({ heatmap }: { heatmap: number[] }) {
+function HeatmapCard({ heatmap, rangeDays }: { heatmap: number[]; rangeDays?: number }) {
   const max = Math.max(1, ...heatmap);
+  const days = rangeDays ?? heatmap.length;
   return (
     <Card
-      title="Ritmo de publicações · 60 dias"
+      title={`Ritmo de publicações · ${days} dias`}
       subtitle="Cada quadrado representa um dia"
       icon={<Radar className="h-4 w-4" />}
     >
@@ -714,6 +786,178 @@ function HeatmapCard({ heatmap }: { heatmap: number[] }) {
           );
         })}
       </div>
+    </Card>
+  );
+}
+
+function TaskDistributionCard({
+  buckets,
+  loading,
+}: {
+  buckets: AgencyDashboard["tasksByBucket"] | undefined;
+  loading: boolean;
+}) {
+  const b = buckets ?? { open: 0, in_progress: 0, review: 0, done: 0, overdue: 0 };
+  const total = b.open + b.in_progress + b.review + b.done + b.overdue;
+  const segments: Array<{ label: string; value: number; color: string }> = [
+    { label: "Abertas", value: b.open, color: "#0ea5e9" },
+    { label: "Em andamento", value: b.in_progress, color: "#f59e0b" },
+    { label: "Em revisão", value: b.review, color: "#8b5cf6" },
+    { label: "Concluídas no período", value: b.done, color: "#10b981" },
+    { label: "Atrasadas", value: b.overdue, color: "#e11d48" },
+  ];
+  return (
+    <Card
+      title="Distribuição de tarefas"
+      subtitle={`${total} tarefas no funil de execução`}
+      icon={<ListChecks className="h-4 w-4" />}
+      action={
+        <Link to="/content" className="text-xs text-muted-foreground hover:text-foreground">
+          Ver tarefas →
+        </Link>
+      }
+    >
+      {loading ? (
+        <SkeletonList />
+      ) : total === 0 ? (
+        <EmptyState icon={<ListChecks className="h-5 w-5" />} text="Nenhuma tarefa registrada." />
+      ) : (
+        <div className="space-y-3 px-4 py-3">
+          <div className="flex h-2 w-full overflow-hidden rounded-full border border-border/40 bg-muted/30">
+            {segments.map(
+              (s) =>
+                s.value > 0 && (
+                  <div
+                    key={s.label}
+                    title={`${s.label}: ${s.value}`}
+                    style={{ width: `${(s.value / total) * 100}%`, background: s.color }}
+                  />
+                ),
+            )}
+          </div>
+          <ul className="grid gap-1.5 sm:grid-cols-2">
+            {segments.map((s) => (
+              <li key={s.label} className="flex items-center justify-between gap-2 text-xs">
+                <span className="inline-flex items-center gap-2 truncate">
+                  <span className="h-2 w-2 rounded-sm" style={{ background: s.color }} />
+                  <span className="truncate text-muted-foreground">{s.label}</span>
+                </span>
+                <span className="font-mono tabular-nums">{s.value}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+const CHANNEL_COLORS: Record<string, string> = {
+  instagram: "#e1306c",
+  facebook: "#1877f2",
+  tiktok: "#000000",
+  linkedin: "#0a66c2",
+  youtube: "#ff0000",
+  x: "#111827",
+  threads: "#4b5563",
+  blog: "#0ea5e9",
+};
+
+function ChannelMixCard({
+  channels,
+}: {
+  channels: Array<{ channel: string; count: number }>;
+}) {
+  const total = channels.reduce((s, c) => s + c.count, 0);
+  const max = Math.max(1, ...channels.map((c) => c.count));
+  return (
+    <Card
+      title="Mix de canais"
+      subtitle={`${total} publicações distribuídas por canal`}
+      icon={<PieIcon className="h-4 w-4" />}
+    >
+      {channels.length === 0 ? (
+        <EmptyState icon={<PieIcon className="h-5 w-5" />} text="Sem canais publicados no período." />
+      ) : (
+        <ul className="space-y-2 px-4 py-3">
+          {channels.slice(0, 6).map((c) => {
+            const label = CHANNEL_LABELS[c.channel] ?? c.channel;
+            const color = CHANNEL_COLORS[c.channel] ?? "hsl(var(--primary))";
+            const pct = (c.count / max) * 100;
+            return (
+              <li key={c.channel} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="truncate font-medium">{label}</span>
+                  <span className="font-mono tabular-nums text-muted-foreground">
+                    {c.count}
+                    {total > 0 && (
+                      <span className="ml-1 text-[10px]">
+                        · {Math.round((c.count / total) * 100)}%
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/40">
+                  <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+function ApprovalsByClientCard({
+  rows,
+  loading,
+}: {
+  rows: AgencyDashboard["approvalsByClient"];
+  loading: boolean;
+}) {
+  const max = Math.max(1, ...rows.map((r) => r.pending + r.approved));
+  return (
+    <Card
+      title="Aprovações por cliente"
+      subtitle="Pendentes vs. aprovadas no período"
+      icon={<BadgeCheck className="h-4 w-4" />}
+    >
+      {loading ? (
+        <SkeletonList />
+      ) : rows.length === 0 ? (
+        <EmptyState icon={<BadgeCheck className="h-5 w-5" />} text="Nenhuma aprovação registrada." />
+      ) : (
+        <ul className="space-y-2.5 px-4 py-3">
+          {rows.map((r) => {
+            const totalR = r.pending + r.approved;
+            const pctPending = (r.pending / max) * 100;
+            const pctApproved = (r.approved / max) * 100;
+            return (
+              <li key={r.client_id} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <Link
+                    to="/customers/$customerId"
+                    params={{ customerId: r.client_id }}
+                    className="truncate font-medium hover:text-primary"
+                  >
+                    {r.client_name}
+                  </Link>
+                  <span className="font-mono tabular-nums text-muted-foreground">
+                    <span className="text-amber-500">{r.pending}</span>
+                    <span className="mx-1">/</span>
+                    <span className="text-emerald-500">{r.approved}</span>
+                  </span>
+                </div>
+                <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted/40">
+                  <div style={{ width: `${pctApproved}%`, background: "#10b981" }} />
+                  <div style={{ width: `${pctPending}%`, background: "#f59e0b" }} />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </Card>
   );
 }
@@ -775,15 +1019,15 @@ function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           icon={<TrendingUp className="h-4 w-4" />}
-          label="Publicações aprovadas · 30d"
+          label="Publicações aprovadas"
           value={stats.data?.counts.posts_approved_30d ?? 0}
-          sub={`${stats.data?.counts.posts_total ?? 0} peças no total`}
+          sub={`${stats.data?.counts.posts_total ?? 0} peças no pipeline`}
           tone="emerald"
           spark={stats.data?.publishTrend14d}
         />
         <KpiCard
           icon={<CalendarClock className="h-4 w-4" />}
-          label="Agendadas · 7d"
+          label="Próximas agendadas"
           value={stats.data?.upcomingPosts.length ?? 0}
           sub={stats.data?.upcomingPosts[0]?.title ?? "Sem agendas"}
           tone="violet"
@@ -799,7 +1043,7 @@ function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }
           icon={<AlertTriangle className="h-4 w-4" />}
           label="Tarefas atrasadas"
           value={stats.data?.counts.tasks_overdue ?? 0}
-          sub={`${stats.data?.counts.tasks_open ?? 0} abertas · ${stats.data?.counts.tasks_done_7d ?? 0} feitas 7d`}
+          sub={`${stats.data?.counts.tasks_open ?? 0} abertas · ${stats.data?.counts.tasks_done_7d ?? 0} feitas no período`}
           tone="rose"
         />
       </div>
@@ -936,7 +1180,7 @@ function UpcomingClientCard({
   return (
     <Card
       title="Próximas publicações"
-      subtitle="7 dias"
+      subtitle="Agenda dos próximos 7 dias"
       icon={<CalendarClock className="h-4 w-4" />}
       action={<Link to="/calendar" className="text-xs text-muted-foreground hover:text-foreground">Calendário →</Link>}
     >
@@ -970,7 +1214,7 @@ function RecentActivityCard({
   return (
     <Card
       title="Atividade recente"
-      subtitle="Eventos das últimas 2 semanas"
+      subtitle="Eventos no período selecionado"
       icon={<Sparkles className="h-4 w-4" />}
       action={<Link to="/notifications" className="text-xs text-muted-foreground hover:text-foreground">Ver tudo →</Link>}
     >

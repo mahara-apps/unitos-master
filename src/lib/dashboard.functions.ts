@@ -118,38 +118,49 @@ export type DashboardStats = {
 };
 
 export type AiUsageSummary = {
-  cost30d: number;
-  cost7d: number;
-  jobs30d: number;
-  spark14d: number[];
+  cost: number;
+  jobs: number;
+  tokens: number;
+  spark: number[];
   byAgent: Array<{ agent: string; cost: number; jobs: number }>;
+  byClient: Array<{ client_id: string | null; client_name: string; cost: number; jobs: number }>;
+  topAgent: { agent: string; cost: number; jobs: number } | null;
 };
 
 async function computeAiUsage(
   supabase: SupabaseClient<Database>,
   brandId: string,
   range: ResolvedRange,
+  clientNameById?: Map<string, string>,
 ): Promise<AiUsageSummary> {
   const res = await ignore(
     supabase
       .from("brand_ai_usage")
-      .select("agent,cost_usd,created_at")
+      .select("agent,cost_usd,created_at,client_id,input_tokens,output_tokens")
       .eq("brand_id", brandId)
       .gte("created_at", range.fromIso)
       .lte("created_at", range.toIso),
   );
-  const rows = ((res?.data ?? []) as Array<{ agent: string | null; cost_usd: number | string | null; created_at: string }>).map(
-    (r) => ({ agent: r.agent ?? "outros", cost: Number(r.cost_usd ?? 0), at: new Date(r.created_at).getTime() }),
-  );
-  const cost30d = rows.reduce((s, r) => s + r.cost, 0);
-  const cutoff7d = range.toMs - 7 * 86_400_000;
-  const cost7d = rows
-    .filter((r) => r.at >= Math.max(cutoff7d, range.fromMs))
-    .reduce((s, r) => s + r.cost, 0);
-  const jobs30d = rows.length;
+  const rows = ((res?.data ?? []) as Array<{
+    agent: string | null;
+    cost_usd: number | string | null;
+    created_at: string;
+    client_id: string | null;
+    input_tokens: number | null;
+    output_tokens: number | null;
+  }>).map((r) => ({
+    agent: r.agent ?? "outros",
+    cost: Number(r.cost_usd ?? 0),
+    at: new Date(r.created_at).getTime(),
+    client_id: r.client_id,
+    tokens: Number(r.input_tokens ?? 0) + Number(r.output_tokens ?? 0),
+  }));
+  const cost = rows.reduce((s, r) => s + r.cost, 0);
+  const jobs = rows.length;
+  const tokens = rows.reduce((s, r) => s + r.tokens, 0);
   const bucketCount = Math.max(1, Math.min(range.days, 60));
   const bucketMs = (range.toMs - range.fromMs) / bucketCount;
-  const spark14d = Array.from({ length: bucketCount }, (_, i) => {
+  const spark = Array.from({ length: bucketCount }, (_, i) => {
     const start = range.fromMs + i * bucketMs;
     const end = start + bucketMs;
     return rows.filter((r) => r.at >= start && r.at < end).reduce((s, r) => s + r.cost, 0);
@@ -165,7 +176,26 @@ async function computeAiUsage(
     .map(([agent, v]) => ({ agent, cost: v.cost, jobs: v.jobs }))
     .sort((a, b) => b.cost - a.cost)
     .slice(0, 6);
-  return { cost30d, cost7d, jobs30d, spark14d, byAgent };
+  const clientAgg = new Map<string | null, { cost: number; jobs: number }>();
+  for (const r of rows) {
+    const cur = clientAgg.get(r.client_id) ?? { cost: 0, jobs: 0 };
+    cur.cost += r.cost;
+    cur.jobs += 1;
+    clientAgg.set(r.client_id, cur);
+  }
+  const byClient = Array.from(clientAgg.entries())
+    .map(([client_id, v]) => ({
+      client_id,
+      client_name: client_id
+        ? clientNameById?.get(client_id) ?? "Sem cliente"
+        : "Global / sem cliente",
+      cost: v.cost,
+      jobs: v.jobs,
+    }))
+    .sort((a, b) => b.cost - a.cost)
+    .slice(0, 8);
+  const topAgent = byAgent[0] ?? null;
+  return { cost, jobs, tokens, spark, byAgent, byClient, topAgent };
 }
 
 async function computeStats(
@@ -584,6 +614,20 @@ export type AgencyDashboard = {
   aiUsage: AiUsageSummary;
   avgLeadTimeDays: number | null;
   topChannels: Array<{ channel: string; count: number }>;
+  tasksByBucket: {
+    open: number;
+    in_progress: number;
+    review: number;
+    done: number;
+    overdue: number;
+  };
+  approvalsByClient: Array<{
+    client_id: string;
+    client_name: string;
+    pending: number;
+    approved: number;
+  }>;
+  rangeDays: number;
 };
 
 async function computeAgency(
@@ -1007,6 +1051,53 @@ async function computeAgency(
           return s + Math.max(0, (end - start) / 86_400_000);
         }, 0) / publishedPosts.length;
 
+  // Backfill client_name in aiUsage.byClient with real names.
+  const aiUsageEnriched: AiUsageSummary = {
+    ...aiUsage,
+    byClient: aiUsage.byClient.map((r) => ({
+      ...r,
+      client_name: r.client_id
+        ? nameById.get(r.client_id) ?? r.client_name
+        : "Global / sem cliente",
+    })),
+  };
+
+  // Task buckets (open/in_progress/review/done/overdue) — todos filtrados por range para "done".
+  const tasksByBucket = {
+    open: tasks.filter((t) => !t.done && t.status !== "in_progress" && t.status !== "review").length,
+    in_progress: tasks.filter((t) => !t.done && t.status === "in_progress").length,
+    review: tasks.filter((t) => !t.done && t.status === "review").length,
+    done: tasks.filter(
+      (t) => t.done && t.done_at && new Date(t.done_at).getTime() >= range.fromMs && new Date(t.done_at).getTime() <= range.toMs,
+    ).length,
+    overdue: counts.tasks_overdue,
+  };
+
+  // Aprovações agrupadas por cliente (a partir de approvalRows + join com posts.client_id)
+  const approvalsWithClient = ((approvalsAggRes?.data ?? []) as Array<{
+    id: string;
+    status: string;
+    posts: { brand_id: string; client_id?: string | null } | null;
+  }>);
+  const abcMap = new Map<string, { pending: number; approved: number }>();
+  for (const a of approvalsWithClient) {
+    const cid = a.posts?.client_id;
+    if (!cid) continue;
+    const cur = abcMap.get(cid) ?? { pending: 0, approved: 0 };
+    if (a.status === "pending") cur.pending += 1;
+    else if (a.status === "approved") cur.approved += 1;
+    abcMap.set(cid, cur);
+  }
+  const approvalsByClient = Array.from(abcMap.entries())
+    .map(([client_id, v]) => ({
+      client_id,
+      client_name: nameById.get(client_id) ?? "—",
+      pending: v.pending,
+      approved: v.approved,
+    }))
+    .sort((a, b) => b.pending + b.approved - (a.pending + a.approved))
+    .slice(0, 8);
+
   return {
     counts,
     sparkline,
@@ -1018,9 +1109,12 @@ async function computeAgency(
     postsByStage,
     pipelineStages,
     publishTrend14d,
-    aiUsage,
+    aiUsage: aiUsageEnriched,
     avgLeadTimeDays,
     topChannels,
+    tasksByBucket,
+    approvalsByClient,
+    rangeDays: range.days,
   };
 }
 
