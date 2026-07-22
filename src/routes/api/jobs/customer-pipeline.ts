@@ -27,8 +27,24 @@ function buildUserClient(token: string) {
   });
 }
 
-const STRATEGIC_MODEL = "google/gemini-2.5-pro";
-const OPERATIONAL_MODEL = "google/gemini-2.5-flash";
+// Modelos de geração atual — os prior-gen 2.5-pro/2.5-flash batiam no teto
+// de subrequest do Cloudflare Worker (~30s) e causavam cancelamento HTTP 499.
+const STRATEGIC_MODEL = "google/gemini-3.1-pro-preview";
+const OPERATIONAL_MODEL = "google/gemini-3.6-flash";
+
+// Falha rápido em vez de esperar o reaper de 5min. 60s cobre com folga o
+// tempo típico das chamadas atuais e ainda deixa headroom no Worker.
+const LLM_TIMEOUT_MS = 60_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error(`Timeout de ${ms}ms em ${label}`)), ms);
+    promise.then(
+      (v) => { clearTimeout(t); resolve(v); },
+      (e) => { clearTimeout(t); reject(e); },
+    );
+  });
+}
 
 const BriefingSchema = z.object({
   publico_alvo: z.string().nullable(),
@@ -108,12 +124,16 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
     opts.modelOverride ?? (opts.strategic ? STRATEGIC_MODEL : OPERATIONAL_MODEL),
   );
   try {
-    const res = await generateText({
-      model,
-      system: opts.system,
-      prompt: opts.prompt,
-      output: Output.object({ schema: opts.schema }),
-    });
+    const res = await withTimeout(
+      generateText({
+        model,
+        system: opts.system,
+        prompt: opts.prompt,
+        output: Output.object({ schema: opts.schema }),
+      }),
+      LLM_TIMEOUT_MS,
+      opts.modelOverride ?? (opts.strategic ? STRATEGIC_MODEL : OPERATIONAL_MODEL),
+    );
     return res.output as z.infer<T>;
   } catch (err) {
     if (NoObjectGeneratedError.isInstance(err)) {
@@ -288,7 +308,7 @@ async function runPhase1(params: {
 
     // Voice + Personas run in parallel (both depend only on the briefing).
     await patch({ progress: 20, step_label: "Modelando voz e personas" });
-    const [voiceRaw, personasRaw] = await Promise.all([
+    const settled = await Promise.allSettled([
       runStructured({
         system: P.voice,
         prompt: `Briefing estruturado:\n${JSON.stringify(briefing, null, 2)}`,
@@ -303,6 +323,14 @@ async function runPhase1(params: {
         strategic: true,
       }),
     ]);
+    if (settled[0].status === "rejected") {
+      throw new Error(`Falha ao gerar voz: ${(settled[0].reason as Error)?.message ?? settled[0].reason}`);
+    }
+    if (settled[1].status === "rejected") {
+      throw new Error(`Falha ao gerar personas: ${(settled[1].reason as Error)?.message ?? settled[1].reason}`);
+    }
+    const voiceRaw = settled[0].value;
+    const personasRaw = settled[1].value;
     const voice = normalizeVoicePayload(voiceRaw);
     const personas = normalizePersonasPayload(personasRaw);
     if (!personas.personas.length) throw new Error("Nenhuma persona gerada — tente novamente.");
@@ -364,6 +392,7 @@ async function runPhase1(params: {
       ].join("\n\n"),
       schema: SwotSchema,
       strategic: true,
+      modelOverride: OPERATIONAL_MODEL, // flash — schema pequeno, evita subrequest timeout
     });
     const swot = normalizeSwotPayload(swotRaw);
     await supabase
