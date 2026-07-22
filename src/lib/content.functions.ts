@@ -444,13 +444,7 @@ export const loadBoardFn = createServerFn({ method: "POST" })
         context.supabase
           .from("posts")
           .select(
-            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes,priority,format,tags,visible_in_portal,project_id,remind_at,assignees,reference_media,stage_entered_at",
-            // NOTE: quando adicionar novas colunas, incluir aqui também.
-            // target_connection_ids materializa quais social_connections deste
-            // cliente o post deve publicar (ex.: qual conta Instagram).
-            // Fica ao final para manter a compat com selects anteriores.
-            //
-            // O select real é reescrito logo abaixo para incluir a coluna.
+            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes,priority,format,tags,visible_in_portal,project_id,remind_at,assignees,reference_media,stage_entered_at,target_connection_ids",
           )
           .eq("brand_id", data.brandId)
           .eq("client_id", data.clientId)
