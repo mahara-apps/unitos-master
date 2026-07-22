@@ -129,6 +129,7 @@ export type BoardPost = {
   format?: string | null;
   tags?: string[] | null;
   placements?: Array<{ format: string; is_primary?: boolean | null }> | null;
+  target_connection_ids?: string[] | null;
   visible_in_portal?: boolean | null;
   internal_briefing?: string | null;
   client_briefing?: string | null;
