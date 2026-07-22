@@ -72,7 +72,16 @@ export function ContextSwitcher() {
     setClientId(id);
     setPopoverOpen(false);
     if (customerMatch) {
-      await navigate({ to: `/customers/${id}${currentCustomerSub}` as string, replace: true });
+      const sub = currentCustomerSub;
+      if (sub === "/brain") {
+        await navigate({ to: "/customers/$customerId/brain", params: { customerId: id }, replace: true });
+      } else if (sub === "/briefing") {
+        await navigate({ to: "/customers/$customerId/briefing", params: { customerId: id }, replace: true });
+      } else if (sub === "/media-plan") {
+        await navigate({ to: "/customers/$customerId/media-plan", params: { customerId: id }, replace: true });
+      } else {
+        await navigate({ to: "/customers/$customerId", params: { customerId: id }, replace: true });
+      }
     }
     await qc.invalidateQueries();
   };
