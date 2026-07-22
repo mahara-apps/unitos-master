@@ -144,7 +144,7 @@ export function ContextSwitcher() {
             {activeClient ? (
               <CustomerAvatar
                 name={activeClient.name}
-                logoUrl={(activeClient as { logo_url?: string | null }).logo_url ?? null}
+                logoUrl={null}
                 className="h-5 w-5"
                 textClassName="text-[9px]"
               />
@@ -230,7 +230,7 @@ export function ContextSwitcher() {
                   >
                     <CustomerAvatar
                       name={c.name}
-                      logoUrl={(c as { logo_url?: string | null }).logo_url ?? null}
+                      logoUrl={null}
                       className="h-5 w-5"
                       textClassName="text-[9px]"
                     />
