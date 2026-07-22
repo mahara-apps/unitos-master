@@ -1,43 +1,44 @@
 ## Objetivo
-Padronizar a altura dos widgets do dashboard de agência para manter o grid 2-col visualmente equilibrado, com scroll vertical interno quando o conteúdo exceder a altura fixa.
 
-## Mudanças (apenas `src/routes/_authenticated/dashboard.tsx`)
+Hoje o painel lateral do `/calendar` só permite excluir itens na aba **Rascunhos**. Na aba **Aguardando agendamento** (posts aprovados sem data) não há caminho para remover um post enviado indevidamente. Vamos habilitar a exclusão também nesse modo, mantendo a mesma UX (ícone lixeira no hover + `AlertDialog` de confirmação).
 
-**1. Trocar masonry por grid rígido de 2 colunas**
-- Substituir `lg:columns-2` por `grid gap-4 lg:grid-cols-2`.
-- Todas as linhas passam a ter altura uniforme (não há mais necessidade de rebalanceamento por CSS columns).
+## Escopo
 
-**2. Definir alturas fixas por "tamanho" de widget**
-Três tokens de altura reutilizáveis:
-- `H_SM = 320px` — widgets compactos (ChannelMixCard, UpcomingCard, TaskDistributionCard).
-- `H_MD = 420px` — widgets médios (ApprovalsQueueCard, ApprovalsByClientCard, FunnelCard, PublishTrendCard).
-- `H_LG = 520px` — widgets densos (ClientHealthRanking, AiUsageCard).
+- Painel `PendingSchedulePanel` (`src/components/calendar/pending-schedule-panel.tsx`)
+- Server function em `src/lib/scheduling-wizard.functions.ts`
 
-Aplicar via wrapper `<div className="h-[420px]">…</div>` em cada widget (não altera os componentes internos).
+## Mudanças
 
-**3. Scroll interno**
-Ajustar `PanelCard` (ou envolver o corpo de cada widget) para que o header fique fixo e a área de conteúdo receba `flex-1 overflow-y-auto`. A altura fixa do wrapper garante que o overflow ative scroll quando houver muitos itens (ex.: `ClientHealthRanking` com 8+ clientes, `AiUsageCard` com breakdown por cliente/agente).
+1. **Server function `deleteApprovedPostFn`** (novo) em `scheduling-wizard.functions.ts`
+   - Middleware: `requireSupabaseAuth`
+   - Input: `{ postId: uuid, brandId: uuid }`
+   - Regras:
+     - Carrega o post por `id + brand_id` (defesa em profundidade além do RLS).
+     - Bloqueia exclusão se já existir registro em `social_posts` com `status` diferente de `scheduled` (ex.: `publishing`, `published`, `failed`) — para não apagar posts que já foram/estão sendo publicados. Se houver apenas linhas `scheduled`, elas são removidas em cascata junto com o post.
+     - Apaga `post_placements` e `social_posts` vinculados e depois o `posts` (na mesma ordem já usada por `deleteDraftPostFn`, para respeitar FKs).
+   - Retorna `{ ok: true }`.
 
-**4. Reordenar para pares equilibrados**
-Ordem final (linha a linha, esquerda → direita):
-```text
-Linha 1: ClientHealthRanking (LG)   | AiUsageCard (LG)
-Linha 2: FunnelCard (MD)            | ApprovalsQueueCard (MD)
-Linha 3: PublishTrendCard (MD)      | ApprovalsByClientCard (MD)
-Linha 4: TaskDistributionCard (SM)  | ChannelMixCard (SM)
-Linha 5: UpcomingCard (SM)          | (vazio ou mover UpcomingCard p/ SM par)
-```
-Ajuste: promover `UpcomingCard` para MD e pareá-lo com `TaskDistributionCard` (MD) para eliminar a linha órfã — 4 linhas cheias, 8 widgets 50/50 sem sobras. `ChannelMixCard` sobe para linha 3 substituindo `ApprovalsByClientCard`, que desce; ordem final:
+2. **UI — `PendingSchedulePanel`**
+   - Remover o `isDrafts ? … : null` que hoje esconde o botão excluir; exibir o ícone lixeira **em ambos os modos**.
+   - Reaproveitar o `AlertDialog` já existente. Ajustar título/descrição conforme o modo:
+     - Drafts: “Excluir rascunho?” (texto atual).
+     - Pending: “Excluir post aprovado?” + descrição avisando que o post será removido permanentemente e que não poderá mais ser agendado.
+   - Selecionar dinamicamente a mutation:
+     - `mode="drafts"` → `deleteDraftPostFn` (comportamento atual).
+     - `mode="pending"` → `deleteApprovedPostFn`.
+   - Após sucesso: `toast.success` correspondente + `invalidateQueries` da chave do modo atual (`wizard-drafts` ou `pending-schedule`) e também `calendar` para refletir remoção imediata.
+   - Manter `describeError` no `onError` (já adotado no módulo).
 
-```text
-Linha 1: ClientHealthRanking (LG) | AiUsageCard (LG)
-Linha 2: FunnelCard (MD)          | ApprovalsQueueCard (MD)
-Linha 3: PublishTrendCard (MD)    | UpcomingCard (MD)
-Linha 4: TaskDistributionCard (MD)| ApprovalsByClientCard (MD)
-```
-Move `ChannelMixCard` para dentro do `PublishTrendCard` como legenda inferior, OU mantém como 9º card em linha extra `grid-cols-2` com placeholder — decidir na implementação (preferência: absorver no PublishTrend, já que ambos falam de canais).
+3. **Sem novas funcionalidades além da exclusão** — nada de bulk delete, undo ou lixeira; escopo mínimo do pedido.
+
+## Fora de escopo
+
+- Excluir posts já publicados (bloqueado por segurança).
+- Alterar Kanban / TaskDialog.
+- Alterar contagem/KPIs do calendário (invalidations garantem refresh).
 
 ## Detalhes técnicos
-- Não alterar server functions nem componentes de widget individualmente — apenas o container e, se necessário, o `PanelCard` para suportar `contentClassName="overflow-y-auto"`.
-- Manter `KpiCard` grid e `StatusBanner` intocados (ficam acima do grid principal).
-- Remover helper `SectionHeader` (não é mais usado).
+
+- FKs: `social_posts.post_id` e `post_placements.post_id` referenciam `posts.id`. A ordem de delete replica `deleteDraftPostFn` (placements → social_posts scheduled → posts).
+- RLS: consulta preliminar `select id, brand_id from posts where id = :id and brand_id = :brandId` para retornar erro amigável (“Post não encontrado ou sem permissão.”) antes de tentar deletar.
+- Verificação de status já publicado é feita via `select status from social_posts where post_id = :id` — se qualquer linha tiver `status not in ('scheduled')`, lança erro pt-BR: “Não é possível excluir: já existem publicações em andamento ou publicadas.”
