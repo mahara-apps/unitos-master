@@ -266,15 +266,22 @@ async function computeStats(
       ),
     ),
     ignore(scope(supabase.from("posts").select("stage,stage_id").eq("brand_id", brandId))),
+    // Publicações aprovadas 30d = post_approvals.status='approved' na janela (fonte real).
     ignore(
-      scope(
-        supabase
-          .from("posts")
-          .select("id", { count: "exact", head: true })
-          .eq("brand_id", brandId)
-          .eq("stage", "approved")
-          .gte("updated_at", sinceIso(30)),
-      ),
+      (clientId
+        ? supabase
+            .from("post_approvals")
+            .select("id, posts!inner(brand_id,client_id)", { count: "exact", head: true })
+            .eq("status", "approved")
+            .eq("posts.brand_id", brandId)
+            .eq("posts.client_id", clientId)
+            .gte("updated_at", sinceIso(30))
+        : supabase
+            .from("post_approvals")
+            .select("id, posts!inner(brand_id)", { count: "exact", head: true })
+            .eq("status", "approved")
+            .eq("posts.brand_id", brandId)
+            .gte("updated_at", sinceIso(30))),
     ),
     ignore(
       scope(
