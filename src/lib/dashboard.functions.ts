@@ -524,7 +524,7 @@ export const getDashboardStats = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => BrandInput.parse(input))
   .handler(async ({ data, context }) =>
-    computeStats(context, data.brandId, data.clientId ?? null),
+    computeStats(context, data.brandId, data.clientId ?? null, data.range),
   );
 
 // ==================== Agency dashboard ====================
@@ -1026,8 +1026,20 @@ async function computeAgency(
 
 export const getAgencyDashboardFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ brandId: z.string().uuid() }).parse(input))
-  .handler(async ({ data, context }) => computeAgency(context, data.brandId));
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        range: z
+          .object({
+            from: z.string().datetime().optional(),
+            to: z.string().datetime().optional(),
+          })
+          .optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => computeAgency(context, data.brandId, data.range));
 
 // ==================== AI Insights ====================
 
