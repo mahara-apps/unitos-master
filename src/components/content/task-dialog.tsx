@@ -891,6 +891,7 @@ type TaskState = {
   stageId: string;
   assigneeId: string | null;
   channels: string[];
+  targetConnectionIds: string[];
   format: string;
   copy: string;
   internalBriefing: string;
@@ -909,7 +910,8 @@ function emptyState(stageId: string): TaskState {
     title: "",
     stageId,
     assigneeId: null,
-    channels: ["instagram"],
+    channels: [],
+    targetConnectionIds: [],
     format: "Feed",
     copy: "",
     internalBriefing: "",
@@ -946,6 +948,7 @@ function stateFromPost(post: BoardPost, stages: PipelineStage[]): TaskState {
     stageId: post.stage_id ?? stages[0]?.id ?? "",
     assigneeId: (post.assignee_id ?? null) as string | null,
     channels: (post.channels ?? []) as string[],
+    targetConnectionIds: (post.target_connection_ids ?? []) as string[],
     format: post.format ?? "",
     copy: post.copy ?? "",
     internalBriefing: post.internal_briefing ?? "",
