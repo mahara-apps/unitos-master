@@ -210,13 +210,15 @@ async function computeStats(
           .eq("brand_id", brandId),
       ),
     ),
+    // Aprovações pendentes = tabela real post_approvals (única fonte de verdade).
+    // Filtramos via join implícito por posts do brand/cliente, feito em pós-processamento.
     ignore(
       scope(
         supabase
           .from("posts")
-          .select("id", { count: "exact", head: true })
+          .select("id, post_approvals!inner(status)")
           .eq("brand_id", brandId)
-          .eq("stage", "review"),
+          .eq("post_approvals.status", "pending"),
       ),
     ),
     ignore(
