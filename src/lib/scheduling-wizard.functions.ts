@@ -27,6 +27,7 @@ export type PendingSchedulePost = {
   copy: string;
   coverUrl: string | null;
   channels: string[];
+  targetConnectionIds: string[];
   approvedAt: string | null;
   placements: Array<{ channel: string; format: string }>;
 };
@@ -114,7 +115,7 @@ export const listApprovedUnscheduledFn = createServerFn({ method: "GET" })
   .handler(async ({ data, context }): Promise<PendingSchedulePost[]> => {
     let q = context.supabase
       .from("posts")
-      .select("id, title, copy, cover_url, channels, approved_at")
+      .select("id, title, copy, cover_url, channels, approved_at, target_connection_ids")
       .eq("brand_id", data.brandId)
       .eq("stage", "approved")
       .is("scheduled_at", null)
@@ -153,6 +154,7 @@ export const listApprovedUnscheduledFn = createServerFn({ method: "GET" })
       copy: (p.copy as string) ?? "",
       coverUrl: (p.cover_url as string | null) ?? null,
       channels: (p.channels as string[] | null) ?? [],
+      targetConnectionIds: (p.target_connection_ids as string[] | null) ?? [],
       approvedAt: (p.approved_at as string | null) ?? null,
       placements: placementsByPost.get(p.id as string) ?? [],
     }));
@@ -179,7 +181,7 @@ export const listDraftsFn = createServerFn({ method: "GET" })
   .handler(async ({ data, context }): Promise<PendingSchedulePost[]> => {
     let q = context.supabase
       .from("posts")
-      .select("id, title, copy, cover_url, channels, updated_at")
+      .select("id, title, copy, cover_url, channels, updated_at, target_connection_ids")
       .eq("brand_id", data.brandId)
       .eq("stage", "idea")
       .is("scheduled_at", null)
@@ -195,6 +197,7 @@ export const listDraftsFn = createServerFn({ method: "GET" })
       copy: (p.copy as string) ?? "",
       coverUrl: (p.cover_url as string | null) ?? null,
       channels: (p.channels as string[] | null) ?? [],
+      targetConnectionIds: (p.target_connection_ids as string[] | null) ?? [],
       approvedAt: (p.updated_at as string | null) ?? null,
       placements: [],
     }));
@@ -290,6 +293,9 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
 
     // ---- Upsert post ----
     let postId = data.postId ?? null;
+    const targetConnIds = Array.from(
+      new Set(data.destinations.map((d) => d.connectionId)),
+    );
     if (!postId) {
       const { data: inserted, error } = await supabase
         .from("posts")
@@ -299,6 +305,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           title: data.title,
           copy: data.copy,
           channels,
+          target_connection_ids: targetConnIds,
           stage,
           scheduled_at: scheduledIso,
           created_by: context.userId,
@@ -316,6 +323,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           title: data.title,
           copy: data.copy,
           channels,
+          target_connection_ids: targetConnIds,
           stage,
           scheduled_at: scheduledIso,
         })

@@ -72,6 +72,7 @@ import {
   createApprovalTokenFn,
   revokeApprovalTokenFn,
 } from "@/lib/approval.functions";
+import { listClientChannelAssignmentsFn, type ClientChannelRow } from "@/lib/client-channels.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { CHANNELS, CHANNEL_STYLES, FORMATS, FORMAT_STYLES, PRIORITY_STYLES } from "./stage-colors";
@@ -352,6 +353,9 @@ function CreateBody({
           stageId: state.stageId,
           title: state.title.trim(),
           channels: state.channels.length ? state.channels : undefined,
+          target_connection_ids: state.targetConnectionIds.length
+            ? state.targetConnectionIds
+            : undefined,
           format: state.format || null,
           copy: state.copy.trim() || null,
           internal_briefing: state.internalBriefing.trim() || null,
@@ -423,6 +427,8 @@ function CreateBody({
           setState={setState}
           stages={stages}
           mode="create"
+          brandId={brandId}
+          clientId={clientId}
         />
       </div>
       <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border/60 bg-background/95 px-6 py-3 backdrop-blur">
@@ -516,6 +522,7 @@ function EditBody({
               ? [{ cena: 1, fala: state.script.trim() }]
               : null,
             channels: state.channels as never,
+            target_connection_ids: state.targetConnectionIds,
             format: state.format || null,
             priority: state.priority === "none" ? null : state.priority,
             tags: state.tags,
@@ -816,6 +823,8 @@ function EditBody({
           postId={postId}
           createdAt={post.created_at}
           copyAutosaveStatus={copyAutosaveStatus}
+          brandId={brandId}
+          clientId={clientId}
           mediaSlot={
             <MediaReferenceBlock
               refs={refs}
@@ -890,6 +899,7 @@ type TaskState = {
   stageId: string;
   assigneeId: string | null;
   channels: string[];
+  targetConnectionIds: string[];
   format: string;
   copy: string;
   internalBriefing: string;
@@ -908,7 +918,8 @@ function emptyState(stageId: string): TaskState {
     title: "",
     stageId,
     assigneeId: null,
-    channels: ["instagram"],
+    channels: [],
+    targetConnectionIds: [],
     format: "Feed",
     copy: "",
     internalBriefing: "",
@@ -945,6 +956,7 @@ function stateFromPost(post: BoardPost, stages: PipelineStage[]): TaskState {
     stageId: post.stage_id ?? stages[0]?.id ?? "",
     assigneeId: (post.assignee_id ?? null) as string | null,
     channels: (post.channels ?? []) as string[],
+    targetConnectionIds: (post.target_connection_ids ?? []) as string[],
     format: post.format ?? "",
     copy: post.copy ?? "",
     internalBriefing: post.internal_briefing ?? "",
@@ -970,6 +982,8 @@ function TaskLayout({
   createdAt,
   copyAutosaveStatus,
   mediaSlot,
+  brandId,
+  clientId,
 }: {
   state: TaskState;
   setState: (fn: (prev: TaskState) => TaskState) => void;
@@ -979,8 +993,17 @@ function TaskLayout({
   createdAt?: string | null;
   copyAutosaveStatus?: "idle" | "saving" | "saved";
   mediaSlot?: ReactNode;
+  brandId?: string;
+  clientId?: string;
 }) {
   const [tagInput, setTagInput] = useState("");
+  const listClientChannels = useServerFn(listClientChannelAssignmentsFn);
+  const clientChannelsQ = useQuery({
+    enabled: !!(brandId && clientId),
+    queryKey: ["task-dialog-client-channels", brandId, clientId],
+    queryFn: () => listClientChannels({ data: { brandId: brandId!, clientId: clientId! } }),
+  });
+  const assignedConnections = (clientChannelsQ.data ?? []).filter((r) => r.assigned);
   const set = <K extends keyof TaskState>(key: K, value: TaskState[K]) =>
     setState((prev) => ({ ...prev, [key]: value }));
   const toggleChannel = (id: string) =>
@@ -990,6 +1013,17 @@ function TaskLayout({
         ? prev.channels.filter((c) => c !== id)
         : [...prev.channels, id],
     }));
+  const toggleTargetConnection = (row: ClientChannelRow) =>
+    setState((prev) => {
+      const has = prev.targetConnectionIds.includes(row.connectionId);
+      const nextIds = has
+        ? prev.targetConnectionIds.filter((id) => id !== row.connectionId)
+        : [...prev.targetConnectionIds, row.connectionId];
+      // Deriva channels a partir das conexões selecionadas (para preservar
+      // compat com filtros/legendas atuais que ainda usam posts.channels).
+      // Nota: só entra no array quando não é adição de string livre.
+      return { ...prev, targetConnectionIds: nextIds };
+    });
   const addTag = () => {
     const v = tagInput.trim();
     if (!v) return;
@@ -1020,29 +1054,62 @@ function TaskLayout({
 
         <div className="space-y-2">
           <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
-            Vai publicar? Selecione o canal
+            Vai publicar? Selecione a conta de destino
           </Label>
-          <div className="flex flex-wrap gap-1.5">
-            {CHANNELS.map((c) => {
-              const active = state.channels.includes(c.id);
-              const Icon = c.icon;
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => toggleChannel(c.id)}
-                  className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition ${
-                    active
-                      ? CHANNEL_STYLES[c.id] ?? "border-primary bg-primary/10 text-foreground"
-                      : "border-border/60 bg-background/60 text-muted-foreground hover:border-border hover:text-foreground"
-                  }`}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                  {c.label}
-                </button>
-              );
-            })}
-          </div>
+          {assignedConnections.length === 0 ? (
+            <div className="rounded-md border border-dashed border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
+              {clientChannelsQ.isLoading
+                ? "Carregando canais do cliente..."
+                : "Nenhum canal social vinculado a este cliente. Vincule contas em Perfil do Cliente › Canais para poder agendar publicações."}
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {CHANNELS.filter((c) => c.id === "blog" || c.id === "graphic").map((c) => {
+                  const active = state.channels.includes(c.id);
+                  const Icon = c.icon;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => toggleChannel(c.id)}
+                      className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition ${
+                        active
+                          ? CHANNEL_STYLES[c.id] ?? "border-primary bg-primary/10 text-foreground"
+                          : "border-border/60 bg-background/60 text-muted-foreground hover:border-border hover:text-foreground"
+                      }`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {c.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {assignedConnections.map((row) => {
+                const meta = CHANNELS.find((c) => c.id === row.channel);
+                const Icon = meta?.icon;
+                const active = state.targetConnectionIds.includes(row.connectionId);
+                return (
+                  <button
+                    key={row.connectionId}
+                    type="button"
+                    onClick={() => toggleTargetConnection(row)}
+                    className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition ${
+                      active
+                        ? CHANNEL_STYLES[row.channel] ?? "border-primary bg-primary/10 text-foreground"
+                        : "border-border/60 bg-background/60 text-muted-foreground hover:border-border hover:text-foreground"
+                    }`}
+                    title={row.accountLabel ?? row.channel}
+                  >
+                    {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
+                    <span className="truncate max-w-[140px]">
+                      {row.accountLabel ?? meta?.label ?? row.channel}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">

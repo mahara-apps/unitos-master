@@ -129,6 +129,7 @@ export type BoardPost = {
   format?: string | null;
   tags?: string[] | null;
   placements?: Array<{ format: string; is_primary?: boolean | null }> | null;
+  target_connection_ids?: string[] | null;
   visible_in_portal?: boolean | null;
   internal_briefing?: string | null;
   client_briefing?: string | null;
@@ -443,7 +444,7 @@ export const loadBoardFn = createServerFn({ method: "POST" })
         context.supabase
           .from("posts")
           .select(
-            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes,priority,format,tags,visible_in_portal,project_id,remind_at,assignees,reference_media,stage_entered_at",
+            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes,priority,format,tags,visible_in_portal,project_id,remind_at,assignees,reference_media,stage_entered_at,target_connection_ids",
           )
           .eq("brand_id", data.brandId)
           .eq("client_id", data.clientId)
@@ -681,6 +682,7 @@ export const createPostFn = createServerFn({ method: "POST" })
         title: z.string().min(1).max(160),
         copy: z.string().max(6000).nullable().optional(),
         channels: z.array(z.string().max(40)).max(12).optional(),
+        target_connection_ids: z.array(z.string().uuid()).max(20).optional(),
         format: z.string().max(60).nullable().optional(),
         priority: z.enum(["low", "medium", "high", "urgent"]).nullable().optional(),
         tags: z.array(z.string().max(40)).max(20).optional(),
@@ -716,7 +718,7 @@ export const createPostFn = createServerFn({ method: "POST" })
       created_by: context.userId,
     };
     const optional: Array<keyof typeof data> = [
-      "copy", "channels", "format", "priority", "tags", "scheduled_at",
+      "copy", "channels", "target_connection_ids", "format", "priority", "tags", "scheduled_at",
       "remind_at", "internal_briefing", "client_briefing", "script",
       "assignees", "project_id", "visible_in_portal", "recurrence",
     ];
@@ -750,7 +752,7 @@ export const createPostFn = createServerFn({ method: "POST" })
       .from("posts")
       .insert(insertRow as never)
       .select(
-        "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id",
+        "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,target_connection_ids",
       )
       .single();
     if (error) throw error;
@@ -778,6 +780,7 @@ export const updatePostFn = createServerFn({ method: "POST" })
             channels: z
               .array(z.enum(["instagram", "tiktok", "linkedin", "x", "youtube", "blog"]))
               .optional(),
+            target_connection_ids: z.array(z.string().uuid()).max(20).optional(),
             reference_media: z
               .array(
                 z.object({
@@ -907,7 +910,7 @@ export const getPostDetailFn = createServerFn({ method: "POST" })
       context.supabase
         .from("posts")
         .select(
-          "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,reference_media,design_brief,ai_phase,approved_at,approved_by,rework_notes,priority,format,tags,visible_in_portal,internal_briefing,client_briefing,script,references",
+          "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,reference_media,design_brief,ai_phase,approved_at,approved_by,rework_notes,priority,format,tags,visible_in_portal,internal_briefing,client_briefing,script,references,target_connection_ids",
         )
         .eq("id", data.postId)
         .single(),

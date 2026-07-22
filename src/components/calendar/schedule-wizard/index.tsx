@@ -86,6 +86,7 @@ export type WizardSeed = {
   title?: string;
   copy?: string;
   coverUrl?: string | null;
+  targetConnectionIds?: string[];
 };
 
 type Pair = { channel: SocialChannel; format: PlacementFormat; connectionId: string };
@@ -165,6 +166,30 @@ export function ScheduleWizard({
     queryKey: ["wizard-connections", brandId, clientId],
     queryFn: () => listConnections({ data: { brandId, clientId } }),
   });
+
+  // Pré-preenche destinos a partir das conexões escolhidas na tela de Conteúdo
+  // (Kanban → target_connection_ids), quando o wizard abre com um seed.
+  useEffect(() => {
+    if (!open) return;
+    const ids = seed?.targetConnectionIds ?? [];
+    if (ids.length === 0) return;
+    const conns = connectionsQ.data ?? [];
+    if (conns.length === 0) return;
+    setPairs((prev) => {
+      if (prev.length > 0) return prev;
+      const next: Pair[] = [];
+      for (const id of ids) {
+        const c = conns.find((x) => x.connectionId === id);
+        if (!c) continue;
+        next.push({
+          channel: c.channel as SocialChannel,
+          format: "Feed" as PlacementFormat,
+          connectionId: id,
+        });
+      }
+      return next;
+    });
+  }, [open, seed?.targetConnectionIds, connectionsQ.data]);
 
   const mediaQ = useQuery({
     enabled: open,
