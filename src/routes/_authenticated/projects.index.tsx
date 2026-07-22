@@ -326,7 +326,7 @@ function ProjectsIndexPage() {
         </Select>
       </DashboardPanelSurface>
 
-      <BrainWidget preset="projects" />
+      {brainEnabled && <BrainWidget preset="projects" />}
 
       {/* Grid de projetos */}
       {projectsQ.isLoading ? (
