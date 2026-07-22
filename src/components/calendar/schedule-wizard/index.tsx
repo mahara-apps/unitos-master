@@ -194,8 +194,8 @@ export function ScheduleWizard({
 
   const mediaQ = useQuery({
     enabled: open,
-    queryKey: ["wizard-media", brandId, "all"],
-    queryFn: () => listMedia({ data: { brandId, limit: 60 } }),
+    queryKey: ["wizard-media", brandId, clientId],
+    queryFn: () => listMedia({ data: { brandId, clientId, limit: 60 } }),
   });
 
   const connByChannel = useMemo(() => {
@@ -273,7 +273,7 @@ export function ScheduleWizard({
       const uploaded: BrandMediaAsset[] = [];
       try {
         for (const file of arr) {
-          const path = `${brandId}/${crypto.randomUUID()}-${slugifyMediaName(file.name)}`;
+          const path = `${brandId}/${clientId}/${crypto.randomUUID()}-${slugifyMediaName(file.name)}`;
           const { error: upErr } = await supabase.storage
             .from("brand-media")
             .upload(path, file, { contentType: file.type, upsert: false });
@@ -281,6 +281,7 @@ export function ScheduleWizard({
           const asset = await registerMedia({
             data: {
               brandId,
+              clientId,
               storagePath: path,
               name: file.name,
               mimeType: file.type || "application/octet-stream",
@@ -295,7 +296,7 @@ export function ScheduleWizard({
           for (const a of uploaded) if (!merged.find((x) => x.id === a.id)) merged.push(a);
           return merged;
         });
-        qc.invalidateQueries({ queryKey: ["wizard-media", brandId, "all"] });
+        qc.invalidateQueries({ queryKey: ["wizard-media", brandId, clientId] });
         qc.invalidateQueries({ queryKey: ["brand-media", brandId] });
         toast.success(`${uploaded.length} arquivo(s) enviados`);
       } catch (e) {
@@ -305,7 +306,7 @@ export function ScheduleWizard({
         if (uploadRef.current) uploadRef.current.value = "";
       }
     },
-    [brandId, qc, registerMedia],
+    [brandId, clientId, qc, registerMedia],
   );
 
   function commitTag() {
