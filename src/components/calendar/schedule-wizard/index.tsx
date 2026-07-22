@@ -697,12 +697,24 @@ export function ScheduleWizard({
                       <Label htmlFor="wiz-location" className="flex items-center gap-1.5 text-xs">
                         <MapPin className="h-3 w-3" /> Local
                       </Label>
-                      <Input
-                        id="wiz-location"
+                      <LocationCombobox
+                        brandId={brandId}
+                        instagramConnectionId={instagramConn?.id ?? null}
                         value={locationName}
-                        onChange={(e) => setLocationName(e.target.value)}
-                        placeholder="Ex.: São Paulo, SP"
+                        onChange={(name, id) => {
+                          setLocationName(name);
+                          setLocationId(id);
+                        }}
                       />
+                      {linkUrl && linkPolicy !== "clickable" && linkPolicy !== "none" ? (
+                        <p className="text-[10.5px] text-amber-600 dark:text-amber-400">
+                          {linkPolicy === "not-clickable"
+                            ? "Instagram/TikTok/Reels não tornam links clicáveis na legenda — use link na bio."
+                            : linkPolicy === "sticker"
+                              ? "Em Stories o link vira sticker (link vertical) — a URL não aparece no texto."
+                              : "Seleções mistas: o link só é clicável em algumas redes (Facebook/LinkedIn/X)."}
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                 </div>
