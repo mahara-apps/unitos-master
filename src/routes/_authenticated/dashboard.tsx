@@ -270,10 +270,10 @@ function AgencyMode({ brandId }: { brandId: string }) {
           <TaskDistributionCard buckets={d?.tasksByBucket} loading={q.isLoading} />
         </div>
         <div className="h-[340px]">
-          <ChannelMixCard channels={d?.topChannels ?? []} />
-        </div>
-        <div className="h-[340px] lg:col-span-2 lg:mx-auto lg:w-1/2 lg:pr-2">
           <UpcomingCard items={d?.upcoming ?? []} loading={q.isLoading} />
+        </div>
+        <div className="h-[340px]">
+          <ChannelMixCard channels={d?.topChannels ?? []} />
         </div>
       </div>
     </div>
