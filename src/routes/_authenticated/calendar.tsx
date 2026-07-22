@@ -342,6 +342,11 @@ function CalendarPage() {
   return (
     <TooltipProvider delayDuration={200}>
     <DashboardPageShell>
+      {q.isError || eventsQ.isError ? (
+        <div className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+          {describeError(q.error ?? eventsQ.error)}
+        </div>
+      ) : null}
       {/* Volumetria */}
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {volumetry.map((v) => (
