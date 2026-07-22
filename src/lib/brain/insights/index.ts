@@ -13,14 +13,20 @@ export async function list(
   ctx: BrainContext,
   opts: { limit?: number } = {},
 ): Promise<BrainInsightRow[]> {
-  const q = ctx.supabase
+  let q = ctx.supabase
     .from("brain_insights")
-    .select("insight_type, description, confidence, expires_at, brand_id")
+    .select("insight_type, description, confidence, expires_at, brand_id, metadata")
     .order("created_at", { ascending: false })
     .limit(opts.limit ?? 15);
-  const { data } = ctx.brandId
-    ? await q.or(`brand_id.eq.${ctx.brandId},brand_id.is.null`)
-    : await q.is("brand_id", null);
+  q = ctx.brandId
+    ? q.or(`brand_id.eq.${ctx.brandId},brand_id.is.null`)
+    : q.is("brand_id", null);
+  // brain_insights não tem coluna client_id — restringe por metadata->>client_id
+  // quando há cliente ativo para não vazar insights de outros clientes.
+  if (ctx.clientId) {
+    q = q.or(`metadata->>client_id.eq.${ctx.clientId},metadata->>client_id.is.null`);
+  }
+  const { data } = await q;
   return ((data ?? []) as Array<BrainInsightRow>)
     .filter((r) => !r.expires_at || new Date(r.expires_at) > new Date())
     .slice(0, opts.limit ?? 8);
