@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { Check, ChevronsUpDown, Plus, Sparkles, Building2, Users, UserPlus } from "lucide-react";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
@@ -43,6 +44,8 @@ import { QuickCreateCustomerDrawer } from "@/components/customer/quick-create-cu
 export function ContextSwitcher() {
   const { brandId, clientId, setBrandId, setClientId } = useActiveContext();
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { role, allowedClientIds } = useAccessRole();
   const isAdmin = role === "admin";
   const list = useServerFn(listMyBrands);
@@ -60,6 +63,46 @@ export function ContextSwitcher() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState("");
   const [customerDialogOpen, setCustomerDialogOpen] = useState(false);
+
+  // Extrai o segmento após /customers/ para reconstruir sub-rota ao trocar de cliente
+  const customerMatch = pathname.match(/^\/customers\/([^/]+)(\/[^?#]*)?/);
+  const currentCustomerSub = customerMatch?.[2] ?? "";
+
+  const handleSelectClient = async (id: string) => {
+    setClientId(id);
+    setPopoverOpen(false);
+    if (customerMatch) {
+      const sub = currentCustomerSub;
+      if (sub === "/brain") {
+        await navigate({ to: "/customers/$customerId/brain", params: { customerId: id }, replace: true });
+      } else if (sub === "/briefing") {
+        await navigate({ to: "/customers/$customerId/briefing", params: { customerId: id }, replace: true });
+      } else if (sub === "/media-plan") {
+        await navigate({ to: "/customers/$customerId/media-plan", params: { customerId: id }, replace: true });
+      } else {
+        await navigate({ to: "/customers/$customerId", params: { customerId: id }, replace: true });
+      }
+    }
+    await qc.invalidateQueries();
+  };
+
+  const handleSelectAllClients = async () => {
+    setClientId(null);
+    setPopoverOpen(false);
+    if (customerMatch) {
+      await navigate({ to: "/customers", replace: true });
+    }
+    await qc.invalidateQueries();
+  };
+
+  const handleSelectBrand = async (id: string) => {
+    setBrandId(id);
+    setPopoverOpen(false);
+    if (customerMatch) {
+      await navigate({ to: "/dashboard", replace: true });
+    }
+    await qc.invalidateQueries();
+  };
 
   const createMut = useMutation({
     mutationFn: (n: string) => create({ data: { name: n } }),
@@ -138,10 +181,7 @@ export function ContextSwitcher() {
                   <CommandItem
                     key={b.id}
                     value={`workspace ${b.name}`}
-                    onSelect={() => {
-                      setBrandId(b.id);
-                      setPopoverOpen(false);
-                    }}
+                    onSelect={() => void handleSelectBrand(b.id)}
                   >
                     <div
                       className="flex h-5 w-5 items-center justify-center rounded"
@@ -171,10 +211,7 @@ export function ContextSwitcher() {
               }>
                 <CommandItem
                   value="all accounts"
-                  onSelect={() => {
-                    setClientId(null);
-                    setPopoverOpen(false);
-                  }}
+                  onSelect={() => void handleSelectAllClients()}
                 >
                   <div className="h-3 w-3 rounded-full border border-dashed border-muted-foreground" />
                   <span className="flex-1">Todos os clientes</span>
@@ -189,10 +226,7 @@ export function ContextSwitcher() {
                   <CommandItem
                     key={c.id}
                     value={`account ${c.name}`}
-                    onSelect={() => {
-                      setClientId(c.id);
-                      setPopoverOpen(false);
-                    }}
+                    onSelect={() => void handleSelectClient(c.id)}
                   >
                     <CustomerAvatar
                       name={c.name}
