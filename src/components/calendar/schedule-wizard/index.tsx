@@ -481,10 +481,10 @@ export function ScheduleWizard({
 
         {/* Body — 3 columns */}
         <div className="min-h-0 flex-1 overflow-hidden">
-          <div className="grid h-full grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="grid h-full grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1.35fr)_minmax(0,0.9fr)]">
             {/* Column 1 — Context & Copy */}
             <ScrollArea className="h-full border-b border-border/60 lg:border-b-0 lg:border-r">
-              <div className="space-y-5 p-6">
+              <div className="space-y-4 px-4 py-4 lg:px-5">
                 <SectionTitle index={1} title="Contexto & Copy" />
 
                 {/* Channels */}
