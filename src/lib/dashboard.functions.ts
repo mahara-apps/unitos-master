@@ -698,7 +698,12 @@ async function computeAgency(
           .gte("created_at", range.fromIso)
           .lte("created_at", range.toIso),
       ),
-      computeAiUsage(supabase, brandId, range),
+      computeAiUsage(
+        supabase,
+        brandId,
+        range,
+        new Map(clients.map((c) => [c.id, c.name] as const)),
+      ),
       // Publicações realizadas pelo worker de agendamento (não gravam posts.published_at).
       ignore(
         supabase
