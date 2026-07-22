@@ -174,27 +174,26 @@ export function QuickOnboardingWizard({
   };
 
   const totalSteps = 3;
-  const progressPct = step > totalSteps ? 100 : Math.round(((step - 1) / totalSteps) * 100);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl gap-0 overflow-hidden p-0">
-        <DialogHeader className="border-b border-border/60 px-6 pb-4 pt-5">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <DialogTitle className="text-base">Onboarding rápido</DialogTitle>
-              <DialogDescription className="text-xs">
+      <DialogContent className="max-w-[640px] gap-0 overflow-hidden rounded-2xl border border-border/60 p-0 shadow-2xl">
+        <DialogHeader className="space-y-0 px-8 pb-6 pt-8">
+          <div className="mb-1 flex items-start justify-between gap-4">
+            <div className="space-y-1">
+              <DialogTitle className="text-xl font-semibold tracking-tight">
+                Onboarding rápido
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground">
                 Só o essencial para a IA gerar a primeira estratégia.
               </DialogDescription>
             </div>
             <StepBadge step={step} total={totalSteps} />
           </div>
-          <div className="mt-3">
-            <Progress value={progressPct} className="h-1" />
-          </div>
+          <StepTrack step={step} total={totalSteps} />
         </DialogHeader>
 
-        <div className="max-h-[60vh] overflow-y-auto px-6 py-5">
+        <div className="max-h-[64vh] overflow-y-auto px-8 pb-8">
           {hubQ.isLoading ? (
             <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando…
@@ -210,21 +209,21 @@ export function QuickOnboardingWizard({
           )}
         </div>
 
-        <footer className="flex items-center justify-between gap-2 border-t border-border/60 bg-muted/20 px-6 py-3">
+        <footer className="flex items-center justify-between gap-2 border-t border-border/60 bg-muted/30 px-8 py-4">
           <button
             type="button"
             onClick={skipAll}
-            className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             Pular e ver tudo
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4">
             {step <= totalSteps && (
               <button
                 type="button"
                 onClick={skip}
-                className="text-xs font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
                 disabled={save.isPending}
               >
                 Pular esta etapa
@@ -233,7 +232,7 @@ export function QuickOnboardingWizard({
 
             {step === 1 && (
               <Button
-                size="sm"
+                size="default"
                 onClick={() =>
                   advance({
                     tone_text: state.tone_text,
@@ -242,17 +241,18 @@ export function QuickOnboardingWizard({
                   })
                 }
                 disabled={save.isPending}
+                className="gap-1.5 shadow-sm transition-transform active:scale-[0.98]"
               >
                 {save.isPending ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : null}
                 Próximo
-                <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                <ChevronRight className="h-4 w-4" />
               </Button>
             )}
             {step === 2 && (
               <Button
-                size="sm"
+                size="default"
                 onClick={() =>
                   advance({
                     offer: state.offer,
@@ -262,34 +262,36 @@ export function QuickOnboardingWizard({
                   })
                 }
                 disabled={save.isPending}
+                className="gap-1.5 shadow-sm transition-transform active:scale-[0.98]"
               >
                 {save.isPending ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : null}
                 Próximo
-                <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                <ChevronRight className="h-4 w-4" />
               </Button>
             )}
             {step === 3 && (
               <Button
-                size="sm"
+                size="default"
                 onClick={() =>
                   advance({ volumetry: state.volumetry, goals: state.goals })
                 }
                 disabled={save.isPending}
+                className="gap-1.5 shadow-sm transition-transform active:scale-[0.98]"
               >
                 {save.isPending ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  <Loader2 className="h-4 w-4 animate-spin" />
                 ) : null}
                 Concluir
-                <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                <ChevronRight className="h-4 w-4" />
               </Button>
             )}
             {step > totalSteps && (
               <>
                 <Button
                   variant="ghost"
-                  size="sm"
+                  size="default"
                   onClick={() => {
                     onOpenChange(false);
                     onOpenFullBriefing?.();
@@ -298,15 +300,15 @@ export function QuickOnboardingWizard({
                   Ver briefing completo
                 </Button>
                 <Button
-                  size="sm"
+                  size="default"
                   onClick={runStrategy}
                   disabled={genLoading}
-                  className="gap-1.5 bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white hover:from-fuchsia-500 hover:to-violet-500"
+                  className="gap-1.5 bg-gradient-to-r from-fuchsia-600 to-violet-600 text-white shadow-md transition-transform hover:from-fuchsia-500 hover:to-violet-500 active:scale-[0.98]"
                 >
                   {genLoading ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Sparkles className="h-3.5 w-3.5" />
+                    <Sparkles className="h-4 w-4" />
                   )}
                   Gerar Inteligência com IA
                 </Button>
@@ -320,11 +322,32 @@ export function QuickOnboardingWizard({
 }
 
 function StepBadge({ step, total }: { step: number; total: number }) {
-  const label = step > total ? "Concluído" : `${step} de ${total}`;
+  const label = step > total ? "Concluído" : `Passo ${step} de ${total}`;
   return (
-    <span className="rounded-full border border-border/60 bg-background px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+    <span className="whitespace-nowrap rounded-md bg-muted px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
       {label}
     </span>
+  );
+}
+
+function StepTrack({ step, total }: { step: number; total: number }) {
+  return (
+    <div className="mt-6 flex gap-1.5" aria-label={`Progresso: ${Math.min(step, total)} de ${total}`}>
+      {Array.from({ length: total }).map((_, i) => {
+        const idx = i + 1;
+        const done = step > idx;
+        const current = step === idx;
+        return (
+          <div
+            key={i}
+            className={cn(
+              "h-1 flex-1 rounded-full transition-colors duration-500",
+              done || current ? "bg-primary" : "bg-muted",
+            )}
+          />
+        );
+      })}
+    </div>
   );
 }
 
