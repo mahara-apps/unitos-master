@@ -48,22 +48,25 @@ export const getChannelsKpis = createServerFn({ method: "GET" })
     const d60 = iso(new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000));
     const nowIso = iso(now);
 
-    // Card 1 — published in last 30d
+    // Fonte da verdade: `social_posts` (uma linha por destino/placement),
+    // populada tanto pelo "Publicar agora" quanto pelo worker pg_cron. A
+    // tabela legada `posts.published_at` só é escrita no branch "Publicar
+    // agora" do wizard, então usá-la subestima drasticamente o volume real.
+
+    // Card 1 — publicações efetivas nos últimos 30d.
     const pub30Q = await supabase
-      .from("posts")
+      .from("social_posts")
       .select("id", { count: "exact", head: true })
       .eq("brand_id", data.brandId)
-      .is("deleted_at", null)
-      .not("published_at", "is", null)
+      .eq("status", "published")
       .gte("published_at", d30);
     const published30d = pub30Q.count ?? 0;
 
     const pubPrevQ = await supabase
-      .from("posts")
+      .from("social_posts")
       .select("id", { count: "exact", head: true })
       .eq("brand_id", data.brandId)
-      .is("deleted_at", null)
-      .not("published_at", "is", null)
+      .eq("status", "published")
       .gte("published_at", d60)
       .lt("published_at", d30);
     const publishedPrev30d = pubPrevQ.count ?? 0;
@@ -73,37 +76,40 @@ export const getChannelsKpis = createServerFn({ method: "GET" })
         ? null
         : Math.round(((published30d - publishedPrev30d) / publishedPrev30d) * 100);
 
-    // Card 2 — success rate over attempts in last 30d.
-    // Attempted = posts due (scheduled_at in [now-30d, now]) that reached scheduled/published stages.
+    // Card 2 — taxa de sucesso sobre tentativas nos últimos 30d.
+    // Tentativa = social_posts com janela de agendamento em [d30, now] cujo
+    // status já saiu de 'scheduled' (published ou failed). Ignora rascunhos
+    // ('draft') e itens ainda por vencer.
     const attemptedQ = await supabase
-      .from("posts")
-      .select("id, published_at", { head: false })
+      .from("social_posts")
+      .select("id, status", { head: false })
       .eq("brand_id", data.brandId)
-      .is("deleted_at", null)
-      .in("stage", ["scheduled", "published"])
+      .in("status", ["published", "failed"])
       .gte("scheduled_at", d30)
       .lte("scheduled_at", nowIso);
     const attemptedRows = attemptedQ.data ?? [];
     const attempted30d = attemptedRows.length;
-    const successCount = attemptedRows.filter((r) => r.published_at !== null).length;
+    const successCount = attemptedRows.filter((r) => r.status === "published").length;
     const successRate = attempted30d === 0 ? null : successCount / attempted30d;
 
-    // Card 3 — failures in last 7d = due & unpublished
+    // Card 3 — falhas nos últimos 7d = social_posts marcados como 'failed'
+    // (worker gravou last_error) OU vencidos há mais de 2min ainda presos em
+    // 'scheduled' (worker travou / integração indisponível).
+    const staleCutoff = iso(new Date(now.getTime() - 2 * 60 * 1000));
     const failedQ = await supabase
-      .from("posts")
-      .select("id, channels")
+      .from("social_posts")
+      .select("id, provider, status, scheduled_at")
       .eq("brand_id", data.brandId)
-      .is("deleted_at", null)
-      .is("published_at", null)
-      .eq("stage", "scheduled")
       .gte("scheduled_at", d7)
-      .lte("scheduled_at", nowIso);
+      .lte("scheduled_at", nowIso)
+      .or(`status.eq.failed,and(status.eq.scheduled,scheduled_at.lt.${staleCutoff})`);
     const failedRows = failedQ.data ?? [];
     const failed7d = failedRows.length;
     const counts = new Map<string, number>();
     for (const r of failedRows) {
-      const chs = Array.isArray(r.channels) ? (r.channels as string[]) : [];
-      for (const c of chs) counts.set(c, (counts.get(c) ?? 0) + 1);
+      const provider = (r.provider ?? "") as string;
+      if (!provider) continue;
+      counts.set(provider, (counts.get(provider) ?? 0) + 1);
     }
     let topFailedChannel: string | null = null;
     let maxN = 0;
