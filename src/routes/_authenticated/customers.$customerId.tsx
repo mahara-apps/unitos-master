@@ -155,7 +155,7 @@ function CustomerDetailReady({
   brandId: string;
   customerId: string;
   openOnboarding: boolean;
-  initialTab?: "overview" | "brain" | "channels" | "cadastro";
+  initialTab?: "overview" | "briefing" | "brain" | "channels" | "cadastro";
 }) {
   const list = useServerFn(listClients);
   const fetchHub = useServerFn(getBrandHub);
@@ -199,13 +199,13 @@ function CustomerDetailReady({
   const completion = hubQ.data
     ? computeBriefingCompletion(hubQ.data.brand_hub ?? {}, hubQ.data)
     : 0;
-  const needsOnboarding = !!hubQ.data && completion < 60 && brainEnabled;
+  const needsOnboarding = !!hubQ.data && completion < 60;
 
   // Auto-open when the customer was just created (?onboarding=1).
   useEffect(() => {
     if (openOnboarding) {
       setWizardOpen(true);
-      setActiveTab("brain");
+      setActiveTab("briefing");
       // Clear the query param so a manual refresh doesn't reopen it.
       navigate({
         to: "/customers/$customerId",
