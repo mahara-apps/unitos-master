@@ -55,7 +55,6 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
 const ALL_TABS = [
   { value: "overview", label: "Visão geral" },
   { value: "briefing", label: "Briefing & Estratégia" },
-  { value: "brain", label: "Cérebro da Marca" },
   { value: "channels", label: "Canais" },
   { value: "cadastro", label: "Cadastro" },
 ] as const;
@@ -161,14 +160,14 @@ function CustomerDetailReady({
   const fetchHub = useServerFn(getBrandHub);
   const qc = useQueryClient();
   const brainEnabled = useFeatureAccess("brain").enabled;
-  const TABS = brainEnabled ? ALL_TABS : ALL_TABS.filter((t) => t.value !== "brain");
+  const TABS = ALL_TABS;
   const [activeTab, setActiveTab] = useState<string>(initialTab ?? "overview");
   const [wizardOpen, setWizardOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!brainEnabled && activeTab === "brain") setActiveTab("overview");
-  }, [brainEnabled, activeTab]);
+    if (activeTab === "brain") setActiveTab("briefing");
+  }, [activeTab]);
 
   // Lista de customers do brand ativo — só para nome/cor do header.
   const customersQ = useQuery({
