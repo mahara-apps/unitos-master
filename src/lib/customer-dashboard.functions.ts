@@ -215,7 +215,9 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
       .select("id", { count: "exact", head: true })
       .eq("brand_id", data.brandId)
       .eq("client_id", data.clientId)
-      .eq("status", "published");
+      .eq("status", "published")
+      .gte("published_at", fromIso)
+      .lte("published_at", toIso);
     // Fonte de verdade: social_posts. Fallback só quando não há nenhum registro
     // em social_posts (workspace sem conexões sociais), para não duplicar.
     const publishedPostsFallback = scopedPosts.filter((p) => p.published_at != null).length;
