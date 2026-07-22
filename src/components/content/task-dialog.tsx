@@ -823,6 +823,8 @@ function EditBody({
           postId={postId}
           createdAt={post.created_at}
           copyAutosaveStatus={copyAutosaveStatus}
+          brandId={brandId}
+          clientId={clientId}
           mediaSlot={
             <MediaReferenceBlock
               refs={refs}
