@@ -354,6 +354,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           ...(data.firstComment ? { first_comment: data.firstComment } : {}),
           ...(data.linkUrl ? { link: data.linkUrl } : {}),
           ...(data.locationName ? { location_name: data.locationName } : {}),
+          ...(data.locationId ? { location_id: data.locationId } : {}),
         },
         media: mediaJson,
         status: data.action === "schedule" ? "scheduled" : "draft",
