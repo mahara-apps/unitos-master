@@ -272,9 +272,6 @@ function AgencyMode({ brandId }: { brandId: string }) {
         <div className="h-[340px]">
           <UpcomingCard items={d?.upcoming ?? []} loading={q.isLoading} />
         </div>
-        <div className="h-[340px]">
-          <ChannelMixCard channels={d?.topChannels ?? []} />
-        </div>
       </div>
     </div>
   );
