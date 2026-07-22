@@ -86,6 +86,7 @@ export type WizardSeed = {
   title?: string;
   copy?: string;
   coverUrl?: string | null;
+  targetConnectionIds?: string[];
 };
 
 type Pair = { channel: SocialChannel; format: PlacementFormat; connectionId: string };
