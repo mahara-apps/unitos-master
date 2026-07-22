@@ -79,6 +79,7 @@ import { slaSnapshotFn, type SlaSnapshot } from "@/lib/content.functions";
 import { AlarmClock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrainWidget } from "@/components/brain/brain-widget";
+import { useFeatureAccess } from "@/hooks/use-feature-access";
 
 export const Route = createFileRoute("/_authenticated/analytics")({
   component: AnalyticsPage,
@@ -387,6 +388,7 @@ function SocialTab({
   loading: boolean;
   data: AnalyticsResult["social"] | undefined;
 }) {
+  const brainEnabled = useFeatureAccess("brain").enabled;
   if (loading || !data) return <LoadingGrid count={4} />;
 
   return (
@@ -422,7 +424,7 @@ function SocialTab({
         />
       </div>
 
-      <BrainWidget preset="analytics" />
+      {brainEnabled && <BrainWidget preset="analytics" />}
 
       <Card>
         <CardHeader>
