@@ -222,6 +222,7 @@ const SaveInput = z.object({
   firstComment: z.string().max(2200).nullable().optional(),
   linkUrl: z.string().url().nullable().optional(),
   locationName: z.string().max(120).nullable().optional(),
+  locationId: z.string().max(64).nullable().optional(),
   destinations: z.array(DestinationSchema).default([]),
   scheduledAt: z.string().nullable().optional(), // ISO
   action: z.enum(["draft", "publish", "schedule", "save_draft"]),
