@@ -567,6 +567,29 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
         const userId = claims?.claims?.sub;
         if (!userId) return new Response("Unauthorized", { status: 401 });
 
+        // Fonte de verdade: dados do cadastro + Cérebro da Marca.
+        const { data: clientRow, error: clientErr } = await supabase
+          .from("clients")
+          .select(
+            "name, niche, color, logo_url, tone_of_voice, contact_name, contact_email, socials, brand_hub" as never,
+          )
+          .eq("id", input.clientId)
+          .maybeSingle();
+        if (clientErr || !clientRow) {
+          return new Response(
+            clientErr?.message ?? "Cliente não encontrado",
+            { status: 404 },
+          );
+        }
+        const composed = composeBriefingFromRecord(clientRow as unknown as ClientRow, input.texto);
+        if (composed.length < 40) {
+          return new Response(
+            "Preencha ao menos Nome + Nicho e um bloco do Cérebro da Marca antes de gerar a estratégia.",
+            { status: 400 },
+          );
+        }
+        const composedInput = { ...input, texto: composed };
+
         const { data: job, error: jobErr } = await supabase
           .from("ai_jobs")
           .insert({
@@ -578,7 +601,7 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
             subtitle: "Briefing · Voz · Personas · Cohorts · SWOT",
             status: "queued",
             progress: 0,
-            input: input as unknown as Database["public"]["Tables"]["ai_jobs"]["Insert"]["input"],
+            input: composedInput as unknown as Database["public"]["Tables"]["ai_jobs"]["Insert"]["input"],
           })
           .select("id")
           .single();
@@ -586,7 +609,7 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
           return new Response(jobErr?.message ?? "Failed to enqueue", { status: 500 });
         }
 
-        waitUntil(runPhase1({ jobId: job.id, token, userId, input }));
+        waitUntil(runPhase1({ jobId: job.id, token, userId, input: composedInput }));
 
         return new Response(JSON.stringify({ jobId: job.id }), {
           status: 202,
