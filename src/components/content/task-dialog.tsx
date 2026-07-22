@@ -520,6 +520,7 @@ function EditBody({
               ? [{ cena: 1, fala: state.script.trim() }]
               : null,
             channels: state.channels as never,
+            target_connection_ids: state.targetConnectionIds,
             format: state.format || null,
             priority: state.priority === "none" ? null : state.priority,
             tags: state.tags,
