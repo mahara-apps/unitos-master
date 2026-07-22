@@ -238,57 +238,25 @@ function AgencyMode({ brandId }: { brandId: string }) {
         </div>
       )}
 
-      {/* ═══ Operação ═══════════════════════════════════════════════ */}
-      <SectionHeader title="Operação" hint="Onde a agência precisa agir agora" />
-      <div className="grid gap-4 lg:grid-cols-12">
-        <div className="lg:col-span-7">
-          <ClientHealthRanking healths={d?.healths ?? []} loading={q.isLoading} />
-        </div>
-        <div className="flex flex-col gap-4 lg:col-span-5">
-          <ApprovalsQueueCard items={d?.approvalsQueue ?? []} loading={q.isLoading} />
-          <UpcomingCard items={d?.upcoming ?? []} loading={q.isLoading} />
-        </div>
-      </div>
-
-      {/* ═══ Pipeline & Produção ════════════════════════════════════ */}
-      <SectionHeader title="Pipeline & produção" hint="Fluxo de conteúdo e execução de tarefas" />
-      <div className="grid gap-4 lg:grid-cols-12">
-        <div className="lg:col-span-7">
-          <FunnelCard
-            stages={d?.pipelineStages ?? []}
-            postsByStage={d?.postsByStage ?? {}}
-            avgLead={d?.avgLeadTimeDays ?? null}
-          />
-        </div>
-        <div className="lg:col-span-5">
-          <TaskDistributionCard buckets={d?.tasksByBucket} loading={q.isLoading} />
-        </div>
-      </div>
-
-      {/* ═══ Performance ════════════════════════════════════════════ */}
-      <SectionHeader title="Performance" hint="Ritmo de publicações e canais no período" />
-      <div className="grid gap-4 lg:grid-cols-12">
-        <div className="lg:col-span-8">
-          <PublishTrendCard
-            trend={d?.publishTrend14d ?? []}
-            channels={d?.topChannels ?? []}
-            rangeDays={d?.rangeDays ?? 30}
-          />
-        </div>
-        <div className="lg:col-span-4">
-          <ChannelMixCard channels={d?.topChannels ?? []} />
-        </div>
-      </div>
-
-      {/* ═══ Inteligência ═══════════════════════════════════════════ */}
-      <SectionHeader title="Inteligência" hint="IA, custo e fluxo de aprovações por cliente" />
-      <div className="grid gap-4 lg:grid-cols-12">
-        <div className="lg:col-span-7">
-          <AiUsageCard usage={d?.aiUsage} />
-        </div>
-        <div className="lg:col-span-5">
-          <ApprovalsByClientCard rows={d?.approvalsByClient ?? []} loading={q.isLoading} />
-        </div>
+      {/* Balanced 2-col masonry — CSS columns auto-equalize column heights. */}
+      <div className="gap-4 lg:columns-2 [&>*]:mb-4 [&>*]:break-inside-avoid">
+        <ClientHealthRanking healths={d?.healths ?? []} loading={q.isLoading} />
+        <ApprovalsQueueCard items={d?.approvalsQueue ?? []} loading={q.isLoading} />
+        <AiUsageCard usage={d?.aiUsage} />
+        <FunnelCard
+          stages={d?.pipelineStages ?? []}
+          postsByStage={d?.postsByStage ?? {}}
+          avgLead={d?.avgLeadTimeDays ?? null}
+        />
+        <PublishTrendCard
+          trend={d?.publishTrend14d ?? []}
+          channels={d?.topChannels ?? []}
+          rangeDays={d?.rangeDays ?? 30}
+        />
+        <TaskDistributionCard buckets={d?.tasksByBucket} loading={q.isLoading} />
+        <ApprovalsByClientCard rows={d?.approvalsByClient ?? []} loading={q.isLoading} />
+        <UpcomingCard items={d?.upcoming ?? []} loading={q.isLoading} />
+        <ChannelMixCard channels={d?.topChannels ?? []} />
       </div>
     </div>
   );
