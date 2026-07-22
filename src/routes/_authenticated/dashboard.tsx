@@ -739,11 +739,12 @@ function UpcomingCard({
   );
 }
 
-function HeatmapCard({ heatmap }: { heatmap: number[] }) {
+function HeatmapCard({ heatmap, rangeDays }: { heatmap: number[]; rangeDays?: number }) {
   const max = Math.max(1, ...heatmap);
+  const days = rangeDays ?? heatmap.length;
   return (
     <Card
-      title="Ritmo de publicações · 60 dias"
+      title={`Ritmo de publicações · ${days} dias`}
       subtitle="Cada quadrado representa um dia"
       icon={<Radar className="h-4 w-4" />}
     >
@@ -760,6 +761,178 @@ function HeatmapCard({ heatmap }: { heatmap: number[] }) {
           );
         })}
       </div>
+    </Card>
+  );
+}
+
+function TaskDistributionCard({
+  buckets,
+  loading,
+}: {
+  buckets: AgencyDashboard["tasksByBucket"] | undefined;
+  loading: boolean;
+}) {
+  const b = buckets ?? { open: 0, in_progress: 0, review: 0, done: 0, overdue: 0 };
+  const total = b.open + b.in_progress + b.review + b.done + b.overdue;
+  const segments: Array<{ label: string; value: number; color: string }> = [
+    { label: "Abertas", value: b.open, color: "#0ea5e9" },
+    { label: "Em andamento", value: b.in_progress, color: "#f59e0b" },
+    { label: "Em revisão", value: b.review, color: "#8b5cf6" },
+    { label: "Concluídas no período", value: b.done, color: "#10b981" },
+    { label: "Atrasadas", value: b.overdue, color: "#e11d48" },
+  ];
+  return (
+    <Card
+      title="Distribuição de tarefas"
+      subtitle={`${total} tarefas no funil de execução`}
+      icon={<ListChecks className="h-4 w-4" />}
+      action={
+        <Link to="/content" className="text-xs text-muted-foreground hover:text-foreground">
+          Ver tarefas →
+        </Link>
+      }
+    >
+      {loading ? (
+        <SkeletonList />
+      ) : total === 0 ? (
+        <EmptyState icon={<ListChecks className="h-5 w-5" />} text="Nenhuma tarefa registrada." />
+      ) : (
+        <div className="space-y-3 px-4 py-3">
+          <div className="flex h-2 w-full overflow-hidden rounded-full border border-border/40 bg-muted/30">
+            {segments.map(
+              (s) =>
+                s.value > 0 && (
+                  <div
+                    key={s.label}
+                    title={`${s.label}: ${s.value}`}
+                    style={{ width: `${(s.value / total) * 100}%`, background: s.color }}
+                  />
+                ),
+            )}
+          </div>
+          <ul className="grid gap-1.5 sm:grid-cols-2">
+            {segments.map((s) => (
+              <li key={s.label} className="flex items-center justify-between gap-2 text-xs">
+                <span className="inline-flex items-center gap-2 truncate">
+                  <span className="h-2 w-2 rounded-sm" style={{ background: s.color }} />
+                  <span className="truncate text-muted-foreground">{s.label}</span>
+                </span>
+                <span className="font-mono tabular-nums">{s.value}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+const CHANNEL_COLORS: Record<string, string> = {
+  instagram: "#e1306c",
+  facebook: "#1877f2",
+  tiktok: "#000000",
+  linkedin: "#0a66c2",
+  youtube: "#ff0000",
+  x: "#111827",
+  threads: "#4b5563",
+  blog: "#0ea5e9",
+};
+
+function ChannelMixCard({
+  channels,
+}: {
+  channels: Array<{ channel: string; count: number }>;
+}) {
+  const total = channels.reduce((s, c) => s + c.count, 0);
+  const max = Math.max(1, ...channels.map((c) => c.count));
+  return (
+    <Card
+      title="Mix de canais"
+      subtitle={`${total} publicações distribuídas por canal`}
+      icon={<PieIcon className="h-4 w-4" />}
+    >
+      {channels.length === 0 ? (
+        <EmptyState icon={<PieIcon className="h-5 w-5" />} text="Sem canais publicados no período." />
+      ) : (
+        <ul className="space-y-2 px-4 py-3">
+          {channels.slice(0, 6).map((c) => {
+            const label = CHANNEL_LABELS[c.channel] ?? c.channel;
+            const color = CHANNEL_COLORS[c.channel] ?? "hsl(var(--primary))";
+            const pct = (c.count / max) * 100;
+            return (
+              <li key={c.channel} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="truncate font-medium">{label}</span>
+                  <span className="font-mono tabular-nums text-muted-foreground">
+                    {c.count}
+                    {total > 0 && (
+                      <span className="ml-1 text-[10px]">
+                        · {Math.round((c.count / total) * 100)}%
+                      </span>
+                    )}
+                  </span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/40">
+                  <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+function ApprovalsByClientCard({
+  rows,
+  loading,
+}: {
+  rows: AgencyDashboard["approvalsByClient"];
+  loading: boolean;
+}) {
+  const max = Math.max(1, ...rows.map((r) => r.pending + r.approved));
+  return (
+    <Card
+      title="Aprovações por cliente"
+      subtitle="Pendentes vs. aprovadas no período"
+      icon={<BadgeCheck className="h-4 w-4" />}
+    >
+      {loading ? (
+        <SkeletonList />
+      ) : rows.length === 0 ? (
+        <EmptyState icon={<BadgeCheck className="h-5 w-5" />} text="Nenhuma aprovação registrada." />
+      ) : (
+        <ul className="space-y-2.5 px-4 py-3">
+          {rows.map((r) => {
+            const totalR = r.pending + r.approved;
+            const pctPending = (r.pending / max) * 100;
+            const pctApproved = (r.approved / max) * 100;
+            return (
+              <li key={r.client_id} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <Link
+                    to="/customers/$customerId"
+                    params={{ customerId: r.client_id }}
+                    className="truncate font-medium hover:text-primary"
+                  >
+                    {r.client_name}
+                  </Link>
+                  <span className="font-mono tabular-nums text-muted-foreground">
+                    <span className="text-amber-500">{r.pending}</span>
+                    <span className="mx-1">/</span>
+                    <span className="text-emerald-500">{r.approved}</span>
+                  </span>
+                </div>
+                <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted/40">
+                  <div style={{ width: `${pctApproved}%`, background: "#10b981" }} />
+                  <div style={{ width: `${pctPending}%`, background: "#f59e0b" }} />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </Card>
   );
 }
