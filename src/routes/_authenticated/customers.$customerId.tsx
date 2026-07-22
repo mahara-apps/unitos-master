@@ -289,11 +289,11 @@ function CustomerDetailReady({
                 <CustomerDashboard
                   brandId={brandId}
                   clientId={customerId}
-                  onOpenBriefing={() => setActiveTab(brainEnabled ? "brain" : "cadastro")}
+                  onOpenBriefing={() => setActiveTab("briefing")}
                 />
               </div>
             </TabsContent>
-            {brainEnabled && <TabsContent value="brain">
+            <TabsContent value="briefing">
               <BriefingWorkspace
                 brandId={brandId}
                 clientId={customerId}
@@ -323,7 +323,7 @@ function CustomerDetailReady({
                   </>
                 }
               />
-            </TabsContent>}
+            </TabsContent>
             <TabsContent value="cadastro">
               <BasicInfoTab brandId={brandId} clientId={customerId} />
             </TabsContent>
@@ -339,7 +339,7 @@ function CustomerDetailReady({
         clientId={customerId}
         open={wizardOpen}
         onOpenChange={setWizardOpen}
-        onOpenFullBriefing={() => setActiveTab("brain")}
+        onOpenFullBriefing={() => setActiveTab("briefing")}
       />
     </ScrollArea>
   );
