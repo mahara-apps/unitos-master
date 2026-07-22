@@ -225,10 +225,15 @@ export function ScheduleWizard({
   // Ensure preview channel is one we have selected — else fall back to first pair
   useEffect(() => {
     if (!pairs.length) return;
-    if (!pairs.some((p) => p.channel === previewChannel)) {
-      setPreviewChannel(pairs[0].channel);
+    if (!pairs.some((p) => `${p.channel}::${p.format}` === previewKey)) {
+      setPreviewKey(`${pairs[0].channel}::${pairs[0].format}`);
     }
-  }, [pairs, previewChannel]);
+  }, [pairs, previewKey]);
+
+  const previewPair = useMemo(() => {
+    const found = pairs.find((p) => `${p.channel}::${p.format}` === previewKey);
+    return found ?? pairs[0] ?? null;
+  }, [pairs, previewKey]);
 
   const captionLimit = useMemo(
     () => tightestCaptionLimit(pairs.map((p) => p.channel)),
