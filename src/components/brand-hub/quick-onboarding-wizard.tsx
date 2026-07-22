@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { CheckCircle2, ChevronRight, Loader2, Sparkles } from "lucide-react";
+import { CheckCircle2, ChevronRight, ExternalLink, Instagram as InstagramIcon, Loader2, Sparkles } from "lucide-react";
 
 import {
   Dialog,
@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import {
   getBrandHub,
   updateBrandHub,
+  type BrandHubClient,
   type BrandHubData,
 } from "@/lib/brand-hub.functions";
 import { supabase } from "@/integrations/supabase/client";
@@ -146,11 +147,6 @@ export function QuickOnboardingWizard({
         goals: state.goals,
       });
 
-      const briefing = buildBriefing(state, hubQ.data?.name, hubQ.data?.niche);
-      if (briefing.length < 40) {
-        toast.error("Preencha ao menos alguns campos antes de gerar.");
-        return;
-      }
       const { data: session } = await supabase.auth.getSession();
       const token = session.session?.access_token;
       if (!token) throw new Error("Sessão expirada");
@@ -163,7 +159,6 @@ export function QuickOnboardingWizard({
         body: JSON.stringify({
           brandId,
           clientId,
-          texto: briefing,
           pautasQuantidade: 8,
           pautasPeriodo: "próximos 15 dias",
         }),
@@ -206,7 +201,7 @@ export function QuickOnboardingWizard({
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando…
             </div>
           ) : step === 1 ? (
-            <StepIdentity state={state} setField={setField} />
+            <StepIdentity state={state} setField={setField} client={hubQ.data ?? null} />
           ) : step === 2 ? (
             <StepProductAudience state={state} setField={setField} />
           ) : step === 3 ? (
@@ -355,12 +350,66 @@ function Field({
 function StepIdentity({
   state,
   setField,
+  client,
 }: {
   state: State;
   setField: <K extends keyof State>(k: K, v: State[K]) => void;
+  client: BrandHubClient | null;
 }) {
+  const socials = (client?.socials ?? {}) as Record<string, string | undefined>;
+  const igRaw = (socials.instagram ?? "").trim();
+  const igHandle = igRaw
+    ? igRaw.replace(/^@+/, "").replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/\/+$/, "")
+    : "";
+  const color = (client?.color ?? "").trim();
+  const hasCapturedData = !!(client?.name || client?.niche || igHandle || color || client?.logo_url);
+
   return (
     <div className="space-y-4">
+      {hasCapturedData ? (
+        <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5">
+          <div className="mb-1.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+            Já capturado no cadastro
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            {client?.logo_url ? (
+              <img
+                src={client.logo_url}
+                alt=""
+                className="h-8 w-8 rounded-md border border-border object-contain bg-background"
+              />
+            ) : null}
+            {client?.name ? (
+              <span className="text-sm font-semibold text-foreground">{client.name}</span>
+            ) : null}
+            {client?.niche ? (
+              <span className="rounded-full border border-border/60 bg-background px-2 py-0.5 text-[11px] text-muted-foreground">
+                {client.niche}
+              </span>
+            ) : null}
+            {igHandle ? (
+              <a
+                href={`https://instagram.com/${igHandle}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+              >
+                <InstagramIcon className="h-3 w-3" />@{igHandle}
+                <ExternalLink className="h-2.5 w-2.5 opacity-70" />
+              </a>
+            ) : null}
+            {color ? (
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="h-3.5 w-3.5 rounded-full border border-border"
+                  style={{ background: color }}
+                />
+                <span className="font-mono text-[11px] uppercase text-muted-foreground">{color}</span>
+              </span>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       <h3 className="text-sm font-semibold tracking-tight">Identidade</h3>
       <Field label="Tom de voz" hint="Ex.: próximo, provocador, direto, com humor.">
         <Textarea
@@ -499,28 +548,4 @@ function StepDone() {
       </p>
     </div>
   );
-}
-
-function buildBriefing(s: State, name?: string, niche?: string | null): string {
-  const lines: string[] = [];
-  const push = (k: string, v?: string | null) => {
-    const t = (v ?? "").trim();
-    if (t) lines.push(`${k}: ${t}`);
-  };
-  push("Marca", name);
-  push("Nicho", niche ?? undefined);
-  push("Tom de voz", s.tone_text);
-  push("Missão", s.mission);
-  push("Posicionamento", s.positioning);
-  push("Oferta", s.offer);
-  push("Faixa de preço", s.price_range);
-  push("Público", s.audience);
-  push("Dores", s.pain_points);
-  push("Metas", s.goals);
-  const vol = Object.entries(s.volumetry)
-    .filter(([, n]) => (n ?? 0) > 0)
-    .map(([k, n]) => `${k}: ${n}/sem`)
-    .join(", ");
-  push("Volumetria semanal", vol);
-  return lines.join("\n");
 }

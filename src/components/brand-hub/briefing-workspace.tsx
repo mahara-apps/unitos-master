@@ -284,49 +284,12 @@ export function BriefingWorkspace({
     }
   };
 
-  const buildStrategyBriefing = (): string => {
-    if (!form) return "";
-    const lines: string[] = [];
-    const push = (label: string, value?: string | null) => {
-      const v = (value ?? "").trim();
-      if (v) lines.push(`${label}: ${v}`);
-    };
-    push("Marca", hubQ.data?.name);
-    push("Nicho", hubQ.data?.niche);
-    push("Missão", form.mission);
-    push("Posicionamento", form.positioning);
-    push("Valores", form.values);
-    push("Tom de voz", form.tone_text);
-    push("Oferta / produtos", form.offer);
-    push("Faixa de preço", form.price_range);
-    push("Diferenciais", form.differentials);
-    push("Objeções", form.objections);
-    push("Público", form.audience);
-    push("Jornada", form.journey);
-    push("Dores", form.pain_points);
-    push("Desejos", form.desires);
-    push("Concorrentes / referências", form.competitor_handles.join(", "));
-    push("Inspirações", form.inspirations.join(", "));
-    push("Hashtags", form.hashtags.join(" "));
-    push("Do", form.do_text);
-    push("Don't", form.dont_text);
-    push("Metas", form.goals);
-    const vol = Object.entries(form.volumetry)
-      .filter(([, n]) => n > 0)
-      .map(([k, n]) => `${k}: ${n}/sem`)
-      .join(", ");
-    push("Volumetria semanal", vol);
-    return lines.join("\n");
-  };
-
   const runStrategy = async () => {
-    const briefing = buildStrategyBriefing();
-    if (briefing.length < 40) {
-      toast.error("Preencha o briefing antes de gerar a estratégia.");
-      return;
-    }
     setGenerating(true);
     try {
+      // Persiste o estado atual do formulário para o backend compor o
+      // briefing a partir de clients + brand_hub atualizados.
+      await save.mutateAsync();
       const { data: session } = await supabase.auth.getSession();
       const token = session.session?.access_token;
       if (!token) throw new Error("Sessão expirada");
@@ -339,7 +302,6 @@ export function BriefingWorkspace({
         body: JSON.stringify({
           brandId,
           clientId,
-          texto: briefing,
           pautasQuantidade: 8,
           pautasPeriodo: "próximos 15 dias",
         }),
@@ -845,7 +807,22 @@ function IdentidadeTab({
         hint="Dados capturados no onboarding do cliente. Edite na aba Cadastro."
         className="lg:col-span-3"
       >
-        <div className="grid gap-3 md:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-6">
+          <FieldReadonly
+            label="Logo"
+            value={
+              client.logo_url ? (
+                <img
+                  src={client.logo_url}
+                  alt="Logo do cliente"
+                  className="h-10 w-10 rounded-md border border-border object-contain bg-background"
+                />
+              ) : (
+                "—"
+              )
+            }
+            muted={!client.logo_url}
+          />
           <FieldReadonly label="Nome" value={client.name || "—"} />
           <FieldReadonly label="Nicho" value={client.niche?.trim() || "—"} muted={!client.niche} />
           <FieldReadonly
@@ -895,6 +872,29 @@ function IdentidadeTab({
               )
             }
             muted={!color}
+          />
+          <FieldReadonly
+            label="Contato"
+            value={
+              client.contact_name || client.contact_email ? (
+                <div className="flex flex-col leading-tight">
+                  {client.contact_name ? (
+                    <span className="text-sm text-foreground">{client.contact_name}</span>
+                  ) : null}
+                  {client.contact_email ? (
+                    <a
+                      href={`mailto:${client.contact_email}`}
+                      className="truncate text-[11px] text-primary hover:underline"
+                    >
+                      {client.contact_email}
+                    </a>
+                  ) : null}
+                </div>
+              ) : (
+                "—"
+              )
+            }
+            muted={!client.contact_name && !client.contact_email}
           />
         </div>
         <div className="mt-3 text-[11px] text-muted-foreground">

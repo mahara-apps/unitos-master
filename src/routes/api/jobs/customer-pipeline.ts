@@ -15,7 +15,10 @@ import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
 const BodySchema = z.object({
   brandId: z.string().uuid(),
   clientId: z.string().uuid(),
-  texto: z.string().trim().min(20).max(20000),
+  // `texto` é opcional: o backend compõe o briefing a partir de
+  // `clients` + `clients.brand_hub`. Quando enviado, é anexado como
+  // "Notas adicionais do usuário" ao final — nunca substitui.
+  texto: z.string().trim().max(20000).optional(),
 });
 
 function buildUserClient(token: string) {
@@ -25,6 +28,106 @@ function buildUserClient(token: string) {
     global: { headers: { Authorization: `Bearer ${token}`, apikey: key } },
     auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
   });
+}
+
+// ---------- Server-side briefing composition ----------
+// Reads clients + clients.brand_hub and assembles the raw briefing that will
+// feed the pipeline. Front-end no longer sends free-form text (the free-form
+// `texto` field is accepted only as an optional complement).
+type ClientRow = {
+  name: string | null;
+  niche: string | null;
+  color: string | null;
+  logo_url: string | null;
+  tone_of_voice: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  socials: Record<string, string | null | undefined> | null;
+  brand_hub: Record<string, unknown> | null;
+};
+
+function composeBriefingFromRecord(row: ClientRow, extraNotes?: string): string {
+  const lines: string[] = [];
+  const push = (label: string, value: unknown) => {
+    if (value == null) return;
+    if (Array.isArray(value)) {
+      const arr = value.map((v) => (typeof v === "string" ? v.trim() : v)).filter(Boolean);
+      if (arr.length === 0) return;
+      lines.push(`${label}: ${arr.join(", ")}`);
+      return;
+    }
+    if (typeof value === "string") {
+      const t = value.trim();
+      if (t) lines.push(`${label}: ${t}`);
+      return;
+    }
+    if (typeof value === "number") {
+      lines.push(`${label}: ${value}`);
+    }
+  };
+
+  const hub = (row.brand_hub ?? {}) as Record<string, unknown>;
+  const socials = (row.socials ?? {}) as Record<string, string | null | undefined>;
+
+  // Identidade
+  push("Marca", row.name);
+  push("Nicho", row.niche);
+  push("Cor da marca", row.color);
+  push("Tom de voz", (hub.tone_text as string | undefined) ?? row.tone_of_voice);
+  push("Missão", hub.mission);
+  push("Posicionamento", hub.positioning);
+  push("Valores", hub.values);
+
+  // Produto
+  push("Oferta / produtos", hub.offer);
+  push("Faixa de preço", hub.price_range);
+  push("Diferenciais", hub.differentials);
+  push("Objeções", hub.objections);
+
+  // Público
+  push("Público", hub.audience);
+  push("Jornada", hub.journey);
+  push("Dores", hub.pain_points);
+  push("Desejos", hub.desires);
+
+  // Concorrentes / inspirações
+  const competitors = Array.isArray(hub.competitors) ? (hub.competitors as Array<Record<string, unknown>>) : [];
+  const compHandles = competitors.map((c) => (typeof c.handle === "string" ? c.handle : "")).filter(Boolean);
+  push("Concorrentes / referências", compHandles);
+  push("Inspirações", hub.inspirations as unknown);
+
+  // Estética
+  const palette = Array.isArray(hub.palette) ? (hub.palette as Array<Record<string, unknown>>) : [];
+  const paletteHex = palette
+    .map((p) => (typeof p.hex === "string" ? p.hex : ""))
+    .filter(Boolean);
+  push("Paleta", paletteHex);
+  const hashtags = (hub.hashtags as unknown) as string[] | undefined;
+  push("Hashtags", hashtags?.map((h) => (h.startsWith("#") ? h : `#${h}`)));
+  const doDont = (hub.do_dont ?? {}) as { do?: string; dont?: string };
+  push("Do", doDont.do);
+  push("Don't", doDont.dont);
+
+  // Volumetria & metas
+  const vol = (hub.volumetry ?? {}) as Record<string, number | undefined>;
+  const volStr = Object.entries(vol)
+    .filter(([, n]) => typeof n === "number" && (n as number) > 0)
+    .map(([k, n]) => `${k}: ${n}/sem`)
+    .join(", ");
+  push("Volumetria semanal", volStr);
+  push("Metas", hub.goals);
+
+  // Contato + canais reais capturados no cadastro
+  push("Contato principal", [row.contact_name, row.contact_email].filter(Boolean).join(" · "));
+  const socialLinks = Object.entries(socials)
+    .filter(([, v]) => typeof v === "string" && (v as string).trim())
+    .map(([k, v]) => `${k}: ${v}`);
+  push("Canais sociais informados", socialLinks);
+
+  const base = lines.join("\n");
+  const notes = (extraNotes ?? "").trim();
+  if (notes) return `${base}\n\nNotas adicionais do usuário:\n${notes}`;
+  return base;
 }
 
 // Modelos de geração atual — os prior-gen 2.5-pro/2.5-flash batiam no teto
@@ -281,7 +384,7 @@ async function runPhase1(params: {
   jobId: string;
   token: string;
   userId: string;
-  input: z.infer<typeof BodySchema>;
+  input: z.infer<typeof BodySchema> & { texto: string };
 }) {
   const { jobId, token, userId, input } = params;
   const supabase = buildUserClient(token);
@@ -464,6 +567,29 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
         const userId = claims?.claims?.sub;
         if (!userId) return new Response("Unauthorized", { status: 401 });
 
+        // Fonte de verdade: dados do cadastro + Cérebro da Marca.
+        const { data: clientRow, error: clientErr } = await supabase
+          .from("clients")
+          .select(
+            "name, niche, color, logo_url, tone_of_voice, contact_name, contact_email, socials, brand_hub" as never,
+          )
+          .eq("id", input.clientId)
+          .maybeSingle();
+        if (clientErr || !clientRow) {
+          return new Response(
+            clientErr?.message ?? "Cliente não encontrado",
+            { status: 404 },
+          );
+        }
+        const composed = composeBriefingFromRecord(clientRow as unknown as ClientRow, input.texto);
+        if (composed.length < 40) {
+          return new Response(
+            "Preencha ao menos Nome + Nicho e um bloco do Cérebro da Marca antes de gerar a estratégia.",
+            { status: 400 },
+          );
+        }
+        const composedInput = { ...input, texto: composed };
+
         const { data: job, error: jobErr } = await supabase
           .from("ai_jobs")
           .insert({
@@ -475,7 +601,7 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
             subtitle: "Briefing · Voz · Personas · Cohorts · SWOT",
             status: "queued",
             progress: 0,
-            input: input as unknown as Database["public"]["Tables"]["ai_jobs"]["Insert"]["input"],
+            input: composedInput as unknown as Database["public"]["Tables"]["ai_jobs"]["Insert"]["input"],
           })
           .select("id")
           .single();
@@ -483,7 +609,7 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
           return new Response(jobErr?.message ?? "Failed to enqueue", { status: 500 });
         }
 
-        waitUntil(runPhase1({ jobId: job.id, token, userId, input }));
+        waitUntil(runPhase1({ jobId: job.id, token, userId, input: composedInput }));
 
         return new Response(JSON.stringify({ jobId: job.id }), {
           status: 202,
