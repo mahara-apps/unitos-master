@@ -56,7 +56,6 @@ import {
 } from "@/components/content/content-toolbar";
 import { ContentList } from "@/components/content/content-list";
 import type { StageSort, SortBy } from "@/components/content/content-board";
-import { describeError } from "@/lib/errors";
 
 export const Route = createFileRoute("/_authenticated/content")({
   beforeLoad: () => ensureFeatureEnabled("blog_post"),
