@@ -52,18 +52,16 @@ export async function stats(ctx: BrainContext): Promise<BrainStats> {
       }
       // Fallback (linha ainda não materializada): counts diretos.
     }
-    const scope = <B extends { eq: (c: string, v: string) => B }>(b: B): B => {
-      let q: B = ctx.brandId ? b.eq("brand_id", ctx.brandId) : b;
+    const build = (table: "posts" | "tasks" | "projects") => {
+      let q = ctx.supabase.from(table).select("*", { count: "exact", head: true });
+      if (ctx.brandId) q = q.eq("brand_id", ctx.brandId);
       if (ctx.clientId) q = q.eq("client_id", ctx.clientId);
       return q;
     };
-    const postsQ = ctx.supabase.from("posts").select("*", { count: "exact", head: true });
-    const tasksQ = ctx.supabase.from("tasks").select("*", { count: "exact", head: true });
-    const projectsQ = ctx.supabase.from("projects").select("*", { count: "exact", head: true });
     const [posts, tasks, projects] = await Promise.all([
-      scope(postsQ),
-      scope(tasksQ),
-      scope(projectsQ),
+      build("posts"),
+      build("tasks"),
+      build("projects"),
     ]);
     if (typeof posts.count === "number") out.posts = posts.count;
     if (typeof tasks.count === "number") out.tasks = tasks.count;
