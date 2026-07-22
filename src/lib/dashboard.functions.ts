@@ -16,7 +16,8 @@ const BrandInput = z.object({
 async function ignore<T>(p: PromiseLike<T>): Promise<T | null> {
   try {
     return await p;
-  } catch {
+  } catch (err) {
+    console.error("[dashboard.ignore]", err);
     return null;
   }
 }
@@ -209,14 +210,21 @@ async function computeStats(
           .eq("brand_id", brandId),
       ),
     ),
+    // Aprovações pendentes = tabela real post_approvals (única fonte de verdade).
+    // Join com posts para filtrar por brand/cliente.
     ignore(
-      scope(
-        supabase
-          .from("posts")
-          .select("id", { count: "exact", head: true })
-          .eq("brand_id", brandId)
-          .eq("stage", "review"),
-      ),
+      (clientId
+        ? supabase
+            .from("post_approvals")
+            .select("id, posts!inner(brand_id,client_id)", { count: "exact", head: true })
+            .eq("status", "pending")
+            .eq("posts.brand_id", brandId)
+            .eq("posts.client_id", clientId)
+        : supabase
+            .from("post_approvals")
+            .select("id, posts!inner(brand_id)", { count: "exact", head: true })
+            .eq("status", "pending")
+            .eq("posts.brand_id", brandId)),
     ),
     ignore(
       scope(
@@ -258,15 +266,22 @@ async function computeStats(
       ),
     ),
     ignore(scope(supabase.from("posts").select("stage,stage_id").eq("brand_id", brandId))),
+    // Publicações aprovadas 30d = post_approvals.status='approved' na janela (fonte real).
     ignore(
-      scope(
-        supabase
-          .from("posts")
-          .select("id", { count: "exact", head: true })
-          .eq("brand_id", brandId)
-          .eq("stage", "approved")
-          .gte("updated_at", sinceIso(30)),
-      ),
+      (clientId
+        ? supabase
+            .from("post_approvals")
+            .select("id, posts!inner(brand_id,client_id)", { count: "exact", head: true })
+            .eq("status", "approved")
+            .eq("posts.brand_id", brandId)
+            .eq("posts.client_id", clientId)
+            .gte("updated_at", sinceIso(30))
+        : supabase
+            .from("post_approvals")
+            .select("id, posts!inner(brand_id)", { count: "exact", head: true })
+            .eq("status", "approved")
+            .eq("posts.brand_id", brandId)
+            .gte("updated_at", sinceIso(30))),
     ),
     ignore(
       scope(
@@ -490,7 +505,7 @@ export type AgencyDashboard = {
 
 async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashboard> {
   const { supabase } = ctx;
-  const [clientsRes, tasksRes, postsRes, briefingsRes, activityRes, upcomingRes, approvalsRes, aiUsage] =
+  const [clientsRes, tasksRes, postsRes, briefingsRes, activityRes, upcomingRes, approvalsRes, approvalsAggRes, aiUsage] =
     await Promise.all([
       ignore(
         supabase
@@ -508,7 +523,7 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
       ignore(
         supabase
           .from("posts")
-          .select("id,title,stage,stage_id,channels,scheduled_at,published_at,client_id,updated_at")
+          .select("id,title,stage,stage_id,channels,scheduled_at,published_at,client_id,updated_at,created_at")
           .eq("brand_id", brandId),
       ),
       ignore(supabase.from("client_briefings").select("client_id,updated_at")),
@@ -541,6 +556,14 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
           .order("updated_at", { ascending: true })
           .limit(12),
       ),
+      // post_approvals (fonte de verdade) — join com posts para escopar por brand.
+      ignore(
+        supabase
+          .from("post_approvals")
+          .select("id,status,updated_at,posts!inner(brand_id)")
+          .eq("posts.brand_id", brandId)
+          .gte("updated_at", sinceIso(30)),
+      ),
       computeAiUsage(supabase, brandId),
     ]);
 
@@ -564,6 +587,7 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
     published_at: string | null;
     client_id: string;
     updated_at: string | null;
+    created_at: string | null;
   }>;
   const briefings = new Map<string, string>(
     ((briefingsRes?.data ?? []) as Array<{ client_id: string; updated_at: string }>).map((b) => [
@@ -576,6 +600,16 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
   const now = Date.now();
   const nameById = new Map(clients.map((c) => [c.id, c.name] as const));
 
+  const approvalRows = (approvalsAggRes?.data ?? []) as Array<{
+    id: string;
+    status: string;
+    updated_at: string;
+  }>;
+  const approvalsPendingReal = approvalRows.filter((a) => a.status === "pending").length;
+  const postsApproved30dReal = approvalRows.filter(
+    (a) => a.status === "approved" && new Date(a.updated_at).getTime() > now - 30 * 86_400_000,
+  ).length;
+
   const counts: DashboardStats["counts"] = {
     clients: clients.length,
     projects_active: 0,
@@ -587,13 +621,8 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
       (t) => t.done && t.done_at && new Date(t.done_at).getTime() > now - 7 * 86_400_000,
     ).length,
     posts_total: posts.length,
-    approvals_pending: posts.filter((p) => p.stage === "review").length,
-    posts_approved_30d: posts.filter(
-      (p) =>
-        p.stage === "approved" &&
-        p.updated_at &&
-        new Date(p.updated_at).getTime() > now - 30 * 86_400_000,
-    ).length,
+    approvals_pending: approvalsPendingReal,
+    posts_approved_30d: postsApproved30dReal,
   };
 
   const sparkline = Array.from({ length: 14 }, (_, i) => {
@@ -833,12 +862,16 @@ async function computeAgency(ctx: SupaCtx, brandId: string): Promise<AgencyDashb
     .slice(0, 6);
 
   const publishedPosts = posts.filter((p) => p.published_at);
-  // posts rows include updated_at not created_at; approximate lead time via updated_at vs published_at
+  // Lead time canônico: created_at → published_at (mesma fórmula do computeStats).
   const avgLeadTimeDays =
     publishedPosts.length === 0
       ? null
       : publishedPosts.reduce((s, p) => {
-          const start = p.updated_at ? new Date(p.updated_at).getTime() : new Date(p.published_at as string).getTime();
+          const start = p.created_at
+            ? new Date(p.created_at).getTime()
+            : p.updated_at
+              ? new Date(p.updated_at).getTime()
+              : new Date(p.published_at as string).getTime();
           const end = new Date(p.published_at as string).getTime();
           return s + Math.max(0, (end - start) / 86_400_000);
         }, 0) / publishedPosts.length;

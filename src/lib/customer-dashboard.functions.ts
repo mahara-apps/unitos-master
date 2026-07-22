@@ -196,8 +196,11 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
       .eq("brand_id", data.brandId)
       .eq("client_id", data.clientId)
       .eq("status", "published");
+    // Fonte de verdade: social_posts. Fallback só quando não há nenhum registro
+    // em social_posts (workspace sem conexões sociais), para não duplicar.
     const publishedPostsFallback = scopedPosts.filter((p) => p.published_at != null).length;
-    const publishedCount = Math.max(publishedSocialCount ?? 0, publishedPostsFallback);
+    const publishedCount =
+      (publishedSocialCount ?? 0) > 0 ? (publishedSocialCount ?? 0) : publishedPostsFallback;
 
     // "Agendado" real: soma coluna Kanban 'scheduled' + social_posts pendentes,
     // evitando zero quando o pipeline default não expõe a coluna.
@@ -207,7 +210,9 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
       .eq("brand_id", data.brandId)
       .eq("client_id", data.clientId)
       .in("status", ["scheduled", "publishing"]);
-    const scheduledCount = Math.max(findCount("scheduled"), scheduledSocialCount ?? 0);
+    // Mesma regra: social_posts é a fonte real; Kanban serve apenas de fallback.
+    const scheduledCount =
+      (scheduledSocialCount ?? 0) > 0 ? (scheduledSocialCount ?? 0) : findCount("scheduled");
 
     const taskRowsFull = (tasks.data ?? []) as Array<{
       status: string;

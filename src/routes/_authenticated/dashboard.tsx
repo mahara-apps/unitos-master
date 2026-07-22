@@ -710,7 +710,6 @@ function HeatmapCard({ heatmap }: { heatmap: number[] }) {
 function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }) {
   const statsFn = useServerFn(getDashboardStats);
   const customerFn = useServerFn(loadCustomerDashboardFn);
-  const agencyFn = useServerFn(getAgencyDashboardFn);
 
   const stats = useQuery({
     queryKey: ["dashboard-client", brandId, clientId],
@@ -722,14 +721,8 @@ function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }
     queryFn: () => customerFn({ data: { brandId, clientId } }),
     staleTime: 30_000,
   });
-  const agency = useQuery({
-    queryKey: ["dashboard-agency", brandId],
-    queryFn: () => agencyFn({ data: { brandId } }),
-    staleTime: 60_000,
-  });
 
   const client = customer.data?.client;
-  const health = agency.data?.healths.find((h) => h.id === clientId);
 
   usePageHeader(
     {
@@ -760,8 +753,8 @@ function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }
         <KpiCard
           icon={<BadgeCheck className="h-4 w-4" />}
           label="Aprovações pendentes"
-          value={stats.data?.counts.approvals_pending ?? 0}
-          sub={`${customer.data?.metrics.pendingApprovals ?? 0} decisões abertas`}
+          value={customer.data?.metrics.pendingApprovals ?? 0}
+          sub={`${customer.data?.metrics.decidedApprovals ?? 0} já decididas`}
           tone="amber"
         />
         <KpiCard
