@@ -978,6 +978,8 @@ function TaskLayout({
   createdAt,
   copyAutosaveStatus,
   mediaSlot,
+  brandId,
+  clientId,
 }: {
   state: TaskState;
   setState: (fn: (prev: TaskState) => TaskState) => void;
@@ -987,6 +989,8 @@ function TaskLayout({
   createdAt?: string | null;
   copyAutosaveStatus?: "idle" | "saving" | "saved";
   mediaSlot?: ReactNode;
+  brandId?: string;
+  clientId?: string;
 }) {
   const [tagInput, setTagInput] = useState("");
   const set = <K extends keyof TaskState>(key: K, value: TaskState[K]) =>
