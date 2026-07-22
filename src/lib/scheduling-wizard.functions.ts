@@ -361,6 +361,89 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       if (insErr) throw new Error(insErr.message);
     }
 
+    // ---- Agendar: cria linhas em social_posts para o worker pg_cron drenar ----
+    // Sem isso, o horário passa e nada é publicado (Kanban fica "Agendado" para sempre).
+    if (data.action === "schedule" && scheduledIso) {
+      const enqueueResults: Array<{ channel: string; format: string; ok: boolean; error?: string }> = [];
+      for (const d of data.destinations) {
+        const supported =
+          d.format === "feed" && (d.channel === "instagram" || d.channel === "facebook");
+        if (!supported) {
+          enqueueResults.push({
+            channel: d.channel,
+            format: d.format,
+            ok: false,
+            error: "Formato ainda não agendável (apenas Feed IG/FB)",
+          });
+          continue;
+        }
+        try {
+          const { data: conn, error: connErr } = await supabase
+            .from("social_connections")
+            .select("id, brand_id, client_id, provider, status")
+            .eq("id", d.connectionId)
+            .eq("brand_id", data.brandId)
+            .maybeSingle();
+          if (connErr) throw new Error(connErr.message);
+          if (!conn) throw new Error("Conexão não encontrada");
+          if (conn.client_id && conn.client_id !== data.clientId) {
+            throw new Error("Conexão não pertence a este cliente");
+          }
+
+          const caption =
+            [
+              d.copyOverride ?? data.copy,
+              ...(data.hashtags.length
+                ? [data.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")]
+                : []),
+            ]
+              .filter(Boolean)
+              .join("\n\n")
+              .trim() || null;
+
+          const media = data.mediaPaths[0]
+            ? { storagePath: data.mediaPaths[0], ...(data.linkUrl ? { link: data.linkUrl } : {}) }
+            : data.linkUrl
+              ? { link: data.linkUrl }
+              : {};
+
+          const { error: spErr } = await supabase.from("social_posts").insert({
+            brand_id: data.brandId,
+            client_id: data.clientId,
+            connection_id: d.connectionId,
+            provider: conn.provider,
+            placement: "feed",
+            caption,
+            hashtags: data.hashtags,
+            mentions: [],
+            media,
+            post_id: postId,
+            status: "scheduled",
+            scheduled_at: scheduledIso,
+            created_by: context.userId,
+          });
+          if (spErr) throw new Error(spErr.message);
+          enqueueResults.push({ channel: d.channel, format: d.format, ok: true });
+        } catch (err) {
+          enqueueResults.push({
+            channel: d.channel,
+            format: d.format,
+            ok: false,
+            error: (err as Error).message,
+          });
+        }
+      }
+      const okCount = enqueueResults.filter((r) => r.ok).length;
+      if (okCount === 0) {
+        // Nenhum destino agendável foi enfileirado — sinaliza pro cliente.
+        throw new Error(
+          enqueueResults[0]?.error ??
+            "Nenhum destino suportado para agendamento (apenas Feed IG/FB).",
+        );
+      }
+      return { ok: true, postId, scheduled: okCount, results: enqueueResults };
+    }
+
     // ---- Publicar agora: dispara Meta para cada destino suportado ----
     if (data.action === "publish") {
       const { MetaPublishingService, formatPublishError } = await import(
