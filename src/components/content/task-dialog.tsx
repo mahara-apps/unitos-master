@@ -484,7 +484,7 @@ function EditBody({
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setState(stateFromPost(post, stages));
+    setState(stateFromPost(post, stages, data.destinations ?? []));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post.id]);
 
