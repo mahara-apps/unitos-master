@@ -959,33 +959,60 @@ export function ScheduleWizard({
 
             {/* Column 3 — Live Preview */}
             <div className="flex h-full min-h-0 flex-col bg-muted/30">
-              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-4 py-2.5">
+              <div className="flex shrink-0 items-center gap-3 border-b border-border/60 bg-background px-4 pt-2">
                 <SectionTitle index={3} title="Preview" compact />
-                {pairs.length > 1 ? (
-                  <div className="flex flex-wrap items-center justify-end gap-1">
-                    {pairs.map((p) => {
+                <div className="flex min-w-0 flex-1 items-end gap-0.5 overflow-x-auto">
+                  {pairs.length === 0 ? (
+                    <span className="pb-2 text-[10.5px] text-muted-foreground">
+                      Selecione um posicionamento para pré-visualizar.
+                    </span>
+                  ) : (
+                    pairs.map((p) => {
                       const k = `${p.channel}::${p.format}`;
+                      const active = previewKey === k;
+                      const Icon = FORMAT_ICON[p.format];
                       return (
                         <button
                           key={k}
                           type="button"
                           onClick={() => setPreviewKey(k)}
                           className={cn(
-                            "rounded-md border px-1.5 py-0.5 text-[10px] capitalize transition-colors",
-                            previewKey === k
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-border/60 text-muted-foreground hover:bg-muted",
+                            "relative inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 pb-2 pt-1 text-[11px] font-medium capitalize transition-colors",
+                            active
+                              ? "border-foreground text-foreground"
+                              : "border-transparent text-muted-foreground hover:text-foreground",
                           )}
                         >
+                          <Icon className="h-3 w-3" />
                           {p.channel} · {FORMAT_LABEL[p.format]}
                         </button>
                       );
-                    })}
-                  </div>
-                ) : null}
+                    })
+                  )}
+                </div>
               </div>
               <ScrollArea className="min-h-0 flex-1">
-                <div className="flex items-start justify-center px-4 py-5">
+                <div className="relative flex items-start justify-center px-4 py-5">
+                  {pairs.length > 1 ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => cyclePreview(-1)}
+                        aria-label="Posicionamento anterior"
+                        className="absolute left-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full border border-border/60 bg-background/95 text-muted-foreground shadow-sm transition-colors hover:text-foreground"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => cyclePreview(1)}
+                        aria-label="Próximo posicionamento"
+                        className="absolute right-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full border border-border/60 bg-background/95 text-muted-foreground shadow-sm transition-colors hover:text-foreground"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </>
+                  ) : null}
                   <PostPreview
                     channel={previewPair?.channel ?? "instagram"}
                     format={previewPair?.format ?? "feed"}
@@ -998,6 +1025,26 @@ export function ScheduleWizard({
                     location={locationName}
                   />
                 </div>
+                {pairs.length > 1 ? (
+                  <div className="flex items-center justify-center gap-1.5 pb-4">
+                    {pairs.map((p) => {
+                      const k = `${p.channel}::${p.format}`;
+                      const active = previewKey === k;
+                      return (
+                        <button
+                          key={k}
+                          type="button"
+                          aria-label={`Ir para ${p.channel} ${FORMAT_LABEL[p.format]}`}
+                          onClick={() => setPreviewKey(k)}
+                          className={cn(
+                            "h-1.5 rounded-full transition-all",
+                            active ? "w-5 bg-foreground" : "w-1.5 bg-border hover:bg-muted-foreground/60",
+                          )}
+                        />
+                      );
+                    })}
+                  </div>
+                ) : null}
               </ScrollArea>
             </div>
           </div>
