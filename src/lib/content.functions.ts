@@ -813,6 +813,18 @@ export const createPostFn = createServerFn({ method: "POST" })
       )
       .single();
     if (error) throw error;
+
+    if (data.destinations && data.destinations.length) {
+      await syncPostPlacements(context.supabase, {
+        postId: post.id as string,
+        brandId: data.brandId,
+        clientId: data.clientId,
+        destinations: data.destinations as PlacementDestination[],
+        scheduledIso: (post.scheduled_at as string | null) ?? null,
+        status: "draft",
+      });
+    }
+
     ingestBrainQuiet(context.supabase, data.brandId, "content_created", "editorial", {
       title: data.title,
       channels: data.channels,
