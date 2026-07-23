@@ -98,6 +98,13 @@ function slugifyMediaName(name: string) {
     .slice(0, 120);
 }
 
+const FORMAT_ICON: Record<PlacementFormat, typeof LayoutGrid> = {
+  feed: LayoutGrid,
+  stories: CircleDot,
+  reels: Play,
+  carrossel: Layers,
+};
+
 export type WizardSeed = {
   postId?: string;
   title?: string;
