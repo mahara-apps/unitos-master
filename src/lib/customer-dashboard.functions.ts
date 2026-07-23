@@ -192,9 +192,6 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
       position: s.position,
       count: counts.get(s.id) ?? 0,
     }));
-    const findCount = (key: string) =>
-      pipelineStages.find((s) => s.key.toLowerCase() === key)?.count ?? 0;
-
     const approvalRows = (approvalData ?? []) as Array<{
       status: string;
       created_at?: string;
