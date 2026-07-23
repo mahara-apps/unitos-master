@@ -77,32 +77,32 @@ export const getChannelsKpis = createServerFn({ method: "GET" })
         : Math.round(((published30d - publishedPrev30d) / publishedPrev30d) * 100);
 
     // Card 2 — taxa de sucesso sobre tentativas nos últimos 30d.
-    // Tentativa = social_posts com janela de agendamento em [d30, now] cujo
-    // status já saiu de 'scheduled' (published ou failed). Ignora rascunhos
-    // ('draft') e itens ainda por vencer.
+    // Tentativa = social_posts com status resolvido (published|failed) cuja
+    // janela de agendamento OU criação caia nos últimos 30d. Considerar
+    // created_at cobre publicação imediata (sem scheduled_at preenchido).
     const attemptedQ = await supabase
       .from("social_posts")
       .select("id, status", { head: false })
       .eq("brand_id", data.brandId)
       .in("status", ["published", "failed"])
-      .gte("scheduled_at", d30)
-      .lte("scheduled_at", nowIso);
+      .or(
+        `and(scheduled_at.gte.${d30},scheduled_at.lte.${nowIso}),and(created_at.gte.${d30},created_at.lte.${nowIso})`,
+      );
     const attemptedRows = attemptedQ.data ?? [];
     const attempted30d = attemptedRows.length;
     const successCount = attemptedRows.filter((r) => r.status === "published").length;
     const successRate = attempted30d === 0 ? null : successCount / attempted30d;
 
-    // Card 3 — falhas nos últimos 7d = social_posts marcados como 'failed'
-    // (worker gravou last_error) OU vencidos há mais de 2min ainda presos em
-    // 'scheduled' (worker travou / integração indisponível).
-    const staleCutoff = iso(new Date(now.getTime() - 2 * 60 * 1000));
+    // Card 3 — falhas nos últimos 7d: social_posts com status='failed' cujo
+    // updated_at (momento em que o worker marcou a falha) caiu na janela.
+    // Canal problemático vem de provider/placement da própria linha.
     const failedQ = await supabase
       .from("social_posts")
-      .select("id, provider, status, scheduled_at")
+      .select("id, provider, placement, status, last_error, updated_at")
       .eq("brand_id", data.brandId)
-      .gte("scheduled_at", d7)
-      .lte("scheduled_at", nowIso)
-      .or(`status.eq.failed,and(status.eq.scheduled,scheduled_at.lt.${staleCutoff})`);
+      .eq("status", "failed")
+      .gte("updated_at", d7)
+      .lte("updated_at", nowIso);
     const failedRows = failedQ.data ?? [];
     const failed7d = failedRows.length;
     const counts = new Map<string, number>();
