@@ -569,9 +569,32 @@ export const movePostFn = createServerFn({ method: "POST" })
       .select("brand_id, stage_id, title")
       .eq("id", data.postId)
       .maybeSingle();
+
+    // Legacy compatibility: o trigger `notify_post_approval_events`
+    // (migration 20260720211101) observa mudanças em `posts.stage` (enum
+    // post_stage) para disparar notificações de "aguardando aprovação" e
+    // "post aprovado". O Kanban atual usa stage_id (FK para
+    // content_pipeline_stages customizáveis), então precisamos espelhar o
+    // estado legado sempre que o card entrar numa coluna com key "review"
+    // ou numa coluna terminal. NÃO REMOVER sem antes migrar o trigger.
+    const { data: destStage } = await context.supabase
+      .from("content_pipeline_stages")
+      .select("key, is_terminal")
+      .eq("id", data.toStageId)
+      .maybeSingle();
+    const destKey = (destStage?.key as string | null | undefined)?.toLowerCase() ?? "";
+    const updatePatch: Record<string, unknown> = {
+      stage_id: data.toStageId,
+      position: data.toPosition,
+    };
+    if (destKey === "review") {
+      updatePatch.stage = "review";
+    } else if (destStage?.is_terminal) {
+      updatePatch.stage = "scheduled";
+    }
     const { error } = await context.supabase
       .from("posts")
-      .update({ stage_id: data.toStageId, position: data.toPosition })
+      .update(updatePatch as never)
       .eq("id", data.postId);
     if (error) throw error;
     if (before?.brand_id && before.stage_id !== data.toStageId) {
@@ -827,6 +850,11 @@ export const updatePostFn = createServerFn({ method: "POST" })
     if (patch.review_status === "approved") {
       patch.approved_at = new Date().toISOString();
       patch.approved_by = context.userId;
+      // Legacy compatibility: mantém `posts.stage` sincronizado para o
+      // trigger `notify_post_approval_events` (migration 20260720211101)
+      // disparar a notificação de "post aprovado". Ver movePostFn para o
+      // contexto completo. NÃO REMOVER sem antes migrar o trigger.
+      patch.stage = "approved";
     }
     const { error } = await context.supabase
       .from("posts")
