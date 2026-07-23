@@ -902,6 +902,7 @@ type TaskState = {
   channels: string[];
   targetConnectionIds: string[];
   format: string;
+  destinations: Array<{ connectionId: string; channel: string; format: PlacementFormat }>;
   copy: string;
   internalBriefing: string;
   clientBriefing: string;
@@ -922,6 +923,7 @@ function emptyState(stageId: string): TaskState {
     channels: [],
     targetConnectionIds: [],
     format: "Feed",
+    destinations: [],
     copy: "",
     internalBriefing: "",
     clientBriefing: "",
