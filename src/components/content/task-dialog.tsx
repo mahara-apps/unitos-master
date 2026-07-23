@@ -73,6 +73,7 @@ import {
   revokeApprovalTokenFn,
 } from "@/lib/approval.functions";
 import { listClientChannelAssignmentsFn, type ClientChannelRow } from "@/lib/client-channels.functions";
+import { saveScheduledPostFn } from "@/lib/scheduling-wizard.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { CHANNELS, CHANNEL_STYLES, FORMATS, FORMAT_STYLES, PRIORITY_STYLES } from "./stage-colors";
