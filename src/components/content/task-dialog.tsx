@@ -840,17 +840,36 @@ function EditBody({
             value={state.projectId}
             onChange={(id) => setState((p) => ({ ...p, projectId: id }))}
           />
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end gap-1.5">
             {reviewStatus === "pending" && aiPhase === "idea" ? (
               <Button size="sm" onClick={handleApproveAndGenerate} disabled={approving} className="h-9 w-full">
                 {approving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
                 Aprovar & gerar
               </Button>
             ) : reviewStatus !== "approved" ? (
-              <Button size="sm" onClick={() => approveOnly.mutate()} disabled={approveOnly.isPending} className="h-9 w-full">
-                {approveOnly.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />}
-                Aprovar
-              </Button>
+              <>
+                <Button size="sm" onClick={() => approveOnly.mutate()} disabled={approveOnly.isPending} className="h-9 flex-1">
+                  {approveOnly.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />}
+                  Aprovar
+                </Button>
+                {state.scheduledAt && state.destinations.length > 0 ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => approveAndSchedule.mutate()}
+                    disabled={approveAndSchedule.isPending}
+                    className="h-9 whitespace-nowrap"
+                    title="Aprova e agenda no calendário social"
+                  >
+                    {approveAndSchedule.isPending ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    + Agendar
+                  </Button>
+                ) : null}
+              </>
             ) : (
               <Badge variant="outline" className="h-9 w-full justify-center rounded-md border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                 <CheckCircle2 className="mr-1 h-3 w-3" /> Aprovado
