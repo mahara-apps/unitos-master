@@ -1,5 +1,4 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /**
  * One-off migration: copia todos os objetos referenciados por posts.reference_media
@@ -7,8 +6,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
  * JSON de reference_media para apontar para o novo bucket. Idempotente.
  */
 export const migrateBrandAssetsToBrandMediaFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .handler(async () => {
     // Guard: apenas usuários autenticados. (Chamada manual pelo dev.)
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
