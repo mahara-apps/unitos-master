@@ -850,6 +850,11 @@ export const updatePostFn = createServerFn({ method: "POST" })
     if (patch.review_status === "approved") {
       patch.approved_at = new Date().toISOString();
       patch.approved_by = context.userId;
+      // Legacy compatibility: mantém `posts.stage` sincronizado para o
+      // trigger `notify_post_approval_events` (migration 20260720211101)
+      // disparar a notificação de "post aprovado". Ver movePostFn para o
+      // contexto completo. NÃO REMOVER sem antes migrar o trigger.
+      patch.stage = "approved";
     }
     const { error } = await context.supabase
       .from("posts")
