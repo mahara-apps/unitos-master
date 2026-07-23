@@ -946,7 +946,11 @@ function toLocalInputValue(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function stateFromPost(post: BoardPost, stages: PipelineStage[]): TaskState {
+function stateFromPost(
+  post: BoardPost,
+  stages: PipelineStage[],
+  destinations: Array<{ connectionId: string; channel: string; format: PlacementFormat }> = [],
+): TaskState {
   const scriptText =
     Array.isArray(post.script) && post.script.length > 0
       ? (post.script as ScriptScene[])
@@ -961,6 +965,7 @@ function stateFromPost(post: BoardPost, stages: PipelineStage[]): TaskState {
     channels: (post.channels ?? []) as string[],
     targetConnectionIds: (post.target_connection_ids ?? []) as string[],
     format: post.format ?? "",
+    destinations,
     copy: post.copy ?? "",
     internalBriefing: post.internal_briefing ?? "",
     clientBriefing: post.client_briefing ?? "",
