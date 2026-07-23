@@ -594,6 +594,41 @@ function EditBody({
     onError: (e: Error) => toast.error(describeError(e)),
   });
 
+  const scheduleFromKanban = useServerFn(saveScheduledPostFn);
+  const approveAndSchedule = useMutation({
+    mutationFn: async () => {
+      if (!state.scheduledAt) throw new Error("Defina data/hora de agendamento");
+      if (state.destinations.length === 0)
+        throw new Error("Selecione ao menos uma conta de destino");
+      // Primeiro marca aprovado (também sincroniza posts.stage para trigger).
+      await updatePost({
+        data: { postId, patch: { review_status: "approved" } },
+      });
+      // Agora enfileira via mesmo motor do wizard.
+      return scheduleFromKanban({
+        data: {
+          postId,
+          brandId,
+          clientId,
+          title: state.title.trim() || "Sem título",
+          copy: state.copy ?? "",
+          mediaPaths: refs.map((r) => r.path).filter(Boolean),
+          hashtags: [],
+          destinations: state.destinations,
+          scheduledAt: new Date(state.scheduledAt).toISOString(),
+          action: "schedule",
+        },
+      });
+    },
+    onSuccess: () => {
+      toast.success("Aprovado e agendado");
+      qc.invalidateQueries({ queryKey: invalidateKey });
+      qc.invalidateQueries({ queryKey: ["post-detail", postId] });
+      onOpenChange(false);
+    },
+    onError: (e: Error) => toast.error(describeError(e)),
+  });
+
   // Autosave apenas do campo copy (Hook/Headline/Copy/CTA/Hashtags serializados)
   // para evitar perda de texto gerado por IA quando o drawer é fechado sem Save.
   const [copyAutosaveStatus, setCopyAutosaveStatus] = useState<"idle" | "saving" | "saved">("idle");
