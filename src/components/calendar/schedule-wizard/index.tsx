@@ -545,29 +545,36 @@ export function ScheduleWizard({
                                 </div>
                               </div>
                             </div>
-                            <div className="flex flex-wrap gap-1.5">
+                            <div
+                              role="group"
+                              aria-label={`Posicionamentos ${channel}`}
+                              className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border/60 bg-muted/40 p-0.5"
+                            >
                               {formats.map((f) => {
                                 const selected = pairs.some(
                                   (p) => p.channel === channel && p.format === f,
                                 );
                                 const compatible = isFormatCompatibleWithMedia(f, mediaKind);
                                 const reason = formatIncompatibilityReason(f, mediaKind);
+                                const Icon = FORMAT_ICON[f];
                                 return (
                                   <button
                                     key={f}
                                     type="button"
                                     disabled={!compatible}
+                                    aria-pressed={selected}
                                     title={reason ?? `${FORMAT_LABEL[f]} disponível`}
                                     onClick={() => togglePair(channel, f)}
                                     className={cn(
-                                      "rounded-md border px-2 py-1 text-[10.5px] font-medium transition-colors",
+                                      "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
                                       selected
-                                        ? "border-primary bg-primary/10 text-primary"
-                                        : "border-border/60 hover:bg-muted",
+                                        ? "bg-foreground text-background shadow-sm"
+                                        : "text-muted-foreground hover:bg-background hover:text-foreground",
                                       !compatible &&
-                                        "cursor-not-allowed opacity-40 hover:bg-transparent",
+                                        "cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground",
                                     )}
                                   >
+                                    <Icon className="h-3 w-3" />
                                     {FORMAT_LABEL[f]}
                                   </button>
                                 );
