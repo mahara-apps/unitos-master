@@ -930,20 +930,28 @@ export function ScheduleWizard({
                 <div className="space-y-2">
                   <Label className="text-xs">Data & horário</Label>
                   <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      type="date"
-                      value={scheduleDate}
-                      min={fmtDate(new Date())}
-                      onChange={(e) => setScheduleDate(e.target.value)}
-                    />
-                    <Input
-                      type="time"
-                      value={scheduleTime}
-                      onChange={(e) => setScheduleTime(e.target.value)}
-                    />
+                    <div className="relative">
+                      <Input
+                        type="date"
+                        value={scheduleDate}
+                        min={fmtDate(new Date())}
+                        onChange={(e) => setScheduleDate(e.target.value)}
+                        className="pr-8 [&::-webkit-calendar-picker-indicator]:opacity-0"
+                      />
+                      <CalendarIcon className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    </div>
+                    <div className="relative">
+                      <Input
+                        type="time"
+                        value={scheduleTime}
+                        onChange={(e) => setScheduleTime(e.target.value)}
+                        className="pr-8 [&::-webkit-calendar-picker-indicator]:opacity-0"
+                      />
+                      <ClockIcon className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    </div>
                   </div>
                   <p className="text-[10.5px] text-muted-foreground">
-                    Fuso: {tzLabel()}. Use o botão “Publicar agora” para envio imediato.
+                    Fuso: {tzLabel()} · use “Publicar agora” no menu ao lado de “Agendar” para envio imediato.
                   </p>
                 </div>
               </div>
