@@ -479,6 +479,13 @@ function EditBody({
 
   const post = data.post;
   const [state, setState] = useState(() => stateFromPost(post, stages));
+  // Initial destinations hydrate no primeiro render (state inicial).
+  useEffect(() => {
+    setState((prev) => (prev.destinations.length === 0 && (data.destinations ?? []).length > 0
+      ? { ...prev, destinations: data.destinations }
+      : prev));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [approving, setApproving] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
