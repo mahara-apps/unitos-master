@@ -547,6 +547,7 @@ function EditBody({
             assignee_id: state.assigneeId,
             project_id: state.projectId,
           },
+          destinations: state.destinations,
         },
       });
     },
