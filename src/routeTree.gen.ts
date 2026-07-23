@@ -38,6 +38,7 @@ import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authe
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat.index'
 import { Route as PBriefingTokenRouteImport } from './routes/p.briefing.$token'
 import { Route as ApiPublicSeedSuperadminsRouteImport } from './routes/api/public/seed-superadmins'
+import { Route as ApiPublicMigrateBrandAssetsRouteImport } from './routes/api/public/migrate-brand-assets'
 import { Route as ApiJobsPostPhase2RouteImport } from './routes/api/jobs/post-phase2'
 import { Route as ApiJobsMonthlyPlanRouteImport } from './routes/api/jobs/monthly-plan'
 import { Route as ApiJobsGenerateIdeasRouteImport } from './routes/api/jobs/generate-ideas'
@@ -225,6 +226,12 @@ const ApiPublicSeedSuperadminsRoute =
   ApiPublicSeedSuperadminsRouteImport.update({
     id: '/api/public/seed-superadmins',
     path: '/api/public/seed-superadmins',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicMigrateBrandAssetsRoute =
+  ApiPublicMigrateBrandAssetsRouteImport.update({
+    id: '/api/public/migrate-brand-assets',
+    path: '/api/public/migrate-brand-assets',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiJobsPostPhase2Route = ApiJobsPostPhase2RouteImport.update({
@@ -487,6 +494,7 @@ export interface FileRoutesByFullPath {
   '/api/jobs/generate-ideas': typeof ApiJobsGenerateIdeasRoute
   '/api/jobs/monthly-plan': typeof ApiJobsMonthlyPlanRoute
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
+  '/api/public/migrate-brand-assets': typeof ApiPublicMigrateBrandAssetsRoute
   '/api/public/seed-superadmins': typeof ApiPublicSeedSuperadminsRoute
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
@@ -551,6 +559,7 @@ export interface FileRoutesByTo {
   '/api/jobs/generate-ideas': typeof ApiJobsGenerateIdeasRoute
   '/api/jobs/monthly-plan': typeof ApiJobsMonthlyPlanRoute
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
+  '/api/public/migrate-brand-assets': typeof ApiPublicMigrateBrandAssetsRoute
   '/api/public/seed-superadmins': typeof ApiPublicSeedSuperadminsRoute
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/chat': typeof AuthenticatedChatIndexRoute
@@ -621,6 +630,7 @@ export interface FileRoutesById {
   '/api/jobs/generate-ideas': typeof ApiJobsGenerateIdeasRoute
   '/api/jobs/monthly-plan': typeof ApiJobsMonthlyPlanRoute
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
+  '/api/public/migrate-brand-assets': typeof ApiPublicMigrateBrandAssetsRoute
   '/api/public/seed-superadmins': typeof ApiPublicSeedSuperadminsRoute
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
@@ -691,6 +701,7 @@ export interface FileRouteTypes {
     | '/api/jobs/generate-ideas'
     | '/api/jobs/monthly-plan'
     | '/api/jobs/post-phase2'
+    | '/api/public/migrate-brand-assets'
     | '/api/public/seed-superadmins'
     | '/p/briefing/$token'
     | '/chat/'
@@ -755,6 +766,7 @@ export interface FileRouteTypes {
     | '/api/jobs/generate-ideas'
     | '/api/jobs/monthly-plan'
     | '/api/jobs/post-phase2'
+    | '/api/public/migrate-brand-assets'
     | '/api/public/seed-superadmins'
     | '/p/briefing/$token'
     | '/chat'
@@ -824,6 +836,7 @@ export interface FileRouteTypes {
     | '/api/jobs/generate-ideas'
     | '/api/jobs/monthly-plan'
     | '/api/jobs/post-phase2'
+    | '/api/public/migrate-brand-assets'
     | '/api/public/seed-superadmins'
     | '/p/briefing/$token'
     | '/_authenticated/chat/'
@@ -865,6 +878,7 @@ export interface RootRouteChildren {
   ApiJobsGenerateIdeasRoute: typeof ApiJobsGenerateIdeasRoute
   ApiJobsMonthlyPlanRoute: typeof ApiJobsMonthlyPlanRoute
   ApiJobsPostPhase2Route: typeof ApiJobsPostPhase2Route
+  ApiPublicMigrateBrandAssetsRoute: typeof ApiPublicMigrateBrandAssetsRoute
   ApiPublicSeedSuperadminsRoute: typeof ApiPublicSeedSuperadminsRoute
   PBriefingTokenRoute: typeof PBriefingTokenRoute
   ApiPublicApprovalTokenRoute: typeof ApiPublicApprovalTokenRoute
@@ -1085,6 +1099,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/seed-superadmins'
       fullPath: '/api/public/seed-superadmins'
       preLoaderRoute: typeof ApiPublicSeedSuperadminsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/migrate-brand-assets': {
+      id: '/api/public/migrate-brand-assets'
+      path: '/api/public/migrate-brand-assets'
+      fullPath: '/api/public/migrate-brand-assets'
+      preLoaderRoute: typeof ApiPublicMigrateBrandAssetsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/jobs/post-phase2': {
@@ -1523,6 +1544,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiJobsGenerateIdeasRoute: ApiJobsGenerateIdeasRoute,
   ApiJobsMonthlyPlanRoute: ApiJobsMonthlyPlanRoute,
   ApiJobsPostPhase2Route: ApiJobsPostPhase2Route,
+  ApiPublicMigrateBrandAssetsRoute: ApiPublicMigrateBrandAssetsRoute,
   ApiPublicSeedSuperadminsRoute: ApiPublicSeedSuperadminsRoute,
   PBriefingTokenRoute: PBriefingTokenRoute,
   ApiPublicApprovalTokenRoute: ApiPublicApprovalTokenRoute,
