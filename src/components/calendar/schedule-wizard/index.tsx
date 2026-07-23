@@ -1064,7 +1064,7 @@ export function ScheduleWizard({
         </div>
 
         {/* Sticky bottom action bar */}
-        <footer className="relative flex shrink-0 items-center justify-between gap-3 border-t border-border/60 bg-background/95 px-6 py-3 backdrop-blur">
+        <footer className="relative grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-t border-border/60 bg-background/95 px-6 py-3 backdrop-blur">
           {submitting ? (
             <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5 overflow-hidden bg-primary/10">
               <div className="h-full w-1/3 animate-[wizard-progress_1.2s_ease-in-out_infinite] bg-primary" />
@@ -1112,7 +1112,40 @@ export function ScheduleWizard({
               salvar rascunho
             </span>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Center — floating quick tools */}
+          <div className="hidden justify-center md:flex">
+            <div className="inline-flex items-center gap-0.5 rounded-full border border-border/60 bg-background/80 p-0.5 shadow-sm">
+              <FooterTool
+                icon={Maximize2}
+                label="Expandir preview"
+                onClick={() => toast.info("Expandir preview — em breve.")}
+              />
+              <FooterTool
+                icon={Type}
+                label="Formatar texto"
+                onClick={() => toast.info("Formatação de texto — em breve.")}
+              />
+              <FooterTool
+                icon={Link2}
+                label="Inserir link"
+                onClick={() => {
+                  const el = document.getElementById("wiz-link") as HTMLInputElement | null;
+                  el?.focus();
+                }}
+              />
+              <FooterTool
+                icon={MessageCircle}
+                label="Primeiro comentário"
+                onClick={() => {
+                  const el = document.getElementById("wiz-first-comment") as HTMLTextAreaElement | null;
+                  el?.focus();
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2">
             <Button
               variant="ghost"
               size="sm"
