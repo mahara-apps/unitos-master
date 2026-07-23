@@ -252,6 +252,19 @@ export function ScheduleWizard({
     return found ?? pairs[0] ?? null;
   }, [pairs, previewKey]);
 
+  const cyclePreview = useCallback(
+    (dir: 1 | -1) => {
+      if (pairs.length <= 1) return;
+      const idx = Math.max(
+        0,
+        pairs.findIndex((p) => `${p.channel}::${p.format}` === previewKey),
+      );
+      const next = pairs[(idx + dir + pairs.length) % pairs.length];
+      setPreviewKey(`${next.channel}::${next.format}`);
+    },
+    [pairs, previewKey],
+  );
+
   const captionLimit = useMemo(
     () => tightestCaptionLimit(pairs.map((p) => p.channel)),
     [pairs],
