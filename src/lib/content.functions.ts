@@ -4,6 +4,19 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 // Brain-First: acessos ao Brain só via API pública. Este módulo consome o
 // helper de ingest via `@/lib/brain/api` — nunca toca `brain_*` diretamente.
 import { brain } from "@/lib/brain/api";
+import {
+  syncPostPlacements,
+  deriveChannelsFromDestinations,
+  deriveTargetConnectionIds,
+  type PlacementDestination,
+} from "@/lib/placements.server";
+
+const DestinationSchema = z.object({
+  connectionId: z.string().uuid(),
+  channel: z.string().min(1).max(40),
+  format: z.enum(["feed", "stories", "reels", "carrossel"]),
+  copyOverride: z.string().nullable().optional(),
+});
 
 /** Fire-and-forget ingest via Brain API (best-effort; nunca lança). */
 function ingestBrainQuiet(
