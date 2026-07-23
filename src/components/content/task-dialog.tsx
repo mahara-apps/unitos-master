@@ -1121,24 +1121,42 @@ function TaskLayout({
               {assignedConnections.map((row) => {
                 const meta = CHANNELS.find((c) => c.id === row.channel);
                 const Icon = meta?.icon;
-                const active = state.targetConnectionIds.includes(row.connectionId);
+                const dest = state.destinations.find((d) => d.connectionId === row.connectionId);
+                const active = !!dest;
                 return (
-                  <button
-                    key={row.connectionId}
-                    type="button"
-                    onClick={() => toggleTargetConnection(row)}
-                    className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition ${
-                      active
-                        ? CHANNEL_STYLES[row.channel] ?? "border-primary bg-primary/10 text-foreground"
-                        : "border-border/60 bg-background/60 text-muted-foreground hover:border-border hover:text-foreground"
-                    }`}
-                    title={row.accountLabel ?? row.channel}
-                  >
-                    {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
-                    <span className="truncate max-w-[140px]">
-                      {row.accountLabel ?? meta?.label ?? row.channel}
-                    </span>
-                  </button>
+                  <div key={row.connectionId} className="inline-flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => toggleTargetConnection(row)}
+                      className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition ${
+                        active
+                          ? CHANNEL_STYLES[row.channel] ?? "border-primary bg-primary/10 text-foreground"
+                          : "border-border/60 bg-background/60 text-muted-foreground hover:border-border hover:text-foreground"
+                      } ${active ? "rounded-r-none border-r-0" : ""}`}
+                      title={row.accountLabel ?? row.channel}
+                    >
+                      {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
+                      <span className="truncate max-w-[140px]">
+                        {row.accountLabel ?? meta?.label ?? row.channel}
+                      </span>
+                    </button>
+                    {active ? (
+                      <Select
+                        value={dest!.format}
+                        onValueChange={(v) => setDestinationFormat(row.connectionId, v as PlacementFormat)}
+                      >
+                        <SelectTrigger className="h-8 rounded-l-none border-l border-border/60 bg-background/60 px-2 text-[11px] font-medium text-muted-foreground">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="feed">Feed</SelectItem>
+                          <SelectItem value="stories">Stories</SelectItem>
+                          <SelectItem value="reels">Reels</SelectItem>
+                          <SelectItem value="carrossel">Carrossel</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : null}
+                  </div>
                 );
               })}
             </div>
