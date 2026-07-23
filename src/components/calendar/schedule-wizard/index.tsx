@@ -1260,6 +1260,28 @@ function SectionTitle({
   );
 }
 
+function FooterTool({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: typeof LayoutGrid;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+    >
+      <Icon className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
 function PostPreview({
   channel,
   format,
