@@ -1003,8 +1003,12 @@ export type PostTimelineEvent = {
 export const getPostDetailFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ postId: z.string().uuid() }).parse(i))
-  .handler(async ({ data, context }): Promise<{ post: BoardPost; timeline: PostTimelineEvent[] }> => {
-    const [{ data: post, error }, { data: events }] = await Promise.all([
+  .handler(async ({ data, context }): Promise<{
+    post: BoardPost;
+    timeline: PostTimelineEvent[];
+    destinations: Array<{ connectionId: string; channel: string; format: "feed" | "stories" | "reels" | "carrossel" }>;
+  }> => {
+    const [{ data: post, error }, { data: events }, { data: placements }] = await Promise.all([
       context.supabase
         .from("posts")
         .select(
@@ -1019,8 +1023,26 @@ export const getPostDetailFn = createServerFn({ method: "POST" })
         .eq("entity_id", data.postId)
         .order("created_at", { ascending: false })
         .limit(30),
+      context.supabase
+        .from("post_placements")
+        .select("format,copy_override,is_primary")
+        .eq("post_id", data.postId)
+        .order("is_primary", { ascending: false }),
     ]);
     if (error) throw error;
+    const destinations = (placements ?? [])
+      .map((pl) => {
+        const co = (pl.copy_override ?? {}) as Record<string, unknown>;
+        const connectionId = typeof co.connection_id === "string" ? co.connection_id : "";
+        const channel = typeof co.channel === "string" ? co.channel : "";
+        if (!connectionId || !channel) return null;
+        return {
+          connectionId,
+          channel,
+          format: pl.format as "feed" | "stories" | "reels" | "carrossel",
+        };
+      })
+      .filter(Boolean) as Array<{ connectionId: string; channel: string; format: "feed" | "stories" | "reels" | "carrossel" }>;
     const actorIds = Array.from(
       new Set((events ?? []).map((e) => e.actor_id).filter(Boolean) as string[]),
     );
@@ -1048,6 +1070,7 @@ export const getPostDetailFn = createServerFn({ method: "POST" })
         actor_name: e.actor_id ? actorMap.get(e.actor_id)?.name ?? null : null,
         actor_avatar: e.actor_id ? actorMap.get(e.actor_id)?.avatar ?? null : null,
       })) as PostTimelineEvent[],
+      destinations,
     };
   });
 
