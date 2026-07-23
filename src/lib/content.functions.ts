@@ -875,6 +875,7 @@ export const updatePostFn = createServerFn({ method: "POST" })
             project_id: z.string().uuid().nullable().optional(),
           })
           .strict(),
+        destinations: z.array(DestinationSchema).max(12).optional(),
       })
       .parse(i),
   )
@@ -889,11 +890,34 @@ export const updatePostFn = createServerFn({ method: "POST" })
       // contexto completo. NÃO REMOVER sem antes migrar o trigger.
       patch.stage = "approved";
     }
+    // Destinos estruturados sobrescrevem channels/target_connection_ids
+    // (post_placements é a fonte de verdade).
+    if (data.destinations !== undefined) {
+      patch.channels = deriveChannelsFromDestinations(data.destinations);
+      patch.target_connection_ids = deriveTargetConnectionIds(data.destinations);
+    }
     const { error } = await context.supabase
       .from("posts")
       .update(patch as never)
       .eq("id", data.postId);
     if (error) throw error;
+
+    if (data.destinations !== undefined) {
+      const { data: row, error: rErr } = await context.supabase
+        .from("posts")
+        .select("brand_id, client_id, scheduled_at")
+        .eq("id", data.postId)
+        .single();
+      if (rErr) throw rErr;
+      await syncPostPlacements(context.supabase, {
+        postId: data.postId,
+        brandId: row.brand_id as string,
+        clientId: row.client_id as string,
+        destinations: data.destinations as PlacementDestination[],
+        scheduledIso: (row.scheduled_at as string | null) ?? null,
+        status: "draft",
+      });
+    }
     return { ok: true };
   });
 
