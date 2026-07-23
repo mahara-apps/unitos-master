@@ -207,34 +207,29 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
     const openTasks = taskRows.filter((t) => t.status !== "done").length;
     const doneTasks = taskRows.length - openTasks;
 
-    // "Publicado" real: usa social_posts (worker + publicar agora) e faz
-    // fallback para posts.published_at, já que a coluna Kanban "published"
-    // não existe por padrão em DEFAULT_STAGES.
-    const { count: publishedSocialCount } = await context.supabase
-      .from("social_posts")
-      .select("id", { count: "exact", head: true })
-      .eq("brand_id", data.brandId)
-      .eq("client_id", data.clientId)
-      .eq("status", "published")
-      .gte("published_at", fromIso)
-      .lte("published_at", toIso);
-    // Fonte de verdade: social_posts. Fallback só quando não há nenhum registro
-    // em social_posts (workspace sem conexões sociais), para não duplicar.
-    const publishedPostsFallback = scopedPosts.filter((p) => p.published_at != null).length;
-    const publishedCount =
-      (publishedSocialCount ?? 0) > 0 ? (publishedSocialCount ?? 0) : publishedPostsFallback;
-
-    // "Agendado" real: soma coluna Kanban 'scheduled' + social_posts pendentes,
-    // evitando zero quando o pipeline default não expõe a coluna.
-    const { count: scheduledSocialCount } = await context.supabase
-      .from("social_posts")
-      .select("id", { count: "exact", head: true })
-      .eq("brand_id", data.brandId)
-      .eq("client_id", data.clientId)
-      .in("status", ["scheduled", "publishing"]);
-    // Mesma regra: social_posts é a fonte real; Kanban serve apenas de fallback.
-    const scheduledCount =
-      (scheduledSocialCount ?? 0) > 0 ? (scheduledSocialCount ?? 0) : findCount("scheduled");
+    // Fonte única de verdade: social_posts vinculados aos cards do pipeline
+    // default (via post_id). Isso mantém "Publicado" e "Agendado" alinhados
+    // com o Kanban visível e independente do label da coluna.
+    let publishedCount = 0;
+    let scheduledCount = 0;
+    if (postIds.length > 0) {
+      const [pubRes, schedRes] = await Promise.all([
+        context.supabase
+          .from("social_posts")
+          .select("id", { count: "exact", head: true })
+          .in("post_id", postIds)
+          .eq("status", "published")
+          .gte("published_at", fromIso)
+          .lte("published_at", toIso),
+        context.supabase
+          .from("social_posts")
+          .select("id", { count: "exact", head: true })
+          .in("post_id", postIds)
+          .in("status", ["scheduled", "publishing"]),
+      ]);
+      publishedCount = pubRes.count ?? 0;
+      scheduledCount = schedRes.count ?? 0;
+    }
 
     const taskRowsFull = (tasks.data ?? []) as Array<{
       status: string;
