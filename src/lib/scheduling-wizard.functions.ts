@@ -254,6 +254,75 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       scheduledIso = scheduled.toISOString();
     }
 
+    // Pré-validação de agendamento: antes de gravar o post como "scheduled",
+    // conferimos que cada destino suportado tem conexão ativa, token presente
+    // e vínculo com o cliente. Sem isso, o Kanban ficaria marcado como
+    // agendado mesmo com a conexão social quebrada — e o cron nunca publicaria.
+    type ValidatedScheduleTarget = {
+      destination: (typeof data.destinations)[number];
+      connection: { id: string; provider: string; client_id: string | null };
+    };
+    const validatedScheduleTargets: ValidatedScheduleTarget[] = [];
+    const scheduleWarnings: Array<{ channel: string; format: string; error: string }> = [];
+    if (data.action === "schedule") {
+      const connIds = Array.from(new Set(data.destinations.map((d) => d.connectionId)));
+      const { data: conns, error: connsErr } = await supabase
+        .from("social_connections")
+        .select("id, brand_id, client_id, provider, status, access_token_ciphertext")
+        .eq("brand_id", data.brandId)
+        .in("id", connIds);
+      if (connsErr) throw new Error(connsErr.message);
+      const connMap = new Map(
+        (conns ?? []).map((c) => [c.id as string, c]),
+      );
+      for (const d of data.destinations) {
+        const supported =
+          d.format === "feed" &&
+          (d.channel === "instagram" || d.channel === "facebook");
+        if (!supported) {
+          scheduleWarnings.push({
+            channel: d.channel,
+            format: d.format,
+            error: "Formato ainda não agendável (apenas Feed IG/FB)",
+          });
+          continue;
+        }
+        const conn = connMap.get(d.connectionId);
+        if (!conn) {
+          throw new Error(`Conexão ${d.channel} não encontrada nesta marca.`);
+        }
+        if (!conn.access_token_ciphertext) {
+          throw new Error(
+            `Conexão ${d.channel} sem token — reconecte a página antes de agendar.`,
+          );
+        }
+        if (conn.client_id && conn.client_id !== data.clientId) {
+          throw new Error(
+            `Conexão ${d.channel} não pertence a este cliente.`,
+          );
+        }
+        if (conn.status !== "active") {
+          throw new Error(
+            `Conexão ${d.channel} não está ativa — reconecte antes de agendar.`,
+          );
+        }
+        validatedScheduleTargets.push({
+          destination: d,
+          connection: {
+            id: conn.id as string,
+            provider: conn.provider as string,
+            client_id: (conn.client_id as string | null) ?? null,
+          },
+        });
+      }
+      if (validatedScheduleTargets.length === 0) {
+        throw new Error(
+          scheduleWarnings[0]?.error ??
+            "Nenhum destino suportado para agendamento (apenas Feed IG/FB).",
+        );
+      }
+    }
+
     // Mapeia mídia (paths → jsonb array) para persistir em placements
     const mediaJson = data.mediaPaths.map((p) => ({ storagePath: p }));
     // Canais únicos (post.channels usa enum post_channel — filtra os aceitos)
@@ -367,85 +436,75 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
     // ---- Agendar: cria linhas em social_posts para o worker pg_cron drenar ----
     // Sem isso, o horário passa e nada é publicado (Kanban fica "Agendado" para sempre).
     if (data.action === "schedule" && scheduledIso) {
-      const enqueueResults: Array<{ channel: string; format: string; ok: boolean; error?: string }> = [];
-      for (const d of data.destinations) {
-        const supported =
-          d.format === "feed" && (d.channel === "instagram" || d.channel === "facebook");
-        if (!supported) {
-          enqueueResults.push({
-            channel: d.channel,
-            format: d.format,
-            ok: false,
-            error: "Formato ainda não agendável (apenas Feed IG/FB)",
-          });
-          continue;
+      // Formatos ainda não agendáveis viram avisos (mesmo padrão da branch publish).
+      const enqueueResults: Array<{
+        channel: string;
+        format: string;
+        ok: boolean;
+        error?: string;
+      }> = scheduleWarnings.map((w) => ({ ...w, ok: false }));
+
+      for (const { destination: d, connection: conn } of validatedScheduleTargets) {
+        const caption =
+          [
+            d.copyOverride ?? data.copy,
+            ...(data.hashtags.length
+              ? [data.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")]
+              : []),
+          ]
+            .filter(Boolean)
+            .join("\n\n")
+            .trim() || null;
+
+        const media = data.mediaPaths[0]
+          ? { storagePath: data.mediaPaths[0], ...(data.linkUrl ? { link: data.linkUrl } : {}) }
+          : data.linkUrl
+            ? { link: data.linkUrl }
+            : {};
+
+        const { error: spErr } = await supabase.from("social_posts").insert({
+          brand_id: data.brandId,
+          client_id: data.clientId,
+          connection_id: d.connectionId,
+          provider: conn.provider,
+          placement: "feed",
+          caption,
+          hashtags: data.hashtags,
+          mentions: [],
+          media,
+          post_id: postId,
+          status: "scheduled",
+          scheduled_at: scheduledIso,
+          created_by: context.userId,
+          location_id: data.locationId ?? null,
+        });
+        if (spErr) {
+          // Rollback: o post não pode ficar como "scheduled" no Kanban se não
+          // conseguimos enfileirar todas as publicações — o cron não vai
+          // publicar e o usuário ficaria com um agendamento fantasma.
+          await supabase
+            .from("social_posts")
+            .delete()
+            .eq("post_id", postId)
+            .eq("status", "scheduled");
+          await supabase
+            .from("posts")
+            .update({ stage: "approved", scheduled_at: null })
+            .eq("id", postId)
+            .eq("brand_id", data.brandId);
+          throw new Error(
+            `Falha ao agendar ${d.channel}: ${spErr.message}`,
+          );
         }
-        try {
-          const { data: conn, error: connErr } = await supabase
-            .from("social_connections")
-            .select("id, brand_id, client_id, provider, status")
-            .eq("id", d.connectionId)
-            .eq("brand_id", data.brandId)
-            .maybeSingle();
-          if (connErr) throw new Error(connErr.message);
-          if (!conn) throw new Error("Conexão não encontrada");
-          if (conn.client_id && conn.client_id !== data.clientId) {
-            throw new Error("Conexão não pertence a este cliente");
-          }
-
-          const caption =
-            [
-              d.copyOverride ?? data.copy,
-              ...(data.hashtags.length
-                ? [data.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")]
-                : []),
-            ]
-              .filter(Boolean)
-              .join("\n\n")
-              .trim() || null;
-
-          const media = data.mediaPaths[0]
-            ? { storagePath: data.mediaPaths[0], ...(data.linkUrl ? { link: data.linkUrl } : {}) }
-            : data.linkUrl
-              ? { link: data.linkUrl }
-              : {};
-
-          const { error: spErr } = await supabase.from("social_posts").insert({
-            brand_id: data.brandId,
-            client_id: data.clientId,
-            connection_id: d.connectionId,
-            provider: conn.provider,
-            placement: "feed",
-            caption,
-            hashtags: data.hashtags,
-            mentions: [],
-            media,
-            post_id: postId,
-            status: "scheduled",
-            scheduled_at: scheduledIso,
-            created_by: context.userId,
-            location_id: data.locationId ?? null,
-          });
-          if (spErr) throw new Error(spErr.message);
-          enqueueResults.push({ channel: d.channel, format: d.format, ok: true });
-        } catch (err) {
-          enqueueResults.push({
-            channel: d.channel,
-            format: d.format,
-            ok: false,
-            error: (err as Error).message,
-          });
-        }
+        enqueueResults.push({ channel: d.channel, format: d.format, ok: true });
       }
-      const okCount = enqueueResults.filter((r) => r.ok).length;
-      if (okCount === 0) {
-        // Nenhum destino agendável foi enfileirado — sinaliza pro cliente.
-        throw new Error(
-          enqueueResults[0]?.error ??
-            "Nenhum destino suportado para agendamento (apenas Feed IG/FB).",
-        );
-      }
-      return { ok: true, postId, scheduled: okCount, results: enqueueResults };
+
+      return {
+        ok: true,
+        postId,
+        scheduled: validatedScheduleTargets.length,
+        results: enqueueResults,
+      };
     }
 
     // ---- Publicar agora: dispara Meta para cada destino suportado ----
