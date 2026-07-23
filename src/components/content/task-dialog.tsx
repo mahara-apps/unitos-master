@@ -1030,15 +1030,33 @@ function TaskLayout({
     }));
   const toggleTargetConnection = (row: ClientChannelRow) =>
     setState((prev) => {
-      const has = prev.targetConnectionIds.includes(row.connectionId);
-      const nextIds = has
-        ? prev.targetConnectionIds.filter((id) => id !== row.connectionId)
-        : [...prev.targetConnectionIds, row.connectionId];
-      // Deriva channels a partir das conexões selecionadas (para preservar
-      // compat com filtros/legendas atuais que ainda usam posts.channels).
-      // Nota: só entra no array quando não é adição de string livre.
-      return { ...prev, targetConnectionIds: nextIds };
+      const has = prev.destinations.some((d) => d.connectionId === row.connectionId);
+      const nextDests = has
+        ? prev.destinations.filter((d) => d.connectionId !== row.connectionId)
+        : [
+            ...prev.destinations,
+            {
+              connectionId: row.connectionId,
+              channel: row.channel,
+              format: toEnum(prev.format || "Feed"),
+            },
+          ];
+      const nextIds = nextDests.map((d) => d.connectionId);
+      const nextChannels = Array.from(new Set(nextDests.map((d) => d.channel)));
+      return {
+        ...prev,
+        destinations: nextDests,
+        targetConnectionIds: nextIds,
+        channels: nextChannels,
+      };
     });
+  const setDestinationFormat = (connectionId: string, format: PlacementFormat) =>
+    setState((prev) => ({
+      ...prev,
+      destinations: prev.destinations.map((d) =>
+        d.connectionId === connectionId ? { ...d, format } : d,
+      ),
+    }));
   const addTag = () => {
     const v = tagInput.trim();
     if (!v) return;
