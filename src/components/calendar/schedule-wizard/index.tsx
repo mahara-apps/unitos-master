@@ -7,6 +7,16 @@ import {
   CalendarClock,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Calendar as CalendarIcon,
+  Clock as ClockIcon,
+  LayoutGrid,
+  Play,
+  Layers,
+  CircleDot,
+  Type,
+  Maximize2,
   Image as ImageIcon,
   Loader2,
   Send,
@@ -87,6 +97,13 @@ function slugifyMediaName(name: string) {
     .replace(/-+/g, "-")
     .slice(0, 120);
 }
+
+const FORMAT_ICON: Record<PlacementFormat, typeof LayoutGrid> = {
+  feed: LayoutGrid,
+  stories: CircleDot,
+  reels: Play,
+  carrossel: Layers,
+};
 
 export type WizardSeed = {
   postId?: string;
@@ -234,6 +251,19 @@ export function ScheduleWizard({
     const found = pairs.find((p) => `${p.channel}::${p.format}` === previewKey);
     return found ?? pairs[0] ?? null;
   }, [pairs, previewKey]);
+
+  const cyclePreview = useCallback(
+    (dir: 1 | -1) => {
+      if (pairs.length <= 1) return;
+      const idx = Math.max(
+        0,
+        pairs.findIndex((p) => `${p.channel}::${p.format}` === previewKey),
+      );
+      const next = pairs[(idx + dir + pairs.length) % pairs.length];
+      setPreviewKey(`${next.channel}::${next.format}`);
+    },
+    [pairs, previewKey],
+  );
 
   const captionLimit = useMemo(
     () => tightestCaptionLimit(pairs.map((p) => p.channel)),
@@ -528,29 +558,36 @@ export function ScheduleWizard({
                                 </div>
                               </div>
                             </div>
-                            <div className="flex flex-wrap gap-1.5">
+                            <div
+                              role="group"
+                              aria-label={`Posicionamentos ${channel}`}
+                              className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border/60 bg-muted/40 p-0.5"
+                            >
                               {formats.map((f) => {
                                 const selected = pairs.some(
                                   (p) => p.channel === channel && p.format === f,
                                 );
                                 const compatible = isFormatCompatibleWithMedia(f, mediaKind);
                                 const reason = formatIncompatibilityReason(f, mediaKind);
+                                const Icon = FORMAT_ICON[f];
                                 return (
                                   <button
                                     key={f}
                                     type="button"
                                     disabled={!compatible}
+                                    aria-pressed={selected}
                                     title={reason ?? `${FORMAT_LABEL[f]} disponível`}
                                     onClick={() => togglePair(channel, f)}
                                     className={cn(
-                                      "rounded-md border px-2 py-1 text-[10.5px] font-medium transition-colors",
+                                      "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
                                       selected
-                                        ? "border-primary bg-primary/10 text-primary"
-                                        : "border-border/60 hover:bg-muted",
+                                        ? "bg-foreground text-background shadow-sm"
+                                        : "text-muted-foreground hover:bg-background hover:text-foreground",
                                       !compatible &&
-                                        "cursor-not-allowed opacity-40 hover:bg-transparent",
+                                        "cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground",
                                     )}
                                   >
+                                    <Icon className="h-3 w-3" />
                                     {FORMAT_LABEL[f]}
                                   </button>
                                 );
@@ -906,20 +943,28 @@ export function ScheduleWizard({
                 <div className="space-y-2">
                   <Label className="text-xs">Data & horário</Label>
                   <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      type="date"
-                      value={scheduleDate}
-                      min={fmtDate(new Date())}
-                      onChange={(e) => setScheduleDate(e.target.value)}
-                    />
-                    <Input
-                      type="time"
-                      value={scheduleTime}
-                      onChange={(e) => setScheduleTime(e.target.value)}
-                    />
+                    <div className="relative">
+                      <Input
+                        type="date"
+                        value={scheduleDate}
+                        min={fmtDate(new Date())}
+                        onChange={(e) => setScheduleDate(e.target.value)}
+                        className="pr-8 [&::-webkit-calendar-picker-indicator]:opacity-0"
+                      />
+                      <CalendarIcon className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    </div>
+                    <div className="relative">
+                      <Input
+                        type="time"
+                        value={scheduleTime}
+                        onChange={(e) => setScheduleTime(e.target.value)}
+                        className="pr-8 [&::-webkit-calendar-picker-indicator]:opacity-0"
+                      />
+                      <ClockIcon className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    </div>
                   </div>
                   <p className="text-[10.5px] text-muted-foreground">
-                    Fuso: {tzLabel()}. Use o botão “Publicar agora” para envio imediato.
+                    Fuso: {tzLabel()} · use “Publicar agora” no menu ao lado de “Agendar” para envio imediato.
                   </p>
                 </div>
               </div>
@@ -927,33 +972,60 @@ export function ScheduleWizard({
 
             {/* Column 3 — Live Preview */}
             <div className="flex h-full min-h-0 flex-col bg-muted/30">
-              <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-4 py-2.5">
+              <div className="flex shrink-0 items-center gap-3 border-b border-border/60 bg-background px-4 pt-2">
                 <SectionTitle index={3} title="Preview" compact />
-                {pairs.length > 1 ? (
-                  <div className="flex flex-wrap items-center justify-end gap-1">
-                    {pairs.map((p) => {
+                <div className="flex min-w-0 flex-1 items-end gap-0.5 overflow-x-auto">
+                  {pairs.length === 0 ? (
+                    <span className="pb-2 text-[10.5px] text-muted-foreground">
+                      Selecione um posicionamento para pré-visualizar.
+                    </span>
+                  ) : (
+                    pairs.map((p) => {
                       const k = `${p.channel}::${p.format}`;
+                      const active = previewKey === k;
+                      const Icon = FORMAT_ICON[p.format];
                       return (
                         <button
                           key={k}
                           type="button"
                           onClick={() => setPreviewKey(k)}
                           className={cn(
-                            "rounded-md border px-1.5 py-0.5 text-[10px] capitalize transition-colors",
-                            previewKey === k
-                              ? "border-primary bg-primary/10 text-primary"
-                              : "border-border/60 text-muted-foreground hover:bg-muted",
+                            "relative inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 pb-2 pt-1 text-[11px] font-medium capitalize transition-colors",
+                            active
+                              ? "border-foreground text-foreground"
+                              : "border-transparent text-muted-foreground hover:text-foreground",
                           )}
                         >
+                          <Icon className="h-3 w-3" />
                           {p.channel} · {FORMAT_LABEL[p.format]}
                         </button>
                       );
-                    })}
-                  </div>
-                ) : null}
+                    })
+                  )}
+                </div>
               </div>
               <ScrollArea className="min-h-0 flex-1">
-                <div className="flex items-start justify-center px-4 py-5">
+                <div className="relative flex items-start justify-center px-4 py-5">
+                  {pairs.length > 1 ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => cyclePreview(-1)}
+                        aria-label="Posicionamento anterior"
+                        className="absolute left-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full border border-border/60 bg-background/95 text-muted-foreground shadow-sm transition-colors hover:text-foreground"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => cyclePreview(1)}
+                        aria-label="Próximo posicionamento"
+                        className="absolute right-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full border border-border/60 bg-background/95 text-muted-foreground shadow-sm transition-colors hover:text-foreground"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </>
+                  ) : null}
                   <PostPreview
                     channel={previewPair?.channel ?? "instagram"}
                     format={previewPair?.format ?? "feed"}
@@ -966,13 +1038,33 @@ export function ScheduleWizard({
                     location={locationName}
                   />
                 </div>
+                {pairs.length > 1 ? (
+                  <div className="flex items-center justify-center gap-1.5 pb-4">
+                    {pairs.map((p) => {
+                      const k = `${p.channel}::${p.format}`;
+                      const active = previewKey === k;
+                      return (
+                        <button
+                          key={k}
+                          type="button"
+                          aria-label={`Ir para ${p.channel} ${FORMAT_LABEL[p.format]}`}
+                          onClick={() => setPreviewKey(k)}
+                          className={cn(
+                            "h-1.5 rounded-full transition-all",
+                            active ? "w-5 bg-foreground" : "w-1.5 bg-border hover:bg-muted-foreground/60",
+                          )}
+                        />
+                      );
+                    })}
+                  </div>
+                ) : null}
               </ScrollArea>
             </div>
           </div>
         </div>
 
         {/* Sticky bottom action bar */}
-        <footer className="relative flex shrink-0 items-center justify-between gap-3 border-t border-border/60 bg-background/95 px-6 py-3 backdrop-blur">
+        <footer className="relative grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-t border-border/60 bg-background/95 px-6 py-3 backdrop-blur">
           {submitting ? (
             <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5 overflow-hidden bg-primary/10">
               <div className="h-full w-1/3 animate-[wizard-progress_1.2s_ease-in-out_infinite] bg-primary" />
@@ -1020,7 +1112,40 @@ export function ScheduleWizard({
               salvar rascunho
             </span>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Center — floating quick tools */}
+          <div className="hidden justify-center md:flex">
+            <div className="inline-flex items-center gap-0.5 rounded-full border border-border/60 bg-background/80 p-0.5 shadow-sm">
+              <FooterTool
+                icon={Maximize2}
+                label="Expandir preview"
+                onClick={() => toast.info("Expandir preview — em breve.")}
+              />
+              <FooterTool
+                icon={Type}
+                label="Formatar texto"
+                onClick={() => toast.info("Formatação de texto — em breve.")}
+              />
+              <FooterTool
+                icon={Link2}
+                label="Inserir link"
+                onClick={() => {
+                  const el = document.getElementById("wiz-link") as HTMLInputElement | null;
+                  el?.focus();
+                }}
+              />
+              <FooterTool
+                icon={MessageCircle}
+                label="Primeiro comentário"
+                onClick={() => {
+                  const el = document.getElementById("wiz-first-comment") as HTMLTextAreaElement | null;
+                  el?.focus();
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2">
             <Button
               variant="ghost"
               size="sm"
@@ -1132,6 +1257,28 @@ function SectionTitle({
         {title}
       </h3>
     </div>
+  );
+}
+
+function FooterTool({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: typeof LayoutGrid;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={label}
+      aria-label={label}
+      className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+    >
+      <Icon className="h-3.5 w-3.5" />
+    </button>
   );
 }
 
