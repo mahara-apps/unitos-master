@@ -358,6 +358,7 @@ function CreateBody({
           target_connection_ids: state.targetConnectionIds.length
             ? state.targetConnectionIds
             : undefined,
+          destinations: state.destinations.length ? state.destinations : undefined,
           format: state.format || null,
           copy: state.copy.trim() || null,
           internal_briefing: state.internalBriefing.trim() || null,
