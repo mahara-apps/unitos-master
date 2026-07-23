@@ -73,6 +73,7 @@ import {
   revokeApprovalTokenFn,
 } from "@/lib/approval.functions";
 import { listClientChannelAssignmentsFn, type ClientChannelRow } from "@/lib/client-channels.functions";
+import { saveScheduledPostFn } from "@/lib/scheduling-wizard.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { CHANNELS, CHANNEL_STYLES, FORMATS, FORMAT_STYLES, PRIORITY_STYLES } from "./stage-colors";
@@ -357,6 +358,7 @@ function CreateBody({
           target_connection_ids: state.targetConnectionIds.length
             ? state.targetConnectionIds
             : undefined,
+          destinations: state.destinations.length ? state.destinations : undefined,
           format: state.format || null,
           copy: state.copy.trim() || null,
           internal_briefing: state.internalBriefing.trim() || null,
@@ -479,12 +481,19 @@ function EditBody({
 
   const post = data.post;
   const [state, setState] = useState(() => stateFromPost(post, stages));
+  // Initial destinations hydrate no primeiro render (state inicial).
+  useEffect(() => {
+    setState((prev) => (prev.destinations.length === 0 && (data.destinations ?? []).length > 0
+      ? { ...prev, destinations: data.destinations }
+      : prev));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [approving, setApproving] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    setState(stateFromPost(post, stages));
+    setState(stateFromPost(post, stages, data.destinations ?? []));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post.id]);
 
@@ -538,6 +547,7 @@ function EditBody({
             assignee_id: state.assigneeId,
             project_id: state.projectId,
           },
+          destinations: state.destinations,
         },
       });
     },
@@ -580,6 +590,41 @@ function EditBody({
       toast.success("Aprovado");
       qc.invalidateQueries({ queryKey: invalidateKey });
       qc.invalidateQueries({ queryKey: ["post-detail", postId] });
+    },
+    onError: (e: Error) => toast.error(describeError(e)),
+  });
+
+  const scheduleFromKanban = useServerFn(saveScheduledPostFn);
+  const approveAndSchedule = useMutation({
+    mutationFn: async () => {
+      if (!state.scheduledAt) throw new Error("Defina data/hora de agendamento");
+      if (state.destinations.length === 0)
+        throw new Error("Selecione ao menos uma conta de destino");
+      // Primeiro marca aprovado (também sincroniza posts.stage para trigger).
+      await updatePost({
+        data: { postId, patch: { review_status: "approved" } },
+      });
+      // Agora enfileira via mesmo motor do wizard.
+      return scheduleFromKanban({
+        data: {
+          postId,
+          brandId,
+          clientId,
+          title: state.title.trim() || "Sem título",
+          copy: state.copy ?? "",
+          mediaPaths: refs.map((r) => r.path).filter(Boolean),
+          hashtags: [],
+          destinations: state.destinations,
+          scheduledAt: new Date(state.scheduledAt).toISOString(),
+          action: "schedule",
+        },
+      });
+    },
+    onSuccess: () => {
+      toast.success("Aprovado e agendado");
+      qc.invalidateQueries({ queryKey: invalidateKey });
+      qc.invalidateQueries({ queryKey: ["post-detail", postId] });
+      onOpenChange(false);
     },
     onError: (e: Error) => toast.error(describeError(e)),
   });
@@ -795,17 +840,36 @@ function EditBody({
             value={state.projectId}
             onChange={(id) => setState((p) => ({ ...p, projectId: id }))}
           />
-          <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end gap-1.5">
             {reviewStatus === "pending" && aiPhase === "idea" ? (
               <Button size="sm" onClick={handleApproveAndGenerate} disabled={approving} className="h-9 w-full">
                 {approving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
                 Aprovar & gerar
               </Button>
             ) : reviewStatus !== "approved" ? (
-              <Button size="sm" onClick={() => approveOnly.mutate()} disabled={approveOnly.isPending} className="h-9 w-full">
-                {approveOnly.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />}
-                Aprovar
-              </Button>
+              <>
+                <Button size="sm" onClick={() => approveOnly.mutate()} disabled={approveOnly.isPending} className="h-9 flex-1">
+                  {approveOnly.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />}
+                  Aprovar
+                </Button>
+                {state.scheduledAt && state.destinations.length > 0 ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => approveAndSchedule.mutate()}
+                    disabled={approveAndSchedule.isPending}
+                    className="h-9 whitespace-nowrap"
+                    title="Aprova e agenda no calendário social"
+                  >
+                    {approveAndSchedule.isPending ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    + Agendar
+                  </Button>
+                ) : null}
+              </>
             ) : (
               <Badge variant="outline" className="h-9 w-full justify-center rounded-md border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                 <CheckCircle2 className="mr-1 h-3 w-3" /> Aprovado
@@ -902,6 +966,7 @@ type TaskState = {
   channels: string[];
   targetConnectionIds: string[];
   format: string;
+  destinations: Array<{ connectionId: string; channel: string; format: PlacementFormat }>;
   copy: string;
   internalBriefing: string;
   clientBriefing: string;
@@ -922,6 +987,7 @@ function emptyState(stageId: string): TaskState {
     channels: [],
     targetConnectionIds: [],
     format: "Feed",
+    destinations: [],
     copy: "",
     internalBriefing: "",
     clientBriefing: "",
@@ -944,7 +1010,11 @@ function toLocalInputValue(iso: string): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function stateFromPost(post: BoardPost, stages: PipelineStage[]): TaskState {
+function stateFromPost(
+  post: BoardPost,
+  stages: PipelineStage[],
+  destinations: Array<{ connectionId: string; channel: string; format: PlacementFormat }> = [],
+): TaskState {
   const scriptText =
     Array.isArray(post.script) && post.script.length > 0
       ? (post.script as ScriptScene[])
@@ -959,6 +1029,7 @@ function stateFromPost(post: BoardPost, stages: PipelineStage[]): TaskState {
     channels: (post.channels ?? []) as string[],
     targetConnectionIds: (post.target_connection_ids ?? []) as string[],
     format: post.format ?? "",
+    destinations,
     copy: post.copy ?? "",
     internalBriefing: post.internal_briefing ?? "",
     clientBriefing: post.client_briefing ?? "",
@@ -1016,15 +1087,33 @@ function TaskLayout({
     }));
   const toggleTargetConnection = (row: ClientChannelRow) =>
     setState((prev) => {
-      const has = prev.targetConnectionIds.includes(row.connectionId);
-      const nextIds = has
-        ? prev.targetConnectionIds.filter((id) => id !== row.connectionId)
-        : [...prev.targetConnectionIds, row.connectionId];
-      // Deriva channels a partir das conexões selecionadas (para preservar
-      // compat com filtros/legendas atuais que ainda usam posts.channels).
-      // Nota: só entra no array quando não é adição de string livre.
-      return { ...prev, targetConnectionIds: nextIds };
+      const has = prev.destinations.some((d) => d.connectionId === row.connectionId);
+      const nextDests = has
+        ? prev.destinations.filter((d) => d.connectionId !== row.connectionId)
+        : [
+            ...prev.destinations,
+            {
+              connectionId: row.connectionId,
+              channel: row.channel,
+              format: toEnum(prev.format || "Feed"),
+            },
+          ];
+      const nextIds = nextDests.map((d) => d.connectionId);
+      const nextChannels = Array.from(new Set(nextDests.map((d) => d.channel)));
+      return {
+        ...prev,
+        destinations: nextDests,
+        targetConnectionIds: nextIds,
+        channels: nextChannels,
+      };
     });
+  const setDestinationFormat = (connectionId: string, format: PlacementFormat) =>
+    setState((prev) => ({
+      ...prev,
+      destinations: prev.destinations.map((d) =>
+        d.connectionId === connectionId ? { ...d, format } : d,
+      ),
+    }));
   const addTag = () => {
     const v = tagInput.trim();
     if (!v) return;
@@ -1089,24 +1178,42 @@ function TaskLayout({
               {assignedConnections.map((row) => {
                 const meta = CHANNELS.find((c) => c.id === row.channel);
                 const Icon = meta?.icon;
-                const active = state.targetConnectionIds.includes(row.connectionId);
+                const dest = state.destinations.find((d) => d.connectionId === row.connectionId);
+                const active = !!dest;
                 return (
-                  <button
-                    key={row.connectionId}
-                    type="button"
-                    onClick={() => toggleTargetConnection(row)}
-                    className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition ${
-                      active
-                        ? CHANNEL_STYLES[row.channel] ?? "border-primary bg-primary/10 text-foreground"
-                        : "border-border/60 bg-background/60 text-muted-foreground hover:border-border hover:text-foreground"
-                    }`}
-                    title={row.accountLabel ?? row.channel}
-                  >
-                    {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
-                    <span className="truncate max-w-[140px]">
-                      {row.accountLabel ?? meta?.label ?? row.channel}
-                    </span>
-                  </button>
+                  <div key={row.connectionId} className="inline-flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => toggleTargetConnection(row)}
+                      className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition ${
+                        active
+                          ? CHANNEL_STYLES[row.channel] ?? "border-primary bg-primary/10 text-foreground"
+                          : "border-border/60 bg-background/60 text-muted-foreground hover:border-border hover:text-foreground"
+                      } ${active ? "rounded-r-none border-r-0" : ""}`}
+                      title={row.accountLabel ?? row.channel}
+                    >
+                      {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
+                      <span className="truncate max-w-[140px]">
+                        {row.accountLabel ?? meta?.label ?? row.channel}
+                      </span>
+                    </button>
+                    {active ? (
+                      <Select
+                        value={dest!.format}
+                        onValueChange={(v) => setDestinationFormat(row.connectionId, v as PlacementFormat)}
+                      >
+                        <SelectTrigger className="h-8 rounded-l-none border-l border-border/60 bg-background/60 px-2 text-[11px] font-medium text-muted-foreground">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="feed">Feed</SelectItem>
+                          <SelectItem value="stories">Stories</SelectItem>
+                          <SelectItem value="reels">Reels</SelectItem>
+                          <SelectItem value="carrossel">Carrossel</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    ) : null}
+                  </div>
                 );
               })}
             </div>

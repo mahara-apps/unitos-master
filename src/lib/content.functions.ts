@@ -4,6 +4,19 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 // Brain-First: acessos ao Brain só via API pública. Este módulo consome o
 // helper de ingest via `@/lib/brain/api` — nunca toca `brain_*` diretamente.
 import { brain } from "@/lib/brain/api";
+import {
+  syncPostPlacements,
+  deriveChannelsFromDestinations,
+  deriveTargetConnectionIds,
+  type PlacementDestination,
+} from "@/lib/placements.server";
+
+const DestinationSchema = z.object({
+  connectionId: z.string().uuid(),
+  channel: z.string().min(1).max(40),
+  format: z.enum(["feed", "stories", "reels", "carrossel"]),
+  copyOverride: z.string().nullable().optional(),
+});
 
 /** Fire-and-forget ingest via Brain API (best-effort; nunca lança). */
 function ingestBrainQuiet(
@@ -731,6 +744,7 @@ export const createPostFn = createServerFn({ method: "POST" })
         project_id: z.string().uuid().nullable().optional(),
         visible_in_portal: z.boolean().optional(),
         recurrence: z.any().nullable().optional(),
+        destinations: z.array(DestinationSchema).max(12).optional(),
       })
       .parse(i),
   )
@@ -760,6 +774,13 @@ export const createPostFn = createServerFn({ method: "POST" })
     ];
     for (const k of optional) {
       if (data[k] !== undefined) insertRow[k as string] = data[k];
+    }
+
+    // Quando o cliente envia `destinations` estruturados, eles se tornam a
+    // fonte de verdade — `channels`/`target_connection_ids` viram cache.
+    if (data.destinations && data.destinations.length) {
+      insertRow.channels = deriveChannelsFromDestinations(data.destinations);
+      insertRow.target_connection_ids = deriveTargetConnectionIds(data.destinations);
     }
 
     // Fallback: se nenhum responsável foi fornecido, atribui ao usuário que
@@ -792,6 +813,18 @@ export const createPostFn = createServerFn({ method: "POST" })
       )
       .single();
     if (error) throw error;
+
+    if (data.destinations && data.destinations.length) {
+      await syncPostPlacements(context.supabase, {
+        postId: post.id as string,
+        brandId: data.brandId,
+        clientId: data.clientId,
+        destinations: data.destinations as PlacementDestination[],
+        scheduledIso: (post.scheduled_at as string | null) ?? null,
+        status: "draft",
+      });
+    }
+
     ingestBrainQuiet(context.supabase, data.brandId, "content_created", "editorial", {
       title: data.title,
       channels: data.channels,
@@ -842,6 +875,7 @@ export const updatePostFn = createServerFn({ method: "POST" })
             project_id: z.string().uuid().nullable().optional(),
           })
           .strict(),
+        destinations: z.array(DestinationSchema).max(12).optional(),
       })
       .parse(i),
   )
@@ -856,11 +890,34 @@ export const updatePostFn = createServerFn({ method: "POST" })
       // contexto completo. NÃO REMOVER sem antes migrar o trigger.
       patch.stage = "approved";
     }
+    // Destinos estruturados sobrescrevem channels/target_connection_ids
+    // (post_placements é a fonte de verdade).
+    if (data.destinations !== undefined) {
+      patch.channels = deriveChannelsFromDestinations(data.destinations);
+      patch.target_connection_ids = deriveTargetConnectionIds(data.destinations);
+    }
     const { error } = await context.supabase
       .from("posts")
       .update(patch as never)
       .eq("id", data.postId);
     if (error) throw error;
+
+    if (data.destinations !== undefined) {
+      const { data: row, error: rErr } = await context.supabase
+        .from("posts")
+        .select("brand_id, client_id, scheduled_at")
+        .eq("id", data.postId)
+        .single();
+      if (rErr) throw rErr;
+      await syncPostPlacements(context.supabase, {
+        postId: data.postId,
+        brandId: row.brand_id as string,
+        clientId: row.client_id as string,
+        destinations: data.destinations as PlacementDestination[],
+        scheduledIso: (row.scheduled_at as string | null) ?? null,
+        status: "draft",
+      });
+    }
     return { ok: true };
   });
 
@@ -946,8 +1003,12 @@ export type PostTimelineEvent = {
 export const getPostDetailFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ postId: z.string().uuid() }).parse(i))
-  .handler(async ({ data, context }): Promise<{ post: BoardPost; timeline: PostTimelineEvent[] }> => {
-    const [{ data: post, error }, { data: events }] = await Promise.all([
+  .handler(async ({ data, context }): Promise<{
+    post: BoardPost;
+    timeline: PostTimelineEvent[];
+    destinations: Array<{ connectionId: string; channel: string; format: "feed" | "stories" | "reels" | "carrossel" }>;
+  }> => {
+    const [{ data: post, error }, { data: events }, { data: placements }] = await Promise.all([
       context.supabase
         .from("posts")
         .select(
@@ -962,8 +1023,26 @@ export const getPostDetailFn = createServerFn({ method: "POST" })
         .eq("entity_id", data.postId)
         .order("created_at", { ascending: false })
         .limit(30),
+      context.supabase
+        .from("post_placements")
+        .select("format,copy_override,is_primary")
+        .eq("post_id", data.postId)
+        .order("is_primary", { ascending: false }),
     ]);
     if (error) throw error;
+    const destinations = (placements ?? [])
+      .map((pl) => {
+        const co = (pl.copy_override ?? {}) as Record<string, unknown>;
+        const connectionId = typeof co.connection_id === "string" ? co.connection_id : "";
+        const channel = typeof co.channel === "string" ? co.channel : "";
+        if (!connectionId || !channel) return null;
+        return {
+          connectionId,
+          channel,
+          format: pl.format as "feed" | "stories" | "reels" | "carrossel",
+        };
+      })
+      .filter(Boolean) as Array<{ connectionId: string; channel: string; format: "feed" | "stories" | "reels" | "carrossel" }>;
     const actorIds = Array.from(
       new Set((events ?? []).map((e) => e.actor_id).filter(Boolean) as string[]),
     );
@@ -991,6 +1070,7 @@ export const getPostDetailFn = createServerFn({ method: "POST" })
         actor_name: e.actor_id ? actorMap.get(e.actor_id)?.name ?? null : null,
         actor_avatar: e.actor_id ? actorMap.get(e.actor_id)?.avatar ?? null : null,
       })) as PostTimelineEvent[],
+      destinations,
     };
   });
 

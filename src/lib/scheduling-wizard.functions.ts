@@ -1,6 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  syncPostPlacements,
+  deriveChannelsFromDestinations,
+  deriveTargetConnectionIds,
+} from "@/lib/placements.server";
 
 /**
  * Server functions do wizard de agendamento (/calendar).
@@ -323,27 +328,8 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       }
     }
 
-    // Mapeia mídia (paths → jsonb array) para persistir em placements
-    const mediaJson = data.mediaPaths.map((p) => ({ storagePath: p }));
     // Canais únicos (post.channels usa enum post_channel — filtra os aceitos)
-    const POST_CHANNEL_ENUM = new Set([
-      "instagram",
-      "tiktok",
-      "linkedin",
-      "x",
-      "youtube",
-      "blog",
-    ]);
-    const channels = Array.from(
-      new Set(data.destinations.map((d) => d.channel)),
-    ).filter((c) => POST_CHANNEL_ENUM.has(c)) as (
-      | "instagram"
-      | "tiktok"
-      | "linkedin"
-      | "x"
-      | "youtube"
-      | "blog"
-    )[];
+    const channels = deriveChannelsFromDestinations(data.destinations);
 
     const stage =
       data.action === "schedule"
@@ -356,9 +342,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
 
     // ---- Upsert post ----
     let postId = data.postId ?? null;
-    const targetConnIds = Array.from(
-      new Set(data.destinations.map((d) => d.connectionId)),
-    );
+    const targetConnIds = deriveTargetConnectionIds(data.destinations);
     if (!postId) {
       const { data: inserted, error } = await supabase
         .from("posts")
@@ -395,43 +379,21 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
     }
 
-    // ---- Sync placements por (channel, format) ----
-    // Estratégia simples: apaga tudo do post e reinsere. Baixa cardinalidade.
-    const { error: delErr } = await supabase
-      .from("post_placements")
-      .delete()
-      .eq("post_id", postId);
-    if (delErr) throw new Error(delErr.message);
-
-    if (data.destinations.length) {
-      // Deduplica pares (channel, format) pra respeitar UNIQUE(post_id, format)
-      // Como a UNIQUE é por format apenas, mantemos 1 por format (última vence).
-      const byFormat = new Map<string, (typeof data.destinations)[number]>();
-      for (const d of data.destinations) byFormat.set(d.format, d);
-
-      const rows = Array.from(byFormat.values()).map((d, i) => ({
-        post_id: postId,
-        brand_id: data.brandId,
-        client_id: data.clientId,
-        format: d.format,
-        scheduled_at: scheduledIso,
-        copy_override: {
-          connection_id: d.connectionId,
-          channel: d.channel,
-          ...(d.copyOverride ? { copy: d.copyOverride } : {}),
-          ...(data.hashtags.length ? { hashtags: data.hashtags } : {}),
-          ...(data.firstComment ? { first_comment: data.firstComment } : {}),
-          ...(data.linkUrl ? { link: data.linkUrl } : {}),
-          ...(data.locationName ? { location_name: data.locationName } : {}),
-          ...(data.locationId ? { location_id: data.locationId } : {}),
-        },
-        media: mediaJson,
-        status: data.action === "schedule" ? "scheduled" : "draft",
-        is_primary: i === 0,
-      }));
-      const { error: insErr } = await supabase.from("post_placements").insert(rows);
-      if (insErr) throw new Error(insErr.message);
-    }
+    // ---- Sync placements por (channel, format) via helper compartilhado ----
+    await syncPostPlacements(supabase, {
+      postId,
+      brandId: data.brandId,
+      clientId: data.clientId,
+      destinations: data.destinations,
+      mediaPaths: data.mediaPaths,
+      hashtags: data.hashtags,
+      firstComment: data.firstComment ?? null,
+      linkUrl: data.linkUrl ?? null,
+      locationName: data.locationName ?? null,
+      locationId: data.locationId ?? null,
+      scheduledIso,
+      status: data.action === "schedule" ? "scheduled" : "draft",
+    });
 
     // ---- Agendar: cria linhas em social_posts para o worker pg_cron drenar ----
     // Sem isso, o horário passa e nada é publicado (Kanban fica "Agendado" para sempre).
