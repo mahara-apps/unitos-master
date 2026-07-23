@@ -523,7 +523,7 @@ export const loadBoardFn = createServerFn({ method: "POST" })
         const target = thumbPath ?? originalPath;
         if (!target) continue;
         const bucket =
-          typeof firstImg?.bucket === "string" ? (firstImg.bucket as string) : "brand-assets";
+          typeof firstImg?.bucket === "string" ? (firstImg.bucket as string) : "brand-media";
         const list = byBucket.get(bucket) ?? [];
         list.push({ path: target, post: p });
         byBucket.set(bucket, list);
@@ -1085,7 +1085,7 @@ export const removePostReferenceMediaFn = createServerFn({ method: "POST" })
       ? (post.reference_media as Array<Record<string, unknown>>)
       : [];
     const entry = current.find((r) => r?.path === data.path);
-    const bucket = (typeof entry?.bucket === "string" ? (entry.bucket as string) : null) ?? "brand-assets";
+    const bucket = (typeof entry?.bucket === "string" ? (entry.bucket as string) : null) ?? "brand-media";
     await context.supabase.storage.from(bucket).remove([data.path]);
     const next = current.filter((r) => r?.path !== data.path);
     const { error } = await context.supabase
