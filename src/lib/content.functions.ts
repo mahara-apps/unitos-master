@@ -744,6 +744,7 @@ export const createPostFn = createServerFn({ method: "POST" })
         project_id: z.string().uuid().nullable().optional(),
         visible_in_portal: z.boolean().optional(),
         recurrence: z.any().nullable().optional(),
+        destinations: z.array(DestinationSchema).max(12).optional(),
       })
       .parse(i),
   )
@@ -773,6 +774,13 @@ export const createPostFn = createServerFn({ method: "POST" })
     ];
     for (const k of optional) {
       if (data[k] !== undefined) insertRow[k as string] = data[k];
+    }
+
+    // Quando o cliente envia `destinations` estruturados, eles se tornam a
+    // fonte de verdade — `channels`/`target_connection_ids` viram cache.
+    if (data.destinations && data.destinations.length) {
+      insertRow.channels = deriveChannelsFromDestinations(data.destinations);
+      insertRow.target_connection_ids = deriveTargetConnectionIds(data.destinations);
     }
 
     // Fallback: se nenhum responsável foi fornecido, atribui ao usuário que
