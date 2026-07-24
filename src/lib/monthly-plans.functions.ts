@@ -146,6 +146,7 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       };
       const pack = await brain.getContext(brainCtx, {
         topic: `planejamento mensal ${data.theme ?? ""}`.trim(),
+        nicheHint: (client?.niche as string | null) ?? null,
       });
       brainMarkdown = pack.markdown ?? "";
     } catch (err) {
