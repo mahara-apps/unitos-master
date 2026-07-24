@@ -177,6 +177,26 @@ Removidas na Fase 1 (duplicadas pela Brain API): `brain-memory`, `brain-learning
 
 ---
 
+## 8b. Reasoning Engine v1
+
+`src/lib/brain/reasoning/` implementa um pipeline determinístico usado pelo Chat Gateway antes (e às vezes em vez) do LLM:
+
+```text
+question ─▶ classifyIntent ─▶ buildPlan ─▶ executePlan (tools) ─▶ decide
+                                                                    │
+                             ┌───────────── deterministic ──────────┤
+                             │                                      │
+                             ▼                                      ▼
+                     renderAnswer (sem LLM)                    hybrid → LLM com contexto
+                                                                    │
+                                                                    ▼
+                                                          logReasoning → brain_reasoning_logs
+```
+
+Arquivos: `intent.ts`, `planner.ts`, `tools.server.ts`, `decision.ts`, `response.ts`, `logger.server.ts`, `orchestrator.server.ts`. Entrada única: `reason(ctx, supabase, { question, conversationId })` → `ReasoningOutcome` com `deterministicAnswer`, `shouldCallLlm`, `llmContextMarkdown` e `latencyMs`. Toda execução é auditada em `brain_reasoning_logs` (intent, plano, tools chamadas, decisão, se usou LLM).
+
+---
+
 ## 9. Como um novo módulo consome o Brain
 
 1. Nunca leia `brain_*`. Importe `@/lib/brain/api`.
