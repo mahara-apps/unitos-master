@@ -12,6 +12,7 @@ export type MonthlyPlanTopicStatus = "pending" | "approved" | "rejected";
 export type MonthlyPlan = {
   id: string;
   brand_id: string;
+  client_id: string;
   input_theme: string | null;
   input_briefing_id: string | null;
   title: string;
@@ -28,6 +29,7 @@ export type MonthlyPlanTopic = {
   topic_title: string;
   content_format: string | null;
   angle: string | null;
+  channel: string | null;
   status: MonthlyPlanTopicStatus;
   position: number;
 };
@@ -84,10 +86,11 @@ const AiPlanSchema = z.object({
         topic_title: z.string(),
         content_format: z.string(),
         angle: z.string(),
+        channel: z.string().optional().nullable(),
       }),
     )
     .min(4)
-    .max(16),
+    .max(60),
 });
 
 function tryParseFallback(text: string | undefined) {
