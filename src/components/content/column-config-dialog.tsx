@@ -178,10 +178,24 @@ function SortableRow({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: stage.id });
   const [label, setLabel] = useState(stage.label);
-  const [sla, setSla] = useState<string>(stage.sla_days != null ? String(stage.sla_days) : "");
+  const initialHours =
+    stage.sla_hours != null
+      ? String(stage.sla_hours)
+      : stage.sla_days != null
+        ? String(stage.sla_days * 24)
+        : "";
+  const [sla, setSla] = useState<string>(initialHours);
 
   useEffect(() => setLabel(stage.label), [stage.label]);
-  useEffect(() => setSla(stage.sla_days != null ? String(stage.sla_days) : ""), [stage.sla_days]);
+  useEffect(() => {
+    setSla(
+      stage.sla_hours != null
+        ? String(stage.sla_hours)
+        : stage.sla_days != null
+          ? String(stage.sla_days * 24)
+          : "",
+    );
+  }, [stage.sla_hours, stage.sla_days]);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -235,15 +249,17 @@ function SortableRow({
 
       <div className="grid gap-3 md:grid-cols-3 pl-6">
         <div className="space-y-1">
-          <Label className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">SLA (dias)</Label>
+          <Label className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">SLA (horas)</Label>
           <Input
             type="number"
             min={0}
             value={sla}
             onChange={(e) => setSla(e.target.value)}
             onBlur={() => {
-              const n = sla === "" ? null : Number(sla);
-              onPatch({ sla_days: Number.isFinite(n) || n === null ? (n as number | null) : null });
+              const raw = sla === "" ? null : Number(sla);
+              const hours = raw === null || Number.isFinite(raw) ? (raw as number | null) : null;
+              const days = hours == null ? null : Math.max(1, Math.round(hours / 24));
+              onPatch({ sla_hours: hours, sla_days: days });
             }}
             placeholder="—"
             className="h-9"
