@@ -3766,6 +3766,114 @@ export type Database = {
           },
         ]
       }
+      monthly_plan_topics: {
+        Row: {
+          angle: string | null
+          content_format: string | null
+          created_at: string
+          id: string
+          monthly_plan_id: string
+          position: number
+          status: string
+          topic_title: string
+          updated_at: string
+        }
+        Insert: {
+          angle?: string | null
+          content_format?: string | null
+          created_at?: string
+          id?: string
+          monthly_plan_id: string
+          position?: number
+          status?: string
+          topic_title: string
+          updated_at?: string
+        }
+        Update: {
+          angle?: string | null
+          content_format?: string | null
+          created_at?: string
+          id?: string
+          monthly_plan_id?: string
+          position?: number
+          status?: string
+          topic_title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_plan_topics_monthly_plan_id_fkey"
+            columns: ["monthly_plan_id"]
+            isOneToOne: false
+            referencedRelation: "monthly_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monthly_plans: {
+        Row: {
+          brand_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          input_briefing_id: string | null
+          input_theme: string | null
+          objectives: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          input_briefing_id?: string | null
+          input_theme?: string | null
+          objectives?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          input_briefing_id?: string | null
+          input_theme?: string | null
+          objectives?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_plans_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "monthly_plans_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_plans_input_briefing_id_fkey"
+            columns: ["input_briefing_id"]
+            isOneToOne: false
+            referencedRelation: "brand_briefings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notifications: {
         Row: {
           body: string | null
@@ -4008,6 +4116,7 @@ export type Database = {
           format: string | null
           id: string
           internal_briefing: string | null
+          monthly_plan_topic_id: string | null
           pipeline_id: string | null
           position: number
           priority: string | null
@@ -4049,6 +4158,7 @@ export type Database = {
           format?: string | null
           id?: string
           internal_briefing?: string | null
+          monthly_plan_topic_id?: string | null
           pipeline_id?: string | null
           position?: number
           priority?: string | null
@@ -4090,6 +4200,7 @@ export type Database = {
           format?: string | null
           id?: string
           internal_briefing?: string | null
+          monthly_plan_topic_id?: string | null
           pipeline_id?: string | null
           position?: number
           priority?: string | null
@@ -4132,6 +4243,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_monthly_plan_topic_id_fkey"
+            columns: ["monthly_plan_topic_id"]
+            isOneToOne: false
+            referencedRelation: "monthly_plan_topics"
             referencedColumns: ["id"]
           },
           {
