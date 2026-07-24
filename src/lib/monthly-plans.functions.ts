@@ -67,8 +67,11 @@ export const listBriefingsForPlanFn = createServerFn({ method: "POST" })
 const GenerateInput = z.object({
   brandId: z.string().uuid(),
   clientId: z.string().uuid(),
-  theme: z.string().trim().min(3).max(500),
+  theme: z.string().trim().max(500).optional().default(""),
   briefingId: z.string().uuid().nullable().optional(),
+}).refine((v) => (v.theme && v.theme.length >= 3) || !!v.briefingId, {
+  message: "Informe um tema ou vincule um briefing.",
+  path: ["theme"],
 });
 
 const AiPlanSchema = z.object({
@@ -136,7 +139,9 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       client?.tone_of_voice ? `Tom de voz: ${client.tone_of_voice}` : "",
       briefingText ? `Briefing base:\n${briefingText.slice(0, 4000)}` : "",
       ``,
-      `Tema do mês (input do usuário): ${data.theme}`,
+      data.theme
+        ? `Tema do mês (input do usuário): ${data.theme}`
+        : `Sem tema definido pelo usuário — derive o tema estratégico do mês diretamente do briefing acima, priorizando objetivos de negócio, público-alvo e oportunidades de conteúdo.`,
       ``,
       `Regras:`,
       `- title: uma headline curta (máx 90 chars) que resume a estratégia do mês.`,
@@ -179,7 +184,7 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       .from("monthly_plans" as never)
       .insert({
         brand_id: data.brandId,
-        input_theme: data.theme,
+        input_theme: data.theme || null,
         input_briefing_id: data.briefingId ?? null,
         title: parsed.title.slice(0, 200),
         description: parsed.description.slice(0, 4000),
