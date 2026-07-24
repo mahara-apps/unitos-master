@@ -1,52 +1,88 @@
-## Diagnóstico
+# Melhorias no SLA de Tarefas
 
-Verifiquei o banco: **as 3 pautas foram sim persistidas** em `monthly_plans` (2 draft + 1 archived, todas do seu brand). O problema não é gravação, são três lacunas de produto:
+Evoluir o indicador de SLA existente em três frentes: **tooltip explicativo**, **configuração granular em horas por etapa** e **filtros por status de SLA** (em dia / próximo de vencer / atrasadas) nos boards de Conteúdo e Tarefas.
 
-1. **Sem histórico visível.** A tela inicial ("Sobre o que vamos falar este mês?") só mostra a pauta que acabou de ser gerada via `planId` em `useState`. Ao dar F5 ou trocar de tela, o estado local zera e a pauta some da UI, dando a sensação de que "não salvou".
-2. **Sem escopo por cliente.** A tabela `monthly_plans` só tem `brand_id`. Se o workspace tiver vários clientes, todos compartilham o mesmo histórico — e hoje não conseguimos filtrar por cliente porque o campo não existe.
-3. **Volumetria semanal ignorada.** O prompt hardcoda "8 a 12 tópicos". O valor de `clients.brand_hub.volumetry` (posts/semana por canal — Instagram, TikTok, LinkedIn, YouTube, Facebook) definido no Briefing nunca é lido pela geração.
+## Situação atual
 
-## O que vamos entregar
+- SLA vive em `content_pipeline_stages.sla_days` (dias inteiros).
+- Cálculo em `src/lib/content.functions.ts` deriva `is_overdue` / `days_overdue` a partir de `stage_entered_at`.
+- Configuração em `/settings/sla` já permite definir dias por etapa.
+- Board de Conteúdo (`content-board.tsx`) mostra badge `AlarmClock` com contagem e tooltip básico ("N tarefa(s) atrasada(s)").
+- Kanban de Tarefas (`tasks/task-kanban.tsx`) marca `overdue` mas sem SLA por coluna configurável.
 
-1. Escopar `monthly_plans` por cliente e liberar histórico por cliente com autor e data.
-2. Fazer a IA respeitar a volumetria semanal do cliente (posts/semana × ~4,3 semanas do mês), distribuindo por canal.
-3. Refazer a tela inicial da Pauta com um bloco "Histórico" para abrir pautas anteriores.
+## O que muda
 
-## Alterações técnicas
+### 1. Tooltip explicativo do indicador
+- Substituir o `TooltipContent` atual do badge por um bloco estruturado:
+  - Título: "SLA da etapa: {label}"
+  - Corpo: "Cada card pode permanecer no máximo **{sla}** nesta etapa. As {n} tarefas exibidas aqui ultrapassaram esse prazo."
+  - Rodapé com link "Configurar SLA" apontando para `/settings/sla` (apenas para gestores).
+- Aplicar o mesmo componente reutilizável (`SlaBadge`) no card individual (hoje `title="Atrasado há Xd"`) e no header da coluna.
 
-**Migration (schema)**
-- `ALTER TABLE monthly_plans ADD COLUMN client_id uuid REFERENCES clients(id) ON DELETE CASCADE`.
-- Backfill: para os 3 registros existentes, associar ao 1º cliente do respectivo brand (ou arquivar se ambíguo).
-- `ALTER COLUMN client_id SET NOT NULL` + `CREATE INDEX ON monthly_plans (brand_id, client_id, created_at DESC)`.
-- Ajustar RLS de `monthly_plans` e `monthly_plan_topics` para exigir membership no cliente (padrão já usado em briefings).
+### 2. SLA em horas por etapa
+- Migrar unidade para horas (mais flexível). Manter compat com valores existentes.
+- Nova coluna `sla_hours` em `content_pipeline_stages`; backfill = `sla_days * 24`. Mantemos `sla_days` como coluna legada de leitura por um ciclo, mas escrita passa a ser em `sla_hours`.
+- Ajustar cálculo em `computeOverdue()` para trabalhar em horas.
+- Tela `/settings/sla`:
+  - Input numérico + seletor de unidade (h / d), persistindo sempre em horas.
+  - Presets rápidos (12h, 24h, 48h, 72h, 7d) ao lado do input.
+  - Exemplo visual: "Ideia · 24h · Aprovação · 48h · Design · 72h".
+- Aplicar o mesmo modelo em Tarefas: nova coluna `sla_hours` em `task_stages` (ou equivalente atual) + config na mesma tela `/settings/sla`, aba "Tarefas".
 
-**`src/lib/monthly-plans.functions.ts`**
-- `generateMonthlyPlanFn`:
-  - carregar `clients.brand_hub.volumetry` do cliente ativo;
-  - calcular `total = round(sum(volumetria semanal) * 4.3)` e cota por canal;
-  - prompt passa a incluir a distribuição alvo por canal e obriga o campo `channel` em cada tópico (`instagram | tiktok | linkedin | youtube | facebook`);
-  - fallback: se `sum = 0`, mantém 8–12 (comportamento atual) e não força canal;
-  - insere `client_id` no `INSERT` de `monthly_plans`.
-- `AiPlanSchema.topics`: adicionar `channel` (enum) e permitir até `max(total, 40)` itens.
-- `monthly_plan_topics`: adicionar coluna `channel text` (nullable) na migration para carregar o valor.
-- Nova função `listMonthlyPlansFn({ brandId, clientId })` — retorna `id, title, status, created_at, created_by, author_name` (join com `user_profiles`) ordenado por `created_at DESC`.
-- `getMonthlyPlanFn` já funciona; adicionar `client_id` no retorno.
+### 3. Status de SLA e filtros
+Introduzir três estados derivados:
 
-**UI `src/routes/_authenticated/customers.$customerId.pauta.tsx`**
-- Passa `clientId` no `generate`.
-- No estado inicial (sem `planId`), abaixo do formulário adicionar seção **"Histórico de pautas deste cliente"**:
-  - tabela enxuta: título, status (badge), autor, data (pt-BR), botão "Abrir".
-  - clicar seta `planId` e reaproveita o `ApprovalView`.
-  - inclui a pauta recém-gerada automaticamente após invalidar `["monthly-plans", brandId, clientId]`.
-- Se a URL trouxer `?planId=...`, restaurar o estado (para permitir F5 sem perder contexto).
-- Após geração e aprovação/descarte, `queryClient.invalidateQueries` da lista.
+| Estado | Regra |
+|---|---|
+| `on_track` | tempo em etapa < 80% do SLA |
+| `at_risk` | 80% ≤ tempo em etapa < 100% do SLA |
+| `overdue` | tempo em etapa ≥ 100% do SLA |
 
-**Sem mudanças**: aprovação → Kanban, edição de tópicos, descarte.
+- Enriquecer o retorno de posts/tasks com `sla_status` e `sla_progress` (0–1).
+- Adicionar filtro na toolbar (`task-toolbar.tsx` e `content-toolbar.tsx`):
+  - Chips segmentados: **Todos · Em dia · Próximo de vencer · Atrasadas**.
+  - Persistir no search param `sla=on_track|at_risk|overdue|all` (padrão `all`).
+- Badge do card ganha variante visual:
+  - Verde discreto (on_track, opcional/ocultável).
+  - Âmbar (at_risk) com texto "Vence em {Xh}".
+  - Vermelho (overdue) mantendo "Atrasado há {X}".
+- Contagem por status no header da coluna (não só overdue): `{on} · {risk} · {late}`.
 
-## Fora do escopo (agora)
+## Detalhes técnicos
 
-- Regeneração parcial de tópicos por canal.
-- Editor visual de volumetria dentro da Pauta (segue no Briefing).
-- Migração retroativa dos tópicos antigos para novo campo `channel` (ficam null; UI mostra "—").
+**Schema**
+- Migração:
+  - `ALTER TABLE public.content_pipeline_stages ADD COLUMN sla_hours integer;`
+  - `UPDATE ... SET sla_hours = sla_days * 24 WHERE sla_days IS NOT NULL;`
+  - Idem para tabela de estágios de tasks, se aplicável.
+  - Sem CHECK constraint (usa validação no server fn: 0–8760).
+- RLS e GRANTs seguem o modelo já existente das tabelas.
 
-Depois de aprovar eu implemento em uma leva só (migration + backend + UI).
+**Server functions** (`src/lib/content.functions.ts`, `src/lib/tasks.functions.ts`)
+- `computeOverdue()` → `computeSla()` retornando `{ sla_status, sla_progress, hours_in_stage, hours_over }`.
+- `slaSnapshotFn` agrega por status (não só overdue).
+- `updateStageSlaFn` (em `sla.functions.ts`) aceita `slaHours` em vez de `slaDays`.
+
+**Frontend**
+- Novo componente `src/components/tasks/sla-badge.tsx` reutilizado por Conteúdo e Tarefas.
+- `content-toolbar.tsx` e `task-toolbar.tsx`: chips de filtro + integração com search params via `zodValidator` (`fallback(z.string(), "all")`).
+- Filtros aplicados em memória sobre os arrays já retornados (mantém latência baixa).
+- `settings.sla.tsx`: substituir input de dias por input+unidade com presets; exibir tabela final em formato "Xh (Yd)".
+
+**i18n**
+- Textos em pt-BR: "Em dia", "Próximo de vencer", "Atrasadas", "Vence em Xh", "Atrasado há X".
+
+## Fora de escopo
+
+- Notificações no bell (já existem via `cron/sla-check`); apenas se ajusta a fonte para `sla_hours`.
+- SLA por cliente/projeto (`sla_rules`) — permanece como está.
+- Alterar o cron de checagem além da migração de unidade.
+
+## Entregáveis
+
+1. Migração de schema com `sla_hours` e backfill.
+2. Server fns atualizadas retornando `sla_status`/`sla_progress`.
+3. Página `/settings/sla` com input em horas + presets.
+4. `SlaBadge` reutilizável com tooltip explicativo.
+5. Filtros segmentados na toolbar de Conteúdo e Tarefas com persistência no URL.
+6. Contagem por status no header das colunas do Kanban.
