@@ -21,6 +21,7 @@ import * as learning from "./learning";
 import * as query from "./query";
 import * as chatGw from "./chat-gateway";
 import * as context from "./context-engine";
+import { getNicheFallbackMarkdown } from "./context-engine/niche-fallback";
 import type { BrainContext, BrainEventInput } from "./core";
 
 // ----------------------------------------------------------------------------
@@ -113,8 +114,21 @@ export const relate = graph.relate;
 // 11. getContext — contexto consolidado do Brain para um tema/pergunta.
 //     Base do Chat Brain-first; reutilizável por Agentes e Automações.
 // ----------------------------------------------------------------------------
-export async function getContext(ctx: BrainContext, args: { topic: string }) {
-  return chatGw.consolidate(ctx, { query: args.topic });
+export async function getContext(
+  ctx: BrainContext,
+  args: { topic: string; nicheHint?: string | null },
+) {
+  const pack = await chatGw.consolidate(ctx, { query: args.topic });
+  const isColdStart =
+    !pack.markdown ||
+    (pack.memoryRows.length === 0 &&
+      pack.insights.length === 0 &&
+      pack.memories.length === 0);
+  if (isColdStart) {
+    const fb = getNicheFallbackMarkdown(args.nicheHint ?? null);
+    return { ...pack, markdown: fb };
+  }
+  return pack;
 }
 
 // ----------------------------------------------------------------------------
