@@ -3,6 +3,7 @@ import { z } from "zod";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getBrandAiModel } from "@/lib/ai-provider.server";
+import { brain, type BrainContext } from "@/lib/brain/api";
 
 /* ---------- Types ---------- */
 
@@ -133,6 +134,24 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       }
     })();
 
+    // Brain: enrich prompt with consolidated knowledge for this brand/client.
+    let brainMarkdown = "";
+    try {
+      const brainCtx: BrainContext = {
+        supabase: context.supabase,
+        userId: context.userId,
+        brandId: data.brandId,
+        clientId: data.clientId,
+        module: "monthly-plan",
+      };
+      const pack = await brain.getContext(brainCtx, {
+        topic: `planejamento mensal ${data.theme ?? ""}`.trim(),
+      });
+      brainMarkdown = pack.markdown ?? "";
+    } catch (err) {
+      console.warn("[monthly-plan] brain.getContext failed:", err);
+    }
+
     // Volumetria semanal por canal (posts/semana) → cotas mensais (×4.3 semanas)
     const CHANNELS = ["instagram", "tiktok", "linkedin", "youtube", "facebook"] as const;
     type Channel = (typeof CHANNELS)[number];
@@ -156,6 +175,10 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
     const prompt = [
       `Você é um estrategista de conteúdo sênior.`,
       `Crie uma pauta mensal de conteúdo para redes sociais em português (Brasil).`,
+      ``,
+      brainMarkdown
+        ? `# Contexto do Brain (memórias, insights e métricas desta marca)\n${brainMarkdown}\n\nUse esse contexto para evitar repetir erros passados, reforçar o que já funcionou e respeitar diretrizes aprendidas.`
+        : "",
       ``,
       `Marca: ${brand?.name ?? "—"}`,
       `Cliente: ${client?.name ?? "—"}${client?.niche ? ` (${client.niche})` : ""}`,
