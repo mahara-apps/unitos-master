@@ -71,6 +71,7 @@ import { Route as ApiPublicMetaDataDeletionRouteImport } from './routes/api/publ
 import { Route as ApiPublicMetaCallbackRouteImport } from './routes/api/public/meta/callback'
 import { Route as ApiPublicMediaPruneRouteImport } from './routes/api/public/media/prune'
 import { Route as ApiPublicHooksBrainConsolidateRouteImport } from './routes/api/public/hooks/brain-consolidate'
+import { Route as ApiPublicHooksAiModelsHealthRouteImport } from './routes/api/public/hooks/ai-models-health'
 import { Route as ApiPublicCronSlaCheckRouteImport } from './routes/api/public/cron/sla-check'
 import { Route as ApiPublicApprovalTokenRouteImport } from './routes/api/public/approval.$token'
 import { Route as AuthenticatedCustomersCustomerIdPautaRouteImport } from './routes/_authenticated/customers.$customerId.pauta'
@@ -415,6 +416,12 @@ const ApiPublicHooksBrainConsolidateRoute =
     path: '/api/public/hooks/brain-consolidate',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksAiModelsHealthRoute =
+  ApiPublicHooksAiModelsHealthRouteImport.update({
+    id: '/api/public/hooks/ai-models-health',
+    path: '/api/public/hooks/ai-models-health',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicCronSlaCheckRoute = ApiPublicCronSlaCheckRouteImport.update({
   id: '/api/public/cron/sla-check',
   path: '/api/public/cron/sla-check',
@@ -514,6 +521,7 @@ export interface FileRoutesByFullPath {
   '/customers/$customerId/pauta': typeof AuthenticatedCustomersCustomerIdPautaRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
+  '/api/public/hooks/ai-models-health': typeof ApiPublicHooksAiModelsHealthRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
@@ -580,6 +588,7 @@ export interface FileRoutesByTo {
   '/customers/$customerId/pauta': typeof AuthenticatedCustomersCustomerIdPautaRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
+  '/api/public/hooks/ai-models-health': typeof ApiPublicHooksAiModelsHealthRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
@@ -652,6 +661,7 @@ export interface FileRoutesById {
   '/_authenticated/customers/$customerId/pauta': typeof AuthenticatedCustomersCustomerIdPautaRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
+  '/api/public/hooks/ai-models-health': typeof ApiPublicHooksAiModelsHealthRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
@@ -724,6 +734,7 @@ export interface FileRouteTypes {
     | '/customers/$customerId/pauta'
     | '/api/public/approval/$token'
     | '/api/public/cron/sla-check'
+    | '/api/public/hooks/ai-models-health'
     | '/api/public/hooks/brain-consolidate'
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
@@ -790,6 +801,7 @@ export interface FileRouteTypes {
     | '/customers/$customerId/pauta'
     | '/api/public/approval/$token'
     | '/api/public/cron/sla-check'
+    | '/api/public/hooks/ai-models-health'
     | '/api/public/hooks/brain-consolidate'
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
@@ -861,6 +873,7 @@ export interface FileRouteTypes {
     | '/_authenticated/customers/$customerId/pauta'
     | '/api/public/approval/$token'
     | '/api/public/cron/sla-check'
+    | '/api/public/hooks/ai-models-health'
     | '/api/public/hooks/brain-consolidate'
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
@@ -895,6 +908,7 @@ export interface RootRouteChildren {
   PBriefingTokenRoute: typeof PBriefingTokenRoute
   ApiPublicApprovalTokenRoute: typeof ApiPublicApprovalTokenRoute
   ApiPublicCronSlaCheckRoute: typeof ApiPublicCronSlaCheckRoute
+  ApiPublicHooksAiModelsHealthRoute: typeof ApiPublicHooksAiModelsHealthRoute
   ApiPublicHooksBrainConsolidateRoute: typeof ApiPublicHooksBrainConsolidateRoute
   ApiPublicMediaPruneRoute: typeof ApiPublicMediaPruneRoute
   ApiPublicMetaCallbackRoute: typeof ApiPublicMetaCallbackRoute
@@ -1344,6 +1358,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksBrainConsolidateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/ai-models-health': {
+      id: '/api/public/hooks/ai-models-health'
+      path: '/api/public/hooks/ai-models-health'
+      fullPath: '/api/public/hooks/ai-models-health'
+      preLoaderRoute: typeof ApiPublicHooksAiModelsHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/cron/sla-check': {
       id: '/api/public/cron/sla-check'
       path: '/api/public/cron/sla-check'
@@ -1572,6 +1593,7 @@ const rootRouteChildren: RootRouteChildren = {
   PBriefingTokenRoute: PBriefingTokenRoute,
   ApiPublicApprovalTokenRoute: ApiPublicApprovalTokenRoute,
   ApiPublicCronSlaCheckRoute: ApiPublicCronSlaCheckRoute,
+  ApiPublicHooksAiModelsHealthRoute: ApiPublicHooksAiModelsHealthRoute,
   ApiPublicHooksBrainConsolidateRoute: ApiPublicHooksBrainConsolidateRoute,
   ApiPublicMediaPruneRoute: ApiPublicMediaPruneRoute,
   ApiPublicMetaCallbackRoute: ApiPublicMetaCallbackRoute,
