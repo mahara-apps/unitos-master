@@ -1,4 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
+import { z } from "zod";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -35,13 +36,17 @@ import {
   generateMonthlyPlanFn,
   getMonthlyPlanFn,
   listBriefingsForPlanFn,
+  listMonthlyPlansFn,
   updateMonthlyPlanFn,
   updateTopicFn,
   type MonthlyPlanTopic,
   type MonthlyPlanWithTopics,
 } from "@/lib/monthly-plans.functions";
 
+const SearchSchema = z.object({ planId: z.string().uuid().optional() });
+
 export const Route = createFileRoute("/_authenticated/customers/$customerId/pauta")({
+  validateSearch: (s: Record<string, unknown>) => SearchSchema.parse(s),
   component: MonthlyPlanRoute,
 });
 
