@@ -31,7 +31,7 @@ O **Brain** é a camada central de conhecimento da UNITOS. Consolida eventos ope
 | `brain.chat` | `chat-gateway/` | Consolidação Brain-first + fallback LLM | (lê tudo via API) |
 | `brain.context` | `context-engine/` | Monta `ContextPack` escopado por pergunta | — |
 | `brain.stream` | `stream/` | Hook React `useBrainStream` para live UI | — |
-| `brain.reasoning` | interno | Logs de raciocínio para auditoria | `brain_reasoning_logs` |
+| `brain.reasoning` | `reasoning/` | Pipeline Intent → Plan → Tools → Decision → Response | `brain_reasoning_logs` |
 | `brain.retention` | interno | Políticas de retenção por tipo | `brain_retention_config` |
 
 ### Suporte
@@ -39,6 +39,7 @@ O **Brain** é a camada central de conhecimento da UNITOS. Consolida eventos ope
 - `services.ts` — 12 métodos de alto nível.
 - `ingest-quiet.server.ts` — ingest *fire-and-forget* para caminhos hot-path.
 - `cache.ts` — cache curto in-memory por request.
+- `diagnostics.functions.ts` — health-check consumido por `/brain/diagnostics`.
 - `legacy/` — server functions oficiais expostas via TanStack RPC (consolidate, graph, intelligence, widget, embed).
 
 ---
