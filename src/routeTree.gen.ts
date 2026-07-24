@@ -70,6 +70,7 @@ import { Route as ApiPublicMetaDeauthorizeRouteImport } from './routes/api/publi
 import { Route as ApiPublicMetaDataDeletionRouteImport } from './routes/api/public/meta/data-deletion'
 import { Route as ApiPublicMetaCallbackRouteImport } from './routes/api/public/meta/callback'
 import { Route as ApiPublicMediaPruneRouteImport } from './routes/api/public/media/prune'
+import { Route as ApiPublicHooksBrainSynthesisRouteImport } from './routes/api/public/hooks/brain-synthesis'
 import { Route as ApiPublicHooksBrainConsolidateRouteImport } from './routes/api/public/hooks/brain-consolidate'
 import { Route as ApiPublicHooksAiModelsHealthRouteImport } from './routes/api/public/hooks/ai-models-health'
 import { Route as ApiPublicCronSlaCheckRouteImport } from './routes/api/public/cron/sla-check'
@@ -410,6 +411,12 @@ const ApiPublicMediaPruneRoute = ApiPublicMediaPruneRouteImport.update({
   path: '/api/public/media/prune',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksBrainSynthesisRoute =
+  ApiPublicHooksBrainSynthesisRouteImport.update({
+    id: '/api/public/hooks/brain-synthesis',
+    path: '/api/public/hooks/brain-synthesis',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksBrainConsolidateRoute =
   ApiPublicHooksBrainConsolidateRouteImport.update({
     id: '/api/public/hooks/brain-consolidate',
@@ -523,6 +530,7 @@ export interface FileRoutesByFullPath {
   '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
   '/api/public/hooks/ai-models-health': typeof ApiPublicHooksAiModelsHealthRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
+  '/api/public/hooks/brain-synthesis': typeof ApiPublicHooksBrainSynthesisRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
   '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
@@ -590,6 +598,7 @@ export interface FileRoutesByTo {
   '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
   '/api/public/hooks/ai-models-health': typeof ApiPublicHooksAiModelsHealthRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
+  '/api/public/hooks/brain-synthesis': typeof ApiPublicHooksBrainSynthesisRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
   '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
@@ -663,6 +672,7 @@ export interface FileRoutesById {
   '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
   '/api/public/hooks/ai-models-health': typeof ApiPublicHooksAiModelsHealthRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
+  '/api/public/hooks/brain-synthesis': typeof ApiPublicHooksBrainSynthesisRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
   '/api/public/meta/data-deletion': typeof ApiPublicMetaDataDeletionRoute
@@ -736,6 +746,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/sla-check'
     | '/api/public/hooks/ai-models-health'
     | '/api/public/hooks/brain-consolidate'
+    | '/api/public/hooks/brain-synthesis'
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
     | '/api/public/meta/data-deletion'
@@ -803,6 +814,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/sla-check'
     | '/api/public/hooks/ai-models-health'
     | '/api/public/hooks/brain-consolidate'
+    | '/api/public/hooks/brain-synthesis'
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
     | '/api/public/meta/data-deletion'
@@ -875,6 +887,7 @@ export interface FileRouteTypes {
     | '/api/public/cron/sla-check'
     | '/api/public/hooks/ai-models-health'
     | '/api/public/hooks/brain-consolidate'
+    | '/api/public/hooks/brain-synthesis'
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
     | '/api/public/meta/data-deletion'
@@ -910,6 +923,7 @@ export interface RootRouteChildren {
   ApiPublicCronSlaCheckRoute: typeof ApiPublicCronSlaCheckRoute
   ApiPublicHooksAiModelsHealthRoute: typeof ApiPublicHooksAiModelsHealthRoute
   ApiPublicHooksBrainConsolidateRoute: typeof ApiPublicHooksBrainConsolidateRoute
+  ApiPublicHooksBrainSynthesisRoute: typeof ApiPublicHooksBrainSynthesisRoute
   ApiPublicMediaPruneRoute: typeof ApiPublicMediaPruneRoute
   ApiPublicMetaCallbackRoute: typeof ApiPublicMetaCallbackRoute
   ApiPublicMetaDataDeletionRoute: typeof ApiPublicMetaDataDeletionRoute
@@ -1351,6 +1365,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicMediaPruneRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/brain-synthesis': {
+      id: '/api/public/hooks/brain-synthesis'
+      path: '/api/public/hooks/brain-synthesis'
+      fullPath: '/api/public/hooks/brain-synthesis'
+      preLoaderRoute: typeof ApiPublicHooksBrainSynthesisRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/brain-consolidate': {
       id: '/api/public/hooks/brain-consolidate'
       path: '/api/public/hooks/brain-consolidate'
@@ -1595,6 +1616,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicCronSlaCheckRoute: ApiPublicCronSlaCheckRoute,
   ApiPublicHooksAiModelsHealthRoute: ApiPublicHooksAiModelsHealthRoute,
   ApiPublicHooksBrainConsolidateRoute: ApiPublicHooksBrainConsolidateRoute,
+  ApiPublicHooksBrainSynthesisRoute: ApiPublicHooksBrainSynthesisRoute,
   ApiPublicMediaPruneRoute: ApiPublicMediaPruneRoute,
   ApiPublicMetaCallbackRoute: ApiPublicMetaCallbackRoute,
   ApiPublicMetaDataDeletionRoute: ApiPublicMetaDataDeletionRoute,
