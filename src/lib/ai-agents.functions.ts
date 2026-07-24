@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { createLovableAiGatewayProvider } from "./ai-gateway.server";
+import { getBrandAiModel } from "./ai-provider.server";
 import { brain } from "@/lib/brain/api";
 
 /**
@@ -324,9 +324,6 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
   /** Skip the brand-context blueprint (e.g. briefing.parse consumes raw text). */
   skipBrandContext?: boolean;
 }): Promise<z.infer<T>> {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("LOVABLE_API_KEY não configurada");
-
   // Autorização: usuário precisa ser membro da marca.
   const { data: member, error: memberErr } = await opts.supabase
     .from("brand_members")
@@ -372,9 +369,14 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
     ? `${brandBlueprint}\n\n---\n\n${opts.system}`
     : opts.system;
 
-  const { model: modelId, structuredOutputs } = AGENT_MODEL[opts.agent];
-  const gateway = createLovableAiGatewayProvider(key, undefined, { structuredOutputs });
-  const model = gateway(modelId);
+  const { model, modelId } = await getBrandAiModel(
+    opts.supabase,
+    opts.brandId,
+    "text",
+  );
+  // structuredOutputs kept for backwards-compat but ignored (each provider
+  // enforces its own structured-output flow via the ai-sdk Output helper).
+  void AGENT_MODEL[opts.agent];
 
   let output: unknown;
   let inTok = 0;
