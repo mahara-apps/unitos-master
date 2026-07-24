@@ -251,6 +251,74 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
 
 /* ---------- CRUD ---------- */
 
+export type MonthlyPlanListItem = {
+  id: string;
+  title: string;
+  status: MonthlyPlanStatus;
+  created_at: string;
+  created_by: string | null;
+  author_name: string | null;
+  topics_count: number;
+};
+
+export const listMonthlyPlansFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ brandId: z.string().uuid(), clientId: z.string().uuid() }).parse(i),
+  )
+  .handler(async ({ data, context }): Promise<MonthlyPlanListItem[]> => {
+    const { data: rows, error } = await context.supabase
+      .from("monthly_plans" as never)
+      .select("id, title, status, created_at, created_by")
+      .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    const list = (rows ?? []) as unknown as Array<{
+      id: string;
+      title: string;
+      status: MonthlyPlanStatus;
+      created_at: string;
+      created_by: string | null;
+    }>;
+    if (list.length === 0) return [];
+
+    const userIds = Array.from(new Set(list.map((r) => r.created_by).filter((v): v is string => !!v)));
+    const authorMap = new Map<string, string>();
+    if (userIds.length) {
+      const { data: profs } = await context.supabase
+        .from("user_profiles")
+        .select("id, full_name")
+        .in("id", userIds);
+      for (const p of profs ?? []) {
+        authorMap.set(p.id as string, (p.full_name as string | null) ?? "");
+      }
+    }
+
+    const planIds = list.map((r) => r.id);
+    const countMap = new Map<string, number>();
+    if (planIds.length) {
+      const { data: tops } = await context.supabase
+        .from("monthly_plan_topics" as never)
+        .select("monthly_plan_id")
+        .in("monthly_plan_id", planIds);
+      for (const t of (tops ?? []) as Array<{ monthly_plan_id: string }>) {
+        countMap.set(t.monthly_plan_id, (countMap.get(t.monthly_plan_id) ?? 0) + 1);
+      }
+    }
+
+    return list.map((r) => ({
+      id: r.id,
+      title: r.title,
+      status: r.status,
+      created_at: r.created_at,
+      created_by: r.created_by,
+      author_name: r.created_by ? authorMap.get(r.created_by) || null : null,
+      topics_count: countMap.get(r.id) ?? 0,
+    }));
+  });
+
 export const getMonthlyPlanFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ planId: z.string().uuid() }).parse(i))
