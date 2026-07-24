@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
+import { createFileRoute, useLocation, useNavigate, useSearch } from "@tanstack/react-router";
 import { z } from "zod";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -89,13 +89,15 @@ const LOADING_MESSAGES = [
 ];
 
 export function MonthlyPlanView({ brandId, clientId }: { brandId: string; clientId: string }) {
-  const search = useSearch({ from: "/_authenticated/customers/$customerId/pauta" });
-  const navigate = useNavigate({ from: "/_authenticated/customers/$customerId/pauta" });
-  const planId = search.planId ?? null;
+  // Route-agnostic: this view is mounted from both
+  // /_authenticated/customers/$customerId/pauta and /_authenticated/monthly-plan
+  const rawSearch = useSearch({ strict: false }) as { planId?: string };
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const planId = rawSearch.planId ?? null;
   const setPlanId = (id: string | null) =>
     navigate({
-      to: "/customers/$customerId/pauta",
-      params: { customerId: clientId },
+      to: pathname,
       search: id ? { planId: id } : {},
       replace: true,
     });
