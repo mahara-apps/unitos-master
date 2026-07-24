@@ -83,7 +83,7 @@ const LOADING_MESSAGES = [
   "Finalizando a pauta…",
 ];
 
-function MonthlyPlanView({ brandId, clientId }: { brandId: string; clientId: string }) {
+export function MonthlyPlanView({ brandId, clientId }: { brandId: string; clientId: string }) {
   const [planId, setPlanId] = useState<string | null>(null);
   const [theme, setTheme] = useState("");
   const [briefingId, setBriefingId] = useState<string>("__none");
