@@ -72,6 +72,7 @@ import { Route as ApiPublicMediaPruneRouteImport } from './routes/api/public/med
 import { Route as ApiPublicHooksBrainConsolidateRouteImport } from './routes/api/public/hooks/brain-consolidate'
 import { Route as ApiPublicCronSlaCheckRouteImport } from './routes/api/public/cron/sla-check'
 import { Route as ApiPublicApprovalTokenRouteImport } from './routes/api/public/approval.$token'
+import { Route as AuthenticatedCustomersCustomerIdPautaRouteImport } from './routes/_authenticated/customers.$customerId.pauta'
 import { Route as AuthenticatedCustomersCustomerIdMediaPlanRouteImport } from './routes/_authenticated/customers.$customerId.media-plan'
 import { Route as AuthenticatedCustomersCustomerIdBriefingRouteImport } from './routes/_authenticated/customers.$customerId.briefing'
 import { Route as AuthenticatedCustomersCustomerIdBrainRouteImport } from './routes/_authenticated/customers.$customerId.brain'
@@ -417,6 +418,12 @@ const ApiPublicApprovalTokenRoute = ApiPublicApprovalTokenRouteImport.update({
   path: '/api/public/approval/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedCustomersCustomerIdPautaRoute =
+  AuthenticatedCustomersCustomerIdPautaRouteImport.update({
+    id: '/pauta',
+    path: '/pauta',
+    getParentRoute: () => AuthenticatedCustomersCustomerIdRoute,
+  } as any)
 const AuthenticatedCustomersCustomerIdMediaPlanRoute =
   AuthenticatedCustomersCustomerIdMediaPlanRouteImport.update({
     id: '/media-plan',
@@ -496,6 +503,7 @@ export interface FileRoutesByFullPath {
   '/customers/$customerId/brain': typeof AuthenticatedCustomersCustomerIdBrainRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
+  '/customers/$customerId/pauta': typeof AuthenticatedCustomersCustomerIdPautaRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
@@ -560,6 +568,7 @@ export interface FileRoutesByTo {
   '/customers/$customerId/brain': typeof AuthenticatedCustomersCustomerIdBrainRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
+  '/customers/$customerId/pauta': typeof AuthenticatedCustomersCustomerIdPautaRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
@@ -630,6 +639,7 @@ export interface FileRoutesById {
   '/_authenticated/customers/$customerId/brain': typeof AuthenticatedCustomersCustomerIdBrainRoute
   '/_authenticated/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/_authenticated/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
+  '/_authenticated/customers/$customerId/pauta': typeof AuthenticatedCustomersCustomerIdPautaRoute
   '/api/public/approval/$token': typeof ApiPublicApprovalTokenRoute
   '/api/public/cron/sla-check': typeof ApiPublicCronSlaCheckRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
@@ -700,6 +710,7 @@ export interface FileRouteTypes {
     | '/customers/$customerId/brain'
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/media-plan'
+    | '/customers/$customerId/pauta'
     | '/api/public/approval/$token'
     | '/api/public/cron/sla-check'
     | '/api/public/hooks/brain-consolidate'
@@ -764,6 +775,7 @@ export interface FileRouteTypes {
     | '/customers/$customerId/brain'
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/media-plan'
+    | '/customers/$customerId/pauta'
     | '/api/public/approval/$token'
     | '/api/public/cron/sla-check'
     | '/api/public/hooks/brain-consolidate'
@@ -833,6 +845,7 @@ export interface FileRouteTypes {
     | '/_authenticated/customers/$customerId/brain'
     | '/_authenticated/customers/$customerId/briefing'
     | '/_authenticated/customers/$customerId/media-plan'
+    | '/_authenticated/customers/$customerId/pauta'
     | '/api/public/approval/$token'
     | '/api/public/cron/sla-check'
     | '/api/public/hooks/brain-consolidate'
@@ -1325,6 +1338,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicApprovalTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/customers/$customerId/pauta': {
+      id: '/_authenticated/customers/$customerId/pauta'
+      path: '/pauta'
+      fullPath: '/customers/$customerId/pauta'
+      preLoaderRoute: typeof AuthenticatedCustomersCustomerIdPautaRouteImport
+      parentRoute: typeof AuthenticatedCustomersCustomerIdRoute
+    }
     '/_authenticated/customers/$customerId/media-plan': {
       id: '/_authenticated/customers/$customerId/media-plan'
       path: '/media-plan'
@@ -1386,6 +1406,7 @@ interface AuthenticatedCustomersCustomerIdRouteChildren {
   AuthenticatedCustomersCustomerIdBrainRoute: typeof AuthenticatedCustomersCustomerIdBrainRoute
   AuthenticatedCustomersCustomerIdBriefingRoute: typeof AuthenticatedCustomersCustomerIdBriefingRoute
   AuthenticatedCustomersCustomerIdMediaPlanRoute: typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
+  AuthenticatedCustomersCustomerIdPautaRoute: typeof AuthenticatedCustomersCustomerIdPautaRoute
 }
 
 const AuthenticatedCustomersCustomerIdRouteChildren: AuthenticatedCustomersCustomerIdRouteChildren =
@@ -1396,6 +1417,8 @@ const AuthenticatedCustomersCustomerIdRouteChildren: AuthenticatedCustomersCusto
       AuthenticatedCustomersCustomerIdBriefingRoute,
     AuthenticatedCustomersCustomerIdMediaPlanRoute:
       AuthenticatedCustomersCustomerIdMediaPlanRoute,
+    AuthenticatedCustomersCustomerIdPautaRoute:
+      AuthenticatedCustomersCustomerIdPautaRoute,
   }
 
 const AuthenticatedCustomersCustomerIdRouteWithChildren =
