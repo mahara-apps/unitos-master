@@ -157,13 +157,13 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Tema do mês
+                  Tema do mês <span className="normal-case text-muted-foreground/70">(opcional se um briefing for vinculado)</span>
                 </label>
                 <Input
                   autoFocus
                   value={theme}
                   onChange={(e) => setTheme(e.target.value)}
-                  placeholder="Ex.: Mês das Mães focado em vendas"
+                  placeholder="Ex.: Mês das Mães focado em vendas — ou deixe vazio e use só o briefing"
                   className="h-11 text-base"
                 />
               </div>
@@ -187,7 +187,7 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
               </div>
               <Button
                 className="h-11 w-full gap-2 text-base"
-                disabled={theme.trim().length < 3}
+                disabled={theme.trim().length < 3 && briefingId === "__none"}
                 onClick={() =>
                   generateM.mutate({
                     theme: theme.trim(),
@@ -195,8 +195,16 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
                   })
                 }
               >
-                <Sparkles className="h-4 w-4" /> Gerar Pauta com IA
+                <Sparkles className="h-4 w-4" />
+                {theme.trim().length < 3 && briefingId !== "__none"
+                  ? "Gerar Pauta a partir do briefing"
+                  : "Gerar Pauta com IA"}
               </Button>
+              {theme.trim().length < 3 && briefingId === "__none" ? (
+                <p className="text-center text-xs text-muted-foreground">
+                  Descreva um tema ou vincule um briefing para gerar a pauta.
+                </p>
+              ) : null}
             </div>
           )}
         </div>
