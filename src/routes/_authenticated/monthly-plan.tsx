@@ -3,7 +3,7 @@ import { AlertTriangle } from "lucide-react";
 
 import { useActiveContext } from "@/hooks/use-active-context";
 import { usePageHeader } from "@/hooks/use-page-header";
-import { MonthlyPlanView } from "@/components/monthly-plan/monthly-plan-view";
+import { MonthlyPlanView } from "./customers.$customerId.pauta";
 
 export const Route = createFileRoute("/_authenticated/monthly-plan")({
   component: MonthlyPlanPage,
