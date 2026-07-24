@@ -54,7 +54,7 @@ function MonthlyPlanRoute() {
   usePageHeader(
     {
       title: "Pauta mensal",
-      subtitle: "Briefing → Pauta → Aprovação → Produção",
+      subtitle: "Planeje os temas do mês antes de produzir os posts",
     },
     [customerId],
   );
