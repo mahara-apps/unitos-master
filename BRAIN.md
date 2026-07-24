@@ -31,7 +31,7 @@ O **Brain** é a camada central de conhecimento da UNITOS. Consolida eventos ope
 | `brain.chat` | `chat-gateway/` | Consolidação Brain-first + fallback LLM | (lê tudo via API) |
 | `brain.context` | `context-engine/` | Monta `ContextPack` escopado por pergunta | — |
 | `brain.stream` | `stream/` | Hook React `useBrainStream` para live UI | — |
-| `brain.reasoning` | interno | Logs de raciocínio para auditoria | `brain_reasoning_logs` |
+| `brain.reasoning` | `reasoning/` | Pipeline Intent → Plan → Tools → Decision → Response | `brain_reasoning_logs` |
 | `brain.retention` | interno | Políticas de retenção por tipo | `brain_retention_config` |
 
 ### Suporte
@@ -39,6 +39,7 @@ O **Brain** é a camada central de conhecimento da UNITOS. Consolida eventos ope
 - `services.ts` — 12 métodos de alto nível.
 - `ingest-quiet.server.ts` — ingest *fire-and-forget* para caminhos hot-path.
 - `cache.ts` — cache curto in-memory por request.
+- `diagnostics.functions.ts` — health-check consumido por `/brain/diagnostics`.
 - `legacy/` — server functions oficiais expostas via TanStack RPC (consolidate, graph, intelligence, widget, embed).
 
 ---
@@ -173,6 +174,26 @@ Removidas na Fase 1 (duplicadas pela Brain API): `brain-memory`, `brain-learning
 - **Snapshots de métricas**: job diário grava em `brain_metrics_snapshots`.
 - **Retenção**: job varre `brain_events` por `brain_retention_config`, move para `brain_events_archive`.
 - **AI model health**: `ai_model_health` (semanal) garante que o provider configurado no brand ainda responde antes de ser usado pelo Chat Gateway.
+
+---
+
+## 8b. Reasoning Engine v1
+
+`src/lib/brain/reasoning/` implementa um pipeline determinístico usado pelo Chat Gateway antes (e às vezes em vez) do LLM:
+
+```text
+question ─▶ classifyIntent ─▶ buildPlan ─▶ executePlan (tools) ─▶ decide
+                                                                    │
+                             ┌───────────── deterministic ──────────┤
+                             │                                      │
+                             ▼                                      ▼
+                     renderAnswer (sem LLM)                    hybrid → LLM com contexto
+                                                                    │
+                                                                    ▼
+                                                          logReasoning → brain_reasoning_logs
+```
+
+Arquivos: `intent.ts`, `planner.ts`, `tools.server.ts`, `decision.ts`, `response.ts`, `logger.server.ts`, `orchestrator.server.ts`. Entrada única: `reason(ctx, supabase, { question, conversationId })` → `ReasoningOutcome` com `deterministicAnswer`, `shouldCallLlm`, `llmContextMarkdown` e `latencyMs`. Toda execução é auditada em `brain_reasoning_logs` (intent, plano, tools chamadas, decisão, se usou LLM).
 
 ---
 
