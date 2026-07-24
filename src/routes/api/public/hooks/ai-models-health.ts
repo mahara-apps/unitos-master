@@ -60,13 +60,7 @@ export const Route = createFileRoute("/api/public/hooks/ai-models-health")({
           } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
             results.push({ provider, model: modelId, ok: false, error: msg });
-
-            await supabase.from("notifications").insert({
-              type: "system_alert",
-              title: `Modelo ${provider}/${modelId} indisponível`,
-              body: msg.slice(0, 500),
-              severity: "error",
-            });
+            console.error(`[ai-models-health] ${provider}/${modelId} failed:`, msg);
           }
 
           await supabase.from("ai_model_health").insert({

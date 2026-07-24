@@ -235,6 +235,33 @@ export type Database = {
           },
         ]
       }
+      ai_model_health: {
+        Row: {
+          checked_at: string
+          error_message: string | null
+          id: string
+          model_id: string
+          provider: string
+          status: string
+        }
+        Insert: {
+          checked_at?: string
+          error_message?: string | null
+          id?: string
+          model_id: string
+          provider: string
+          status: string
+        }
+        Update: {
+          checked_at?: string
+          error_message?: string | null
+          id?: string
+          model_id?: string
+          provider?: string
+          status?: string
+        }
+        Relationships: []
+      }
       ai_usage_limits: {
         Row: {
           brand_id: string
