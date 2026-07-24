@@ -21,7 +21,7 @@ export type StageSlaRow = {
   pipeline_name: string;
   name: string;
   position: number;
-  sla_days: number | null;
+  sla_hours: number | null;
 };
 
 const BrandInput = z.object({ brandId: z.string().uuid() });
@@ -122,32 +122,38 @@ export const listStageSlasFn = createServerFn({ method: "POST" })
     const nameById = new Map(pipes!.map((p) => [p.id, p.name as string]));
     const { data: stages, error } = await context.supabase
       .from("content_pipeline_stages")
-      .select("id, pipeline_id, label, position, sla_days")
+      .select("id, pipeline_id, label, position, sla_days, sla_hours")
       .in("pipeline_id", ids)
       .order("pipeline_id", { ascending: true })
       .order("position", { ascending: true });
     if (error) throw error;
-    return (stages ?? []).map((s) => ({
+    return (stages ?? []).map((s) => {
+      const h = (s.sla_hours as number | null) ?? null;
+      const d = (s.sla_days as number | null) ?? null;
+      const hours = h != null && h > 0 ? h : d != null && d > 0 ? d * 24 : null;
+      return {
       id: s.id as string,
       pipeline_id: s.pipeline_id as string,
       pipeline_name: nameById.get(s.pipeline_id as string) ?? "—",
       name: s.label as string,
       position: s.position as number,
-      sla_days: (s.sla_days as number | null) ?? null,
-    }));
+        sla_hours: hours,
+      };
+    });
   });
 
 export const updateStageSlaFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
     z
-      .object({ stageId: z.string().uuid(), slaDays: z.number().int().min(0).max(365).nullable() })
+      .object({ stageId: z.string().uuid(), slaHours: z.number().int().min(0).max(24 * 365).nullable() })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
+    const days = data.slaHours == null ? null : Math.max(1, Math.round(data.slaHours / 24));
     const { error } = await context.supabase
       .from("content_pipeline_stages")
-      .update({ sla_days: data.slaDays })
+      .update({ sla_hours: data.slaHours, sla_days: days })
       .eq("id", data.stageId);
     if (error) throw error;
     return { ok: true };
