@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
+import { getBrandAiModel } from "@/lib/ai-provider.server";
 
 /* ---------- Types ---------- */
 
@@ -101,9 +101,6 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => GenerateInput.parse(i))
   .handler(async ({ data, context }): Promise<MonthlyPlanWithTopics> => {
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("Missing LOVABLE_API_KEY");
-
     const [{ data: brand }, { data: client }, { data: briefing }] = await Promise.all([
       context.supabase.from("brands").select("name").eq("id", data.brandId).maybeSingle(),
       context.supabase
@@ -156,8 +153,7 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       .filter(Boolean)
       .join("\n");
 
-    const gateway = createLovableAiGatewayProvider(key);
-    const model = gateway("google/gemini-2.5-flash");
+    const { model } = await getBrandAiModel(context.supabase, data.brandId, "text");
 
     let parsed: z.infer<typeof AiPlanSchema> | null = null;
     try {
