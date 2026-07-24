@@ -77,6 +77,7 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
   {
     label: "Operação",
     items: [
+      { title: "Pauta", url: "/monthly-plan", icon: ScrollText },
       { title: "Conteúdo", url: "/content", icon: KanbanSquare, featureKey: "blog_post" },
       { title: "Calendário", url: "/calendar", icon: CalendarDays },
       { title: "Tarefas", url: "/tasks", icon: ListChecks, badge: "tasks-pending" },
@@ -299,40 +300,6 @@ export function AppSidebar() {
                           }
                         >
                           Briefing
-                        </span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive(`/customers/${activeClient.id}/pauta`)}
-                      tooltip="Pauta mensal"
-                    >
-                      <Link
-                        to="/customers/$customerId/pauta"
-                        params={{ customerId: activeClient.id }}
-                        preload="intent"
-                        className="group/nav relative flex items-center gap-3"
-                      >
-                        {isActive(`/customers/${activeClient.id}/pauta`) ? (
-                          <span
-                            aria-hidden
-                            className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-lime group-data-[collapsible=icon]:hidden"
-                          />
-                        ) : null}
-                        <ScrollText
-                          className="h-[19px] w-[19px] shrink-0"
-                          strokeWidth={isActive(`/customers/${activeClient.id}/pauta`) ? 2 : 1.8}
-                        />
-                        <span
-                          className={
-                            isActive(`/customers/${activeClient.id}/pauta`)
-                              ? "font-semibold"
-                              : "font-medium"
-                          }
-                        >
-                          Pauta
                         </span>
                       </Link>
                     </SidebarMenuButton>

@@ -1,0 +1,36 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { AlertTriangle } from "lucide-react";
+
+import { useActiveContext } from "@/hooks/use-active-context";
+import { usePageHeader } from "@/hooks/use-page-header";
+import { MonthlyPlanView } from "./customers.$customerId.pauta";
+
+export const Route = createFileRoute("/_authenticated/monthly-plan")({
+  component: MonthlyPlanPage,
+});
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function MonthlyPlanPage() {
+  const { brandId, clientId } = useActiveContext();
+
+  usePageHeader(
+    {
+      title: "Pauta mensal",
+      subtitle: "Briefing → Pauta → Aprovação → Produção",
+    },
+    [clientId],
+  );
+
+  if (!brandId || !clientId || !UUID_RE.test(brandId) || !UUID_RE.test(clientId)) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-6 text-sm text-amber-300">
+          <AlertTriangle className="h-4 w-4" /> Selecione um cliente no seletor acima para acessar a Pauta.
+        </div>
+      </div>
+    );
+  }
+
+  return <MonthlyPlanView brandId={brandId} clientId={clientId} />;
+}
