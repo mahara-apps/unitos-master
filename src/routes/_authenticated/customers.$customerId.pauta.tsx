@@ -122,7 +122,7 @@ function MonthlyPlanView({ brandId, clientId }: { brandId: string; clientId: str
       setPlanId(res.plan.id);
       qc.setQueryData(["monthly-plan", res.plan.id], res);
     },
-    onError: (err) => toast.error(describeError(err, "Falha ao gerar pauta")),
+    onError: (err) => toast.error(`Falha ao gerar pauta: ${describeError(err)}`),
   });
 
   const qc = useQueryClient();
@@ -271,7 +271,7 @@ function ApprovalView({
   const savePlan = useMutation({
     mutationFn: (patch: { title?: string; description?: string; objectives?: string }) =>
       updatePlan({ data: { planId, ...patch } }),
-    onError: (e) => toast.error(describeError(e, "Falha ao salvar")),
+    onError: (e) => toast.error(`Falha ao salvar: ${describeError(e)}`),
   });
 
   const addTopic = useMutation({
@@ -289,7 +289,7 @@ function ApprovalView({
         prev ? { ...prev, topics: [...prev.topics, t] } : prev,
       );
     },
-    onError: (e) => toast.error(describeError(e, "Falha ao adicionar tópico")),
+    onError: (e) => toast.error(`Falha ao adicionar tópico: ${describeError(e)}`),
   });
 
   const patchTopic = useMutation({
@@ -302,7 +302,7 @@ function ApprovalView({
           angle: input.patch.angle ?? undefined,
         },
       }),
-    onError: (e) => toast.error(describeError(e, "Falha ao atualizar tópico")),
+    onError: (e) => toast.error(`Falha ao atualizar tópico: ${describeError(e)}`),
   });
 
   const removeTopic = useMutation({
@@ -316,7 +316,7 @@ function ApprovalView({
     },
     onError: (e, _, ctx) => {
       if (ctx?.prev) qc.setQueryData(["monthly-plan", planId], ctx.prev);
-      toast.error(describeError(e, "Falha ao remover"));
+      toast.error(`Falha ao remover: ${describeError(e)}`);
     },
   });
 
@@ -326,7 +326,7 @@ function ApprovalView({
       toast.success(`${res.created} posts criados no Kanban.`);
       navigate({ to: "/content" });
     },
-    onError: (e) => toast.error(describeError(e, "Falha ao aprovar")),
+    onError: (e) => toast.error(`Falha ao aprovar: ${describeError(e)}`),
   });
 
   const discard = useMutation({
@@ -335,7 +335,7 @@ function ApprovalView({
       toast.success("Pauta descartada.");
       onDiscarded();
     },
-    onError: (e) => toast.error(describeError(e, "Falha ao descartar")),
+    onError: (e) => toast.error(`Falha ao descartar: ${describeError(e)}`),
   });
 
   if (q.isLoading || !q.data) {
