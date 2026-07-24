@@ -989,7 +989,7 @@ export const reworkPostFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: post, error: pe } = await context.supabase
       .from("posts")
-      .select("id, pipeline_id, stage_id")
+      .select("id, pipeline_id, stage_id, brand_id, client_id, title, copy")
       .eq("id", data.postId)
       .maybeSingle();
     if (pe) throw pe;
@@ -1028,6 +1028,37 @@ export const reworkPostFn = createServerFn({ method: "POST" })
       .update(patch as never)
       .eq("id", data.postId);
     if (error) throw error;
+
+    // Brain: close the learning loop — register rework feedback + enqueue learning.
+    try {
+      const brainCtx = {
+        supabase: context.supabase,
+        userId: context.userId,
+        brandId: (post as { brand_id?: string | null }).brand_id ?? null,
+        clientId: (post as { client_id?: string | null }).client_id ?? null,
+        module: "content",
+      };
+      const feedbackPayload = {
+        post_id: data.postId,
+        brand_id: (post as { brand_id?: string | null }).brand_id ?? null,
+        client_id: (post as { client_id?: string | null }).client_id ?? null,
+        original_title: (post as { title?: string | null }).title ?? null,
+        original_copy: (post as { copy?: string | null }).copy ?? null,
+        user_notes: data.notes ?? null,
+      };
+      await brain.registerEvent(brainCtx, {
+        source_module: "content",
+        event_type: "post.rework",
+        payload: feedbackPayload,
+      });
+      await brain.learn(brainCtx, {
+        job_type: "post.rework.feedback",
+        payload: feedbackPayload,
+      });
+    } catch (err) {
+      console.warn("[content.rework] brain feedback failed:", err);
+    }
+
     return { ok: true };
   });
 
