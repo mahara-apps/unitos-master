@@ -1,11 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AlertTriangle } from "lucide-react";
+import { z } from "zod";
 
 import { useActiveContext } from "@/hooks/use-active-context";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { MonthlyPlanView } from "./customers.$customerId.pauta";
 
+const SearchSchema = z.object({ planId: z.string().uuid().optional() });
+
 export const Route = createFileRoute("/_authenticated/monthly-plan")({
+  validateSearch: (s: Record<string, unknown>) => SearchSchema.parse(s),
   component: MonthlyPlanPage,
 });
 
