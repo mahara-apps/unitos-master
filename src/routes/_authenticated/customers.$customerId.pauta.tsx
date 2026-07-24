@@ -1,4 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
+import { z } from "zod";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -35,13 +36,17 @@ import {
   generateMonthlyPlanFn,
   getMonthlyPlanFn,
   listBriefingsForPlanFn,
+  listMonthlyPlansFn,
   updateMonthlyPlanFn,
   updateTopicFn,
   type MonthlyPlanTopic,
   type MonthlyPlanWithTopics,
 } from "@/lib/monthly-plans.functions";
 
+const SearchSchema = z.object({ planId: z.string().uuid().optional() });
+
 export const Route = createFileRoute("/_authenticated/customers/$customerId/pauta")({
+  validateSearch: (s: Record<string, unknown>) => SearchSchema.parse(s),
   component: MonthlyPlanRoute,
 });
 
@@ -84,7 +89,16 @@ const LOADING_MESSAGES = [
 ];
 
 export function MonthlyPlanView({ brandId, clientId }: { brandId: string; clientId: string }) {
-  const [planId, setPlanId] = useState<string | null>(null);
+  const search = useSearch({ from: "/_authenticated/customers/$customerId/pauta" });
+  const navigate = useNavigate({ from: "/_authenticated/customers/$customerId/pauta" });
+  const planId = search.planId ?? null;
+  const setPlanId = (id: string | null) =>
+    navigate({
+      to: "/customers/$customerId/pauta",
+      params: { customerId: clientId },
+      search: id ? { planId: id } : {},
+      replace: true,
+    });
   const [theme, setTheme] = useState("");
   const [briefingId, setBriefingId] = useState<string>("__none");
 
@@ -92,6 +106,12 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
   const briefingsQ = useQuery({
     queryKey: ["monthly-plan", "briefings", brandId, clientId],
     queryFn: () => listBriefings({ data: { brandId, clientId } }),
+  });
+
+  const listPlans = useServerFn(listMonthlyPlansFn);
+  const historyQ = useQuery({
+    queryKey: ["monthly-plans", "list", brandId, clientId],
+    queryFn: () => listPlans({ data: { brandId, clientId } }),
   });
 
   const generate = useServerFn(generateMonthlyPlanFn);
@@ -119,8 +139,9 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
       stepTimer.current = null;
     },
     onSuccess: (res: MonthlyPlanWithTopics) => {
-      setPlanId(res.plan.id);
       qc.setQueryData(["monthly-plan", res.plan.id], res);
+      qc.invalidateQueries({ queryKey: ["monthly-plans", "list", brandId, clientId] });
+      setPlanId(res.plan.id);
     },
     onError: (err) => toast.error(`Falha ao gerar pauta: ${describeError(err)}`),
   });
@@ -208,6 +229,14 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
             </div>
           )}
         </div>
+
+        {!generateM.isPending ? (
+          <PlanHistory
+            data={historyQ.data ?? []}
+            loading={historyQ.isLoading}
+            onOpen={(id) => setPlanId(id)}
+          />
+        ) : null}
       </div>
     );
   }
@@ -222,8 +251,85 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
         setPlanId(null);
         setTheme("");
         setBriefingId("__none");
+        qc.invalidateQueries({ queryKey: ["monthly-plans", "list", brandId, clientId] });
       }}
     />
+  );
+}
+
+function PlanHistory({
+  data,
+  loading,
+  onOpen,
+}: {
+  data: Array<{
+    id: string;
+    title: string;
+    status: "draft" | "approved" | "archived";
+    created_at: string;
+    author_name: string | null;
+    topics_count: number;
+  }>;
+  loading: boolean;
+  onOpen: (id: string) => void;
+}) {
+  if (loading) {
+    return (
+      <div className="mt-8 space-y-2">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-16 w-full" />
+      </div>
+    );
+  }
+  if (data.length === 0) return null;
+  const badge = (s: "draft" | "approved" | "archived") =>
+    s === "approved"
+      ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+      : s === "archived"
+        ? "bg-muted text-muted-foreground border-border"
+        : "bg-amber-500/15 text-amber-400 border-amber-500/30";
+  const label = (s: "draft" | "approved" | "archived") =>
+    s === "approved" ? "Aprovada" : s === "archived" ? "Arquivada" : "Rascunho";
+  return (
+    <div className="mt-8">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold tracking-tight">Histórico de pautas deste cliente</h2>
+        <span className="text-xs text-muted-foreground">{data.length} registros</span>
+      </div>
+      <div className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60 bg-card/40">
+        {data.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => onOpen(p.id)}
+            className="flex w-full items-center gap-4 p-4 text-left transition hover:bg-muted/40"
+          >
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`inline-flex h-5 items-center rounded-full border px-2 text-[10px] font-medium uppercase tracking-wide ${badge(p.status)}`}
+                >
+                  {label(p.status)}
+                </span>
+                <span className="truncate text-sm font-medium">{p.title}</span>
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {new Date(p.created_at).toLocaleString("pt-BR", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+                {p.author_name ? ` · ${p.author_name}` : ""}
+                {` · ${p.topics_count} tópicos`}
+              </div>
+            </div>
+            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

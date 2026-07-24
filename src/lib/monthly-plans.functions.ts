@@ -12,6 +12,7 @@ export type MonthlyPlanTopicStatus = "pending" | "approved" | "rejected";
 export type MonthlyPlan = {
   id: string;
   brand_id: string;
+  client_id: string;
   input_theme: string | null;
   input_briefing_id: string | null;
   title: string;
@@ -28,6 +29,7 @@ export type MonthlyPlanTopic = {
   topic_title: string;
   content_format: string | null;
   angle: string | null;
+  channel: string | null;
   status: MonthlyPlanTopicStatus;
   position: number;
 };
@@ -84,10 +86,11 @@ const AiPlanSchema = z.object({
         topic_title: z.string(),
         content_format: z.string(),
         angle: z.string(),
+        channel: z.string().optional().nullable(),
       }),
     )
     .min(4)
-    .max(16),
+    .max(60),
 });
 
 function tryParseFallback(text: string | undefined) {
@@ -108,7 +111,7 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       context.supabase.from("brands").select("name").eq("id", data.brandId).maybeSingle(),
       context.supabase
         .from("clients")
-        .select("name, niche, tone_of_voice")
+        .select("name, niche, tone_of_voice, brand_hub")
         .eq("id", data.clientId)
         .maybeSingle(),
       data.briefingId
@@ -130,6 +133,26 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       }
     })();
 
+    // Volumetria semanal por canal (posts/semana) → cotas mensais (×4.3 semanas)
+    const CHANNELS = ["instagram", "tiktok", "linkedin", "youtube", "facebook"] as const;
+    type Channel = (typeof CHANNELS)[number];
+    const hub = (client?.brand_hub ?? {}) as { volumetry?: Partial<Record<Channel, number>> };
+    const weekly = hub.volumetry ?? {};
+    const monthlyQuota: Record<Channel, number> = {
+      instagram: Math.round(((weekly.instagram ?? 0) as number) * 4.3),
+      tiktok: Math.round(((weekly.tiktok ?? 0) as number) * 4.3),
+      linkedin: Math.round(((weekly.linkedin ?? 0) as number) * 4.3),
+      youtube: Math.round(((weekly.youtube ?? 0) as number) * 4.3),
+      facebook: Math.round(((weekly.facebook ?? 0) as number) * 4.3),
+    };
+    const totalTarget = CHANNELS.reduce((s, k) => s + monthlyQuota[k], 0);
+    const hasVolumetry = totalTarget > 0;
+    const distributionText = hasVolumetry
+      ? CHANNELS.filter((c) => monthlyQuota[c] > 0)
+          .map((c) => `  * ${c}: ${monthlyQuota[c]} posts`)
+          .join("\n")
+      : "";
+
     const prompt = [
       `Você é um estrategista de conteúdo sênior.`,
       `Crie uma pauta mensal de conteúdo para redes sociais em português (Brasil).`,
@@ -147,9 +170,14 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       `- title: uma headline curta (máx 90 chars) que resume a estratégia do mês.`,
       `- description: 2-3 frases explicando o contexto do mês.`,
       `- objectives: 2-4 objetivos claros, separados por quebras de linha.`,
-      `- topics: entre 8 e 12 ideias de posts, cada uma com:`,
+      hasVolumetry
+        ? `- topics: EXATAMENTE ${totalTarget} ideias de posts, distribuídas por canal conforme a volumetria mensal do cliente:\n${distributionText}\n  Cada ideia deve ter:`
+        : `- topics: entre 8 e 12 ideias de posts, cada uma com:`,
       `  * topic_title: título curto e criativo do post`,
       `  * content_format: um de "Reels", "Carrossel", "Storie", "Post estático", "Vídeo curto"`,
+      hasVolumetry
+        ? `  * channel: OBRIGATÓRIO — um de "instagram", "tiktok", "linkedin", "youtube", "facebook" (respeitar cotas acima)`
+        : `  * channel: opcional`,
       `  * angle: gancho estratégico / direcionamento para produção (1-2 frases)`,
       `- Balanceie formatos (não use só Reels).`,
       `- Sem markdown, sem prefixos numéricos.`,
@@ -184,6 +212,7 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       .from("monthly_plans" as never)
       .insert({
         brand_id: data.brandId,
+        client_id: data.clientId,
         input_theme: data.theme || null,
         input_briefing_id: data.briefingId ?? null,
         title: parsed.title.slice(0, 200),
@@ -197,11 +226,12 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
     if (planErr) throw planErr;
     const plan = planRow as unknown as MonthlyPlan;
 
-    const topicRows = parsed.topics.slice(0, 16).map((t, i) => ({
+    const topicRows = parsed.topics.slice(0, Math.max(totalTarget || 16, 16)).map((t, i) => ({
       monthly_plan_id: plan.id,
       topic_title: t.topic_title.slice(0, 240),
       content_format: t.content_format.slice(0, 60),
       angle: t.angle.slice(0, 1000),
+      channel: t.channel ? String(t.channel).slice(0, 40) : null,
       status: "pending" as const,
       position: i * 1024,
     }));
@@ -220,6 +250,74 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
   });
 
 /* ---------- CRUD ---------- */
+
+export type MonthlyPlanListItem = {
+  id: string;
+  title: string;
+  status: MonthlyPlanStatus;
+  created_at: string;
+  created_by: string | null;
+  author_name: string | null;
+  topics_count: number;
+};
+
+export const listMonthlyPlansFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ brandId: z.string().uuid(), clientId: z.string().uuid() }).parse(i),
+  )
+  .handler(async ({ data, context }): Promise<MonthlyPlanListItem[]> => {
+    const { data: rows, error } = await context.supabase
+      .from("monthly_plans" as never)
+      .select("id, title, status, created_at, created_by")
+      .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    const list = (rows ?? []) as unknown as Array<{
+      id: string;
+      title: string;
+      status: MonthlyPlanStatus;
+      created_at: string;
+      created_by: string | null;
+    }>;
+    if (list.length === 0) return [];
+
+    const userIds = Array.from(new Set(list.map((r) => r.created_by).filter((v): v is string => !!v)));
+    const authorMap = new Map<string, string>();
+    if (userIds.length) {
+      const { data: profs } = await context.supabase
+        .from("user_profiles")
+        .select("id, full_name")
+        .in("id", userIds);
+      for (const p of profs ?? []) {
+        authorMap.set(p.id as string, (p.full_name as string | null) ?? "");
+      }
+    }
+
+    const planIds = list.map((r) => r.id);
+    const countMap = new Map<string, number>();
+    if (planIds.length) {
+      const { data: tops } = await context.supabase
+        .from("monthly_plan_topics" as never)
+        .select("monthly_plan_id")
+        .in("monthly_plan_id", planIds);
+      for (const t of (tops ?? []) as Array<{ monthly_plan_id: string }>) {
+        countMap.set(t.monthly_plan_id, (countMap.get(t.monthly_plan_id) ?? 0) + 1);
+      }
+    }
+
+    return list.map((r) => ({
+      id: r.id,
+      title: r.title,
+      status: r.status,
+      created_at: r.created_at,
+      created_by: r.created_by,
+      author_name: r.created_by ? authorMap.get(r.created_by) || null : null,
+      topics_count: countMap.get(r.id) ?? 0,
+    }));
+  });
 
 export const getMonthlyPlanFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
