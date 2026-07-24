@@ -1,6 +1,8 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
+import { RoutePending } from "./components/route-pending";
+import { RouteError } from "./components/route-error";
 
 export const getRouter = () => {
   const queryClient = new QueryClient({
@@ -21,13 +23,14 @@ export const getRouter = () => {
     context: { queryClient },
     scrollRestoration: true,
     defaultPreload: "intent",
-    // Fire the intent-based preload as soon as the pointer enters a Link
-    // (or a link gains focus). Combined with staleTime above, hovered
-    // routes are usually ready before the click completes.
     defaultPreloadDelay: 0,
     defaultPreloadStaleTime: 0,
-    defaultPendingMs: 100,
-    defaultPendingMinMs: 150,
+    // Mostra o skeleton logo após ~80ms para navegações que ainda estão
+    // carregando dados — evita a sensação de "clique morto" na sidebar.
+    defaultPendingMs: 80,
+    defaultPendingMinMs: 200,
+    defaultPendingComponent: RoutePending,
+    defaultErrorComponent: RouteError,
   });
 
   return router;
