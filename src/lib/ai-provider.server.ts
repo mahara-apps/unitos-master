@@ -4,16 +4,10 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import type { LanguageModel } from "ai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptCredential } from "./credentials-crypto.server";
+import { DEFAULT_TEXT_MODEL, type ProviderName } from "./ai-models-catalog.server";
 
-export type ProviderName = "openai" | "anthropic" | "gemini";
+export type { ProviderName };
 export type ProviderKind = "text" | "image";
-
-/** Default model id per provider, used when caller doesn't override. */
-const DEFAULT_TEXT_MODEL: Record<ProviderName, string> = {
-  openai: "gpt-4o-mini",
-  anthropic: "claude-3-5-sonnet-latest",
-  gemini: "gemini-2.5-flash",
-};
 
 type PreferredModels = Partial<Record<ProviderName, string>>;
 
