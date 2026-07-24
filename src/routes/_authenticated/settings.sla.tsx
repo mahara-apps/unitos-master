@@ -3,7 +3,8 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Timer, Trash2, Plus, Save } from "lucide-react";
+import { Timer, Trash2, Plus, Save, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { Button } from "@/components/ui/button";
@@ -101,7 +102,7 @@ function StagesPanel({ brandId }: { brandId: string }) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
 
   const mutation = useMutation({
-    mutationFn: (payload: { stageId: string; slaDays: number | null }) =>
+    mutationFn: (payload: { stageId: string; slaHours: number | null }) =>
       update({ data: payload }),
     onSuccess: () => {
       toast.success("SLA da coluna atualizado.");
@@ -125,7 +126,8 @@ function StagesPanel({ brandId }: { brandId: string }) {
         <div>
           <h2 className="text-base font-semibold">SLA por coluna do Kanban</h2>
           <p className="text-xs text-muted-foreground">
-            Tempo máximo (em dias) que um card pode permanecer em cada coluna antes de ser marcado como atrasado.
+            Tempo máximo (em horas) que um card pode permanecer em cada coluna antes de ser marcado como atrasado.
+            Cards com 80% do tempo consumido aparecem como <span className="text-amber-600 dark:text-amber-400">próximos de vencer</span>.
           </p>
         </div>
       </header>
@@ -141,7 +143,7 @@ function StagesPanel({ brandId }: { brandId: string }) {
               <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{g.name}</div>
               <div className="rounded-lg border border-border/60">
                 {g.stages.map((s, i) => {
-                  const draft = drafts[s.id] ?? (s.sla_days == null ? "" : String(s.sla_days));
+                  const draft = drafts[s.id] ?? (s.sla_hours == null ? "" : String(s.sla_hours));
                   return (
                     <div
                       key={s.id}
@@ -152,8 +154,17 @@ function StagesPanel({ brandId }: { brandId: string }) {
                       <div className="flex items-center gap-2">
                         <Timer className="h-3.5 w-3.5 text-muted-foreground" />
                         <span className="text-sm">{s.name}</span>
+                        {s.sla_hours != null ? (
+                          <span className="text-[11px] text-muted-foreground">· {formatHours(s.sla_hours)}</span>
+                        ) : null}
                       </div>
                       <div className="flex items-center gap-2">
+                        <SlaPresetPicker
+                          onPick={(h) => {
+                            setDrafts((d) => ({ ...d, [s.id]: String(h) }));
+                            mutation.mutate({ stageId: s.id, slaHours: h });
+                          }}
+                        />
                         <Input
                           className="h-8 w-24"
                           type="number"
@@ -162,14 +173,14 @@ function StagesPanel({ brandId }: { brandId: string }) {
                           value={draft}
                           onChange={(e) => setDrafts((d) => ({ ...d, [s.id]: e.target.value }))}
                         />
-                        <span className="text-xs text-muted-foreground">dias</span>
+                        <span className="text-xs text-muted-foreground">horas</span>
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() =>
                             mutation.mutate({
                               stageId: s.id,
-                              slaDays: draft.trim() === "" ? null : Math.max(0, Number(draft)),
+                              slaHours: draft.trim() === "" ? null : Math.max(0, Number(draft)),
                             })
                           }
                         >
@@ -184,7 +195,45 @@ function StagesPanel({ brandId }: { brandId: string }) {
           ))}
         </div>
       )}
+      <div className="flex items-start gap-2 rounded-md border border-border/50 bg-muted/20 p-3 text-[11px] text-muted-foreground">
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <span>
+          Presets: 12h, 24h, 48h, 72h, 5d, 7d. Deixe em branco para desativar o SLA da coluna.
+        </span>
+      </div>
     </DashboardPanelSurface>
+  );
+}
+
+const SLA_PRESETS: Array<{ label: string; hours: number }> = [
+  { label: "12h", hours: 12 },
+  { label: "24h", hours: 24 },
+  { label: "48h", hours: 48 },
+  { label: "72h", hours: 72 },
+  { label: "5d", hours: 120 },
+  { label: "7d", hours: 168 },
+];
+
+function SlaPresetPicker({ onPick }: { onPick: (hours: number) => void }) {
+  return (
+    <TooltipProvider delayDuration={150}>
+      <div className="hidden gap-1 md:flex">
+        {SLA_PRESETS.map((p) => (
+          <Tooltip key={p.hours}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => onPick(p.hours)}
+                className="rounded-md border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+              >
+                {p.label}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top">Definir SLA como {p.label}</TooltipContent>
+          </Tooltip>
+        ))}
+      </div>
+    </TooltipProvider>
   );
 }
 

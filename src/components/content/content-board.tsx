@@ -420,8 +420,16 @@ function Column({
             {posts.length}
           </Badge>
         {(() => {
-          const overdueCount = posts.filter((p) => p.is_overdue).length;
-          return overdueCount > 0 ? (
+          const overdueCount = posts.filter((p) => p.sla_status === "overdue").length;
+          const atRiskCount = posts.filter((p) => p.sla_status === "at_risk").length;
+          const slaH = stage.sla_hours ?? (stage.sla_days ? stage.sla_days * 24 : null);
+          const slaLabel = slaH == null ? null : slaH < 24 ? `${slaH}h` : `${Math.round(slaH / 24)}d`;
+          const tooltipCopy = slaLabel
+            ? `Cada card pode permanecer no máximo ${slaLabel} nesta etapa. As tarefas atrasadas ultrapassaram esse prazo.`
+            : `Nenhum SLA configurado para esta etapa. Defina em Configurações → SLA.`;
+          return (
+            <>
+              {overdueCount > 0 ? (
             <TooltipProvider delayDuration={200}>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -429,10 +437,32 @@ function Column({
                     <AlarmClock className="h-2.5 w-2.5" /> {overdueCount}
                   </span>
                 </TooltipTrigger>
-                <TooltipContent>{overdueCount} tarefa(s) atrasada(s)</TooltipContent>
+                <TooltipContent className="max-w-[240px] text-xs leading-snug">
+                  <div className="font-semibold text-rose-500">{overdueCount} tarefa(s) atrasada(s)</div>
+                  <div className="mt-0.5 text-muted-foreground">{tooltipCopy}</div>
+                </TooltipContent>
               </Tooltip>
             </TooltipProvider>
-          ) : null;
+              ) : null}
+              {atRiskCount > 0 ? (
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex h-5 items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                        <AlarmClock className="h-2.5 w-2.5" /> {atRiskCount}
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-[240px] text-xs leading-snug">
+                      <div className="font-semibold text-amber-500">{atRiskCount} próxima(s) de vencer</div>
+                      <div className="mt-0.5 text-muted-foreground">
+                        Já consumiram 80% do SLA{slaLabel ? ` de ${slaLabel}` : ""}.
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : null}
+            </>
+          );
         })()}
         </div>
         {onCycleSort ? (
@@ -666,14 +696,30 @@ function PostCard({
       </div>
 
       <div className="p-3">
-        {(post.is_overdue || priority || formatKeys.length > 0 || channelDefs.length > 0) ? (
+        {(post.sla_status === "overdue" || post.sla_status === "at_risk" || priority || formatKeys.length > 0 || channelDefs.length > 0) ? (
           <div className="mb-1 flex flex-wrap items-center gap-1">
-            {post.is_overdue ? (
+            {post.sla_status === "overdue" ? (
               <span
                 className="inline-flex items-center gap-0.5 rounded-full border border-rose-500/40 bg-rose-500/10 px-1.5 py-0 text-[8px] font-semibold uppercase tracking-wider text-rose-600 dark:text-rose-400"
-                title={`Atrasado há ${post.days_overdue}d`}
+                title={
+                  post.hours_overdue && post.hours_overdue >= 24
+                    ? `Atrasado há ${Math.floor(post.hours_overdue / 24)}d`
+                    : `Atrasado há ${Math.round(post.hours_overdue ?? 0)}h`
+                }
               >
-                <AlarmClock className="h-2.5 w-2.5" /> Atrasado{post.days_overdue ? ` · ${post.days_overdue}d` : ""}
+                <AlarmClock className="h-2.5 w-2.5" /> Atrasado
+                {post.hours_overdue
+                  ? post.hours_overdue >= 24
+                    ? ` · ${Math.floor(post.hours_overdue / 24)}d`
+                    : ` · ${Math.round(post.hours_overdue)}h`
+                  : ""}
+              </span>
+            ) : post.sla_status === "at_risk" ? (
+              <span
+                className="inline-flex items-center gap-0.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0 text-[8px] font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400"
+                title={`${Math.round((post.sla_progress ?? 0) * 100)}% do SLA consumido`}
+              >
+                <AlarmClock className="h-2.5 w-2.5" /> Próximo de vencer
               </span>
             ) : null}
             {channelDefs.map((c) => {

@@ -30,20 +30,26 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
         // 1. Load stages with SLA
         const { data: stages, error: sErr } = await supabaseAdmin
           .from("content_pipeline_stages")
-          .select("id,label,sla_days,is_terminal,pipeline_id")
-          .not("sla_days", "is", null)
-          .gt("sla_days", 0)
+          .select("id,label,sla_days,sla_hours,is_terminal,pipeline_id")
           .eq("is_terminal", false);
         if (sErr) throw sErr;
-        if (!stages || stages.length === 0) {
+        const stagesWithSla = (stages ?? [])
+          .map((s) => {
+            const h = (s.sla_hours as number | null) ?? null;
+            const d = (s.sla_days as number | null) ?? null;
+            const hours = h != null && h > 0 ? h : d != null && d > 0 ? d * 24 : null;
+            return hours != null ? { ...s, _hours: hours } : null;
+          })
+          .filter(Boolean) as Array<{ id: string; label: string; _hours: number }>;
+        if (stagesWithSla.length === 0) {
           return Response.json({ ok: true, scanned: 0, notified: 0 });
         }
 
         // 2. For each stage, find overdue posts
         const cutoffByStage = new Map<string, { label: string; sinceIso: string }>();
-        for (const s of stages) {
-          const since = new Date(Date.now() - (s.sla_days as number) * 86_400_000).toISOString();
-          cutoffByStage.set(s.id as string, { label: s.label as string, sinceIso: since });
+        for (const s of stagesWithSla) {
+          const since = new Date(Date.now() - s._hours * 3_600_000).toISOString();
+          cutoffByStage.set(s.id, { label: s.label, sinceIso: since });
         }
 
         const overdue: Array<{
@@ -54,23 +60,21 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
           client_id: string;
           stage_id: string;
           stage_label: string;
-          days_overdue: number;
-          sla_days: number;
+          hours_overdue: number;
+          sla_hours: number;
         }> = [];
 
-        for (const s of stages) {
-          const cutoff = cutoffByStage.get(s.id as string)!;
+        for (const s of stagesWithSla) {
+          const cutoff = cutoffByStage.get(s.id)!;
           const { data: rows, error: pErr } = await supabaseAdmin
             .from("posts")
             .select("id,title,assignee_id,brand_id,client_id,stage_id,stage_entered_at")
-            .eq("stage_id", s.id as string)
+            .eq("stage_id", s.id)
             .is("deleted_at", null)
             .lt("stage_entered_at", cutoff.sinceIso);
           if (pErr) throw pErr;
           for (const r of rows ?? []) {
-            const daysIn = Math.floor(
-              (Date.now() - new Date(r.stage_entered_at as string).getTime()) / 86_400_000,
-            );
+            const hoursIn = (Date.now() - new Date(r.stage_entered_at as string).getTime()) / 3_600_000;
             overdue.push({
               post_id: r.id as string,
               title: (r.title as string) ?? "Sem título",
@@ -79,8 +83,8 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
               client_id: r.client_id as string,
               stage_id: r.stage_id as string,
               stage_label: cutoff.label,
-              days_overdue: Math.max(0, daysIn - (s.sla_days as number)),
-              sla_days: s.sla_days as number,
+              hours_overdue: Math.max(0, hoursIn - s._hours),
+              sla_hours: s._hours,
             });
           }
         }
@@ -113,21 +117,28 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
           );
           const toInsert = withAssignee
             .filter((o) => !seen.has(`${o.assignee_id}:${o.post_id}`))
-            .map((o) => ({
+            .map((o) => {
+              const overdueLabel =
+                o.hours_overdue >= 24
+                  ? `${Math.floor(o.hours_overdue / 24)}d`
+                  : `${Math.round(o.hours_overdue)}h`;
+              const slaLabel = o.sla_hours >= 24 ? `${Math.round(o.sla_hours / 24)}d` : `${o.sla_hours}h`;
+              return {
               user_id: o.assignee_id as string,
               brand_id: o.brand_id,
               kind: "sla_overdue" as const,
               title: `SLA vencido em "${o.stage_label}"`,
-              body: `${o.title} • atrasado há ${o.days_overdue}d (SLA ${o.sla_days}d)`,
+              body: `${o.title} • atrasado há ${overdueLabel} (SLA ${slaLabel})`,
               href: `/content`,
               payload: {
                 post_id: o.post_id,
                 stage_id: o.stage_id,
                 stage_label: o.stage_label,
-                days_overdue: o.days_overdue,
-                sla_days: o.sla_days,
+                hours_overdue: o.hours_overdue,
+                sla_hours: o.sla_hours,
               },
-            }));
+              };
+            });
           if (toInsert.length > 0) {
             const { error: insErr } = await supabaseAdmin.from("notifications").insert(toInsert as never);
             if (insErr) throw insErr;

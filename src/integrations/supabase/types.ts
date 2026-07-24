@@ -3265,6 +3265,7 @@ export type Database = {
           pipeline_id: string
           position: number
           sla_days: number | null
+          sla_hours: number | null
           updated_at: string
         }
         Insert: {
@@ -3279,6 +3280,7 @@ export type Database = {
           pipeline_id: string
           position?: number
           sla_days?: number | null
+          sla_hours?: number | null
           updated_at?: string
         }
         Update: {
@@ -3293,6 +3295,7 @@ export type Database = {
           pipeline_id?: string
           position?: number
           sla_days?: number | null
+          sla_hours?: number | null
           updated_at?: string
         }
         Relationships: [

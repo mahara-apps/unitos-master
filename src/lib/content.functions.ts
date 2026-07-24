@@ -106,6 +106,7 @@ export type PipelineStage = {
   hide_in_portal?: boolean | null;
   enables_approval_link?: boolean | null;
   sla_days?: number | null;
+  sla_hours?: number | null;
 };
 
 export type BoardPost = {
@@ -154,6 +155,11 @@ export type BoardPost = {
   stage_entered_at?: string | null;
   is_overdue?: boolean;
   days_overdue?: number;
+  sla_status?: "none" | "on_track" | "at_risk" | "overdue";
+  sla_progress?: number;
+  sla_hours?: number | null;
+  hours_in_stage?: number;
+  hours_overdue?: number;
 };
 
 export type ScriptScene = {
@@ -179,19 +185,52 @@ export type Board = {
   posts: BoardPost[];
 };
 
-/** SLA overdue rule: stage tem sla_days>0 e não é terminal; post não excluído e passou dos N dias em stage_entered_at. */
+/** Resolve SLA em horas para um stage (usa sla_hours; fallback: sla_days*24). */
+export function stageSlaHours(s: Pick<PipelineStage, "sla_hours" | "sla_days">): number | null {
+  if (s.sla_hours != null && s.sla_hours > 0) return s.sla_hours;
+  if (s.sla_days != null && s.sla_days > 0) return s.sla_days * 24;
+  return null;
+}
+
+/**
+ * Anota SLA em cada post: status (on_track / at_risk / overdue / none),
+ * progresso (0..1+), horas no stage e horas de atraso.
+ * Mantém `is_overdue` e `days_overdue` para compat.
+ */
 export function annotateOverdue(posts: BoardPost[], stages: PipelineStage[]): BoardPost[] {
   const stageMap = new Map(stages.map((s) => [s.id, s]));
   const now = Date.now();
   return posts.map((p) => {
     const s = p.stage_id ? stageMap.get(p.stage_id) : null;
-    if (!s || s.is_terminal || !s.sla_days || s.sla_days <= 0 || !p.stage_entered_at) {
-      return { ...p, is_overdue: false, days_overdue: 0 };
+    const slaH = s ? stageSlaHours(s) : null;
+    if (!s || s.is_terminal || !slaH || !p.stage_entered_at) {
+      return {
+        ...p,
+        is_overdue: false,
+        days_overdue: 0,
+        sla_status: "none",
+        sla_progress: 0,
+        sla_hours: null,
+        hours_in_stage: 0,
+        hours_overdue: 0,
+      };
     }
     const enteredAt = new Date(p.stage_entered_at).getTime();
-    const daysIn = Math.floor((now - enteredAt) / 86_400_000);
-    const overdueBy = daysIn - s.sla_days;
-    return { ...p, is_overdue: overdueBy > 0, days_overdue: Math.max(0, overdueBy) };
+    const hoursIn = (now - enteredAt) / 3_600_000;
+    const progress = hoursIn / slaH;
+    const hoursOverdue = Math.max(0, hoursIn - slaH);
+    const status: "on_track" | "at_risk" | "overdue" =
+      progress >= 1 ? "overdue" : progress >= 0.8 ? "at_risk" : "on_track";
+    return {
+      ...p,
+      is_overdue: status === "overdue",
+      days_overdue: Math.max(0, Math.floor(hoursOverdue / 24)),
+      sla_status: status,
+      sla_progress: progress,
+      sla_hours: slaH,
+      hours_in_stage: hoursIn,
+      hours_overdue: hoursOverdue,
+    };
   });
 }
 
@@ -200,7 +239,7 @@ export function annotateOverdue(posts: BoardPost[], stages: PipelineStage[]): Bo
 export type SlaSnapshot = {
   activeOverdue: number;
   byUser: Array<{ user_id: string; full_name: string; avatar_url: string | null; overdue: number }>;
-  byStage: Array<{ stage_id: string; label: string; sla_days: number; overdue: number }>;
+  byStage: Array<{ stage_id: string; label: string; sla_hours: number; overdue: number }>;
 };
 
 export const slaSnapshotFn = createServerFn({ method: "POST" })
@@ -216,32 +255,33 @@ export const slaSnapshotFn = createServerFn({ method: "POST" })
 
     const { data: stages } = await context.supabase
       .from("content_pipeline_stages")
-      .select("id,label,sla_days,is_terminal")
+      .select("id,label,sla_days,sla_hours,is_terminal")
       .in("pipeline_id", pipeIds)
-      .not("sla_days", "is", null)
-      .gt("sla_days", 0)
       .eq("is_terminal", false);
-    if (!stages || stages.length === 0) return { activeOverdue: 0, byUser: [], byStage: [] };
+    const withSla = (stages ?? [])
+      .map((s) => ({ ...s, _hours: stageSlaHours(s as PipelineStage) }))
+      .filter((s) => s._hours != null) as Array<{ id: string; label: string; _hours: number }>;
+    if (withSla.length === 0) return { activeOverdue: 0, byUser: [], byStage: [] };
 
-    const byStageMap = new Map<string, { label: string; sla_days: number; overdue: number }>();
+    const byStageMap = new Map<string, { label: string; sla_hours: number; overdue: number }>();
     const byUserMap = new Map<string, number>();
     let activeOverdue = 0;
 
-    for (const s of stages) {
-      const sinceIso = new Date(Date.now() - (s.sla_days as number) * 86_400_000).toISOString();
+    for (const s of withSla) {
+      const sinceIso = new Date(Date.now() - s._hours * 3_600_000).toISOString();
       const { data: rows } = await context.supabase
         .from("posts")
         .select("id, assignee_id")
         .eq("brand_id", data.brandId)
-        .eq("stage_id", s.id as string)
+        .eq("stage_id", s.id)
         .is("deleted_at", null)
         .lt("stage_entered_at", sinceIso);
       const count = (rows ?? []).length;
       if (count === 0) continue;
       activeOverdue += count;
-      byStageMap.set(s.id as string, {
-        label: s.label as string,
-        sla_days: s.sla_days as number,
+      byStageMap.set(s.id, {
+        label: s.label,
+        sla_hours: s._hours,
         overdue: count,
       });
       for (const r of rows ?? []) {
@@ -451,7 +491,7 @@ export const loadBoardFn = createServerFn({ method: "POST" })
           .single(),
         context.supabase
           .from("content_pipeline_stages")
-          .select("id,pipeline_id,key,label,color,position,is_terminal,hide_in_portal,enables_approval_link,sla_days")
+          .select("id,pipeline_id,key,label,color,position,is_terminal,hide_in_portal,enables_approval_link,sla_days,sla_hours")
           .eq("pipeline_id", data.pipelineId)
           .order("position", { ascending: true }),
         context.supabase
@@ -672,6 +712,7 @@ export const updateStageFn = createServerFn({ method: "POST" })
             hide_in_portal: z.boolean().optional(),
             enables_approval_link: z.boolean().optional(),
             sla_days: z.number().int().min(0).max(365).nullable().optional(),
+            sla_hours: z.number().int().min(0).max(24 * 365).nullable().optional(),
             position: z.number().int().optional(),
           })
           .strict(),

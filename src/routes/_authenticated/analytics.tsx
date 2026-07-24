@@ -312,7 +312,10 @@ function SlaPanel({ data }: { data: SlaSnapshot | undefined }) {
             {data.byStage.map((s) => (
               <div key={s.stage_id} className="flex items-center justify-between py-2 text-sm">
                 <span className="truncate">
-                  {s.label} <span className="text-muted-foreground">· SLA {s.sla_days}d</span>
+                  {s.label}{" "}
+                  <span className="text-muted-foreground">
+                    · SLA {s.sla_hours < 24 ? `${s.sla_hours}h` : `${Math.round(s.sla_hours / 24)}d`}
+                  </span>
                 </span>
                 <Badge variant="outline" className="border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400">
                   {s.overdue}
