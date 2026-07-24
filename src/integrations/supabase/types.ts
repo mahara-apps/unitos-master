@@ -3796,6 +3796,7 @@ export type Database = {
       monthly_plan_topics: {
         Row: {
           angle: string | null
+          channel: string | null
           content_format: string | null
           created_at: string
           id: string
@@ -3807,6 +3808,7 @@ export type Database = {
         }
         Insert: {
           angle?: string | null
+          channel?: string | null
           content_format?: string | null
           created_at?: string
           id?: string
@@ -3818,6 +3820,7 @@ export type Database = {
         }
         Update: {
           angle?: string | null
+          channel?: string | null
           content_format?: string | null
           created_at?: string
           id?: string
@@ -3840,6 +3843,7 @@ export type Database = {
       monthly_plans: {
         Row: {
           brand_id: string
+          client_id: string
           created_at: string
           created_by: string | null
           description: string | null
@@ -3853,6 +3857,7 @@ export type Database = {
         }
         Insert: {
           brand_id: string
+          client_id: string
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -3866,6 +3871,7 @@ export type Database = {
         }
         Update: {
           brand_id?: string
+          client_id?: string
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -3890,6 +3896,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_plans_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
           {
