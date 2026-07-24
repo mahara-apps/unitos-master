@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { CalendarClock, CalendarPlus, Filter, Image as ImageIcon, LayoutGrid, List, X } from "lucide-react";
+import { AlarmClock, CalendarClock, CalendarPlus, Filter, Image as ImageIcon, LayoutGrid, List, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -15,6 +15,7 @@ import { CHANNELS, FORMATS } from "./stage-colors";
 export type CreatedRange = "any" | "today" | "7d" | "30d";
 export type ScheduledRange = "any" | "today" | "7d";
 export type MediaFilter = "any" | "with" | "without";
+export type SlaFilter = "any" | "on_track" | "at_risk" | "overdue";
 export type ViewMode = "kanban" | "list";
 
 export type ContentFilters = {
@@ -23,6 +24,7 @@ export type ContentFilters = {
   channel: string; // "any" | channel id
   format: string; // "any" | Feed/Reels/...
   media: MediaFilter;
+  sla: SlaFilter;
 };
 
 export const DEFAULT_CONTENT_FILTERS: ContentFilters = {
@@ -31,6 +33,7 @@ export const DEFAULT_CONTENT_FILTERS: ContentFilters = {
   channel: "any",
   format: "any",
   media: "any",
+  sla: "any",
 };
 
 export function isFiltersEmpty(f: ContentFilters) {
@@ -39,7 +42,8 @@ export function isFiltersEmpty(f: ContentFilters) {
     f.scheduledRange === "any" &&
     f.channel === "any" &&
     f.format === "any" &&
-    f.media === "any"
+    f.media === "any" &&
+    f.sla === "any"
   );
 }
 
@@ -67,6 +71,7 @@ export function ContentToolbar({
     if (filters.channel !== "any") n++;
     if (filters.format !== "any") n++;
     if (filters.media !== "any") n++;
+    if (filters.sla !== "any") n++;
     return n;
   }, [filters]);
 
@@ -150,6 +155,19 @@ export function ContentToolbar({
         </SelectContent>
       </Select>
 
+      <Select value={filters.sla} onValueChange={(v) => set("sla", v as SlaFilter)}>
+        <SelectTrigger className="h-8 w-[160px] text-xs">
+          <AlarmClock className="h-3.5 w-3.5 text-muted-foreground" />
+          <SelectValue placeholder="SLA" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="any">SLA: qualquer</SelectItem>
+          <SelectItem value="on_track">Em dia</SelectItem>
+          <SelectItem value="at_risk">Próximo de vencer</SelectItem>
+          <SelectItem value="overdue">Atrasadas</SelectItem>
+        </SelectContent>
+      </Select>
+
       {!isFiltersEmpty(filters) ? (
         <Button
           size="sm"
@@ -194,6 +212,7 @@ export function applyContentFilters<
     placements?: Array<{ format: string }> | null;
     cover_url: string | null;
     reference_media?: Array<{ path: string; type?: string }> | null;
+    sla_status?: "none" | "on_track" | "at_risk" | "overdue";
   },
 >(posts: P[], f: ContentFilters): P[] {
   const now = Date.now();
@@ -238,6 +257,9 @@ export function applyContentFilters<
         (p.reference_media ?? []).some((m) => (m.type ?? "").startsWith("image"));
       if (f.media === "with" && !hasCover) return false;
       if (f.media === "without" && hasCover) return false;
+    }
+    if (f.sla !== "any") {
+      if ((p.sla_status ?? "none") !== f.sla) return false;
     }
     return true;
   });
