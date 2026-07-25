@@ -161,9 +161,9 @@ function buildCaption(base?: string, hashtags: string[] = [], mentions: string[]
 async function resolveMediaForPublish(
   supabaseAdmin: any,
   brandId: string,
-  media: { imageUrl?: string; storagePath?: string; link?: string },
-): Promise<{ imageUrl?: string; link?: string }> {
-  const out: { imageUrl?: string; link?: string } = {};
+  media: { imageUrl?: string; videoUrl?: string; storagePath?: string; link?: string },
+): Promise<{ imageUrl?: string; videoUrl?: string; link?: string }> {
+  const out: { imageUrl?: string; videoUrl?: string; link?: string } = {};
   if (media?.link) out.link = media.link;
 
   if (media?.storagePath) {
@@ -174,10 +174,16 @@ async function resolveMediaForPublish(
       .from("brand-media")
       .createSignedUrl(media.storagePath, 3600);
     if (error) throw new Error(`Falha ao assinar mídia: ${error.message}`);
-    out.imageUrl = data.signedUrl;
+    if (isVideoPath(media.storagePath)) out.videoUrl = data.signedUrl;
+    else out.imageUrl = data.signedUrl;
     return out;
   }
 
+  if (media?.videoUrl) out.videoUrl = media.videoUrl;
   if (media?.imageUrl) out.imageUrl = media.imageUrl;
   return out;
+}
+
+function isVideoPath(path: string): boolean {
+  return /\.(mp4|mov|m4v|webm|3gp)$/i.test(path);
 }
