@@ -437,8 +437,8 @@ function Column({
                     <AlarmClock className="h-2.5 w-2.5" /> {overdueCount}
                   </span>
                 </TooltipTrigger>
-                <TooltipContent className="max-w-[240px] text-xs leading-snug">
-                  <div className="font-semibold text-rose-500">{overdueCount} tarefa(s) atrasada(s)</div>
+                <TooltipContent className="max-w-[240px] border border-border bg-popover text-xs leading-snug text-popover-foreground">
+                  <div className="font-semibold text-rose-600 dark:text-rose-400">{overdueCount} tarefa(s) atrasada(s)</div>
                   <div className="mt-0.5 text-muted-foreground">{tooltipCopy}</div>
                 </TooltipContent>
               </Tooltip>
@@ -452,8 +452,8 @@ function Column({
                         <AlarmClock className="h-2.5 w-2.5" /> {atRiskCount}
                       </span>
                     </TooltipTrigger>
-                    <TooltipContent className="max-w-[240px] text-xs leading-snug">
-                      <div className="font-semibold text-amber-500">{atRiskCount} próxima(s) de vencer</div>
+                    <TooltipContent className="max-w-[240px] border border-border bg-popover text-xs leading-snug text-popover-foreground">
+                      <div className="font-semibold text-amber-600 dark:text-amber-400">{atRiskCount} próxima(s) de vencer</div>
                       <div className="mt-0.5 text-muted-foreground">
                         Já consumiram 80% do SLA{slaLabel ? ` de ${slaLabel}` : ""}.
                       </div>
