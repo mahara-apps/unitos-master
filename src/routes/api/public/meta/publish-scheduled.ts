@@ -64,7 +64,7 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
             const { data: conn, error: connErr } = await supabaseAdmin
               .from("social_connections")
               .select(
-                "id, brand_id, client_id, provider, external_id, account_id, access_token_ciphertext",
+                "id, brand_id, client_id, provider, channel, external_id, account_id, access_token_ciphertext",
               )
               .eq("id", post.connection_id)
               .eq("brand_id", post.brand_id)
@@ -91,9 +91,19 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
               post.brand_id,
               (post.media as any) ?? {},
             );
+            // Mapeamento placement (DB) → providerPlacement:
+            //   feed  → instagram_feed | facebook_feed (por canal)
+            //   story → instagram_story (Stories NUNCA carrega caption)
+            const channel = (conn as any).channel as string | undefined;
+            const providerPlacement: "instagram_feed" | "facebook_feed" | "instagram_story" =
+              post.placement === "story"
+                ? "instagram_story"
+                : channel === "facebook"
+                  ? "facebook_feed"
+                  : "instagram_feed";
             const result = await svc.publish(conn as any, {
-              placement: post.placement as any,
-              caption,
+              placement: providerPlacement,
+              caption: providerPlacement === "instagram_story" ? undefined : caption,
               media,
             });
             const { error: okErr } = await (supabaseAdmin as any).rpc(
@@ -151,9 +161,9 @@ function buildCaption(base?: string, hashtags: string[] = [], mentions: string[]
 async function resolveMediaForPublish(
   supabaseAdmin: any,
   brandId: string,
-  media: { imageUrl?: string; storagePath?: string; link?: string },
-): Promise<{ imageUrl?: string; link?: string }> {
-  const out: { imageUrl?: string; link?: string } = {};
+  media: { imageUrl?: string; videoUrl?: string; storagePath?: string; link?: string },
+): Promise<{ imageUrl?: string; videoUrl?: string; link?: string }> {
+  const out: { imageUrl?: string; videoUrl?: string; link?: string } = {};
   if (media?.link) out.link = media.link;
 
   if (media?.storagePath) {
@@ -164,10 +174,16 @@ async function resolveMediaForPublish(
       .from("brand-media")
       .createSignedUrl(media.storagePath, 3600);
     if (error) throw new Error(`Falha ao assinar mídia: ${error.message}`);
-    out.imageUrl = data.signedUrl;
+    if (isVideoPath(media.storagePath)) out.videoUrl = data.signedUrl;
+    else out.imageUrl = data.signedUrl;
     return out;
   }
 
+  if (media?.videoUrl) out.videoUrl = media.videoUrl;
   if (media?.imageUrl) out.imageUrl = media.imageUrl;
   return out;
+}
+
+function isVideoPath(path: string): boolean {
+  return /\.(mp4|mov|m4v|webm|3gp)$/i.test(path);
 }

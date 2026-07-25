@@ -281,14 +281,16 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         (conns ?? []).map((c) => [c.id as string, c]),
       );
       for (const d of data.destinations) {
+        // Suportado hoje: Feed IG/FB e Stories no IG (multi-frame automático).
         const supported =
-          d.format === "feed" &&
-          (d.channel === "instagram" || d.channel === "facebook");
+          (d.format === "feed" &&
+            (d.channel === "instagram" || d.channel === "facebook")) ||
+          (d.format === "stories" && d.channel === "instagram");
         if (!supported) {
           scheduleWarnings.push({
             channel: d.channel,
             format: d.format,
-            error: "Formato ainda não agendável (apenas Feed IG/FB)",
+            error: "Formato ainda não agendável (Feed IG/FB ou Stories IG)",
           });
           continue;
         }
@@ -323,7 +325,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       if (validatedScheduleTargets.length === 0) {
         throw new Error(
           scheduleWarnings[0]?.error ??
-            "Nenhum destino suportado para agendamento (apenas Feed IG/FB).",
+            "Nenhum destino suportado para agendamento (Feed IG/FB ou Stories IG).",
         );
       }
     }
@@ -407,7 +409,11 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       }> = scheduleWarnings.map((w) => ({ ...w, ok: false }));
 
       for (const { destination: d, connection: conn } of validatedScheduleTargets) {
-        const caption =
+        const isStory = d.format === "stories";
+        // Stories NUNCA carrega caption (Meta API ignora / retorna erro).
+        const caption = isStory
+          ? null
+          :
           [
             d.copyOverride ?? data.copy,
             ...(data.hashtags.length
@@ -418,29 +424,49 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             .join("\n\n")
             .trim() || null;
 
-        const media = data.mediaPaths[0]
-          ? { storagePath: data.mediaPaths[0], ...(data.linkUrl ? { link: data.linkUrl } : {}) }
-          : data.linkUrl
-            ? { link: data.linkUrl }
-            : {};
+        // Stories multi-frame: 1 social_posts por mídia, +1 minuto por frame.
+        // Feed/Reels: 1 linha (usa a primeira mídia).
+        const frames =
+          isStory && data.mediaPaths.length > 0
+            ? data.mediaPaths
+            : [data.mediaPaths[0] as string | undefined];
+        const baseMs = new Date(scheduledIso!).getTime();
 
-        const { error: spErr } = await supabase.from("social_posts").insert({
-          brand_id: data.brandId,
-          client_id: data.clientId,
-          connection_id: d.connectionId,
-          provider: conn.provider,
-          placement: "feed",
-          caption,
-          hashtags: data.hashtags,
-          mentions: [],
-          media,
-          post_id: postId,
-          status: "scheduled",
-          scheduled_at: scheduledIso,
-          created_by: context.userId,
-          location_id: data.locationId ?? null,
-        });
-        if (spErr) {
+        let frameErr: string | null = null;
+        for (let i = 0; i < frames.length; i++) {
+          const path = frames[i];
+          const media =
+            path
+              ? {
+                  storagePath: path,
+                  ...(isStory ? {} : data.linkUrl ? { link: data.linkUrl } : {}),
+                }
+              : !isStory && data.linkUrl
+                ? { link: data.linkUrl }
+                : {};
+          const frameIso = new Date(baseMs + i * 60_000).toISOString();
+          const { error: spErr } = await supabase.from("social_posts").insert({
+            brand_id: data.brandId,
+            client_id: data.clientId,
+            connection_id: d.connectionId,
+            provider: conn.provider,
+            placement: isStory ? "story" : "feed",
+            caption: isStory ? null : caption,
+            hashtags: isStory ? [] : data.hashtags,
+            mentions: [],
+            media,
+            post_id: postId,
+            status: "scheduled",
+            scheduled_at: frameIso,
+            created_by: context.userId,
+            location_id: isStory ? null : data.locationId ?? null,
+          });
+          if (spErr) {
+            frameErr = spErr.message;
+            break;
+          }
+        }
+        if (frameErr) {
           // Rollback: o post não pode ficar como "scheduled" no Kanban se não
           // conseguimos enfileirar todas as publicações — o cron não vai
           // publicar e o usuário ficaria com um agendamento fantasma.
@@ -455,7 +481,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             .eq("id", postId)
             .eq("brand_id", data.brandId);
           throw new Error(
-            `Falha ao agendar ${d.channel}: ${spErr.message}`,
+            `Falha ao agendar ${d.channel}: ${frameErr}`,
           );
         }
         enqueueResults.push({ channel: d.channel, format: d.format, ok: true });
@@ -477,18 +503,25 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       const svc = new MetaPublishingService();
       const results: Array<{ channel: string; format: string; ok: boolean; error?: string; permalink?: string | null }> = [];
       for (const d of data.destinations) {
-        // Meta atualmente só publica Feed IG/FB. Reels/Stories vêm depois.
+        // Publicação direta: Feed IG/FB e Stories no IG (multi-frame automático).
         const supported =
-          d.format === "feed" && (d.channel === "instagram" || d.channel === "facebook");
+          (d.format === "feed" &&
+            (d.channel === "instagram" || d.channel === "facebook")) ||
+          (d.format === "stories" && d.channel === "instagram");
         if (!supported) {
-          results.push({ channel: d.channel, format: d.format, ok: false, error: "Formato ainda não publicável (apenas Feed IG/FB)" });
+          results.push({ channel: d.channel, format: d.format, ok: false, error: "Formato ainda não publicável (Feed IG/FB ou Stories IG)" });
           continue;
         }
+        const isStory = d.format === "stories";
         // Valor persistido em social_posts.placement (CHECK constraint) e enviado
         // ao provider como identificador de superfície.
-        const providerPlacement: "instagram_feed" | "facebook_feed" =
-          d.channel === "instagram" ? "instagram_feed" : "facebook_feed";
-        const dbPlacement = "feed" as const;
+        const providerPlacement: "instagram_feed" | "facebook_feed" | "instagram_story" =
+          isStory
+            ? "instagram_story"
+            : d.channel === "instagram"
+              ? "instagram_feed"
+              : "facebook_feed";
+        const dbPlacement: "feed" | "story" = isStory ? "story" : "feed";
         try {
           // Carrega conexão (isolada por brand/cliente)
           const { data: conn, error: connErr } = await supabase
@@ -506,78 +539,93 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             throw new Error("Conexão não pertence a este cliente");
           }
 
-          // Resolve mídia (signed URL curta para imagem privada)
-          const mediaOut: { imageUrl?: string; link?: string } = {};
-          if (data.linkUrl) mediaOut.link = data.linkUrl;
-          if (data.mediaPaths[0]) {
-            const path = data.mediaPaths[0];
-            if (!path.startsWith(`${data.brandId}/`)) throw new Error("Mídia fora do escopo da marca");
-            const { data: signed, error: sErr } = await supabase.storage
-              .from("brand-media")
-              .createSignedUrl(path, 3600);
-            if (sErr) throw new Error(`Falha ao assinar mídia: ${sErr.message}`);
-            mediaOut.imageUrl = signed.signedUrl;
-          }
-          if (providerPlacement === "instagram_feed" && !mediaOut.imageUrl) {
-            throw new Error("Feed do Instagram exige uma imagem");
-          }
+          // Stories multi-frame: publica cada mídia como um Story separado.
+          // Feed/Reels: 1 chamada, primeira mídia.
+          const frames = isStory && data.mediaPaths.length > 0
+            ? data.mediaPaths
+            : [data.mediaPaths[0] as string | undefined];
 
-          const caption = [
-            data.copy,
-            ...(data.hashtags.length
-              ? [data.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")]
-              : []),
-          ]
-            .filter(Boolean)
-            .join("\n\n")
-            .trim() || undefined;
+          const caption = isStory
+            ? undefined
+            : [
+                data.copy,
+                ...(data.hashtags.length
+                  ? [data.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")]
+                  : []),
+              ]
+                .filter(Boolean)
+                .join("\n\n")
+                .trim() || undefined;
 
-          // Registro de auditoria em social_posts
-          const { data: sp, error: spErr } = await supabase
-            .from("social_posts")
-            .insert({
-              brand_id: data.brandId,
-              client_id: data.clientId,
-              connection_id: d.connectionId,
-              provider: conn.provider,
-              placement: dbPlacement,
-              caption: caption ?? null,
-              hashtags: data.hashtags,
-              mentions: [],
-              media: data.mediaPaths[0]
-                ? { storagePath: data.mediaPaths[0], ...(data.linkUrl ? { link: data.linkUrl } : {}) }
-                : (data.linkUrl ? { link: data.linkUrl } : {}),
-              post_id: postId,
-              status: "publishing",
-              created_by: context.userId,
-              location_id: data.locationId ?? null,
-            })
-            .select("id")
-            .single();
-          if (spErr) throw new Error(spErr.message);
+          let lastPermalink: string | null = null;
+          for (const path of frames) {
+            // Resolve mídia por frame (signed URL curta).
+            const mediaOut: { imageUrl?: string; videoUrl?: string; link?: string } = {};
+            if (!isStory && data.linkUrl) mediaOut.link = data.linkUrl;
+            if (path) {
+              if (!path.startsWith(`${data.brandId}/`)) throw new Error("Mídia fora do escopo da marca");
+              const { data: signed, error: sErr } = await supabase.storage
+                .from("brand-media")
+                .createSignedUrl(path, 3600);
+              if (sErr) throw new Error(`Falha ao assinar mídia: ${sErr.message}`);
+              if (/\.(mp4|mov|m4v|webm|3gp)$/i.test(path)) mediaOut.videoUrl = signed.signedUrl;
+              else mediaOut.imageUrl = signed.signedUrl;
+            }
+            if (providerPlacement === "instagram_feed" && !mediaOut.imageUrl) {
+              throw new Error("Feed do Instagram exige uma imagem");
+            }
+            if (providerPlacement === "instagram_story" && !mediaOut.imageUrl && !mediaOut.videoUrl) {
+              throw new Error("Stories exige imagem ou vídeo");
+            }
 
-          try {
-            const result = await svc.publish(conn as any, { placement: providerPlacement, caption, media: mediaOut });
-            await supabase
+            // Registro de auditoria em social_posts (1 por frame)
+            const { data: sp, error: spErr } = await supabase
               .from("social_posts")
-              .update({
-                status: "published",
-                published_at: new Date().toISOString(),
-                external_post_id: result.externalPostId,
-                external_permalink: result.externalPermalink,
-                provider_response: result.providerResponse as any,
-                last_error: null,
+              .insert({
+                brand_id: data.brandId,
+                client_id: data.clientId,
+                connection_id: d.connectionId,
+                provider: conn.provider,
+                placement: dbPlacement,
+                caption: caption ?? null,
+                hashtags: isStory ? [] : data.hashtags,
+                mentions: [],
+                media: path
+                  ? { storagePath: path, ...(!isStory && data.linkUrl ? { link: data.linkUrl } : {}) }
+                  : (!isStory && data.linkUrl ? { link: data.linkUrl } : {}),
+                post_id: postId,
+                status: "publishing",
+                created_by: context.userId,
+                location_id: isStory ? null : data.locationId ?? null,
               })
-              .eq("id", sp.id);
-            results.push({ channel: d.channel, format: d.format, ok: true, permalink: result.externalPermalink });
-          } catch (err) {
-            const msg = formatPublishError(err);
-            await supabase
-              .from("social_posts")
-              .update({ status: "failed", last_error: msg })
-              .eq("id", sp.id);
-            throw new Error(msg);
+              .select("id")
+              .single();
+            if (spErr) throw new Error(spErr.message);
+
+            try {
+              const result = await svc.publish(conn as any, { placement: providerPlacement, caption, media: mediaOut });
+              await supabase
+                .from("social_posts")
+                .update({
+                  status: "published",
+                  published_at: new Date().toISOString(),
+                  external_post_id: result.externalPostId,
+                  external_permalink: result.externalPermalink,
+                  provider_response: result.providerResponse as any,
+                  last_error: null,
+                })
+                .eq("id", sp.id);
+              lastPermalink = result.externalPermalink;
+            } catch (err) {
+              const msg = formatPublishError(err);
+              await supabase
+                .from("social_posts")
+                .update({ status: "failed", last_error: msg })
+                .eq("id", sp.id);
+              throw new Error(msg);
+            }
           }
+          results.push({ channel: d.channel, format: d.format, ok: true, permalink: lastPermalink });
         } catch (err) {
           results.push({ channel: d.channel, format: d.format, ok: false, error: (err as Error).message });
         }

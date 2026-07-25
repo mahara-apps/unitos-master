@@ -53,7 +53,9 @@ export const FORMATS_BY_CHANNEL: Record<SocialChannel, PlacementFormat[]> = {
  */
 const FORMAT_MEDIA_MATRIX: Record<PlacementFormat, MediaKind[]> = {
   feed: ["none", "single_image", "video"],
-  stories: ["none", "single_image", "video"],
+  // Stories aceita imagem única, vídeo curto, OU múltiplas mídias (cada
+  // arquivo vira 1 frame na sequência publicada).
+  stories: ["none", "single_image", "video", "multi_image"],
   reels: ["none", "video"],
   carrossel: ["none", "multi_image"],
 };
@@ -90,8 +92,6 @@ export function formatIncompatibilityReason(
     return "Carrossel exige 2 ou mais imagens selecionadas.";
   if (format === "feed" && media === "multi_image")
     return "Feed com múltiplas imagens vira Carrossel automaticamente.";
-  if (format === "stories" && media === "multi_image")
-    return "Stories publica um item por vez — selecione apenas 1 mídia.";
   return "Mídia atual não é compatível com este formato.";
 }
 

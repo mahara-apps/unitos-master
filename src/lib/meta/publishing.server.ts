@@ -10,15 +10,21 @@
 import { MetaProvider, MetaGraphError } from "./provider.server";
 import { decryptCredential } from "@/lib/credentials-crypto.server";
 
-export type SupportedPlacement = "instagram_feed" | "facebook_feed";
+export type SupportedPlacement =
+  | "instagram_feed"
+  | "facebook_feed"
+  | "instagram_story";
 export const SUPPORTED_PLACEMENTS: SupportedPlacement[] = [
   "instagram_feed",
   "facebook_feed",
+  "instagram_story",
 ];
 
 export type PublishMedia = {
-  /** Publicly reachable image URL. Required for IG. Optional for FB. */
+  /** Publicly reachable image URL. Required for IG Feed. */
   imageUrl?: string;
+  /** Publicly reachable video URL (Stories/Reels). */
+  videoUrl?: string;
   /** Optional external link (Facebook feed only). */
   link?: string;
 };
@@ -68,6 +74,9 @@ export class MetaPublishingService {
     if (input.placement === "instagram_feed") {
       return this.publishInstagramFeed(connection, pageToken, input);
     }
+    if (input.placement === "instagram_story") {
+      return this.publishInstagramStory(connection, pageToken, input);
+    }
     return this.publishFacebookFeed(connection, pageToken, input);
   }
 
@@ -85,6 +94,9 @@ export class MetaPublishingService {
     const row = { ...connection, access_token_ciphertext: "" } as MetaConnectionRow;
     if (input.placement === "instagram_feed") {
       return this.publishInstagramFeed(row, pageToken, input);
+    }
+    if (input.placement === "instagram_story") {
+      return this.publishInstagramStory(row, pageToken, input);
     }
     return this.publishFacebookFeed(row, pageToken, input);
   }
@@ -193,6 +205,69 @@ export class MetaPublishingService {
       externalPostId: res.id,
       externalPermalink: `https://www.facebook.com/${res.id}`,
       providerResponse: res as unknown as Record<string, unknown>,
+    };
+  }
+
+  // ------------------------------------------------------------ IG Stories --
+  // Direct Publishing de Stories: NUNCA envia caption (Meta ignora + pode
+  // gerar erro). Aceita imagem OU vídeo — a origem decide via media_type.
+  private async publishInstagramStory(
+    connection: MetaConnectionRow,
+    pageToken: string,
+    input: PublishInput,
+  ): Promise<PublishResult> {
+    if (!connection.account_id) {
+      throw new Error(
+        "Esta Página do Facebook não tem conta Instagram Business vinculada.",
+      );
+    }
+    if (!input.media.imageUrl && !input.media.videoUrl) {
+      throw new Error("Stories exige uma imagem ou um vídeo.");
+    }
+    const igId = connection.account_id;
+
+    const container = await this.provider.graph<{ id: string }>(
+      `/${igId}/media`,
+      {
+        accessToken: pageToken,
+        method: "POST",
+        query: {
+          media_type: "STORIES",
+          ...(input.media.videoUrl
+            ? { video_url: input.media.videoUrl }
+            : { image_url: input.media.imageUrl! }),
+        },
+      },
+    );
+
+    const publish = await this.provider.graph<{ id: string }>(
+      `/${igId}/media_publish`,
+      {
+        accessToken: pageToken,
+        method: "POST",
+        query: { creation_id: container.id },
+      },
+    );
+
+    let permalink: string | null = null;
+    try {
+      const meta = await this.provider.graph<{ permalink?: string }>(
+        `/${publish.id}`,
+        { accessToken: pageToken, query: { fields: "permalink" } },
+      );
+      permalink = meta.permalink ?? null;
+    } catch {
+      /* permalink é opcional em Stories */
+    }
+
+    return {
+      externalPostId: publish.id,
+      externalPermalink: permalink,
+      providerResponse: {
+        container_id: container.id,
+        media_id: publish.id,
+        media_type: "STORIES",
+      },
     };
   }
 }

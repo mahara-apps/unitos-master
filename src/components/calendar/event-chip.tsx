@@ -1,5 +1,6 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { CircleDot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EVENT_TYPE_STYLES, SOCIAL_NETWORKS, classifySocialNetwork } from "@/lib/calendar-tokens";
 import type { CalendarPost } from "@/lib/calendar.functions";
@@ -25,6 +26,8 @@ export function EventChip({
     const primaryChannel = p.channels?.[0];
     const netKey = classifySocialNetwork(primaryChannel);
     const NetIcon = SOCIAL_NETWORKS[netKey].Icon;
+    const isStory =
+      typeof p.format === "string" && /^stor(y|ies)$/i.test(p.format);
     return (
       <Tooltip>
         <TooltipTrigger asChild>
@@ -37,6 +40,12 @@ export function EventChip({
             )}
           >
             <NetIcon className="h-3 w-3 shrink-0 text-muted-foreground" strokeWidth={2} />
+            {isStory ? (
+              <span className="inline-flex items-center gap-0.5 rounded-sm bg-fuchsia-500/15 px-1 py-[1px] text-[9px] font-semibold uppercase leading-none text-fuchsia-600 dark:text-fuchsia-400">
+                <CircleDot className="h-2 w-2" strokeWidth={2.5} />
+                Story
+              </span>
+            ) : null}
             <span className="tabular-nums font-semibold opacity-70">{t}</span>
             <span className="truncate flex-1">{p.title}</span>
             {p.author ? (
@@ -54,7 +63,7 @@ export function EventChip({
         <TooltipContent side="top" className="max-w-xs text-xs">
           <div className="font-medium">{p.title}</div>
           <div className="mt-0.5 text-muted-foreground">
-            {SOCIAL_NETWORKS[netKey].label} · {t}
+            {SOCIAL_NETWORKS[netKey].label}{isStory ? " · Story" : ""} · {t}
             {p.author?.name ? ` · ${p.author.name}` : ""}
           </div>
         </TooltipContent>
