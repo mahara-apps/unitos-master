@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/select";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CHANNELS, FORMATS } from "./stage-colors";
 
 export type CreatedRange = "any" | "today" | "7d" | "30d";
@@ -79,105 +80,114 @@ export function ContentToolbar({
     onFiltersChange({ ...filters, [k]: v });
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-background/60 p-2">
-      <div className="flex items-center gap-1.5 pl-1 pr-1 text-xs font-medium text-muted-foreground">
-        <Filter className="h-3.5 w-3.5" />
-        Filtros
-        {activeCount > 0 ? (
-          <Badge variant="secondary" className="h-4 rounded-md px-1 text-[10px] tabular-nums">
-            {activeCount}
-          </Badge>
-        ) : null}
-      </div>
+    <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-background/60 p-2">
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button size="sm" variant="outline" className="h-8 gap-1.5 px-2.5 text-xs">
+            <Filter className="h-3.5 w-3.5" />
+            Filtros
+            {activeCount > 0 ? (
+              <Badge variant="secondary" className="h-4 rounded-md px-1 text-[10px] tabular-nums">
+                {activeCount}
+              </Badge>
+            ) : null}
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-[320px] p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-semibold">Filtros</span>
+            {!isFiltersEmpty(filters) ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-xs text-muted-foreground"
+                onClick={() => onFiltersChange(DEFAULT_CONTENT_FILTERS)}
+              >
+                <X className="mr-1 h-3.5 w-3.5" /> Limpar
+              </Button>
+            ) : null}
+          </div>
+          <div className="grid gap-2">
+            <Select value={filters.createdRange} onValueChange={(v) => set("createdRange", v as CreatedRange)}>
+              <SelectTrigger className="h-8 w-full text-xs">
+                <CalendarPlus className="h-3.5 w-3.5 text-muted-foreground" />
+                <SelectValue placeholder="Data de criação" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">Criação: qualquer</SelectItem>
+                <SelectItem value="today">Hoje</SelectItem>
+                <SelectItem value="7d">Últimos 7 dias</SelectItem>
+                <SelectItem value="30d">Últimos 30 dias</SelectItem>
+              </SelectContent>
+            </Select>
 
-      <Select value={filters.createdRange} onValueChange={(v) => set("createdRange", v as CreatedRange)}>
-        <SelectTrigger className="h-8 w-[160px] text-xs">
-          <CalendarPlus className="h-3.5 w-3.5 text-muted-foreground" />
-          <SelectValue placeholder="Data de criação" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="any">Criação: qualquer</SelectItem>
-          <SelectItem value="today">Hoje</SelectItem>
-          <SelectItem value="7d">Últimos 7 dias</SelectItem>
-          <SelectItem value="30d">Últimos 30 dias</SelectItem>
-        </SelectContent>
-      </Select>
+            <Select value={filters.scheduledRange} onValueChange={(v) => set("scheduledRange", v as ScheduledRange)}>
+              <SelectTrigger className="h-8 w-full text-xs">
+                <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
+                <SelectValue placeholder="Data de postagem" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">Postagem: qualquer</SelectItem>
+                <SelectItem value="today">Agendados para hoje</SelectItem>
+                <SelectItem value="7d">Próximos 7 dias</SelectItem>
+              </SelectContent>
+            </Select>
 
-      <Select value={filters.scheduledRange} onValueChange={(v) => set("scheduledRange", v as ScheduledRange)}>
-        <SelectTrigger className="h-8 w-[180px] text-xs">
-          <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
-          <SelectValue placeholder="Data de postagem" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="any">Postagem: qualquer</SelectItem>
-          <SelectItem value="today">Agendados para hoje</SelectItem>
-          <SelectItem value="7d">Próximos 7 dias</SelectItem>
-        </SelectContent>
-      </Select>
+            <Select value={filters.channel} onValueChange={(v) => set("channel", v)}>
+              <SelectTrigger className="h-8 w-full text-xs">
+                <SelectValue placeholder="Rede social" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">Todas as redes</SelectItem>
+                {CHANNELS.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-      <Select value={filters.channel} onValueChange={(v) => set("channel", v)}>
-        <SelectTrigger className="h-8 w-[150px] text-xs">
-          <SelectValue placeholder="Rede social" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="any">Todas as redes</SelectItem>
-          {CHANNELS.map((c) => (
-            <SelectItem key={c.id} value={c.id}>
-              {c.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+            <Select value={filters.format} onValueChange={(v) => set("format", v)}>
+              <SelectTrigger className="h-8 w-full text-xs">
+                <SelectValue placeholder="Formato" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">Todos formatos</SelectItem>
+                {FORMATS.map((f) => (
+                  <SelectItem key={f} value={f}>
+                    {f}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-      <Select value={filters.format} onValueChange={(v) => set("format", v)}>
-        <SelectTrigger className="h-8 w-[140px] text-xs">
-          <SelectValue placeholder="Formato" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="any">Todos formatos</SelectItem>
-          {FORMATS.map((f) => (
-            <SelectItem key={f} value={f}>
-              {f}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+            <Select value={filters.media} onValueChange={(v) => set("media", v as MediaFilter)}>
+              <SelectTrigger className="h-8 w-full text-xs">
+                <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                <SelectValue placeholder="Mídia" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">Mídia: qualquer</SelectItem>
+                <SelectItem value="with">Com imagem</SelectItem>
+                <SelectItem value="without">Sem imagem</SelectItem>
+              </SelectContent>
+            </Select>
 
-      <Select value={filters.media} onValueChange={(v) => set("media", v as MediaFilter)}>
-        <SelectTrigger className="h-8 w-[140px] text-xs">
-          <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
-          <SelectValue placeholder="Mídia" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="any">Mídia: qualquer</SelectItem>
-          <SelectItem value="with">Com imagem</SelectItem>
-          <SelectItem value="without">Sem imagem</SelectItem>
-        </SelectContent>
-      </Select>
-
-      <Select value={filters.sla} onValueChange={(v) => set("sla", v as SlaFilter)}>
-        <SelectTrigger className="h-8 w-[160px] text-xs">
-          <AlarmClock className="h-3.5 w-3.5 text-muted-foreground" />
-          <SelectValue placeholder="SLA" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="any">SLA: qualquer</SelectItem>
-          <SelectItem value="on_track">Em dia</SelectItem>
-          <SelectItem value="at_risk">Próximo de vencer</SelectItem>
-          <SelectItem value="overdue">Atrasadas</SelectItem>
-        </SelectContent>
-      </Select>
-
-      {!isFiltersEmpty(filters) ? (
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-8 px-2 text-xs text-muted-foreground"
-          onClick={() => onFiltersChange(DEFAULT_CONTENT_FILTERS)}
-        >
-          <X className="mr-1 h-3.5 w-3.5" /> Limpar
-        </Button>
-      ) : null}
+            <Select value={filters.sla} onValueChange={(v) => set("sla", v as SlaFilter)}>
+              <SelectTrigger className="h-8 w-full text-xs">
+                <AlarmClock className="h-3.5 w-3.5 text-muted-foreground" />
+                <SelectValue placeholder="SLA" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="any">SLA: qualquer</SelectItem>
+                <SelectItem value="on_track">Em dia</SelectItem>
+                <SelectItem value="at_risk">Próximo de vencer</SelectItem>
+                <SelectItem value="overdue">Atrasadas</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </PopoverContent>
+      </Popover>
 
       <div className="ml-auto flex items-center gap-3">
         <span className="text-[11px] tabular-nums text-muted-foreground">
