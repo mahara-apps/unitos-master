@@ -207,73 +207,70 @@ export class MetaPublishingService {
       providerResponse: res as unknown as Record<string, unknown>,
     };
   }
-}
 
-// Adiciona método de Stories via prototype para preservar diff mínimo.
-(MetaPublishingService.prototype as any).publishInstagramStory = async function (
-  this: MetaPublishingService,
-  connection: MetaConnectionRow,
-  pageToken: string,
-  input: PublishInput,
-): Promise<PublishResult> {
-  if (!connection.account_id) {
-    throw new Error(
-      "Esta Página do Facebook não tem conta Instagram Business vinculada.",
-    );
-  }
-  if (!input.media.imageUrl && !input.media.videoUrl) {
-    throw new Error("Stories exige uma imagem ou um vídeo.");
-  }
-  const igId = connection.account_id;
-  const provider = (this as any).provider as MetaProvider;
+  // ------------------------------------------------------------ IG Stories --
+  // Direct Publishing de Stories: NUNCA envia caption (Meta ignora + pode
+  // gerar erro). Aceita imagem OU vídeo — a origem decide via media_type.
+  private async publishInstagramStory(
+    connection: MetaConnectionRow,
+    pageToken: string,
+    input: PublishInput,
+  ): Promise<PublishResult> {
+    if (!connection.account_id) {
+      throw new Error(
+        "Esta Página do Facebook não tem conta Instagram Business vinculada.",
+      );
+    }
+    if (!input.media.imageUrl && !input.media.videoUrl) {
+      throw new Error("Stories exige uma imagem ou um vídeo.");
+    }
+    const igId = connection.account_id;
 
-  // Step 1: container com media_type=STORIES. NUNCA enviar caption em Stories.
-  const container = await provider.graph<{ id: string }>(
-    `/${igId}/media`,
-    {
-      accessToken: pageToken,
-      method: "POST",
-      query: {
-        media_type: "STORIES",
-        ...(input.media.videoUrl
-          ? { video_url: input.media.videoUrl }
-          : { image_url: input.media.imageUrl! }),
+    const container = await this.provider.graph<{ id: string }>(
+      `/${igId}/media`,
+      {
+        accessToken: pageToken,
+        method: "POST",
+        query: {
+          media_type: "STORIES",
+          ...(input.media.videoUrl
+            ? { video_url: input.media.videoUrl }
+            : { image_url: input.media.imageUrl! }),
+        },
       },
-    },
-  );
-
-  // Step 2: publish
-  const publish = await provider.graph<{ id: string }>(
-    `/${igId}/media_publish`,
-    {
-      accessToken: pageToken,
-      method: "POST",
-      query: { creation_id: container.id },
-    },
-  );
-
-  // Step 3: permalink best-effort
-  let permalink: string | null = null;
-  try {
-    const meta = await provider.graph<{ permalink?: string }>(
-      `/${publish.id}`,
-      { accessToken: pageToken, query: { fields: "permalink" } },
     );
-    permalink = meta.permalink ?? null;
-  } catch {
-    /* permalink é opcional em Stories */
-  }
 
-  return {
-    externalPostId: publish.id,
-    externalPermalink: permalink,
-    providerResponse: {
-      container_id: container.id,
-      media_id: publish.id,
-      media_type: "STORIES",
-    },
-  };
-};
+    const publish = await this.provider.graph<{ id: string }>(
+      `/${igId}/media_publish`,
+      {
+        accessToken: pageToken,
+        method: "POST",
+        query: { creation_id: container.id },
+      },
+    );
+
+    let permalink: string | null = null;
+    try {
+      const meta = await this.provider.graph<{ permalink?: string }>(
+        `/${publish.id}`,
+        { accessToken: pageToken, query: { fields: "permalink" } },
+      );
+      permalink = meta.permalink ?? null;
+    } catch {
+      /* permalink é opcional em Stories */
+    }
+
+    return {
+      externalPostId: publish.id,
+      externalPermalink: permalink,
+      providerResponse: {
+        container_id: container.id,
+        media_id: publish.id,
+        media_type: "STORIES",
+      },
+    };
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
