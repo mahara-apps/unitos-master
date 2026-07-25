@@ -281,14 +281,16 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         (conns ?? []).map((c) => [c.id as string, c]),
       );
       for (const d of data.destinations) {
+        // Suportado hoje: Feed IG/FB e Stories no IG (multi-frame automático).
         const supported =
-          d.format === "feed" &&
-          (d.channel === "instagram" || d.channel === "facebook");
+          (d.format === "feed" &&
+            (d.channel === "instagram" || d.channel === "facebook")) ||
+          (d.format === "stories" && d.channel === "instagram");
         if (!supported) {
           scheduleWarnings.push({
             channel: d.channel,
             format: d.format,
-            error: "Formato ainda não agendável (apenas Feed IG/FB)",
+            error: "Formato ainda não agendável (Feed IG/FB ou Stories IG)",
           });
           continue;
         }
@@ -323,7 +325,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       if (validatedScheduleTargets.length === 0) {
         throw new Error(
           scheduleWarnings[0]?.error ??
-            "Nenhum destino suportado para agendamento (apenas Feed IG/FB).",
+            "Nenhum destino suportado para agendamento (Feed IG/FB ou Stories IG).",
         );
       }
     }
@@ -407,7 +409,11 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       }> = scheduleWarnings.map((w) => ({ ...w, ok: false }));
 
       for (const { destination: d, connection: conn } of validatedScheduleTargets) {
-        const caption =
+        const isStory = d.format === "stories";
+        // Stories NUNCA carrega caption (Meta API ignora / retorna erro).
+        const caption = isStory
+          ? null
+          :
           [
             d.copyOverride ?? data.copy,
             ...(data.hashtags.length
@@ -418,29 +424,49 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             .join("\n\n")
             .trim() || null;
 
-        const media = data.mediaPaths[0]
-          ? { storagePath: data.mediaPaths[0], ...(data.linkUrl ? { link: data.linkUrl } : {}) }
-          : data.linkUrl
-            ? { link: data.linkUrl }
-            : {};
+        // Stories multi-frame: 1 social_posts por mídia, +1 minuto por frame.
+        // Feed/Reels: 1 linha (usa a primeira mídia).
+        const frames =
+          isStory && data.mediaPaths.length > 0
+            ? data.mediaPaths
+            : [data.mediaPaths[0] as string | undefined];
+        const baseMs = new Date(scheduledIso!).getTime();
 
-        const { error: spErr } = await supabase.from("social_posts").insert({
-          brand_id: data.brandId,
-          client_id: data.clientId,
-          connection_id: d.connectionId,
-          provider: conn.provider,
-          placement: "feed",
-          caption,
-          hashtags: data.hashtags,
-          mentions: [],
-          media,
-          post_id: postId,
-          status: "scheduled",
-          scheduled_at: scheduledIso,
-          created_by: context.userId,
-          location_id: data.locationId ?? null,
-        });
-        if (spErr) {
+        let frameErr: string | null = null;
+        for (let i = 0; i < frames.length; i++) {
+          const path = frames[i];
+          const media =
+            path
+              ? {
+                  storagePath: path,
+                  ...(isStory ? {} : data.linkUrl ? { link: data.linkUrl } : {}),
+                }
+              : !isStory && data.linkUrl
+                ? { link: data.linkUrl }
+                : {};
+          const frameIso = new Date(baseMs + i * 60_000).toISOString();
+          const { error: spErr } = await supabase.from("social_posts").insert({
+            brand_id: data.brandId,
+            client_id: data.clientId,
+            connection_id: d.connectionId,
+            provider: conn.provider,
+            placement: isStory ? "story" : "feed",
+            caption: isStory ? null : caption,
+            hashtags: isStory ? [] : data.hashtags,
+            mentions: [],
+            media,
+            post_id: postId,
+            status: "scheduled",
+            scheduled_at: frameIso,
+            created_by: context.userId,
+            location_id: isStory ? null : data.locationId ?? null,
+          });
+          if (spErr) {
+            frameErr = spErr.message;
+            break;
+          }
+        }
+        if (frameErr) {
           // Rollback: o post não pode ficar como "scheduled" no Kanban se não
           // conseguimos enfileirar todas as publicações — o cron não vai
           // publicar e o usuário ficaria com um agendamento fantasma.
@@ -455,7 +481,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             .eq("id", postId)
             .eq("brand_id", data.brandId);
           throw new Error(
-            `Falha ao agendar ${d.channel}: ${spErr.message}`,
+            `Falha ao agendar ${d.channel}: ${frameErr}`,
           );
         }
         enqueueResults.push({ channel: d.channel, format: d.format, ok: true });
