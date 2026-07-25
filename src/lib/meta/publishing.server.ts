@@ -10,15 +10,21 @@
 import { MetaProvider, MetaGraphError } from "./provider.server";
 import { decryptCredential } from "@/lib/credentials-crypto.server";
 
-export type SupportedPlacement = "instagram_feed" | "facebook_feed";
+export type SupportedPlacement =
+  | "instagram_feed"
+  | "facebook_feed"
+  | "instagram_story";
 export const SUPPORTED_PLACEMENTS: SupportedPlacement[] = [
   "instagram_feed",
   "facebook_feed",
+  "instagram_story",
 ];
 
 export type PublishMedia = {
-  /** Publicly reachable image URL. Required for IG. Optional for FB. */
+  /** Publicly reachable image URL. Required for IG Feed. */
   imageUrl?: string;
+  /** Publicly reachable video URL (Stories/Reels). */
+  videoUrl?: string;
   /** Optional external link (Facebook feed only). */
   link?: string;
 };
@@ -68,6 +74,9 @@ export class MetaPublishingService {
     if (input.placement === "instagram_feed") {
       return this.publishInstagramFeed(connection, pageToken, input);
     }
+    if (input.placement === "instagram_story") {
+      return this.publishInstagramStory(connection, pageToken, input);
+    }
     return this.publishFacebookFeed(connection, pageToken, input);
   }
 
@@ -85,6 +94,9 @@ export class MetaPublishingService {
     const row = { ...connection, access_token_ciphertext: "" } as MetaConnectionRow;
     if (input.placement === "instagram_feed") {
       return this.publishInstagramFeed(row, pageToken, input);
+    }
+    if (input.placement === "instagram_story") {
+      return this.publishInstagramStory(row, pageToken, input);
     }
     return this.publishFacebookFeed(row, pageToken, input);
   }
