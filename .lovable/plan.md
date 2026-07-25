@@ -1,88 +1,49 @@
-# Melhorias no SLA de Tarefas
+# Dashboard geral da agência — Visão operacional consolidada
 
-Evoluir o indicador de SLA existente em três frentes: **tooltip explicativo**, **configuração granular em horas por etapa** e **filtros por status de SLA** (em dia / próximo de vencer / atrasadas) nos boards de Conteúdo e Tarefas.
+Hoje o `/dashboard` em modo Agência já mostra saúde por cliente e KPIs sociais. Falta uma camada **operacional cross-client** para quem gerencia várias contas ao mesmo tempo. Este plano adiciona essa camada sem quebrar o que existe: novos widgets aparecem apenas no modo Agência (sem cliente ativo) e reutilizam as tabelas `tasks`, `posts`, `content_pipeline_stages`, `post_approvals` e `sla_rules`.
 
-## Situação atual
+## O que muda na tela
 
-- SLA vive em `content_pipeline_stages.sla_days` (dias inteiros).
-- Cálculo em `src/lib/content.functions.ts` deriva `is_overdue` / `days_overdue` a partir de `stage_entered_at`.
-- Configuração em `/settings/sla` já permite definir dias por etapa.
-- Board de Conteúdo (`content-board.tsx`) mostra badge `AlarmClock` com contagem e tooltip básico ("N tarefa(s) atrasada(s)").
-- Kanban de Tarefas (`tasks/task-kanban.tsx`) marca `overdue` mas sem SLA por coluna configurável.
+Nova seção **"Operação da agência"** logo abaixo dos KPIs sociais, com 6 widgets organizados em grid de 2 colunas (mesmo padrão masonry atual):
 
-## O que muda
+1. **Tarefas atrasadas** — KPI + lista top 10 (título, cliente, responsável, horas em atraso). Clique navega para `/tasks?status=overdue`.
+2. **Conteúdos em produção** — total + breakdown por etapa (Ideia, Roteiro, Design…). Clique em etapa filtra `/content`.
+3. **Aguardando aprovação** — total + tempo médio parado + lista dos 10 mais antigos com botão "Abrir".
+4. **SLA médio da operação** — % on-track / at-risk / overdue nas últimas 30 dias, com sparkline diário e delta vs. período anterior.
+5. **Gargalos por etapa** — barras horizontais das etapas com maior lead time médio e maior taxa de overdue. Identifica onde o fluxo trava.
+6. **Volume de produção da equipe** — por membro: tarefas concluídas, posts aprovados, horas registradas (timesheet), no range selecionado. Ordenável.
 
-### 1. Tooltip explicativo do indicador
-- Substituir o `TooltipContent` atual do badge por um bloco estruturado:
-  - Título: "SLA da etapa: {label}"
-  - Corpo: "Cada card pode permanecer no máximo **{sla}** nesta etapa. As {n} tarefas exibidas aqui ultrapassaram esse prazo."
-  - Rodapé com link "Configurar SLA" apontando para `/settings/sla` (apenas para gestores).
-- Aplicar o mesmo componente reutilizável (`SlaBadge`) no card individual (hoje `title="Atrasado há Xd"`) e no header da coluna.
+O `DateRangePicker` já existente no header controla todos os widgets. Filtros por cliente (multi-select opcional) ficam num popover "Filtros" ao lado, para focar em um subconjunto de contas quando necessário.
 
-### 2. SLA em horas por etapa
-- Migrar unidade para horas (mais flexível). Manter compat com valores existentes.
-- Nova coluna `sla_hours` em `content_pipeline_stages`; backfill = `sla_days * 24`. Mantemos `sla_days` como coluna legada de leitura por um ciclo, mas escrita passa a ser em `sla_hours`.
-- Ajustar cálculo em `computeOverdue()` para trabalhar em horas.
-- Tela `/settings/sla`:
-  - Input numérico + seletor de unidade (h / d), persistindo sempre em horas.
-  - Presets rápidos (12h, 24h, 48h, 72h, 7d) ao lado do input.
-  - Exemplo visual: "Ideia · 24h · Aprovação · 48h · Design · 72h".
-- Aplicar o mesmo modelo em Tarefas: nova coluna `sla_hours` em `task_stages` (ou equivalente atual) + config na mesma tela `/settings/sla`, aba "Tarefas".
+## Regras de escopo
 
-### 3. Status de SLA e filtros
-Introduzir três estados derivados:
-
-| Estado | Regra |
-|---|---|
-| `on_track` | tempo em etapa < 80% do SLA |
-| `at_risk` | 80% ≤ tempo em etapa < 100% do SLA |
-| `overdue` | tempo em etapa ≥ 100% do SLA |
-
-- Enriquecer o retorno de posts/tasks com `sla_status` e `sla_progress` (0–1).
-- Adicionar filtro na toolbar (`task-toolbar.tsx` e `content-toolbar.tsx`):
-  - Chips segmentados: **Todos · Em dia · Próximo de vencer · Atrasadas**.
-  - Persistir no search param `sla=on_track|at_risk|overdue|all` (padrão `all`).
-- Badge do card ganha variante visual:
-  - Verde discreto (on_track, opcional/ocultável).
-  - Âmbar (at_risk) com texto "Vence em {Xh}".
-  - Vermelho (overdue) mantendo "Atrasado há {X}".
-- Contagem por status no header da coluna (não só overdue): `{on} · {risk} · {late}`.
+- Visível **apenas no modo Agência** (`activeContext.clientId === null`). No modo Cliente, o dashboard continua idêntico ao atual.
+- Todos os dados respeitam `brand_id` do workspace ativo e RLS existente.
+- SLA usa a mesma fórmula do Kanban (`sla_hours` em `content_pipeline_stages` + `stage_entered_at` em `posts`), garantindo consistência com o que aparece em `/content`.
 
 ## Detalhes técnicos
 
-**Schema**
-- Migração:
-  - `ALTER TABLE public.content_pipeline_stages ADD COLUMN sla_hours integer;`
-  - `UPDATE ... SET sla_hours = sla_days * 24 WHERE sla_days IS NOT NULL;`
-  - Idem para tabela de estágios de tasks, se aplicável.
-  - Sem CHECK constraint (usa validação no server fn: 0–8760).
-- RLS e GRANTs seguem o modelo já existente das tabelas.
+**Backend** — novo arquivo `src/lib/agency-ops.functions.ts` com uma única server function `getAgencyOpsDashboardFn({ brandId, from, to, clientIds? })` que retorna:
 
-**Server functions** (`src/lib/content.functions.ts`, `src/lib/tasks.functions.ts`)
-- `computeOverdue()` → `computeSla()` retornando `{ sla_status, sla_progress, hours_in_stage, hours_over }`.
-- `slaSnapshotFn` agrega por status (não só overdue).
-- `updateStageSlaFn` (em `sla.functions.ts`) aceita `slaHours` em vez de `slaDays`.
+```ts
+{
+  overdueTasks: { total: number; items: TaskLite[] };        // top 10
+  contentInProduction: { total: number; byStage: StageCount[] };
+  pendingApproval: { total: number; avgWaitHours: number; items: PostLite[] };
+  slaSummary: { onTrack: number; atRisk: number; overdue: number; daily: DailyPoint[]; deltaPct: number };
+  bottlenecks: Array<{ stageId: string; stageName: string; avgLeadHours: number; overduePct: number }>;
+  teamThroughput: Array<{ userId: string; name: string; avatar: string|null; tasksDone: number; postsApproved: number; hoursLogged: number }>;
+}
+```
 
-**Frontend**
-- Novo componente `src/components/tasks/sla-badge.tsx` reutilizado por Conteúdo e Tarefas.
-- `content-toolbar.tsx` e `task-toolbar.tsx`: chips de filtro + integração com search params via `zodValidator` (`fallback(z.string(), "all")`).
-- Filtros aplicados em memória sobre os arrays já retornados (mantém latência baixa).
-- `settings.sla.tsx`: substituir input de dias por input+unidade com presets; exibir tabela final em formato "Xh (Yd)".
+Uma query paralela por bloco (`Promise.all`), com `.middleware([requireSupabaseAuth])` e agregações no cliente Supabase (evita RPC nova). SLA e gargalos reutilizam `computeSlaStatus` já existente.
 
-**i18n**
-- Textos em pt-BR: "Em dia", "Próximo de vencer", "Atrasadas", "Vence em Xh", "Atrasado há X".
+**Frontend** — novo componente `src/components/dashboard/agency-ops-section.tsx` importado por `dashboard.tsx`, renderizado condicionalmente quando `!clientId`. Cada widget é um `PanelCard` com skeleton (`PanelSkeletonList`) e `EmptyState`. Uso de `useSuspenseQuery` com `queryKey: ["agency-ops", brandId, range, clientIds]`.
 
-## Fora de escopo
+**Sem migração de banco.** Todas as colunas necessárias já existem: `tasks.due_at/done/done_at/assignee_id`, `posts.stage/stage_entered_at/updated_at`, `content_pipeline_stages.sla_hours`, `task_time_entries.duration_minutes`, `post_approvals`.
 
-- Notificações no bell (já existem via `cron/sla-check`); apenas se ajusta a fonte para `sla_hours`.
-- SLA por cliente/projeto (`sla_rules`) — permanece como está.
-- Alterar o cron de checagem além da migração de unidade.
+## Fora do escopo
 
-## Entregáveis
-
-1. Migração de schema com `sla_hours` e backfill.
-2. Server fns atualizadas retornando `sla_status`/`sla_progress`.
-3. Página `/settings/sla` com input em horas + presets.
-4. `SlaBadge` reutilizável com tooltip explicativo.
-5. Filtros segmentados na toolbar de Conteúdo e Tarefas com persistência no URL.
-6. Contagem por status no header das colunas do Kanban.
+- Não altera dashboard em modo Cliente.
+- Não cria novo módulo "Gestão" (essa consolidação vive no próprio Dashboard).
+- Não mexe em métricas sociais (Meta/Analytics) — já são multi-conta em modo Agência.
