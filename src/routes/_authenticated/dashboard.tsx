@@ -240,6 +240,8 @@ function AgencyMode({ brandId }: { brandId: string }) {
       )}
 
       {/* Grid rígido 2-col com alturas fixas e scroll interno por widget. */}
+      <AgencyOpsSection brandId={brandId} range={range} />
+
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="h-[520px]">
           <ClientHealthRanking healths={d?.healths ?? []} loading={q.isLoading} />
