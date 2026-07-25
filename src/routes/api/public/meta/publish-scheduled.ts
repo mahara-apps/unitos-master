@@ -64,7 +64,7 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
             const { data: conn, error: connErr } = await supabaseAdmin
               .from("social_connections")
               .select(
-                "id, brand_id, client_id, provider, external_id, account_id, access_token_ciphertext",
+                "id, brand_id, client_id, provider, channel, external_id, account_id, access_token_ciphertext",
               )
               .eq("id", post.connection_id)
               .eq("brand_id", post.brand_id)
