@@ -167,16 +167,16 @@ export function AppSidebar() {
   }
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="group/brand h-[68px] flex-row items-center justify-between gap-1 border-b border-sidebar-border/60 bg-transparent px-2 py-0 group-data-[collapsible=icon]:relative group-data-[collapsible=icon]:px-1">
+      <SidebarHeader className="group/brand h-[68px] flex-row items-center justify-between gap-1 border-b border-sidebar-border/60 !bg-transparent p-0 px-2 group-data-[collapsible=icon]:relative group-data-[collapsible=icon]:px-1">
         <Link
           to="/dashboard"
           preload="intent"
           aria-label="Unitos"
-          className="flex h-full min-w-0 flex-1 items-center bg-transparent group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:justify-center"
+          className="flex h-full min-w-0 flex-1 items-center !bg-transparent group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:justify-center"
         >
           <UnitosLogo
             variant="full"
-            className="h-full max-h-12 w-full bg-transparent object-contain object-left group-data-[collapsible=icon]:hidden"
+            className="h-full max-h-16 w-full !bg-transparent object-contain object-left group-data-[collapsible=icon]:hidden"
           />
           <UnitosLogo
             variant="mark"
