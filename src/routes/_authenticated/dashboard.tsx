@@ -56,6 +56,7 @@ import {
   loadCustomerDashboardFn,
 } from "@/lib/customer-dashboard.functions";
 import { Sparkline } from "@/components/dashboard/sparkline";
+import { AgencyOpsSection } from "@/components/dashboard/agency-ops-section";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { PanelCard as Card } from "@/components/ui/panel-card";
 import { PanelEmptyState as EmptyState } from "@/components/ui/panel-empty";
@@ -239,6 +240,8 @@ function AgencyMode({ brandId }: { brandId: string }) {
       )}
 
       {/* Grid rígido 2-col com alturas fixas e scroll interno por widget. */}
+      <AgencyOpsSection brandId={brandId} range={range} />
+
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="h-[520px]">
           <ClientHealthRanking healths={d?.healths ?? []} loading={q.isLoading} />
