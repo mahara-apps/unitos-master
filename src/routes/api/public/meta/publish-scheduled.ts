@@ -91,9 +91,19 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
               post.brand_id,
               (post.media as any) ?? {},
             );
+            // Mapeamento placement (DB) → providerPlacement:
+            //   feed  → instagram_feed | facebook_feed (por canal)
+            //   story → instagram_story (Stories NUNCA carrega caption)
+            const channel = (conn as any).channel as string | undefined;
+            const providerPlacement: "instagram_feed" | "facebook_feed" | "instagram_story" =
+              post.placement === "story"
+                ? "instagram_story"
+                : channel === "facebook"
+                  ? "facebook_feed"
+                  : "instagram_feed";
             const result = await svc.publish(conn as any, {
-              placement: post.placement as any,
-              caption,
+              placement: providerPlacement,
+              caption: providerPlacement === "instagram_story" ? undefined : caption,
               media,
             });
             const { error: okErr } = await (supabaseAdmin as any).rpc(
