@@ -2120,6 +2120,55 @@ export type Database = {
           },
         ]
       }
+      brand_journey_stage_templates: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          project_template_id: string
+          stage: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          project_template_id: string
+          stage: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          project_template_id?: string
+          stage?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_journey_stage_templates_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "brand_journey_stage_templates_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_journey_stage_templates_project_template_id_fkey"
+            columns: ["project_template_id"]
+            isOneToOne: false
+            referencedRelation: "project_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_media_assets: {
         Row: {
           brand_id: string
@@ -3054,6 +3103,71 @@ export type Database = {
           },
         ]
       }
+      client_journey_events: {
+        Row: {
+          brand_id: string
+          client_id: string
+          created_at: string
+          from_stage: string | null
+          id: string
+          moved_by: string | null
+          note: string | null
+          project_id: string | null
+          to_stage: string
+        }
+        Insert: {
+          brand_id: string
+          client_id: string
+          created_at?: string
+          from_stage?: string | null
+          id?: string
+          moved_by?: string | null
+          note?: string | null
+          project_id?: string | null
+          to_stage: string
+        }
+        Update: {
+          brand_id?: string
+          client_id?: string
+          created_at?: string
+          from_stage?: string | null
+          id?: string
+          moved_by?: string | null
+          note?: string | null
+          project_id?: string | null
+          to_stage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_journey_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "client_journey_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_journey_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_journey_events_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_members: {
         Row: {
           brand_id: string
@@ -3172,12 +3286,19 @@ export type Database = {
           contact_email: string | null
           contact_name: string | null
           contact_phone: string | null
+          contract_renewal_date: string | null
+          contract_start_date: string | null
+          contract_status: string
           created_at: string
           favicon_url: string | null
           id: string
+          internal_notes: string | null
           is_active: boolean
+          journey_stage: string
           logo_secondary_url: string | null
           logo_url: string | null
+          margin_percent: number | null
+          monthly_contract_value: number | null
           name: string
           niche: string | null
           owner_user_id: string | null
@@ -3196,12 +3317,19 @@ export type Database = {
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
+          contract_renewal_date?: string | null
+          contract_start_date?: string | null
+          contract_status?: string
           created_at?: string
           favicon_url?: string | null
           id?: string
+          internal_notes?: string | null
           is_active?: boolean
+          journey_stage?: string
           logo_secondary_url?: string | null
           logo_url?: string | null
+          margin_percent?: number | null
+          monthly_contract_value?: number | null
           name: string
           niche?: string | null
           owner_user_id?: string | null
@@ -3220,12 +3348,19 @@ export type Database = {
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
+          contract_renewal_date?: string | null
+          contract_start_date?: string | null
+          contract_status?: string
           created_at?: string
           favicon_url?: string | null
           id?: string
+          internal_notes?: string | null
           is_active?: boolean
+          journey_stage?: string
           logo_secondary_url?: string | null
           logo_url?: string | null
+          margin_percent?: number | null
+          monthly_contract_value?: number | null
           name?: string
           niche?: string | null
           owner_user_id?: string | null
