@@ -37,6 +37,8 @@ import { ContentBoard } from "@/components/content/content-board";
 import { ColumnConfigDialog } from "@/components/content/column-config-dialog";
 import { TaskDialog } from "@/components/content/task-dialog";
 import { GeneratePlanDialog } from "@/components/calendar/generate-plan-dialog";
+import { AgencyContentView, AgencyContentFallback } from "@/components/content/agency-content-view";
+import { useAccessRole } from "@/hooks/use-access-role";
 import { supabase } from "@/integrations/supabase/client";
 import {
   DropdownMenu,
@@ -92,6 +94,7 @@ function ContentErrorBoundary({ error, reset }: { error: unknown; reset: () => v
 function ContentPage() {
   const { brandId, clientId } = useActiveContext();
   const search = Route.useSearch();
+  const access = useAccessRole();
 
   if (!brandId) {
     return (
@@ -105,10 +108,16 @@ function ContentPage() {
   return (
     <DashboardPageShell className="flex min-h-0 flex-col space-y-4">
       {!clientId ? (
-        <BoardEmpty
-          title="Selecione uma conta"
-          description="O pipeline é organizado por cliente. Selecione uma conta ativa."
-        />
+        access.role === "admin" ? (
+          <Suspense fallback={<AgencyContentFallback />}>
+            <AgencyContentView brandId={brandId} />
+          </Suspense>
+        ) : (
+          <BoardEmpty
+            title="Selecione uma conta"
+            description="O pipeline é organizado por cliente. Selecione uma conta ativa."
+          />
+        )
       ) : (
         <ContentReady
           brandId={brandId}
