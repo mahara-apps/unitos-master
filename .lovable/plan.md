@@ -1,49 +1,65 @@
-# Dashboard geral da agência — Visão operacional consolidada
+# Visão unificada de Conteúdos — modo "Todos os clientes"
 
-Hoje o `/dashboard` em modo Agência já mostra saúde por cliente e KPIs sociais. Falta uma camada **operacional cross-client** para quem gerencia várias contas ao mesmo tempo. Este plano adiciona essa camada sem quebrar o que existe: novos widgets aparecem apenas no modo Agência (sem cliente ativo) e reutilizam as tabelas `tasks`, `posts`, `content_pipeline_stages`, `post_approvals` e `sla_rules`.
+Hoje `/content` só mostra o Kanban/Lista do cliente ativo. O gestor precisa alternar cliente por cliente para identificar gargalos e atrasos. Este plano adiciona uma **visão cross-client** dentro do próprio módulo Conteúdos, reaproveitando o Kanban/Lista existentes e o motor de SLA — sem migração de banco.
 
 ## O que muda na tela
 
-Nova seção **"Operação da agência"** logo abaixo dos KPIs sociais, com 6 widgets organizados em grid de 2 colunas (mesmo padrão masonry atual):
+Ao entrar em `/content` sem cliente ativo (modo Agência), a página passa a renderizar a **Visão unificada** ao invés do estado vazio atual:
 
-1. **Tarefas atrasadas** — KPI + lista top 10 (título, cliente, responsável, horas em atraso). Clique navega para `/tasks?status=overdue`.
-2. **Conteúdos em produção** — total + breakdown por etapa (Ideia, Roteiro, Design…). Clique em etapa filtra `/content`.
-3. **Aguardando aprovação** — total + tempo médio parado + lista dos 10 mais antigos com botão "Abrir".
-4. **SLA médio da operação** — % on-track / at-risk / overdue nas últimas 30 dias, com sparkline diário e delta vs. período anterior.
-5. **Gargalos por etapa** — barras horizontais das etapas com maior lead time médio e maior taxa de overdue. Identifica onde o fluxo trava.
-6. **Volume de produção da equipe** — por membro: tarefas concluídas, posts aprovados, horas registradas (timesheet), no range selecionado. Ordenável.
+1. **Header operacional** (barra fina no topo):
+   - KPIs compactos: total em produção, aguardando aprovação, atrasadas, at-risk, clientes parados (>N dias sem movimento).
+   - `DateRangePicker` já existente + toggle Kanban/Lista + botão "Filtros".
 
-O `DateRangePicker` já existente no header controla todos os widgets. Filtros por cliente (multi-select opcional) ficam num popover "Filtros" ao lado, para focar em um subconjunto de contas quando necessário.
+2. **Filtros no popover "Filtros"** (mesmo componente já criado):
+   - Multi-select de **Clientes** (default: todos permitidos).
+   - Multi-select de **Etapas**, **Responsáveis**, **Status SLA** (on_track / at_risk / overdue), **Redes**, **Formatos**.
+   - "Somente clientes parados há mais de X dias" (slider).
 
-## Regras de escopo
+3. **Kanban unificado** (default):
+   - Colunas = etapas canônicas (agrupamento por `label` normalizado, já que cada cliente pode ter seu próprio pipeline). Cards mostram **badge do cliente** (avatar + nome) além do conteúdo padrão.
+   - Drag & drop **desabilitado** nesta visão (evita mover post entre pipelines de clientes distintos); clique no card abre o drawer normal.
+   - Chip de SLA reaproveita o tooltip corrigido recentemente.
 
-- Visível **apenas no modo Agência** (`activeContext.clientId === null`). No modo Cliente, o dashboard continua idêntico ao atual.
-- Todos os dados respeitam `brand_id` do workspace ativo e RLS existente.
-- SLA usa a mesma fórmula do Kanban (`sla_hours` em `content_pipeline_stages` + `stage_entered_at` em `posts`), garantindo consistência com o que aparece em `/content`.
+4. **Lista unificada** (alternativa):
+   - Colunas: Cliente, Título, Etapa, Responsável, SLA, Última atividade, Ações.
+   - Ordenável por SLA/última atividade; ideal para triagem rápida.
+
+5. **Painel lateral "Clientes parados"** (colapsável à direita):
+   - Lista clientes cujo post mais recente em produção não mudou de etapa há > 3 dias, com contagem e link "Abrir cliente".
+
+## Regras de acesso
+
+- Visível **apenas para `admin`** da brand (via `useAccessRole()`), incluindo `super_admin`. Para `user`, `/content` continua exigindo cliente ativo, como hoje.
+- Se um `admin` estiver no modo Cliente, `/content` continua idêntico ao atual (Kanban do cliente).
+- Todos os dados respeitam `brand_id` e RLS. Filtro de clientes respeita `allowedClientIds` (irrelevante para admin, mas mantém a arquitetura consistente).
 
 ## Detalhes técnicos
 
-**Backend** — novo arquivo `src/lib/agency-ops.functions.ts` com uma única server function `getAgencyOpsDashboardFn({ brandId, from, to, clientIds? })` que retorna:
+**Backend** — nova server function `listAgencyContentFn({ brandId, range, filters })` em `src/lib/content.functions.ts` (reaproveitando helpers já existentes: `stageSlaHours`, `annotateOverdue`):
 
 ```ts
 {
-  overdueTasks: { total: number; items: TaskLite[] };        // top 10
-  contentInProduction: { total: number; byStage: StageCount[] };
-  pendingApproval: { total: number; avgWaitHours: number; items: PostLite[] };
-  slaSummary: { onTrack: number; atRisk: number; overdue: number; daily: DailyPoint[]; deltaPct: number };
-  bottlenecks: Array<{ stageId: string; stageName: string; avgLeadHours: number; overduePct: number }>;
-  teamThroughput: Array<{ userId: string; name: string; avatar: string|null; tasksDone: number; postsApproved: number; hoursLogged: number }>;
+  posts: Array<PostRow & { client_name, client_avatar, stage_label, sla_status }>;
+  stagesByLabel: Array<{ label: string; color: string|null; count: number }>;
+  kpis: { inProduction, awaitingApproval, overdue, atRisk, stalledClients };
+  stalledClients: Array<{ client_id, client_name, last_move_at, count }>;
 }
 ```
 
-Uma query paralela por bloco (`Promise.all`), com `.middleware([requireSupabaseAuth])` e agregações no cliente Supabase (evita RPC nova). SLA e gargalos reutilizam `computeSlaStatus` já existente.
+Uma query única em `posts` (filtrada por `brand_id`, `deleted_at IS NULL`, etapa não-terminal), joins com `clients`, `content_pipeline_stages` e `user_profiles` do responsável. Agregações no server para o painel de "clientes parados".
 
-**Frontend** — novo componente `src/components/dashboard/agency-ops-section.tsx` importado por `dashboard.tsx`, renderizado condicionalmente quando `!clientId`. Cada widget é um `PanelCard` com skeleton (`PanelSkeletonList`) e `EmptyState`. Uso de `useSuspenseQuery` com `queryKey: ["agency-ops", brandId, range, clientIds]`.
+**Frontend** — nova view `src/components/content/agency-content-view.tsx`:
+- Reaproveita `ContentBoard` e `ContentList` via props (`readOnlyDnd`, `showClientBadge`, `groupBy: "stageLabel"`).
+- Renderizada por `src/routes/_authenticated/content.tsx` quando `!clientId && role === "admin"`.
+- `useSuspenseQuery` com `queryKey: ["agency-content", brandId, range, filters]`.
 
-**Sem migração de banco.** Todas as colunas necessárias já existem: `tasks.due_at/done/done_at/assignee_id`, `posts.stage/stage_entered_at/updated_at`, `content_pipeline_stages.sla_hours`, `task_time_entries.duration_minutes`, `post_approvals`.
+**UI existente adaptada** — `ContentCard` ganha prop opcional `client` para renderizar o mini-badge (avatar 16px + nome truncado) no rodapé, sem alterar o card do modo Cliente.
+
+**Sem migração de banco.** Todas as colunas necessárias já existem em `posts`, `content_pipeline_stages`, `clients` e `user_profiles`.
 
 ## Fora do escopo
 
-- Não altera dashboard em modo Cliente.
-- Não cria novo módulo "Gestão" (essa consolidação vive no próprio Dashboard).
-- Não mexe em métricas sociais (Meta/Analytics) — já são multi-conta em modo Agência.
+- Não altera o Kanban do modo Cliente.
+- Não permite drag & drop cross-client (evita mover posts entre pipelines diferentes).
+- Não substitui a seção "Operação da agência" do Dashboard — são visões complementares (dashboard = KPIs; conteúdos = operação detalhada).
+- Não cria pipeline global normalizado; agrupamento é feito por `label` em runtime.
