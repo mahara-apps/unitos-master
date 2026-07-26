@@ -22,6 +22,7 @@ import {
 import { CustomerDashboard } from "@/components/customer/customer-dashboard";
 import { BasicInfoTab } from "@/components/customer/basic-info-tab";
 import { ChannelsTab } from "@/components/customer/channels-tab";
+import { AccountManagementTab } from "@/components/customer/account-management-tab";
 import { BrainWidget } from "@/components/brain/brain-widget";
 import { BriefingWorkspace } from "@/components/brand-hub/briefing-workspace";
 import { QuickOnboardingWizard } from "@/components/brand-hub/quick-onboarding-wizard";
@@ -46,7 +47,9 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
     z
       .object({
         onboarding: z.union([z.literal("1"), z.literal(1), z.boolean()]).optional(),
-        tab: z.enum(["overview", "briefing", "brain", "channels", "cadastro"]).optional(),
+        tab: z
+          .enum(["overview", "briefing", "brain", "channels", "cadastro", "gestao"])
+          .optional(),
       })
       .parse(s),
   component: CustomerDetail,
@@ -55,6 +58,7 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
 const ALL_TABS = [
   { value: "overview", label: "Visão geral" },
   { value: "briefing", label: "Briefing & Estratégia" },
+  { value: "gestao", label: "Gestão da conta" },
   { value: "channels", label: "Canais" },
   { value: "cadastro", label: "Cadastro" },
 ] as const;
@@ -154,7 +158,7 @@ function CustomerDetailReady({
   brandId: string;
   customerId: string;
   openOnboarding: boolean;
-  initialTab?: "overview" | "briefing" | "brain" | "channels" | "cadastro";
+  initialTab?: "overview" | "briefing" | "brain" | "channels" | "cadastro" | "gestao";
 }) {
   const list = useServerFn(listClients);
   const fetchHub = useServerFn(getBrandHub);
@@ -325,6 +329,9 @@ function CustomerDetailReady({
             </TabsContent>
             <TabsContent value="cadastro">
               <BasicInfoTab brandId={brandId} clientId={customerId} />
+            </TabsContent>
+            <TabsContent value="gestao">
+              <AccountManagementTab brandId={brandId} clientId={customerId} />
             </TabsContent>
             <TabsContent value="channels">
               <ChannelsTab brandId={brandId} clientId={customerId} />
