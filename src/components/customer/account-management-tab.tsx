@@ -43,6 +43,7 @@ import {
   JOURNEY_STAGE_LABEL,
   CONTRACT_STATUS_LABEL,
   type JourneyStage,
+  type ClientAccount,
 } from "@/lib/client-journey.functions";
 import { listBrandTeam } from "@/lib/team.functions";
 import { listTemplatesFn } from "@/lib/project-templates.functions";
@@ -215,7 +216,7 @@ function AccountInfoCard({
   onSubmit,
   isSaving,
 }: {
-  account: ReturnType<typeof useAccountData>;
+  account: ClientAccount;
   canEdit: boolean;
   team: Array<{ user_id: string; full_name: string | null }>;
   onSubmit: (patch: Record<string, unknown>) => void;
@@ -395,20 +396,7 @@ function AccountInfoCard({
   );
 }
 
-function useAccountData() {
-  return null as unknown as {
-    monthly_contract_value: number | null;
-    margin_percent: number | null;
-    contract_start_date: string | null;
-    contract_renewal_date: string | null;
-    contract_status: string;
-    internal_notes: string | null;
-    owner_user_id: string | null;
-    journey_stage: string;
-  };
-}
-
-function toForm(a: ReturnType<typeof useAccountData>): AccountForm {
+function toForm(a: ClientAccount): AccountForm {
   return {
     monthly_contract_value:
       a.monthly_contract_value != null ? String(a.monthly_contract_value) : "",
