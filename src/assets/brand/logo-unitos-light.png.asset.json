@@ -1,11 +1,11 @@
 {
-  "version": 1,
   "asset_id": "18199fa6-830e-4169-bcf7-12c737dde301",
-  "project_id": "3dfcbab1-0116-4c76-9aab-8a9d2e458514",
-  "url": "/__l5e/assets-v1/18199fa6-830e-4169-bcf7-12c737dde301/logo-unitos-light.png",
-  "r2_key": "a/v1/3dfcbab1-0116-4c76-9aab-8a9d2e458514/18199fa6-830e-4169-bcf7-12c737dde301/logo-unitos-light.png",
-  "original_filename": "logo-unitos-light.png",
-  "size": 2145223,
   "content_type": "image/png",
-  "created_at": "2026-07-17T13:54:07Z"
+  "created_at": "2026-07-17T13:54:07Z",
+  "original_filename": "logo-unitos-light.png",
+  "project_id": "3f33732a-cb8b-43ae-84fb-01d9e367fb0c",
+  "r2_key": "a/v1/3f33732a-cb8b-43ae-84fb-01d9e367fb0c/18199fa6-830e-4169-bcf7-12c737dde301/logo-unitos-light.png",
+  "size": 2145223,
+  "url": "/__l5e/assets-v1/18199fa6-830e-4169-bcf7-12c737dde301/logo-unitos-light.png",
+  "version": 1
 }
