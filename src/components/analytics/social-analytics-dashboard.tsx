@@ -123,6 +123,63 @@ function fmt(n: number): string {
   return String(Math.round(n));
 }
 
+/** Mesmo TTL do cache de provider no servidor (10 min). */
+const SOCIAL_STALE_TIME_MS = 10 * 60_000;
+/** Mantém o snapshot em memória por 24h para casar com o cache persistido. */
+const SOCIAL_GC_TIME_MS = 24 * 60 * 60_000;
+
+const TIME_FMT = new Intl.DateTimeFormat("pt-BR", {
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function FreshnessBar({
+  generatedAt,
+  refreshing,
+  onRefresh,
+  error,
+}: {
+  generatedAt: string;
+  refreshing: boolean;
+  onRefresh: () => void;
+  error: string | null;
+}) {
+  const when = new Date(generatedAt);
+  const label = Number.isNaN(when.getTime()) ? null : TIME_FMT.format(when);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+      <span className="flex items-center gap-2">
+        {refreshing ? (
+          <>
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Atualizando métricas…
+          </>
+        ) : error ? (
+          <span className="text-rose-500">
+            Falha ao atualizar — exibindo últimos dados salvos
+          </span>
+        ) : (
+          <>
+            <Activity className="h-3.5 w-3.5" />
+            Métricas em cache
+          </>
+        )}
+        {label ? <span>· dados de {label}</span> : null}
+      </span>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 gap-1.5 px-2 text-xs"
+        onClick={onRefresh}
+        disabled={refreshing}
+      >
+        <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
+        Atualizar
+      </Button>
+    </div>
+  );
+}
+
 export function SocialAnalyticsDashboard({
   brandId,
   period,
