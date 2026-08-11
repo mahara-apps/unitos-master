@@ -235,6 +235,42 @@ export type Database = {
           },
         ]
       }
+      ai_model_catalog_overrides: {
+        Row: {
+          created_at: string
+          id: string
+          model_id: string
+          provider: string
+          reason: string | null
+          replaced_model_id: string | null
+          role: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          model_id: string
+          provider: string
+          reason?: string | null
+          replaced_model_id?: string | null
+          role: string
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          model_id?: string
+          provider?: string
+          reason?: string | null
+          replaced_model_id?: string | null
+          role?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_model_health: {
         Row: {
           checked_at: string
@@ -242,6 +278,7 @@ export type Database = {
           id: string
           model_id: string
           provider: string
+          role: string
           status: string
         }
         Insert: {
@@ -250,6 +287,7 @@ export type Database = {
           id?: string
           model_id: string
           provider: string
+          role?: string
           status: string
         }
         Update: {
@@ -258,6 +296,7 @@ export type Database = {
           id?: string
           model_id?: string
           provider?: string
+          role?: string
           status?: string
         }
         Relationships: []
