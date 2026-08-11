@@ -802,7 +802,11 @@ function ApprovalView({
               <p className="text-xs text-muted-foreground">
                 {topics.length} itens · {approvedTopics.length} aprovados ·{" "}
                 {pendingTopics.length} sem decisão
+                {clientApprovedCount + clientChangesCount + clientRejectedCount > 0
+                  ? ` · cliente: ${clientApprovedCount} aprovados · ${clientChangesCount} com ajuste · ${clientRejectedCount} rejeitados`
+                  : ""}
               </p>
+
             </div>
             {!locked ? (
               <Button
