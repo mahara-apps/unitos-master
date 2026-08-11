@@ -197,28 +197,27 @@ async function notifySuperAdmins(
 
   const { data: admins } = await supabase
     .from("user_profiles")
-    .select("id, brand_id")
+    .select("id")
     .eq("is_super_admin", true);
   if (!admins?.length) return;
 
-  const swapped = problems.filter((p) => p.replacedWith);
-  const title = swapped.length
-    ? `Modelo de IA atualizado automaticamente (${swapped.length})`
-    : "Modelo de IA com falha — ação necessária";
-  const body = problems
-    .map((p) =>
-      p.replacedWith
-        ? `${p.provider}/${p.role}: ${p.modelId} → ${p.replacedWith}`
-        : `${p.provider}/${p.role}: ${p.modelId} indisponível (${p.error ?? "erro"})`,
-    )
-    .join(" · ")
-    .slice(0, 900);
+  const adminIds = admins.map((a) => a.id as string);
+  const { data: memberships } = await supabase
+    .from("brand_members")
+    .select("user_id, brand_id")
+    .in("user_id", adminIds);
 
-  const rows = admins
-    .filter((a) => a.brand_id)
-    .map((a) => ({
-      user_id: a.id as string,
-      brand_id: a.brand_id as string,
+  const brandByUser = new Map<string, string>();
+  for (const m of memberships ?? []) {
+    const uid = m.user_id as string;
+    if (!brandByUser.has(uid)) brandByUser.set(uid, m.brand_id as string);
+  }
+
+  const rows = adminIds
+    .filter((id) => brandByUser.has(id))
+    .map((id) => ({
+      user_id: id,
+      brand_id: brandByUser.get(id)!,
       kind: "system" as const,
       title,
       body,
