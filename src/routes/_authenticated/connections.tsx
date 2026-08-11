@@ -877,24 +877,33 @@ function LeaderPicker({
   icon,
   value,
   onChange,
+  kind = "text",
 }: {
   label: string;
   icon: React.ReactNode;
   value: ProviderId;
   onChange: (v: ProviderId) => void;
+  kind?: "text" | "image";
 }) {
+  const options = PROVIDERS.filter((p) =>
+    supportsKind(p.id as AiProviderName, kind),
+  );
+  const safeValue = options.some((p) => p.id === value)
+    ? value
+    : (options[0]?.id as ProviderId);
+
   return (
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 text-xs font-medium">
         {icon}
         {label}
       </div>
-      <Select value={value} onValueChange={(v) => onChange(v as ProviderId)}>
+      <Select value={safeValue} onValueChange={(v) => onChange(v as ProviderId)}>
         <SelectTrigger className="h-9 w-[170px]">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {PROVIDERS.map((p) => (
+          {options.map((p) => (
             <SelectItem key={p.id} value={p.id}>
               {p.name}
             </SelectItem>
@@ -904,6 +913,90 @@ function LeaderPicker({
     </div>
   );
 }
+
+function ModelHealthPanel({ brandId }: { brandId: string }) {
+  const statusFn = useServerFn(getAiModelStatus);
+  const runFn = useServerFn(runAiModelHealthNow);
+  const qc = useQueryClient();
+
+  const { data } = useQuery({
+    queryKey: ["ai-model-status", brandId],
+    queryFn: () => statusFn(),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const runMut = useMutation({
+    mutationFn: () => runFn(),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ["ai-model-status", brandId] });
+      toast.success(
+        res.replacements > 0
+          ? `${res.replacements} modelo(s) atualizado(s) automaticamente`
+          : res.problems > 0
+            ? `${res.problems} verificação(ões) com problema — veja as notificações`
+            : "Todos os modelos estão ativos",
+      );
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Falha ao verificar modelos"),
+  });
+
+  const roleLabel: Record<string, string> = {
+    strategic: "Estratégico",
+    operational: "Operacional",
+    image: "Imagem",
+  };
+
+  return (
+    <DashboardPanelSurface className="p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div className="text-sm font-semibold">Modelos em uso</div>
+          <div className="font-mono text-[10px] text-muted-foreground">
+            {data?.lastCheckedAt
+              ? `Última verificação: ${new Date(data.lastCheckedAt).toLocaleString("pt-BR")}`
+              : "Nunca verificado"}
+          </div>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => runMut.mutate()}
+          disabled={runMut.isPending}
+        >
+          <RefreshCw
+            className={cn("mr-2 h-4 w-4", runMut.isPending && "animate-spin")}
+          />
+          Verificar modelos agora
+        </Button>
+      </div>
+
+      <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
+        {(data?.models ?? []).map((m) => (
+          <div
+            key={`${m.provider}-${m.role}`}
+            className="rounded-lg border border-border/60 bg-background/60 p-2.5"
+          >
+            <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              <span>{m.provider}</span>
+              <span>{roleLabel[m.role] ?? m.role}</span>
+            </div>
+            <div className="mt-1 truncate font-mono text-[11px] text-foreground/90">
+              {m.modelId}
+            </div>
+            {m.replacedModelId && (
+              <div className="mt-1 flex items-center gap-1 text-[10px] text-amber-600">
+                <AlertTriangle className="h-3 w-3" />
+                substituiu {m.replacedModelId}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </DashboardPanelSurface>
+  );
+}
+
 
 function ProviderCard({
   provider,
