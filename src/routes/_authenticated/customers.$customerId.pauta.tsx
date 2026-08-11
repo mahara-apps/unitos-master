@@ -139,30 +139,28 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
     queryKey: ["monthly-plan", "volumetry", clientId],
     queryFn: () => getVolumetry({ data: { clientId } }),
   });
-  const volumetry = volumetryQ.data as
-    | {
-        weekly: Record<string, number>;
-        monthlyQuota: Record<string, number>;
-        totalTarget: number;
-        hasBriefing: boolean;
-      }
-    | undefined;
+  const volumetry = volumetryQ.data as PlanVolumetry | undefined;
   const hasVolumetry = (volumetry?.totalTarget ?? 0) > 0;
 
-
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   const generate = useServerFn(generateMonthlyPlanFn);
   const [loadingStep, setLoadingStep] = useState(0);
   const stepTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const generateM = useMutation({
-    mutationFn: (input: { theme: string; briefingId: string | null }) =>
+    mutationFn: (input: {
+      theme: string;
+      briefingId: string | null;
+      selection: GenerateSelection[];
+    }) =>
       generate({
         data: {
           brandId,
           clientId,
           theme: input.theme,
           briefingId: input.briefingId ?? undefined,
+          selection: input.selection.length ? input.selection : undefined,
         },
       }),
     onMutate: () => {
