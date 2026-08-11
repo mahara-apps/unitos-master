@@ -6,34 +6,50 @@ import { makeNotImplementedProvider } from "./providers/stubs.server";
 /**
  * Provider registry. Lookup is keyed by `SocialNetwork`. Unimplemented
  * networks fall back to a stub so the frontend can still list them uniformly.
+ *
+ * The Meta provider is created lazily: its constructor reads env secrets
+ * (META_APP_ID / META_APP_SECRET) and must not throw at module-eval time,
+ * otherwise importing this file crashes the whole app.
  */
-const meta = new MetaAnalyticsProvider();
+let metaInstance: MetaAnalyticsProvider | null = null;
+function meta(): SocialAnalyticsProvider {
+  if (!metaInstance) metaInstance = new MetaAnalyticsProvider();
+  return metaInstance;
+}
 
-const REGISTRY: Record<SocialNetwork, SocialAnalyticsProvider> = {
-  facebook: meta,
-  instagram: meta,
+const STUBS = {
   linkedin: makeNotImplementedProvider("linkedin", "LinkedIn"),
   tiktok: makeNotImplementedProvider("tiktok", "TikTok"),
   youtube: makeNotImplementedProvider("youtube", "YouTube"),
   x: makeNotImplementedProvider("x", "X (Twitter)"),
   threads: makeNotImplementedProvider("threads", "Threads"),
+} satisfies Partial<Record<SocialNetwork, SocialAnalyticsProvider>>;
+
+const LABELS: Record<SocialNetwork, string> = {
+  facebook: "Meta",
+  instagram: "Meta",
+  linkedin: "LinkedIn",
+  tiktok: "TikTok",
+  youtube: "YouTube",
+  x: "X (Twitter)",
+  threads: "Threads",
 };
 
 export function getSocialProvider(network: SocialNetwork): SocialAnalyticsProvider {
-  return REGISTRY[network];
+  if (network === "facebook" || network === "instagram") return meta();
+  return STUBS[network];
 }
+
 
 export function listSocialProviders(): Array<{
   network: SocialNetwork;
   label: string;
   implemented: boolean;
 }> {
-  return (Object.keys(REGISTRY) as SocialNetwork[]).map((network) => {
-    const p = REGISTRY[network];
-    return {
-      network,
-      label: p.label,
-      implemented: !(p.label === "LinkedIn" || p.label === "TikTok" || p.label === "YouTube" || p.label === "X (Twitter)" || p.label === "Threads"),
-    };
-  });
+  return (Object.keys(LABELS) as SocialNetwork[]).map((network) => ({
+    network,
+    label: LABELS[network],
+    implemented: network === "facebook" || network === "instagram",
+  }));
 }
+

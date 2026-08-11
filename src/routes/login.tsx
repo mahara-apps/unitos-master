@@ -4,9 +4,10 @@ import { LoginForm } from "@/components/login-form";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/login")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { next?: string } => ({
     next: typeof search.next === "string" ? search.next : undefined,
   }),
+
   head: () => ({
     meta: [
       { title: "Entrar — Acesse sua conta" },

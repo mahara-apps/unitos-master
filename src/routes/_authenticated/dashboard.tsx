@@ -83,9 +83,10 @@ function useDefaultRange(): [DateRange | undefined, (r: DateRange | undefined) =
 }
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (s: Record<string, unknown>): { blocked?: string } => ({
     blocked: typeof s.blocked === "string" ? s.blocked : undefined,
   }),
+
   component: DashboardPage,
 });
 
