@@ -163,10 +163,13 @@ export async function materializePlanToKanban(
   const { error: insErr } = await sb.from("posts").insert(rows as never);
   if (insErr) throw insErr;
 
-  await sb
-    .from("monthly_plans")
-    .update({ status: "approved" } as never)
-    .eq("id", args.planId);
+  if (args.markPlanApproved !== false) {
+    await sb
+      .from("monthly_plans")
+      .update({ status: "approved" } as never)
+      .eq("id", args.planId);
+  }
+
 
   return { created: rows.length, skipped: list.length - rows.length };
 }
