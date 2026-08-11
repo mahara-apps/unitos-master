@@ -267,3 +267,26 @@ export async function generateBrandImage(
     contentType: pred.mimeType ?? "image/png",
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* Admin variants — for background jobs with no user session           */
+/* ------------------------------------------------------------------ */
+
+/** Resolve o modelo da marca usando o client admin (jobs em background). */
+export async function getBrandAiModelAdmin(
+  brandId: string,
+  kind: ProviderKind = "text",
+  role: ProviderRole = "operational",
+): Promise<BrandAiModel> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return getBrandAiModel(supabaseAdmin, brandId, kind, role);
+}
+
+/** Embedding com a chave da marca usando o client admin. */
+export async function embedTextAdmin(
+  brandId: string,
+  text: string,
+): Promise<number[] | null> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return embedTextWithBrandKey(supabaseAdmin, brandId, text);
+}
