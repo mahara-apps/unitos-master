@@ -232,7 +232,7 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
         output: Output.object({ schema: opts.schema }),
       }),
       LLM_TIMEOUT_MS,
-      opts.modelOverride ?? (opts.strategic ? STRATEGIC_MODEL : OPERATIONAL_MODEL),
+      opts.strategic ? "strategic" : "operational",
     );
     return res.output as z.infer<T>;
   } catch (err) {

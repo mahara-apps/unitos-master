@@ -295,6 +295,7 @@ async function runOrchestrator(params: {
       CHANNEL_MIX: mixLines || "(livre — escolha o melhor mix)",
     }) + mixInstruction + (input.direction ? `\n\nDIRECIONAMENTO EXTRA DO USUÁRIO (prioridade máxima):\n${input.direction}` : "");
     const planned = await runStructured({
+      brandId: input.brandId,
       system: plannerSys,
       prompt:
         `Gere ${input.quantidade} conceitos para o período "${input.periodo}".\n\n` +

@@ -120,6 +120,7 @@ async function runPhase2(params: { jobId: string; token: string; userId: string;
         "\nReturn { title, content (markdown), hashtags: string[] } — 4-8 hashtags without leading #.",
       ].join("\n"),
       CopySchema,
+      post.brand_id as string,
     );
 
     await patch({ progress: 75, step_label: "Writing design brief" });
@@ -133,6 +134,7 @@ async function runPhase2(params: { jobId: string; token: string; userId: string;
         "\nReturn { concept, layout, palette (hex codes), typography, on_image_copy, reference_notes }.",
       ].join("\n"),
       DesignSchema,
+      post.brand_id as string,
     );
 
     const finalCopy = copy.hashtags?.length
