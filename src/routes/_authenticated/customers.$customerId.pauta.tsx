@@ -300,6 +300,11 @@ const PLAN_STATUS_META: Record<MonthlyPlanStatus, { label: string; cls: string }
     label: "Ajustes pedidos",
     cls: "bg-orange-500/15 text-orange-400 border-orange-500/30",
   },
+  client_rejected: {
+    label: "Cliente rejeitou",
+    cls: "bg-rose-500/15 text-rose-400 border-rose-500/30",
+  },
+
   client_approved: {
     label: "Cliente aprovou",
     cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
@@ -722,10 +727,13 @@ function ApprovalView({
   }
 
   const { plan, topics } = q.data;
-  const locked = plan.status === "pending_client" || plan.status === "client_approved";
+  const locked = plan.status === "pending_client" || plan.status === "approved";
   const approvedTopics = topics.filter((t) => t.status === "approved");
   const pendingTopics = topics.filter((t) => t.status === "pending");
   const incomplete = approvedTopics.filter((t) => !t.channel || !t.content_format);
+  const clientApprovedCount = topics.filter((t) => t.client_status === "approved").length;
+  const clientChangesCount = topics.filter((t) => t.client_status === "changes").length;
+  const clientRejectedCount = topics.filter((t) => t.client_status === "rejected").length;
   const clientLink = linkQ.data ? `${window.location.origin}${linkQ.data.url}` : null;
 
   return (
@@ -734,8 +742,16 @@ function ApprovalView({
         <StatusBanner
           status={plan.status}
           feedback={plan.client_feedback}
+          decisionAt={plan.client_decision_at}
+          decisionMode={plan.client_decision_mode ?? null}
+          counts={{
+            approved: clientApprovedCount,
+            changes: clientChangesCount,
+            rejected: clientRejectedCount,
+          }}
           link={clientLink}
         />
+
 
         {/* Estratégia */}
         <section className="space-y-5 rounded-2xl border border-border/60 bg-card/40 p-6 backdrop-blur">
@@ -786,7 +802,11 @@ function ApprovalView({
               <p className="text-xs text-muted-foreground">
                 {topics.length} itens · {approvedTopics.length} aprovados ·{" "}
                 {pendingTopics.length} sem decisão
+                {clientApprovedCount + clientChangesCount + clientRejectedCount > 0
+                  ? ` · cliente: ${clientApprovedCount} aprovados · ${clientChangesCount} com ajuste · ${clientRejectedCount} rejeitados`
+                  : ""}
               </p>
+
             </div>
             {!locked ? (
               <Button
@@ -920,11 +940,35 @@ function StatusBanner({
   status,
   feedback,
   link,
+  decisionAt,
+  decisionMode,
+  counts,
 }: {
   status: MonthlyPlanStatus;
   feedback: string | null;
   link: string | null;
+  decisionAt?: string | null;
+  decisionMode?: string | null;
+  counts?: { approved: number; changes: number; rejected: number };
 }) {
+  const decided = decisionAt
+    ? new Date(decisionAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
+    : null;
+  const summary = counts
+    ? `${counts.approved} aprovados · ${counts.changes} com ajuste · ${counts.rejected} rejeitados`
+    : null;
+  const meta = (
+    <>
+      {decided ? (
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Decisão do cliente em {decided}
+          {decisionMode === "per_item" ? " (item por item)" : ""}
+          {summary ? ` · ${summary}` : ""}
+        </p>
+      ) : null}
+    </>
+  );
+
   if (status === "draft") {
     return (
       <div className="rounded-xl border border-border/60 bg-muted/30 p-4 text-xs text-muted-foreground">
@@ -936,7 +980,8 @@ function StatusBanner({
   if (status === "pending_client") {
     return (
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-400">
-        Aguardando aprovação do cliente.{link ? ` Link: ${link}` : ""}
+        Aguardando decisão do cliente (aprovar, rejeitar ou pedir ajustes).
+        {link ? ` Link: ${link}` : ""}
       </div>
     );
   }
@@ -945,26 +990,48 @@ function StatusBanner({
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-400">
         <p className="font-medium">O cliente pediu ajustes.</p>
         {feedback ? <p className="mt-1 text-muted-foreground">{feedback}</p> : null}
-        <p className="mt-1">Ajuste os itens e envie novamente para aprovação.</p>
+        <p className="mt-1">
+          Ajuste os itens marcados e envie novamente. Os itens já aprovados pelo cliente foram
+          para o Kanban de produção.
+        </p>
+        {meta}
+      </div>
+    );
+  }
+  if (status === "client_rejected") {
+    return (
+      <div className="rounded-xl border border-rose-500/30 bg-rose-500/5 p-4 text-xs text-rose-400">
+        <p className="font-medium">O cliente rejeitou a pauta.</p>
+        {feedback ? <p className="mt-1 text-muted-foreground">{feedback}</p> : null}
+        <p className="mt-1">Refaça os itens e envie novamente para aprovação.</p>
+        {meta}
       </div>
     );
   }
   if (status === "client_approved") {
     return (
       <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-xs text-emerald-400">
-        Cliente aprovou a pauta. Envie para produção para criar os cards no Kanban.
+        <p className="font-medium">Cliente aprovou a pauta.</p>
+        <p className="mt-1">
+          Os cards já foram criados no Kanban de produção. Use “Enviar para produção” apenas se
+          algum item não tiver aparecido lá.
+        </p>
+        {meta}
       </div>
     );
   }
   if (status === "approved") {
     return (
       <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-xs text-emerald-400">
-        Pauta já enviada para produção.
+        <p className="font-medium">Pauta em produção.</p>
+        <p className="mt-1">Os itens aprovados pelo cliente estão no Kanban de conteúdo.</p>
+        {meta}
       </div>
     );
   }
   return null;
 }
+
 
 /* --------------------------------------------------------------- */
 
@@ -1011,6 +1078,31 @@ function TopicCard({
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       ) : null}
+      {topic.client_status && topic.client_status !== "pending" ? (
+        <div className="mb-2 space-y-1">
+          <span
+            className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${
+              topic.client_status === "approved"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                : topic.client_status === "changes"
+                  ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
+                  : "border-rose-500/30 bg-rose-500/10 text-rose-400"
+            }`}
+          >
+            {topic.client_status === "approved"
+              ? "Aprovado pelo cliente"
+              : topic.client_status === "changes"
+                ? "Ajuste pedido pelo cliente"
+                : "Rejeitado pelo cliente"}
+          </span>
+          {topic.client_comment ? (
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              “{topic.client_comment}”
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <InlineEditable
         as="div"
         className="pr-6 text-sm font-semibold text-foreground"
