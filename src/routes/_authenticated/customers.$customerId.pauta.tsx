@@ -378,11 +378,21 @@ function ApprovalView({
   const deleteTopic = useServerFn(deleteTopicFn);
   const approvePlan = useServerFn(approveMonthlyPlanFn);
   const discardPlan = useServerFn(discardMonthlyPlanFn);
+  const setDecision = useServerFn(setTopicDecisionFn);
+  const regenerate = useServerFn(regenerateTopicFn);
+  const undoRegen = useServerFn(undoTopicRegenerationFn);
+  const submitToClient = useServerFn(submitPlanToClientFn);
+  const getLink = useServerFn(getPlanClientLinkFn);
 
   const q = useQuery({
     queryKey: ["monthly-plan", planId],
     queryFn: () => getPlan({ data: { planId } }),
   });
+
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ["monthly-plan", planId] });
+    void qc.invalidateQueries({ queryKey: ["monthly-plans", "list", brandId, clientId] });
+  };
 
   const savePlan = useMutation({
     mutationFn: (patch: { title?: string; description?: string; objectives?: string }) =>
@@ -396,7 +406,8 @@ function ApprovalView({
         data: {
           planId,
           topic_title: "Nova ideia de post",
-          content_format: "Post",
+          content_format: null,
+          channel: null,
           angle: "",
         },
       }),
@@ -415,10 +426,58 @@ function ApprovalView({
           topicId: input.topicId,
           topic_title: input.patch.topic_title,
           content_format: input.patch.content_format ?? undefined,
+          channel: input.patch.channel ?? undefined,
           angle: input.patch.angle ?? undefined,
         },
       }),
     onError: (e) => toast.error(`Falha ao atualizar tópico: ${describeError(e)}`),
+  });
+
+  const topicDecision = useMutation({
+    mutationFn: (input: { topicId: string; status: "pending" | "approved" | "rejected" }) =>
+      setDecision({ data: input }),
+    onMutate: (input) => {
+      qc.setQueryData<MonthlyPlanWithTopics | null>(["monthly-plan", planId], (p) =>
+        p
+          ? {
+              ...p,
+              topics: p.topics.map((t) =>
+                t.id === input.topicId ? { ...t, status: input.status } : t,
+              ),
+            }
+          : p,
+      );
+    },
+    onError: (e) => {
+      invalidate();
+      toast.error(
+        describeError(e).includes("topic_incomplete")
+          ? "Defina plataforma e formato antes de aprovar."
+          : `Falha ao decidir: ${describeError(e)}`,
+      );
+    },
+  });
+
+  const regenM = useMutation({
+    mutationFn: (input: { topicId: string; instruction: string }) =>
+      regenerate({ data: input }),
+    onSuccess: (t) => {
+      qc.setQueryData<MonthlyPlanWithTopics | null>(["monthly-plan", planId], (p) =>
+        p ? { ...p, topics: p.topics.map((x) => (x.id === t.id ? t : x)) } : p,
+      );
+      toast.success("Item regenerado.");
+    },
+    onError: (e) => toast.error(`Falha ao regenerar: ${describeError(e)}`),
+  });
+
+  const undoM = useMutation({
+    mutationFn: (topicId: string) => undoRegen({ data: { topicId } }),
+    onSuccess: (t) => {
+      qc.setQueryData<MonthlyPlanWithTopics | null>(["monthly-plan", planId], (p) =>
+        p ? { ...p, topics: p.topics.map((x) => (x.id === t.id ? t : x)) } : p,
+      );
+    },
+    onError: (e) => toast.error(`Falha ao desfazer: ${describeError(e)}`),
   });
 
   const removeTopic = useMutation({
@@ -436,13 +495,50 @@ function ApprovalView({
     },
   });
 
+  const submitM = useMutation({
+    mutationFn: () => submitToClient({ data: { planId } }),
+    onSuccess: (link) => {
+      invalidate();
+      void qc.invalidateQueries({ queryKey: ["monthly-plan-link", planId] });
+      toast.success("Pauta enviada para aprovação do cliente.", {
+        description: "Copie o link de aprovação e envie ao cliente.",
+      });
+      void navigator.clipboard?.writeText(`${window.location.origin}${link.url}`).catch(() => {});
+    },
+    onError: (e) => {
+      const m = describeError(e);
+      toast.error(
+        m.includes("topics_pending_decision")
+          ? "Ainda há itens sem decisão interna (aprovar ou descartar)."
+          : m.includes("topics_incomplete")
+            ? "Há itens aprovados sem plataforma ou formato."
+            : m.includes("no_approved_topics")
+              ? "Aprove ao menos um item antes de enviar ao cliente."
+              : `Falha ao enviar: ${m}`,
+      );
+    },
+  });
+
+  const linkQ = useQuery({
+    queryKey: ["monthly-plan-link", planId],
+    queryFn: () => getLink({ data: { planId } }),
+    enabled: q.data?.plan.status === "pending_client" || q.data?.plan.status === "client_approved",
+  });
+
   const approve = useMutation({
     mutationFn: () => approvePlan({ data: { planId, brandId, clientId } }),
     onSuccess: (res) => {
       toast.success(`${res.created} posts criados no Kanban.`);
       navigate({ to: "/content" });
     },
-    onError: (e) => toast.error(`Falha ao aprovar: ${describeError(e)}`),
+    onError: (e) => {
+      const m = describeError(e);
+      toast.error(
+        m.includes("client_approval_required")
+          ? "O cliente precisa aprovar a pauta antes de gerar os cards."
+          : `Falha ao aprovar: ${m}`,
+      );
+    },
   });
 
   const discard = useMutation({
@@ -469,10 +565,21 @@ function ApprovalView({
   }
 
   const { plan, topics } = q.data;
+  const locked = plan.status === "pending_client" || plan.status === "client_approved";
+  const approvedTopics = topics.filter((t) => t.status === "approved");
+  const pendingTopics = topics.filter((t) => t.status === "pending");
+  const incomplete = approvedTopics.filter((t) => !t.channel || !t.content_format);
+  const clientLink = linkQ.data ? `${window.location.origin}${linkQ.data.url}` : null;
 
   return (
     <div className="pb-32">
       <div className="mx-auto max-w-4xl space-y-8 px-6 py-8">
+        <StatusBanner
+          status={plan.status}
+          feedback={plan.client_feedback}
+          link={clientLink}
+        />
+
         {/* Estratégia */}
         <section className="space-y-5 rounded-2xl border border-border/60 bg-card/40 p-6 backdrop-blur">
           <InlineEditable
@@ -515,22 +622,25 @@ function ApprovalView({
 
         {/* Tópicos */}
         <section className="space-y-3">
-          <div className="flex items-end justify-between">
+          <div className="flex flex-wrap items-end justify-between gap-2">
             <div>
               <h2 className="text-lg font-semibold">Ideias de posts</h2>
               <p className="text-xs text-muted-foreground">
-                {topics.length} tópicos · edite, remova ou adicione manualmente.
+                {topics.length} itens · {approvedTopics.length} aprovados ·{" "}
+                {pendingTopics.length} sem decisão
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => addTopic.mutate()}
-              disabled={addTopic.isPending}
-            >
-              <Plus className="h-4 w-4" /> Novo tópico
-            </Button>
+            {!locked ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => addTopic.mutate()}
+                disabled={addTopic.isPending}
+              >
+                <Plus className="h-4 w-4" /> Novo tópico
+              </Button>
+            ) : null}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
@@ -538,6 +648,13 @@ function ApprovalView({
               <TopicCard
                 key={t.id}
                 topic={t}
+                locked={locked}
+                regenerating={regenM.isPending && regenM.variables?.topicId === t.id}
+                onStatus={(status) => topicDecision.mutate({ topicId: t.id, status })}
+                onRegenerate={(instruction) =>
+                  regenM.mutate({ topicId: t.id, instruction })
+                }
+                onUndo={() => undoM.mutate(t.id)}
                 onPatch={(patch) => {
                   qc.setQueryData<MonthlyPlanWithTopics | null>(
                     ["monthly-plan", planId],
@@ -562,7 +679,7 @@ function ApprovalView({
 
       {/* Sticky action bar */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-3 px-6 py-3">
+        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-6 py-3">
           <Button
             variant="ghost"
             className="gap-1.5 text-muted-foreground hover:text-destructive"
@@ -571,22 +688,118 @@ function ApprovalView({
           >
             <X className="h-4 w-4" /> Descartar pauta
           </Button>
-          <Button
-            className="gap-2"
-            onClick={() => approve.mutate()}
-            disabled={approve.isPending || topics.length === 0}
-          >
-            {approve.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+
+          <div className="flex flex-wrap items-center gap-2">
+            {clientLink ? (
+              <Button
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(clientLink);
+                  toast.success("Link de aprovação copiado.");
+                }}
+              >
+                <LinkIcon className="h-4 w-4" /> Copiar link do cliente
+              </Button>
+            ) : null}
+
+            {plan.status === "client_approved" ? (
+              <Button
+                className="gap-2"
+                onClick={() => approve.mutate()}
+                disabled={approve.isPending || approvedTopics.length === 0}
+              >
+                {approve.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ArrowRight className="h-4 w-4" />
+                )}
+                Enviar para produção ({approvedTopics.length})
+              </Button>
             ) : (
-              <ArrowRight className="h-4 w-4" />
+              <Button
+                className="gap-2"
+                onClick={() => submitM.mutate()}
+                disabled={
+                  submitM.isPending ||
+                  plan.status === "pending_client" ||
+                  approvedTopics.length === 0 ||
+                  pendingTopics.length > 0 ||
+                  incomplete.length > 0
+                }
+                title={
+                  pendingTopics.length > 0
+                    ? "Aprove ou descarte todos os itens"
+                    : incomplete.length > 0
+                      ? "Há itens aprovados sem plataforma/formato"
+                      : undefined
+                }
+              >
+                {submitM.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                {plan.status === "pending_client"
+                  ? "Aguardando cliente"
+                  : "Enviar ao cliente para aprovação"}
+              </Button>
             )}
-            Aprovar pauta e enviar para produção
-          </Button>
+          </div>
         </div>
       </div>
     </div>
   );
+}
+
+function StatusBanner({
+  status,
+  feedback,
+  link,
+}: {
+  status: MonthlyPlanStatus;
+  feedback: string | null;
+  link: string | null;
+}) {
+  if (status === "draft") {
+    return (
+      <div className="rounded-xl border border-border/60 bg-muted/30 p-4 text-xs text-muted-foreground">
+        Aprovação interna: decida cada item (aprovar/descartar) e defina plataforma e formato.
+        Só depois a pauta vai ao cliente — e apenas os itens aprovados pelo cliente viram cards.
+      </div>
+    );
+  }
+  if (status === "pending_client") {
+    return (
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-400">
+        Aguardando aprovação do cliente.{link ? ` Link: ${link}` : ""}
+      </div>
+    );
+  }
+  if (status === "changes_requested") {
+    return (
+      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-400">
+        <p className="font-medium">O cliente pediu ajustes.</p>
+        {feedback ? <p className="mt-1 text-muted-foreground">{feedback}</p> : null}
+        <p className="mt-1">Ajuste os itens e envie novamente para aprovação.</p>
+      </div>
+    );
+  }
+  if (status === "client_approved") {
+    return (
+      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-xs text-emerald-400">
+        Cliente aprovou a pauta. Envie para produção para criar os cards no Kanban.
+      </div>
+    );
+  }
+  if (status === "approved") {
+    return (
+      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-xs text-emerald-400">
+        Pauta já enviada para produção.
+      </div>
+    );
+  }
+  return null;
 }
 
 /* --------------------------------------------------------------- */
