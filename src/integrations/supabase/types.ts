@@ -3970,6 +3970,74 @@ export type Database = {
           },
         ]
       }
+      monthly_plan_tokens: {
+        Row: {
+          brand_id: string
+          client_id: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          monthly_plan_id: string
+          revoked_at: string | null
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          monthly_plan_id: string
+          revoked_at?: string | null
+          token: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          monthly_plan_id?: string
+          revoked_at?: string | null
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_plan_tokens_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "monthly_plan_tokens_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_plan_tokens_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_plan_tokens_monthly_plan_id_fkey"
+            columns: ["monthly_plan_id"]
+            isOneToOne: false
+            referencedRelation: "monthly_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       monthly_plan_topics: {
         Row: {
           angle: string | null
@@ -3979,6 +4047,8 @@ export type Database = {
           id: string
           monthly_plan_id: string
           position: number
+          previous_angle: string | null
+          previous_title: string | null
           status: string
           topic_title: string
           updated_at: string
@@ -3991,6 +4061,8 @@ export type Database = {
           id?: string
           monthly_plan_id: string
           position?: number
+          previous_angle?: string | null
+          previous_title?: string | null
           status?: string
           topic_title: string
           updated_at?: string
@@ -4003,6 +4075,8 @@ export type Database = {
           id?: string
           monthly_plan_id?: string
           position?: number
+          previous_angle?: string | null
+          previous_title?: string | null
           status?: string
           topic_title?: string
           updated_at?: string
@@ -4020,6 +4094,8 @@ export type Database = {
       monthly_plans: {
         Row: {
           brand_id: string
+          client_decision_at: string | null
+          client_feedback: string | null
           client_id: string
           created_at: string
           created_by: string | null
@@ -4027,6 +4103,8 @@ export type Database = {
           id: string
           input_briefing_id: string | null
           input_theme: string | null
+          internal_approved_at: string | null
+          internal_approved_by: string | null
           objectives: string | null
           status: string
           title: string
@@ -4034,6 +4112,8 @@ export type Database = {
         }
         Insert: {
           brand_id: string
+          client_decision_at?: string | null
+          client_feedback?: string | null
           client_id: string
           created_at?: string
           created_by?: string | null
@@ -4041,6 +4121,8 @@ export type Database = {
           id?: string
           input_briefing_id?: string | null
           input_theme?: string | null
+          internal_approved_at?: string | null
+          internal_approved_by?: string | null
           objectives?: string | null
           status?: string
           title: string
@@ -4048,6 +4130,8 @@ export type Database = {
         }
         Update: {
           brand_id?: string
+          client_decision_at?: string | null
+          client_feedback?: string | null
           client_id?: string
           created_at?: string
           created_by?: string | null
@@ -4055,6 +4139,8 @@ export type Database = {
           id?: string
           input_briefing_id?: string | null
           input_theme?: string | null
+          internal_approved_at?: string | null
+          internal_approved_by?: string | null
           objectives?: string | null
           status?: string
           title?: string

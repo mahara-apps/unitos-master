@@ -4,10 +4,18 @@ import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getBrandAiModel } from "@/lib/ai-provider.server";
 import { brain, type BrainContext } from "@/lib/brain/api";
+import { loadBriefingContext } from "@/lib/monthly-plan-context.server";
+import { PLAN_CHANNELS, PLAN_FORMATS } from "@/lib/monthly-plan-fields";
 
 /* ---------- Types ---------- */
 
-export type MonthlyPlanStatus = "draft" | "approved" | "archived";
+export type MonthlyPlanStatus =
+  | "draft"
+  | "pending_client"
+  | "client_approved"
+  | "changes_requested"
+  | "approved"
+  | "archived";
 export type MonthlyPlanTopicStatus = "pending" | "approved" | "rejected";
 
 export type MonthlyPlan = {
@@ -20,6 +28,10 @@ export type MonthlyPlan = {
   description: string | null;
   objectives: string | null;
   status: MonthlyPlanStatus;
+  internal_approved_at: string | null;
+  internal_approved_by: string | null;
+  client_decision_at: string | null;
+  client_feedback: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -32,6 +44,8 @@ export type MonthlyPlanTopic = {
   angle: string | null;
   channel: string | null;
   status: MonthlyPlanTopicStatus;
+  previous_title: string | null;
+  previous_angle: string | null;
   position: number;
 };
 
@@ -39,6 +53,11 @@ export type MonthlyPlanWithTopics = {
   plan: MonthlyPlan;
   topics: MonthlyPlanTopic[];
 };
+
+/** Itens só podem virar card quando têm plataforma e formato definidos. */
+export function isTopicComplete(t: Pick<MonthlyPlanTopic, "channel" | "content_format">): boolean {
+  return !!(t.channel && t.channel.trim() && t.content_format && t.content_format.trim());
+}
 
 /* ---------- Briefings dropdown ---------- */
 
@@ -72,9 +91,6 @@ const GenerateInput = z.object({
   clientId: z.string().uuid(),
   theme: z.string().trim().max(500).optional().default(""),
   briefingId: z.string().uuid().nullable().optional(),
-}).refine((v) => (v.theme && v.theme.length >= 3) || !!v.briefingId, {
-  message: "Informe um tema ou vincule um briefing.",
-  path: ["theme"],
 });
 
 const AiPlanSchema = z.object({
@@ -108,31 +124,16 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => GenerateInput.parse(i))
   .handler(async ({ data, context }): Promise<MonthlyPlanWithTopics> => {
-    const [{ data: brand }, { data: client }, { data: briefing }] = await Promise.all([
+    const [{ data: brand }, briefingCtx] = await Promise.all([
       context.supabase.from("brands").select("name").eq("id", data.brandId).maybeSingle(),
-      context.supabase
-        .from("clients")
-        .select("name, niche, tone_of_voice, brand_hub")
-        .eq("id", data.clientId)
-        .maybeSingle(),
-      data.briefingId
-        ? context.supabase
-            .from("brand_briefings")
-            .select("data")
-            .eq("id", data.briefingId)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
+      loadBriefingContext(context.supabase, data.clientId, {
+        briefingId: data.briefingId ?? null,
+      }),
     ]);
 
-    const briefingText = (() => {
-      const raw = (briefing as { data?: unknown } | null)?.data;
-      if (!raw) return "";
-      try {
-        return typeof raw === "string" ? raw : JSON.stringify(raw);
-      } catch {
-        return "";
-      }
-    })();
+    // Volumetria é obrigatória — sem ela não há como definir quantas peças gerar.
+    if (briefingCtx.totalTarget <= 0) throw new Error("volumetry_required");
+    const totalTarget = briefingCtx.totalTarget;
 
     // Brain: enrich prompt with consolidated knowledge for this brand/client.
     let brainMarkdown = "";
@@ -146,32 +147,16 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       };
       const pack = await brain.getContext(brainCtx, {
         topic: `planejamento mensal ${data.theme ?? ""}`.trim(),
-        nicheHint: (client?.niche as string | null) ?? null,
+        nicheHint: briefingCtx.niche,
       });
       brainMarkdown = pack.markdown ?? "";
     } catch (err) {
       console.warn("[monthly-plan] brain.getContext failed:", err);
     }
 
-    // Volumetria semanal por canal (posts/semana) → cotas mensais (×4.3 semanas)
-    const CHANNELS = ["instagram", "tiktok", "linkedin", "youtube", "facebook"] as const;
-    type Channel = (typeof CHANNELS)[number];
-    const hub = (client?.brand_hub ?? {}) as { volumetry?: Partial<Record<Channel, number>> };
-    const weekly = hub.volumetry ?? {};
-    const monthlyQuota: Record<Channel, number> = {
-      instagram: Math.round(((weekly.instagram ?? 0) as number) * 4.3),
-      tiktok: Math.round(((weekly.tiktok ?? 0) as number) * 4.3),
-      linkedin: Math.round(((weekly.linkedin ?? 0) as number) * 4.3),
-      youtube: Math.round(((weekly.youtube ?? 0) as number) * 4.3),
-      facebook: Math.round(((weekly.facebook ?? 0) as number) * 4.3),
-    };
-    const totalTarget = CHANNELS.reduce((s, k) => s + monthlyQuota[k], 0);
-    const hasVolumetry = totalTarget > 0;
-    const distributionText = hasVolumetry
-      ? CHANNELS.filter((c) => monthlyQuota[c] > 0)
-          .map((c) => `  * ${c}: ${monthlyQuota[c]} posts`)
-          .join("\n")
-      : "";
+    const distributionText = PLAN_CHANNELS.filter((c) => briefingCtx.monthlyQuota[c] > 0)
+      .map((c) => `  * ${c}: ${briefingCtx.monthlyQuota[c]} posts`)
+      .join("\n");
 
     const prompt = [
       `Você é um estrategista de conteúdo sênior.`,
@@ -182,9 +167,8 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
         : "",
       ``,
       `Marca: ${brand?.name ?? "—"}`,
-      `Cliente: ${client?.name ?? "—"}${client?.niche ? ` (${client.niche})` : ""}`,
-      client?.tone_of_voice ? `Tom de voz: ${client.tone_of_voice}` : "",
-      briefingText ? `Briefing base:\n${briefingText.slice(0, 4000)}` : "",
+      `# Briefing do cliente (contexto obrigatório)`,
+      briefingCtx.text.slice(0, 12000),
       ``,
       data.theme
         ? `Tema do mês (input do usuário): ${data.theme}`
@@ -194,14 +178,10 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       `- title: uma headline curta (máx 90 chars) que resume a estratégia do mês.`,
       `- description: 2-3 frases explicando o contexto do mês.`,
       `- objectives: 2-4 objetivos claros, separados por quebras de linha.`,
-      hasVolumetry
-        ? `- topics: EXATAMENTE ${totalTarget} ideias de posts, distribuídas por canal conforme a volumetria mensal do cliente:\n${distributionText}\n  Cada ideia deve ter:`
-        : `- topics: entre 8 e 12 ideias de posts, cada uma com:`,
+      `- topics: EXATAMENTE ${totalTarget} ideias de posts, distribuídas por canal conforme a volumetria mensal do cliente:\n${distributionText}\n  Cada ideia deve ter:`,
       `  * topic_title: título curto e criativo do post`,
-      `  * content_format: um de "Reels", "Carrossel", "Storie", "Post estático", "Vídeo curto"`,
-      hasVolumetry
-        ? `  * channel: OBRIGATÓRIO — um de "instagram", "tiktok", "linkedin", "youtube", "facebook" (respeitar cotas acima)`
-        : `  * channel: opcional`,
+      `  * content_format: OBRIGATÓRIO — um de ${PLAN_FORMATS.map((f) => `"${f}"`).join(", ")}`,
+      `  * channel: OBRIGATÓRIO — um de ${PLAN_CHANNELS.map((c) => `"${c}"`).join(", ")} (respeitar cotas acima)`,
       `  * angle: gancho estratégico / direcionamento para produção (1-2 frases)`,
       `- Balanceie formatos (não use só Reels).`,
       `- Sem markdown, sem prefixos numéricos.`,
@@ -250,15 +230,32 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
     if (planErr) throw planErr;
     const plan = planRow as unknown as MonthlyPlan;
 
-    const topicRows = parsed.topics.slice(0, Math.max(totalTarget || 16, 16)).map((t, i) => ({
-      monthly_plan_id: plan.id,
-      topic_title: t.topic_title.slice(0, 240),
-      content_format: t.content_format.slice(0, 60),
-      angle: t.angle.slice(0, 1000),
-      channel: t.channel ? String(t.channel).slice(0, 40) : null,
-      status: "pending" as const,
-      position: i * 1024,
-    }));
+    // Normaliza canal/formato contra as cotas — nunca deixa item incompleto.
+    const remaining: Record<string, number> = { ...briefingCtx.monthlyQuota };
+    const nextChannelWithQuota = (): string => {
+      const found = PLAN_CHANNELS.find((c) => (remaining[c] ?? 0) > 0);
+      const fallback = PLAN_CHANNELS.find((c) => briefingCtx.monthlyQuota[c] > 0) ?? "instagram";
+      return found ?? fallback;
+    };
+    const topicRows = parsed.topics.slice(0, totalTarget).map((t, i) => {
+      const raw = (t.channel ?? "").toString().trim().toLowerCase();
+      const channel =
+        (PLAN_CHANNELS as readonly string[]).includes(raw) && (remaining[raw] ?? 0) > 0
+          ? raw
+          : nextChannelWithQuota();
+      remaining[channel] = (remaining[channel] ?? 0) - 1;
+      const fmt = (t.content_format ?? "").trim();
+      const format = (PLAN_FORMATS as readonly string[]).includes(fmt) ? fmt : "Post estático";
+      return {
+        monthly_plan_id: plan.id,
+        topic_title: t.topic_title.slice(0, 240),
+        content_format: format,
+        angle: t.angle.slice(0, 1000),
+        channel,
+        status: "pending" as const,
+        position: i * 1024,
+      };
+    });
     const { data: inserted, error: topErr } = await context.supabase
       .from("monthly_plan_topics" as never)
       .insert(topicRows as never)
@@ -270,6 +267,21 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       topics: (inserted as unknown as MonthlyPlanTopic[]).sort(
         (a, b) => a.position - b.position,
       ),
+    };
+  });
+
+/* ---------- Volumetria (pré-geração) ---------- */
+
+export const getPlanVolumetryFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const ctx = await loadBriefingContext(context.supabase, data.clientId);
+    return {
+      weekly: ctx.weekly,
+      monthlyQuota: ctx.monthlyQuota,
+      totalTarget: ctx.totalTarget,
+      hasBriefing: ctx.text.trim().length > 0,
     };
   });
 
@@ -397,7 +409,8 @@ export const createTopicFn = createServerFn({ method: "POST" })
       .object({
         planId: z.string().uuid(),
         topic_title: z.string().trim().min(1).max(240),
-        content_format: z.string().max(60).optional().default("Post"),
+        content_format: z.string().max(60).nullable().optional(),
+        channel: z.string().max(40).nullable().optional(),
         angle: z.string().max(1000).optional().default(""),
       })
       .parse(i),
@@ -416,7 +429,8 @@ export const createTopicFn = createServerFn({ method: "POST" })
       .insert({
         monthly_plan_id: data.planId,
         topic_title: data.topic_title,
-        content_format: data.content_format,
+        content_format: data.content_format ?? null,
+        channel: data.channel ?? null,
         angle: data.angle,
         status: "pending",
         position: nextPos,
@@ -435,6 +449,7 @@ export const updateTopicFn = createServerFn({ method: "POST" })
         topicId: z.string().uuid(),
         topic_title: z.string().trim().min(1).max(240).optional(),
         content_format: z.string().max(60).nullable().optional(),
+        channel: z.string().max(40).nullable().optional(),
         angle: z.string().max(1000).nullable().optional(),
         status: z.enum(["pending", "approved", "rejected"]).optional(),
       })
@@ -442,13 +457,183 @@ export const updateTopicFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const patch: Record<string, unknown> = {};
-    for (const k of ["topic_title", "content_format", "angle", "status"] as const) {
+    for (const k of ["topic_title", "content_format", "channel", "angle", "status"] as const) {
       if (data[k] !== undefined) patch[k] = data[k];
     }
     if (Object.keys(patch).length === 0) return { ok: true };
     const { error } = await context.supabase
       .from("monthly_plan_topics" as never)
       .update(patch as never)
+      .eq("id", data.topicId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+/* ---------- Regeneração de um item específico ---------- */
+
+const RegenSchema = z.object({ topic_title: z.string(), angle: z.string() });
+
+export const regenerateTopicFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        topicId: z.string().uuid(),
+        instruction: z.string().trim().max(500).optional().default(""),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }): Promise<MonthlyPlanTopic> => {
+    const { data: topicRow, error: tErr } = await context.supabase
+      .from("monthly_plan_topics" as never)
+      .select("*")
+      .eq("id", data.topicId)
+      .maybeSingle();
+    if (tErr) throw tErr;
+    if (!topicRow) throw new Error("topic_not_found");
+    const topic = topicRow as unknown as MonthlyPlanTopic;
+
+    const { data: planRow } = await context.supabase
+      .from("monthly_plans" as never)
+      .select("*")
+      .eq("id", topic.monthly_plan_id)
+      .maybeSingle();
+    if (!planRow) throw new Error("plan_not_found");
+    const plan = planRow as unknown as MonthlyPlan;
+
+    const [{ data: siblings }, briefingCtx] = await Promise.all([
+      context.supabase
+        .from("monthly_plan_topics" as never)
+        .select("topic_title, id")
+        .eq("monthly_plan_id", plan.id),
+      loadBriefingContext(context.supabase, plan.client_id, {
+        briefingId: plan.input_briefing_id,
+      }),
+    ]);
+    const others = ((siblings ?? []) as Array<{ id: string; topic_title: string }>)
+      .filter((s) => s.id !== topic.id)
+      .map((s) => `- ${s.topic_title}`)
+      .join("\n");
+
+    const prompt = [
+      `Você é um estrategista de conteúdo sênior.`,
+      `Reescreva UMA ideia de post de uma pauta mensal, em português (Brasil).`,
+      ``,
+      `# Briefing do cliente`,
+      briefingCtx.text.slice(0, 8000),
+      ``,
+      `# Pauta`,
+      `Título: ${plan.title}`,
+      plan.description ? `Contexto: ${plan.description}` : "",
+      plan.objectives ? `Objetivos: ${plan.objectives}` : "",
+      plan.input_theme ? `Tema do mês: ${plan.input_theme}` : "",
+      ``,
+      `# Item atual`,
+      `Título: ${topic.topic_title}`,
+      `Gancho: ${topic.angle ?? "—"}`,
+      `Plataforma (NÃO alterar): ${topic.channel ?? "—"}`,
+      `Formato (NÃO alterar): ${topic.content_format ?? "—"}`,
+      data.instruction ? `\n# O que mudar (pedido do usuário)\n${data.instruction}` : "",
+      ``,
+      `# Outras ideias da pauta (NÃO repetir temas)`,
+      others || "—",
+      ``,
+      `Regras:`,
+      `- Mantenha a mesma plataforma e o mesmo formato.`,
+      `- topic_title: título curto e criativo, diferente do atual.`,
+      `- angle: gancho estratégico / direcionamento de produção (1-2 frases).`,
+      `- Sem markdown. Retorne EXATAMENTE um objeto JSON no schema.`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const { model } = await getBrandAiModel(context.supabase, plan.brand_id, "text");
+    let parsed: z.infer<typeof RegenSchema> | null = null;
+    try {
+      const { output } = await generateText({
+        model,
+        output: Output.object({ schema: RegenSchema }),
+        prompt,
+      });
+      parsed = output as z.infer<typeof RegenSchema>;
+    } catch (error) {
+      if (NoObjectGeneratedError.isInstance(error)) {
+        const safe = RegenSchema.safeParse(tryParseFallback((error as { text?: string }).text));
+        if (safe.success) parsed = safe.data;
+      }
+      if (!parsed) {
+        throw new Error(error instanceof Error ? error.message : "ai_generation_failed");
+      }
+    }
+
+    const { data: updated, error: uErr } = await context.supabase
+      .from("monthly_plan_topics" as never)
+      .update({
+        topic_title: parsed.topic_title.slice(0, 240),
+        angle: parsed.angle.slice(0, 1000),
+        previous_title: topic.topic_title,
+        previous_angle: topic.angle,
+        status: "pending",
+      } as never)
+      .eq("id", topic.id)
+      .select("*")
+      .single();
+    if (uErr) throw uErr;
+    return updated as unknown as MonthlyPlanTopic;
+  });
+
+export const undoTopicRegenerationFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ topicId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }): Promise<MonthlyPlanTopic> => {
+    const { data: row } = await context.supabase
+      .from("monthly_plan_topics" as never)
+      .select("*")
+      .eq("id", data.topicId)
+      .maybeSingle();
+    if (!row) throw new Error("topic_not_found");
+    const topic = row as unknown as MonthlyPlanTopic;
+    if (!topic.previous_title) throw new Error("no_previous_version");
+    const { data: updated, error } = await context.supabase
+      .from("monthly_plan_topics" as never)
+      .update({
+        topic_title: topic.previous_title,
+        angle: topic.previous_angle,
+        previous_title: null,
+        previous_angle: null,
+      } as never)
+      .eq("id", topic.id)
+      .select("*")
+      .single();
+    if (error) throw error;
+    return updated as unknown as MonthlyPlanTopic;
+  });
+
+/* ---------- Aprovação interna (item por item) ---------- */
+
+export const setTopicDecisionFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        topicId: z.string().uuid(),
+        status: z.enum(["pending", "approved", "rejected"]),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    if (data.status === "approved") {
+      const { data: row } = await context.supabase
+        .from("monthly_plan_topics" as never)
+        .select("channel, content_format")
+        .eq("id", data.topicId)
+        .maybeSingle();
+      const t = (row ?? {}) as { channel: string | null; content_format: string | null };
+      if (!isTopicComplete(t)) throw new Error("topic_incomplete");
+    }
+    const { error } = await context.supabase
+      .from("monthly_plan_topics" as never)
+      .update({ status: data.status } as never)
       .eq("id", data.topicId);
     if (error) throw error;
     return { ok: true };
@@ -478,7 +663,123 @@ export const discardMonthlyPlanFn = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/* ---------- Approve → Kanban ---------- */
+/* ---------- Envio ao cliente ---------- */
+
+function randomToken(len = 40): string {
+  const bytes = new Uint8Array(len);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, len);
+}
+
+export type PlanClientLink = {
+  token: string;
+  url: string;
+  expires_at: string | null;
+};
+
+export const submitPlanToClientFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        planId: z.string().uuid(),
+        expiresInDays: z.number().int().min(1).max(90).default(14),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }): Promise<PlanClientLink> => {
+    const { data: planRow } = await context.supabase
+      .from("monthly_plans" as never)
+      .select("id, brand_id, client_id, status")
+      .eq("id", data.planId)
+      .maybeSingle();
+    if (!planRow) throw new Error("plan_not_found");
+    const plan = planRow as unknown as {
+      id: string;
+      brand_id: string;
+      client_id: string;
+      status: MonthlyPlanStatus;
+    };
+
+    const { data: topics } = await context.supabase
+      .from("monthly_plan_topics" as never)
+      .select("id, status, channel, content_format")
+      .eq("monthly_plan_id", plan.id);
+    const list = (topics ?? []) as unknown as MonthlyPlanTopic[];
+    if (list.length === 0) throw new Error("plan_has_no_topics");
+    if (list.some((t) => t.status === "pending")) throw new Error("topics_pending_decision");
+    const approved = list.filter((t) => t.status === "approved");
+    if (approved.length === 0) throw new Error("no_approved_topics");
+    if (approved.some((t) => !isTopicComplete(t))) throw new Error("topics_incomplete");
+
+    // Reaproveita um link válido, se existir.
+    const { data: existing } = await context.supabase
+      .from("monthly_plan_tokens" as never)
+      .select("token, expires_at, revoked_at")
+      .eq("monthly_plan_id", plan.id)
+      .is("revoked_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    const found = (existing ?? [])[0] as
+      | { token: string; expires_at: string | null }
+      | undefined;
+
+    let token = found?.token ?? null;
+    let expiresAt = found?.expires_at ?? null;
+    if (!token || (expiresAt && new Date(expiresAt).getTime() < Date.now())) {
+      token = randomToken(40);
+      expiresAt = new Date(Date.now() + data.expiresInDays * 86_400_000).toISOString();
+      const { error: insErr } = await context.supabase
+        .from("monthly_plan_tokens" as never)
+        .insert({
+          monthly_plan_id: plan.id,
+          brand_id: plan.brand_id,
+          client_id: plan.client_id,
+          token,
+          expires_at: expiresAt,
+          created_by: context.userId,
+        } as never);
+      if (insErr) throw insErr;
+    }
+
+    const { error: upErr } = await context.supabase
+      .from("monthly_plans" as never)
+      .update({
+        status: "pending_client",
+        internal_approved_at: new Date().toISOString(),
+        internal_approved_by: context.userId,
+        client_decision_at: null,
+        client_feedback: null,
+      } as never)
+      .eq("id", plan.id);
+    if (upErr) throw upErr;
+
+    return { token, url: `/pauta/${plan.id}?token=${token}`, expires_at: expiresAt };
+  });
+
+export const getPlanClientLinkFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ planId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }): Promise<PlanClientLink | null> => {
+    const { data: rows } = await context.supabase
+      .from("monthly_plan_tokens" as never)
+      .select("token, expires_at")
+      .eq("monthly_plan_id", data.planId)
+      .is("revoked_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1);
+    const row = (rows ?? [])[0] as { token: string; expires_at: string | null } | undefined;
+    if (!row) return null;
+    return {
+      token: row.token,
+      url: `/pauta/${data.planId}?token=${row.token}`,
+      expires_at: row.expires_at,
+    };
+  });
+
+/* ---------- Approve → Kanban (após aprovação do cliente) ---------- */
 
 export const approveMonthlyPlanFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -494,21 +795,24 @@ export const approveMonthlyPlanFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<{ created: number }> => {
     const { data: planRow, error: planErr } = await context.supabase
       .from("monthly_plans" as never)
-      .select("id, brand_id")
+      .select("id, brand_id, status")
       .eq("id", data.planId)
       .maybeSingle();
     if (planErr) throw planErr;
     if (!planRow) throw new Error("plan_not_found");
+    const planStatus = (planRow as unknown as { status: MonthlyPlanStatus }).status;
+    if (planStatus !== "client_approved") throw new Error("client_approval_required");
 
     const { data: topics, error: topErr } = await context.supabase
       .from("monthly_plan_topics" as never)
       .select("*")
       .eq("monthly_plan_id", data.planId)
-      .neq("status", "rejected")
+      .eq("status", "approved")
       .order("position", { ascending: true });
     if (topErr) throw topErr;
     const list = (topics ?? []) as unknown as MonthlyPlanTopic[];
     if (list.length === 0) return { created: 0 };
+    if (list.some((t) => !isTopicComplete(t))) throw new Error("topics_incomplete");
 
     // Pipeline + stage inicial
     let { data: pipes } = await context.supabase

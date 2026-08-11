@@ -16,6 +16,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
 import { Route as PlanoPlanIdRouteImport } from './routes/plano.$planId'
+import { Route as PautaPlanIdRouteImport } from './routes/pauta.$planId'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ApprovalTokenRouteImport } from './routes/approval.$token'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
@@ -114,6 +115,11 @@ const PortalTokenRoute = PortalTokenRouteImport.update({
 const PlanoPlanIdRoute = PlanoPlanIdRouteImport.update({
   id: '/plano/$planId',
   path: '/plano/$planId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PautaPlanIdRoute = PautaPlanIdRouteImport.update({
+  id: '/pauta/$planId',
+  path: '/pauta/$planId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
@@ -499,6 +505,7 @@ export interface FileRoutesByFullPath {
   '/tasks': typeof AuthenticatedTasksRoute
   '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/pauta/$planId': typeof PautaPlanIdRoute
   '/plano/$planId': typeof PlanoPlanIdRoute
   '/portal/$token': typeof PortalTokenRoute
   '/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
@@ -568,6 +575,7 @@ export interface FileRoutesByTo {
   '/tasks': typeof AuthenticatedTasksRoute
   '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/pauta/$planId': typeof PautaPlanIdRoute
   '/plano/$planId': typeof PlanoPlanIdRoute
   '/portal/$token': typeof PortalTokenRoute
   '/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
@@ -643,6 +651,7 @@ export interface FileRoutesById {
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
   '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/pauta/$planId': typeof PautaPlanIdRoute
   '/plano/$planId': typeof PlanoPlanIdRoute
   '/portal/$token': typeof PortalTokenRoute
   '/_authenticated/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
@@ -718,6 +727,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/approval/$token'
     | '/invite/$token'
+    | '/pauta/$planId'
     | '/plano/$planId'
     | '/portal/$token'
     | '/brain/diagnostics'
@@ -787,6 +797,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/approval/$token'
     | '/invite/$token'
+    | '/pauta/$planId'
     | '/plano/$planId'
     | '/portal/$token'
     | '/brain/diagnostics'
@@ -861,6 +872,7 @@ export interface FileRouteTypes {
     | '/_authenticated/tasks'
     | '/approval/$token'
     | '/invite/$token'
+    | '/pauta/$planId'
     | '/plano/$planId'
     | '/portal/$token'
     | '/_authenticated/brain/diagnostics'
@@ -921,6 +933,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   ApprovalTokenRoute: typeof ApprovalTokenRoute
   InviteTokenRoute: typeof InviteTokenRoute
+  PautaPlanIdRoute: typeof PautaPlanIdRoute
   PlanoPlanIdRoute: typeof PlanoPlanIdRoute
   PortalTokenRoute: typeof PortalTokenRoute
   ApiChatStreamRoute: typeof ApiChatStreamRoute
@@ -999,6 +1012,13 @@ declare module '@tanstack/react-router' {
       path: '/plano/$planId'
       fullPath: '/plano/$planId'
       preLoaderRoute: typeof PlanoPlanIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pauta/$planId': {
+      id: '/pauta/$planId'
+      path: '/pauta/$planId'
+      fullPath: '/pauta/$planId'
+      preLoaderRoute: typeof PautaPlanIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/invite/$token': {
@@ -1622,6 +1642,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   ApprovalTokenRoute: ApprovalTokenRoute,
   InviteTokenRoute: InviteTokenRoute,
+  PautaPlanIdRoute: PautaPlanIdRoute,
   PlanoPlanIdRoute: PlanoPlanIdRoute,
   PortalTokenRoute: PortalTokenRoute,
   ApiChatStreamRoute: ApiChatStreamRoute,
@@ -1653,13 +1674,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
