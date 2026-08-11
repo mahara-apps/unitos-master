@@ -15,9 +15,12 @@ export type MonthlyPlanStatus =
   | "pending_client"
   | "client_approved"
   | "changes_requested"
+  | "client_rejected"
   | "approved"
   | "archived";
 export type MonthlyPlanTopicStatus = "pending" | "approved" | "rejected";
+export type TopicClientStatus = "pending" | "approved" | "rejected" | "changes";
+
 
 export type MonthlyPlan = {
   id: string;
