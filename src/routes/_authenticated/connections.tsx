@@ -65,6 +65,7 @@ import {
   getConnections,
   updateConnectionsSettings,
   saveProviderKey,
+  testProviderKey,
   removeProviderKey,
   upsertChannel,
   saveToolCredential,
@@ -1016,7 +1017,14 @@ function ProviderCard({
   totalCalls,
 }: {
   provider: ProviderDef;
-  config?: { connected: boolean; masked?: string; updatedAt?: string };
+  config?: {
+    connected: boolean;
+    masked?: string;
+    updatedAt?: string;
+    verified?: "valid" | "invalid" | "unverified";
+    verifiedAt?: string;
+    verifyMessage?: string;
+  };
   brandId: string;
   onChanged: () => void;
   totalMonthUsd: number;
@@ -1027,20 +1035,43 @@ function ProviderCard({
   const [apiKey, setApiKey] = useState("");
   const [model, setModel] = useState<string>(provider.models[0]?.id ?? "");
 
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   const saveFn = useServerFn(saveProviderKey);
   const removeFn = useServerFn(removeProviderKey);
+  const testFn = useServerFn(testProviderKey);
 
   const saveMut = useMutation({
     mutationFn: () =>
       saveFn({ data: { brandId, provider: provider.id, apiKey: apiKey.trim() } }),
-    onSuccess: () => {
-      toast.success(`${provider.name} conectado`);
+    onSuccess: (res) => {
+      if (res.verified === "valid") {
+        toast.success(`${provider.name} conectado — chave válida`);
+      } else {
+        toast.warning(res.message);
+      }
       setApiKey("");
+      setSaveError(null);
       setOpen(false);
       onChanged();
     },
+    onError: (e: unknown) => {
+      const msg = e instanceof Error ? e.message : "Falha ao conectar";
+      setSaveError(msg);
+      toast.error(msg);
+    },
+  });
+
+  const testMut = useMutation({
+    mutationFn: () => testFn({ data: { brandId, provider: provider.id } }),
+    onSuccess: (res) => {
+      if (res.status === "valid") toast.success(res.message);
+      else if (res.status === "invalid") toast.error(res.message);
+      else toast.warning(res.message);
+      onChanged();
+    },
     onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : "Falha ao conectar"),
+      toast.error(e instanceof Error ? e.message : "Falha ao testar a chave"),
   });
 
   const removeMut = useMutation({
@@ -1116,6 +1147,35 @@ function ProviderCard({
           <span className="tabular-nums text-foreground/80">{config?.masked ?? "—"}</span>
         </div>
         <div className="mt-1 text-[10px] text-muted-foreground">Obtenha em {provider.docs}</div>
+        {connected && (
+          <div className="mt-2 border-t border-border/60 pt-2">
+            <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest">
+              {config?.verified === "valid" ? (
+                <span className="flex items-center gap-1 text-emerald-600">
+                  <CheckCircle2 className="h-3 w-3" /> Chave válida
+                </span>
+              ) : config?.verified === "invalid" ? (
+                <span className="flex items-center gap-1 text-destructive">
+                  <AlertTriangle className="h-3 w-3" /> Chave inválida
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-amber-600">
+                  <AlertTriangle className="h-3 w-3" /> Não verificada
+                </span>
+              )}
+              {config?.verifiedAt && (
+                <span className="text-muted-foreground">
+                  · {new Date(config.verifiedAt).toLocaleString("pt-BR")}
+                </span>
+              )}
+            </div>
+            {config?.verifyMessage && (
+              <div className="mt-1 text-[10px] leading-snug text-muted-foreground">
+                {config.verifyMessage}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-2">
@@ -1143,6 +1203,17 @@ function ProviderCard({
         {connected && (
           <Button
             size="sm"
+            variant="outline"
+            onClick={() => testMut.mutate()}
+            disabled={testMut.isPending}
+          >
+            <RefreshCw className={cn("mr-2 h-3.5 w-3.5", testMut.isPending && "animate-spin")} />
+            Testar
+          </Button>
+        )}
+        {connected && (
+          <Button
+            size="sm"
             variant="ghost"
             className="text-destructive hover:text-destructive"
             onClick={() => removeMut.mutate()}
@@ -1158,7 +1229,8 @@ function ProviderCard({
           <DialogHeader>
             <DialogTitle>Conectar {provider.name}</DialogTitle>
             <DialogDescription>
-              A chave será cifrada com AES-256-GCM. Apenas os últimos 4 caracteres ficam visíveis.
+              A chave é testada contra a {provider.name} antes de ser salva e cifrada com
+              AES-256-GCM. Apenas os últimos 4 caracteres ficam visíveis.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
@@ -1169,8 +1241,17 @@ function ProviderCard({
               autoComplete="off"
               placeholder="sk-..."
               value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
+              onChange={(e) => {
+                setApiKey(e.target.value);
+                setSaveError(null);
+              }}
             />
+            {saveError && (
+              <p className="flex items-start gap-1.5 text-xs text-destructive">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                {saveError}
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)}>
@@ -1180,8 +1261,12 @@ function ProviderCard({
               onClick={() => saveMut.mutate()}
               disabled={saveMut.isPending || apiKey.trim().length < 8}
             >
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              Salvar chave
+              {saveMut.isPending ? (
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+              )}
+              {saveMut.isPending ? "Testando chave…" : "Testar e salvar"}
             </Button>
           </DialogFooter>
         </DialogContent>

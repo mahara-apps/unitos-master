@@ -8,7 +8,12 @@ export type ProviderConfig = {
   connected: boolean;
   masked?: string;
   updatedAt?: string;
+  /** Resultado do último teste real contra o provedor. */
+  verified?: "valid" | "invalid" | "unverified";
+  verifiedAt?: string;
+  verifyMessage?: string;
 };
+
 
 export type ChannelConfig = {
   connected: boolean;
@@ -117,6 +122,12 @@ export const saveProviderKey = createServerFn({ method: "POST" })
     const { encryptCredential, maskCredential } = await import(
       "./credentials-crypto.server"
     );
+    const { verifyProviderKey } = await import("./ai-provider-verify.server");
+
+    // Testa a chave contra o provedor ANTES de gravar qualquer coisa.
+    const check = await verifyProviderKey(data.provider, data.apiKey);
+    if (check.status === "invalid") throw new Error(check.message);
+
     const ciphertext = await encryptCredential(data.apiKey);
     const masked = maskCredential(data.apiKey);
 
@@ -144,10 +155,14 @@ export const saveProviderKey = createServerFn({ method: "POST" })
       string,
       ProviderConfig
     >;
+    const now = new Date().toISOString();
     providers[data.provider] = {
       connected: true,
       masked,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
+      verified: check.status,
+      verifiedAt: now,
+      verifyMessage: check.message,
     };
     const { error } = await context.supabase
       .from("brand_connections")
@@ -156,8 +171,66 @@ export const saveProviderKey = createServerFn({ method: "POST" })
         { onConflict: "brand_id" },
       );
     if (error) throw error;
-    return { ok: true, masked: providers[data.provider].masked };
+    return {
+      ok: true,
+      masked: providers[data.provider]!.masked,
+      verified: check.status,
+      message: check.message,
+      models: check.models.length,
+    };
   });
+
+const TestProviderInput = z.object({
+  brandId: z.string().uuid(),
+  provider: z.enum(["openai", "anthropic", "gemini"]),
+});
+
+/** Revalida a chave já salva do provedor, sem precisar redigitá-la. */
+export const testProviderKey = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => TestProviderInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: credRow, error: credErr } = await context.supabase
+      .from("brand_api_credentials")
+      .select("ciphertext")
+      .eq("brand_id", data.brandId)
+      .eq("provider", data.provider)
+      .maybeSingle();
+    if (credErr) throw credErr;
+    if (!credRow?.ciphertext) {
+      throw new Error("Nenhuma chave cadastrada para este provedor.");
+    }
+
+    const { decryptCredential } = await import("./credentials-crypto.server");
+    const { verifyProviderKey } = await import("./ai-provider-verify.server");
+    const apiKey = await decryptCredential(credRow.ciphertext as string);
+    const check = await verifyProviderKey(data.provider, apiKey);
+
+    const { data: existing } = await context.supabase
+      .from("brand_connections")
+      .select("providers")
+      .eq("brand_id", data.brandId)
+      .maybeSingle();
+    const providers = ((existing?.providers as Record<string, ProviderConfig>) ?? {}) as Record<
+      string,
+      ProviderConfig
+    >;
+    const now = new Date().toISOString();
+    providers[data.provider] = {
+      ...(providers[data.provider] ?? { connected: true }),
+      connected: check.status !== "invalid",
+      verified: check.status,
+      verifiedAt: now,
+      verifyMessage: check.message,
+    };
+    const { error } = await context.supabase
+      .from("brand_connections")
+      .upsert({ brand_id: data.brandId, providers }, { onConflict: "brand_id" });
+    if (error) throw error;
+
+    return { status: check.status, message: check.message, models: check.models.length };
+  });
+
 
 const RemoveProviderInput = z.object({
   brandId: z.string().uuid(),
