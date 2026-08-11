@@ -14,7 +14,6 @@ const BodySchema = z.object({
   postId: z.string().uuid(),
 });
 
-const OPERATIONAL_MODEL = "google/gemini-2.5-flash";
 
 const CopySchema = z.object({
   title: z.string(),

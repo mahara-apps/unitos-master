@@ -32,8 +32,6 @@ const BodySchema = z.object({
   assigneeId: z.string().uuid().optional(),
 });
 
-const STRATEGIC_MODEL = "google/gemini-2.5-flash";
-const OPERATIONAL_MODEL = "google/gemini-2.5-flash";
 
 const PlannerSchema = z.object({
   concepts: z.array(

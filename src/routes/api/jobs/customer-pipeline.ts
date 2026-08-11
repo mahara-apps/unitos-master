@@ -132,8 +132,6 @@ function composeBriefingFromRecord(row: ClientRow, extraNotes?: string): string 
 
 // Modelos de geração atual — os prior-gen 2.5-pro/2.5-flash batiam no teto
 // de subrequest do Cloudflare Worker (~30s) e causavam cancelamento HTTP 499.
-const STRATEGIC_MODEL = "google/gemini-3.1-pro-preview";
-const OPERATIONAL_MODEL = "google/gemini-3.6-flash";
 
 // Falha rápido em vez de esperar o reaper de 5min. 60s cobre com folga o
 // tempo típico das chamadas atuais e ainda deixa headroom no Worker.
