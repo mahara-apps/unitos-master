@@ -1,10 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Rotas públicas da Pauta mensal — o cliente acessa via link com token e
- * aprova ou pede ajustes. Nenhuma sessão é necessária; o token é a credencial.
+ * aprova ou pede ajustes. Não há sessão: o token é a credencial e é sempre
+ * validado (existência, revogação e expiração) antes de qualquer leitura ou
+ * escrita. O cliente privilegiado é carregado dentro do handler.
  */
 
 export type PublicPlanTopic = {
@@ -31,28 +33,6 @@ export type PublicPlanResolve = {
   topics: PublicPlanTopic[];
 };
 
-function getPublic(): SupabaseClient {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) throw new Error("supabase_env_missing");
-  const isOpaque = key.startsWith("sb_publishable_") || key.startsWith("sb_secret_");
-  return createClient(url, key, {
-    auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
-    global: {
-      fetch: (input, init) => {
-        const headers = new Headers(init?.headers);
-        if (isOpaque && headers.get("Authorization") === `Bearer ${key}`) {
-          headers.delete("Authorization");
-        }
-        headers.set("apikey", key);
-        return fetch(input, { ...init, headers });
-      },
-    },
-  });
-}
-
-const tokenIn = z.object({ token: z.string().min(8) });
-
 async function requireToken(sb: SupabaseClient, token: string) {
   const { data, error } = await sb
     .from("monthly_plan_tokens")
@@ -75,10 +55,13 @@ async function requireToken(sb: SupabaseClient, token: string) {
   return row;
 }
 
+const tokenIn = z.object({ token: z.string().min(8).max(80) });
+
 export const resolveMonthlyPlanPublic = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => tokenIn.parse(i))
   .handler(async ({ data }): Promise<PublicPlanResolve> => {
-    const sb = getPublic();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const sb = supabaseAdmin as unknown as SupabaseClient;
     const session = await requireToken(sb, data.token);
 
     const [{ data: plan }, { data: client }, { data: topics }] = await Promise.all([
@@ -110,7 +93,7 @@ export const decideMonthlyPlanPublic = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) =>
     z
       .object({
-        token: z.string().min(8),
+        token: z.string().min(8).max(80),
         decision: z.enum(["approve", "changes"]),
         feedback: z.string().trim().max(2000).optional().default(""),
       })
@@ -120,7 +103,8 @@ export const decideMonthlyPlanPublic = createServerFn({ method: "POST" })
     if (data.decision === "changes" && !data.feedback.trim()) {
       throw new Error("feedback_required");
     }
-    const sb = getPublic();
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const sb = supabaseAdmin as unknown as SupabaseClient;
     const session = await requireToken(sb, data.token);
 
     const status = data.decision === "approve" ? "client_approved" : "changes_requested";
