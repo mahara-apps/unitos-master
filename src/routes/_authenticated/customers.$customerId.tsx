@@ -302,31 +302,23 @@ function CustomerDetailReady({
                 clientId={customerId}
                 embedded
                 layout="stacked"
-                onStrategyGenerated={invalidateAll}
-                appendSlot={
-                  <>
-                    <section id="estrategia" className="scroll-mt-24 space-y-4">
-                      <h3 className="text-lg font-semibold tracking-tight">Estratégia IA</h3>
-                      <Suspense fallback={<StrategySkeleton />}>
-                        <StrategyTab brandId={brandId} clientId={customerId} />
-                      </Suspense>
-                    </section>
-                    <section id="personas" className="scroll-mt-24 space-y-4">
-                      <h3 className="text-lg font-semibold tracking-tight">Personas & Público IA</h3>
-                      <Suspense fallback={<TargetSkeleton />}>
-                        <TargetTab brandId={brandId} clientId={customerId} />
-                      </Suspense>
-                    </section>
-                    <section id="mercado" className="scroll-mt-24 space-y-4">
-                      <h3 className="text-lg font-semibold tracking-tight">Análise de Mercado</h3>
-                      <Suspense fallback={<MarketSkeleton />}>
-                        <MarketTab brandId={brandId} clientId={customerId} />
-                      </Suspense>
-                    </section>
-                  </>
-                }
+                onStrategyGenerated={() => {
+                  invalidateAll();
+                  qc.invalidateQueries({
+                    queryKey: ["strategy-runs", brandId, customerId],
+                  });
+                }}
               />
             </TabsContent>
+            <TabsContent value="estrategia">
+              <StrategyResults
+                brandId={brandId}
+                clientId={customerId}
+                onGenerate={() => setActiveTab("briefing")}
+                onRestored={invalidateAll}
+              />
+            </TabsContent>
+
             <TabsContent value="cadastro">
               <BasicInfoTab brandId={brandId} clientId={customerId} />
             </TabsContent>
