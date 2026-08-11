@@ -213,6 +213,20 @@ async function notifySuperAdmins(
     if (!brandByUser.has(uid)) brandByUser.set(uid, m.brand_id as string);
   }
 
+  const swapped = problems.filter((p) => p.replacedWith);
+  const title = swapped.length
+    ? `Modelo de IA atualizado automaticamente (${swapped.length})`
+    : "Modelo de IA com falha — ação necessária";
+  const body = problems
+    .map((p) =>
+      p.replacedWith
+        ? `${p.provider}/${p.role}: ${p.modelId} → ${p.replacedWith}`
+        : `${p.provider}/${p.role}: ${p.modelId} indisponível (${p.error ?? "erro"})`,
+    )
+    .join(" · ")
+    .slice(0, 900);
+
+
   const rows = adminIds
     .filter((id) => brandByUser.has(id))
     .map((id) => ({
