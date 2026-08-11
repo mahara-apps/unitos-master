@@ -46,12 +46,10 @@ export function listSocialProviders(): Array<{
   label: string;
   implemented: boolean;
 }> {
-  return (Object.keys(REGISTRY) as SocialNetwork[]).map((network) => {
-    const p = REGISTRY[network];
-    return {
-      network,
-      label: p.label,
-      implemented: !(p.label === "LinkedIn" || p.label === "TikTok" || p.label === "YouTube" || p.label === "X (Twitter)" || p.label === "Threads"),
-    };
-  });
+  return (Object.keys(LABELS) as SocialNetwork[]).map((network) => ({
+    network,
+    label: LABELS[network],
+    implemented: network === "facebook" || network === "instagram",
+  }));
 }
+
