@@ -228,11 +228,15 @@ export function SocialAnalyticsDashboard({
 
   const data = q.data;
   const refreshing = q.isFetching || qTop.isFetching;
+  const cooldown = useRefreshCooldown(`social-analytics:${baseKey.join(":")}`, 60_000);
 
   function handleRefresh() {
+    if (cooldown.blocked || refreshing) return;
+    cooldown.start();
     void queryClient.invalidateQueries({ queryKey: ["social-analytics", ...baseKey] });
     void queryClient.invalidateQueries({ queryKey: ["social-analytics-top", ...baseKey] });
   }
+
 
   // Skeleton apenas no primeiro acesso real (sem snapshot em cache).
   if (!data && q.isPending) return <LoadingSkeleton />;
