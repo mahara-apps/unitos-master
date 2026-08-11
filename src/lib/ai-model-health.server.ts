@@ -243,6 +243,38 @@ async function notifySuperAdmins(
   if (error) console.error("[ai-model-health] falha ao notificar admins", error);
 }
 
+/**
+ * Propaga o resultado da verificação da chave para `brand_connections.providers`,
+ * de modo que a UI de Conexões mostre "Chave inválida" sem novo teste manual.
+ */
+async function markProviderVerification(
+  supabase: Admin,
+  provider: ProviderName,
+  status: "valid" | "invalid" | "unverified",
+  message: string,
+): Promise<void> {
+  const { data: rows } = await supabase
+    .from("brand_connections")
+    .select("brand_id, providers");
+  const now = new Date().toISOString();
+
+  for (const row of rows ?? []) {
+    const providers = (row.providers ?? {}) as Record<string, Record<string, unknown>>;
+    if (!providers[provider]) continue;
+    providers[provider] = {
+      ...providers[provider],
+      connected: status !== "invalid",
+      verified: status,
+      verifiedAt: now,
+      verifyMessage: message,
+    };
+    await supabase
+      .from("brand_connections")
+      .update({ providers } as never)
+      .eq("brand_id", row.brand_id as string);
+  }
+}
+
 export async function runAiModelHealthCheck(): Promise<HealthCheckResult> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const entries: HealthCheckEntry[] = [];
@@ -251,6 +283,35 @@ export async function runAiModelHealthCheck(): Promise<HealthCheckResult> {
   for (const provider of PROVIDERS) {
     const apiKey = await loadKey(supabaseAdmin, provider);
     let listed: ListedModel[] | null = null;
+
+    // Confirma que a chave ainda é aceita pelo provedor antes de testar modelos.
+    if (apiKey) {
+      const { verifyProviderKey } = await import("./ai-provider-verify.server");
+      const check = await verifyProviderKey(provider, apiKey);
+      await markProviderVerification(supabaseAdmin, provider, check.status, check.message);
+      if (check.status === "invalid") {
+        for (const role of ROLES) {
+          if (role === "image" && !PROVIDER_CAPABILITIES[provider].image) continue;
+          const modelId = (await resolveModel(provider, role)) ?? "-";
+          const entry: HealthCheckEntry = {
+            provider,
+            role,
+            modelId,
+            status: "failed",
+            error: check.message.slice(0, 500),
+          };
+          entries.push(entry);
+          await supabaseAdmin.from("ai_model_health").insert({
+            provider,
+            role,
+            model_id: modelId,
+            status: "failed",
+            error_message: entry.error ?? null,
+          } as never);
+        }
+        continue;
+      }
+    }
 
     for (const role of ROLES) {
       if (role === "image" && !PROVIDER_CAPABILITIES[provider].image) continue;
