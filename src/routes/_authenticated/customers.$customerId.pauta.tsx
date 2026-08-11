@@ -236,7 +236,7 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
           loadingMessage={LOADING_MESSAGES[loadingStep] ?? LOADING_MESSAGES[0]!}
           onGenerate={(input) => generateM.mutate(input)}
         />
-      </div>
+      </DashboardPageShell>
     );
   }
 
