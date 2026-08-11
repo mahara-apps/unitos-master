@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { KpiCard } from "@/components/ui/kpi-card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -387,15 +388,6 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
         applyFn={apply}
         snapshotFn={snapshot}
       />
-    </div>
-  );
-}
-
-function KpiCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-3">
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
     </div>
   );
 }
