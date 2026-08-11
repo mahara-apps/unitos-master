@@ -1329,3 +1329,221 @@ export const listCustomerPautasFn = createServerFn({ method: "POST" })
     if (error) throw error;
     return rows ?? [];
   });
+// ---------- Histórico de gerações de estratégia ----------
+//
+// O pipeline preserva versões: ao gravar uma nova geração, marca as linhas
+// anteriores como `is_active = false`. Agrupamos as linhas das 4 tabelas por
+// proximidade de `created_at` (janela de 15 min) para reconstruir "gerações".
+
+const STRATEGY_BLOCK_TABLES = {
+  voice: "brand_voice_cards",
+  personas: "brand_personas",
+  cohorts: "brand_cohorts",
+  swot: "brand_swot",
+} as const;
+
+type StrategyBlock = keyof typeof STRATEGY_BLOCK_TABLES;
+
+export const listStrategyRunsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ brandId: z.string().uuid(), clientId: z.string().uuid() }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const blocks = Object.keys(STRATEGY_BLOCK_TABLES) as StrategyBlock[];
+    const results = await Promise.all(
+      blocks.map((b) =>
+        context.supabase
+          .from(STRATEGY_BLOCK_TABLES[b])
+          .select("id,created_at,is_active,created_by")
+          .eq("brand_id", data.brandId)
+          .eq("client_id", data.clientId)
+          .order("created_at", { ascending: false })
+          .limit(60),
+      ),
+    );
+
+    type Row = {
+      block: StrategyBlock;
+      id: string;
+      created_at: string;
+      is_active: boolean;
+      created_by: string | null;
+    };
+    const rows: Row[] = [];
+    results.forEach((res, idx) => {
+      for (const r of res.data ?? []) {
+        rows.push({
+          block: blocks[idx],
+          id: r.id as string,
+          created_at: (r.created_at as string) ?? new Date(0).toISOString(),
+          is_active: !!r.is_active,
+          created_by: (r.created_by as string | null) ?? null,
+        });
+      }
+    });
+    rows.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+
+    const WINDOW_MS = 15 * 60 * 1000;
+    type Run = {
+      key: string;
+      created_at: string;
+      is_active: boolean;
+      created_by: string | null;
+      blocks: Partial<Record<StrategyBlock, string>>;
+    };
+    const runs: Run[] = [];
+    for (const r of rows) {
+      const t = Date.parse(r.created_at);
+      let run = runs.find(
+        (x) =>
+          Math.abs(Date.parse(x.created_at) - t) <= WINDOW_MS &&
+          x.is_active === r.is_active &&
+          !x.blocks[r.block],
+      );
+      if (!run) {
+        run = {
+          key: r.id,
+          created_at: r.created_at,
+          is_active: r.is_active,
+          created_by: r.created_by,
+          blocks: {},
+        };
+        runs.push(run);
+      }
+      run.blocks[r.block] = r.id;
+      // a geração é datada pelo bloco mais antigo do grupo (início do pipeline)
+      if (r.created_at < run.created_at) run.created_at = r.created_at;
+      if (!run.created_by) run.created_by = r.created_by;
+    }
+    runs.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+
+    // Provedor/modelo por etapa fica em ai_jobs.result — casa por proximidade.
+    const { data: jobs } = await context.supabase
+      .from("ai_jobs")
+      .select("created_at,finished_at,result,status")
+      .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
+      .eq("kind", "customer_strategy")
+      .order("created_at", { ascending: false })
+      .limit(40);
+
+    const authorIds = [...new Set(runs.map((r) => r.created_by).filter(Boolean))] as string[];
+    const { data: profiles } = authorIds.length
+      ? await context.supabase
+          .from("user_profiles")
+          .select("user_id,full_name,email")
+          .in("user_id", authorIds)
+      : { data: [] as Array<{ user_id: string; full_name: string | null; email: string | null }> };
+    const nameById = new Map(
+      (profiles ?? []).map((p) => [
+        p.user_id as string,
+        (p.full_name as string | null) || (p.email as string | null) || null,
+      ]),
+    );
+
+    return runs.map((run) => {
+      const t = Date.parse(run.created_at);
+      const job = (jobs ?? []).find((j) => {
+        const jt = Date.parse((j.created_at as string) ?? "");
+        return Number.isFinite(jt) && Math.abs(jt - t) <= 60 * 60 * 1000;
+      });
+      const models =
+        job && job.result && typeof job.result === "object"
+          ? ((job.result as Record<string, unknown>)["models"] as Record<string, string> | undefined)
+          : undefined;
+      return {
+        key: run.key,
+        createdAt: run.created_at,
+        isActive: run.is_active,
+        author: run.created_by ? (nameById.get(run.created_by) ?? null) : null,
+        blocks: run.blocks,
+        models: models ?? null,
+      };
+    });
+  });
+
+export const getStrategyRunFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+        blocks: z.object({
+          voice: z.string().uuid().optional(),
+          personas: z.string().uuid().optional(),
+          cohorts: z.string().uuid().optional(),
+          swot: z.string().uuid().optional(),
+        }),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const entries = Object.entries(data.blocks).filter(([, v]) => !!v) as Array<
+      [StrategyBlock, string]
+    >;
+    const rows = await Promise.all(
+      entries.map(([block, id]) =>
+        context.supabase
+          .from(STRATEGY_BLOCK_TABLES[block])
+          .select("id,data,created_at")
+          .eq("id", id)
+          .eq("brand_id", data.brandId)
+          .eq("client_id", data.clientId)
+          .maybeSingle(),
+      ),
+    );
+    const out: Record<string, unknown> = {};
+    entries.forEach(([block], idx) => {
+      out[block] = rows[idx].data?.data ?? null;
+    });
+    return out as {
+      voice?: unknown;
+      personas?: unknown;
+      cohorts?: unknown;
+      swot?: unknown;
+    };
+  });
+
+export const restoreStrategyRunFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+        blocks: z.object({
+          voice: z.string().uuid().optional(),
+          personas: z.string().uuid().optional(),
+          cohorts: z.string().uuid().optional(),
+          swot: z.string().uuid().optional(),
+        }),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const entries = Object.entries(data.blocks).filter(([, v]) => !!v) as Array<
+      [StrategyBlock, string]
+    >;
+    if (!entries.length) throw new Error("Nenhum bloco para restaurar");
+
+    for (const [block, id] of entries) {
+      const table = STRATEGY_BLOCK_TABLES[block];
+      const { error: offErr } = await context.supabase
+        .from(table)
+        .update({ is_active: false })
+        .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId)
+        .eq("is_active", true);
+      if (offErr) throw offErr;
+      const { error: onErr } = await context.supabase
+        .from(table)
+        .update({ is_active: true })
+        .eq("id", id)
+        .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId);
+      if (onErr) throw onErr;
+    }
+    return { ok: true, restored: entries.map(([b]) => b) };
+  });
