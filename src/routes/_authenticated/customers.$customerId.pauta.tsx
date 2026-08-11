@@ -259,19 +259,33 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
   );
 }
 
+const PLAN_STATUS_META: Record<MonthlyPlanStatus, { label: string; cls: string }> = {
+  draft: { label: "Rascunho", cls: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+  pending_client: {
+    label: "No cliente",
+    cls: "bg-sky-500/15 text-sky-400 border-sky-500/30",
+  },
+  changes_requested: {
+    label: "Ajustes pedidos",
+    cls: "bg-orange-500/15 text-orange-400 border-orange-500/30",
+  },
+  client_approved: {
+    label: "Cliente aprovou",
+    cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  },
+  approved: {
+    label: "Em produção",
+    cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  },
+  archived: { label: "Arquivada", cls: "bg-muted text-muted-foreground border-border" },
+};
+
 function PlanHistory({
   data,
   loading,
   onOpen,
 }: {
-  data: Array<{
-    id: string;
-    title: string;
-    status: "draft" | "approved" | "archived";
-    created_at: string;
-    author_name: string | null;
-    topics_count: number;
-  }>;
+  data: MonthlyPlanListItem[];
   loading: boolean;
   onOpen: (id: string) => void;
 }) {
@@ -285,14 +299,6 @@ function PlanHistory({
     );
   }
   if (data.length === 0) return null;
-  const badge = (s: "draft" | "approved" | "archived") =>
-    s === "approved"
-      ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-      : s === "archived"
-        ? "bg-muted text-muted-foreground border-border"
-        : "bg-amber-500/15 text-amber-400 border-amber-500/30";
-  const label = (s: "draft" | "approved" | "archived") =>
-    s === "approved" ? "Aprovada" : s === "archived" ? "Arquivada" : "Rascunho";
   return (
     <div className="mt-8">
       <div className="mb-3 flex items-center justify-between">
@@ -300,36 +306,39 @@ function PlanHistory({
         <span className="text-xs text-muted-foreground">{data.length} registros</span>
       </div>
       <div className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60 bg-card/40">
-        {data.map((p) => (
-          <button
-            key={p.id}
-            onClick={() => onOpen(p.id)}
-            className="flex w-full items-center gap-4 p-4 text-left transition hover:bg-muted/40"
-          >
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`inline-flex h-5 items-center rounded-full border px-2 text-[10px] font-medium uppercase tracking-wide ${badge(p.status)}`}
-                >
-                  {label(p.status)}
-                </span>
-                <span className="truncate text-sm font-medium">{p.title}</span>
+        {data.map((p) => {
+          const meta = PLAN_STATUS_META[p.status] ?? PLAN_STATUS_META.draft;
+          return (
+            <button
+              key={p.id}
+              onClick={() => onOpen(p.id)}
+              className="flex w-full items-center gap-4 p-4 text-left transition hover:bg-muted/40"
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-flex h-5 items-center rounded-full border px-2 text-[10px] font-medium uppercase tracking-wide ${meta.cls}`}
+                  >
+                    {meta.label}
+                  </span>
+                  <span className="truncate text-sm font-medium">{p.title}</span>
+                </div>
+                <div className="mt-1 text-xs text-muted-foreground">
+                  {new Date(p.created_at).toLocaleString("pt-BR", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                  {p.author_name ? ` · ${p.author_name}` : ""}
+                  {` · ${p.topics_count} tópicos`}
+                </div>
               </div>
-              <div className="mt-1 text-xs text-muted-foreground">
-                {new Date(p.created_at).toLocaleString("pt-BR", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-                {p.author_name ? ` · ${p.author_name}` : ""}
-                {` · ${p.topics_count} tópicos`}
-              </div>
-            </div>
-            <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-          </button>
-        ))}
+              <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+            </button>
+          );
+        })}
       </div>
     </div>
   );
