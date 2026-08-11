@@ -559,7 +559,7 @@ function ApprovalView({
 
   if (q.isLoading || !q.data) {
     return (
-      <div className="mx-auto max-w-4xl space-y-4 px-6 py-10">
+      <DashboardPageShell className="space-y-4">
         <Skeleton className="h-8 w-2/3" />
         <Skeleton className="h-24 w-full" />
         <div className="grid gap-3 sm:grid-cols-2">
