@@ -516,13 +516,16 @@ function ApprovalView({
   planId,
   brandId,
   clientId,
+  onBack,
   onDiscarded,
 }: {
   planId: string;
   brandId: string;
   clientId: string;
+  onBack: () => void;
   onDiscarded: () => void;
 }) {
+
   const qc = useQueryClient();
   const navigate = useNavigate();
   const getPlan = useServerFn(getMonthlyPlanFn);
