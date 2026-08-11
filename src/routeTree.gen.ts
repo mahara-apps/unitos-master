@@ -59,6 +59,7 @@ import { Route as AuthenticatedSettingsBrandingRouteImport } from './routes/_aut
 import { Route as AuthenticatedSettingsAiLimitsRouteImport } from './routes/_authenticated/settings.ai-limits'
 import { Route as AuthenticatedSettingsAiRouteImport } from './routes/_authenticated/settings.ai'
 import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_authenticated/projects.$projectId'
+import { Route as AuthenticatedMonthlyPlanPlanIdRouteImport } from './routes/_authenticated/monthly-plan.$planId'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 import { Route as AuthenticatedChatConversationIdRouteImport } from './routes/_authenticated/chat.$conversationId'
 import { Route as AuthenticatedBrainGraphRouteImport } from './routes/_authenticated/brain.graph'
@@ -351,6 +352,12 @@ const AuthenticatedProjectsProjectIdRoute =
     path: '/$projectId',
     getParentRoute: () => AuthenticatedProjectsRoute,
   } as any)
+const AuthenticatedMonthlyPlanPlanIdRoute =
+  AuthenticatedMonthlyPlanPlanIdRouteImport.update({
+    id: '/$planId',
+    path: '/$planId',
+    getParentRoute: () => AuthenticatedMonthlyPlanRoute,
+  } as any)
 const AuthenticatedCustomersCustomerIdRoute =
   AuthenticatedCustomersCustomerIdRouteImport.update({
     id: '/$customerId',
@@ -519,6 +526,7 @@ export interface FileRoutesByFullPath {
   '/brain/graph': typeof AuthenticatedBrainGraphRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
+  '/monthly-plan/$planId': typeof AuthenticatedMonthlyPlanPlanIdRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
   '/settings/ai-limits': typeof AuthenticatedSettingsAiLimitsRoute
@@ -589,6 +597,7 @@ export interface FileRoutesByTo {
   '/brain/graph': typeof AuthenticatedBrainGraphRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
+  '/monthly-plan/$planId': typeof AuthenticatedMonthlyPlanPlanIdRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
   '/settings/ai-limits': typeof AuthenticatedSettingsAiLimitsRoute
@@ -666,6 +675,7 @@ export interface FileRoutesById {
   '/_authenticated/brain/graph': typeof AuthenticatedBrainGraphRoute
   '/_authenticated/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
+  '/_authenticated/monthly-plan/$planId': typeof AuthenticatedMonthlyPlanPlanIdRoute
   '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/_authenticated/settings/ai': typeof AuthenticatedSettingsAiRoute
   '/_authenticated/settings/ai-limits': typeof AuthenticatedSettingsAiLimitsRoute
@@ -743,6 +753,7 @@ export interface FileRouteTypes {
     | '/brain/graph'
     | '/chat/$conversationId'
     | '/customers/$customerId'
+    | '/monthly-plan/$planId'
     | '/projects/$projectId'
     | '/settings/ai'
     | '/settings/ai-limits'
@@ -813,6 +824,7 @@ export interface FileRouteTypes {
     | '/brain/graph'
     | '/chat/$conversationId'
     | '/customers/$customerId'
+    | '/monthly-plan/$planId'
     | '/projects/$projectId'
     | '/settings/ai'
     | '/settings/ai-limits'
@@ -889,6 +901,7 @@ export interface FileRouteTypes {
     | '/_authenticated/brain/graph'
     | '/_authenticated/chat/$conversationId'
     | '/_authenticated/customers/$customerId'
+    | '/_authenticated/monthly-plan/$planId'
     | '/_authenticated/projects/$projectId'
     | '/_authenticated/settings/ai'
     | '/_authenticated/settings/ai-limits'
@@ -1326,6 +1339,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProjectsProjectIdRouteImport
       parentRoute: typeof AuthenticatedProjectsRoute
     }
+    '/_authenticated/monthly-plan/$planId': {
+      id: '/_authenticated/monthly-plan/$planId'
+      path: '/$planId'
+      fullPath: '/monthly-plan/$planId'
+      preLoaderRoute: typeof AuthenticatedMonthlyPlanPlanIdRouteImport
+      parentRoute: typeof AuthenticatedMonthlyPlanRoute
+    }
     '/_authenticated/customers/$customerId': {
       id: '/_authenticated/customers/$customerId'
       path: '/$customerId'
@@ -1565,11 +1585,13 @@ const AuthenticatedCustomersRouteWithChildren =
   )
 
 interface AuthenticatedMonthlyPlanRouteChildren {
+  AuthenticatedMonthlyPlanPlanIdRoute: typeof AuthenticatedMonthlyPlanPlanIdRoute
   AuthenticatedMonthlyPlanIndexRoute: typeof AuthenticatedMonthlyPlanIndexRoute
 }
 
 const AuthenticatedMonthlyPlanRouteChildren: AuthenticatedMonthlyPlanRouteChildren =
   {
+    AuthenticatedMonthlyPlanPlanIdRoute: AuthenticatedMonthlyPlanPlanIdRoute,
     AuthenticatedMonthlyPlanIndexRoute: AuthenticatedMonthlyPlanIndexRoute,
   }
 
