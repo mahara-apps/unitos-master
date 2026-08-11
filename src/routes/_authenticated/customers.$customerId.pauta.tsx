@@ -595,21 +595,45 @@ function TopicCard({
   topic,
   onPatch,
   onDelete,
+  onStatus,
+  onRegenerate,
+  onUndo,
+  regenerating,
+  locked,
 }: {
   topic: MonthlyPlanTopic;
   onPatch: (p: Partial<MonthlyPlanTopic>) => void;
   onDelete: () => void;
+  onStatus: (s: "pending" | "approved" | "rejected") => void;
+  onRegenerate: (instruction: string) => void;
+  onUndo: () => void;
+  regenerating: boolean;
+  locked: boolean;
 }) {
-  const FORMATS = ["Reels", "Carrossel", "Storie", "Post estático", "Vídeo curto"];
+  const [instrOpen, setInstrOpen] = useState(false);
+  const [instruction, setInstruction] = useState("");
+  const complete = !!(topic.channel && topic.content_format);
+  const missing = !complete;
+
   return (
-    <div className="group relative rounded-xl border border-border/60 bg-card/40 p-4 transition hover:border-border">
-      <button
-        onClick={onDelete}
-        className="absolute right-2 top-2 rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
-        aria-label="Remover tópico"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
+    <div
+      className={`group relative rounded-xl border p-4 transition ${
+        topic.status === "approved"
+          ? "border-emerald-500/40 bg-emerald-500/5"
+          : topic.status === "rejected"
+            ? "border-border/40 bg-muted/30 opacity-70"
+            : "border-border/60 bg-card/40 hover:border-border"
+      }`}
+    >
+      {!locked ? (
+        <button
+          onClick={onDelete}
+          className="absolute right-2 top-2 rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+          aria-label="Remover tópico"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
       <InlineEditable
         as="div"
         className="pr-6 text-sm font-semibold text-foreground"
@@ -618,16 +642,39 @@ function TopicCard({
         multiline={false}
         placeholder="Título do post"
       />
-      <div className="mt-3 flex items-center gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <Select
-          value={topic.content_format ?? "Post"}
-          onValueChange={(v) => onPatch({ content_format: v })}
+          value={topic.channel ?? ""}
+          onValueChange={(v) => onPatch({ channel: v })}
         >
-          <SelectTrigger className="h-7 w-fit gap-1 border-border/60 bg-background/60 px-2 text-xs">
-            <SelectValue />
+          <SelectTrigger
+            className={`h-7 w-fit gap-1 bg-background/60 px-2 text-xs ${
+              topic.channel ? "border-border/60" : "border-amber-500/50 text-amber-500"
+            }`}
+          >
+            <SelectValue placeholder="Plataforma *" />
           </SelectTrigger>
           <SelectContent>
-            {FORMATS.map((f) => (
+            {PLAN_CHANNELS.map((c) => (
+              <SelectItem key={c} value={c}>
+                {CHANNEL_LABEL[c] ?? c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={topic.content_format ?? ""}
+          onValueChange={(v) => onPatch({ content_format: v })}
+        >
+          <SelectTrigger
+            className={`h-7 w-fit gap-1 bg-background/60 px-2 text-xs ${
+              topic.content_format ? "border-border/60" : "border-amber-500/50 text-amber-500"
+            }`}
+          >
+            <SelectValue placeholder="Formato *" />
+          </SelectTrigger>
+          <SelectContent>
+            {PLAN_FORMATS.map((f) => (
               <SelectItem key={f} value={f}>
                 {f}
               </SelectItem>
@@ -635,6 +682,11 @@ function TopicCard({
           </SelectContent>
         </Select>
       </div>
+      {missing ? (
+        <p className="mt-2 text-[11px] text-amber-500">
+          Defina plataforma e formato para aprovar este item.
+        </p>
+      ) : null}
       <div className="mt-3">
         <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
           Gancho
@@ -648,6 +700,90 @@ function TopicCard({
           placeholder="Gancho estratégico / direcionamento…"
         />
       </div>
+
+      {!locked ? (
+        <>
+          <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-border/50 pt-3">
+            <Button
+              size="sm"
+              variant={topic.status === "approved" ? "default" : "outline"}
+              className="h-7 gap-1 px-2 text-xs"
+              disabled={missing}
+              title={missing ? "Defina plataforma e formato" : undefined}
+              onClick={() => onStatus(topic.status === "approved" ? "pending" : "approved")}
+            >
+              <Check className="h-3.5 w-3.5" /> Aprovar
+            </Button>
+            <Button
+              size="sm"
+              variant={topic.status === "rejected" ? "secondary" : "ghost"}
+              className="h-7 gap-1 px-2 text-xs"
+              onClick={() => onStatus(topic.status === "rejected" ? "pending" : "rejected")}
+            >
+              <X className="h-3.5 w-3.5" /> Descartar
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 gap-1 px-2 text-xs"
+              disabled={regenerating}
+              onClick={() => setInstrOpen((v) => !v)}
+            >
+              {regenerating ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <RefreshCw className="h-3.5 w-3.5" />
+              )}
+              Regenerar
+            </Button>
+            {topic.previous_title ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 gap-1 px-2 text-xs text-muted-foreground"
+                onClick={onUndo}
+              >
+                <Undo2 className="h-3.5 w-3.5" /> Desfazer
+              </Button>
+            ) : null}
+          </div>
+
+          {instrOpen ? (
+            <div className="mt-2 space-y-2">
+              <Textarea
+                value={instruction}
+                onChange={(e) => setInstruction(e.target.value)}
+                maxLength={500}
+                rows={2}
+                placeholder="O que ajustar? (opcional) — plataforma e formato serão mantidos"
+                className="text-xs"
+              />
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  className="h-7 px-2 text-xs"
+                  disabled={regenerating}
+                  onClick={() => {
+                    onRegenerate(instruction.trim());
+                    setInstrOpen(false);
+                    setInstruction("");
+                  }}
+                >
+                  Gerar nova versão
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 px-2 text-xs"
+                  onClick={() => setInstrOpen(false)}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </>
+      ) : null}
     </div>
   );
 }
