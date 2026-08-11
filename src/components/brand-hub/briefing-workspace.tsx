@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
-  ArrowLeft,
   FileUp,
   ImageIcon,
   Loader2,
@@ -13,14 +12,11 @@ import {
   Sparkles,
   Trash2,
   Upload,
-  X,
-  Minus,
   Instagram as InstagramIcon,
   Palette as PaletteIcon,
   ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DocumentsTab } from "@/components/brand-hub/documents-tab";
@@ -42,15 +38,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Slider } from "@/components/ui/slider";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Stepper } from "@/components/ui/stepper";
+import { TagInput } from "@/components/ui/tag-input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   getBrandHub,
@@ -58,7 +53,6 @@ import {
   uploadBrandAsset,
   updateBrandVisuals,
   type BrandHubClient,
-  type BrandHubData,
 } from "@/lib/brand-hub.functions";
 import { computeBriefingCompletion, briefingProgressLabel } from "@/lib/briefing-progress";
 import { supabase } from "@/integrations/supabase/client";
@@ -107,15 +101,6 @@ const SOCIALS: Array<{ key: SocialKey; label: string }> = [
   { key: "youtube", label: "YouTube" },
   { key: "facebook", label: "Facebook" },
 ];
-
-const TABS = [
-  { value: "identidade", label: "Identidade" },
-  { value: "produto", label: "Produto" },
-  { value: "publico", label: "Público" },
-  { value: "concorrentes", label: "Concorrentes" },
-  { value: "hashtags", label: "Hashtags & Estética" },
-  { value: "volumetria", label: "Volumetria & Metas" },
-] as const;
 
 function toForm(client: BrandHubClient): FormState {
   const hub = client.brand_hub ?? {};
@@ -201,9 +186,7 @@ async function fileToBase64(file: File): Promise<string> {
 export function BriefingWorkspace({
   brandId,
   clientId,
-  embedded = false,
   onStrategyGenerated,
-  layout = "tabs",
   appendSlot,
 }: {
   brandId: string;
@@ -214,7 +197,6 @@ export function BriefingWorkspace({
   appendSlot?: React.ReactNode;
 }) {
   const qc = useQueryClient();
-  const navigate = useNavigate();
   const fetchHub = useServerFn(getBrandHub);
   const saveHub = useServerFn(updateBrandHub);
 
@@ -390,331 +372,72 @@ export function BriefingWorkspace({
 
   if (hubQ.isLoading || !form || !hubQ.data) {
     return (
-      <div className="space-y-4 p-6">
-        <Skeleton className="h-20 w-full rounded-xl" />
+      <div className="space-y-4 py-6">
+        <Skeleton className="h-14 w-full rounded-xl" />
         <Skeleton className="h-9 w-full rounded-md" />
         <Skeleton className="h-96 w-full rounded-xl" />
       </div>
     );
   }
 
-  const client = hubQ.data;
-
-  const saveButtonClass =
-    "gap-1.5 bg-rose-600 text-white hover:bg-rose-700 border-rose-600";
-
-  if (layout === "stacked") {
-    return (
-      <StackedBrainLayout
-        brandId={brandId}
-        clientId={clientId}
-        client={client}
-        form={form}
-        setForm={setForm}
-        completion={completion}
-        onSave={() => save.mutate()}
-        saving={save.isPending}
-        savedAt={savedAt}
-        onGenerateStrategy={() => setRegenOpen(true)}
-        onGenerateIdeas={() => setIdeasOpen(true)}
-        strategyReady={strategyReady}
-        generating={generating}
-        genIdeas={genIdeas}
-        appendSlot={appendSlot}
-        regenOpen={regenOpen}
-        setRegenOpen={setRegenOpen}
-        runStrategy={runStrategy}
-        ideasOpen={ideasOpen}
-        setIdeasOpen={setIdeasOpen}
-        ideasQty={ideasQty}
-        setIdeasQty={setIdeasQty}
-        ideasPeriod={ideasPeriod}
-        setIdeasPeriod={setIdeasPeriod}
-        runIdeas={runIdeas}
-      />
-    );
-  }
-
-  const body = (
-    <>
-      <div className={embedded ? "space-y-6 pb-24" : "mx-auto w-full max-w-6xl space-y-6 px-6 py-6 md:px-8 pb-24"}>
-        {!embedded && (
-          <header className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-8 gap-1.5"
-              onClick={() =>
-                navigate({ to: "/customers/$customerId", params: { customerId: clientId } })
-              }
-            >
-              <ArrowLeft className="h-3.5 w-3.5" /> Voltar
-            </Button>
-            <div>
-              <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                briefing · workspace
-              </div>
-              <h1 className="mt-0.5 text-2xl font-semibold tracking-tight">
-                Briefing — {client.name}
-              </h1>
-              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                Identidade, público, hashtags, concorrentes e volumetria — base para a estratégia.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" className="gap-1.5" onClick={importFromText}>
-              <FileUp className="h-3.5 w-3.5" /> Importar de .docx / texto
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5 border-fuchsia-500/40 text-fuchsia-300 hover:bg-fuchsia-500/10 hover:text-fuchsia-200"
-              onClick={() => setRegenOpen(true)}
-              disabled={generating}
-            >
-              {generating ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Sparkles className="h-3.5 w-3.5" />
-              )}
-              Gerar estratégia
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-200 disabled:opacity-50"
-              onClick={() => setIdeasOpen(true)}
-              disabled={!strategyReady || genIdeas}
-              title={strategyReady ? "Gerar ideias de conteúdo" : "Gere e revise a estratégia primeiro"}
-            >
-              {genIdeas ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Lightbulb className="h-3.5 w-3.5" />
-              )}
-              Gerar ideias
-            </Button>
-            <Button
-              size="sm"
-              className={saveButtonClass}
-              onClick={() => save.mutate()}
-              disabled={save.isPending}
-            >
-              {save.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Save className="h-3.5 w-3.5" />
-              )}
-              Salvar briefing
-            </Button>
-          </div>
-          </header>
-        )}
-
-        {/* Completion banner */}
-        <Alert className="border-rose-500/30 bg-rose-500/5">
-          <AlertDescription className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-medium text-foreground">
-                {progressLabel(completion)} — {completion}% preenchido
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="border-rose-500/30 bg-rose-500/10 font-mono text-[10px] text-rose-300">
-                  {completion}%
-                </Badge>
-                <GenerateIntelligenceButton
-                  form={form}
-                  generating={generating}
-                  onGenerate={() => setRegenOpen(true)}
-                  label="Gerar estratégia com IA"
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="gap-1.5 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-200 disabled:opacity-50"
-                  onClick={() => setIdeasOpen(true)}
-                  disabled={!strategyReady || genIdeas}
-                  title={strategyReady ? "Gerar ideias de conteúdo" : "Revise a estratégia primeiro"}
-                >
-                  {genIdeas ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Lightbulb className="h-3.5 w-3.5" />
-                  )}
-                  Gerar ideias
-                </Button>
-              </div>
-            </div>
-            <Progress value={completion} className="h-2" />
-            <p className="text-xs text-muted-foreground">
-              Preencha as abas abaixo e depois clique em <b>Gerar estratégia com IA</b> — os agentes
-              vão destilar tom de voz, personas, cohorts, SWOT e pautas a partir do que estiver aqui.
-            </p>
-          </AlertDescription>
-        </Alert>
-
-        {/* Tabs */}
-        <Tabs defaultValue="identidade" className="space-y-4">
-          <TabsList variant="bordered">
-            {TABS.map((t) => (
-              <TabsTrigger key={t.value} value={t.value}>
-                {t.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          <TabsContent value="identidade">
-            <IdentidadeTab
-              brandId={brandId}
-              clientId={clientId}
-              client={client}
-              form={form}
-              setForm={setForm}
-            />
-          </TabsContent>
-          <TabsContent value="produto">
-            <ProdutoTab form={form} setForm={setForm} />
-          </TabsContent>
-          <TabsContent value="publico">
-            <PublicoTab form={form} setForm={setForm} />
-          </TabsContent>
-          <TabsContent value="concorrentes">
-            <ConcorrentesTab form={form} setForm={setForm} />
-          </TabsContent>
-          <TabsContent value="hashtags">
-            <HashtagsTab form={form} setForm={setForm} />
-          </TabsContent>
-          <TabsContent value="volumetria">
-            <VolumetriaTab form={form} setForm={setForm} />
-          </TabsContent>
-        </Tabs>
-      </div>
-
-      {/* Sticky footer */}
-      <div className="sticky bottom-0 left-0 right-0 z-10 border-t border-border/60 bg-background/95 backdrop-blur">
-        <div className={embedded ? "flex items-center justify-between gap-4 px-1 py-3" : "mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3 md:px-8"}>
-          <p className="text-xs text-muted-foreground">
-            As alterações são salvas apenas quando você clica em <b>Salvar briefing</b>.
-          </p>
-          <Button
-            size="sm"
-            className={saveButtonClass}
-            onClick={() => save.mutate()}
-            disabled={save.isPending}
-          >
-            {save.isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Save className="h-3.5 w-3.5" />
-            )}
-            Salvar briefing
-          </Button>
-        </div>
-      </div>
-
-      <AlertDialog open={regenOpen} onOpenChange={setRegenOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Gerar estratégia com IA?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Os agentes vão ler os campos deste briefing e gerar <b>Voice Card</b>,
-              <b> Personas</b>, <b>Cohorts</b>, <b>SWOT</b> e um lote de <b>pautas</b> no pipeline.
-              Artefatos anteriores permanecem no histórico — os novos passam a ser a versão ativa.
-              O processo roda em segundo plano.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={generating}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                void runStrategy();
-              }}
-              disabled={generating}
-            >
-              {generating ? "Iniciando…" : "Gerar estratégia"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <Dialog open={ideasOpen} onOpenChange={setIdeasOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Gerar ideias de conteúdo</DialogTitle>
-            <DialogDescription>
-              As pautas serão criadas a partir da estratégia revisada (voice, personas, cohorts e SWOT)
-              e injetadas no pipeline como ideias aguardando aprovação. A distribuição por canal e o agendamento
-              no calendário respeitam a volumetria semanal definida no briefing (posts/semana por canal).
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3 py-2">
-            <div className="grid gap-1.5">
-              <Label htmlFor="ideas-qty">Quantidade de ideias</Label>
-              <Input
-                id="ideas-qty"
-                type="number"
-                min={1}
-                max={20}
-                value={ideasQty}
-                onChange={(e) => setIdeasQty(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="ideas-period">Período</Label>
-              <Input
-                id="ideas-period"
-                value={ideasPeriod}
-                onChange={(e) => setIdeasPeriod(e.target.value)}
-                placeholder="próximos 15 dias"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIdeasOpen(false)} disabled={genIdeas}>
-              Cancelar
-            </Button>
-            <Button onClick={runIdeas} disabled={genIdeas} className="gap-1.5">
-              {genIdeas ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lightbulb className="h-3.5 w-3.5" />}
-              {genIdeas ? "Iniciando…" : "Gerar ideias"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+  return (
+    <StackedBrainLayout
+      brandId={brandId}
+      clientId={clientId}
+      client={hubQ.data}
+      form={form}
+      setForm={setForm}
+      completion={completion}
+      onSave={() => save.mutate()}
+      saving={save.isPending}
+      savedAt={savedAt}
+      onGenerateStrategy={() => setRegenOpen(true)}
+      onGenerateIdeas={() => setIdeasOpen(true)}
+      onImportText={importFromText}
+      strategyReady={strategyReady}
+      generating={generating}
+      genIdeas={genIdeas}
+      appendSlot={appendSlot}
+      regenOpen={regenOpen}
+      setRegenOpen={setRegenOpen}
+      runStrategy={runStrategy}
+      ideasOpen={ideasOpen}
+      setIdeasOpen={setIdeasOpen}
+      ideasQty={ideasQty}
+      setIdeasQty={setIdeasQty}
+      ideasPeriod={ideasPeriod}
+      setIdeasPeriod={setIdeasPeriod}
+      runIdeas={runIdeas}
+    />
   );
-
-  if (embedded) return <div className="relative">{body}</div>;
-  return <ScrollArea className="h-[calc(100vh-3.5rem)] bg-background">{body}</ScrollArea>;
 }
 
-/* --------------------------------- Tabs ----------------------------------- */
+/* ------------------------------ Shared blocks ------------------------------ */
 
 function SectionCard({
   title,
   hint,
   children,
   className,
+  action,
 }: {
   title: string;
   hint?: string;
   children: React.ReactNode;
   className?: string;
+  action?: React.ReactNode;
 }) {
   return (
-    <section
-      className={
-        "rounded-xl border border-border bg-card p-5 " + (className ?? "")
-      }
-    >
-      <header className="mb-4">
-        <h3 className="text-sm font-semibold">{title}</h3>
-        {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
-      </header>
-      {children}
-    </section>
+    <Card className={cn("border-border/60", className)}>
+      <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0 border-b border-border/60 px-4 py-3">
+        <div className="min-w-0">
+          <CardTitle className="text-sm font-medium">{title}</CardTitle>
+          {hint ? <CardDescription className="text-[11px]">{hint}</CardDescription> : null}
+        </div>
+        {action}
+      </CardHeader>
+      <CardContent className="p-4">{children}</CardContent>
+    </Card>
   );
 }
 
@@ -733,9 +456,7 @@ function LabeledTextarea({
 }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
-        {label}
-      </Label>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
       <Textarea
         rows={rows}
         value={value}
@@ -776,38 +497,23 @@ function IdentidadeTab({
   };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      <AssetSlot
-        brandId={brandId}
-        clientId={clientId}
-        kind="logo"
-        label="Logo principal"
-        hint="PNG ou SVG, transparente, até 5 MB"
-        currentUrl={client.logo_url}
-      />
-      <AssetSlot
-        brandId={brandId}
-        clientId={clientId}
-        kind="logo_secondary"
-        label="Logo alternativo"
-        hint="Versão alt / mono"
-        currentUrl={client.logo_secondary_url}
-      />
-      <AssetSlot
-        brandId={brandId}
-        clientId={clientId}
-        kind="favicon"
-        label="Ícone / avatar"
-        hint="ICO/PNG 32-256 px"
-        currentUrl={client.favicon_url}
-      />
-
+    <div className="space-y-4">
       <SectionCard
         title="Cadastro rápido"
         hint="Dados capturados no onboarding do cliente. Edite na aba Cadastro."
-        className="lg:col-span-3"
+        action={
+          <Button asChild size="sm" variant="ghost" className="h-7 shrink-0 text-xs">
+            <Link
+              to="/customers/$customerId"
+              params={{ customerId: clientId }}
+              search={{ tab: "cadastro" } as never}
+            >
+              Editar em Cadastro
+            </Link>
+          </Button>
+        }
       >
-        <div className="grid gap-3 md:grid-cols-6">
+        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
           <FieldReadonly
             label="Logo"
             value={
@@ -897,41 +603,42 @@ function IdentidadeTab({
             muted={!client.contact_name && !client.contact_email}
           />
         </div>
-        <div className="mt-3 text-[11px] text-muted-foreground">
-          <Link
-            to="/customers/$customerId"
-            params={{ customerId: clientId }}
-            search={{ tab: "cadastro" } as never}
-            className="text-primary hover:underline"
-          >
-            Editar em Cadastro →
-          </Link>
+      </SectionCard>
+
+      <SectionCard title="Ativos da marca" hint="Logos e ícone usados nas peças e nas prévias.">
+        <div className="grid gap-4 md:grid-cols-3">
+          <AssetSlot
+            brandId={brandId}
+            clientId={clientId}
+            kind="logo"
+            label="Logo principal"
+            hint="PNG ou SVG, transparente, até 5 MB"
+            currentUrl={client.logo_url}
+          />
+          <AssetSlot
+            brandId={brandId}
+            clientId={clientId}
+            kind="logo_secondary"
+            label="Logo alternativo"
+            hint="Versão alt / mono"
+            currentUrl={client.logo_secondary_url}
+          />
+          <AssetSlot
+            brandId={brandId}
+            clientId={clientId}
+            kind="favicon"
+            label="Ícone / avatar"
+            hint="ICO/PNG 32-256 px"
+            currentUrl={client.favicon_url}
+          />
         </div>
       </SectionCard>
 
-      <SectionCard
-        title="Identidade da marca"
-        hint="Alimenta o motor de voz e briefing da IA."
-        className="lg:col-span-3"
-      >
+      <SectionCard title="Identidade da marca" hint="Alimenta o motor de voz e briefing da IA.">
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
-                Nome
-              </Label>
-              <a
-                href={`/customers/${clientId}?tab=cadastro`}
-                onClick={(e) => {
-                  e.preventDefault();
-                  window.dispatchEvent(new CustomEvent("nx:switch-customer-tab", { detail: "cadastro" }));
-                }}
-                className="text-[11px] text-primary hover:underline"
-              >
-                Editar em Cadastro
-              </a>
-            </div>
-            <Input value={client.name} disabled className="bg-background/60" />
+            <Label className="text-xs text-muted-foreground">Nome</Label>
+            <Input value={client.name} disabled className="bg-muted/40" />
           </div>
           <LabeledTextarea
             label="Tom de voz"
@@ -975,10 +682,8 @@ function FieldReadonly({
   muted?: boolean;
 }) {
   return (
-    <div className="space-y-1 rounded-lg border border-border/60 bg-background/40 px-3 py-2">
-      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-        {label}
-      </div>
+    <div className="space-y-1 rounded-lg border border-border/60 bg-muted/20 px-3 py-2">
+      <div className="text-[11px] text-muted-foreground">{label}</div>
       <div className={cn("text-sm", muted && "text-muted-foreground")}>{value}</div>
     </div>
   );
@@ -1043,10 +748,10 @@ function AssetSlot({
 
   return (
     <div
-      className={
-        "flex flex-col rounded-xl border p-4 transition " +
-        (dragging ? "border-primary bg-primary/5" : "border-border bg-card")
-      }
+      className={cn(
+        "flex flex-col rounded-lg border border-border/60 bg-muted/20 p-3 transition",
+        dragging && "border-primary bg-primary/5",
+      )}
       onDragOver={(e) => {
         e.preventDefault();
         setDragging(true);
@@ -1059,34 +764,39 @@ function AssetSlot({
         if (f) void handleFile(f);
       }}
     >
-      <div className="mb-3 flex items-start justify-between">
-        <div>
-          <div className="text-xs font-semibold">{label}</div>
-          <div className="text-[11px] text-muted-foreground">{hint}</div>
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-xs font-medium">{label}</div>
+          <div className="truncate text-[11px] text-muted-foreground">{hint}</div>
         </div>
         {currentUrl ? (
-          <Button size="icon" variant="ghost" onClick={removeAsset} title="Remover">
-            <Trash2 className="h-3.5 w-3.5 text-destructive" />
+          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={removeAsset} title="Remover">
+            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
           </Button>
         ) : null}
       </div>
-      <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border bg-background">
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={busy}
+        className="flex h-28 items-center justify-center rounded-md border border-dashed border-border bg-background transition hover:border-foreground/30"
+      >
         {busy ? (
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         ) : currentUrl ? (
-          <img src={currentUrl} alt={label} className="max-h-28 max-w-full object-contain" />
+          <img src={currentUrl} alt={label} className="max-h-24 max-w-full object-contain" />
         ) : (
-          <div className="px-4 text-center text-[11px] text-muted-foreground">
+          <span className="px-4 text-center text-[11px] text-muted-foreground">
             <ImageIcon className="mx-auto mb-1 h-5 w-5" />
-            Arraste um arquivo ou clique para enviar
-          </div>
+            Arraste ou clique para enviar
+          </span>
         )}
-      </div>
-      <div className="mt-3 flex items-center gap-2">
+      </button>
+      <div className="mt-2">
         <Button
           size="sm"
           variant="outline"
-          className="gap-1.5"
+          className="h-7 gap-1.5 text-xs"
           onClick={() => inputRef.current?.click()}
           disabled={busy}
         >
@@ -1119,7 +829,7 @@ function ProdutoTab({
 }) {
   return (
     <SectionCard title="Produto e oferta" hint="Detalhe o que a marca vende e como se diferencia.">
-      <div className="grid gap-4">
+      <div className="grid gap-4 md:grid-cols-2">
         <LabeledTextarea
           label="Oferta principal"
           rows={4}
@@ -1129,7 +839,7 @@ function ProdutoTab({
         />
         <LabeledTextarea
           label="Faixa de preço"
-          rows={2}
+          rows={4}
           value={form.price_range}
           onChange={(v) => setForm({ ...form, price_range: v })}
           placeholder="Ex.: R$ 3.000 a R$ 12.000 / mês."
@@ -1162,7 +872,7 @@ function PublicoTab({
 }) {
   return (
     <SectionCard title="Público-alvo" hint="Quem compra, o que sente e como decide.">
-      <div className="grid gap-4">
+      <div className="grid gap-4 md:grid-cols-2">
         <LabeledTextarea
           label="Descrição do público"
           rows={4}
@@ -1179,14 +889,14 @@ function PublicoTab({
         />
         <LabeledTextarea
           label="Dores"
-          rows={3}
+          rows={4}
           value={form.pain_points}
           onChange={(v) => setForm({ ...form, pain_points: v })}
           placeholder="Principais frustrações e problemas que a marca resolve."
         />
         <LabeledTextarea
           label="Desejos"
-          rows={3}
+          rows={4}
           value={form.desires}
           onChange={(v) => setForm({ ...form, desires: v })}
           placeholder="O que o público aspira ao contratar a marca."
@@ -1196,74 +906,7 @@ function PublicoTab({
   );
 }
 
-/* --- Concorrentes / Hashtags --- */
-
-function ChipListEditor({
-  label,
-  placeholder,
-  values,
-  onChange,
-  normalize,
-}: {
-  label: string;
-  placeholder: string;
-  values: string[];
-  onChange: (v: string[]) => void;
-  normalize?: (v: string) => string;
-}) {
-  const [draft, setDraft] = useState("");
-  const add = () => {
-    const v = (normalize ? normalize(draft) : draft).trim();
-    if (!v) return;
-    if (values.includes(v)) return setDraft("");
-    onChange([...values, v]);
-    setDraft("");
-  };
-  return (
-    <div className="space-y-2">
-      <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
-        {label}
-      </Label>
-      <div className="flex items-center gap-2">
-        <Input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              add();
-            }
-          }}
-          placeholder={placeholder}
-          className="bg-background"
-        />
-        <Button type="button" size="sm" variant="outline" className="gap-1.5" onClick={add}>
-          <Plus className="h-3.5 w-3.5" /> Adicionar
-        </Button>
-      </div>
-      {values.length > 0 && (
-        <div className="flex flex-wrap gap-2 pt-1">
-          {values.map((v) => (
-            <Badge
-              key={v}
-              variant="outline"
-              className="gap-1 border-border bg-background/60 pl-2 pr-1 text-xs"
-            >
-              <span className="max-w-[220px] truncate">{v}</span>
-              <button
-                type="button"
-                onClick={() => onChange(values.filter((x) => x !== v))}
-                className="rounded-sm p-0.5 hover:bg-muted"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+/* --- Concorrentes / Estética --- */
 
 function ConcorrentesTab({
   form,
@@ -1275,20 +918,19 @@ function ConcorrentesTab({
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <SectionCard title="Concorrentes" hint="@handles ou nomes para monitoramento.">
-        <ChipListEditor
-          label="@handles ou nomes"
-          placeholder="@marca_concorrente"
-          values={form.competitor_handles}
-          onChange={(v) => setForm({ ...form, competitor_handles: v })}
-          normalize={(v) => v.replace(/^@/, "")}
+        <TagInput
+          value={form.competitor_handles}
+          onChange={(v) =>
+            setForm({ ...form, competitor_handles: v.map((x) => x.replace(/^@/, "")) })
+          }
+          placeholder="@marca_concorrente — Enter para adicionar"
         />
       </SectionCard>
       <SectionCard title="Inspirações" hint="URLs de referências criativas e visuais.">
-        <ChipListEditor
-          label="Referências de inspiração"
-          placeholder="https://…"
-          values={form.inspirations}
+        <TagInput
+          value={form.inspirations}
           onChange={(v) => setForm({ ...form, inspirations: v })}
+          placeholder="https://… — Enter para adicionar"
         />
       </SectionCard>
     </div>
@@ -1304,22 +946,25 @@ function HashtagsTab({
 }) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <SectionCard title="Hashtags estratégicas" hint="Use uma por linha ou separe com Enter.">
-        <ChipListEditor
-          label="Hashtags"
+      <SectionCard title="Hashtags estratégicas" hint="Pressione Enter para adicionar cada hashtag.">
+        <TagInput
+          value={form.hashtags}
+          onChange={(v) =>
+            setForm({
+              ...form,
+              hashtags: v.map((x) => (x.startsWith("#") ? x : `#${x.replace(/\s+/g, "")}`)),
+            })
+          }
           placeholder="#marca"
-          values={form.hashtags}
-          onChange={(v) => setForm({ ...form, hashtags: v })}
-          normalize={(v) => (v.startsWith("#") ? v : `#${v.replace(/\s+/g, "")}`)}
         />
       </SectionCard>
 
       <SectionCard title="Paleta & diretrizes visuais" hint="Cores da marca em HEX.">
-        <div className="space-y-3">
+        <div className="space-y-2">
           {form.palette.map((c, i) => (
             <div
               key={i}
-              className="flex items-center gap-3 rounded-lg border border-border bg-background p-2"
+              className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/20 p-2"
             >
               <input
                 type="color"
@@ -1332,7 +977,7 @@ function HashtagsTab({
                     ),
                   })
                 }
-                className="h-9 w-9 shrink-0 cursor-pointer rounded-md border border-border bg-transparent"
+                className="h-8 w-8 shrink-0 cursor-pointer rounded-md border border-border bg-transparent"
               />
               <Input
                 value={c.label}
@@ -1345,7 +990,7 @@ function HashtagsTab({
                   })
                 }
                 placeholder="Rótulo"
-                className="h-8 bg-card text-xs"
+                className="h-8 text-xs"
               />
               <Input
                 value={c.hex}
@@ -1357,11 +1002,12 @@ function HashtagsTab({
                   });
                 }}
                 maxLength={7}
-                className="h-8 w-28 bg-card font-mono text-xs uppercase"
+                className="h-8 w-28 font-mono text-xs uppercase"
               />
               <Button
                 size="icon"
                 variant="ghost"
+                className="h-8 w-8 shrink-0"
                 onClick={() =>
                   setForm({
                     ...form,
@@ -1376,7 +1022,7 @@ function HashtagsTab({
           <Button
             size="sm"
             variant="outline"
-            className="gap-1.5"
+            className="h-7 gap-1.5 text-xs"
             onClick={() =>
               setForm({
                 ...form,
@@ -1391,7 +1037,7 @@ function HashtagsTab({
           </Button>
         </div>
 
-        <div className="mt-6 grid gap-3 md:grid-cols-2">
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
           <LabeledTextarea
             label="Faça"
             rows={4}
@@ -1424,7 +1070,7 @@ function VolumetriaTab({
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <SectionCard title="Volume semanal por canal" hint="Meta de publicações por semana.">
-        <div className="grid gap-1 rounded-xl border border-border/60 bg-background/40 p-1.5">
+        <div className="divide-y divide-border/60">
           {SOCIALS.map(({ key, label }) => {
             const value = form.volumetry[key] ?? 0;
             const on = value > 0;
@@ -1457,13 +1103,7 @@ function VolumetriaTab({
               });
             };
             return (
-              <div
-                key={key}
-                className={cn(
-                  "rounded-md px-1.5 py-1.5 transition-colors hover:bg-muted/40",
-                  !on && "opacity-60",
-                )}
-              >
+              <div key={key} className={cn("py-2 transition-opacity", !on && "opacity-60")}>
                 <div
                   className="flex h-8 items-center gap-2.5"
                   onClick={(e) => {
@@ -1480,54 +1120,26 @@ function VolumetriaTab({
                   />
                   <span
                     className={cn(
-                      "inline-flex h-5 items-center gap-1 rounded-full border px-1.5 text-[10px] font-semibold uppercase tracking-wider",
+                      "inline-flex h-5 items-center gap-1 rounded-full border px-1.5 text-[10px] font-medium uppercase tracking-wider",
                       CHANNEL_STYLES[key] ?? "border-border/60 bg-muted/40 text-foreground/80",
                     )}
                   >
                     {Icon ? <Icon className="h-2.5 w-2.5" /> : null}
                     {label}
                   </span>
-                  <div
-                    data-stepper
-                    className="ml-auto inline-flex h-6 items-stretch overflow-hidden rounded-md border border-border/60 bg-background"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      type="button"
-                      disabled={value <= 0}
-                      onClick={() => setQty(value - 1)}
-                      aria-label={`Diminuir ${label}`}
-                      className="grid w-6 place-items-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent"
-                    >
-                      <Minus className="h-3 w-3" />
-                    </button>
-                    <input
-                      type="number"
-                      min={0}
-                      max={21}
-                      value={value}
-                      onChange={(e) => setQty(Number(e.target.value))}
-                      className="w-10 border-x border-border/60 bg-transparent text-center text-xs font-medium tabular-nums outline-none [appearance:textfield] focus:bg-muted/40 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                    />
-                    <button
-                      type="button"
-                      disabled={value >= 21}
-                      onClick={() => setQty(value + 1)}
-                      aria-label={`Aumentar ${label}`}
-                      className="grid w-6 place-items-center text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent"
-                    >
-                      <Plus className="h-3 w-3" />
-                    </button>
-                    <span className="grid place-items-center px-1.5 text-[10px] text-muted-foreground">
-                      / sem
-                    </span>
-                  </div>
+                  <Stepper
+                    className="ml-auto"
+                    value={value}
+                    onChange={setQty}
+                    min={0}
+                    max={21}
+                    suffix="/ sem"
+                    label={label}
+                  />
                 </div>
                 {on && available.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap items-center gap-1 pl-6">
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-                      Formatos
-                    </span>
+                    <span className="text-[11px] text-muted-foreground">Formatos</span>
                     {available.map((f) => {
                       const active = selected.includes(f);
                       return (
@@ -1557,7 +1169,7 @@ function VolumetriaTab({
       <SectionCard title="Metas & restrições" hint="Objetivos de negócio e limitações.">
         <LabeledTextarea
           label="Metas e restrições"
-          rows={12}
+          rows={14}
           value={form.goals}
           onChange={(v) => setForm({ ...form, goals: v })}
           placeholder="Ex.: meta de leads/mês, temas sensíveis, aprovações jurídicas, blackout de campanhas."
@@ -1566,9 +1178,6 @@ function VolumetriaTab({
     </div>
   );
 }
-
-// prevent unused-import warning for Link during tree-shaking edge cases
-void Link;
 
 /* ------------------------- Stacked (single-page) layout ------------------------- */
 
@@ -1602,21 +1211,15 @@ function GenerateIntelligenceButton({
   onGenerate,
   onJump,
   label = "Gerar Inteligência com IA",
-  className,
 }: {
   form: FormState;
   generating: boolean;
   onGenerate: () => void;
   onJump?: (sectionId: string) => void;
   label?: string;
-  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const missing = getMissingEssentials(form);
-
-  const btnClass =
-    className ??
-    "gap-1.5 border-0 bg-gradient-to-r from-fuchsia-600 via-violet-600 to-cyan-500 text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08)] hover:opacity-95";
 
   const handleClick = () => {
     if (generating) return;
@@ -1643,14 +1246,14 @@ function GenerateIntelligenceButton({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button size="sm" className={btnClass} onClick={handleClick} disabled={generating}>
+        <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={handleClick} disabled={generating}>
           {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
           {label}
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 space-y-3">
         <div className="space-y-1">
-          <div className="text-sm font-semibold">Preencha para um resultado melhor</div>
+          <div className="text-sm font-medium">Preencha para um resultado melhor</div>
           <p className="text-xs text-muted-foreground">
             Estes campos ajudam a IA a gerar uma estratégia mais precisa. Você pode gerar mesmo assim.
           </p>
@@ -1698,6 +1301,7 @@ type StackedProps = {
   savedAt: string | null;
   onGenerateStrategy: () => void;
   onGenerateIdeas: () => void;
+  onImportText: () => void;
   strategyReady: boolean;
   generating: boolean;
   genIdeas: boolean;
@@ -1717,7 +1321,8 @@ type StackedProps = {
 function StackedBrainLayout(props: StackedProps) {
   const {
     brandId, clientId, client, form, setForm, completion,
-    onSave, saving, savedAt, onGenerateStrategy, generating, appendSlot,
+    onSave, saving, savedAt, onGenerateStrategy, onGenerateIdeas, onImportText,
+    strategyReady, generating, appendSlot,
     regenOpen, setRegenOpen, runStrategy,
     ideasOpen, setIdeasOpen, ideasQty, setIdeasQty, ideasPeriod, setIdeasPeriod,
     genIdeas, runIdeas,
@@ -1749,11 +1354,11 @@ function StackedBrainLayout(props: StackedProps) {
     <div className="relative">
       {/* Sticky action bar */}
       <div className="sticky top-0 z-20 -mx-1 border-b border-border/60 bg-background/80 px-1 py-3 backdrop-blur-md">
-        <div className="flex items-center gap-4">
-          <div className="flex flex-1 items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="w-full max-w-xs">
               <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                <span>Briefing</span>
+                <span>{progressLabel(completion)}</span>
                 <span className="font-mono">{completion}%</span>
               </div>
               <Progress value={completion} className="h-1.5" />
@@ -1775,6 +1380,29 @@ function StackedBrainLayout(props: StackedProps) {
             size="sm"
             variant="ghost"
             className="h-8 gap-1.5 text-xs"
+            onClick={onImportText}
+          >
+            <FileUp className="h-3.5 w-3.5" /> Importar .docx / texto
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 text-xs"
+            onClick={onGenerateIdeas}
+            disabled={!strategyReady || genIdeas}
+            title={strategyReady ? "Gerar ideias de conteúdo" : "Gere e revise a estratégia primeiro"}
+          >
+            {genIdeas ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Lightbulb className="h-3.5 w-3.5" />
+            )}
+            Gerar ideias
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 text-xs"
             onClick={onSave}
             disabled={saving}
           >
@@ -1794,9 +1422,7 @@ function StackedBrainLayout(props: StackedProps) {
         {/* Left anchor nav */}
         <aside className="hidden md:block">
           <nav className="sticky top-24 space-y-1">
-            <div className="mb-2 px-2 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              Cérebro
-            </div>
+            <div className="mb-2 px-3 text-[11px] text-muted-foreground">Cérebro</div>
             {BRAIN_SECTIONS.map((s) => (
               <button
                 key={s.id}
@@ -1931,10 +1557,8 @@ function BrainSection({
   children: React.ReactNode;
 }) {
   return (
-    <section id={id} className="scroll-mt-24 space-y-4">
-      <div>
-        <h3 className="text-lg font-semibold tracking-tight">{title}</h3>
-      </div>
+    <section id={id} className="scroll-mt-24 space-y-3">
+      <h3 className="text-base font-medium tracking-tight">{title}</h3>
       {children}
     </section>
   );
