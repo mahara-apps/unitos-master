@@ -180,8 +180,11 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       console.warn("[monthly-plan] brain.getContext failed:", err);
     }
 
-    const distributionText = PLAN_CHANNELS.filter((c) => briefingCtx.monthlyQuota[c] > 0)
-      .map((c) => `  * ${c}: ${briefingCtx.monthlyQuota[c]} posts`)
+    const distributionText = activeChannels
+      .map((c) => {
+        const fmts = allowedFormats[c];
+        return `  * ${c}: ${quota[c]} posts${fmts?.length ? ` (formatos permitidos: ${fmts.join(", ")})` : ""}`;
+      })
       .join("\n");
 
     const prompt = [
