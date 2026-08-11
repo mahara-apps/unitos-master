@@ -526,6 +526,7 @@ function ConnectionsPage() {
               icon={<Brain className="h-3.5 w-3.5" />}
               value={data?.imageProvider ?? "gemini"}
               onChange={(v) => updateMut.mutate({ brandId, imageProvider: v })}
+              kind="image"
             />
             <BudgetInput
               active={active}
@@ -533,6 +534,10 @@ function ConnectionsPage() {
             />
           </div>
         </DashboardPanelSurface>
+
+        <ModelHealthPanel brandId={brandId} />
+
+
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {PROVIDERS.map((p) => (
