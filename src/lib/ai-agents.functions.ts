@@ -3,6 +3,8 @@ import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getBrandAiModel } from "./ai-provider.server";
+import type { Json } from "@/integrations/supabase/types";
+
 import { brain } from "@/lib/brain/api";
 
 /**
