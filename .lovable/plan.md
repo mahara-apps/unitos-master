@@ -1,88 +1,34 @@
+# Cache de métricas Meta — acabar com a tela em branco
 
-# 7. Jornada do Cliente — Gestão da Conta
+## Problema
 
-Nova aba **"Gestão"** dentro do perfil do cliente (`/customers/$customerId`), ao lado de Visão geral, Briefing, Canais e Cadastro. Concentra dados comerciais, jornada em pipeline e automação de projetos padronizados.
+Hoje o cache das chamadas da API do Meta existe apenas na memória do servidor (`src/lib/social-analytics/cache.ts`, TTL 10 min, escopo do isolate). Consequências:
 
-## Escopo desta entrega
+- Quando o isolate é reciclado (acontece com frequência), a próxima visita refaz todas as chamadas Graph do zero.
+- No navegador, o React Query guarda os dados só em memória (`staleTime: 60s`, `gcTime` 5 min): qualquer reload ou volta para a tela de Analytics cai no `q.isLoading` e mostra o skeleton/branco esperando a API — parece falha de sistema.
 
-Entrega o núcleo do módulo (informações + jornada + automação) sem os relatórios de longo prazo — a base de dados já fica pronta para eles.
+## Solução (duas camadas, sem persistir métricas em banco)
 
-### 1. Informações da conta (bloco superior)
-Cartão editável (só admin/manager) com:
-- Valor mensal do contrato (BRL)
-- Margem (%) — opcional
-- Responsável pela conta (usuário do workspace)
-- Data de início do contrato
-- Data de renovação prevista
-- Status contratual: `ativo`, `pausado`, `encerrado`
-- Notas internas (markdown curto)
+### 1. Snapshot persistente no navegador
 
-KPIs derivados no topo: **MRR do cliente**, **Tempo de casa**, **Dias até renovação**.
+- Adicionar um persister do React Query (localStorage) aplicado só às queries de social analytics (`social-analytics`, `social-analytics-top`, e as demais chaves do dashboard por conexão), com validade de 24h e chave versionada por usuário/marca.
+- Na volta à tela, os dados do último snapshot aparecem imediatamente; a atualização ocorre em background.
 
-### 2. Jornada (pipeline horizontal)
-Timeline com 5 estágios canônicos:
+### 2. Render "stale-while-revalidate" no dashboard
 
-```text
-Onboarding → Ativação → Operação → Expansão → Renovação
-```
+- Em `src/components/analytics/social-analytics-dashboard.tsx`, deixar de bloquear em `q.isLoading`: renderizar os dados em cache (mesmo velhos) e exibir uma faixa discreta "Atualizando métricas… · dados de {hora}" enquanto `isFetching`.
+- Skeleton só no primeiro acesso real (sem snapshot algum).
+- Mostrar `generatedAt` do payload como "última atualização" e um botão de atualizar manual (invalida a query).
+- Mesma abordagem para o painel por conexão (top posts) — hoje ele já tem skeleton próprio, passa a manter o conteúdo anterior visível.
 
-- Estágio atual destacado; anteriores marcados como concluídos com data.
-- Botão "Mover para próximo estágio" + menu para pular/voltar (admin).
-- Ao mover: registra evento em `client_journey_events` (from_stage, to_stage, moved_by, moved_at, note opcional) e dispara evento no Brain (`client.journey.changed`).
-- Ao entrar em um estágio que tem template de projeto vinculado → dialog:
-  > "Deseja criar o projeto de Onboarding para este cliente?"
-  Confirmando, chama `createProjectFromTemplate` (já existe) com o template mapeado, prefixando o nome com o cliente.
+### 3. Menos refetch redundante
 
-### 3. Automação de projetos por estágio
-Reaproveita `project_templates` + `project_template_tasks` existentes. Adiciona mapeamento **estágio → template** por brand (configurável em Configurações → Projetos, fora do escopo visual desta entrega; usa defaults se não configurado).
-
-Cada template pode ter tarefas agrupadas por área (Comercial, Financeiro, Atendimento, Social Media, Design, Performance) usando o campo `category` já existente em `project_template_tasks`.
-
-### 4. Histórico da jornada
-Abaixo do pipeline, lista cronológica dos eventos (quem moveu, quando, para qual estágio, projeto criado). Base para os relatórios futuros de cohort/tempo médio/churn.
-
----
+- Subir `staleTime` das queries de social analytics para o mesmo TTL do servidor (10 min) e `gcTime` para 24h, com `placeholderData: keepPreviousData` ao trocar período/cliente (evita piscar branco ao mudar filtro).
+- Manter a coalescência de requests que já existe no cache do servidor.
 
 ## Detalhes técnicos
 
-### Migração (Supabase)
-- `ALTER TABLE public.clients ADD COLUMN` para: `monthly_contract_value numeric(12,2)`, `margin_percent numeric(5,2)`, `contract_start_date date`, `contract_renewal_date date`, `contract_status text default 'ativo'`, `internal_notes text`, `journey_stage text default 'onboarding'`.
-- Nova tabela `public.client_journey_events` (client_id, brand_id, from_stage, to_stage, note, project_id nullable, moved_by uuid, created_at) com GRANTs + RLS por brand membership + trigger `updated_at`.
-- Nova tabela `public.brand_journey_stage_templates` (brand_id, stage text, project_template_id) — mapeamento opcional estágio→template.
-- RLS: leitura/escrita apenas para membros da brand; escrita nos campos comerciais restrita a `admin`/`manager` via policy usando `has_role`/brand role.
-
-### Server functions (novo arquivo `src/lib/client-journey.functions.ts`)
-- `getClientAccount({ clientId })` — retorna dados comerciais + estágio + histórico + template mapeado para o estágio atual.
-- `updateClientAccount({ clientId, patch })` — valida role admin/manager.
-- `moveClientJourneyStage({ clientId, toStage, note, createProject })` — atualiza `clients.journey_stage`, insere evento, opcionalmente chama `createProjectFromTemplate` e vincula `project_id` no evento. Registra no Brain.
-- `listClientJourney({ clientId })` — histórico paginado.
-
-Todas com `requireSupabaseAuth`.
-
-### Frontend
-- `src/routes/_authenticated/customers.$customerId.tsx`: adicionar tab `"gestao"` no array `ALL_TABS`, renderizar `<AccountManagementTab brandId clientId />`.
-- Novos componentes em `src/components/customer/`:
-  - `account-management-tab.tsx` (orquestrador)
-  - `account-info-card.tsx` (formulário inline com autosave debounced, restrito por role via `useAccessRole`)
-  - `journey-pipeline.tsx` (5 chips horizontais + progress + botão avançar)
-  - `journey-move-dialog.tsx` (confirma movimentação + oferece criar projeto)
-  - `journey-history.tsx` (timeline vertical)
-- Query keys sob `["client-journey", clientId]`; invalidar após mutations.
-
-### Permissões
-- Leitura: qualquer membro da brand com acesso ao cliente (respeita `allowedClientIds` de `useAccessRole`).
-- Edição de campos comerciais e movimentação de estágio: `admin` ou `manager` da brand. `user` vê tudo em modo read-only.
-
-### Fora do escopo (fica para uma próxima etapa)
-- Dashboards analíticos (tempo médio por estágio, cohort de retenção, churn) — a estrutura de `client_journey_events` já grava os dados necessários.
-- Editor visual do mapeamento estágio→template em Configurações (usaremos defaults nesta entrega; seed inicial via migração).
-- Alertas de renovação próxima no bell (fácil adicionar depois usando `contract_renewal_date`).
-
----
-
-## Ordem de execução
-1. Migração (schema + RLS + seed de templates padrão de Onboarding).
-2. `client-journey.functions.ts` com as 4 server functions.
-3. Componentes de UI + nova aba na rota do cliente.
-4. Integração com `createProjectFromTemplate` existente.
-5. Emissão de eventos para o Brain.
+- Dependência nova: `@tanstack/react-query-persist-client` + `@tanstack/query-sync-storage-persister`.
+- Persistência configurada em `src/router.tsx` (ou wrapper no `__root.tsx`) com `dehydrateOptions.shouldDehydrateQuery` filtrando apenas as chaves de social analytics — nada de tokens ou dados de auth no localStorage.
+- Nenhuma métrica é gravada no banco; a regra do módulo (`cache.ts`) continua valendo.
+- Nenhuma mudança nos providers Meta nem no `service.server.ts` além de reuso do TTL exportado.
