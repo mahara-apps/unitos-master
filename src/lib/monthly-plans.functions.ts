@@ -91,6 +91,17 @@ const GenerateInput = z.object({
   clientId: z.string().uuid(),
   theme: z.string().trim().max(500).optional().default(""),
   briefingId: z.string().uuid().nullable().optional(),
+  /** Seleção opcional do wizard: canais, quantidade e formatos permitidos. */
+  selection: z
+    .array(
+      z.object({
+        channel: z.enum(PLAN_CHANNELS),
+        quantity: z.number().int().min(1).max(60),
+        formats: z.array(z.string()).default([]),
+      }),
+    )
+    .min(1)
+    .optional(),
 });
 
 const AiPlanSchema = z.object({
