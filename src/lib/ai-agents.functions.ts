@@ -1429,18 +1429,18 @@ export const listStrategyRunsFn = createServerFn({ method: "POST" })
       .limit(40);
 
     const authorIds = [...new Set(runs.map((r) => r.created_by).filter(Boolean))] as string[];
-    const { data: profiles } = authorIds.length
-      ? await context.supabase
-          .from("user_profiles")
-          .select("user_id,full_name,email")
-          .in("user_id", authorIds)
-      : { data: [] as Array<{ user_id: string; full_name: string | null; email: string | null }> };
+    const profiles = authorIds.length
+      ? (
+          await context.supabase
+            .from("user_profiles")
+            .select("id,full_name")
+            .in("id", authorIds)
+        ).data
+      : [];
     const nameById = new Map(
-      (profiles ?? []).map((p) => [
-        p.user_id as string,
-        (p.full_name as string | null) || (p.email as string | null) || null,
-      ]),
+      (profiles ?? []).map((p) => [p.id, (p.full_name as string | null) || null]),
     );
+
 
     return runs.map((run) => {
       const t = Date.parse(run.created_at);
