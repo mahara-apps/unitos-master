@@ -278,7 +278,9 @@ export function MonthlyPlanView({
       planId={planId}
       brandId={brandId}
       clientId={clientId}
+      onBack={() => setPlanId(null)}
       onDiscarded={() => {
+
         setPlanId(null);
         setTheme("");
         setBriefingId("__none");
