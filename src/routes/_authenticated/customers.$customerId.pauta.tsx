@@ -580,7 +580,7 @@ function ApprovalView({
 
   return (
     <div className="pb-32">
-      <div className="mx-auto max-w-4xl space-y-8 px-6 py-8">
+      <DashboardPageShell className="space-y-8">
         <StatusBanner
           status={plan.status}
           feedback={plan.client_feedback}
