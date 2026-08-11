@@ -67,8 +67,8 @@ export function VolumetryCards({
 }) {
   if (loading) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {[0, 1, 2, 3].map((i) => (
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        {[0, 1, 2, 3, 4, 5].map((i) => (
           <Skeleton key={i} className="h-28 w-full rounded-xl" />
         ))}
       </div>
@@ -93,7 +93,14 @@ export function VolumetryCards({
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <MetricCard
+        emphasis
+        label="Total do cliente"
+        sub="Soma das cotas mensais"
+        quota={volumetry.totalTarget}
+        generated={volumetry.generatedTotal}
+      />
       {channels.map((c: PlanChannel) => (
         <MetricCard
           key={c}
@@ -103,13 +110,6 @@ export function VolumetryCards({
           generated={volumetry.generatedThisMonth[c] ?? 0}
         />
       ))}
-      <MetricCard
-        emphasis
-        label="Total do cliente"
-        sub="Soma das cotas mensais"
-        quota={volumetry.totalTarget}
-        generated={volumetry.generatedTotal}
-      />
     </div>
   );
 }

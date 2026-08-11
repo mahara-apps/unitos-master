@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DashboardPageShell } from "@/components/ui/dashboard-primitives";
 import { describeError } from "@/lib/errors";
 import {
   GeneratePlanWizard,
@@ -197,13 +198,10 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
   /* -------- ESTADO 1: geração -------- */
   if (!planId) {
     return (
-      <div className="mx-auto max-w-5xl space-y-6 px-6 py-8">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-3 py-1 text-xs font-medium text-muted-foreground">
-              <Sparkles className="h-3.5 w-3.5" /> Pauta mensal
-            </div>
-            <h1 className="mt-3 text-2xl font-semibold tracking-tight">
+      <DashboardPageShell>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 sm:flex sm:flex-wrap sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold tracking-tight">
               Volumetria e geração do mês
             </h1>
             <p className="mt-1 max-w-xl text-sm text-muted-foreground">
@@ -220,6 +218,7 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
             Gerar pauta com IA
           </Button>
         </div>
+
 
         <VolumetryCards volumetry={volumetry} loading={volumetryQ.isLoading} />
 
@@ -238,7 +237,7 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
           loadingMessage={LOADING_MESSAGES[loadingStep] ?? LOADING_MESSAGES[0]!}
           onGenerate={(input) => generateM.mutate(input)}
         />
-      </div>
+      </DashboardPageShell>
     );
   }
 
@@ -560,7 +559,7 @@ function ApprovalView({
 
   if (q.isLoading || !q.data) {
     return (
-      <div className="mx-auto max-w-4xl space-y-4 px-6 py-10">
+      <DashboardPageShell className="space-y-4">
         <Skeleton className="h-8 w-2/3" />
         <Skeleton className="h-24 w-full" />
         <div className="grid gap-3 sm:grid-cols-2">
@@ -568,7 +567,7 @@ function ApprovalView({
             <Skeleton key={i} className="h-28 w-full rounded-lg" />
           ))}
         </div>
-      </div>
+      </DashboardPageShell>
     );
   }
 
@@ -581,7 +580,7 @@ function ApprovalView({
 
   return (
     <div className="pb-32">
-      <div className="mx-auto max-w-4xl space-y-8 px-6 py-8">
+      <DashboardPageShell className="space-y-8">
         <StatusBanner
           status={plan.status}
           feedback={plan.client_feedback}
@@ -683,11 +682,11 @@ function ApprovalView({
             ))}
           </div>
         </section>
-      </div>
+      </DashboardPageShell>
 
       {/* Sticky action bar */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-6 py-3">
+        <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <Button
             variant="ghost"
             className="gap-1.5 text-muted-foreground hover:text-destructive"
