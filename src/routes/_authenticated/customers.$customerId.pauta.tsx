@@ -682,11 +682,11 @@ function ApprovalView({
             ))}
           </div>
         </section>
-      </div>
+      </DashboardPageShell>
 
       {/* Sticky action bar */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-6 py-3">
+        <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <Button
             variant="ghost"
             className="gap-1.5 text-muted-foreground hover:text-destructive"
