@@ -14,6 +14,8 @@ export type BriefingContext = {
   weekly: Record<PlanChannel, number>;
   monthlyQuota: Record<PlanChannel, number>;
   totalTarget: number;
+  /** Formatos preferidos por canal, conforme briefing (pode vir vazio). */
+  formatsByChannel: Record<PlanChannel, string[]>;
 };
 
 function pushLine(lines: string[], label: string, value: unknown) {
