@@ -936,11 +936,35 @@ function StatusBanner({
   status,
   feedback,
   link,
+  decisionAt,
+  decisionMode,
+  counts,
 }: {
   status: MonthlyPlanStatus;
   feedback: string | null;
   link: string | null;
+  decisionAt?: string | null;
+  decisionMode?: string | null;
+  counts?: { approved: number; changes: number; rejected: number };
 }) {
+  const decided = decisionAt
+    ? new Date(decisionAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
+    : null;
+  const summary = counts
+    ? `${counts.approved} aprovados · ${counts.changes} com ajuste · ${counts.rejected} rejeitados`
+    : null;
+  const meta = (
+    <>
+      {decided ? (
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          Decisão do cliente em {decided}
+          {decisionMode === "per_item" ? " (item por item)" : ""}
+          {summary ? ` · ${summary}` : ""}
+        </p>
+      ) : null}
+    </>
+  );
+
   if (status === "draft") {
     return (
       <div className="rounded-xl border border-border/60 bg-muted/30 p-4 text-xs text-muted-foreground">
@@ -952,7 +976,8 @@ function StatusBanner({
   if (status === "pending_client") {
     return (
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-400">
-        Aguardando aprovação do cliente.{link ? ` Link: ${link}` : ""}
+        Aguardando decisão do cliente (aprovar, rejeitar ou pedir ajustes).
+        {link ? ` Link: ${link}` : ""}
       </div>
     );
   }
@@ -961,26 +986,48 @@ function StatusBanner({
       <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-400">
         <p className="font-medium">O cliente pediu ajustes.</p>
         {feedback ? <p className="mt-1 text-muted-foreground">{feedback}</p> : null}
-        <p className="mt-1">Ajuste os itens e envie novamente para aprovação.</p>
+        <p className="mt-1">
+          Ajuste os itens marcados e envie novamente. Os itens já aprovados pelo cliente foram
+          para o Kanban de produção.
+        </p>
+        {meta}
+      </div>
+    );
+  }
+  if (status === "client_rejected") {
+    return (
+      <div className="rounded-xl border border-rose-500/30 bg-rose-500/5 p-4 text-xs text-rose-400">
+        <p className="font-medium">O cliente rejeitou a pauta.</p>
+        {feedback ? <p className="mt-1 text-muted-foreground">{feedback}</p> : null}
+        <p className="mt-1">Refaça os itens e envie novamente para aprovação.</p>
+        {meta}
       </div>
     );
   }
   if (status === "client_approved") {
     return (
       <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-xs text-emerald-400">
-        Cliente aprovou a pauta. Envie para produção para criar os cards no Kanban.
+        <p className="font-medium">Cliente aprovou a pauta.</p>
+        <p className="mt-1">
+          Os cards já foram criados no Kanban de produção. Use “Enviar para produção” apenas se
+          algum item não tiver aparecido lá.
+        </p>
+        {meta}
       </div>
     );
   }
   if (status === "approved") {
     return (
       <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-xs text-emerald-400">
-        Pauta já enviada para produção.
+        <p className="font-medium">Pauta em produção.</p>
+        <p className="mt-1">Os itens aprovados pelo cliente estão no Kanban de conteúdo.</p>
+        {meta}
       </div>
     );
   }
   return null;
 }
+
 
 /* --------------------------------------------------------------- */
 
