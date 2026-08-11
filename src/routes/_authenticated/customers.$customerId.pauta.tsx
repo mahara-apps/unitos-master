@@ -39,6 +39,7 @@ import {
   type GenerateSelection,
 } from "@/components/monthly-plan/generate-plan-wizard";
 import { VolumetryCards, type PlanVolumetry } from "@/components/monthly-plan/volumetry-cards";
+import { ContextSourcesRow } from "@/components/monthly-plan/context-sources-row";
 import {
   PLAN_CHANNELS,
   PLAN_CHANNEL_LABEL as CHANNEL_LABEL,
