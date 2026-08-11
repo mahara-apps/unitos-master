@@ -5,6 +5,9 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getBrandAiModel } from "@/lib/ai-provider.server";
 import { brain, type BrainContext } from "@/lib/brain/api";
 import { loadBriefingContext } from "@/lib/monthly-plan-context.server";
+import { loadStrategyContext } from "@/lib/monthly-plan-strategy.server";
+import { loadPerformanceContext } from "@/lib/monthly-plan-performance.server";
+import { runPlanAgent } from "@/lib/monthly-plan-agent.server";
 import { PLAN_CHANNELS, PLAN_FORMATS } from "@/lib/monthly-plan-fields";
 
 /* ---------- Types ---------- */
@@ -32,6 +35,17 @@ export type MonthlyPlan = {
   internal_approved_by: string | null;
   client_decision_at: string | null;
   client_feedback: string | null;
+  /** Fontes cruzadas na geração (estratégia IA, métricas por canal, brain). */
+  context_sources?: {
+    model?: string;
+    strategy_blocks?: string[];
+    strategy_generated_at?: string | null;
+    metrics_channels?: string[];
+    channels_without_account?: string[];
+    brain_context?: boolean;
+    agent?: string;
+    generated_at?: string;
+  } | null;
   created_at: string;
   updated_at: string;
 };
@@ -43,6 +57,8 @@ export type MonthlyPlanTopic = {
   content_format: string | null;
   angle: string | null;
   channel: string | null;
+  target_audience?: string | null;
+  rationale?: string | null;
   status: MonthlyPlanTopicStatus;
   previous_title: string | null;
   previous_angle: string | null;
@@ -115,6 +131,8 @@ const AiPlanSchema = z.object({
         content_format: z.string(),
         angle: z.string(),
         channel: z.string().optional().nullable(),
+        target_audience: z.string().optional().nullable(),
+        rationale: z.string().optional().nullable(),
       }),
     )
     .min(4)
@@ -161,6 +179,23 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
     const totalTarget = activeChannels.reduce((s, c) => s + (quota[c] ?? 0), 0);
     if (totalTarget <= 0) throw new Error("volumetry_required");
 
+    // Estratégia IA ativa + desempenho real das contas conectadas (por canal).
+    const [strategy, performance] = await Promise.all([
+      loadStrategyContext(context.supabase, data.brandId, data.clientId).catch((err) => {
+        console.warn("[monthly-plan] strategy context failed", err);
+        return null;
+      }),
+      loadPerformanceContext(context.supabase, {
+        brandId: data.brandId,
+        clientId: data.clientId,
+        channels: activeChannels,
+        cacheScopeToken: context.userId,
+      }).catch((err) => {
+        console.warn("[monthly-plan] performance context failed", err);
+        return null;
+      }),
+    ]);
+
     // Brain: enrich prompt with consolidated knowledge for this brand/client.
     let brainMarkdown = "";
     try {
@@ -187,31 +222,48 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       })
       .join("\n");
 
+    const audienceOptions = [
+      ...(strategy?.personaNames ?? []),
+      ...(strategy?.cohortNames ?? []),
+    ].filter(Boolean);
+
+    const extraContext = [
+      strategy?.markdown,
+      performance?.markdown,
+      brainMarkdown
+        ? `## Contexto do Brain (memórias, insights e métricas desta marca)\n${brainMarkdown}\n\nUse esse contexto para evitar repetir erros passados e reforçar o que já funcionou.`
+        : "",
+      `## Briefing consolidado do cliente (contexto obrigatório)\n${briefingCtx.text.slice(0, 12000)}`,
+    ]
+      .filter((s): s is string => !!s && s.trim().length > 0)
+      .join("\n\n");
+
     const prompt = [
       `Você é um estrategista de conteúdo sênior.`,
       `Crie uma pauta mensal de conteúdo para redes sociais em português (Brasil).`,
-      ``,
-      brainMarkdown
-        ? `# Contexto do Brain (memórias, insights e métricas desta marca)\n${brainMarkdown}\n\nUse esse contexto para evitar repetir erros passados, reforçar o que já funcionou e respeitar diretrizes aprendidas.`
-        : "",
+      `Cruze OBRIGATORIAMENTE: (1) Estratégia IA ativa (voice, personas, cohorts, SWOT),`,
+      `(2) desempenho real das contas conectadas por canal e (3) o briefing consolidado.`,
+      `Não invente dados: quando um canal estiver sem métricas, baseie-se em briefing e estratégia.`,
       ``,
       `Marca: ${brand?.name ?? "—"}`,
-      `# Briefing do cliente (contexto obrigatório)`,
-      briefingCtx.text.slice(0, 12000),
-      ``,
       data.theme
         ? `Tema do mês (input do usuário): ${data.theme}`
-        : `Sem tema definido pelo usuário — derive o tema estratégico do mês diretamente do briefing acima, priorizando objetivos de negócio, público-alvo e oportunidades de conteúdo.`,
+        : `Sem tema definido pelo usuário — derive o tema estratégico do mês do briefing e da estratégia ativa.`,
       ``,
       `Regras:`,
       `- title: uma headline curta (máx 90 chars) que resume a estratégia do mês.`,
       `- description: 2-3 frases explicando o contexto do mês.`,
       `- objectives: 2-4 objetivos claros, separados por quebras de linha.`,
-      `- topics: EXATAMENTE ${totalTarget} ideias de posts, distribuídas por canal conforme a volumetria mensal do cliente:\n${distributionText}\n  Cada ideia deve ter:`,
+      `- topics: EXATAMENTE ${totalTarget} ideias de posts, distribuídas por canal conforme a volumetria:\n${distributionText}\n  Cada ideia deve ter:`,
       `  * topic_title: título curto e criativo do post`,
       `  * content_format: OBRIGATÓRIO — um de ${PLAN_FORMATS.map((f) => `"${f}"`).join(", ")}`,
       `  * channel: OBRIGATÓRIO — um de ${PLAN_CHANNELS.map((c) => `"${c}"`).join(", ")} (respeitar cotas acima)`,
       `  * angle: gancho estratégico / direcionamento para produção (1-2 frases)`,
+      audienceOptions.length
+        ? `  * target_audience: OBRIGATÓRIO — persona ou cohort da estratégia ativa (${audienceOptions.slice(0, 8).join(", ")})`
+        : `  * target_audience: público-alvo principal da ideia, derivado do briefing`,
+      `  * rationale: 1 frase citando a evidência usada (métrica do canal, insight do briefing ou item da estratégia)`,
+      `- Priorize formatos que performaram melhor em cada canal e reduza os que performaram mal.`,
       `- Balanceie formatos (não use só Reels).`,
       `- Sem markdown, sem prefixos numéricos.`,
       `- Retorne EXATAMENTE um objeto JSON no schema.`,
@@ -219,27 +271,29 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       .filter(Boolean)
       .join("\n");
 
-    const { model } = await getBrandAiModel(context.supabase, data.brandId, "text");
+    const { output, modelId } = await runPlanAgent({
+      agent: "pauta.suggest",
+      supabase: context.supabase,
+      brandId: data.brandId,
+      clientId: data.clientId,
+      userId: context.userId,
+      prompt,
+      extraContext,
+      schema: AiPlanSchema,
+    });
+    const parsed = output;
 
-    let parsed: z.infer<typeof AiPlanSchema> | null = null;
-    try {
-      const { output } = await generateText({
-        model,
-        output: Output.object({ schema: AiPlanSchema }),
-        prompt,
-      });
-      parsed = output as z.infer<typeof AiPlanSchema>;
-    } catch (error) {
-      if (NoObjectGeneratedError.isInstance(error)) {
-        const fb = tryParseFallback((error as { text?: string }).text);
-        const safe = AiPlanSchema.safeParse(fb);
-        if (safe.success) parsed = safe.data;
-      }
-      if (!parsed) {
-        const msg = error instanceof Error ? error.message : "ai_generation_failed";
-        throw new Error(msg);
-      }
-    }
+    const contextSources = {
+      model: modelId,
+      briefing_id: data.briefingId ?? null,
+      strategy_blocks: strategy?.blocks ?? [],
+      strategy_generated_at: strategy?.generatedAt ?? null,
+      metrics_channels: performance?.channelsWithMetrics ?? [],
+      channels_without_account: performance?.channelsWithoutAccount ?? [],
+      brain_context: !!brainMarkdown,
+      agent: "pauta.suggest",
+      generated_at: new Date().toISOString(),
+    };
 
     const { data: planRow, error: planErr } = await context.supabase
       .from("monthly_plans" as never)
@@ -253,6 +307,7 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
         objectives: parsed.objectives.slice(0, 4000),
         status: "draft",
         created_by: context.userId,
+        context_sources: contextSources,
       } as never)
       .select("*")
       .single();
@@ -285,6 +340,8 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
         content_format: format,
         angle: t.angle.slice(0, 1000),
         channel,
+        target_audience: (t.target_audience ?? "").toString().trim().slice(0, 240) || null,
+        rationale: (t.rationale ?? "").toString().trim().slice(0, 600) || null,
         status: "pending" as const,
         position: i * 1024,
       };
@@ -534,7 +591,12 @@ export const updateTopicFn = createServerFn({ method: "POST" })
 
 /* ---------- Regeneração de um item específico ---------- */
 
-const RegenSchema = z.object({ topic_title: z.string(), angle: z.string() });
+const RegenSchema = z.object({
+  topic_title: z.string(),
+  angle: z.string(),
+  target_audience: z.string().optional().nullable(),
+  rationale: z.string().optional().nullable(),
+});
 
 export const regenerateTopicFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -564,7 +626,12 @@ export const regenerateTopicFn = createServerFn({ method: "POST" })
     if (!planRow) throw new Error("plan_not_found");
     const plan = planRow as unknown as MonthlyPlan;
 
-    const [{ data: siblings }, briefingCtx] = await Promise.all([
+    const channel = (topic.channel ?? "").toString().toLowerCase();
+    const planChannels = (PLAN_CHANNELS as readonly string[]).includes(channel)
+      ? [channel as (typeof PLAN_CHANNELS)[number]]
+      : [];
+
+    const [{ data: siblings }, briefingCtx, strategy, performance] = await Promise.all([
       context.supabase
         .from("monthly_plan_topics" as never)
         .select("topic_title, id")
@@ -572,18 +639,44 @@ export const regenerateTopicFn = createServerFn({ method: "POST" })
       loadBriefingContext(context.supabase, plan.client_id, {
         briefingId: plan.input_briefing_id,
       }),
+      loadStrategyContext(context.supabase, plan.brand_id, plan.client_id).catch((err: unknown) => {
+        console.warn("[monthly-plan] strategy context failed", err);
+        return null;
+      }),
+      planChannels.length
+        ? loadPerformanceContext(context.supabase, {
+            brandId: plan.brand_id,
+            clientId: plan.client_id,
+            channels: planChannels,
+            cacheScopeToken: context.userId,
+          }).catch((err: unknown) => {
+            console.warn("[monthly-plan] performance context failed", err);
+            return null;
+          })
+        : Promise.resolve(null),
     ]);
     const others = ((siblings ?? []) as Array<{ id: string; topic_title: string }>)
       .filter((s) => s.id !== topic.id)
       .map((s) => `- ${s.topic_title}`)
       .join("\n");
 
+    const audienceOptions = [
+      ...(strategy?.personaNames ?? []),
+      ...(strategy?.cohortNames ?? []),
+    ].filter(Boolean);
+
+    const extraContext = [
+      strategy?.markdown,
+      performance?.markdown,
+      `## Briefing consolidado do cliente\n${briefingCtx.text.slice(0, 8000)}`,
+    ]
+      .filter((s): s is string => !!s && s.trim().length > 0)
+      .join("\n\n");
+
     const prompt = [
       `Você é um estrategista de conteúdo sênior.`,
       `Reescreva UMA ideia de post de uma pauta mensal, em português (Brasil).`,
-      ``,
-      `# Briefing do cliente`,
-      briefingCtx.text.slice(0, 8000),
+      `Cruze a estratégia IA ativa, o desempenho real do canal e o briefing.`,
       ``,
       `# Pauta`,
       `Título: ${plan.title}`,
@@ -605,35 +698,36 @@ export const regenerateTopicFn = createServerFn({ method: "POST" })
       `- Mantenha a mesma plataforma e o mesmo formato.`,
       `- topic_title: título curto e criativo, diferente do atual.`,
       `- angle: gancho estratégico / direcionamento de produção (1-2 frases).`,
+      audienceOptions.length
+        ? `- target_audience: persona ou cohort da estratégia ativa (${audienceOptions.slice(0, 8).join(", ")}).`
+        : `- target_audience: público-alvo principal derivado do briefing.`,
+      `- rationale: 1 frase citando a evidência usada (métrica do canal, briefing ou estratégia).`,
       `- Sem markdown. Retorne EXATAMENTE um objeto JSON no schema.`,
     ]
       .filter(Boolean)
       .join("\n");
 
-    const { model } = await getBrandAiModel(context.supabase, plan.brand_id, "text");
-    let parsed: z.infer<typeof RegenSchema> | null = null;
-    try {
-      const { output } = await generateText({
-        model,
-        output: Output.object({ schema: RegenSchema }),
-        prompt,
-      });
-      parsed = output as z.infer<typeof RegenSchema>;
-    } catch (error) {
-      if (NoObjectGeneratedError.isInstance(error)) {
-        const safe = RegenSchema.safeParse(tryParseFallback((error as { text?: string }).text));
-        if (safe.success) parsed = safe.data;
-      }
-      if (!parsed) {
-        throw new Error(error instanceof Error ? error.message : "ai_generation_failed");
-      }
-    }
+    const { output: parsed } = await runPlanAgent({
+      agent: "content.generate",
+      supabase: context.supabase,
+      brandId: plan.brand_id,
+      clientId: plan.client_id,
+      userId: context.userId,
+      prompt,
+      extraContext,
+      schema: RegenSchema,
+    });
 
     const { data: updated, error: uErr } = await context.supabase
       .from("monthly_plan_topics" as never)
       .update({
         topic_title: parsed.topic_title.slice(0, 240),
         angle: parsed.angle.slice(0, 1000),
+        target_audience:
+          (parsed.target_audience ?? "").toString().trim().slice(0, 240) ||
+          (topic as { target_audience?: string | null }).target_audience ||
+          null,
+        rationale: (parsed.rationale ?? "").toString().trim().slice(0, 600) || null,
         previous_title: topic.topic_title,
         previous_angle: topic.angle,
         status: "pending",

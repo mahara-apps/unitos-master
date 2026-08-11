@@ -597,6 +597,7 @@ function ApprovalView({
             multiline={false}
             placeholder="Headline da pauta"
           />
+          <ContextSourcesRow sources={plan.context_sources ?? null} />
           <div className="grid gap-5 md:grid-cols-2">
             <div className="space-y-2">
               <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -920,6 +921,27 @@ function TopicCard({
           placeholder="Gancho estratégico / direcionamento…"
         />
       </div>
+      {topic.target_audience ? (
+        <div className="mt-3">
+          <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            Público-alvo
+          </div>
+          <InlineEditable
+            as="div"
+            className="text-xs leading-relaxed text-foreground/80"
+            value={topic.target_audience}
+            onSave={(v) => onPatch({ target_audience: v })}
+            multiline={false}
+            placeholder="Persona ou cohort…"
+          />
+        </div>
+      ) : null}
+      {topic.rationale ? (
+        <p className="mt-2 rounded-md bg-muted/40 px-2 py-1.5 text-[11px] leading-relaxed text-muted-foreground">
+          <span className="font-medium text-foreground/80">Por quê: </span>
+          {topic.rationale}
+        </p>
+      ) : null}
 
       {!locked ? (
         <>

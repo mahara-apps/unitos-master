@@ -4049,7 +4049,9 @@ export type Database = {
           position: number
           previous_angle: string | null
           previous_title: string | null
+          rationale: string | null
           status: string
+          target_audience: string | null
           topic_title: string
           updated_at: string
         }
@@ -4063,7 +4065,9 @@ export type Database = {
           position?: number
           previous_angle?: string | null
           previous_title?: string | null
+          rationale?: string | null
           status?: string
+          target_audience?: string | null
           topic_title: string
           updated_at?: string
         }
@@ -4077,7 +4081,9 @@ export type Database = {
           position?: number
           previous_angle?: string | null
           previous_title?: string | null
+          rationale?: string | null
           status?: string
+          target_audience?: string | null
           topic_title?: string
           updated_at?: string
         }
@@ -4097,6 +4103,7 @@ export type Database = {
           client_decision_at: string | null
           client_feedback: string | null
           client_id: string
+          context_sources: Json
           created_at: string
           created_by: string | null
           description: string | null
@@ -4106,6 +4113,7 @@ export type Database = {
           internal_approved_at: string | null
           internal_approved_by: string | null
           objectives: string | null
+          project_id: string | null
           status: string
           title: string
           updated_at: string
@@ -4115,6 +4123,7 @@ export type Database = {
           client_decision_at?: string | null
           client_feedback?: string | null
           client_id: string
+          context_sources?: Json
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -4124,6 +4133,7 @@ export type Database = {
           internal_approved_at?: string | null
           internal_approved_by?: string | null
           objectives?: string | null
+          project_id?: string | null
           status?: string
           title: string
           updated_at?: string
@@ -4133,6 +4143,7 @@ export type Database = {
           client_decision_at?: string | null
           client_feedback?: string | null
           client_id?: string
+          context_sources?: Json
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -4142,6 +4153,7 @@ export type Database = {
           internal_approved_at?: string | null
           internal_approved_by?: string | null
           objectives?: string | null
+          project_id?: string | null
           status?: string
           title?: string
           updated_at?: string
@@ -4173,6 +4185,13 @@ export type Database = {
             columns: ["input_briefing_id"]
             isOneToOne: false
             referencedRelation: "brand_briefings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_plans_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
