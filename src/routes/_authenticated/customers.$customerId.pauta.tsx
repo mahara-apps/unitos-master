@@ -204,8 +204,8 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
               Sobre o que vamos falar este mês?
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Descreva o tema estratégico e, se quiser, ancore em um briefing existente.
-              A IA cria a pauta completa com ganchos, formatos e objetivos.
+              O briefing do cliente é sempre usado como contexto. O tema é opcional —
+              a IA distribui as peças conforme a volumetria por canal definida no briefing.
             </p>
           </div>
 
@@ -213,21 +213,63 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
             <GenerationSkeleton message={LOADING_MESSAGES[loadingStep]} />
           ) : (
             <div className="space-y-4">
+              {/* Volumetria — campo obrigatório */}
+              {volumetryQ.isLoading ? (
+                <Skeleton className="h-20 w-full rounded-lg" />
+              ) : hasVolumetry ? (
+                <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+                  <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Volumetria do briefing
+                  </div>
+                  <ul className="grid gap-1 text-sm">
+                    {PLAN_CHANNELS.filter((c) => (volumetry?.monthlyQuota[c] ?? 0) > 0).map((c) => (
+                      <li key={c} className="flex items-center justify-between">
+                        <span>{CHANNEL_LABEL[c]}</span>
+                        <span className="tabular-nums text-muted-foreground">
+                          {volumetry?.weekly[c] ?? 0}/sem →{" "}
+                          <span className="font-medium text-foreground">
+                            {volumetry?.monthlyQuota[c] ?? 0}
+                          </span>
+                          /mês
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-2 border-t border-border/60 pt-2 text-xs text-muted-foreground">
+                    Total:{" "}
+                    <span className="font-medium text-foreground">{volumetry?.totalTarget ?? 0}</span>{" "}
+                    peças no mês.
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-400">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div>
+                    <p className="font-medium">Volumetria não definida.</p>
+                    <p className="mt-0.5">
+                      Defina quantas peças por semana em cada canal no briefing do cliente
+                      (aba Briefing → Metas de publicação) para gerar a pauta.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Tema do mês <span className="normal-case text-muted-foreground/70">(opcional se um briefing for vinculado)</span>
+                  Tema do mês{" "}
+                  <span className="normal-case text-muted-foreground/70">(opcional)</span>
                 </label>
                 <Input
                   autoFocus
                   value={theme}
                   onChange={(e) => setTheme(e.target.value)}
-                  placeholder="Ex.: Mês das Mães focado em vendas — ou deixe vazio e use só o briefing"
+                  placeholder="Ex.: Mês das Mães focado em vendas"
                   className="h-11 text-base"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Vincular a um briefing (opcional)
+                  Vincular a um briefing específico (opcional)
                 </label>
                 <Select value={briefingId} onValueChange={setBriefingId}>
                   <SelectTrigger className="h-11">
@@ -245,7 +287,7 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
               </div>
               <Button
                 className="h-11 w-full gap-2 text-base"
-                disabled={theme.trim().length < 3 && briefingId === "__none"}
+                disabled={!hasVolumetry || volumetryQ.isLoading}
                 onClick={() =>
                   generateM.mutate({
                     theme: theme.trim(),
@@ -254,15 +296,8 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
                 }
               >
                 <Sparkles className="h-4 w-4" />
-                {theme.trim().length < 3 && briefingId !== "__none"
-                  ? "Gerar Pauta a partir do briefing"
-                  : "Gerar Pauta com IA"}
+                Gerar Pauta com IA
               </Button>
-              {theme.trim().length < 3 && briefingId === "__none" ? (
-                <p className="text-center text-xs text-muted-foreground">
-                  Descreva um tema ou vincule um briefing para gerar a pauta.
-                </p>
-              ) : null}
             </div>
           )}
         </div>
