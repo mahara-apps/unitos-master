@@ -284,6 +284,8 @@ export function SocialAnalyticsDashboard({
         refreshing={refreshing}
         onRefresh={handleRefresh}
         error={q.error ? (q.error as Error).message : null}
+        cooldownSeconds={cooldown.remainingSeconds}
+
       />
       <WarningsBanner warnings={merged.warnings} />
       <ResumoSection data={merged} />
