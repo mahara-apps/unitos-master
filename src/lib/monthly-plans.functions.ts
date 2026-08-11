@@ -260,21 +260,25 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
     const plan = planRow as unknown as MonthlyPlan;
 
     // Normaliza canal/formato contra as cotas — nunca deixa item incompleto.
-    const remaining: Record<string, number> = { ...briefingCtx.monthlyQuota };
+    const remaining: Record<string, number> = { ...quota };
     const nextChannelWithQuota = (): string => {
-      const found = PLAN_CHANNELS.find((c) => (remaining[c] ?? 0) > 0);
-      const fallback = PLAN_CHANNELS.find((c) => briefingCtx.monthlyQuota[c] > 0) ?? "instagram";
-      return found ?? fallback;
+      const found = activeChannels.find((c) => (remaining[c] ?? 0) > 0);
+      return found ?? activeChannels[0] ?? "instagram";
     };
     const topicRows = parsed.topics.slice(0, totalTarget).map((t, i) => {
       const raw = (t.channel ?? "").toString().trim().toLowerCase();
       const channel =
-        (PLAN_CHANNELS as readonly string[]).includes(raw) && (remaining[raw] ?? 0) > 0
+        (activeChannels as readonly string[]).includes(raw) && (remaining[raw] ?? 0) > 0
           ? raw
           : nextChannelWithQuota();
       remaining[channel] = (remaining[channel] ?? 0) - 1;
       const fmt = (t.content_format ?? "").trim();
-      const format = (PLAN_FORMATS as readonly string[]).includes(fmt) ? fmt : "Post estático";
+      const allowed = allowedFormats[channel];
+      const format = allowed?.length
+        ? (allowed.includes(fmt) ? fmt : allowed[i % allowed.length]!)
+        : (PLAN_FORMATS as readonly string[]).includes(fmt)
+          ? fmt
+          : "Post estático";
       return {
         monthly_plan_id: plan.id,
         topic_title: t.topic_title.slice(0, 240),
