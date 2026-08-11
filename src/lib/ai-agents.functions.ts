@@ -1494,16 +1494,12 @@ export const getStrategyRunFn = createServerFn({ method: "POST" })
           .maybeSingle(),
       ),
     );
-    const out: Record<string, unknown> = {};
+    const out: Record<string, Json | null> = {};
     entries.forEach(([block], idx) => {
-      out[block] = rows[idx].data?.data ?? null;
+      out[block] = (rows[idx].data?.data as Json | null) ?? null;
     });
-    return out as {
-      voice?: unknown;
-      personas?: unknown;
-      cohorts?: unknown;
-      swot?: unknown;
-    };
+    return out;
+
   });
 
 export const restoreStrategyRunFn = createServerFn({ method: "POST" })
