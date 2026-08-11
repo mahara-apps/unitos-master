@@ -1344,17 +1344,6 @@ function ChannelCard({
         {connected && (
           <Button
             size="sm"
-            variant="outline"
-            onClick={() => testMut.mutate()}
-            disabled={testMut.isPending}
-          >
-            <RefreshCw className={cn("mr-2 h-3.5 w-3.5", testMut.isPending && "animate-spin")} />
-            Testar
-          </Button>
-        )}
-        {connected && (
-          <Button
-            size="sm"
             variant="ghost"
             className="text-destructive hover:text-destructive"
             onClick={() => removeMut.mutate()}
@@ -1515,17 +1504,6 @@ function ToolCredentialCard({
         >
           {connected ? "Rotacionar chave" : "Conectar"}
         </Button>
-        {connected && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => testMut.mutate()}
-            disabled={testMut.isPending}
-          >
-            <RefreshCw className={cn("mr-2 h-3.5 w-3.5", testMut.isPending && "animate-spin")} />
-            Testar
-          </Button>
-        )}
         {connected && (
           <Button
             size="sm"
