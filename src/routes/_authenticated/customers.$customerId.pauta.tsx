@@ -192,121 +192,47 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
   /* -------- ESTADO 1: geração -------- */
   if (!planId) {
     return (
-      <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-2xl flex-col justify-center px-6 py-16">
-        <div className="rounded-2xl border border-border/60 bg-card/40 p-8 backdrop-blur">
-          <div className="mb-6">
+      <div className="mx-auto max-w-5xl space-y-6 px-6 py-8">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-3 py-1 text-xs font-medium text-muted-foreground">
               <Sparkles className="h-3.5 w-3.5" /> Pauta mensal
             </div>
-            <h1 className="mt-4 text-3xl font-semibold tracking-tight">
-              Sobre o que vamos falar este mês?
+            <h1 className="mt-3 text-2xl font-semibold tracking-tight">
+              Volumetria e geração do mês
             </h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              O briefing do cliente é sempre usado como contexto. O tema é opcional —
-              a IA distribui as peças conforme a volumetria por canal definida no briefing.
+            <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+              O briefing do cliente é sempre usado como contexto. Escolha canais, quantidades e
+              formatos no assistente de geração.
             </p>
           </div>
-
-          {generateM.isPending ? (
-            <GenerationSkeleton message={LOADING_MESSAGES[loadingStep]} />
-          ) : (
-            <div className="space-y-4">
-              {/* Volumetria — campo obrigatório */}
-              {volumetryQ.isLoading ? (
-                <Skeleton className="h-20 w-full rounded-lg" />
-              ) : hasVolumetry ? (
-                <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-                  <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Volumetria do briefing
-                  </div>
-                  <ul className="grid gap-1 text-sm">
-                    {PLAN_CHANNELS.filter((c) => (volumetry?.monthlyQuota[c] ?? 0) > 0).map((c) => (
-                      <li key={c} className="flex items-center justify-between">
-                        <span>{CHANNEL_LABEL[c]}</span>
-                        <span className="tabular-nums text-muted-foreground">
-                          {volumetry?.weekly[c] ?? 0}/sem →{" "}
-                          <span className="font-medium text-foreground">
-                            {volumetry?.monthlyQuota[c] ?? 0}
-                          </span>
-                          /mês
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="mt-2 border-t border-border/60 pt-2 text-xs text-muted-foreground">
-                    Total:{" "}
-                    <span className="font-medium text-foreground">{volumetry?.totalTarget ?? 0}</span>{" "}
-                    peças no mês.
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-400">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <div>
-                    <p className="font-medium">Volumetria não definida.</p>
-                    <p className="mt-0.5">
-                      Defina quantas peças por semana em cada canal no briefing do cliente
-                      (aba Briefing → Metas de publicação) para gerar a pauta.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Tema do mês{" "}
-                  <span className="normal-case text-muted-foreground/70">(opcional)</span>
-                </label>
-                <Input
-                  autoFocus
-                  value={theme}
-                  onChange={(e) => setTheme(e.target.value)}
-                  placeholder="Ex.: Mês das Mães focado em vendas"
-                  className="h-11 text-base"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Vincular a um briefing específico (opcional)
-                </label>
-                <Select value={briefingId} onValueChange={setBriefingId}>
-                  <SelectTrigger className="h-11">
-                    <SelectValue placeholder="Nenhum briefing" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none">Nenhum</SelectItem>
-                    {(briefingsQ.data ?? []).map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button
-                className="h-11 w-full gap-2 text-base"
-                disabled={!hasVolumetry || volumetryQ.isLoading}
-                onClick={() =>
-                  generateM.mutate({
-                    theme: theme.trim(),
-                    briefingId: briefingId === "__none" ? null : briefingId,
-                  })
-                }
-              >
-                <Sparkles className="h-4 w-4" />
-                Gerar Pauta com IA
-              </Button>
-            </div>
-          )}
+          <Button
+            className="h-10 gap-2"
+            disabled={!hasVolumetry || volumetryQ.isLoading}
+            onClick={() => setWizardOpen(true)}
+          >
+            <Sparkles className="h-4 w-4" />
+            Gerar pauta com IA
+          </Button>
         </div>
 
-        {!generateM.isPending ? (
-          <PlanHistory
-            data={historyQ.data ?? []}
-            loading={historyQ.isLoading}
-            onOpen={(id) => setPlanId(id)}
-          />
-        ) : null}
+        <VolumetryCards volumetry={volumetry} loading={volumetryQ.isLoading} />
+
+        <PlanHistory
+          data={historyQ.data ?? []}
+          loading={historyQ.isLoading}
+          onOpen={(id) => setPlanId(id)}
+        />
+
+        <GeneratePlanWizard
+          open={wizardOpen}
+          onOpenChange={setWizardOpen}
+          volumetry={volumetry}
+          briefings={briefingsQ.data ?? []}
+          pending={generateM.isPending}
+          loadingMessage={LOADING_MESSAGES[loadingStep] ?? LOADING_MESSAGES[0]!}
+          onGenerate={(input) => generateM.mutate(input)}
+        />
       </div>
     );
   }
