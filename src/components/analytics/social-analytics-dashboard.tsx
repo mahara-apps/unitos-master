@@ -138,14 +138,17 @@ function FreshnessBar({
   refreshing,
   onRefresh,
   error,
+  cooldownSeconds,
 }: {
   generatedAt: string;
   refreshing: boolean;
   onRefresh: () => void;
   error: string | null;
+  cooldownSeconds: number;
 }) {
   const when = new Date(generatedAt);
   const label = Number.isNaN(when.getTime()) ? null : TIME_FMT.format(when);
+  const blocked = cooldownSeconds > 0;
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
       <span className="flex items-center gap-2">
@@ -171,14 +174,20 @@ function FreshnessBar({
         size="sm"
         className="h-7 gap-1.5 px-2 text-xs"
         onClick={onRefresh}
-        disabled={refreshing}
+        disabled={refreshing || blocked}
+        title={
+          blocked
+            ? `Aguarde ${cooldownSeconds}s para atualizar novamente (limite de segurança)`
+            : "Atualizar métricas agora"
+        }
       >
         <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
-        Atualizar
+        {blocked ? `Aguarde ${cooldownSeconds}s` : "Atualizar"}
       </Button>
     </div>
   );
 }
+
 
 export function SocialAnalyticsDashboard({
   brandId,
