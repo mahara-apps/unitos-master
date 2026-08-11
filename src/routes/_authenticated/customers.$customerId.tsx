@@ -180,6 +180,12 @@ function CustomerDetailReady({
     if (activeTab === "brain") setActiveTab("briefing");
   }, [activeTab]);
 
+  // Sincroniza com ?tab=... (links internos como "Editar em Cadastro").
+  useEffect(() => {
+    if (initialTab && initialTab !== "brain") setActiveTab(initialTab);
+  }, [initialTab]);
+
+
   // Lista de customers do brand ativo — só para nome/cor do header.
   const customersQ = useQuery({
     queryKey: ["clients", brandId],
