@@ -1076,7 +1076,14 @@ function ProviderCard({
             <div className="font-mono text-[10px] text-muted-foreground">{provider.hint}</div>
           </div>
         </div>
-        <StatusBadge connected={connected} />
+        <div className="flex flex-col items-end gap-1">
+          <StatusBadge connected={connected} />
+          {!supportsKind(provider.id as AiProviderName, "image") && (
+            <Badge variant="outline" className="font-mono text-[9px] uppercase">
+              Somente texto
+            </Badge>
+          )}
+        </div>
       </div>
 
       <div className="mt-4 space-y-2">
