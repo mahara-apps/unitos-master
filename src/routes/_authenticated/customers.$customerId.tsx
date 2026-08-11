@@ -14,11 +14,7 @@ import { useFeatureAccess } from "@/hooks/use-feature-access";
 import { FALLBACK_ROUTE } from "@/lib/permissions";
 import { toast } from "sonner";
 import { listClients } from "@/lib/workspace.functions";
-import {
-  StrategyTab,
-  TargetTab,
-  MarketTab,
-} from "@/components/ai-agents/strategy-panel";
+import { StrategyResults } from "@/components/ai-agents/strategy-results";
 import { CustomerDashboard } from "@/components/customer/customer-dashboard";
 import { BasicInfoTab } from "@/components/customer/basic-info-tab";
 import { ChannelsTab } from "@/components/customer/channels-tab";
@@ -28,11 +24,6 @@ import { BriefingWorkspace } from "@/components/brand-hub/briefing-workspace";
 import { QuickOnboardingWizard } from "@/components/brand-hub/quick-onboarding-wizard";
 import { getBrandHub } from "@/lib/brand-hub.functions";
 import { computeBriefingCompletion } from "@/lib/briefing-progress";
-import {
-  StrategySkeleton,
-  TargetSkeleton,
-  MarketSkeleton,
-} from "@/components/ai-agents/tab-skeletons";
 import { usePageHeader } from "@/hooks/use-page-header";
 import {
   CUSTOMER_QUERY_KEYS,
@@ -48,7 +39,15 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
       .object({
         onboarding: z.union([z.literal("1"), z.literal(1), z.boolean()]).optional(),
         tab: z
-          .enum(["overview", "briefing", "brain", "channels", "cadastro", "gestao"])
+          .enum([
+            "overview",
+            "briefing",
+            "estrategia",
+            "brain",
+            "channels",
+            "cadastro",
+            "gestao",
+          ])
           .optional(),
       })
       .parse(s),
@@ -57,7 +56,8 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
 
 const ALL_TABS = [
   { value: "overview", label: "Visão geral" },
-  { value: "briefing", label: "Briefing & Estratégia" },
+  { value: "briefing", label: "Briefing" },
+  { value: "estrategia", label: "Estratégia IA" },
   { value: "gestao", label: "Gestão da conta" },
   { value: "channels", label: "Canais" },
   { value: "cadastro", label: "Cadastro" },
@@ -158,7 +158,14 @@ function CustomerDetailReady({
   brandId: string;
   customerId: string;
   openOnboarding: boolean;
-  initialTab?: "overview" | "briefing" | "brain" | "channels" | "cadastro" | "gestao";
+  initialTab?:
+    | "overview"
+    | "briefing"
+    | "estrategia"
+    | "brain"
+    | "channels"
+    | "cadastro"
+    | "gestao";
 }) {
   const list = useServerFn(listClients);
   const fetchHub = useServerFn(getBrandHub);
@@ -302,31 +309,23 @@ function CustomerDetailReady({
                 clientId={customerId}
                 embedded
                 layout="stacked"
-                onStrategyGenerated={invalidateAll}
-                appendSlot={
-                  <>
-                    <section id="estrategia" className="scroll-mt-24 space-y-4">
-                      <h3 className="text-lg font-semibold tracking-tight">Estratégia IA</h3>
-                      <Suspense fallback={<StrategySkeleton />}>
-                        <StrategyTab brandId={brandId} clientId={customerId} />
-                      </Suspense>
-                    </section>
-                    <section id="personas" className="scroll-mt-24 space-y-4">
-                      <h3 className="text-lg font-semibold tracking-tight">Personas & Público IA</h3>
-                      <Suspense fallback={<TargetSkeleton />}>
-                        <TargetTab brandId={brandId} clientId={customerId} />
-                      </Suspense>
-                    </section>
-                    <section id="mercado" className="scroll-mt-24 space-y-4">
-                      <h3 className="text-lg font-semibold tracking-tight">Análise de Mercado</h3>
-                      <Suspense fallback={<MarketSkeleton />}>
-                        <MarketTab brandId={brandId} clientId={customerId} />
-                      </Suspense>
-                    </section>
-                  </>
-                }
+                onStrategyGenerated={() => {
+                  invalidateAll();
+                  qc.invalidateQueries({
+                    queryKey: ["strategy-runs", brandId, customerId],
+                  });
+                }}
               />
             </TabsContent>
+            <TabsContent value="estrategia">
+              <StrategyResults
+                brandId={brandId}
+                clientId={customerId}
+                onGenerate={() => setActiveTab("briefing")}
+                onRestored={invalidateAll}
+              />
+            </TabsContent>
+
             <TabsContent value="cadastro">
               <BasicInfoTab brandId={brandId} clientId={customerId} />
             </TabsContent>
