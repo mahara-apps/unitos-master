@@ -61,7 +61,6 @@ export function QueryPersistence({ queryClient }: { queryClient: QueryClient }) 
       unsubscribe = persistQueryClientSubscribe({
         queryClient,
         persister,
-        maxAge: SOCIAL_SNAPSHOT_MAX_AGE_MS,
         dehydrateOptions: { shouldDehydrateQuery: shouldPersist },
       });
     })();
