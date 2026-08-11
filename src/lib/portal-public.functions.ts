@@ -75,22 +75,33 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
 
 const tokenIn = z.object({ token: z.string().min(8) });
 
-async function signCover(c: SupabaseClient, path: string, bucket: string): Promise<string | null> {
+/**
+ * Storage do portal público: os buckets são privados e sem policy pública,
+ * então as URLs assinadas são geradas server-side com o client admin.
+ */
+async function getStorageClient(): Promise<SupabaseClient> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin as unknown as SupabaseClient;
+}
+
+async function signCover(path: string, bucket: string): Promise<string | null> {
+  const c = await getStorageClient();
   const { data } = await c.storage.from(bucket).createSignedUrl(path, 60 * 60 * 24 * 7);
   return data?.signedUrl ?? null;
 }
 
-async function fillCovers(c: SupabaseClient, posts: PortalPost[]): Promise<void> {
+async function fillCovers(posts: PortalPost[]): Promise<void> {
   for (const p of posts) {
     if (p.cover_url) continue;
     const refs = Array.isArray(p.reference_media) ? (p.reference_media as Array<Record<string, unknown>>) : [];
     const first = refs.find((r) => typeof r?.path === "string");
     if (first?.path) {
       const bucket = typeof first.bucket === "string" ? (first.bucket as string) : "brand-assets";
-      p.cover_url = await signCover(c, first.path as string, bucket);
+      p.cover_url = await signCover(first.path as string, bucket);
     }
   }
 }
+
 
 export const resolvePortalTokenFn = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => tokenIn.parse(i))
