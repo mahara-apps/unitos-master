@@ -87,7 +87,7 @@ export async function materializePlanToKanban(
       )
       .eq("monthly_plan_id", args.planId)
       .eq("status", "approved")
-      .neq("client_status", "rejected")
+      .not("client_status", "in", '("rejected","changes")')
       .order("position", { ascending: true });
     if (error) throw error;
     list = (data ?? []) as unknown as PlanTopicForKanban[];
