@@ -14,6 +14,8 @@ export type BriefingContext = {
   weekly: Record<PlanChannel, number>;
   monthlyQuota: Record<PlanChannel, number>;
   totalTarget: number;
+  /** Formatos preferidos por canal, conforme briefing (pode vir vazio). */
+  formatsByChannel: Record<PlanChannel, string[]>;
 };
 
 function pushLine(lines: string[], label: string, value: unknown) {
@@ -170,6 +172,15 @@ export async function loadBriefingContext(
     lines.push(`Briefing selecionado (versão): ${raw.slice(0, 3000)}`);
   }
 
+  const formatsByChannel = PLAN_CHANNELS.reduce<Record<PlanChannel, string[]>>(
+    (acc, c) => {
+      const v = formats[c];
+      acc[c] = Array.isArray(v) ? v.filter((f) => typeof f === "string" && f.trim()) : [];
+      return acc;
+    },
+    {} as Record<PlanChannel, string[]>,
+  );
+
   return {
     text: lines.join("\n"),
     clientName: row.name ?? null,
@@ -177,5 +188,6 @@ export async function loadBriefingContext(
     weekly,
     monthlyQuota,
     totalTarget,
+    formatsByChannel,
   };
 }

@@ -91,6 +91,17 @@ const GenerateInput = z.object({
   clientId: z.string().uuid(),
   theme: z.string().trim().max(500).optional().default(""),
   briefingId: z.string().uuid().nullable().optional(),
+  /** Seleção opcional do wizard: canais, quantidade e formatos permitidos. */
+  selection: z
+    .array(
+      z.object({
+        channel: z.enum(PLAN_CHANNELS),
+        quantity: z.number().int().min(1).max(60),
+        formats: z.array(z.string()).default([]),
+      }),
+    )
+    .min(1)
+    .optional(),
 });
 
 const AiPlanSchema = z.object({
@@ -133,7 +144,22 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
 
     // Volumetria é obrigatória — sem ela não há como definir quantas peças gerar.
     if (briefingCtx.totalTarget <= 0) throw new Error("volumetry_required");
-    const totalTarget = briefingCtx.totalTarget;
+
+    // Cotas efetivas: seleção do wizard quando houver, senão a volumetria do briefing.
+    const quota: Record<string, number> = data.selection?.length
+      ? data.selection.reduce<Record<string, number>>((acc, s) => {
+          acc[s.channel] = (acc[s.channel] ?? 0) + s.quantity;
+          return acc;
+        }, {})
+      : { ...briefingCtx.monthlyQuota };
+    const allowedFormats: Record<string, string[]> = {};
+    for (const s of data.selection ?? []) {
+      const fmts = s.formats.filter((f) => (PLAN_FORMATS as readonly string[]).includes(f));
+      if (fmts.length) allowedFormats[s.channel] = fmts;
+    }
+    const activeChannels = PLAN_CHANNELS.filter((c) => (quota[c] ?? 0) > 0);
+    const totalTarget = activeChannels.reduce((s, c) => s + (quota[c] ?? 0), 0);
+    if (totalTarget <= 0) throw new Error("volumetry_required");
 
     // Brain: enrich prompt with consolidated knowledge for this brand/client.
     let brainMarkdown = "";
@@ -154,8 +180,11 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       console.warn("[monthly-plan] brain.getContext failed:", err);
     }
 
-    const distributionText = PLAN_CHANNELS.filter((c) => briefingCtx.monthlyQuota[c] > 0)
-      .map((c) => `  * ${c}: ${briefingCtx.monthlyQuota[c]} posts`)
+    const distributionText = activeChannels
+      .map((c) => {
+        const fmts = allowedFormats[c];
+        return `  * ${c}: ${quota[c]} posts${fmts?.length ? ` (formatos permitidos: ${fmts.join(", ")})` : ""}`;
+      })
       .join("\n");
 
     const prompt = [
@@ -231,21 +260,25 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
     const plan = planRow as unknown as MonthlyPlan;
 
     // Normaliza canal/formato contra as cotas — nunca deixa item incompleto.
-    const remaining: Record<string, number> = { ...briefingCtx.monthlyQuota };
+    const remaining: Record<string, number> = { ...quota };
     const nextChannelWithQuota = (): string => {
-      const found = PLAN_CHANNELS.find((c) => (remaining[c] ?? 0) > 0);
-      const fallback = PLAN_CHANNELS.find((c) => briefingCtx.monthlyQuota[c] > 0) ?? "instagram";
-      return found ?? fallback;
+      const found = activeChannels.find((c) => (remaining[c] ?? 0) > 0);
+      return found ?? activeChannels[0] ?? "instagram";
     };
     const topicRows = parsed.topics.slice(0, totalTarget).map((t, i) => {
       const raw = (t.channel ?? "").toString().trim().toLowerCase();
       const channel =
-        (PLAN_CHANNELS as readonly string[]).includes(raw) && (remaining[raw] ?? 0) > 0
+        (activeChannels as readonly string[]).includes(raw) && (remaining[raw] ?? 0) > 0
           ? raw
           : nextChannelWithQuota();
       remaining[channel] = (remaining[channel] ?? 0) - 1;
       const fmt = (t.content_format ?? "").trim();
-      const format = (PLAN_FORMATS as readonly string[]).includes(fmt) ? fmt : "Post estático";
+      const allowed = allowedFormats[channel];
+      const format = allowed?.length
+        ? (allowed.includes(fmt) ? fmt : allowed[i % allowed.length]!)
+        : (PLAN_FORMATS as readonly string[]).includes(fmt)
+          ? fmt
+          : "Post estático";
       return {
         monthly_plan_id: plan.id,
         topic_title: t.topic_title.slice(0, 240),
@@ -277,11 +310,41 @@ export const getPlanVolumetryFn = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => z.object({ clientId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
     const ctx = await loadBriefingContext(context.supabase, data.clientId);
+
+    // Quantidade já gerada no mês corrente (todas as pautas do cliente).
+    const now = new Date();
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+    const generatedThisMonth = PLAN_CHANNELS.reduce<Record<string, number>>((acc, c) => {
+      acc[c] = 0;
+      return acc;
+    }, {});
+    let generatedTotal = 0;
+    const { data: planRows } = await context.supabase
+      .from("monthly_plans" as never)
+      .select("id")
+      .eq("client_id", data.clientId)
+      .gte("created_at", monthStart);
+    const planIds = ((planRows ?? []) as Array<{ id: string }>).map((p) => p.id);
+    if (planIds.length) {
+      const { data: topicRows } = await context.supabase
+        .from("monthly_plan_topics" as never)
+        .select("channel")
+        .in("monthly_plan_id", planIds);
+      for (const t of (topicRows ?? []) as Array<{ channel: string | null }>) {
+        const c = (t.channel ?? "").toLowerCase();
+        if (c in generatedThisMonth) generatedThisMonth[c] = (generatedThisMonth[c] ?? 0) + 1;
+        generatedTotal += 1;
+      }
+    }
+
     return {
       weekly: ctx.weekly,
       monthlyQuota: ctx.monthlyQuota,
       totalTarget: ctx.totalTarget,
       hasBriefing: ctx.text.trim().length > 0,
+      formatsByChannel: ctx.formatsByChannel,
+      generatedThisMonth,
+      generatedTotal,
     };
   });
 
