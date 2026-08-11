@@ -242,9 +242,20 @@ export type SlaSnapshot = {
   byStage: Array<{ stage_id: string; label: string; sla_hours: number; overdue: number }>;
 };
 
+const SlaSnapshotInput = z.object({
+  brandId: z.string().uuid(),
+  /** Cliente ativo (escopo da conta conectada selecionada). */
+  clientId: z.string().uuid().nullish(),
+  clientIds: z.array(z.string().uuid()).optional(),
+  assigneeIds: z.array(z.string().uuid()).optional(),
+  projectIds: z.array(z.string().uuid()).optional(),
+  channels: z.array(z.string()).optional(),
+  tags: z.array(z.string()).optional(),
+});
+
 export const slaSnapshotFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid() }).parse(i))
+  .inputValidator((i: unknown) => SlaSnapshotInput.parse(i))
   .handler(async ({ data, context }): Promise<SlaSnapshot> => {
     const { data: pipes } = await context.supabase
       .from("content_pipelines")
@@ -263,19 +274,35 @@ export const slaSnapshotFn = createServerFn({ method: "POST" })
       .filter((s) => s._hours != null) as Array<{ id: string; label: string; _hours: number }>;
     if (withSla.length === 0) return { activeOverdue: 0, byUser: [], byStage: [] };
 
+    // Escopo: cliente ativo tem prioridade sobre a lista de clientes do filtro.
+    const clientIds = data.clientId
+      ? [data.clientId]
+      : (data.clientIds ?? []).filter(Boolean);
+    const assigneeIds = data.assigneeIds ?? [];
+    const projectIds = data.projectIds ?? [];
+    const channels = (data.channels ?? []).filter(Boolean);
+    const tags = (data.tags ?? []).filter(Boolean);
+
     const byStageMap = new Map<string, { label: string; sla_hours: number; overdue: number }>();
     const byUserMap = new Map<string, number>();
     let activeOverdue = 0;
 
     for (const s of withSla) {
       const sinceIso = new Date(Date.now() - s._hours * 3_600_000).toISOString();
-      const { data: rows } = await context.supabase
+      let q = context.supabase
         .from("posts")
         .select("id, assignee_id")
         .eq("brand_id", data.brandId)
         .eq("stage_id", s.id)
         .is("deleted_at", null)
         .lt("stage_entered_at", sinceIso);
+      if (clientIds.length > 0) q = q.in("client_id", clientIds);
+      if (assigneeIds.length > 0) q = q.in("assignee_id", assigneeIds);
+      if (projectIds.length > 0) q = q.in("project_id", projectIds);
+      if (channels.length > 0) q = q.overlaps("channels", channels as never);
+      if (tags.length > 0) q = q.overlaps("tags", tags);
+      const { data: rows, error } = await q;
+      if (error) throw error;
       const count = (rows ?? []).length;
       if (count === 0) continue;
       activeOverdue += count;
@@ -289,6 +316,7 @@ export const slaSnapshotFn = createServerFn({ method: "POST" })
         byUserMap.set(uid, (byUserMap.get(uid) ?? 0) + 1);
       }
     }
+
 
     const userIds = Array.from(byUserMap.keys()).filter((u) => u !== "__unassigned__");
     const profMap = new Map<string, { full_name: string; avatar_url: string | null }>();

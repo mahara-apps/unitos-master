@@ -179,9 +179,21 @@ function AnalyticsPage() {
   const slaFn = useServerFn(slaSnapshotFn);
   const slaQuery = useQuery({
     enabled: !!brandId,
-    queryKey: ["analytics-sla", brandId],
-    queryFn: () => slaFn({ data: { brandId: brandId! } }),
+    queryKey: ["analytics-sla", brandId, clientId ?? "all", filters],
+    queryFn: () =>
+      slaFn({
+        data: {
+          brandId: brandId!,
+          clientId: clientId ?? null,
+          clientIds: clientId ? [clientId] : filters.client_ids,
+          assigneeIds: filters.assignee_ids,
+          projectIds: filters.project_ids,
+          channels: filters.channels,
+          tags: filters.tags,
+        },
+      }),
   });
+
 
   usePageHeader(
     {
