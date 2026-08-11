@@ -5,10 +5,11 @@ import type { LanguageModel } from "ai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptCredential } from "./credentials-crypto.server";
 import {
-  MODEL_CATALOG,
+  resolveModel,
   type ProviderName,
   type ProviderRole,
 } from "./ai-models-catalog.server";
+import { IMAGE_PROVIDERS, supportsKind } from "./ai-capabilities";
 
 export type { ProviderName, ProviderRole };
 export type ProviderKind = "text" | "image";
@@ -94,7 +95,12 @@ export async function getBrandAiModel(
   role: ProviderRole = "operational",
 ): Promise<BrandAiModel> {
   const { provider, apiKey } = await getBrandProviderKey(supabase, brandId, kind);
-  const modelId = MODEL_CATALOG[provider][role];
+  const modelId = await resolveModel(provider, role);
+  if (!modelId) {
+    throw new Error(
+      `ai_model_unavailable:${provider}:${role}: o provedor não oferece modelo para esta função.`,
+    );
+  }
 
   let model: LanguageModel;
   if (provider === "openai") {
@@ -205,10 +211,21 @@ export async function generateBrandImage(
   brandId: string,
   prompt: string,
 ): Promise<BrandGeneratedImage> {
-  const creds = await getBrandProviderKey(supabase, brandId, "image", [
-    "openai",
-    "gemini",
-  ]);
+  const creds = await getBrandProviderKey(
+    supabase,
+    brandId,
+    "image",
+    IMAGE_PROVIDERS,
+  );
+  if (!supportsKind(creds.provider, "image")) {
+    throw new Error(
+      `ai_image_unsupported:${creds.provider}: este provedor não gera imagens. Selecione OpenAI ou Gemini em Conexões.`,
+    );
+  }
+  const imageModelId = await resolveModel(creds.provider, "image");
+  if (!imageModelId) {
+    throw new Error(`ai_image_unsupported:${creds.provider}: sem modelo de imagem disponível.`);
+  }
 
   if (creds.provider === "openai") {
     const res = await fetch("https://api.openai.com/v1/images/generations", {
@@ -218,7 +235,7 @@ export async function generateBrandImage(
         Authorization: `Bearer ${creds.apiKey}`,
       },
       body: JSON.stringify({
-        model: MODEL_CATALOG.openai.image,
+        model: imageModelId,
         prompt,
         size: "1024x1024",
         n: 1,
@@ -236,7 +253,7 @@ export async function generateBrandImage(
   }
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_CATALOG.gemini.image}:predict`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${imageModelId}:predict`,
     {
       method: "POST",
       headers: {

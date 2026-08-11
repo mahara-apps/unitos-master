@@ -20,7 +20,7 @@ export type ConnectionsSettings = {
   brandId: string;
   monthlyBudgetUsd: number;
   textProvider: "openai" | "anthropic" | "gemini";
-  imageProvider: "openai" | "anthropic" | "gemini";
+  imageProvider: "openai" | "gemini";
   providers: Record<string, ProviderConfig>;
   channels: Record<string, ChannelConfig>;
   usage: {
@@ -70,7 +70,8 @@ export const getConnections = createServerFn({ method: "GET" })
       brandId: data.brandId,
       monthlyBudgetUsd: row ? Number(row.monthly_budget_usd) : 500,
       textProvider: (row?.text_provider as ConnectionsSettings["textProvider"]) ?? "openai",
-      imageProvider: (row?.image_provider as ConnectionsSettings["imageProvider"]) ?? "gemini",
+      imageProvider:
+        row?.image_provider === "openai" ? "openai" : "gemini",
       providers: (row?.providers as Record<string, ProviderConfig>) ?? {},
       channels: (row?.channels as Record<string, ChannelConfig>) ?? {},
       usage: { monthUsd, monthTokens, totalCalls, successCalls },
@@ -81,7 +82,8 @@ const UpsertInput = z.object({
   brandId: z.string().uuid(),
   monthlyBudgetUsd: z.number().min(0).max(1_000_000).optional(),
   textProvider: z.enum(["openai", "anthropic", "gemini"]).optional(),
-  imageProvider: z.enum(["openai", "anthropic", "gemini"]).optional(),
+  // Anthropic não gera imagem — não pode ser selecionada como provedor de imagem.
+  imageProvider: z.enum(["openai", "gemini"]).optional(),
 });
 
 export const updateConnectionsSettings = createServerFn({ method: "POST" })
@@ -94,6 +96,7 @@ export const updateConnectionsSettings = createServerFn({ method: "POST" })
       ...(data.textProvider ? { text_provider: data.textProvider } : {}),
       ...(data.imageProvider ? { image_provider: data.imageProvider } : {}),
     };
+
     const { error } = await context.supabase
       .from("brand_connections")
       .upsert(patch, { onConflict: "brand_id" });
