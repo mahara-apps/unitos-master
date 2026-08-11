@@ -1032,7 +1032,13 @@ export const approveMonthlyPlanFn = createServerFn({ method: "POST" })
         stage: "idea",
         title: t.topic_title,
         format: t.content_format,
-        internal_briefing: t.angle,
+        internal_briefing: [
+          t.angle,
+          t.target_audience ? `Público-alvo: ${t.target_audience}` : "",
+          t.rationale ? `Por quê: ${t.rationale}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n\n"),
         monthly_plan_topic_id: t.id,
         position: pos,
         created_by: context.userId,
