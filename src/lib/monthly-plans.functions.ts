@@ -144,7 +144,22 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
 
     // Volumetria é obrigatória — sem ela não há como definir quantas peças gerar.
     if (briefingCtx.totalTarget <= 0) throw new Error("volumetry_required");
-    const totalTarget = briefingCtx.totalTarget;
+
+    // Cotas efetivas: seleção do wizard quando houver, senão a volumetria do briefing.
+    const quota: Record<string, number> = data.selection?.length
+      ? data.selection.reduce<Record<string, number>>((acc, s) => {
+          acc[s.channel] = (acc[s.channel] ?? 0) + s.quantity;
+          return acc;
+        }, {})
+      : { ...briefingCtx.monthlyQuota };
+    const allowedFormats: Record<string, string[]> = {};
+    for (const s of data.selection ?? []) {
+      const fmts = s.formats.filter((f) => (PLAN_FORMATS as readonly string[]).includes(f));
+      if (fmts.length) allowedFormats[s.channel] = fmts;
+    }
+    const activeChannels = PLAN_CHANNELS.filter((c) => (quota[c] ?? 0) > 0);
+    const totalTarget = activeChannels.reduce((s, c) => s + (quota[c] ?? 0), 0);
+    if (totalTarget <= 0) throw new Error("volumetry_required");
 
     // Brain: enrich prompt with consolidated knowledge for this brand/client.
     let brainMarkdown = "";
