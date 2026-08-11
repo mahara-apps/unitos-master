@@ -8,7 +8,12 @@ export type ProviderConfig = {
   connected: boolean;
   masked?: string;
   updatedAt?: string;
+  /** Resultado do último teste real contra o provedor. */
+  verified?: "valid" | "invalid" | "unverified";
+  verifiedAt?: string;
+  verifyMessage?: string;
 };
+
 
 export type ChannelConfig = {
   connected: boolean;
