@@ -73,7 +73,10 @@ export async function materializePlanToKanban(
     userId: string | null;
     /** Se informado, só estes tópicos são considerados. */
     topics?: PlanTopicForKanban[];
+    /** Marca a pauta como "Em produção" ao final (default: true). */
+    markPlanApproved?: boolean;
   },
+
 ): Promise<{ created: number; skipped: number }> {
   let list = args.topics ?? null;
   if (!list) {
