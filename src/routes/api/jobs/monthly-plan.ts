@@ -196,10 +196,13 @@ async function runOrchestrator(params: {
     });
 
     // 1) Load prompts — brand override wins over the Unitos default.
+    // Os prompts internos (`agent_prompts`) são lidos apenas com o client
+    // admin: nunca são expostos ao usuário autenticado via Data API.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const AGENT_IDS = ["planner_strategic", "copywriter_senior"] as const;
     const [{ data: defaultRows, error: defErr }, { data: ovRows, error: ovErr }] =
       await Promise.all([
-        supabase
+        supabaseAdmin
           .from("agent_prompts")
           .select("agent_id, system_prompt")
           .in("agent_id", AGENT_IDS as unknown as string[]),
@@ -209,6 +212,7 @@ async function runOrchestrator(params: {
           .eq("brand_id", input.brandId)
           .in("agent_id", AGENT_IDS as unknown as string[]),
       ]);
+
     if (defErr) throw defErr;
     if (ovErr) throw ovErr;
     const prompts = new Map<string, string>();

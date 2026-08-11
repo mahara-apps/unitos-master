@@ -75,22 +75,33 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
 
 const tokenIn = z.object({ token: z.string().min(8) });
 
-async function signCover(c: SupabaseClient, path: string, bucket: string): Promise<string | null> {
+/**
+ * Storage do portal público: os buckets são privados e sem policy pública,
+ * então as URLs assinadas são geradas server-side com o client admin.
+ */
+async function getStorageClient(): Promise<SupabaseClient> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return supabaseAdmin as unknown as SupabaseClient;
+}
+
+async function signCover(path: string, bucket: string): Promise<string | null> {
+  const c = await getStorageClient();
   const { data } = await c.storage.from(bucket).createSignedUrl(path, 60 * 60 * 24 * 7);
   return data?.signedUrl ?? null;
 }
 
-async function fillCovers(c: SupabaseClient, posts: PortalPost[]): Promise<void> {
+async function fillCovers(posts: PortalPost[]): Promise<void> {
   for (const p of posts) {
     if (p.cover_url) continue;
     const refs = Array.isArray(p.reference_media) ? (p.reference_media as Array<Record<string, unknown>>) : [];
     const first = refs.find((r) => typeof r?.path === "string");
     if (first?.path) {
       const bucket = typeof first.bucket === "string" ? (first.bucket as string) : "brand-assets";
-      p.cover_url = await signCover(c, first.path as string, bucket);
+      p.cover_url = await signCover(first.path as string, bucket);
     }
   }
 }
+
 
 export const resolvePortalTokenFn = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => tokenIn.parse(i))
@@ -115,7 +126,7 @@ export const listPortalApprovalsFn = createServerFn({ method: "POST" })
       _token: data.token,
       _status: data.status,
     });
-    await fillCovers(getPublic(), rows ?? []);
+    await fillCovers(rows ?? []);
     return rows ?? [];
   });
 
@@ -127,7 +138,6 @@ export const getPortalPostFn = createServerFn({ method: "POST" })
       _post_id: data.postId,
     });
     const post = res.post;
-    const c = getPublic();
     const refs = Array.isArray(post.reference_media)
       ? (post.reference_media as Array<Record<string, unknown>>)
       : [];
@@ -137,7 +147,7 @@ export const getPortalPostFn = createServerFn({ method: "POST" })
           const path = typeof r?.path === "string" ? r.path : null;
           if (!path) return null;
           const bucket = typeof r?.bucket === "string" ? (r.bucket as string) : "brand-assets";
-          const url = await signCover(c, path, bucket);
+          const url = await signCover(path, bucket);
           return url ? { url, type: (r?.type as string) ?? "" } : null;
         }),
       )
@@ -179,7 +189,7 @@ export const listPortalFeedFn = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => tokenIn.parse(i))
   .handler(async ({ data }): Promise<PortalPost[]> => {
     const rows = await rpc<PortalPost[]>("portal_feed", { _token: data.token });
-    await fillCovers(getPublic(), rows ?? []);
+    await fillCovers(rows ?? []);
     return rows ?? [];
   });
 
@@ -190,7 +200,7 @@ export const listPortalFilesFn = createServerFn({ method: "POST" })
       _token: data.token,
       _search: (data.search ?? "").trim() || null,
     });
-    const c = getPublic();
+    const c = await getStorageClient();
     const withUrls = await Promise.all(
       (docs ?? []).map(async (d) => {
         const { data: signed } = await c.storage
