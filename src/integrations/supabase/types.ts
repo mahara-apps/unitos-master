@@ -4042,6 +4042,9 @@ export type Database = {
         Row: {
           angle: string | null
           channel: string | null
+          client_comment: string | null
+          client_decision_at: string | null
+          client_status: string
           content_format: string | null
           created_at: string
           id: string
@@ -4058,6 +4061,9 @@ export type Database = {
         Insert: {
           angle?: string | null
           channel?: string | null
+          client_comment?: string | null
+          client_decision_at?: string | null
+          client_status?: string
           content_format?: string | null
           created_at?: string
           id?: string
@@ -4074,6 +4080,9 @@ export type Database = {
         Update: {
           angle?: string | null
           channel?: string | null
+          client_comment?: string | null
+          client_decision_at?: string | null
+          client_status?: string
           content_format?: string | null
           created_at?: string
           id?: string
@@ -4101,6 +4110,7 @@ export type Database = {
         Row: {
           brand_id: string
           client_decision_at: string | null
+          client_decision_mode: string | null
           client_feedback: string | null
           client_id: string
           context_sources: Json
@@ -4121,6 +4131,7 @@ export type Database = {
         Insert: {
           brand_id: string
           client_decision_at?: string | null
+          client_decision_mode?: string | null
           client_feedback?: string | null
           client_id: string
           context_sources?: Json
@@ -4141,6 +4152,7 @@ export type Database = {
         Update: {
           brand_id?: string
           client_decision_at?: string | null
+          client_decision_mode?: string | null
           client_feedback?: string | null
           client_id?: string
           context_sources?: Json
