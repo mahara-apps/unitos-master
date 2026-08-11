@@ -310,11 +310,41 @@ export const getPlanVolumetryFn = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => z.object({ clientId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
     const ctx = await loadBriefingContext(context.supabase, data.clientId);
+
+    // Quantidade já gerada no mês corrente (todas as pautas do cliente).
+    const now = new Date();
+    const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+    const generatedThisMonth = PLAN_CHANNELS.reduce<Record<string, number>>((acc, c) => {
+      acc[c] = 0;
+      return acc;
+    }, {});
+    let generatedTotal = 0;
+    const { data: planRows } = await context.supabase
+      .from("monthly_plans" as never)
+      .select("id")
+      .eq("client_id", data.clientId)
+      .gte("created_at", monthStart);
+    const planIds = ((planRows ?? []) as Array<{ id: string }>).map((p) => p.id);
+    if (planIds.length) {
+      const { data: topicRows } = await context.supabase
+        .from("monthly_plan_topics" as never)
+        .select("channel")
+        .in("monthly_plan_id", planIds);
+      for (const t of (topicRows ?? []) as Array<{ channel: string | null }>) {
+        const c = (t.channel ?? "").toLowerCase();
+        if (c in generatedThisMonth) generatedThisMonth[c] = (generatedThisMonth[c] ?? 0) + 1;
+        generatedTotal += 1;
+      }
+    }
+
     return {
       weekly: ctx.weekly,
       monthlyQuota: ctx.monthlyQuota,
       totalTarget: ctx.totalTarget,
       hasBriefing: ctx.text.trim().length > 0,
+      formatsByChannel: ctx.formatsByChannel,
+      generatedThisMonth,
+      generatedTotal,
     };
   });
 
