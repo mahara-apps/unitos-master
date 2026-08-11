@@ -7,34 +7,14 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const EMBED_MODEL = "openai/text-embedding-3-small";
-const EMBED_ENDPOINT = "https://ai.gateway.lovable.dev/v1/embeddings";
-
-/** Cria embedding via Lovable AI Gateway. Retorna null em falha. */
-export async function embedText(text: string): Promise<number[] | null> {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) return null;
-  const trimmed = text.replace(/\s+/g, " ").trim().slice(0, 8000);
-  if (!trimmed) return null;
-  try {
-    const res = await fetch(EMBED_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Lovable-API-Key": key,
-      },
-      body: JSON.stringify({ model: EMBED_MODEL, input: trimmed }),
-    });
-    if (!res.ok) {
-      console.error("[brain-embed] gateway error", res.status, await res.text().catch(() => ""));
-      return null;
-    }
-    const json = (await res.json()) as { data?: Array<{ embedding: number[] }> };
-    return json.data?.[0]?.embedding ?? null;
-  } catch (err) {
-    console.error("[brain-embed] embed failed", err);
-    return null;
-  }
+/** Cria embedding com a chave de API da própria marca. Null em falha. */
+export async function embedText(
+  supabase: SupabaseClient,
+  brandId: string,
+  text: string,
+): Promise<number[] | null> {
+  const { embedTextWithBrandKey } = await import("@/lib/ai-provider.server");
+  return embedTextWithBrandKey(supabase, brandId, text);
 }
 
 /** Resumo curto legível para busca semântica. */
@@ -73,7 +53,7 @@ export async function embedEventNow(
   brandId: string,
   summary: string,
 ) {
-  const vec = await embedText(summary);
+  const vec = await embedText(supabaseAdmin, brandId, summary);
   if (!vec) return;
   await supabaseAdmin.from("brain_embeddings").insert({
     brand_id: brandId,

@@ -4,7 +4,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { generateText } from "ai";
-import { createLovableAiGatewayProvider } from "../../ai-gateway.server";
+import { getBrandAiModel } from "../../ai-provider.server";
 
 const Input = z.object({ brandId: z.string().uuid().nullable().optional() });
 
@@ -16,8 +16,6 @@ const Input = z.object({ brandId: z.string().uuid().nullable().optional() });
 export const brainConsolidateFn = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => Input.parse(i ?? {}))
   .handler(async ({ data }) => {
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) return { ok: false as const, reason: "missing_key" };
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const targetBrands: string[] = [];
@@ -34,7 +32,6 @@ export const brainConsolidateFn = createServerFn({ method: "POST" })
       set.forEach((id) => targetBrands.push(id));
     }
 
-    const gateway = createLovableAiGatewayProvider(key);
     let produced = 0;
 
     for (const brandId of targetBrands) {
