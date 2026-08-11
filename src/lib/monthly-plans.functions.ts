@@ -1,8 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { getBrandAiModel } from "@/lib/ai-provider.server";
 import { brain, type BrainContext } from "@/lib/brain/api";
 import { loadBriefingContext } from "@/lib/monthly-plan-context.server";
 import { loadStrategyContext } from "@/lib/monthly-plan-strategy.server";
@@ -138,16 +136,6 @@ const AiPlanSchema = z.object({
     .min(4)
     .max(60),
 });
-
-function tryParseFallback(text: string | undefined) {
-  if (!text) return null;
-  try {
-    const m = text.match(/\{[\s\S]*\}/);
-    return JSON.parse(m ? m[0] : text);
-  } catch {
-    return null;
-  }
-}
 
 export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
