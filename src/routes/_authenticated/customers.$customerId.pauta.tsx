@@ -6,10 +6,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
+  Check,
+  Link as LinkIcon,
   Loader2,
   Plus,
+  RefreshCw,
+  Send,
   Sparkles,
   Trash2,
+  Undo2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -29,16 +34,29 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { describeError } from "@/lib/errors";
 import {
+  PLAN_CHANNELS,
+  PLAN_CHANNEL_LABEL as CHANNEL_LABEL,
+  PLAN_FORMATS,
+} from "@/lib/monthly-plan-fields";
+import {
   approveMonthlyPlanFn,
   createTopicFn,
   deleteTopicFn,
   discardMonthlyPlanFn,
   generateMonthlyPlanFn,
   getMonthlyPlanFn,
+  getPlanClientLinkFn,
+  getPlanVolumetryFn,
   listBriefingsForPlanFn,
   listMonthlyPlansFn,
+  regenerateTopicFn,
+  setTopicDecisionFn,
+  submitPlanToClientFn,
+  undoTopicRegenerationFn,
   updateMonthlyPlanFn,
   updateTopicFn,
+  type MonthlyPlanListItem,
+  type MonthlyPlanStatus,
   type MonthlyPlanTopic,
   type MonthlyPlanWithTopics,
 } from "@/lib/monthly-plans.functions";
