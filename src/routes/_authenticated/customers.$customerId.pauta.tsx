@@ -127,19 +127,35 @@ const LOADING_MESSAGES = [
   "Finalizando a pauta…",
 ];
 
-export function MonthlyPlanView({ brandId, clientId }: { brandId: string; clientId: string }) {
+export function MonthlyPlanView({
+  brandId,
+  clientId,
+  planId: planIdProp,
+  onSelectPlan,
+}: {
+  brandId: string;
+  clientId: string;
+  planId?: string | null;
+  onSelectPlan?: (id: string | null) => void;
+}) {
   // Route-agnostic: this view is mounted from both
-  // /_authenticated/customers/$customerId/pauta and /_authenticated/monthly-plan
+  // /_authenticated/customers/$customerId/pauta and /_authenticated/monthly-plan/*
   const rawSearch = useSearch({ strict: false }) as { planId?: string };
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const planId = rawSearch.planId ?? null;
-  const setPlanId = (id: string | null) =>
+  const planId = onSelectPlan ? (planIdProp ?? null) : (rawSearch.planId ?? null);
+  const setPlanId = (id: string | null) => {
+    if (onSelectPlan) {
+      onSelectPlan(id);
+      return;
+    }
     navigate({
       to: pathname,
       search: id ? { planId: id } : {},
       replace: true,
     });
+  };
+
   const [theme, setTheme] = useState("");
   const [briefingId, setBriefingId] = useState<string>("__none");
 
