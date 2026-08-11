@@ -1,25 +1,47 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { waitUntil } from "@/lib/wait-until.server";
 import { createClient } from "@supabase/supabase-js";
-import { generateText, NoObjectGeneratedError, Output } from "ai";
+import { streamText } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import { getBrandAiModelAdmin } from "@/lib/ai-provider.server";
 
-// Two-phase pipeline — Phase 1 (Idea Generation).
-// Runs briefing → voice → personas → cohorts → SWOT → pauta suggestion,
-// then injects each pauta as a `posts` row at stage "idea" with
-// review_status='pending'. Executes fully in background; the HTTP handler
-// returns 202 immediately with the ai_jobs id so the UI can navigate away.
+// Two-phase pipeline — Phase 1 (Strategy).
+// Executa briefing → voz → personas → cohorts → SWOT, mas UMA etapa por
+// requisição HTTP: ao terminar a etapa, o runner agenda a próxima chamando
+// esta mesma rota. Isso mantém cada execução de fundo curta (o isolate do
+// Worker era encerrado no meio quando as 5 chamadas rodavam na mesma
+// execução, e o reaper de 5 min marcava o job como "timeout").
 
-const BodySchema = z.object({
+const StartSchema = z.object({
   brandId: z.string().uuid(),
   clientId: z.string().uuid(),
   // `texto` é opcional: o backend compõe o briefing a partir de
-  // `clients` + `clients.brand_hub`. Quando enviado, é anexado como
-  // "Notas adicionais do usuário" ao final — nunca substitui.
+  // `clients` + `clients.brand_hub` + documentos analisados. Quando enviado,
+  // é anexado como "Notas adicionais do usuário" — nunca substitui.
   texto: z.string().trim().max(20000).optional(),
 });
+
+const STEPS = ["briefing", "voice", "personas", "cohorts", "swot"] as const;
+type Step = (typeof STEPS)[number];
+
+const ContinueSchema = z.object({
+  jobId: z.string().uuid(),
+  step: z.enum(STEPS),
+});
+
+const STEP_META: Record<Step, { label: string; progress: number }> = {
+  briefing: { label: "Estruturando briefing", progress: 5 },
+  voice: { label: "Modelando a voz da marca", progress: 25 },
+  personas: { label: "Desenhando personas", progress: 45 },
+  cohorts: { label: "Construindo cohorts", progress: 65 },
+  swot: { label: "Analisando SWOT", progress: 85 },
+};
+
+function nextStep(step: Step): Step | null {
+  const i = STEPS.indexOf(step);
+  return i >= 0 && i < STEPS.length - 1 ? STEPS[i + 1]! : null;
+}
 
 function buildUserClient(token: string) {
   const url = process.env.SUPABASE_URL!;
@@ -31,9 +53,8 @@ function buildUserClient(token: string) {
 }
 
 // ---------- Server-side briefing composition ----------
-// Reads clients + clients.brand_hub and assembles the raw briefing that will
-// feed the pipeline. Front-end no longer sends free-form text (the free-form
-// `texto` field is accepted only as an optional complement).
+// Reads clients + clients.brand_hub + documentos analisados e monta o
+// briefing bruto que alimenta o pipeline.
 type ClientRow = {
   name: string | null;
   niche: string | null;
@@ -46,23 +67,57 @@ type ClientRow = {
   brand_hub: Record<string, unknown> | null;
 };
 
-function composeBriefingFromRecord(row: ClientRow, extraNotes?: string): string {
+export type BriefingSources = {
+  identidade: boolean;
+  produto: boolean;
+  publico: boolean;
+  concorrentes: boolean;
+  estetica: boolean;
+  metas: boolean;
+  documentos: boolean;
+};
+
+function composeBriefingFromRecord(
+  row: ClientRow,
+  opts: {
+    extraNotes?: string;
+    documents?: Array<{ name: string | null; summary: unknown }>;
+    priorBriefingData?: Record<string, unknown> | null;
+  } = {},
+): { text: string; sources: BriefingSources } {
   const lines: string[] = [];
-  const push = (label: string, value: unknown) => {
+  const sources: BriefingSources = {
+    identidade: false,
+    produto: false,
+    publico: false,
+    concorrentes: false,
+    estetica: false,
+    metas: false,
+    documentos: false,
+  };
+  const push = (label: string, value: unknown, block?: keyof BriefingSources) => {
+    const mark = () => {
+      if (block) sources[block] = true;
+    };
     if (value == null) return;
     if (Array.isArray(value)) {
       const arr = value.map((v) => (typeof v === "string" ? v.trim() : v)).filter(Boolean);
       if (arr.length === 0) return;
       lines.push(`${label}: ${arr.join(", ")}`);
+      mark();
       return;
     }
     if (typeof value === "string") {
       const t = value.trim();
-      if (t) lines.push(`${label}: ${t}`);
+      if (t) {
+        lines.push(`${label}: ${t}`);
+        mark();
+      }
       return;
     }
     if (typeof value === "number") {
       lines.push(`${label}: ${value}`);
+      mark();
     }
   };
 
@@ -70,52 +125,56 @@ function composeBriefingFromRecord(row: ClientRow, extraNotes?: string): string 
   const socials = (row.socials ?? {}) as Record<string, string | null | undefined>;
 
   // Identidade
-  push("Marca", row.name);
-  push("Nicho", row.niche);
-  push("Cor da marca", row.color);
-  push("Tom de voz", (hub.tone_text as string | undefined) ?? row.tone_of_voice);
-  push("Missão", hub.mission);
-  push("Posicionamento", hub.positioning);
-  push("Valores", hub.values);
+  push("Marca", row.name, "identidade");
+  push("Nicho", row.niche, "identidade");
+  push("Cor da marca", row.color, "estetica");
+  push("Tom de voz", (hub.tone_text as string | undefined) ?? row.tone_of_voice, "identidade");
+  push("Missão", hub.mission, "identidade");
+  push("Posicionamento", hub.positioning, "identidade");
+  push("Valores", hub.values, "identidade");
 
   // Produto
-  push("Oferta / produtos", hub.offer);
-  push("Faixa de preço", hub.price_range);
-  push("Diferenciais", hub.differentials);
-  push("Objeções", hub.objections);
+  push("Oferta / produtos", hub.offer, "produto");
+  push("Faixa de preço", hub.price_range, "produto");
+  push("Diferenciais", hub.differentials, "produto");
+  push("Objeções", hub.objections, "produto");
 
   // Público
-  push("Público", hub.audience);
-  push("Jornada", hub.journey);
-  push("Dores", hub.pain_points);
-  push("Desejos", hub.desires);
+  push("Público", hub.audience, "publico");
+  push("Jornada", hub.journey, "publico");
+  push("Dores", hub.pain_points, "publico");
+  push("Desejos", hub.desires, "publico");
 
   // Concorrentes / inspirações
   const competitors = Array.isArray(hub.competitors) ? (hub.competitors as Array<Record<string, unknown>>) : [];
   const compHandles = competitors.map((c) => (typeof c.handle === "string" ? c.handle : "")).filter(Boolean);
-  push("Concorrentes / referências", compHandles);
-  push("Inspirações", hub.inspirations as unknown);
+  push("Concorrentes / referências", compHandles, "concorrentes");
+  push("Inspirações", hub.inspirations as unknown, "concorrentes");
 
   // Estética
   const palette = Array.isArray(hub.palette) ? (hub.palette as Array<Record<string, unknown>>) : [];
-  const paletteHex = palette
-    .map((p) => (typeof p.hex === "string" ? p.hex : ""))
-    .filter(Boolean);
-  push("Paleta", paletteHex);
-  const hashtags = (hub.hashtags as unknown) as string[] | undefined;
-  push("Hashtags", hashtags?.map((h) => (h.startsWith("#") ? h : `#${h}`)));
+  const paletteHex = palette.map((p) => (typeof p.hex === "string" ? p.hex : "")).filter(Boolean);
+  push("Paleta", paletteHex, "estetica");
+  const hashtags = hub.hashtags as string[] | undefined;
+  push("Hashtags", hashtags?.map((h) => (h.startsWith("#") ? h : `#${h}`)), "estetica");
   const doDont = (hub.do_dont ?? {}) as { do?: string; dont?: string };
-  push("Do", doDont.do);
-  push("Don't", doDont.dont);
+  push("Do", doDont.do, "estetica");
+  push("Don't", doDont.dont, "estetica");
 
-  // Volumetria & metas
+  // Volumetria, formatos & metas
   const vol = (hub.volumetry ?? {}) as Record<string, number | undefined>;
   const volStr = Object.entries(vol)
     .filter(([, n]) => typeof n === "number" && (n as number) > 0)
     .map(([k, n]) => `${k}: ${n}/sem`)
     .join(", ");
-  push("Volumetria semanal", volStr);
-  push("Metas", hub.goals);
+  push("Volumetria semanal", volStr, "metas");
+  const formats = (hub.formats ?? {}) as Record<string, string[] | undefined>;
+  const formatsStr = Object.entries(formats)
+    .filter(([, v]) => Array.isArray(v) && v.length > 0)
+    .map(([k, v]) => `${k}: ${(v as string[]).join("/")}`)
+    .join("; ");
+  push("Formatos por rede", formatsStr, "metas");
+  push("Metas", hub.goals, "metas");
 
   // Contato + canais reais capturados no cadastro
   push("Contato principal", [row.contact_name, row.contact_email].filter(Boolean).join(" · "));
@@ -124,18 +183,40 @@ function composeBriefingFromRecord(row: ClientRow, extraNotes?: string): string 
     .map(([k, v]) => `${k}: ${v}`);
   push("Canais sociais informados", socialLinks);
 
+  // Contexto acumulado de briefings anteriores (inclui o que foi aplicado a
+  // partir de documentos via "Documentos & Contexto IA").
+  const prior = opts.priorBriefingData ?? null;
+  if (prior && Object.keys(prior).length > 0) {
+    const priorLines = Object.entries(prior)
+      .filter(([, v]) => v != null && (Array.isArray(v) ? v.length > 0 : String(v).trim().length > 0))
+      .map(([k, v]) => `- ${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`)
+      .slice(0, 40);
+    if (priorLines.length) {
+      lines.push("", "Contexto consolidado do briefing (inclui documentos aplicados):", ...priorLines);
+      sources.documentos = true;
+    }
+  }
+
+  // Resumos de documentos analisados pela IA.
+  const docs = (opts.documents ?? []).filter((d) => d.summary != null);
+  if (docs.length) {
+    lines.push("", "Documentos analisados pela IA:");
+    for (const d of docs.slice(0, 8)) {
+      const raw = JSON.stringify(d.summary);
+      lines.push(`- ${d.name ?? "documento"}: ${raw.slice(0, 1500)}`);
+    }
+    sources.documentos = true;
+  }
+
   const base = lines.join("\n");
-  const notes = (extraNotes ?? "").trim();
-  if (notes) return `${base}\n\nNotas adicionais do usuário:\n${notes}`;
-  return base;
+  const notes = (opts.extraNotes ?? "").trim();
+  const text = notes ? `${base}\n\nNotas adicionais do usuário:\n${notes}` : base;
+  return { text, sources };
 }
 
-// Modelos de geração atual — os prior-gen 2.5-pro/2.5-flash batiam no teto
-// de subrequest do Cloudflare Worker (~30s) e causavam cancelamento HTTP 499.
-
-// Falha rápido em vez de esperar o reaper de 5min. 60s cobre com folga o
-// tempo típico das chamadas atuais e ainda deixa headroom no Worker.
-const LLM_TIMEOUT_MS = 60_000;
+// Trava por etapa. Cada etapa roda sozinha na requisição, então 90s é
+// suficiente e ainda falha antes do reaper de 5 min.
+const LLM_TIMEOUT_MS = 90_000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -209,51 +290,70 @@ const SwotSchema = z.object({
 });
 // Pauta generation moved to /api/jobs/generate-ideas — Phase 2, human-gated.
 
-async function runStructured<T extends z.ZodTypeAny>(opts: {
+function parseJsonLoose(raw: string): unknown {
+  const cleaned = raw
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    const start = cleaned.search(/[[{]/);
+    const end = Math.max(cleaned.lastIndexOf("}"), cleaned.lastIndexOf("]"));
+    if (start >= 0 && end > start) {
+      return JSON.parse(cleaned.slice(start, end + 1));
+    }
+    throw new Error("A IA não retornou JSON válido.");
+  }
+}
+
+/**
+ * Chamada em streaming consumida no servidor: mantém bytes fluindo (evita
+ * corte por inatividade) e devolve o JSON já parseado, sem exigir suporte a
+ * structured output do provedor.
+ */
+async function runJson(opts: {
   system: string;
   prompt: string;
-  schema: T;
   strategic: boolean;
   brandId: string;
-}): Promise<z.infer<T>> {
-  const { model } = await getBrandAiModelAdmin(
+}): Promise<{ value: unknown; provider: string; modelId: string }> {
+  const { provider, modelId, model } = await getBrandAiModelAdmin(
     opts.brandId,
     "text",
     opts.strategic ? "strategic" : "operational",
   );
+
+  const run = async () => {
+    const result = streamText({
+      model,
+      system: opts.system,
+      prompt: opts.prompt,
+    });
+    return await result.text;
+  };
+
+  let text: string;
   try {
-    const res = await withTimeout(
-      generateText({
-        model,
-        system: opts.system,
-        prompt: opts.prompt,
-        output: Output.object({ schema: opts.schema }),
-      }),
-      LLM_TIMEOUT_MS,
-      opts.strategic ? "strategic" : "operational",
-    );
-    return res.output as z.infer<T>;
+    text = await withTimeout(run(), LLM_TIMEOUT_MS, opts.strategic ? "strategic" : "operational");
   } catch (err) {
-    if (NoObjectGeneratedError.isInstance(err)) {
-      const raw = (err.text ?? "")
-        .replace(/^```(?:json)?\s*/i, "")
-        .replace(/```\s*$/i, "")
-        .trim();
-      return JSON.parse(raw) as z.infer<T>;
-    }
-    throw err;
+    // Uma nova tentativa cobre instabilidade momentânea do provedor.
+    console.warn("[customer-pipeline] retry após falha:", err instanceof Error ? err.message : err);
+    text = await withTimeout(run(), LLM_TIMEOUT_MS, opts.strategic ? "strategic (retry)" : "operational (retry)");
   }
+
+  return { value: parseJsonLoose(text), provider, modelId };
 }
 
 const P = {
   briefing:
-    "Você é um estrategista de marketing sênior. Estruture o briefing bruto em JSON limpo. Nunca invente informação. Responda SOMENTE JSON.",
+    "Você é um estrategista de marketing sênior. Estruture o briefing bruto em JSON limpo. Nunca invente informação. Responda SOMENTE JSON, sem markdown, com as chaves: publico_alvo, tom_de_voz, dores_do_cliente_final[], diferenciais[], hashtags_sugeridas[], concorrentes_mencionados[], volume_semanal_estimado (número ou null), completude_percentual (0-100).",
   voice:
     "Você é um redator sênior. A partir do briefing estruturado, gere um Voice Card. Use EXATAMENTE as chaves do schema em inglês: voice_card.brand_personality, tone_characteristics, vocabulary_rules.words_to_use, vocabulary_rules.words_to_avoid, brand_phrases_examples. Não traduza nomes de campos. Responda SOMENTE JSON.",
   personas:
-    "Você é um estrategista sênior. Gere 3–5 personas acionáveis a partir do briefing. Use EXATAMENTE as chaves do schema em inglês/português combinado: personas[] com nome, descricao, dores, desejos, canais_preferidos, gatilhos_de_decisao, objecoes_comuns. Não use nome_persona nem biografia. Responda SOMENTE JSON.",
+    "Você é um estrategista sênior. Gere 3–5 personas acionáveis a partir do briefing. Use EXATAMENTE as chaves: personas[] com nome, descricao, dores, desejos, canais_preferidos, gatilhos_de_decisao, objecoes_comuns. Não use nome_persona nem biografia. Responda SOMENTE JSON.",
   cohorts:
-    "Você é estrategista sênior. Gere 3–5 cohorts comportamentais. Use EXATAMENTE as chaves do schema em inglês: cohorts[] com name, target_personas, behavioral_traits, content_strategy, conversion_criteria. Não traduza chaves. Responda SOMENTE JSON.",
+    "Você é estrategista sênior. Gere 3–5 cohorts comportamentais. Use EXATAMENTE as chaves em inglês: cohorts[] com name, target_personas, behavioral_traits, content_strategy, conversion_criteria. Não traduza chaves. Responda SOMENTE JSON.",
   swot:
     "Você é estrategista sênior. Gere SWOT + matriz competitiva. Use EXATAMENTE as chaves em inglês: swot_analysis.strengths, weaknesses, opportunities, threats; competitive_matrix[] com competitor_name, our_advantages, vulnerabilities. Não traduza chaves. Responda SOMENTE JSON.",
 };
@@ -265,6 +365,25 @@ const P = {
 type AnyRec = Record<string, unknown>;
 const asStr = (v: unknown, d = ""): string => (typeof v === "string" ? v : d);
 const asArr = (v: unknown): string[] => (Array.isArray(v) ? (v as string[]).filter((x) => typeof x === "string") : []);
+const asNum = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+function normalizeBriefingPayload(raw: unknown): z.infer<typeof BriefingSchema> {
+  const r = (raw ?? {}) as AnyRec;
+  return {
+    publico_alvo: asStr(r.publico_alvo) || asStr(r.publico) || null,
+    tom_de_voz: asStr(r.tom_de_voz) || asStr(r.tone_of_voice) || null,
+    dores_do_cliente_final: asArr(r.dores_do_cliente_final).length
+      ? asArr(r.dores_do_cliente_final)
+      : asArr(r.dores),
+    diferenciais: asArr(r.diferenciais),
+    hashtags_sugeridas: asArr(r.hashtags_sugeridas).length ? asArr(r.hashtags_sugeridas) : asArr(r.hashtags),
+    concorrentes_mencionados: asArr(r.concorrentes_mencionados).length
+      ? asArr(r.concorrentes_mencionados)
+      : asArr(r.concorrentes),
+    volume_semanal_estimado: asNum(r.volume_semanal_estimado),
+    completude_percentual: asNum(r.completude_percentual) ?? 0,
+  };
+}
 
 function normalizeVoicePayload(raw: unknown): z.infer<typeof VoiceSchema> {
   const r = (raw ?? {}) as AnyRec;
@@ -375,149 +494,203 @@ function normalizeSwotPayload(raw: unknown): z.infer<typeof SwotSchema> {
   };
 }
 
-async function runPhase1(params: {
+// ---------------- Step runner ----------------
+
+type JobState = {
+  brandId: string;
+  clientId: string;
+  texto: string;
+  sources?: BriefingSources;
+  briefing?: z.infer<typeof BriefingSchema>;
+  voice?: z.infer<typeof VoiceSchema>;
+  personas?: z.infer<typeof PersonasSchema>;
+  cohorts?: z.infer<typeof CohortsSchema>;
+  models?: Record<string, string>;
+};
+
+/** Resumo compacto para os prompts seguintes — evita reenviar JSON inteiro. */
+function compactPersonas(p: z.infer<typeof PersonasSchema>): string {
+  return p.personas
+    .map((x) => `${x.nome}: ${x.descricao.slice(0, 180)} | dores: ${x.dores.slice(0, 3).join(", ")}`)
+    .join("\n");
+}
+function compactCohorts(c: z.infer<typeof CohortsSchema>): string {
+  return c.cohorts.map((x) => `${x.name}: ${x.behavioral_traits.slice(0, 160)}`).join("\n");
+}
+
+async function replaceActive(
+  supabase: ReturnType<typeof buildUserClient>,
+  table: "brand_voice_cards" | "brand_personas" | "brand_cohorts" | "brand_swot",
+  state: JobState,
+  userId: string,
+  data: unknown,
+) {
+  await supabase
+    .from(table)
+    .update({ is_active: false })
+    .eq("brand_id", state.brandId)
+    .eq("client_id", state.clientId)
+    .eq("is_active", true);
+  const { error } = await supabase.from(table).insert({
+    brand_id: state.brandId,
+    client_id: state.clientId,
+    data: data as never,
+    created_by: userId,
+  });
+  if (error) throw new Error(error.message);
+}
+
+async function runStep(params: {
   jobId: string;
+  step: Step;
   token: string;
   userId: string;
-  input: z.infer<typeof BodySchema> & { texto: string };
+  baseUrl: string;
 }) {
-  const { jobId, token, userId, input } = params;
+  const { jobId, step, token, userId, baseUrl } = params;
   const supabase = buildUserClient(token);
   const patch = (fields: Partial<Database["public"]["Tables"]["ai_jobs"]["Update"]>) =>
     supabase.from("ai_jobs").update(fields).eq("id", jobId);
 
+  // Heartbeat: mantém updated_at fresco para o reaper de 5 min não derrubar
+  // um job que está apenas esperando o provedor.
+  const beat = setInterval(() => {
+    void patch({ updated_at: new Date().toISOString() });
+  }, 20_000);
+
   try {
-    await patch({ status: "running", started_at: new Date().toISOString(), progress: 5, step_label: "Estruturando briefing" });
+    const { data: jobRow, error: jobErr } = await supabase
+      .from("ai_jobs")
+      .select("input, status")
+      .eq("id", jobId)
+      .maybeSingle();
+    if (jobErr) throw new Error(jobErr.message);
+    if (!jobRow) throw new Error("Job não encontrado");
+    const state = (jobRow.input ?? {}) as unknown as JobState;
+    if (!state.brandId || !state.clientId) throw new Error("Estado do job inválido");
 
-    const briefing = await runStructured({
-      system: P.briefing,
-      prompt: `Texto bruto do briefing:\n"""\n${input.texto}\n"""`,
-      schema: BriefingSchema,
-      strategic: false,
-      brandId: input.brandId,
-    });
-    await supabase.from("brand_briefings").insert({
-      brand_id: input.brandId,
-      client_id: input.clientId,
-      raw_text: input.texto,
-      data: briefing,
-      completude: briefing.completude_percentual ?? 0,
-      created_by: userId,
+    const meta = STEP_META[step];
+    await patch({
+      status: "running",
+      ...(step === "briefing" ? { started_at: new Date().toISOString() } : {}),
+      progress: meta.progress,
+      step_label: meta.label,
     });
 
-    // Voice + Personas run in parallel (both depend only on the briefing).
-    await patch({ progress: 20, step_label: "Modelando voz e personas" });
-    const settled = await Promise.allSettled([
-      runStructured({
+    const briefingJson = () => JSON.stringify(state.briefing ?? {}, null, 2);
+    const models = { ...(state.models ?? {}) };
+
+    if (step === "briefing") {
+      const { value, provider, modelId } = await runJson({
+        system: P.briefing,
+        prompt: `Texto bruto do briefing:\n"""\n${state.texto}\n"""`,
+        strategic: false,
+        brandId: state.brandId,
+      });
+      const briefing = normalizeBriefingPayload(value);
+      models[step] = `${provider}:${modelId}`;
+      state.briefing = briefing;
+
+      // Mescla com o briefing existente (preserva o que veio de documentos).
+      const { data: existing } = await supabase
+        .from("brand_briefings")
+        .select("id, data")
+        .eq("brand_id", state.brandId)
+        .eq("client_id", state.clientId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const merged = { ...((existing?.data as Record<string, unknown>) ?? {}), ...briefing };
+      if (existing?.id) {
+        await supabase
+          .from("brand_briefings")
+          .update({
+            data: merged as never,
+            raw_text: state.texto,
+            completude: briefing.completude_percentual ?? 0,
+          })
+          .eq("id", existing.id);
+      } else {
+        await supabase.from("brand_briefings").insert({
+          brand_id: state.brandId,
+          client_id: state.clientId,
+          raw_text: state.texto,
+          data: merged as never,
+          completude: briefing.completude_percentual ?? 0,
+          created_by: userId,
+        });
+      }
+    } else if (step === "voice") {
+      const { value, provider, modelId } = await runJson({
         system: P.voice,
-        prompt: `Briefing estruturado:\n${JSON.stringify(briefing, null, 2)}`,
-        schema: VoiceSchema,
+        prompt: `Briefing estruturado:\n${briefingJson()}`,
         strategic: true,
-        brandId: input.brandId,
-      }),
-      runStructured({
+        brandId: state.brandId,
+      });
+      const voice = normalizeVoicePayload(value);
+      models[step] = `${provider}:${modelId}`;
+      state.voice = voice;
+      await replaceActive(supabase, "brand_voice_cards", state, userId, voice);
+    } else if (step === "personas") {
+      const { value, provider, modelId } = await runJson({
         system: P.personas,
-        prompt: `Briefing:\n${JSON.stringify(briefing, null, 2)}`,
-        schema: PersonasSchema,
+        prompt: `Briefing:\n${briefingJson()}`,
         strategic: true,
-        brandId: input.brandId,
-      }),
-    ]);
-    if (settled[0].status === "rejected") {
-      throw new Error(`Falha ao gerar voz: ${(settled[0].reason as Error)?.message ?? settled[0].reason}`);
+        brandId: state.brandId,
+      });
+      const personas = normalizePersonasPayload(value);
+      if (!personas.personas.length) throw new Error("Nenhuma persona gerada — tente novamente.");
+      models[step] = `${provider}:${modelId}`;
+      state.personas = personas;
+      await replaceActive(supabase, "brand_personas", state, userId, personas);
+    } else if (step === "cohorts") {
+      const { value, provider, modelId } = await runJson({
+        system: P.cohorts,
+        prompt: `Briefing:\n${briefingJson()}\n\nPersonas:\n${compactPersonas(state.personas ?? { personas: [] })}`,
+        strategic: true,
+        brandId: state.brandId,
+      });
+      const cohorts = normalizeCohortsPayload(value);
+      models[step] = `${provider}:${modelId}`;
+      state.cohorts = cohorts;
+      await replaceActive(supabase, "brand_cohorts", state, userId, cohorts);
+    } else {
+      const { value, provider, modelId } = await runJson({
+        system: P.swot,
+        prompt: [
+          `Briefing:\n${briefingJson()}`,
+          `Personas:\n${compactPersonas(state.personas ?? { personas: [] })}`,
+          `Cohorts:\n${compactCohorts(state.cohorts ?? { cohorts: [] })}`,
+        ].join("\n\n"),
+        strategic: true,
+        brandId: state.brandId,
+      });
+      const swot = normalizeSwotPayload(value);
+      models[step] = `${provider}:${modelId}`;
+      await replaceActive(supabase, "brand_swot", state, userId, swot);
     }
-    if (settled[1].status === "rejected") {
-      throw new Error(`Falha ao gerar personas: ${(settled[1].reason as Error)?.message ?? settled[1].reason}`);
+
+    state.models = models;
+    await patch({ input: state as never });
+
+    const next = nextStep(step);
+    if (next) {
+      await patch({ progress: STEP_META[next].progress, step_label: STEP_META[next].label });
+      clearInterval(beat);
+      await scheduleStep({ baseUrl, token, jobId, step: next });
+      return;
     }
-    const voiceRaw = settled[0].value;
-    const personasRaw = settled[1].value;
-    const voice = normalizeVoicePayload(voiceRaw);
-    const personas = normalizePersonasPayload(personasRaw);
-    if (!personas.personas.length) throw new Error("Nenhuma persona gerada — tente novamente.");
 
-    await supabase
-      .from("brand_voice_cards")
-      .update({ is_active: false })
-      .eq("brand_id", input.brandId)
-      .eq("client_id", input.clientId)
-      .eq("is_active", true);
-    await supabase.from("brand_voice_cards").insert({
-      brand_id: input.brandId,
-      client_id: input.clientId,
-      data: voice,
-      created_by: userId,
-    });
-    await supabase
-      .from("brand_personas")
-      .update({ is_active: false })
-      .eq("brand_id", input.brandId)
-      .eq("client_id", input.clientId)
-      .eq("is_active", true);
-    await supabase.from("brand_personas").insert({
-      brand_id: input.brandId,
-      client_id: input.clientId,
-      data: personas,
-      created_by: userId,
-    });
-
-    await patch({ progress: 55, step_label: "Construindo cohorts" });
-    const cohortsRaw = await runStructured({
-      system: P.cohorts,
-      prompt: `Briefing:\n${JSON.stringify(briefing, null, 2)}\n\nPersonas:\n${JSON.stringify(personas, null, 2)}`,
-      schema: CohortsSchema,
-      strategic: true,
-      brandId: input.brandId,
-    });
-    const cohorts = normalizeCohortsPayload(cohortsRaw);
-    await supabase
-      .from("brand_cohorts")
-      .update({ is_active: false })
-      .eq("brand_id", input.brandId)
-      .eq("client_id", input.clientId)
-      .eq("is_active", true);
-    await supabase.from("brand_cohorts").insert({
-      brand_id: input.brandId,
-      client_id: input.clientId,
-      data: cohorts,
-      created_by: userId,
-    });
-
-    await patch({ progress: 70, step_label: "Analisando SWOT" });
-    const swotRaw = await runStructured({
-      system: P.swot,
-      prompt: [
-        `Briefing:\n${JSON.stringify(briefing, null, 2)}`,
-        `Personas:\n${JSON.stringify(personas, null, 2)}`,
-        `Cohorts:\n${JSON.stringify(cohorts, null, 2)}`,
-      ].join("\n\n"),
-      schema: SwotSchema,
-      strategic: true,
-      brandId: input.brandId,
-    });
-    const swot = normalizeSwotPayload(swotRaw);
-    await supabase
-      .from("brand_swot")
-      .update({ is_active: false })
-      .eq("brand_id", input.brandId)
-      .eq("client_id", input.clientId)
-      .eq("is_active", true);
-    await supabase.from("brand_swot").insert({
-      brand_id: input.brandId,
-      client_id: input.clientId,
-      data: swot,
-      created_by: userId,
-    });
-
-    // Strategy is done. Notify the user so they can review before generating ideas.
-    const reviewRoute = `/customers/${input.clientId}/briefing`;
+    // Última etapa concluída — avisa o usuário para revisar.
+    const reviewRoute = `/customers/${state.clientId}/briefing`;
     const { error: notifErr } = await supabase.from("notifications").insert({
       user_id: userId,
-      brand_id: input.brandId,
+      brand_id: state.brandId,
       kind: "system",
       title: "Estratégia gerada — revise antes de criar ideias",
       body: "Voice card, personas, cohorts e SWOT prontos. Confira, ajuste e depois clique em Gerar ideias.",
       href: reviewRoute,
-      payload: { event: "strategy_ready", client_id: input.clientId },
+      payload: { event: "strategy_ready", client_id: state.clientId },
     });
     if (notifErr) console.warn("[notifications] insert failed", notifErr);
 
@@ -530,16 +703,61 @@ async function runPhase1(params: {
       result: {
         title: "Estratégia pronta para revisão",
         content: "Revise voice, personas, cohorts e SWOT. Depois clique em Gerar ideias.",
+        sources: state.sources ?? null,
+        models: state.models ?? null,
       } as never,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const raw = err instanceof Error ? err.message : String(err);
+    const message = raw.startsWith("ai_provider_not_configured")
+      ? "Nenhuma IA configurada para esta marca. Cadastre uma chave em Conexões."
+      : raw.startsWith("ai_provider_key_missing")
+        ? "A chave do provedor de IA não foi encontrada. Reconfigure em Conexões."
+        : raw.startsWith("ai_model_unavailable")
+          ? "O provedor selecionado não oferece um modelo para esta etapa. Troque o provedor em Conexões."
+          : `Falha na etapa "${STEP_META[step].label}": ${raw}`;
     await patch({
       status: "failed",
       error: message,
       finished_at: new Date().toISOString(),
       step_label: null,
     });
+  } finally {
+    clearInterval(beat);
+  }
+}
+
+/** Agenda a próxima etapa como uma nova requisição a esta mesma rota. */
+async function scheduleStep(opts: {
+  baseUrl: string;
+  token: string;
+  jobId: string;
+  step: Step;
+}) {
+  try {
+    const res = await fetch(`${opts.baseUrl}/api/jobs/customer-pipeline`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${opts.token}`,
+      },
+      body: JSON.stringify({ jobId: opts.jobId, step: opts.step }),
+    });
+    if (!res.ok) throw new Error(`${res.status} ${await res.text().catch(() => "")}`);
+  } catch (err) {
+    console.error("[customer-pipeline] falha ao agendar etapa", opts.step, err);
+    // Marca o job como falho para o usuário poder reexecutar em vez de
+    // esperar o reaper.
+    const supabase = buildUserClient(opts.token);
+    await supabase
+      .from("ai_jobs")
+      .update({
+        status: "failed",
+        error: `Não foi possível continuar na etapa "${STEP_META[opts.step].label}".`,
+        finished_at: new Date().toISOString(),
+        step_label: null,
+      })
+      .eq("id", opts.jobId);
   }
 }
 
@@ -553,39 +771,92 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
         if (token.split(".").length !== 3) return new Response("Unauthorized", { status: 401 });
 
         const raw = await request.json().catch(() => null);
-        const parsed = BodySchema.safeParse(raw);
-        if (!parsed.success) {
-          return new Response(JSON.stringify(parsed.error.format()), { status: 400 });
-        }
-        const input = parsed.data;
+        const baseUrl = new URL(request.url).origin;
 
         const supabase = buildUserClient(token);
         const { data: claims } = await supabase.auth.getClaims(token);
         const userId = claims?.claims?.sub;
         if (!userId) return new Response("Unauthorized", { status: 401 });
 
-        // Fonte de verdade: dados do cadastro + Cérebro da Marca.
-        const { data: clientRow, error: clientErr } = await supabase
-          .from("clients")
-          .select(
-            "name, niche, color, logo_url, tone_of_voice, contact_name, contact_email, socials, brand_hub" as never,
-          )
-          .eq("id", input.clientId)
-          .maybeSingle();
-        if (clientErr || !clientRow) {
-          return new Response(
-            clientErr?.message ?? "Cliente não encontrado",
-            { status: 404 },
+        // --- Continuação de etapa (chamada interna) ---
+        const cont = ContinueSchema.safeParse(raw);
+        if (cont.success) {
+          waitUntil(
+            runStep({
+              jobId: cont.data.jobId,
+              step: cont.data.step,
+              token,
+              userId,
+              baseUrl,
+            }),
           );
+          return new Response(JSON.stringify({ jobId: cont.data.jobId, step: cont.data.step }), {
+            status: 202,
+            headers: { "Content-Type": "application/json" },
+          });
         }
-        const composed = composeBriefingFromRecord(clientRow as unknown as ClientRow, input.texto);
+
+        // --- Início do pipeline ---
+        const parsed = StartSchema.safeParse(raw);
+        if (!parsed.success) {
+          return new Response(JSON.stringify(parsed.error.format()), { status: 400 });
+        }
+        const input = parsed.data;
+
+        // Fonte de verdade: cadastro + Cérebro da Marca + documentos.
+        const [clientRes, docsRes, priorRes] = await Promise.all([
+          supabase
+            .from("clients")
+            .select(
+              "name, niche, color, logo_url, tone_of_voice, contact_name, contact_email, socials, brand_hub" as never,
+            )
+            .eq("id", input.clientId)
+            .maybeSingle(),
+          supabase
+            .from("client_documents")
+            .select("name, ai_summary")
+            .eq("brand_id", input.brandId)
+            .eq("client_id", input.clientId)
+            .not("ai_summary", "is", null)
+            .order("created_at", { ascending: false })
+            .limit(8),
+          supabase
+            .from("brand_briefings")
+            .select("data")
+            .eq("brand_id", input.brandId)
+            .eq("client_id", input.clientId)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+        ]);
+        if (clientRes.error || !clientRes.data) {
+          return new Response(clientRes.error?.message ?? "Cliente não encontrado", { status: 404 });
+        }
+
+        const documents = ((docsRes.data ?? []) as Array<{ name: string | null; ai_summary: unknown }>).map(
+          (d) => ({ name: d.name, summary: d.ai_summary }),
+        );
+        const { text: composed, sources } = composeBriefingFromRecord(
+          clientRes.data as unknown as ClientRow,
+          {
+            ...(input.texto ? { extraNotes: input.texto } : {}),
+            documents,
+            priorBriefingData: (priorRes.data?.data ?? null) as Record<string, unknown> | null,
+          },
+        );
         if (composed.length < 40) {
           return new Response(
             "Preencha ao menos Nome + Nicho e um bloco do Cérebro da Marca antes de gerar a estratégia.",
             { status: 400 },
           );
         }
-        const composedInput = { ...input, texto: composed };
+
+        const state: JobState = {
+          brandId: input.brandId,
+          clientId: input.clientId,
+          texto: composed,
+          sources,
+        };
 
         const { data: job, error: jobErr } = await supabase
           .from("ai_jobs")
@@ -598,7 +869,7 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
             subtitle: "Briefing · Voz · Personas · Cohorts · SWOT",
             status: "queued",
             progress: 0,
-            input: composedInput as unknown as Database["public"]["Tables"]["ai_jobs"]["Insert"]["input"],
+            input: state as unknown as Database["public"]["Tables"]["ai_jobs"]["Insert"]["input"],
           })
           .select("id")
           .single();
@@ -606,7 +877,9 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
           return new Response(jobErr?.message ?? "Failed to enqueue", { status: 500 });
         }
 
-        waitUntil(runPhase1({ jobId: job.id, token, userId, input: composedInput }));
+        waitUntil(
+          runStep({ jobId: job.id, step: "briefing", token, userId, baseUrl }),
+        );
 
         return new Response(JSON.stringify({ jobId: job.id }), {
           status: 202,
