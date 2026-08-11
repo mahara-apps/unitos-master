@@ -2,6 +2,8 @@ import { useMemo } from "react";
 import { useState } from "react";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useRefreshCooldown } from "@/hooks/use-refresh-cooldown";
+
 import {
   Area,
   AreaChart,
