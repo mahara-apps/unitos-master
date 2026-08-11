@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
   Area,
@@ -41,6 +41,7 @@ import {
   Play,
   Heart,
   MessageCircle,
+  RefreshCw,
 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
@@ -122,6 +123,63 @@ function fmt(n: number): string {
   return String(Math.round(n));
 }
 
+/** Mesmo TTL do cache de provider no servidor (10 min). */
+const SOCIAL_STALE_TIME_MS = 10 * 60_000;
+/** Mantém o snapshot em memória por 24h para casar com o cache persistido. */
+const SOCIAL_GC_TIME_MS = 24 * 60 * 60_000;
+
+const TIME_FMT = new Intl.DateTimeFormat("pt-BR", {
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+function FreshnessBar({
+  generatedAt,
+  refreshing,
+  onRefresh,
+  error,
+}: {
+  generatedAt: string;
+  refreshing: boolean;
+  onRefresh: () => void;
+  error: string | null;
+}) {
+  const when = new Date(generatedAt);
+  const label = Number.isNaN(when.getTime()) ? null : TIME_FMT.format(when);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+      <span className="flex items-center gap-2">
+        {refreshing ? (
+          <>
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Atualizando métricas…
+          </>
+        ) : error ? (
+          <span className="text-rose-500">
+            Falha ao atualizar — exibindo últimos dados salvos
+          </span>
+        ) : (
+          <>
+            <Activity className="h-3.5 w-3.5" />
+            Métricas em cache
+          </>
+        )}
+        {label ? <span>· dados de {label}</span> : null}
+      </span>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 gap-1.5 px-2 text-xs"
+        onClick={onRefresh}
+        disabled={refreshing}
+      >
+        <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
+        Atualizar
+      </Button>
+    </div>
+  );
+}
+
 export function SocialAnalyticsDashboard({
   brandId,
   period,
@@ -137,22 +195,39 @@ export function SocialAnalyticsDashboard({
 }) {
   const fetchFn = useServerFn(getBrandSocialDashboardFn);
   const fetchTopFn = useServerFn(getBrandSocialTopPayloadFn);
+  const queryClient = useQueryClient();
+  const baseKey = [brandId, clientId ?? "all", period, since ?? "", until ?? ""] as const;
   const q = useQuery({
-    queryKey: ["social-analytics", brandId, clientId ?? "all", period, since ?? "", until ?? ""],
+    queryKey: ["social-analytics", ...baseKey],
     queryFn: () =>
       fetchFn({ data: { brandId, period, since, until, clientId: clientId ?? undefined } }),
-    staleTime: 60_000,
+    // Mesmo TTL do cache de provider no servidor — evita chamadas redundantes
+    // à API do Meta ao navegar entre telas.
+    staleTime: SOCIAL_STALE_TIME_MS,
+    gcTime: SOCIAL_GC_TIME_MS,
+    placeholderData: keepPreviousData,
   });
   const qTop = useQuery({
-    queryKey: ["social-analytics-top", brandId, clientId ?? "all", period, since ?? "", until ?? ""],
+    queryKey: ["social-analytics-top", ...baseKey],
     queryFn: () =>
       fetchTopFn({ data: { brandId, period, since, until, clientId: clientId ?? undefined } }),
-    staleTime: 60_000,
+    staleTime: SOCIAL_STALE_TIME_MS,
+    gcTime: SOCIAL_GC_TIME_MS,
+    placeholderData: keepPreviousData,
     enabled: !!q.data && q.data.connectionsTotal > 0,
   });
 
-  if (q.isLoading) return <LoadingSkeleton />;
-  if (q.error)
+  const data = q.data;
+  const refreshing = q.isFetching || qTop.isFetching;
+
+  function handleRefresh() {
+    void queryClient.invalidateQueries({ queryKey: ["social-analytics", ...baseKey] });
+    void queryClient.invalidateQueries({ queryKey: ["social-analytics-top", ...baseKey] });
+  }
+
+  // Skeleton apenas no primeiro acesso real (sem snapshot em cache).
+  if (!data && q.isPending) return <LoadingSkeleton />;
+  if (!data && q.error)
     return (
       <Card>
         <CardContent className="p-6 text-sm text-rose-500">
@@ -160,7 +235,6 @@ export function SocialAnalyticsDashboard({
         </CardContent>
       </Card>
     );
-  const data = q.data;
   if (!data)
     return (
       <PanelEmptyState
@@ -174,7 +248,7 @@ export function SocialAnalyticsDashboard({
   }
 
   const top = qTop.data;
-  const topLoading = qTop.isLoading || qTop.isFetching;
+  const topLoading = qTop.isPending || qTop.isFetching;
   const merged: BrandSocialDashboard = top
     ? {
         ...data,
@@ -192,6 +266,12 @@ export function SocialAnalyticsDashboard({
 
   return (
     <div className="space-y-6">
+      <FreshnessBar
+        generatedAt={merged.generatedAt}
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
+        error={q.error ? (q.error as Error).message : null}
+      />
       <WarningsBanner warnings={merged.warnings} />
       <ResumoSection data={merged} />
       <PerformanceSection data={merged} loadingTop={topLoading && !top} />
