@@ -20,7 +20,7 @@ export type ConnectionsSettings = {
   brandId: string;
   monthlyBudgetUsd: number;
   textProvider: "openai" | "anthropic" | "gemini";
-  imageProvider: "openai" | "anthropic" | "gemini";
+  imageProvider: "openai" | "gemini";
   providers: Record<string, ProviderConfig>;
   channels: Record<string, ChannelConfig>;
   usage: {
@@ -70,7 +70,8 @@ export const getConnections = createServerFn({ method: "GET" })
       brandId: data.brandId,
       monthlyBudgetUsd: row ? Number(row.monthly_budget_usd) : 500,
       textProvider: (row?.text_provider as ConnectionsSettings["textProvider"]) ?? "openai",
-      imageProvider: (row?.image_provider as ConnectionsSettings["imageProvider"]) ?? "gemini",
+      imageProvider:
+        row?.image_provider === "openai" ? "openai" : "gemini",
       providers: (row?.providers as Record<string, ProviderConfig>) ?? {},
       channels: (row?.channels as Record<string, ChannelConfig>) ?? {},
       usage: { monthUsd, monthTokens, totalCalls, successCalls },
