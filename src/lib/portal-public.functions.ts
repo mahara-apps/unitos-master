@@ -126,7 +126,7 @@ export const listPortalApprovalsFn = createServerFn({ method: "POST" })
       _token: data.token,
       _status: data.status,
     });
-    await fillCovers(getPublic(), rows ?? []);
+    await fillCovers(rows ?? []);
     return rows ?? [];
   });
 
@@ -138,7 +138,6 @@ export const getPortalPostFn = createServerFn({ method: "POST" })
       _post_id: data.postId,
     });
     const post = res.post;
-    const c = getPublic();
     const refs = Array.isArray(post.reference_media)
       ? (post.reference_media as Array<Record<string, unknown>>)
       : [];
@@ -148,7 +147,7 @@ export const getPortalPostFn = createServerFn({ method: "POST" })
           const path = typeof r?.path === "string" ? r.path : null;
           if (!path) return null;
           const bucket = typeof r?.bucket === "string" ? (r.bucket as string) : "brand-assets";
-          const url = await signCover(c, path, bucket);
+          const url = await signCover(path, bucket);
           return url ? { url, type: (r?.type as string) ?? "" } : null;
         }),
       )
@@ -190,7 +189,7 @@ export const listPortalFeedFn = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => tokenIn.parse(i))
   .handler(async ({ data }): Promise<PortalPost[]> => {
     const rows = await rpc<PortalPost[]>("portal_feed", { _token: data.token });
-    await fillCovers(getPublic(), rows ?? []);
+    await fillCovers(rows ?? []);
     return rows ?? [];
   });
 
@@ -201,7 +200,7 @@ export const listPortalFilesFn = createServerFn({ method: "POST" })
       _token: data.token,
       _search: (data.search ?? "").trim() || null,
     });
-    const c = getPublic();
+    const c = await getStorageClient();
     const withUrls = await Promise.all(
       (docs ?? []).map(async (d) => {
         const { data: signed } = await c.storage
