@@ -134,6 +134,23 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
     queryFn: () => listPlans({ data: { brandId, clientId } }),
   });
 
+  const getVolumetry = useServerFn(getPlanVolumetryFn);
+  const volumetryQ = useQuery({
+    queryKey: ["monthly-plan", "volumetry", clientId],
+    queryFn: () => getVolumetry({ data: { clientId } }),
+  });
+  const volumetry = volumetryQ.data as
+    | {
+        weekly: Record<string, number>;
+        monthlyQuota: Record<string, number>;
+        totalTarget: number;
+        hasBriefing: boolean;
+      }
+    | undefined;
+  const hasVolumetry = (volumetry?.totalTarget ?? 0) > 0;
+
+
+
   const generate = useServerFn(generateMonthlyPlanFn);
   const [loadingStep, setLoadingStep] = useState(0);
   const stepTimer = useRef<ReturnType<typeof setInterval> | null>(null);
