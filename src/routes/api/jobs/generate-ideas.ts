@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
+import { getBrandAiModelAdmin } from "@/lib/ai-provider.server";
 import { buildSlotScheduler, extractBestHoursFromChannels } from "@/lib/scheduling";
 
 // Phase 2 — Human-gated idea generation.
@@ -156,9 +156,11 @@ async function runIdeas(params: {
 
     await patch({ progress: 35, step_label: "Gerando pautas" });
 
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("Missing LOVABLE_API_KEY");
-    const gateway = createLovableAiGatewayProvider(key, undefined, { structuredOutputs: true });
+    const { model: ideasModel } = await getBrandAiModelAdmin(
+      input.brandId,
+      "text",
+      "operational",
+    );
 
     const volumetriaBlock =
       weeklyTotal > 0
@@ -170,7 +172,7 @@ async function runIdeas(params: {
     let pautas: z.infer<typeof PautasSchema>;
     try {
       const res = await generateText({
-        model: gateway("google/gemini-2.5-flash"),
+        model: ideasModel,
         system:
           "Você é estrategista de conteúdo social. Gere pautas diversificadas por pilar, plataforma e cohort. Para CADA pauta, escolha o MELHOR formato entre Feed, Reels, Story, Carrossel — combinando gancho, objetivo do pilar e comportamento do cohort (Reels para alcance/entretenimento e demonstração rápida; Carrossel para educar, listar passos ou storytelling profundo; Story para bastidores, enquetes e prova social efêmera; Feed para autoridade, anúncios e posts atemporais). Nunca use o mesmo formato para todas. Responda SOMENTE JSON.",
         prompt: [

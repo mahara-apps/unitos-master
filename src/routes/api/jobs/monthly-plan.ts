@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
+import { getBrandAiModelAdmin } from "@/lib/ai-provider.server";
 import { buildBrandContextBlueprint } from "@/lib/ai-agents.functions";
 import { buildSlotScheduler, extractBestHoursFromChannels } from "@/lib/scheduling";
 
@@ -85,13 +85,13 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
   prompt: string;
   schema: T;
   strategic: boolean;
+  brandId: string;
 }): Promise<{ output: z.infer<T>; raw?: string }> {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("Missing LOVABLE_API_KEY");
-  const gateway = createLovableAiGatewayProvider(key, undefined, {
-    structuredOutputs: !opts.strategic,
-  });
-  const model = gateway(opts.strategic ? STRATEGIC_MODEL : OPERATIONAL_MODEL);
+  const { model } = await getBrandAiModelAdmin(
+    opts.brandId,
+    "text",
+    opts.strategic ? "strategic" : "operational",
+  );
   try {
     const res = await generateText({
       model,

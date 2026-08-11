@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
+import { getBrandAiModelAdmin } from "@/lib/ai-provider.server";
 import { waitUntil } from "@/lib/wait-until.server";
 
 // Worker que lê um documento (PDF, imagem, DOC) do bucket `brand-documents`,
@@ -100,10 +100,7 @@ async function runAnalysis(params: { token: string; input: z.infer<typeof BodySc
     const mediaType = doc.mime_type ?? "application/octet-stream";
     const base64 = uint8ToBase64(bytes);
 
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("missing_lovable_api_key");
-    const gateway = createLovableAiGatewayProvider(apiKey);
-    const model = gateway("google/gemini-2.5-flash");
+    const { model } = await getBrandAiModelAdmin(input.brandId, "text", "operational");
 
     const system = `Você é um analista sênior de marca. Interprete o documento e devolva um JSON estrito em pt-BR, mapeando cada informação para os campos de briefing. Use null quando o campo não estiver claramente descrito. Nunca invente dados. Todos os textos devem ser objetivos e prontos para uso no briefing (sem introduções como "o documento diz").`;
 

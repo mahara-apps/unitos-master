@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
+import { getBrandAiModelAdmin } from "@/lib/ai-provider.server";
 
 // Phase 2 — runs Copy + Design Brief for an approved idea post.
 // Triggered after the manager approves the idea in the content drawer.
@@ -39,11 +39,13 @@ function buildUserClient(token: string) {
   });
 }
 
-async function runStructured<T extends z.ZodTypeAny>(system: string, prompt: string, schema: T) {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("Missing LOVABLE_API_KEY");
-  const gateway = createLovableAiGatewayProvider(key, undefined, { structuredOutputs: true });
-  const model = gateway(OPERATIONAL_MODEL);
+async function runStructured<T extends z.ZodTypeAny>(
+  system: string,
+  prompt: string,
+  schema: T,
+  brandId: string,
+) {
+  const { model } = await getBrandAiModelAdmin(brandId, "text", "operational");
   try {
     const res = await generateText({ model, system, prompt, output: Output.object({ schema }) });
     return res.output as z.infer<T>;

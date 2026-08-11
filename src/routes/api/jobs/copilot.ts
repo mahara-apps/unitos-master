@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { generateText } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
+import { getBrandAiModelAdmin } from "@/lib/ai-provider.server";
 
 const CHANNELS = ["instagram", "tiktok", "linkedin"] as const;
 const CONTENT_TYPES = ["reel", "carousel", "image", "short_copy"] as const;
@@ -65,10 +65,7 @@ async function runCopilotJob(params: {
 
     await patch({ progress: 35, step_label: "Drafting copy with AI" });
 
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("Missing LOVABLE_API_KEY");
-    const gateway = createLovableAiGatewayProvider(key);
-    const model = gateway("google/gemini-2.5-flash");
+    const { model } = await getBrandAiModelAdmin(input.brandId, "text", "operational");
 
     const system = [
       "You are an elite social-media copywriter and brand strategist.",

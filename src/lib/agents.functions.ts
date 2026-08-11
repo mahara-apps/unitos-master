@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { createLovableAiGatewayProvider } from "./ai-gateway.server";
+import { getBrandAiModel } from "./ai-provider.server";
 import { generateText } from "ai";
 import { renderPrompt } from "./agent-variables";
 
@@ -172,9 +172,6 @@ export const runAgentPlaygroundFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("LOVABLE_API_KEY não configurado.");
-
     // Preferência: override da marca (visível ao usuário).
     const { data: ov, error: ovErr } = await context.supabase
       .from("agent_prompt_overrides")
@@ -205,12 +202,16 @@ export const runAgentPlaygroundFn = createServerFn({ method: "POST" })
       data.variables ?? {},
       "(não informado)",
     );
-    const model = data.model || "google/gemini-2.5-flash";
-    const gateway = createLovableAiGatewayProvider(key);
+    const { model: llm, modelId: model } = await getBrandAiModel(
+      context.supabase,
+      data.brandId,
+      "text",
+      "operational",
+    );
 
     const started = Date.now();
     const result = await generateText({
-      model: gateway(model),
+      model: llm,
       system: rendered,
       prompt: data.userInput?.trim() || "Execute o agente com o contexto acima.",
     });
