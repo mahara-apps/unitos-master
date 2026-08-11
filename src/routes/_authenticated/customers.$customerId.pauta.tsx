@@ -1074,6 +1074,31 @@ function TopicCard({
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       ) : null}
+      {topic.client_status && topic.client_status !== "pending" ? (
+        <div className="mb-2 space-y-1">
+          <span
+            className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${
+              topic.client_status === "approved"
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                : topic.client_status === "changes"
+                  ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
+                  : "border-rose-500/30 bg-rose-500/10 text-rose-400"
+            }`}
+          >
+            {topic.client_status === "approved"
+              ? "Aprovado pelo cliente"
+              : topic.client_status === "changes"
+                ? "Ajuste pedido pelo cliente"
+                : "Rejeitado pelo cliente"}
+          </span>
+          {topic.client_comment ? (
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              “{topic.client_comment}”
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <InlineEditable
         as="div"
         className="pr-6 text-sm font-semibold text-foreground"
