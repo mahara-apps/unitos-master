@@ -1147,9 +1147,6 @@ export const getDashboardInsights = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => BrandInput.parse(input))
   .handler(async ({ data, context }): Promise<DashboardInsights | null> => {
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) return null;
-
     const brief = data.clientId
       ? await computeStats(context, data.brandId, data.clientId).then((s) => ({
           mode: "client" as const,
@@ -1173,9 +1170,13 @@ export const getDashboardInsights = createServerFn({ method: "POST" })
         }));
 
     try {
-      const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
-      const gateway = createLovableAiGatewayProvider(key);
-      const model = gateway("google/gemini-2.5-flash");
+      const { getBrandAiModel } = await import("./ai-provider.server");
+      const { model } = await getBrandAiModel(
+        context.supabase,
+        data.brandId,
+        "text",
+        "operational",
+      );
 
       const { output } = await generateText({
         model,

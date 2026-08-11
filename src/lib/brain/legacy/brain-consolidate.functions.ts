@@ -51,9 +51,16 @@ export const brainConsolidateFn = createServerFn({ method: "POST" })
         .join("\n")
         .slice(0, 12000);
 
+      let model;
+      try {
+        ({ model } = await getBrandAiModel(supabaseAdmin, brandId, "text", "operational"));
+      } catch {
+        continue; // marca sem chave de IA configurada
+      }
+
       try {
         const { text } = await generateText({
-          model: gateway("google/gemini-2.5-flash"),
+          model,
           system:
             "Você é analista de dados de agência de marketing. Analise eventos recentes de uma marca e devolva insights curtos e acionáveis em JSON. Nunca invente dados fora do que foi fornecido.",
           prompt:
