@@ -689,73 +689,79 @@ function ApprovalView({
 
       {/* Sticky action bar */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/95 backdrop-blur">
-        <div className="flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="flex w-full flex-wrap items-center justify-end gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <Button
-            variant="ghost"
-            className="gap-1.5 text-muted-foreground hover:text-destructive"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => navigate({ to: ".." })}
+          >
+            <ArrowLeft className="h-4 w-4" /> Voltar
+          </Button>
+
+          <Button
+            variant="outline"
+            className="gap-1.5 text-destructive hover:bg-destructive hover:text-destructive-foreground"
             onClick={() => discard.mutate()}
             disabled={discard.isPending}
           >
             <X className="h-4 w-4" /> Descartar pauta
           </Button>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {clientLink ? (
-              <Button
-                variant="outline"
-                className="gap-1.5"
-                onClick={() => {
-                  void navigator.clipboard?.writeText(clientLink);
-                  toast.success("Link de aprovação copiado.");
-                }}
-              >
-                <LinkIcon className="h-4 w-4" /> Copiar link do cliente
-              </Button>
-            ) : null}
+          {clientLink ? (
+            <Button
+              variant="secondary"
+              className="gap-1.5"
+              onClick={() => {
+                void navigator.clipboard?.writeText(clientLink);
+                toast.success("Link de aprovação copiado.");
+              }}
+            >
+              <LinkIcon className="h-4 w-4" /> Copiar link do cliente
+            </Button>
+          ) : null}
 
-            {plan.status === "client_approved" ? (
-              <Button
-                className="gap-2"
-                onClick={() => approve.mutate()}
-                disabled={approve.isPending || approvedTopics.length === 0}
-              >
-                {approve.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <ArrowRight className="h-4 w-4" />
-                )}
-                Enviar para produção ({approvedTopics.length})
-              </Button>
-            ) : (
-              <Button
-                className="gap-2"
-                onClick={() => submitM.mutate()}
-                disabled={
-                  submitM.isPending ||
-                  plan.status === "pending_client" ||
-                  approvedTopics.length === 0 ||
-                  pendingTopics.length > 0 ||
-                  incomplete.length > 0
-                }
-                title={
-                  pendingTopics.length > 0
-                    ? "Aprove ou descarte todos os itens"
-                    : incomplete.length > 0
-                      ? "Há itens aprovados sem plataforma/formato"
-                      : undefined
-                }
-              >
-                {submitM.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-                {plan.status === "pending_client"
-                  ? "Aguardando cliente"
-                  : "Enviar ao cliente para aprovação"}
-              </Button>
-            )}
-          </div>
+          {plan.status === "client_approved" ? (
+            <Button
+              className="gap-2"
+              onClick={() => approve.mutate()}
+              disabled={approve.isPending || approvedTopics.length === 0}
+            >
+              {approve.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ArrowRight className="h-4 w-4" />
+              )}
+              Enviar para produção ({approvedTopics.length})
+            </Button>
+          ) : (
+            <Button
+              className="gap-2"
+              onClick={() => submitM.mutate()}
+              disabled={
+                submitM.isPending ||
+                plan.status === "pending_client" ||
+                approvedTopics.length === 0 ||
+                pendingTopics.length > 0 ||
+                incomplete.length > 0
+              }
+              title={
+                pendingTopics.length > 0
+                  ? "Aprove ou descarte todos os itens"
+                  : incomplete.length > 0
+                    ? "Há itens aprovados sem plataforma/formato"
+                    : undefined
+              }
+            >
+              {submitM.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+              {plan.status === "pending_client"
+                ? "Aguardando cliente"
+                : "Enviar ao cliente para aprovação"}
+            </Button>
+          )}
         </div>
       </div>
     </div>
