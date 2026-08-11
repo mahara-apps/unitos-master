@@ -197,13 +197,10 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
   /* -------- ESTADO 1: geração -------- */
   if (!planId) {
     return (
-      <div className="mx-auto max-w-5xl space-y-6 px-6 py-8">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/60 px-3 py-1 text-xs font-medium text-muted-foreground">
-              <Sparkles className="h-3.5 w-3.5" /> Pauta mensal
-            </div>
-            <h1 className="mt-3 text-2xl font-semibold tracking-tight">
+      <DashboardPageShell>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 sm:flex sm:flex-wrap sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold tracking-tight">
               Volumetria e geração do mês
             </h1>
             <p className="mt-1 max-w-xl text-sm text-muted-foreground">
@@ -220,6 +217,7 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
             Gerar pauta com IA
           </Button>
         </div>
+
 
         <VolumetryCards volumetry={volumetry} loading={volumetryQ.isLoading} />
 
