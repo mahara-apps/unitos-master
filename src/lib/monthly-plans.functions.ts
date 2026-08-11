@@ -938,6 +938,7 @@ export const approveMonthlyPlanFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }): Promise<{ created: number }> => {
+    const { materializePlanToKanban } = await import("@/lib/monthly-plan-kanban.server");
     const { data: planRow, error: planErr } = await context.supabase
       .from("monthly_plans" as never)
       .select("id, brand_id, status")
@@ -946,109 +947,20 @@ export const approveMonthlyPlanFn = createServerFn({ method: "POST" })
     if (planErr) throw planErr;
     if (!planRow) throw new Error("plan_not_found");
     const planStatus = (planRow as unknown as { status: MonthlyPlanStatus }).status;
-    if (planStatus !== "client_approved") throw new Error("client_approval_required");
-
-    const { data: topics, error: topErr } = await context.supabase
-      .from("monthly_plan_topics" as never)
-      .select("*")
-      .eq("monthly_plan_id", data.planId)
-      .eq("status", "approved")
-      .order("position", { ascending: true });
-    if (topErr) throw topErr;
-    const list = (topics ?? []) as unknown as MonthlyPlanTopic[];
-    if (list.length === 0) return { created: 0 };
-    if (list.some((t) => !isTopicComplete(t))) throw new Error("topics_incomplete");
-
-    // Pipeline + stage inicial
-    let { data: pipes } = await context.supabase
-      .from("content_pipelines")
-      .select("id")
-      .eq("brand_id", data.brandId)
-      .eq("client_id", data.clientId)
-      .order("position", { ascending: true })
-      .limit(1);
-    let pipelineId = pipes?.[0]?.id as string | undefined;
-    if (!pipelineId) {
-      const { data: newPipe, error: pErr } = await context.supabase
-        .from("content_pipelines")
-        .insert({
-          brand_id: data.brandId,
-          client_id: data.clientId,
-          name: "Pipeline principal",
-          slug: "main",
-          is_default: true,
-          position: 0,
-          created_by: context.userId,
-        })
-        .select("id")
-        .single();
-      if (pErr) throw pErr;
-      pipelineId = newPipe.id as string;
-      await context.supabase.from("content_pipeline_stages").insert([
-        { pipeline_id: pipelineId, key: "briefing", label: "Ideia", color: "muted", position: 0, is_terminal: false },
-        { pipeline_id: pipelineId, key: "writing", label: "Produção", color: "indigo", position: 1024, is_terminal: false },
-        { pipeline_id: pipelineId, key: "review", label: "Revisão", color: "amber", position: 2048, is_terminal: false },
-        { pipeline_id: pipelineId, key: "approved", label: "Aprovado", color: "emerald", position: 3072, is_terminal: false },
-      ] as never);
+    if (planStatus !== "client_approved" && planStatus !== "changes_requested") {
+      throw new Error("client_approval_required");
     }
 
-    const { data: stages } = await context.supabase
-      .from("content_pipeline_stages")
-      .select("id, position, is_terminal")
-      .eq("pipeline_id", pipelineId)
-      .order("position", { ascending: true });
-    const stage = (stages ?? []).find((s) => !s.is_terminal) ?? stages?.[0];
-    if (!stage) throw new Error("no_stage_available");
-    const stageId = stage.id as string;
+    const res = await materializePlanToKanban(
+      context.supabase as unknown as import("@supabase/supabase-js").SupabaseClient,
+      {
+        planId: data.planId,
+        brandId: data.brandId,
+        clientId: data.clientId,
+        userId: context.userId,
+        markPlanApproved: planStatus === "client_approved",
+      },
+    );
 
-    const { data: maxPost } = await context.supabase
-      .from("posts")
-      .select("position")
-      .eq("stage_id", stageId)
-      .order("position", { ascending: false })
-      .limit(1);
-    let nextPos = (((maxPost?.[0]?.position ?? -1) as number) + 1024) as number;
-
-    const rows = list.map((t) => {
-      const pos = nextPos;
-      nextPos += 1024;
-      return {
-        brand_id: data.brandId,
-        client_id: data.clientId,
-        pipeline_id: pipelineId,
-        stage_id: stageId,
-        stage: "idea",
-        title: t.topic_title,
-        format: t.content_format,
-        internal_briefing: [
-          t.angle,
-          t.target_audience ? `Público-alvo: ${t.target_audience}` : "",
-          t.rationale ? `Por quê: ${t.rationale}` : "",
-        ]
-          .filter(Boolean)
-          .join("\n\n"),
-        monthly_plan_topic_id: t.id,
-        position: pos,
-        created_by: context.userId,
-        assignee_id: context.userId,
-        assignees: [context.userId],
-      };
-    });
-    const { error: insErr } = await context.supabase.from("posts").insert(rows as never);
-    if (insErr) throw insErr;
-
-    // Marca a pauta como approved e os tópicos como approved (que não estavam rejeitados)
-    await Promise.all([
-      context.supabase
-        .from("monthly_plans" as never)
-        .update({ status: "approved" } as never)
-        .eq("id", data.planId),
-      context.supabase
-        .from("monthly_plan_topics" as never)
-        .update({ status: "approved" } as never)
-        .eq("monthly_plan_id", data.planId)
-        .neq("status", "rejected"),
-    ]);
-
-    return { created: rows.length };
+    return { created: res.created };
   });
