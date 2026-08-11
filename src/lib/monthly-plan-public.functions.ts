@@ -237,7 +237,9 @@ export const decideMonthlyPlanPublic = createServerFn({ method: "POST" })
           clientId: session.client_id,
           userId: plan.created_by,
           topics: ready,
+          markPlanApproved: status === "client_approved",
         });
+
         cardsCreated = res.created;
       } catch {
         // Não bloqueia a decisão do cliente; a equipe pode reprocessar na tela da pauta.
