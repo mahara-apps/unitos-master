@@ -61,9 +61,13 @@ export type MonthlyPlanTopic = {
   target_audience?: string | null;
   rationale?: string | null;
   status: MonthlyPlanTopicStatus;
+  client_status?: TopicClientStatus;
+  client_comment?: string | null;
+  client_decision_at?: string | null;
   previous_title: string | null;
   previous_angle: string | null;
   position: number;
+
 };
 
 export type MonthlyPlanWithTopics = {
