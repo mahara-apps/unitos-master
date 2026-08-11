@@ -138,22 +138,39 @@ export function SocialAnalyticsDashboard({
 }) {
   const fetchFn = useServerFn(getBrandSocialDashboardFn);
   const fetchTopFn = useServerFn(getBrandSocialTopPayloadFn);
+  const queryClient = useQueryClient();
+  const baseKey = [brandId, clientId ?? "all", period, since ?? "", until ?? ""] as const;
   const q = useQuery({
-    queryKey: ["social-analytics", brandId, clientId ?? "all", period, since ?? "", until ?? ""],
+    queryKey: ["social-analytics", ...baseKey],
     queryFn: () =>
       fetchFn({ data: { brandId, period, since, until, clientId: clientId ?? undefined } }),
-    staleTime: 60_000,
+    // Mesmo TTL do cache de provider no servidor — evita chamadas redundantes
+    // à API do Meta ao navegar entre telas.
+    staleTime: SOCIAL_STALE_TIME_MS,
+    gcTime: SOCIAL_GC_TIME_MS,
+    placeholderData: keepPreviousData,
   });
   const qTop = useQuery({
-    queryKey: ["social-analytics-top", brandId, clientId ?? "all", period, since ?? "", until ?? ""],
+    queryKey: ["social-analytics-top", ...baseKey],
     queryFn: () =>
       fetchTopFn({ data: { brandId, period, since, until, clientId: clientId ?? undefined } }),
-    staleTime: 60_000,
+    staleTime: SOCIAL_STALE_TIME_MS,
+    gcTime: SOCIAL_GC_TIME_MS,
+    placeholderData: keepPreviousData,
     enabled: !!q.data && q.data.connectionsTotal > 0,
   });
 
-  if (q.isLoading) return <LoadingSkeleton />;
-  if (q.error)
+  const data = q.data;
+  const refreshing = q.isFetching || qTop.isFetching;
+
+  function handleRefresh() {
+    void queryClient.invalidateQueries({ queryKey: ["social-analytics", ...baseKey] });
+    void queryClient.invalidateQueries({ queryKey: ["social-analytics-top", ...baseKey] });
+  }
+
+  // Skeleton apenas no primeiro acesso real (sem snapshot em cache).
+  if (!data && q.isPending) return <LoadingSkeleton />;
+  if (!data && q.error)
     return (
       <Card>
         <CardContent className="p-6 text-sm text-rose-500">
@@ -161,7 +178,6 @@ export function SocialAnalyticsDashboard({
         </CardContent>
       </Card>
     );
-  const data = q.data;
   if (!data)
     return (
       <PanelEmptyState
@@ -175,7 +191,7 @@ export function SocialAnalyticsDashboard({
   }
 
   const top = qTop.data;
-  const topLoading = qTop.isLoading || qTop.isFetching;
+  const topLoading = qTop.isPending || qTop.isFetching;
   const merged: BrandSocialDashboard = top
     ? {
         ...data,
@@ -193,6 +209,12 @@ export function SocialAnalyticsDashboard({
 
   return (
     <div className="space-y-6">
+      <FreshnessBar
+        generatedAt={merged.generatedAt}
+        refreshing={refreshing}
+        onRefresh={handleRefresh}
+        error={q.error ? (q.error as Error).message : null}
+      />
       <WarningsBanner warnings={merged.warnings} />
       <ResumoSection data={merged} />
       <PerformanceSection data={merged} loadingTop={topLoading && !top} />
