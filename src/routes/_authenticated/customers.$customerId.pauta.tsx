@@ -37,6 +37,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
 import { DashboardPageShell } from "@/components/ui/dashboard-primitives";
 import { describeError } from "@/lib/errors";
 import {
