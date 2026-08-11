@@ -300,6 +300,11 @@ const PLAN_STATUS_META: Record<MonthlyPlanStatus, { label: string; cls: string }
     label: "Ajustes pedidos",
     cls: "bg-orange-500/15 text-orange-400 border-orange-500/30",
   },
+  client_rejected: {
+    label: "Cliente rejeitou",
+    cls: "bg-rose-500/15 text-rose-400 border-rose-500/30",
+  },
+
   client_approved: {
     label: "Cliente aprovou",
     cls: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
