@@ -727,10 +727,13 @@ function ApprovalView({
   }
 
   const { plan, topics } = q.data;
-  const locked = plan.status === "pending_client" || plan.status === "client_approved";
+  const locked = plan.status === "pending_client" || plan.status === "approved";
   const approvedTopics = topics.filter((t) => t.status === "approved");
   const pendingTopics = topics.filter((t) => t.status === "pending");
   const incomplete = approvedTopics.filter((t) => !t.channel || !t.content_format);
+  const clientApprovedCount = topics.filter((t) => t.client_status === "approved").length;
+  const clientChangesCount = topics.filter((t) => t.client_status === "changes").length;
+  const clientRejectedCount = topics.filter((t) => t.client_status === "rejected").length;
   const clientLink = linkQ.data ? `${window.location.origin}${linkQ.data.url}` : null;
 
   return (
@@ -739,8 +742,16 @@ function ApprovalView({
         <StatusBanner
           status={plan.status}
           feedback={plan.client_feedback}
+          decisionAt={plan.client_decision_at}
+          decisionMode={plan.client_decision_mode ?? null}
+          counts={{
+            approved: clientApprovedCount,
+            changes: clientChangesCount,
+            rejected: clientRejectedCount,
+          }}
           link={clientLink}
         />
+
 
         {/* Estratégia */}
         <section className="space-y-5 rounded-2xl border border-border/60 bg-card/40 p-6 backdrop-blur">
