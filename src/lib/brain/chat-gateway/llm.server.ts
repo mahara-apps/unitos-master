@@ -1,14 +1,12 @@
-// ⚠️ Brain Chat Gateway — chamada ao LLM via Lovable AI Gateway.
-// Server-only: lê LOVABLE_API_KEY.
+// ⚠️ Brain Chat Gateway — chamada ao LLM com a chave de API da própria marca.
+// Server-only: resolve provider/modelo via getBrandAiModel.
 import { generateText, streamText, stepCountIs, type ModelMessage } from "ai";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { createLovableAiGatewayProvider } from "../../ai-gateway.server";
+import { getBrandAiModel } from "../../ai-provider.server";
 import type { BrainConsolidated } from "./consolidate";
 import { buildMultimodalContent, type ChatAttachmentInput } from "./multimodal.server";
 import { buildChatTools, type ToolCallLog } from "./tools.server";
 import type { BrainContext } from "../core";
-
-const DEFAULT_MODEL = "google/gemini-3.5-flash";
 
 export interface ChatAttachmentMeta {
   name: string;
@@ -89,11 +87,15 @@ export async function callLlm(args: {
   brain: BrainConsolidated;
   attachments: ChatAttachmentMeta[];
   user?: ChatUserContext;
+  supabase: SupabaseClient;
+  brandId: string;
 }): Promise<{ text: string; model: string }> {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("LOVABLE_API_KEY ausente");
-  const gateway = createLovableAiGatewayProvider(key);
-  const model = gateway(DEFAULT_MODEL);
+  const { model, modelId } = await getBrandAiModel(
+    args.supabase,
+    args.brandId,
+    "text",
+    "operational",
+  );
 
   const instructions = buildInstructions(args.brain, args.user);
   const messages: ModelMessage[] = args.history
@@ -114,13 +116,13 @@ export async function callLlm(args: {
 
   try {
     const result = await generateText({ model, instructions, messages, temperature: 0.4 });
-    return { text: result.text.trim() || "_(sem resposta)_", model: DEFAULT_MODEL };
+    return { text: result.text.trim() || "_(sem resposta)_", model: modelId };
   } catch (err) {
     console.error("[brain.chat.callLlm] LLM error", err);
     const msg = err instanceof Error ? err.message : String(err);
     return {
       text: `Não consegui consultar o modelo agora.${args.brain.markdown ? " Segue o que o Brain já sabe sobre isso:\n\n" + args.brain.markdown : ""}\n\n_Detalhe técnico: ${msg}_`,
-      model: DEFAULT_MODEL,
+      model: modelId,
     };
   }
 }
@@ -141,10 +143,13 @@ export async function streamAnswer(args: StreamAnswerArgs): Promise<{
   result: ReturnType<typeof streamText>;
   model: string;
 }> {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("LOVABLE_API_KEY ausente");
-  const gateway = createLovableAiGatewayProvider(key);
-  const model = gateway(DEFAULT_MODEL);
+  if (!args.brainCtx.brandId) throw new Error("brand_id ausente no contexto do chat");
+  const { model, modelId } = await getBrandAiModel(
+    args.supabase,
+    args.brainCtx.brandId,
+    "text",
+    "operational",
+  );
 
   const messages = await buildMessages(args.supabase, args.history, args.question, args.attachments);
   const tools = buildChatTools(args.supabase, args.brainCtx, args.toolCallLog);
@@ -158,5 +163,5 @@ export async function streamAnswer(args: StreamAnswerArgs): Promise<{
     temperature: 0.4,
   });
 
-  return { result, model: DEFAULT_MODEL };
+  return { result, model: modelId };
 }
