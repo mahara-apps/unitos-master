@@ -24,6 +24,7 @@ import {
   Trash2,
   Activity,
   Coins,
+  RefreshCw,
 } from "lucide-react";
 import { AlertTriangle, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -55,6 +56,8 @@ import {
 } from "@/components/connections/social-channel-card";
 import { MetaPortfolioDialog } from "@/components/connections/meta-portfolio-dialog";
 import { listMetaConnections } from "@/lib/meta/meta.functions";
+import { supportsKind, type ProviderName as AiProviderName } from "@/lib/ai-capabilities";
+import { getAiModelStatus, runAiModelHealthNow } from "@/lib/ai-models.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { useAccessRole } from "@/hooks/use-access-role";
