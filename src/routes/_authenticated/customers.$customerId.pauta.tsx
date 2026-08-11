@@ -841,7 +841,7 @@ function ApprovalView({
           <Button
             variant="outline"
             className="gap-1.5"
-            onClick={() => navigate({ to: ".." })}
+            onClick={onBack}
           >
             <ArrowLeft className="h-4 w-4" /> Voltar
           </Button>
