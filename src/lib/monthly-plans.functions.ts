@@ -36,6 +36,8 @@ export type MonthlyPlan = {
   internal_approved_by: string | null;
   client_decision_at: string | null;
   client_feedback: string | null;
+  client_decision_mode?: string | null;
+
   /** Fontes cruzadas na geração (estratégia IA, métricas por canal, brain). */
   context_sources?: {
     model?: string;
