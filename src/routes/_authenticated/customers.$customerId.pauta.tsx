@@ -567,7 +567,7 @@ function ApprovalView({
             <Skeleton key={i} className="h-28 w-full rounded-lg" />
           ))}
         </div>
-      </div>
+      </DashboardPageShell>
     );
   }
 
