@@ -2,6 +2,8 @@ import { useMemo } from "react";
 import { useState } from "react";
 import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useRefreshCooldown } from "@/hooks/use-refresh-cooldown";
+
 import {
   Area,
   AreaChart,
@@ -138,14 +140,17 @@ function FreshnessBar({
   refreshing,
   onRefresh,
   error,
+  cooldownSeconds,
 }: {
   generatedAt: string;
   refreshing: boolean;
   onRefresh: () => void;
   error: string | null;
+  cooldownSeconds: number;
 }) {
   const when = new Date(generatedAt);
   const label = Number.isNaN(when.getTime()) ? null : TIME_FMT.format(when);
+  const blocked = cooldownSeconds > 0;
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
       <span className="flex items-center gap-2">
@@ -171,14 +176,20 @@ function FreshnessBar({
         size="sm"
         className="h-7 gap-1.5 px-2 text-xs"
         onClick={onRefresh}
-        disabled={refreshing}
+        disabled={refreshing || blocked}
+        title={
+          blocked
+            ? `Aguarde ${cooldownSeconds}s para atualizar novamente (limite de segurança)`
+            : "Atualizar métricas agora"
+        }
       >
         <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
-        Atualizar
+        {blocked ? `Aguarde ${cooldownSeconds}s` : "Atualizar"}
       </Button>
     </div>
   );
 }
+
 
 export function SocialAnalyticsDashboard({
   brandId,
@@ -219,11 +230,15 @@ export function SocialAnalyticsDashboard({
 
   const data = q.data;
   const refreshing = q.isFetching || qTop.isFetching;
+  const cooldown = useRefreshCooldown(`social-analytics:${baseKey.join(":")}`, 60_000);
 
   function handleRefresh() {
+    if (cooldown.blocked || refreshing) return;
+    cooldown.start();
     void queryClient.invalidateQueries({ queryKey: ["social-analytics", ...baseKey] });
     void queryClient.invalidateQueries({ queryKey: ["social-analytics-top", ...baseKey] });
   }
+
 
   // Skeleton apenas no primeiro acesso real (sem snapshot em cache).
   if (!data && q.isPending) return <LoadingSkeleton />;
@@ -271,6 +286,8 @@ export function SocialAnalyticsDashboard({
         refreshing={refreshing}
         onRefresh={handleRefresh}
         error={q.error ? (q.error as Error).message : null}
+        cooldownSeconds={cooldown.remainingSeconds}
+
       />
       <WarningsBanner warnings={merged.warnings} />
       <ResumoSection data={merged} />
