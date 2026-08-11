@@ -102,6 +102,8 @@ export const brain = {
       history: Array<{ role: string; content: string }>;
       brain: BrainConsolidated;
       attachments: ChatAttachmentMeta[];
+      supabase: import("@supabase/supabase-js").SupabaseClient;
+      brandId: string;
     }) {
       const mod = await import("./chat-gateway/llm.server");
       return mod.callLlm(args);

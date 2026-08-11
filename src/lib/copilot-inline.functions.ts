@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { generateText } from "ai";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { createLovableAiGatewayProvider } from "./ai-gateway.server";
+import { getBrandAiModel } from "./ai-provider.server";
 import { buildBrandContextBlueprint } from "./ai-agents.functions";
 
 const FIELD_PROMPTS: Record<string, { system: string; wrap: (post: PostContext, hint: string) => string }> = {
@@ -70,9 +70,6 @@ export const aiInlineGenerateFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }): Promise<{ text: string }> => {
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("LOVABLE_API_KEY not configured");
-
     const { data: post, error } = await context.supabase
       .from("posts")
       .select("id, brand_id, client_id, title, copy, format, internal_briefing, client_briefing")
@@ -87,9 +84,14 @@ export const aiInlineGenerateFn = createServerFn({ method: "POST" })
     );
 
     const cfg = FIELD_PROMPTS[data.field];
-    const gateway = createLovableAiGatewayProvider(key);
+    const { model } = await getBrandAiModel(
+      context.supabase,
+      post.brand_id,
+      "text",
+      "operational",
+    );
     const { text } = await generateText({
-      model: gateway("google/gemini-2.5-flash"),
+      model,
       system: `${cfg.system}\n\n${blueprint}`,
       prompt: cfg.wrap(post as PostContext, data.hint ?? ""),
     });

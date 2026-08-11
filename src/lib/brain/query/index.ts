@@ -3,10 +3,14 @@
 import type { BrainContext, SemanticMemoryHit, BrainStats } from "../core";
 import { withCache } from "../cache";
 
-/** Cria embedding via Lovable AI Gateway. Retorna null em falha. */
-export async function embed(text: string): Promise<number[] | null> {
+/** Cria embedding com a chave de API da marca. Retorna null em falha. */
+export async function embed(
+  ctx: BrainContext,
+  text: string,
+): Promise<number[] | null> {
+  if (!ctx.brandId) return null;
   const { embedText } = await import("../legacy/brain-embed.server");
-  return embedText(text);
+  return embedText(ctx.supabase, ctx.brandId, text);
 }
 
 /** Busca semântica por proximidade de vetor no escopo da brand. */
@@ -15,7 +19,7 @@ export async function semantic(
   args: { query: string; matchCount?: number },
 ): Promise<SemanticMemoryHit[]> {
   if (!ctx.brandId || !args.query) return [];
-  const vec = await embed(args.query);
+  const vec = await embed(ctx, args.query);
   if (!vec) return [];
   const { data } = await ctx.supabase.rpc("match_brain_events", {
     _brand_id: ctx.brandId,

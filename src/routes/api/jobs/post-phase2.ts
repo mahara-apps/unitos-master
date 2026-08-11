@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
+import { getBrandAiModelAdmin } from "@/lib/ai-provider.server";
 
 // Phase 2 — runs Copy + Design Brief for an approved idea post.
 // Triggered after the manager approves the idea in the content drawer.
@@ -14,7 +14,6 @@ const BodySchema = z.object({
   postId: z.string().uuid(),
 });
 
-const OPERATIONAL_MODEL = "google/gemini-2.5-flash";
 
 const CopySchema = z.object({
   title: z.string(),
@@ -39,11 +38,13 @@ function buildUserClient(token: string) {
   });
 }
 
-async function runStructured<T extends z.ZodTypeAny>(system: string, prompt: string, schema: T) {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("Missing LOVABLE_API_KEY");
-  const gateway = createLovableAiGatewayProvider(key, undefined, { structuredOutputs: true });
-  const model = gateway(OPERATIONAL_MODEL);
+async function runStructured<T extends z.ZodTypeAny>(
+  system: string,
+  prompt: string,
+  schema: T,
+  brandId: string,
+) {
+  const { model } = await getBrandAiModelAdmin(brandId, "text", "operational");
   try {
     const res = await generateText({ model, system, prompt, output: Output.object({ schema }) });
     return res.output as z.infer<T>;
@@ -118,6 +119,7 @@ async function runPhase2(params: { jobId: string; token: string; userId: string;
         "\nReturn { title, content (markdown), hashtags: string[] } — 4-8 hashtags without leading #.",
       ].join("\n"),
       CopySchema,
+      post.brand_id as string,
     );
 
     await patch({ progress: 75, step_label: "Writing design brief" });
@@ -131,6 +133,7 @@ async function runPhase2(params: { jobId: string; token: string; userId: string;
         "\nReturn { concept, layout, palette (hex codes), typography, on_image_copy, reference_notes }.",
       ].join("\n"),
       DesignSchema,
+      post.brand_id as string,
     );
 
     const finalCopy = copy.hashtags?.length

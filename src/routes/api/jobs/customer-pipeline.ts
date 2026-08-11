@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
+import { getBrandAiModelAdmin } from "@/lib/ai-provider.server";
 
 // Two-phase pipeline — Phase 1 (Idea Generation).
 // Runs briefing → voice → personas → cohorts → SWOT → pauta suggestion,
@@ -132,8 +132,6 @@ function composeBriefingFromRecord(row: ClientRow, extraNotes?: string): string 
 
 // Modelos de geração atual — os prior-gen 2.5-pro/2.5-flash batiam no teto
 // de subrequest do Cloudflare Worker (~30s) e causavam cancelamento HTTP 499.
-const STRATEGIC_MODEL = "google/gemini-3.1-pro-preview";
-const OPERATIONAL_MODEL = "google/gemini-3.6-flash";
 
 // Falha rápido em vez de esperar o reaper de 5min. 60s cobre com folga o
 // tempo típico das chamadas atuais e ainda deixa headroom no Worker.
@@ -216,15 +214,12 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
   prompt: string;
   schema: T;
   strategic: boolean;
-  modelOverride?: string;
+  brandId: string;
 }): Promise<z.infer<T>> {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("Missing LOVABLE_API_KEY");
-  const gateway = createLovableAiGatewayProvider(key, undefined, {
-    structuredOutputs: !opts.strategic,
-  });
-  const model = gateway(
-    opts.modelOverride ?? (opts.strategic ? STRATEGIC_MODEL : OPERATIONAL_MODEL),
+  const { model } = await getBrandAiModelAdmin(
+    opts.brandId,
+    "text",
+    opts.strategic ? "strategic" : "operational",
   );
   try {
     const res = await withTimeout(
@@ -235,7 +230,7 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
         output: Output.object({ schema: opts.schema }),
       }),
       LLM_TIMEOUT_MS,
-      opts.modelOverride ?? (opts.strategic ? STRATEGIC_MODEL : OPERATIONAL_MODEL),
+      opts.strategic ? "strategic" : "operational",
     );
     return res.output as z.infer<T>;
   } catch (err) {
@@ -399,6 +394,7 @@ async function runPhase1(params: {
       prompt: `Texto bruto do briefing:\n"""\n${input.texto}\n"""`,
       schema: BriefingSchema,
       strategic: false,
+      brandId: input.brandId,
     });
     await supabase.from("brand_briefings").insert({
       brand_id: input.brandId,
@@ -417,13 +413,14 @@ async function runPhase1(params: {
         prompt: `Briefing estruturado:\n${JSON.stringify(briefing, null, 2)}`,
         schema: VoiceSchema,
         strategic: true,
-        modelOverride: OPERATIONAL_MODEL, // flash is enough for voice card
+        brandId: input.brandId,
       }),
       runStructured({
         system: P.personas,
         prompt: `Briefing:\n${JSON.stringify(briefing, null, 2)}`,
         schema: PersonasSchema,
         strategic: true,
+        brandId: input.brandId,
       }),
     ]);
     if (settled[0].status === "rejected") {
@@ -469,7 +466,7 @@ async function runPhase1(params: {
       prompt: `Briefing:\n${JSON.stringify(briefing, null, 2)}\n\nPersonas:\n${JSON.stringify(personas, null, 2)}`,
       schema: CohortsSchema,
       strategic: true,
-      modelOverride: OPERATIONAL_MODEL, // flash — cheap + fast
+      brandId: input.brandId,
     });
     const cohorts = normalizeCohortsPayload(cohortsRaw);
     await supabase
@@ -495,7 +492,7 @@ async function runPhase1(params: {
       ].join("\n\n"),
       schema: SwotSchema,
       strategic: true,
-      modelOverride: OPERATIONAL_MODEL, // flash — schema pequeno, evita subrequest timeout
+      brandId: input.brandId,
     });
     const swot = normalizeSwotPayload(swotRaw);
     await supabase

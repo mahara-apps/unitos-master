@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
-import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
+import { getBrandAiModelAdmin } from "@/lib/ai-provider.server";
 import { buildBrandContextBlueprint } from "@/lib/ai-agents.functions";
 import { buildSlotScheduler, extractBestHoursFromChannels } from "@/lib/scheduling";
 
@@ -32,8 +32,6 @@ const BodySchema = z.object({
   assigneeId: z.string().uuid().optional(),
 });
 
-const STRATEGIC_MODEL = "google/gemini-2.5-flash";
-const OPERATIONAL_MODEL = "google/gemini-2.5-flash";
 
 const PlannerSchema = z.object({
   concepts: z.array(
@@ -85,13 +83,13 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
   prompt: string;
   schema: T;
   strategic: boolean;
+  brandId: string;
 }): Promise<{ output: z.infer<T>; raw?: string }> {
-  const key = process.env.LOVABLE_API_KEY;
-  if (!key) throw new Error("Missing LOVABLE_API_KEY");
-  const gateway = createLovableAiGatewayProvider(key, undefined, {
-    structuredOutputs: !opts.strategic,
-  });
-  const model = gateway(opts.strategic ? STRATEGIC_MODEL : OPERATIONAL_MODEL);
+  const { model } = await getBrandAiModelAdmin(
+    opts.brandId,
+    "text",
+    opts.strategic ? "strategic" : "operational",
+  );
   try {
     const res = await generateText({
       model,
@@ -295,6 +293,7 @@ async function runOrchestrator(params: {
       CHANNEL_MIX: mixLines || "(livre — escolha o melhor mix)",
     }) + mixInstruction + (input.direction ? `\n\nDIRECIONAMENTO EXTRA DO USUÁRIO (prioridade máxima):\n${input.direction}` : "");
     const planned = await runStructured({
+      brandId: input.brandId,
       system: plannerSys,
       prompt:
         `Gere ${input.quantidade} conceitos para o período "${input.periodo}".\n\n` +

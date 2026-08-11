@@ -235,6 +235,8 @@ export const sendChatMessageFn = createServerFn({ method: "POST" })
           history: orderedHistory as Array<{ role: string; content: string }>,
           brain: brainKnowledge,
           attachments: data.attachments.map((a) => ({ name: a.name, kind: a.kind, mime: a.mime })),
+          supabase: context.supabase,
+          brandId: convo.brand_id as string,
         });
         answer = llm.text;
         usedLlm = true;
