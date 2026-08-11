@@ -906,9 +906,18 @@ export const submitPlanToClientFn = createServerFn({ method: "POST" })
         internal_approved_by: context.userId,
         client_decision_at: null,
         client_feedback: null,
+        client_decision_mode: null,
       } as never)
       .eq("id", plan.id);
     if (upErr) throw upErr;
+
+    // Reenvio: limpa decisões anteriores dos itens que ainda não viraram card.
+    await context.supabase
+      .from("monthly_plan_topics" as never)
+      .update({ client_status: "pending", client_comment: null, client_decision_at: null } as never)
+      .eq("monthly_plan_id", plan.id)
+      .neq("client_status", "approved");
+
 
     return { token, url: `/pauta/${plan.id}?token=${token}`, expires_at: expiresAt };
   });
