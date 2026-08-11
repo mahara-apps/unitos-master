@@ -57,7 +57,6 @@ import {
 import { MetaPortfolioDialog } from "@/components/connections/meta-portfolio-dialog";
 import { listMetaConnections } from "@/lib/meta/meta.functions";
 import { supportsKind, type ProviderName as AiProviderName } from "@/lib/ai-capabilities";
-import { testProviderKey } from "@/lib/connections.functions";
 import { getAiModelStatus, runAiModelHealthNow } from "@/lib/ai-models.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveContext } from "@/hooks/use-active-context";
@@ -66,6 +65,7 @@ import {
   getConnections,
   updateConnectionsSettings,
   saveProviderKey,
+  testProviderKey,
   removeProviderKey,
   upsertChannel,
   saveToolCredential,
