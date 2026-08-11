@@ -182,6 +182,9 @@ export function GeneratePlanWizard({
 
             {step === 1 ? (
               <div className="space-y-2 py-2">
+                <p className="text-xs text-muted-foreground">
+                  Selecione os canais e as quantidades que a IA deve gerar.
+                </p>
                 {channels.map((c) => {
                   const quota = volumetry?.monthlyQuota[c] ?? 0;
                   const generated = volumetry?.generatedThisMonth[c] ?? 0;
@@ -228,6 +231,9 @@ export function GeneratePlanWizard({
 
             {step === 2 ? (
               <div className="space-y-3 py-2">
+                <p className="text-xs text-muted-foreground">
+                  Selecione os formatos permitidos para cada canal.
+                </p>
                 {activeChannels.map((c) => (
                   <div key={c} className="rounded-lg border border-border/60 bg-muted/20 p-3">
                     <div className="mb-2 flex items-center justify-between">
