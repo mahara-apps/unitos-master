@@ -36,6 +36,7 @@ import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated/projects.index'
+import { Route as AuthenticatedMonthlyPlanIndexRouteImport } from './routes/_authenticated/monthly-plan.index'
 import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authenticated/customers.index'
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat.index'
 import { Route as PBriefingTokenRouteImport } from './routes/p.briefing.$token'
@@ -58,6 +59,7 @@ import { Route as AuthenticatedSettingsBrandingRouteImport } from './routes/_aut
 import { Route as AuthenticatedSettingsAiLimitsRouteImport } from './routes/_authenticated/settings.ai-limits'
 import { Route as AuthenticatedSettingsAiRouteImport } from './routes/_authenticated/settings.ai'
 import { Route as AuthenticatedProjectsProjectIdRouteImport } from './routes/_authenticated/projects.$projectId'
+import { Route as AuthenticatedMonthlyPlanPlanIdRouteImport } from './routes/_authenticated/monthly-plan.$planId'
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 import { Route as AuthenticatedChatConversationIdRouteImport } from './routes/_authenticated/chat.$conversationId'
 import { Route as AuthenticatedBrainGraphRouteImport } from './routes/_authenticated/brain.graph'
@@ -222,6 +224,12 @@ const AuthenticatedProjectsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedProjectsRoute,
   } as any)
+const AuthenticatedMonthlyPlanIndexRoute =
+  AuthenticatedMonthlyPlanIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedMonthlyPlanRoute,
+  } as any)
 const AuthenticatedCustomersIndexRoute =
   AuthenticatedCustomersIndexRouteImport.update({
     id: '/',
@@ -343,6 +351,12 @@ const AuthenticatedProjectsProjectIdRoute =
     id: '/$projectId',
     path: '/$projectId',
     getParentRoute: () => AuthenticatedProjectsRoute,
+  } as any)
+const AuthenticatedMonthlyPlanPlanIdRoute =
+  AuthenticatedMonthlyPlanPlanIdRouteImport.update({
+    id: '/$planId',
+    path: '/$planId',
+    getParentRoute: () => AuthenticatedMonthlyPlanRoute,
   } as any)
 const AuthenticatedCustomersCustomerIdRoute =
   AuthenticatedCustomersCustomerIdRouteImport.update({
@@ -498,7 +512,7 @@ export interface FileRoutesByFullPath {
   '/customers': typeof AuthenticatedCustomersRouteWithChildren
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/media-plans': typeof AuthenticatedMediaPlansRoute
-  '/monthly-plan': typeof AuthenticatedMonthlyPlanRoute
+  '/monthly-plan': typeof AuthenticatedMonthlyPlanRouteWithChildren
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/projects': typeof AuthenticatedProjectsRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
@@ -512,6 +526,7 @@ export interface FileRoutesByFullPath {
   '/brain/graph': typeof AuthenticatedBrainGraphRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
+  '/monthly-plan/$planId': typeof AuthenticatedMonthlyPlanPlanIdRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
   '/settings/ai-limits': typeof AuthenticatedSettingsAiLimitsRoute
@@ -534,6 +549,7 @@ export interface FileRoutesByFullPath {
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
   '/customers/': typeof AuthenticatedCustomersIndexRoute
+  '/monthly-plan/': typeof AuthenticatedMonthlyPlanIndexRoute
   '/projects/': typeof AuthenticatedProjectsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/customers/$customerId/brain': typeof AuthenticatedCustomersCustomerIdBrainRoute
@@ -570,7 +586,6 @@ export interface FileRoutesByTo {
   '/content': typeof AuthenticatedContentRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/media-plans': typeof AuthenticatedMediaPlansRoute
-  '/monthly-plan': typeof AuthenticatedMonthlyPlanRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/tasks': typeof AuthenticatedTasksRoute
   '/approval/$token': typeof ApprovalTokenRoute
@@ -582,6 +597,7 @@ export interface FileRoutesByTo {
   '/brain/graph': typeof AuthenticatedBrainGraphRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
+  '/monthly-plan/$planId': typeof AuthenticatedMonthlyPlanPlanIdRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/settings/ai': typeof AuthenticatedSettingsAiRoute
   '/settings/ai-limits': typeof AuthenticatedSettingsAiLimitsRoute
@@ -604,6 +620,7 @@ export interface FileRoutesByTo {
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/chat': typeof AuthenticatedChatIndexRoute
   '/customers': typeof AuthenticatedCustomersIndexRoute
+  '/monthly-plan': typeof AuthenticatedMonthlyPlanIndexRoute
   '/projects': typeof AuthenticatedProjectsIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/customers/$customerId/brain': typeof AuthenticatedCustomersCustomerIdBrainRoute
@@ -644,7 +661,7 @@ export interface FileRoutesById {
   '/_authenticated/customers': typeof AuthenticatedCustomersRouteWithChildren
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/media-plans': typeof AuthenticatedMediaPlansRoute
-  '/_authenticated/monthly-plan': typeof AuthenticatedMonthlyPlanRoute
+  '/_authenticated/monthly-plan': typeof AuthenticatedMonthlyPlanRouteWithChildren
   '/_authenticated/notifications': typeof AuthenticatedNotificationsRoute
   '/_authenticated/projects': typeof AuthenticatedProjectsRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
@@ -658,6 +675,7 @@ export interface FileRoutesById {
   '/_authenticated/brain/graph': typeof AuthenticatedBrainGraphRoute
   '/_authenticated/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
+  '/_authenticated/monthly-plan/$planId': typeof AuthenticatedMonthlyPlanPlanIdRoute
   '/_authenticated/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
   '/_authenticated/settings/ai': typeof AuthenticatedSettingsAiRoute
   '/_authenticated/settings/ai-limits': typeof AuthenticatedSettingsAiLimitsRoute
@@ -680,6 +698,7 @@ export interface FileRoutesById {
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
+  '/_authenticated/monthly-plan/': typeof AuthenticatedMonthlyPlanIndexRoute
   '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/customers/$customerId/brain': typeof AuthenticatedCustomersCustomerIdBrainRoute
@@ -734,6 +753,7 @@ export interface FileRouteTypes {
     | '/brain/graph'
     | '/chat/$conversationId'
     | '/customers/$customerId'
+    | '/monthly-plan/$planId'
     | '/projects/$projectId'
     | '/settings/ai'
     | '/settings/ai-limits'
@@ -756,6 +776,7 @@ export interface FileRouteTypes {
     | '/p/briefing/$token'
     | '/chat/'
     | '/customers/'
+    | '/monthly-plan/'
     | '/projects/'
     | '/settings/'
     | '/customers/$customerId/brain'
@@ -792,7 +813,6 @@ export interface FileRouteTypes {
     | '/content'
     | '/dashboard'
     | '/media-plans'
-    | '/monthly-plan'
     | '/notifications'
     | '/tasks'
     | '/approval/$token'
@@ -804,6 +824,7 @@ export interface FileRouteTypes {
     | '/brain/graph'
     | '/chat/$conversationId'
     | '/customers/$customerId'
+    | '/monthly-plan/$planId'
     | '/projects/$projectId'
     | '/settings/ai'
     | '/settings/ai-limits'
@@ -826,6 +847,7 @@ export interface FileRouteTypes {
     | '/p/briefing/$token'
     | '/chat'
     | '/customers'
+    | '/monthly-plan'
     | '/projects'
     | '/settings'
     | '/customers/$customerId/brain'
@@ -879,6 +901,7 @@ export interface FileRouteTypes {
     | '/_authenticated/brain/graph'
     | '/_authenticated/chat/$conversationId'
     | '/_authenticated/customers/$customerId'
+    | '/_authenticated/monthly-plan/$planId'
     | '/_authenticated/projects/$projectId'
     | '/_authenticated/settings/ai'
     | '/_authenticated/settings/ai-limits'
@@ -901,6 +924,7 @@ export interface FileRouteTypes {
     | '/p/briefing/$token'
     | '/_authenticated/chat/'
     | '/_authenticated/customers/'
+    | '/_authenticated/monthly-plan/'
     | '/_authenticated/projects/'
     | '/_authenticated/settings/'
     | '/_authenticated/customers/$customerId/brain'
@@ -1154,6 +1178,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedProjectsIndexRouteImport
       parentRoute: typeof AuthenticatedProjectsRoute
     }
+    '/_authenticated/monthly-plan/': {
+      id: '/_authenticated/monthly-plan/'
+      path: '/'
+      fullPath: '/monthly-plan/'
+      preLoaderRoute: typeof AuthenticatedMonthlyPlanIndexRouteImport
+      parentRoute: typeof AuthenticatedMonthlyPlanRoute
+    }
     '/_authenticated/customers/': {
       id: '/_authenticated/customers/'
       path: '/'
@@ -1307,6 +1338,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/projects/$projectId'
       preLoaderRoute: typeof AuthenticatedProjectsProjectIdRouteImport
       parentRoute: typeof AuthenticatedProjectsRoute
+    }
+    '/_authenticated/monthly-plan/$planId': {
+      id: '/_authenticated/monthly-plan/$planId'
+      path: '/$planId'
+      fullPath: '/monthly-plan/$planId'
+      preLoaderRoute: typeof AuthenticatedMonthlyPlanPlanIdRouteImport
+      parentRoute: typeof AuthenticatedMonthlyPlanRoute
     }
     '/_authenticated/customers/$customerId': {
       id: '/_authenticated/customers/$customerId'
@@ -1546,6 +1584,22 @@ const AuthenticatedCustomersRouteWithChildren =
     AuthenticatedCustomersRouteChildren,
   )
 
+interface AuthenticatedMonthlyPlanRouteChildren {
+  AuthenticatedMonthlyPlanPlanIdRoute: typeof AuthenticatedMonthlyPlanPlanIdRoute
+  AuthenticatedMonthlyPlanIndexRoute: typeof AuthenticatedMonthlyPlanIndexRoute
+}
+
+const AuthenticatedMonthlyPlanRouteChildren: AuthenticatedMonthlyPlanRouteChildren =
+  {
+    AuthenticatedMonthlyPlanPlanIdRoute: AuthenticatedMonthlyPlanPlanIdRoute,
+    AuthenticatedMonthlyPlanIndexRoute: AuthenticatedMonthlyPlanIndexRoute,
+  }
+
+const AuthenticatedMonthlyPlanRouteWithChildren =
+  AuthenticatedMonthlyPlanRoute._addFileChildren(
+    AuthenticatedMonthlyPlanRouteChildren,
+  )
+
 interface AuthenticatedProjectsRouteChildren {
   AuthenticatedProjectsProjectIdRoute: typeof AuthenticatedProjectsProjectIdRoute
   AuthenticatedProjectsIndexRoute: typeof AuthenticatedProjectsIndexRoute
@@ -1604,7 +1658,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRouteWithChildren
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedMediaPlansRoute: typeof AuthenticatedMediaPlansRoute
-  AuthenticatedMonthlyPlanRoute: typeof AuthenticatedMonthlyPlanRoute
+  AuthenticatedMonthlyPlanRoute: typeof AuthenticatedMonthlyPlanRouteWithChildren
   AuthenticatedNotificationsRoute: typeof AuthenticatedNotificationsRoute
   AuthenticatedProjectsRoute: typeof AuthenticatedProjectsRouteWithChildren
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
@@ -1623,7 +1677,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCustomersRoute: AuthenticatedCustomersRouteWithChildren,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedMediaPlansRoute: AuthenticatedMediaPlansRoute,
-  AuthenticatedMonthlyPlanRoute: AuthenticatedMonthlyPlanRoute,
+  AuthenticatedMonthlyPlanRoute: AuthenticatedMonthlyPlanRouteWithChildren,
   AuthenticatedNotificationsRoute: AuthenticatedNotificationsRoute,
   AuthenticatedProjectsRoute: AuthenticatedProjectsRouteWithChildren,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
@@ -1674,13 +1728,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

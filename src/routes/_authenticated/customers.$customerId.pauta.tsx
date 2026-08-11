@@ -127,19 +127,35 @@ const LOADING_MESSAGES = [
   "Finalizando a pauta…",
 ];
 
-export function MonthlyPlanView({ brandId, clientId }: { brandId: string; clientId: string }) {
+export function MonthlyPlanView({
+  brandId,
+  clientId,
+  planId: planIdProp,
+  onSelectPlan,
+}: {
+  brandId: string;
+  clientId: string;
+  planId?: string | null;
+  onSelectPlan?: (id: string | null) => void;
+}) {
   // Route-agnostic: this view is mounted from both
-  // /_authenticated/customers/$customerId/pauta and /_authenticated/monthly-plan
+  // /_authenticated/customers/$customerId/pauta and /_authenticated/monthly-plan/*
   const rawSearch = useSearch({ strict: false }) as { planId?: string };
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const planId = rawSearch.planId ?? null;
-  const setPlanId = (id: string | null) =>
+  const planId = onSelectPlan ? (planIdProp ?? null) : (rawSearch.planId ?? null);
+  const setPlanId = (id: string | null) => {
+    if (onSelectPlan) {
+      onSelectPlan(id);
+      return;
+    }
     navigate({
       to: pathname,
       search: id ? { planId: id } : {},
       replace: true,
     });
+  };
+
   const [theme, setTheme] = useState("");
   const [briefingId, setBriefingId] = useState<string>("__none");
 
@@ -262,7 +278,9 @@ export function MonthlyPlanView({ brandId, clientId }: { brandId: string; client
       planId={planId}
       brandId={brandId}
       clientId={clientId}
+      onBack={() => setPlanId(null)}
       onDiscarded={() => {
+
         setPlanId(null);
         setTheme("");
         setBriefingId("__none");
@@ -498,13 +516,16 @@ function ApprovalView({
   planId,
   brandId,
   clientId,
+  onBack,
   onDiscarded,
 }: {
   planId: string;
   brandId: string;
   clientId: string;
+  onBack: () => void;
   onDiscarded: () => void;
 }) {
+
   const qc = useQueryClient();
   const navigate = useNavigate();
   const getPlan = useServerFn(getMonthlyPlanFn);
@@ -820,7 +841,7 @@ function ApprovalView({
           <Button
             variant="outline"
             className="gap-1.5"
-            onClick={() => navigate({ to: ".." })}
+            onClick={onBack}
           >
             <ArrowLeft className="h-4 w-4" /> Voltar
           </Button>
