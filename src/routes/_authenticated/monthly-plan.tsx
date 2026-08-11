@@ -5,7 +5,7 @@ import { useActiveContext } from "@/hooks/use-active-context";
 import { usePageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/monthly-plan")({
-  component: MonthlyPlanLayout;
+  component: MonthlyPlanLayout,
 });
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
