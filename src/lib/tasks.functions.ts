@@ -103,7 +103,15 @@ export const listTasksFn = createServerFn({ method: "GET" })
           "task_id",
           tasks.map((t) => t.id),
         ),
+      context.supabase
+        .from("task_time_entries")
+        .select("task_id, seconds, minutes")
+        .in(
+          "task_id",
+          tasks.map((t) => t.id),
+        ),
     ]);
+
 
     const profMap = new Map(
       ((profilesRes.data ?? []) as Array<{ id: string; full_name: string | null; avatar_url: string | null }>).map(
