@@ -6,13 +6,11 @@ import {
   Eye, Shield, Clock, BadgeCheck, MessageSquare, ArrowRight, Sprout, AlertTriangle,
   Lightbulb, Flame, Ban, Check, User, Pencil,
 } from "lucide-react";
+import { ExpandedModal } from "@/components/ui/expanded-modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
-} from "@/components/ui/sheet";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -814,32 +812,34 @@ function DrawerSection({
 function PersonaDrawer({ persona, onClose }: { persona: NormalizedPersona | null; onClose: () => void }) {
   const open = !!persona;
   return (
-    <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-lg">
+    <ExpandedModal
+      open={open}
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      size="sm"
+      title={
+        <span className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-primary/5 text-xs font-semibold text-primary">
+            {personaInitials(persona?.nome ?? "") || <User className="h-4 w-4" />}
+          </span>
+          <span className="truncate text-base">{persona?.nome ?? "Persona"}</span>
+        </span>
+      }
+      description={
+        persona?.arquetipo ? (
+          <span className="flex items-center gap-1">
+            Arquétipo:{" "}
+            <Badge variant="secondary" className="rounded-full border border-sky-200 bg-sky-50 font-normal text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300">
+              {persona.arquetipo}
+            </Badge>
+          </span>
+        ) : (
+          "Dossiê psicológico da persona."
+        )
+      }
+    >
         {persona ? (
           <>
-            <SheetHeader className="space-y-3 text-left">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-primary/20 to-primary/5 text-sm font-semibold text-primary">
-                  {personaInitials(persona.nome) || <User className="h-5 w-5" />}
-                </div>
-                <div className="min-w-0">
-                  <SheetTitle className="truncate text-lg">{persona.nome}</SheetTitle>
-                  {persona.arquetipo ? (
-                    <SheetDescription>
-                      Arquétipo:{" "}
-                      <Badge variant="secondary" className="rounded-full border border-sky-200 bg-sky-50 font-normal text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300">
-                        {persona.arquetipo}
-                      </Badge>
-                    </SheetDescription>
-                  ) : (
-                    <SheetDescription>Dossiê psicológico da persona.</SheetDescription>
-                  )}
-                </div>
-              </div>
-            </SheetHeader>
-
-            <div className="mt-6 space-y-5">
+            <div className="space-y-5">
               {persona.logica_compra ? (
                 <blockquote className="rounded-r-md border-l-4 border-primary/60 bg-primary/5 px-4 py-3 text-sm italic leading-relaxed text-foreground/90">
                   “{persona.logica_compra}”
@@ -937,8 +937,7 @@ function PersonaDrawer({ persona, onClose }: { persona: NormalizedPersona | null
             </div>
           </>
         ) : null}
-      </SheetContent>
-    </Sheet>
+    </ExpandedModal>
   );
 }
 

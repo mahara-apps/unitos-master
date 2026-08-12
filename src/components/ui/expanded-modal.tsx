@@ -24,13 +24,13 @@ import { cn } from "@/lib/utils";
 export const EXPANDED_MODAL_SIZES = {
   /** 448px — NotificationsDrawer, ManageSheet (canal social). */
   xs: "sm:max-w-md",
-  /** 520px — CreateTaskDialog, AddMemberDrawer, QuickCreateCustomerDrawer. */
+  /** 520px — CreateTaskDialog, AddMemberDrawer, QuickCreateCustomerDrawer, PersonaDrawer (Sheet original: 512px). */
   sm: "sm:max-w-[520px]",
   /** 640px — TaskDialog, TaskDrawer, TaskTimesheetSheet. */
   md: "sm:max-w-[640px]",
   /** 720px — AiReadingDrawer (documentos). */
   lg: "sm:max-w-[720px]",
-  /** 672px — PersonaDrawer, StrategyHistory run viewer. */
+  /** 672px — StrategyHistory run viewer. */
   xl: "sm:max-w-2xl",
   /**
    * 800px — EXCEÇÃO DOCUMENTADA, exclusiva do AgentDrawer.

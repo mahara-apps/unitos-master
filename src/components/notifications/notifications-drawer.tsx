@@ -4,13 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Bell, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { ExpandedModal } from "@/components/ui/expanded-modal";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -110,30 +104,29 @@ export function NotificationsBell() {
   }, [qc]);
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative h-8 w-8"
-          aria-label={`Notificações${unread ? ` (${unread} não lida${unread === 1 ? "" : "s"})` : ""}`}
-        >
-          <Bell className="h-4 w-4" />
-          {unread > 0 ? (
-            <span className="absolute -right-0.5 -top-0.5 flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-none text-white">
-              {unread > 9 ? "9+" : unread}
-            </span>
-          ) : null}
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
-        <SheetHeader className="flex-row items-center justify-between space-y-0 border-b border-border/60 px-4 py-3">
-          <div className="flex flex-col leading-tight">
-            <SheetTitle className="text-sm">Notificações</SheetTitle>
-            <span className="text-[11px] text-muted-foreground">
-              {unread > 0 ? `${unread} não lida${unread === 1 ? "" : "s"}` : "Tudo em dia"}
-            </span>
-          </div>
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="relative h-8 w-8"
+        aria-label={`Notificações${unread ? ` (${unread} não lida${unread === 1 ? "" : "s"})` : ""}`}
+        onClick={() => setOpen(true)}
+      >
+        <Bell className="h-4 w-4" />
+        {unread > 0 ? (
+          <span className="absolute -right-0.5 -top-0.5 flex min-h-[16px] min-w-[16px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-none text-white">
+            {unread > 9 ? "9+" : unread}
+          </span>
+        ) : null}
+      </Button>
+      <ExpandedModal
+        open={open}
+        onOpenChange={setOpen}
+        size="xs"
+        title="Notificações"
+        description={unread > 0 ? `${unread} não lida${unread === 1 ? "" : "s"}` : "Tudo em dia"}
+        bodyClassName="flex flex-col overflow-hidden p-0"
+        headerExtra={
           <Button
             variant="ghost"
             size="sm"
@@ -143,8 +136,16 @@ export function NotificationsBell() {
           >
             Marcar todas como lidas
           </Button>
-        </SheetHeader>
-
+        }
+        footer={
+          <Button asChild variant="outline" className="w-full" size="sm">
+            <Link to="/notifications" onClick={() => setOpen(false)}>
+              Ver todas as notificações
+            </Link>
+          </Button>
+        }
+        footerClassName="sm:justify-stretch"
+      >
         <ScrollArea className="flex-1">
           {notifQ.isLoading ? (
             <ListSkeleton />
@@ -211,16 +212,8 @@ export function NotificationsBell() {
             </ul>
           )}
         </ScrollArea>
-
-        <div className="border-t border-border/60 p-3">
-          <Button asChild variant="outline" className="w-full" size="sm">
-            <Link to="/notifications" onClick={() => setOpen(false)}>
-              Ver todas as notificações
-            </Link>
-          </Button>
-        </div>
-      </SheetContent>
-    </Sheet>
+      </ExpandedModal>
+    </>
   );
 }
 

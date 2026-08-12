@@ -18,15 +18,7 @@ import { Button } from "@/components/ui/button";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { ExpandedModal } from "@/components/ui/expanded-modal";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -458,19 +450,31 @@ function AiReadingDrawer({
   };
 
   return (
-    <Sheet open={open} onOpenChange={(v) => (!v ? onClose() : null)}>
-      <SheetContent side="right" className="w-full sm:max-w-[720px]">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <BrainCircuit className="h-4 w-4 text-primary" />
-            Leitura da IA · {doc?.name}
-          </SheetTitle>
-          <SheetDescription>
-            {doc?.ai_summary?.executive_summary ?? "Selecione os campos que deseja aplicar ao briefing. O antes/depois compara o valor atual com a sugestão da IA."}
-          </SheetDescription>
-        </SheetHeader>
-        <ScrollArea className="mt-4 h-[calc(100vh-220px)] pr-2">
-          <div className="space-y-3">
+    <ExpandedModal
+      open={open}
+      onOpenChange={(v) => (!v ? onClose() : null)}
+      size="lg"
+      title={
+        <span className="flex items-center gap-2">
+          <BrainCircuit className="h-4 w-4 text-primary" />
+          Leitura da IA · {doc?.name}
+        </span>
+      }
+      description={
+        doc?.ai_summary?.executive_summary ??
+        "Selecione os campos que deseja aplicar ao briefing. O antes/depois compara o valor atual com a sugestão da IA."
+      }
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={saving}>Cancelar</Button>
+          <Button onClick={() => void apply()} disabled={saving || suggestions.length === 0} className="gap-1.5">
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            Aplicar ao briefing
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
             {suggestions.length === 0 ? (
               <div className="rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
                 A IA não encontrou campos suficientes neste documento.
@@ -512,16 +516,7 @@ function AiReadingDrawer({
                 );
               })
             )}
-          </div>
-        </ScrollArea>
-        <SheetFooter className="mt-4">
-          <Button variant="ghost" onClick={onClose} disabled={saving}>Cancelar</Button>
-          <Button onClick={() => void apply()} disabled={saving || suggestions.length === 0} className="gap-1.5">
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-            Aplicar ao briefing
-          </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+      </div>
+    </ExpandedModal>
   );
 }

@@ -15,13 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { ExpandedModal } from "@/components/ui/expanded-modal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -347,17 +341,15 @@ function RunViewer({
   const payload = q.data ?? {};
 
   return (
-    <Sheet open={!!run} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
-        <SheetHeader>
-          <SheetTitle>Geração de {run ? formatRunDate(run.createdAt) : ""}</SheetTitle>
-          <SheetDescription>
-            Versão somente leitura — não é a vigente deste cliente.
-          </SheetDescription>
-        </SheetHeader>
-
+    <ExpandedModal
+      open={!!run}
+      onOpenChange={(o) => !o && onClose()}
+      size="xl"
+      title={`Geração de ${run ? formatRunDate(run.createdAt) : ""}`}
+      description="Versão somente leitura — não é a vigente deste cliente."
+    >
         {run ? (
-          <div className="mt-4 flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               size="sm"
               variant="outline"
@@ -414,8 +406,7 @@ function RunViewer({
             </p>
           ) : null}
         </div>
-      </SheetContent>
-    </Sheet>
+    </ExpandedModal>
   );
 }
 
