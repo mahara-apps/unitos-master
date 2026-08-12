@@ -59,6 +59,8 @@ export function QuickCreateCustomerDrawer({
   open,
   onOpenChange,
   onCreated,
+  nested,
+
 }: QuickCreateCustomerDrawerProps) {
   const qc = useQueryClient();
   const create = useServerFn(createClient);
