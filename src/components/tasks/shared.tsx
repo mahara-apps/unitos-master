@@ -684,73 +684,133 @@ export function TaskDrawer({
   const priorityMeta = task ? PRIORITY_META[task.priority] : null;
 
   return (
-    <Sheet open onOpenChange={(v) => !v && onClose()}>
-      <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-[640px]">
+    <ExpandedModal
+      open
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+      size="md"
+      title={task?.title ?? "Tarefa"}
+      hideTitle
+      headerClassName="items-center px-4 py-2.5"
+      bodyClassName="p-0"
+      footerClassName="block border-t bg-background px-4 py-3"
+      headerExtra={
+        task ? (
+          <>
+            <Button
+              size="sm"
+              variant={isDone ? "secondary" : "default"}
+              className="h-8"
+              onClick={() =>
+                patchMutation.mutate({
+                  taskId,
+                  patch: { done: !isDone, status: isDone ? "todo" : "done" },
+                })
+              }
+            >
+              <CheckCircle2 className="mr-1.5 h-4 w-4" />
+              {isDone ? "Concluída" : "Concluir"}
+            </Button>
+            <div className="flex items-center gap-0.5">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                disabled={!prev}
+                onClick={() => prev && onNavigate(prev.id)}
+                title="Anterior (K)"
+              >
+                <ArrowUp className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                disabled={!next}
+                onClick={() => next && onNavigate(next.id)}
+                title="Próxima (J)"
+              >
+                <ArrowDown className="h-4 w-4" />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => {
+                      if (confirm("Excluir esta tarefa?")) removeTask.mutate();
+                    }}
+                  >
+                    <Trash2 className="mr-2 h-4 w-4" /> Excluir tarefa
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </>
+        ) : null
+      }
+      footer={
+        task ? (
+          <>
+            <div className="relative">
+              <Textarea
+                rows={2}
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && comment.trim()) {
+                    e.preventDefault();
+                    send.mutate();
+                  }
+                }}
+                placeholder="Escreva um comentário. Use @ para mencionar. Cmd/Ctrl+Enter para enviar."
+                className="min-h-[60px] resize-none pr-12"
+              />
+              <Button
+                size="icon"
+                className="absolute bottom-2 right-2 h-8 w-8 rounded-full"
+                onClick={() => send.mutate()}
+                disabled={!comment.trim() || send.isPending}
+                aria-label="Enviar comentário"
+              >
+                {send.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+              </Button>
+              {mentionOpen ? (
+                <div className="absolute bottom-full left-0 z-20 mb-2 w-64 rounded-md border bg-popover shadow-md">
+                  <MentionList
+                    members={members}
+                    query={mentionQuery}
+                    onPick={(u) => insertMention(u.id, u.name)}
+                  />
+                </div>
+              ) : null}
+            </div>
+            <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+              <span>
+                Criada em {format(new Date(task.created_at), "d 'de' MMM yyyy", { locale: ptBR })}
+              </span>
+              <span className="font-mono opacity-70">J/K para navegar · Esc para fechar</span>
+            </div>
+          </>
+        ) : null
+      }
+    >
         {!task ? (
-          <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando...
           </div>
         ) : (
           <>
-            {/* Top bar */}
-            <div className="flex items-center justify-between border-b px-4 py-2.5">
-              <Button
-                size="sm"
-                variant={isDone ? "secondary" : "default"}
-                className="h-8"
-                onClick={() =>
-                  patchMutation.mutate({
-                    taskId,
-                    patch: { done: !isDone, status: isDone ? "todo" : "done" },
-                  })
-                }
-              >
-                <CheckCircle2 className="mr-1.5 h-4 w-4" />
-                {isDone ? "Concluída" : "Concluir"}
-              </Button>
-              <div className="flex items-center gap-0.5">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  disabled={!prev}
-                  onClick={() => prev && onNavigate(prev.id)}
-                  title="Anterior (K)"
-                >
-                  <ArrowUp className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  disabled={!next}
-                  onClick={() => next && onNavigate(next.id)}
-                  title="Próxima (J)"
-                >
-                  <ArrowDown className="h-4 w-4" />
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      className="text-destructive focus:text-destructive"
-                      onClick={() => {
-                        if (confirm("Excluir esta tarefa?")) removeTask.mutate();
-                      }}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" /> Excluir tarefa
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+
 
             {/* Body (scrollable) */}
             <div className="flex-1 overflow-y-auto">
