@@ -17,6 +17,8 @@ export type CalendarPost = {
   review_status: string | null;
   ai_phase: string | null;
   format: string | null;
+  status: string | null;
+  published_at: string | null;
   is_multi_placement: boolean;
   author: { id: string; name: string | null; avatar_url: string | null } | null;
 };
@@ -37,8 +39,11 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
     // Read from post_placements — each placement is a discrete calendar entry.
     let plq = context.supabase
       .from("post_placements")
-      .select("id,post_id,brand_id,client_id,format,scheduled_at")
+      .select("id,post_id,brand_id,client_id,format,scheduled_at,status,published_at")
       .eq("brand_id", data.brandId)
+      // Only confirmed calendar entries: scheduled or already published.
+      // Drafts with a date live in the Kanban / pending panels, not here.
+      .in("status", ["scheduled", "published"])
       .not("scheduled_at", "is", null)
       .gte("scheduled_at", data.from)
       .lte("scheduled_at", data.to)
@@ -99,6 +104,8 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
           review_status: (post.review_status as string | null) ?? null,
           ai_phase: (post.ai_phase as string | null) ?? null,
           format: pl.format as string,
+          status: (pl.status as string | null) ?? null,
+          published_at: (pl.published_at as string | null) ?? null,
           is_multi_placement: (placementCountByPost.get(pl.post_id as string) ?? 1) > 1,
           author: post.created_by ? authors.get(post.created_by as string) ?? null : null,
         } as CalendarPost;
