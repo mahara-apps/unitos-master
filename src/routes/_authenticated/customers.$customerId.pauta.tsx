@@ -215,7 +215,15 @@ export function MonthlyPlanView({
       qc.invalidateQueries({ queryKey: ["monthly-plans", "list", brandId, clientId] });
       setPlanId(res.plan.id);
     },
-    onError: (err) => toast.error(`Falha ao gerar pauta: ${describeError(err)}`),
+    onError: (err) => {
+      const msg = describeError(err);
+      const isAiConfig = /IA configurada|chave|provedor/i.test(msg);
+      toast.error(`Falha ao gerar pauta: ${msg}`, {
+        action: isAiConfig
+          ? { label: "Abrir Conexões", onClick: () => navigate({ to: "/connections" }) }
+          : undefined,
+      });
+    },
   });
 
   const qc = useQueryClient();
