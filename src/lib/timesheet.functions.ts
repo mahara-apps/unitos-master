@@ -23,6 +23,8 @@ export type ActiveTimer = {
   task_id: string;
   started_at: string;
   brand_id: string;
+  /** Tempo já transcorrido, calculado no servidor para não depender do relógio do navegador. */
+  elapsed_seconds?: number;
 };
 
 export type TimerState = {
@@ -125,7 +127,16 @@ export const getTimerStateFn = createServerFn({ method: "GET" })
     const totalSeconds = (
       (totalsRes.data ?? []) as Array<{ seconds: number | null; minutes: number | null }>
     ).reduce((sum, e) => sum + entrySeconds(e), 0);
-    const active = ((activeRes.data ?? [])[0] as ActiveTimer | undefined) ?? null;
+    const activeRow = ((activeRes.data ?? [])[0] as ActiveTimer | undefined) ?? null;
+    const active = activeRow
+      ? {
+          ...activeRow,
+          elapsed_seconds: Math.max(
+            0,
+            Math.floor((Date.now() - new Date(activeRow.started_at).getTime()) / 1000),
+          ),
+        }
+      : null;
     const lastReason =
       ((lastMineRes.data ?? [])[0] as { ended_reason: string | null } | undefined)?.ended_reason ??
       null;
@@ -154,7 +165,7 @@ export const startTimerFn = createServerFn({ method: "POST" })
       .eq("id", id as string)
       .single();
     if (rowError) throw rowError;
-    return row as ActiveTimer;
+    return { ...(row as ActiveTimer), elapsed_seconds: 0 };
   });
 
 export const stopTimerFn = createServerFn({ method: "POST" })
