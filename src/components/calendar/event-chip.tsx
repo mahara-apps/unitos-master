@@ -28,6 +28,8 @@ export function EventChip({
     const NetIcon = SOCIAL_NETWORKS[netKey].Icon;
     const isStory =
       typeof p.format === "string" && /^stor(y|ies)$/i.test(p.format);
+    const isPublished = p.status === "published";
+    const statusLabel = isPublished ? "Publicado" : "Agendado";
     return (
       <Tooltip>
         <TooltipTrigger asChild>
@@ -48,6 +50,13 @@ export function EventChip({
             ) : null}
             <span className="tabular-nums font-semibold opacity-70">{t}</span>
             <span className="truncate flex-1">{p.title}</span>
+            <span
+              className={cn(
+                "h-1.5 w-1.5 shrink-0 rounded-full",
+                isPublished ? "bg-primary" : "bg-muted-foreground/50",
+              )}
+              aria-label={statusLabel}
+            />
             {p.author ? (
               <Avatar className="h-4 w-4 ring-1 ring-background">
                 {p.author.avatar_url ? (
@@ -63,7 +72,7 @@ export function EventChip({
         <TooltipContent side="top" className="max-w-xs text-xs">
           <div className="font-medium">{p.title}</div>
           <div className="mt-0.5 text-muted-foreground">
-            {SOCIAL_NETWORKS[netKey].label}{isStory ? " · Story" : ""} · {t}
+            {SOCIAL_NETWORKS[netKey].label}{isStory ? " · Story" : ""} · {t} · {statusLabel}
             {p.author?.name ? ` · ${p.author.name}` : ""}
           </div>
         </TooltipContent>
