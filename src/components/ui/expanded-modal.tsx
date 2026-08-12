@@ -126,11 +126,13 @@ export const ExpandedModal = React.forwardRef<HTMLDivElement, ExpandedModalProps
                 <DialogPrimitive.Title className="truncate text-base font-semibold leading-tight tracking-tight">
                   {title}
                 </DialogPrimitive.Title>
-                {description ? (
-                  <DialogPrimitive.Description className="text-xs text-muted-foreground">
-                    {description}
-                  </DialogPrimitive.Description>
-                ) : null}
+                {/* Description sempre presente (sr-only quando ausente) para
+                    satisfazer o requisito de a11y do Radix. */}
+                <DialogPrimitive.Description
+                  className={cn("text-xs text-muted-foreground", !description && "sr-only")}
+                >
+                  {description ?? title}
+                </DialogPrimitive.Description>
               </div>
               {headerExtra ? (
                 <div className="flex shrink-0 items-center gap-2">{headerExtra}</div>
