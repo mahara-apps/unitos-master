@@ -128,6 +128,15 @@ export const listTasksFn = createServerFn({ method: "GET" })
     for (const c of (commentsRes.data ?? []) as Array<{ task_id: string }>) {
       commentCounts.set(c.task_id, (commentCounts.get(c.task_id) ?? 0) + 1);
     }
+    const timeSeconds = new Map<string, number>();
+    for (const e of (timeRes.data ?? []) as Array<{
+      task_id: string;
+      seconds: number | null;
+      minutes: number | null;
+    }>) {
+      const secs = e.seconds ?? (e.minutes ?? 0) * 60;
+      timeSeconds.set(e.task_id, (timeSeconds.get(e.task_id) ?? 0) + secs);
+    }
 
     return tasks.map((t) => {
       const p = t.assignee_id ? profMap.get(t.assignee_id) : null;
@@ -140,6 +149,8 @@ export const listTasksFn = createServerFn({ method: "GET" })
         client_name: t.client_id ? clientMap.get(t.client_id) ?? null : null,
         project_name: t.project_id ? projectMap.get(t.project_id) ?? null : null,
         comments_count: commentCounts.get(t.id) ?? 0,
+        time_spent_seconds: timeSeconds.get(t.id) ?? 0,
+
       } as TaskRow;
     });
   });
