@@ -1146,7 +1146,7 @@ export function SubtasksSection({ taskId }: { taskId: string }) {
   });
   const toggle = useMutation({
     mutationFn: (v: { subtaskId: string; done: boolean }) =>
-      patch({ data: { subtaskId: v.subtaskId, done: v.done } as never }),
+      patch({ data: { subtaskId: v.subtaskId, patch: { done: v.done } } as never }),
     onSuccess: invalidate,
     onError: (e: Error) => toast.error(e.message),
   });
