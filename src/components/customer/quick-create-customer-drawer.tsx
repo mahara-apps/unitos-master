@@ -36,7 +36,10 @@ export type QuickCreateCustomerDrawerProps = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onCreated?: (client: { id: string; name: string }) => void;
+  /** Eleva o empilhamento quando aberto por cima de outro modal. */
+  nested?: boolean;
 };
+
 
 function readAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
