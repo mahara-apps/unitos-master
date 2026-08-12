@@ -6,13 +6,8 @@ import { toast } from "sonner";
 import { Instagram, Loader2, UploadCloud, X } from "lucide-react";
 import { z } from "zod";
 
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { ExpandedModal } from "@/components/ui/expanded-modal";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
