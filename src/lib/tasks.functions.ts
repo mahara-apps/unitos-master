@@ -336,3 +336,94 @@ export const deleteTaskCommentFn = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+export type TaskSubtask = {
+  id: string;
+  task_id: string;
+  title: string;
+  done: boolean;
+  position: number;
+  created_at: string;
+};
+
+export const listSubtasksFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ taskId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }): Promise<TaskSubtask[]> => {
+    const { data: rows, error } = await context.supabase
+      .from("task_subtasks")
+      .select("id, task_id, title, done, position, created_at")
+      .eq("task_id", data.taskId)
+      .order("position", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return (rows ?? []) as TaskSubtask[];
+  });
+
+export const addSubtaskFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        taskId: z.string().uuid(),
+        title: z.string().trim().min(1).max(300),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: task, error: tErr } = await context.supabase
+      .from("tasks")
+      .select("brand_id")
+      .eq("id", data.taskId)
+      .single();
+    if (tErr) throw tErr;
+    const { data: last } = await context.supabase
+      .from("task_subtasks")
+      .select("position")
+      .eq("task_id", data.taskId)
+      .order("position", { ascending: false })
+      .limit(1);
+    const nextPos = ((last?.[0]?.position as number | undefined) ?? -1) + 1;
+    const { error } = await context.supabase.from("task_subtasks").insert({
+      task_id: data.taskId,
+      brand_id: task!.brand_id as string,
+      title: data.title,
+      position: nextPos,
+      created_by: context.userId,
+    });
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const updateSubtaskFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        subtaskId: z.string().uuid(),
+        patch: z.object({
+          title: z.string().trim().min(1).max(300).optional(),
+          done: z.boolean().optional(),
+        }),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("task_subtasks")
+      .update(data.patch)
+      .eq("id", data.subtaskId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const deleteSubtaskFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ subtaskId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("task_subtasks")
+      .delete()
+      .eq("id", data.subtaskId);
+    if (error) throw error;
+    return { ok: true };
+  });

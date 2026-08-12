@@ -33,6 +33,8 @@ import {
   PauseCircle,
   MoreHorizontal,
   CalendarClock,
+  ListChecks,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -71,14 +73,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
+  addSubtaskFn,
   addTaskCommentFn,
   createTaskFn,
+  deleteSubtaskFn,
   deleteTaskCommentFn,
   deleteTaskFn,
   listProjectsFn,
+  listSubtasksFn,
   listTaskCommentsFn,
   listTasksFn,
+  updateSubtaskFn,
   updateTaskFn,
   TASK_PRIORITIES,
   TASK_STATUSES,
@@ -942,6 +950,14 @@ export function TaskDrawer({
 
               <Separator />
 
+              {/* Subtasks */}
+              <div className="px-6 py-5">
+                <SubtasksSection taskId={task.id} />
+              </div>
+
+              <Separator />
+
+
               {/* Description */}
               <div className="space-y-1.5 px-6 py-5">
                 <label className="text-xs font-medium text-muted-foreground">Descrição</label>
@@ -1100,3 +1116,121 @@ function DuePicker({
 
 // re-export commonly-needed icons for consumers of shared
 export { PauseCircle, CalendarIcon, MessageSquare, Folder };
+// ---------- Subtasks + progress ----------
+
+export function SubtasksSection({ taskId }: { taskId: string }) {
+  const qc = useQueryClient();
+  const list = useServerFn(listSubtasksFn);
+  const add = useServerFn(addSubtaskFn);
+  const patch = useServerFn(updateSubtaskFn);
+  const remove = useServerFn(deleteSubtaskFn);
+  const [title, setTitle] = useState("");
+
+  const q = useQuery({
+    queryKey: ["task-subtasks", taskId],
+    queryFn: () => list({ data: { taskId } }),
+  });
+  const items = q.data ?? [];
+  const doneCount = items.filter((s) => s.done).length;
+  const pct = items.length ? Math.round((doneCount / items.length) * 100) : 0;
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["task-subtasks", taskId] });
+
+  const create = useMutation({
+    mutationFn: (t: string) => add({ data: { taskId, title: t } }),
+    onSuccess: () => {
+      setTitle("");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const toggle = useMutation({
+    mutationFn: (v: { subtaskId: string; done: boolean }) =>
+      patch({ data: { subtaskId: v.subtaskId, patch: { done: v.done } } as never }),
+    onSuccess: invalidate,
+    onError: (e: Error) => toast.error(e.message),
+  });
+  const del = useMutation({
+    mutationFn: (subtaskId: string) => remove({ data: { subtaskId } }),
+    onSuccess: invalidate,
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <ListChecks className="h-4 w-4 text-muted-foreground" />
+        <h3 className="text-sm font-semibold">Subtarefas</h3>
+        <Badge variant="secondary" className="text-[10px]">
+          {doneCount}/{items.length}
+        </Badge>
+      </div>
+
+      {items.length > 0 ? (
+        <div className="space-y-1.5">
+          <Progress value={pct} className="h-1.5" />
+          <p className="text-[11px] text-muted-foreground">{pct}% concluído</p>
+        </div>
+      ) : null}
+
+      {q.isLoading ? (
+        <div className="text-xs text-muted-foreground">Carregando subtarefas...</div>
+      ) : items.length === 0 ? (
+        <p className="rounded border border-dashed p-3 text-center text-xs text-muted-foreground">
+          Nenhuma subtarefa. Quebre a tarefa em passos menores.
+        </p>
+      ) : (
+        <ul className="space-y-1">
+          {items.map((s) => (
+            <li key={s.id} className="group flex items-center gap-2 rounded px-1 py-1 hover:bg-muted/50">
+              <Checkbox
+                checked={s.done}
+                onCheckedChange={(v) => toggle.mutate({ subtaskId: s.id, done: v === true })}
+                aria-label={s.done ? "Marcar como pendente" : "Marcar como concluída"}
+              />
+              <span
+                className={cn(
+                  "flex-1 text-sm",
+                  s.done && "text-muted-foreground line-through",
+                )}
+              >
+                {s.title}
+              </span>
+              <button
+                className="text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                onClick={() => del.mutate(s.id)}
+                aria-label="Excluir subtarefa"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <form
+        className="flex items-center gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const t = title.trim();
+          if (t) create.mutate(t);
+        }}
+      >
+        <Input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Adicionar subtarefa..."
+          className="h-8 text-sm"
+        />
+        <Button
+          type="submit"
+          size="sm"
+          variant="secondary"
+          disabled={!title.trim() || create.isPending}
+        >
+          {create.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+        </Button>
+      </form>
+    </div>
+  );
+}
