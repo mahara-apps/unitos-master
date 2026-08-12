@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Plus, Trash2, Clock, RotateCcw } from "lucide-react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ExpandedModal } from "@/components/ui/expanded-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -108,14 +108,15 @@ export function TaskTimesheetSheet({ open, onOpenChange, brandId, task }: Props)
   );
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="text-base">{task?.title ?? "Tarefa"}</SheetTitle>
-        </SheetHeader>
+    <ExpandedModal
+      open={open}
+      onOpenChange={onOpenChange}
+      size="md"
+      title={task?.title ?? "Tarefa"}
+    >
+      {task && (
+        <div className="space-y-6">
 
-        {task && (
-          <div className="mt-6 space-y-6">
             {/* Timer (Play · Pause · Stop) */}
             <TaskTimerWidget
               brandId={brandId}
@@ -245,7 +246,7 @@ export function TaskTimesheetSheet({ open, onOpenChange, brandId, task }: Props)
             </div>
           </div>
         )}
-      </SheetContent>
-    </Sheet>
+    </ExpandedModal>
+
   );
 }

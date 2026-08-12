@@ -18,13 +18,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { ExpandedModal } from "@/components/ui/expanded-modal";
+
+
 import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -729,27 +725,57 @@ function ManageSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-lg">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <span
-              className={cn(
-                "grid h-8 w-8 place-items-center rounded-md border border-border/60 bg-background/60",
-                channel.tone,
-              )}
+    <ExpandedModal
+      open={open}
+      onOpenChange={onOpenChange}
+      size="xs"
+      title={
+        <span className="flex items-center gap-2">
+          <span
+            className={cn(
+              "grid h-8 w-8 place-items-center rounded-md border border-border/60 bg-background/60",
+              channel.tone,
+            )}
+          >
+            <Icon className="h-4 w-4" />
+          </span>
+          Gerenciar {channel.name}
+        </span>
+      }
+      description={
+        <>
+          {accounts.length} {accounts.length === 1 ? "conta vinculada" : "contas vinculadas"} ao workspace <b>{brandLabel}</b>.
+        </>
+      }
+      footer={
+        <div className="w-full space-y-2">
+          <Button
+            className="w-full"
+            variant="outline"
+            onClick={() => {
+              if (kind === "meta") handleAddMeta();
+              else onAddNew();
+            }}
+          >
+            <Plus className="mr-2 h-4 w-4" /> Adicionar conta
+          </Button>
+          {kind === "meta" && (
+            <Button
+              className="w-full text-xs text-muted-foreground"
+              variant="ghost"
+              size="sm"
+              onClick={() => handleAddMeta({ forceReauth: true })}
+              title="Faz logout na Meta e permite entrar com outro usuário"
             >
-              <Icon className="h-4 w-4" />
-            </span>
-            Gerenciar {channel.name}
-          </SheetTitle>
-          <SheetDescription>
-            {accounts.length} {accounts.length === 1 ? "conta vinculada" : "contas vinculadas"} ao workspace <b>{brandLabel}</b>.
-          </SheetDescription>
-        </SheetHeader>
-
+              Conectar outro perfil Meta
+            </Button>
+          )}
+        </div>
+      }
+    >
+      <>
         {accounts.length > 0 && (
-          <div className="relative mt-4">
+          <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Buscar por nome, handle ou ID"
@@ -760,7 +786,8 @@ function ManageSheet({
           </div>
         )}
 
-        <div className="mt-3 max-h-[calc(100vh-16rem)] space-y-1 overflow-y-auto pr-1">
+        <div className="mt-3 space-y-1">
+
           {accounts.length === 0 ? (
             <p className="rounded-md border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
               Nenhuma conta conectada.
@@ -846,32 +873,8 @@ function ManageSheet({
             })
           )}
         </div>
+      </>
+    </ExpandedModal>
 
-        <Separator className="my-4" />
-        <div className="space-y-2">
-          <Button
-            className="w-full"
-            variant="outline"
-            onClick={() => {
-              if (kind === "meta") handleAddMeta();
-              else onAddNew();
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" /> Adicionar conta
-          </Button>
-          {kind === "meta" && (
-            <Button
-              className="w-full text-xs text-muted-foreground"
-              variant="ghost"
-              size="sm"
-              onClick={() => handleAddMeta({ forceReauth: true })}
-              title="Faz logout na Meta e permite entrar com outro usuário"
-            >
-              Conectar outro perfil Meta
-            </Button>
-          )}
-        </div>
-      </SheetContent>
-    </Sheet>
   );
 }
