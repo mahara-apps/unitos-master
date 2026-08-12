@@ -48,13 +48,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+import { ExpandedModal } from "@/components/ui/expanded-modal";
+
 import { Separator } from "@/components/ui/separator";
 import { TaskTimerWidget } from "@/components/tasks/task-timer-widget";
 import {
