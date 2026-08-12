@@ -5722,9 +5722,10 @@ export type Database = {
         Args: { _brand_id: string; _task_id: string }
         Returns: string
       }
-      stop_timer:
-        | { Args: { _entry_id: string }; Returns: number }
-        | { Args: { _entry_id: string; _reason?: string }; Returns: number }
+      stop_timer: {
+        Args: { _entry_id: string; _reason?: string }
+        Returns: number
+      }
       upsert_brain_relationship: {
         Args: {
           _bidirectional?: boolean
