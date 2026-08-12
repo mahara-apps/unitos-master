@@ -77,7 +77,7 @@ export const listTasksFn = createServerFn({ method: "GET" })
       new Set(tasks.map((t) => t.project_id).filter(Boolean) as string[]),
     );
 
-    const [profilesRes, clientsRes, projectsRes, commentsRes] = await Promise.all([
+    const [profilesRes, clientsRes, projectsRes, commentsRes, timeRes] = await Promise.all([
       userIds.length
         ? context.supabase
             .from("user_profiles")
