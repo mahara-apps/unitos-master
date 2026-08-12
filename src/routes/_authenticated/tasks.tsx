@@ -62,7 +62,7 @@ const searchSchema = z.object({
     .enum(["none", "status", "priority", "project", "client", "assignee"])
     .catch("status"),
   sort: z
-    .enum(["title", "assignee", "project", "client", "priority", "status", "due", "created"])
+    .enum(["title", "assignee", "project", "client", "priority", "status", "due", "created", "time"])
     .catch("created"),
   dir: z.enum(["asc", "desc"]).catch("desc"),
   q: z.string().optional(),
