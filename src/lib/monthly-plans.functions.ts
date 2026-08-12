@@ -21,6 +21,13 @@ export type MonthlyPlanStatus =
 export type MonthlyPlanTopicStatus = "pending" | "approved" | "rejected";
 export type TopicClientStatus = "pending" | "approved" | "rejected" | "changes";
 
+export type GenerateMonthlyPlanResult =
+  | { ok: true; data: MonthlyPlanWithTopics }
+  | {
+      ok: false;
+      code: "ai_provider_not_configured" | "ai_provider_key_missing" | "ai_model_unavailable";
+    };
+
 
 export type MonthlyPlan = {
   id: string;
@@ -149,7 +156,7 @@ const AiPlanSchema = z.object({
 export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => GenerateInput.parse(i))
-  .handler(async ({ data, context }): Promise<MonthlyPlanWithTopics> => {
+  .handler(async ({ data, context }): Promise<GenerateMonthlyPlanResult> => {
     const [{ data: brand }, briefingCtx] = await Promise.all([
       context.supabase.from("brands").select("name").eq("id", data.brandId).maybeSingle(),
       loadBriefingContext(context.supabase, data.clientId, {
@@ -268,17 +275,33 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       .filter(Boolean)
       .join("\n");
 
-    const { output, modelId } = await runPlanAgent({
-      agent: "pauta.suggest",
-      supabase: context.supabase,
-      brandId: data.brandId,
-      clientId: data.clientId,
-      userId: context.userId,
-      prompt,
-      extraContext,
-      schema: AiPlanSchema,
-    });
-    const parsed = output;
+    let agentResult: Awaited<ReturnType<typeof runPlanAgent>>;
+    try {
+      agentResult = await runPlanAgent({
+        agent: "pauta.suggest",
+        supabase: context.supabase,
+        brandId: data.brandId,
+        clientId: data.clientId,
+        userId: context.userId,
+        prompt,
+        extraContext,
+        schema: AiPlanSchema,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message.toLowerCase() : "";
+      if (message.includes("ai_provider_not_configured")) {
+        return { ok: false, code: "ai_provider_not_configured" };
+      }
+      if (message.includes("ai_provider_key_missing")) {
+        return { ok: false, code: "ai_provider_key_missing" };
+      }
+      if (message.includes("ai_model_unavailable")) {
+        return { ok: false, code: "ai_model_unavailable" };
+      }
+      throw error;
+    }
+    const { output, modelId } = agentResult;
+    const parsed = output as z.infer<typeof AiPlanSchema>;
 
     const contextSources = {
       model: modelId,
@@ -350,10 +373,13 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
     if (topErr) throw topErr;
 
     return {
-      plan,
-      topics: (inserted as unknown as MonthlyPlanTopic[]).sort(
-        (a, b) => a.position - b.position,
-      ),
+      ok: true,
+      data: {
+        plan,
+        topics: (inserted as unknown as MonthlyPlanTopic[]).sort(
+          (a, b) => a.position - b.position,
+        ),
+      },
     };
   });
 

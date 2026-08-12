@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Loader2, Sparkles } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight, Loader2, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -39,6 +39,7 @@ export function GeneratePlanWizard({
   briefings,
   pending,
   loadingMessage,
+  generationError,
   onGenerate,
 }: {
   open: boolean;
@@ -47,6 +48,7 @@ export function GeneratePlanWizard({
   briefings: Array<{ id: string; label: string }>;
   pending: boolean;
   loadingMessage: string;
+  generationError?: string | null;
   onGenerate: (input: {
     theme: string;
     briefingId: string | null;
@@ -268,6 +270,15 @@ export function GeneratePlanWizard({
                     Selecione ao menos um formato para:{" "}
                     {missingFormats.map((c) => PLAN_CHANNEL_LABEL[c]).join(", ")}.
                   </p>
+                ) : null}
+                {generationError ? (
+                  <div
+                    role="alert"
+                    className="flex gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+                  >
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <p>{generationError}</p>
+                  </div>
                 ) : null}
               </div>
             ) : null}

@@ -76,6 +76,7 @@ import {
   undoTopicRegenerationFn,
   updateMonthlyPlanFn,
   updateTopicFn,
+  type GenerateMonthlyPlanResult,
   type MonthlyPlanListItem,
   type MonthlyPlanStatus,
   type MonthlyPlanTopic,
@@ -183,6 +184,7 @@ export function MonthlyPlanView({
 
   const generate = useServerFn(generateMonthlyPlanFn);
   const [loadingStep, setLoadingStep] = useState(0);
+  const [generationError, setGenerationError] = useState<string | null>(null);
   const stepTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const generateM = useMutation({
@@ -201,6 +203,7 @@ export function MonthlyPlanView({
         },
       }),
     onMutate: () => {
+      setGenerationError(null);
       setLoadingStep(0);
       stepTimer.current = setInterval(() => {
         setLoadingStep((s) => (s + 1) % LOADING_MESSAGES.length);
@@ -210,7 +213,16 @@ export function MonthlyPlanView({
       if (stepTimer.current) clearInterval(stepTimer.current);
       stepTimer.current = null;
     },
-    onSuccess: (res: MonthlyPlanWithTopics) => {
+    onSuccess: (result: GenerateMonthlyPlanResult) => {
+      if (!result.ok) {
+        const msg = describeError(result.code);
+        setGenerationError(msg);
+        toast.error(`Não foi possível gerar a pauta: ${msg}`, {
+          action: { label: "Abrir Conexões", onClick: () => navigate({ to: "/connections" }) },
+        });
+        return;
+      }
+      const res = result.data;
       qc.setQueryData(["monthly-plan", res.plan.id], res);
       qc.invalidateQueries({ queryKey: ["monthly-plans", "list", brandId, clientId] });
       setPlanId(res.plan.id);
@@ -223,6 +235,7 @@ export function MonthlyPlanView({
           ? { label: "Abrir Conexões", onClick: () => navigate({ to: "/connections" }) }
           : undefined,
       });
+      setGenerationError(msg);
     },
   });
 
@@ -274,6 +287,7 @@ export function MonthlyPlanView({
           briefings={briefingsQ.data ?? []}
           pending={generateM.isPending}
           loadingMessage={LOADING_MESSAGES[loadingStep] ?? LOADING_MESSAGES[0]!}
+          generationError={generationError}
           onGenerate={(input) => generateM.mutate(input)}
         />
       </DashboardPageShell>
