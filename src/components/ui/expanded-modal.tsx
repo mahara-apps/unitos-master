@@ -104,8 +104,9 @@ export const ExpandedModal = React.forwardRef<HTMLDivElement, ExpandedModalProps
           />
           <DialogPrimitive.Content
             ref={ref}
-            // Sem description não há nó descritivo: evita o warning do Radix.
-            aria-describedby={description ? undefined : undefined}
+            // Sem `description` não existe nó descritivo; remover o atributo
+            // silencia o warning de a11y do Radix.
+            {...(description ? {} : { "aria-describedby": undefined })}
             className={cn(
               // Mobile: ocupa quase a tela inteira, centralizado (nunca bottom sheet).
               // 100dvh evita estouro com a barra de endereço no Safari iOS.
