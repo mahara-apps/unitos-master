@@ -301,7 +301,7 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       throw error;
     }
     const { output, modelId } = agentResult;
-    const parsed = output;
+    const parsed = output as z.infer<typeof AiPlanSchema>;
 
     const contextSources = {
       model: modelId,
