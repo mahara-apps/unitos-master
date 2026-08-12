@@ -166,21 +166,38 @@ export function QuickCreateCustomerDrawer({
   });
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="flex w-full flex-col gap-0 p-0 sm:max-w-[520px]"
-      >
-        <SheetHeader className="border-b border-border/60 px-6 py-5">
-          <SheetTitle className="text-lg">Novo cliente</SheetTitle>
-          <SheetDescription>
-            Cadastro rápido — refine identidade, redes e detalhes depois em
-            <span className="mx-1 font-medium text-foreground">Cérebro da Marca › Identidade</span>.
-          </SheetDescription>
-        </SheetHeader>
+    <ExpandedModal
+      open={open}
+      onOpenChange={onOpenChange}
+      size="sm"
+      nested={nested}
+      title="Novo cliente"
+      description={
+        <>
+          Cadastro rápido — refine identidade, redes e detalhes depois em
+          <span className="mx-1 font-medium text-foreground">Cérebro da Marca › Identidade</span>.
+        </>
+      }
+      bodyClassName="space-y-6 py-6"
+      footer={
+        <>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={mut.isPending}
+          >
+            Cancelar
+          </Button>
+          <Button onClick={() => mut.mutate()} disabled={mut.isPending || !brandId}>
+            {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Criar cliente
+          </Button>
+        </>
+      }
+    >
+      <>
+        {/* Preview + logo upload */}
 
-        <div className="flex-1 space-y-6 overflow-y-auto px-6 py-6">
-          {/* Preview + logo upload */}
           <div>
             <Label className="text-xs">Logo do cliente</Label>
             <div className="mt-2 flex items-center gap-4">
