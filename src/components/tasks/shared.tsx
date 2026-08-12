@@ -947,6 +947,14 @@ export function TaskDrawer({
 
               <Separator />
 
+              {/* Subtasks */}
+              <div className="px-6 py-5">
+                <SubtasksSection taskId={task.id} />
+              </div>
+
+              <Separator />
+
+
               {/* Description */}
               <div className="space-y-1.5 px-6 py-5">
                 <label className="text-xs font-medium text-muted-foreground">Descrição</label>
