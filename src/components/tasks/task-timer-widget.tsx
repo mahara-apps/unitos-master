@@ -44,9 +44,12 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
   const stopFn = useServerFn(stopTimerFn);
 
   const stateQ = useQuery({
-    queryKey: ["timer-state", brandId, taskId],
+    // "seconds-v2" invalida o cache persistido da versão antiga, que podia
+    // conservar o piso de 1 minuto mesmo depois da correção no banco.
+    queryKey: ["timer-state", brandId, taskId, "seconds-v2"],
     queryFn: () => stateFn({ data: { brandId, taskId } }),
     enabled: !!brandId && !!taskId,
+    refetchOnMount: "always",
     refetchInterval: 60_000,
   });
 
@@ -74,7 +77,7 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
   }
 
   function setLocalState(patch: Partial<TimerState>) {
-    qc.setQueryData<TimerState>(["timer-state", brandId, taskId], (prev) => ({
+    qc.setQueryData<TimerState>(["timer-state", brandId, taskId, "seconds-v2"], (prev) => ({
       totalSeconds: prev?.totalSeconds ?? 0,
       active: prev?.active ?? null,
       paused: prev?.paused ?? false,
@@ -107,7 +110,10 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
   });
 
   const pauseMut = useMutation({
-    mutationFn: () => stopFn({ data: { entryId: active!.id, reason: "pause" } }),
+    mutationFn: () => {
+      if (!active) throw new Error("Nenhum timer ativo para pausar.");
+      return stopFn({ data: { entryId: active.id, reason: "pause" } });
+    },
     onMutate: () => {
       setLocalState({
         active: null,
