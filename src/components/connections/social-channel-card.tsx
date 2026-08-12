@@ -877,32 +877,8 @@ function ManageSheet({
             })
           )}
         </div>
+      </>
+    </ExpandedModal>
 
-        <Separator className="my-4" />
-        <div className="space-y-2">
-          <Button
-            className="w-full"
-            variant="outline"
-            onClick={() => {
-              if (kind === "meta") handleAddMeta();
-              else onAddNew();
-            }}
-          >
-            <Plus className="mr-2 h-4 w-4" /> Adicionar conta
-          </Button>
-          {kind === "meta" && (
-            <Button
-              className="w-full text-xs text-muted-foreground"
-              variant="ghost"
-              size="sm"
-              onClick={() => handleAddMeta({ forceReauth: true })}
-              title="Faz logout na Meta e permite entrar com outro usuário"
-            >
-              Conectar outro perfil Meta
-            </Button>
-          )}
-        </div>
-      </SheetContent>
-    </Sheet>
   );
 }
