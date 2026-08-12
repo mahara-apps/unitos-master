@@ -19,12 +19,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { ExpandedModal } from "@/components/ui/expanded-modal";
+
 import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
