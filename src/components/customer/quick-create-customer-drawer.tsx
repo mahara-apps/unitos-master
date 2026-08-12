@@ -334,22 +334,7 @@ export function QuickCreateCustomerDrawer({
               Demais canais e responsáveis ficam no Cérebro da Marca.
             </p>
           </div>
-        </div>
-
-        <div className="flex items-center justify-end gap-2 border-t border-border/60 bg-background/80 px-6 py-4 backdrop-blur">
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={mut.isPending}
-          >
-            Cancelar
-          </Button>
-          <Button onClick={() => mut.mutate()} disabled={mut.isPending || !brandId}>
-            {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Criar cliente
-          </Button>
-        </div>
-      </SheetContent>
-    </Sheet>
+      </>
+    </ExpandedModal>
   );
 }
