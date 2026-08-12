@@ -108,14 +108,15 @@ export function TaskTimesheetSheet({ open, onOpenChange, brandId, task }: Props)
   );
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="text-base">{task?.title ?? "Tarefa"}</SheetTitle>
-        </SheetHeader>
+    <ExpandedModal
+      open={open}
+      onOpenChange={onOpenChange}
+      size="md"
+      title={task?.title ?? "Tarefa"}
+    >
+      {task && (
+        <div className="space-y-6">
 
-        {task && (
-          <div className="mt-6 space-y-6">
             {/* Timer (Play · Pause · Stop) */}
             <TaskTimerWidget
               brandId={brandId}
