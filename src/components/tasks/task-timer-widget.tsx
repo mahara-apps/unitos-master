@@ -44,9 +44,7 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
   const stopFn = useServerFn(stopTimerFn);
 
   const stateQ = useQuery({
-    // "seconds-v2" invalida o cache persistido da versão antiga, que podia
-    // conservar o piso de 1 minuto mesmo depois da correção no banco.
-    queryKey: ["timer-state", brandId, taskId, "seconds-v2"],
+    queryKey: ["timer-state", brandId, taskId, "session-v3"],
     queryFn: () => stateFn({ data: { brandId, taskId } }),
     enabled: !!brandId && !!taskId,
     refetchOnMount: "always",
@@ -63,6 +61,10 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
   }, [active?.started_at, now, runningHere]);
 
   const totalSeconds = (state?.totalSeconds ?? 0) + (runningHere ? elapsedSec : 0);
+  // Enquanto roda, o relógio principal representa somente a sessão atual.
+  // O acumulado continua visível separadamente, evitando a impressão de que
+  // uma retomada começou já com um minuto lançado.
+  const displayedSeconds = runningHere ? elapsedSec : (state?.totalSeconds ?? 0);
   const status: "running" | "paused" | "idle" = runningHere
     ? "running"
     : state?.paused
@@ -77,7 +79,7 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
   }
 
   function setLocalState(patch: Partial<TimerState>) {
-    qc.setQueryData<TimerState>(["timer-state", brandId, taskId, "seconds-v2"], (prev) => ({
+    qc.setQueryData<TimerState>(["timer-state", brandId, taskId, "session-v3"], (prev) => ({
       totalSeconds: prev?.totalSeconds ?? 0,
       active: prev?.active ?? null,
       paused: prev?.paused ?? false,
@@ -159,7 +161,7 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
     >
       <div className="min-w-0">
         <div className="font-mono text-lg tabular-nums leading-none">
-          {formatSeconds(totalSeconds)}
+          {formatSeconds(displayedSeconds)}
           {estimatedMinutes ? (
             <span className="ml-1 text-xs text-muted-foreground">
               / {formatMinutes(estimatedMinutes)}
@@ -169,6 +171,11 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
         <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">
           {status === "running" ? "Em execução" : status === "paused" ? "Pausado" : "Parado"}
         </div>
+        {runningHere && state?.totalSeconds ? (
+          <div className="mt-1 text-[10px] text-muted-foreground">
+            Total acumulado: {formatSeconds(totalSeconds)}
+          </div>
+        ) : null}
       </div>
       <div className="flex items-center gap-1.5">
         {status === "running" ? (
