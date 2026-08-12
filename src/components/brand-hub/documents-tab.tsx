@@ -524,16 +524,7 @@ function AiReadingDrawer({
                 );
               })
             )}
-          </div>
-        </ScrollArea>
-        <SheetFooter className="mt-4">
-          <Button variant="ghost" onClick={onClose} disabled={saving}>Cancelar</Button>
-          <Button onClick={() => void apply()} disabled={saving || suggestions.length === 0} className="gap-1.5">
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-            Aplicar ao briefing
-          </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+      </div>
+    </ExpandedModal>
   );
 }
