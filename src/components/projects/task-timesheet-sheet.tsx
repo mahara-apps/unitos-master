@@ -246,7 +246,7 @@ export function TaskTimesheetSheet({ open, onOpenChange, brandId, task }: Props)
             </div>
           </div>
         )}
-      </SheetContent>
-    </Sheet>
+    </ExpandedModal>
+
   );
 }
