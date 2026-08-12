@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { z } from "zod";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { ChevronLeft, ChevronRight, CalendarDays, Loader2, Plus, ChevronDown, CalendarClock, Sparkles } from "lucide-react";
@@ -36,10 +37,21 @@ import { PendingSchedulePanel } from "@/components/calendar/pending-schedule-pan
 import { EventChip, type UnifiedEvent } from "@/components/calendar/event-chip";
 import { EventDialog } from "@/components/calendar/event-dialog";
 import { SocialIconsRow } from "@/components/calendar/social-icons-row";
-import { uniqueNetworks } from "@/lib/calendar-tokens";
+import {
+  uniqueNetworks,
+  SOCIAL_NETWORKS,
+  classifySocialNetwork,
+  type SocialNetworkKey,
+} from "@/lib/calendar-tokens";
 import { describeError } from "@/lib/errors";
 
+const searchSchema = z.object({
+  channels: z.array(z.string()).optional(),
+  format: z.string().nullable().optional(),
+});
+
 export const Route = createFileRoute("/_authenticated/calendar")({
+  validateSearch: (s: Record<string, unknown>) => searchSchema.parse(s),
   component: CalendarPage,
   errorComponent: ({ error, reset }) => (
     <div className="mx-auto max-w-lg space-y-3 rounded-lg border border-destructive/40 bg-destructive/5 p-6 text-sm">
@@ -68,8 +80,31 @@ function addMonths(d: Date, n: number) {
 
 function CalendarPage() {
   const { brandId, clientId } = useActiveContext();
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
   const [cursor, setCursor] = useState(() => startOfMonth(new Date()));
-  const [formatFilter, setFormatFilter] = useState<string | null>(null);
+  const formatFilter = search.format ?? null;
+  const channelFilter = useMemo<SocialNetworkKey[]>(
+    () => (search.channels ?? []).map((c) => classifySocialNetwork(c)),
+    [search.channels],
+  );
+
+  function setFormatFilter(next: string | null) {
+    navigate({ search: (prev) => ({ ...prev, format: next ?? undefined }), replace: true });
+  }
+  function toggleChannel(key: SocialNetworkKey) {
+    const cur = new Set(channelFilter);
+    if (cur.has(key)) cur.delete(key);
+    else cur.add(key);
+    const arr = Array.from(cur);
+    navigate({
+      search: (prev) => ({ ...prev, channels: arr.length ? arr : undefined }),
+      replace: true,
+    });
+  }
+  function clearChannels() {
+    navigate({ search: (prev) => ({ ...prev, channels: undefined }), replace: true });
+  }
   const [viewMode, setViewMode] = useState<"month" | "week">("month");
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardSeed, setWizardSeed] = useState<WizardSeed | null>(null);
@@ -170,13 +205,30 @@ function CalendarPage() {
       listEvents({ data: { brandId: brandId!, clientId: clientId ?? null, from, to } }),
   });
 
-  const volumetry = useMemo(() => computeVolumetry(q.data ?? []), [q.data]);
+  /** Networks present in the month, with counts — drives the dynamic channel chips. */
+  const channelOptions = useMemo(() => {
+    const counts = new Map<SocialNetworkKey, number>();
+    (q.data ?? []).forEach((p) => {
+      uniqueNetworks(p.channels ?? []).forEach((k) => counts.set(k, (counts.get(k) ?? 0) + 1));
+    });
+    return Array.from(counts.entries())
+      .map(([key, count]) => ({ key, count, label: SOCIAL_NETWORKS[key].label }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }, [q.data]);
+
+  const channelFilteredPosts = useMemo(() => {
+    const all = q.data ?? [];
+    if (channelFilter.length === 0) return all;
+    const wanted = new Set(channelFilter);
+    return all.filter((p) => uniqueNetworks(p.channels ?? []).some((k) => wanted.has(k)));
+  }, [q.data, channelFilter]);
+
+  const volumetry = useMemo(() => computeVolumetry(channelFilteredPosts), [channelFilteredPosts]);
 
   const filteredPosts = useMemo(() => {
-    const all = q.data ?? [];
-    if (!formatFilter) return all;
-    return all.filter((p) => classifyFormat(p.format) === formatFilter);
-  }, [q.data, formatFilter]);
+    if (!formatFilter) return channelFilteredPosts;
+    return channelFilteredPosts.filter((p) => classifyFormat(p.format) === formatFilter);
+  }, [channelFilteredPosts, formatFilter]);
 
   const byDay = useMemo(() => {
     const map = new Map<string, UnifiedEvent[]>();
@@ -231,9 +283,9 @@ function CalendarPage() {
         const total = q.data?.length ?? 0;
         const shown = filteredPosts.length;
         const label =
-          formatFilter && shown !== total
-            ? `${shown} de ${total} posts agendados`
-            : `${total} posts agendados`;
+          shown !== total
+            ? `${shown} de ${total} publicações confirmadas`
+            : `${total} publicações confirmadas`;
         return `${monthLabel.charAt(0).toUpperCase() + monthLabel.slice(1)} · ${label}`;
       })(),
       actions: (
@@ -312,7 +364,7 @@ function CalendarPage() {
         </div>
       ),
     },
-    [monthLabel, q.data?.length, brandId, clientId, viewMode],
+    [monthLabel, q.data?.length, filteredPosts.length, brandId, clientId, viewMode],
   );
 
   if (!brandId) {
@@ -359,10 +411,46 @@ function CalendarPage() {
             active={formatFilter === v.key}
             dimmed={!!formatFilter && formatFilter !== v.key}
             trailing={formatFilter === v.key ? "Filtro ativo" : undefined}
-            onClick={() => setFormatFilter((cur) => (cur === v.key ? null : v.key))}
+            onClick={() => setFormatFilter(formatFilter === v.key ? null : v.key)}
           />
         ))}
       </section>
+
+      {/* Filtros dinâmicos por canal/rede social */}
+      {channelOptions.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            Canais
+          </span>
+          {channelOptions.map((opt) => {
+            const Icon = SOCIAL_NETWORKS[opt.key].Icon;
+            const active = channelFilter.includes(opt.key);
+            return (
+              <button
+                key={opt.key}
+                type="button"
+                onClick={() => toggleChannel(opt.key)}
+                aria-pressed={active}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                  active
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border/60 bg-background text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" strokeWidth={2} />
+                {opt.label}
+                <span className="tabular-nums opacity-70">{opt.count}</span>
+              </button>
+            );
+          })}
+          {channelFilter.length > 0 ? (
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={clearChannels}>
+              Limpar
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
         <DashboardPanelSurface>
@@ -565,7 +653,7 @@ function CalendarPage() {
             text={
               formatFilter
                 ? `Nenhum post do formato "${formatFilter}" neste mês.`
-                : "Nenhum post agendado neste mês. Gere um plano em Produção."
+                : "Nenhuma publicação agendada ou publicada neste mês."
             }
           />
         ) : (
@@ -583,8 +671,8 @@ function CalendarPage() {
                       {new Date(p.scheduled_at).toLocaleString("pt-BR")} · {p.channels?.join(", ")}
                     </div>
                   </div>
-                  <Badge variant="outline" className="capitalize">
-                    {p.review_status ?? "pendente"}
+                  <Badge variant={p.status === "published" ? "default" : "outline"}>
+                    {p.status === "published" ? "Publicado" : "Agendado"}
                   </Badge>
                 </button>
               </li>
