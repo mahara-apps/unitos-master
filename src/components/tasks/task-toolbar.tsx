@@ -411,6 +411,7 @@ const COLUMN_LABEL: Record<keyof VisibleColumns, string> = {
   status: "Status",
   due: "Prazo",
   created: "Criado em",
+  time: "Tempo",
   comments: "Comentários",
   attachments: "Anexos",
 };

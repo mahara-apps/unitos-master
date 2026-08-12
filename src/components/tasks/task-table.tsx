@@ -18,6 +18,7 @@ import {
   CalendarIcon,
   Folder,
   Users,
+  Timer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -65,7 +66,8 @@ export type SortKey =
   | "priority"
   | "status"
   | "due"
-  | "created";
+  | "created"
+  | "time";
 export type SortDir = "asc" | "desc";
 
 export type VisibleColumns = {
@@ -76,6 +78,7 @@ export type VisibleColumns = {
   status: boolean;
   due: boolean;
   created: boolean;
+  time: boolean;
   comments: boolean;
   attachments: boolean;
 };
@@ -88,6 +91,7 @@ export const DEFAULT_VISIBLE_COLUMNS: VisibleColumns = {
   status: true,
   due: true,
   created: false,
+  time: true,
   comments: true,
   attachments: false,
 };
@@ -113,6 +117,8 @@ function compare(a: TaskRow, b: TaskRow, key: SortKey): number {
       return (a.due_at ?? "9999").localeCompare(b.due_at ?? "9999");
     case "created":
       return b.created_at.localeCompare(a.created_at);
+    case "time":
+      return (a.time_spent_seconds ?? 0) - (b.time_spent_seconds ?? 0);
   }
 }
 
@@ -158,6 +164,14 @@ function groupTasks(tasks: TaskRow[], groupBy: GroupBy): Array<{ key: string; la
     ordered.sort(([, a], [, b]) => a.label.localeCompare(b.label));
   }
   return ordered.map(([key, v]) => ({ key, label: v.label, items: v.items }));
+}
+
+function formatDuration(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return [h, m, sec].map((n) => String(n).padStart(2, "0")).join(":");
 }
 
 function SortIcon({ dir }: { dir: "asc" | "desc" | null }) {
@@ -318,6 +332,11 @@ export function TaskTable({
               {columns.created && (
                 <Th sortKey="created" currentKey={sortKey} currentDir={sortDir} onSort={onSort} className="w-[120px]">
                   Criado em
+                </Th>
+              )}
+              {columns.time && (
+                <Th sortKey="time" currentKey={sortKey} currentDir={sortDir} onSort={onSort} className="w-[110px]">
+                  Tempo
                 </Th>
               )}
               {columns.comments && <Th className="w-16" align="center">Coment.</Th>}
@@ -582,6 +601,18 @@ function TaskTableRow({
       {columns.created && (
         <td className="px-3 py-2 align-middle text-xs text-muted-foreground">
           {format(new Date(task.created_at), "d/MM/yyyy", { locale: ptBR })}
+        </td>
+      )}
+
+      {columns.time && (
+        <td className="px-3 py-2 align-middle">
+          {task.time_spent_seconds && task.time_spent_seconds > 0 ? (
+            <span className="inline-flex items-center gap-1 font-mono text-xs text-muted-foreground">
+              <Timer className="h-3 w-3" /> {formatDuration(task.time_spent_seconds)}
+            </span>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          )}
         </td>
       )}
 
