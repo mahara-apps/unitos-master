@@ -48,6 +48,19 @@ export function describeError(err: unknown): string {
 
   const lower = raw.toLowerCase();
 
+  // Provedor de IA (BYOK) não configurado / chave ausente / modelo indisponível
+  if (lower.includes("ai_provider_not_configured")) {
+    return "Nenhuma IA configurada para esta marca. Cadastre uma chave de provedor em Conexões.";
+  }
+  if (lower.includes("ai_provider_key_missing")) {
+    const p = raw.match(/ai_provider_key_missing:([a-z]+)/i)?.[1];
+    return `A chave${p ? ` do provedor ${p}` : ""} não foi encontrada. Reconfigure em Conexões.`;
+  }
+  if (lower.includes("ai_model_unavailable")) {
+    return "O provedor configurado não oferece um modelo para esta função. Ajuste o provedor em Conexões.";
+  }
+
+
   // Erros comuns do PostgREST / Supabase
   if (lower.includes("row-level security") || lower.includes("permission denied")) {
     return "Você não tem permissão para executar esta ação.";
