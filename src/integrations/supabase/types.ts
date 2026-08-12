@@ -5257,9 +5257,11 @@ export type Database = {
           created_at: string
           description: string | null
           ended_at: string | null
+          ended_reason: string | null
           id: string
           is_rework: boolean
           minutes: number | null
+          seconds: number | null
           source: string
           started_at: string
           task_id: string
@@ -5271,9 +5273,11 @@ export type Database = {
           created_at?: string
           description?: string | null
           ended_at?: string | null
+          ended_reason?: string | null
           id?: string
           is_rework?: boolean
           minutes?: number | null
+          seconds?: number | null
           source?: string
           started_at?: string
           task_id: string
@@ -5285,9 +5289,11 @@ export type Database = {
           created_at?: string
           description?: string | null
           ended_at?: string | null
+          ended_reason?: string | null
           id?: string
           is_rework?: boolean
           minutes?: number | null
+          seconds?: number | null
           source?: string
           started_at?: string
           task_id?: string
@@ -5716,7 +5722,9 @@ export type Database = {
         Args: { _brand_id: string; _task_id: string }
         Returns: string
       }
-      stop_timer: { Args: { _entry_id: string }; Returns: number }
+      stop_timer:
+        | { Args: { _entry_id: string }; Returns: number }
+        | { Args: { _entry_id: string; _reason?: string }; Returns: number }
       upsert_brain_relationship: {
         Args: {
           _bidirectional?: boolean
