@@ -364,7 +364,7 @@ function CalendarPage() {
         </div>
       ),
     },
-    [monthLabel, q.data?.length, brandId, clientId, viewMode],
+    [monthLabel, q.data?.length, filteredPosts.length, brandId, clientId, viewMode],
   );
 
   if (!brandId) {
