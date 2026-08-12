@@ -29,6 +29,8 @@ export type TaskRow = {
   client_name?: string | null;
   project_name?: string | null;
   comments_count?: number;
+  time_spent_seconds?: number;
+
 };
 
 export type TaskComment = {
