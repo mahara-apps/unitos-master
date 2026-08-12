@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as ModalSandboxRouteImport } from './routes/modal-sandbox'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
@@ -89,11 +88,6 @@ import { Route as ApiSocialPostsPostIdAnalyticsRouteImport } from './routes/api/
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ModalSandboxRoute = ModalSandboxRouteImport.update({
-  id: '/modal-sandbox',
-  path: '/modal-sandbox',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -507,7 +501,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
-  '/modal-sandbox': typeof ModalSandboxRoute
   '/reset-password': typeof ResetPasswordRoute
   '/agents': typeof AuthenticatedAgentsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
@@ -584,7 +577,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
-  '/modal-sandbox': typeof ModalSandboxRoute
   '/reset-password': typeof ResetPasswordRoute
   '/agents': typeof AuthenticatedAgentsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
@@ -658,7 +650,6 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
-  '/modal-sandbox': typeof ModalSandboxRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/agents': typeof AuthenticatedAgentsRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
@@ -737,7 +728,6 @@ export interface FileRouteTypes {
     | '/'
     | '/forgot-password'
     | '/login'
-    | '/modal-sandbox'
     | '/reset-password'
     | '/agents'
     | '/analytics'
@@ -814,7 +804,6 @@ export interface FileRouteTypes {
     | '/'
     | '/forgot-password'
     | '/login'
-    | '/modal-sandbox'
     | '/reset-password'
     | '/agents'
     | '/analytics'
@@ -887,7 +876,6 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/forgot-password'
     | '/login'
-    | '/modal-sandbox'
     | '/reset-password'
     | '/_authenticated/agents'
     | '/_authenticated/analytics'
@@ -966,7 +954,6 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
-  ModalSandboxRoute: typeof ModalSandboxRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   ApprovalTokenRoute: typeof ApprovalTokenRoute
   InviteTokenRoute: typeof InviteTokenRoute
@@ -1007,13 +994,6 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/modal-sandbox': {
-      id: '/modal-sandbox'
-      path: '/modal-sandbox'
-      fullPath: '/modal-sandbox'
-      preLoaderRoute: typeof ModalSandboxRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -1713,7 +1693,6 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
-  ModalSandboxRoute: ModalSandboxRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   ApprovalTokenRoute: ApprovalTokenRoute,
   InviteTokenRoute: InviteTokenRoute,
