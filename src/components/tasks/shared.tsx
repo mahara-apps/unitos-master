@@ -516,18 +516,9 @@ export function CreateTaskDialog({
             <label className="text-xs font-medium text-muted-foreground">Projeto</label>
             <ProjectPicker brandId={brandId} clientId={taskClientId} value={projectId} onChange={setProjectId} />
           </div>
-        </div>
-        <div className="flex items-center justify-end gap-2 border-t bg-background px-6 py-3">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button onClick={() => m.mutate()} disabled={!title.trim() || m.isPending}>
-            {m.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
-            Criar tarefa
-          </Button>
-        </div>
-      </SheetContent>
-    </Sheet>
+      </>
+    </ExpandedModal>
+
   );
 }
 
