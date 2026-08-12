@@ -283,6 +283,7 @@ export function ContextSwitcher() {
         open={customerDialogOpen}
         onOpenChange={setCustomerDialogOpen}
         onCreated={(c) => setClientId(c.id)}
+        nested
       />
     </>
   );
