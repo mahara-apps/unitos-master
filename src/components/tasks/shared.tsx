@@ -962,57 +962,10 @@ export function TaskDrawer({
                 ) : null}
               </div>
             </div>
-
-            {/* Sticky composer */}
-            <div className="border-t bg-background px-4 py-3">
-              <div className="relative">
-                <Textarea
-                  rows={2}
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && comment.trim()) {
-                      e.preventDefault();
-                      send.mutate();
-                    }
-                  }}
-                  placeholder="Escreva um comentário. Use @ para mencionar. Cmd/Ctrl+Enter para enviar."
-                  className="min-h-[60px] resize-none pr-12"
-                />
-                <Button
-                  size="icon"
-                  className="absolute bottom-2 right-2 h-8 w-8 rounded-full"
-                  onClick={() => send.mutate()}
-                  disabled={!comment.trim() || send.isPending}
-                  aria-label="Enviar comentário"
-                >
-                  {send.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4" />
-                  )}
-                </Button>
-                {mentionOpen ? (
-                  <div className="absolute bottom-full left-0 z-20 mb-2 w-64 rounded-md border bg-popover shadow-md">
-                    <MentionList
-                      members={members}
-                      query={mentionQuery}
-                      onPick={(u) => insertMention(u.id, u.name)}
-                    />
-                  </div>
-                ) : null}
-              </div>
-              <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
-                <span>
-                  Criada em {format(new Date(task.created_at), "d 'de' MMM yyyy", { locale: ptBR })}
-                </span>
-                <span className="font-mono opacity-70">J/K para navegar · Esc para fechar</span>
-              </div>
-            </div>
           </>
         )}
-      </SheetContent>
-    </Sheet>
+    </ExpandedModal>
+
   );
 }
 
