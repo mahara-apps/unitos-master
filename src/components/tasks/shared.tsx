@@ -71,14 +71,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Progress } from "@/components/ui/progress";
 import {
+  addSubtaskFn,
   addTaskCommentFn,
   createTaskFn,
+  deleteSubtaskFn,
   deleteTaskCommentFn,
   deleteTaskFn,
   listProjectsFn,
+  listSubtasksFn,
   listTaskCommentsFn,
   listTasksFn,
+  updateSubtaskFn,
   updateTaskFn,
   TASK_PRIORITIES,
   TASK_STATUSES,
