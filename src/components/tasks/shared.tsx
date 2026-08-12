@@ -431,15 +431,27 @@ export function CreateTaskDialog({
   });
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-[520px]">
-        <SheetHeader className="border-b px-6 py-4">
-          <SheetTitle className="text-base">Nova tarefa</SheetTitle>
-          <SheetDescription className="text-xs">
-            Crie uma tarefa e atribua para alguém do time.
-          </SheetDescription>
-        </SheetHeader>
-        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
+    <ExpandedModal
+      open={open}
+      onOpenChange={onOpenChange}
+      size="sm"
+      title="Nova tarefa"
+      description="Crie uma tarefa e atribua para alguém do time."
+      bodyClassName="space-y-4"
+      footer={
+        <>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={() => m.mutate()} disabled={!title.trim() || m.isPending}>
+            {m.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+            Criar tarefa
+          </Button>
+        </>
+      }
+    >
+      <>
+
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">Título</label>
             <Input
