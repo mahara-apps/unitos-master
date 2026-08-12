@@ -5,42 +5,13 @@ import { toast } from "sonner";
 import { Play, Pause, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  listTimeEntriesFn,
-  getMyActiveTimerFn,
+  getTimerStateFn,
   startTimerFn,
   stopTimerFn,
+  formatSeconds,
   formatMinutes,
-  type TimeEntry,
+  type TimerState,
 } from "@/lib/timesheet.functions";
-
-function formatHMS(totalSeconds: number): string {
-  const s = Math.max(0, Math.floor(totalSeconds));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-}
-
-function pausedKey(taskId: string) {
-  return `unitos.timesheet.paused.${taskId}`;
-}
-function readPaused(taskId: string): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return window.localStorage.getItem(pausedKey(taskId)) === "1";
-  } catch {
-    return false;
-  }
-}
-function writePaused(taskId: string, v: boolean) {
-  if (typeof window === "undefined") return;
-  try {
-    if (v) window.localStorage.setItem(pausedKey(taskId), "1");
-    else window.localStorage.removeItem(pausedKey(taskId));
-  } catch {
-    /* ignore */
-  }
-}
 
 function useNowTick(enabled: boolean): number {
   const [now, setNow] = useState(() => Date.now());
@@ -53,8 +24,6 @@ function useNowTick(enabled: boolean): number {
   return now;
 }
 
-type ActiveTimer = { id: string; task_id: string; started_at: string; brand_id: string };
-
 type Props = {
   brandId: string;
   taskId: string;
@@ -63,123 +32,116 @@ type Props = {
 };
 
 /**
- * Play · Pause · Stop timer for a task.
- * - Play  → startTimerFn (novo segmento em task_time_entries)
- * - Pause → stopTimerFn  + flag paused=true no localStorage (retomável)
- * - Stop  → stopTimerFn  + limpa flag (encerra a sessão)
- * Total = soma dos segmentos + tempo corrido do segmento ativo.
+ * Timer Play · Pause · Stop de uma tarefa.
+ * Estado 100% no servidor: um segmento aberto = rodando; último segmento
+ * encerrado com motivo "pause" = pausado; caso contrário = parado.
+ * Total = segundos salvos + segundos corridos do segmento aberto.
  */
 export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: Props) {
   const qc = useQueryClient();
-  const listFn = useServerFn(listTimeEntriesFn);
-  const activeFn = useServerFn(getMyActiveTimerFn);
+  const stateFn = useServerFn(getTimerStateFn);
   const startFn = useServerFn(startTimerFn);
   const stopFn = useServerFn(stopTimerFn);
-  const [optimisticActive, setOptimisticActive] = useState<ActiveTimer | null>(null);
 
-  const entriesQ = useQuery({
-    queryKey: ["time-entries", brandId, taskId],
-    queryFn: () => listFn({ data: { brandId, taskId } }),
+  const stateQ = useQuery({
+    queryKey: ["timer-state", brandId, taskId],
+    queryFn: () => stateFn({ data: { brandId, taskId } }),
     enabled: !!brandId && !!taskId,
-  });
-  const activeQ = useQuery({
-    queryKey: ["active-timer", brandId],
-    queryFn: () => activeFn({ data: { brandId } }),
-    enabled: !!brandId,
-    refetchInterval: 30_000,
+    refetchInterval: 60_000,
   });
 
-  const serverActive = (activeQ.data ?? null) as ActiveTimer | null;
-  const active = optimisticActive ?? serverActive;
-  const runningHere = active?.task_id === taskId;
+  const state = (stateQ.data ?? null) as TimerState | null;
+  const active = state?.active ?? null;
+  const runningHere = !!active && active.task_id === taskId;
   const now = useNowTick(runningHere);
   const elapsedSec = useMemo(() => {
     if (!runningHere || !active?.started_at) return 0;
     return Math.max(0, Math.floor((now - new Date(active.started_at).getTime()) / 1000));
   }, [active?.started_at, now, runningHere]);
 
-  useEffect(() => {
-    if (!optimisticActive) return;
-    if (serverActive?.id === optimisticActive.id) setOptimisticActive(null);
-    if (serverActive && serverActive.id !== optimisticActive.id) setOptimisticActive(null);
-  }, [optimisticActive, serverActive]);
-
-  const [paused, setPaused] = useState(false);
-  useEffect(() => {
-    setPaused(readPaused(taskId));
-  }, [taskId]);
-  // Se algo já está rodando aqui, não é pausado.
-  useEffect(() => {
-    if (runningHere && paused) {
-      setPaused(false);
-      writePaused(taskId, false);
-    }
-  }, [runningHere, paused, taskId]);
-
-  const entries: TimeEntry[] = entriesQ.data ?? [];
-  const totalSavedMin = entries.reduce((sum, e) => sum + (e.minutes ?? 0), 0);
-  const totalSeconds = totalSavedMin * 60 + (runningHere ? elapsedSec : 0);
+  const totalSeconds = (state?.totalSeconds ?? 0) + (runningHere ? elapsedSec : 0);
+  const status: "running" | "paused" | "idle" = runningHere
+    ? "running"
+    : state?.paused
+      ? "paused"
+      : "idle";
 
   function invalidateAll() {
-    qc.invalidateQueries({ queryKey: ["active-timer", brandId] });
+    qc.invalidateQueries({ queryKey: ["timer-state", brandId] });
     qc.invalidateQueries({ queryKey: ["time-entries", brandId, taskId] });
     qc.invalidateQueries({ queryKey: ["job-tasks"] });
     qc.invalidateQueries({ queryKey: ["tasks"] });
   }
 
+  function setLocalState(patch: Partial<TimerState>) {
+    qc.setQueryData<TimerState>(["timer-state", brandId, taskId], (prev) => ({
+      totalSeconds: prev?.totalSeconds ?? 0,
+      active: prev?.active ?? null,
+      paused: prev?.paused ?? false,
+      ...patch,
+    }));
+  }
+
   const startMut = useMutation({
     mutationFn: () => startFn({ data: { brandId, taskId } }),
     onMutate: () => {
-      setOptimisticActive({
-        id: `local-${taskId}-${Date.now()}`,
-        task_id: taskId,
-        brand_id: brandId,
-        started_at: new Date().toISOString(),
+      setLocalState({
+        active: {
+          id: `local-${taskId}-${Date.now()}`,
+          task_id: taskId,
+          brand_id: brandId,
+          started_at: new Date().toISOString(),
+        },
+        paused: false,
       });
-      setPaused(false);
-      writePaused(taskId, false);
     },
     onSuccess: (started) => {
-      setOptimisticActive(started);
-      setPaused(false);
-      writePaused(taskId, false);
+      setLocalState({ active: started, paused: false });
       invalidateAll();
     },
     onError: (e: Error) => {
-      setOptimisticActive(null);
+      setLocalState({ active: null });
+      void stateQ.refetch();
       toast.error(e.message);
     },
   });
+
   const pauseMut = useMutation({
-    mutationFn: () => stopFn({ data: { entryId: active!.id } }),
-    onMutate: () => setOptimisticActive(null),
-    onSuccess: () => {
-      setPaused(true);
-      writePaused(taskId, true);
-      invalidateAll();
+    mutationFn: () => stopFn({ data: { entryId: active!.id, reason: "pause" } }),
+    onMutate: () => {
+      setLocalState({
+        active: null,
+        paused: true,
+        totalSeconds: (state?.totalSeconds ?? 0) + elapsedSec,
+      });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onSuccess: () => invalidateAll(),
+    onError: (e: Error) => {
+      void stateQ.refetch();
+      toast.error(e.message);
+    },
   });
+
   const stopMut = useMutation({
     mutationFn: async () => {
-      if (runningHere && active) await stopFn({ data: { entryId: active.id } });
+      if (runningHere && active) await stopFn({ data: { entryId: active.id, reason: "stop" } });
       return true;
     },
-    onMutate: () => setOptimisticActive(null),
-    onSuccess: () => {
-      setPaused(false);
-      writePaused(taskId, false);
-      invalidateAll();
+    onMutate: () => {
+      setLocalState({
+        active: runningHere ? null : (state?.active ?? null),
+        paused: false,
+        totalSeconds: (state?.totalSeconds ?? 0) + (runningHere ? elapsedSec : 0),
+      });
     },
-    onError: (e: Error) => toast.error(e.message),
+    onSuccess: () => invalidateAll(),
+    onError: (e: Error) => {
+      void stateQ.refetch();
+      toast.error(e.message);
+    },
   });
 
   const busy = startMut.isPending || pauseMut.isPending || stopMut.isPending;
-  const status: "running" | "paused" | "idle" = runningHere
-    ? "running"
-    : paused
-      ? "paused"
-      : "idle";
 
   return (
     <div
@@ -191,7 +153,7 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
     >
       <div className="min-w-0">
         <div className="font-mono text-lg tabular-nums leading-none">
-          {formatHMS(totalSeconds)}
+          {formatSeconds(totalSeconds)}
           {estimatedMinutes ? (
             <span className="ml-1 text-xs text-muted-foreground">
               / {formatMinutes(estimatedMinutes)}
@@ -199,11 +161,7 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
           ) : null}
         </div>
         <div className="mt-1 text-[10px] uppercase tracking-widest text-muted-foreground">
-          {status === "running"
-            ? "Em execução"
-            : status === "paused"
-              ? "Pausado"
-              : "Parado"}
+          {status === "running" ? "Em execução" : status === "paused" ? "Pausado" : "Parado"}
         </div>
       </div>
       <div className="flex items-center gap-1.5">
@@ -233,7 +191,7 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
           size="sm"
           variant="outline"
           onClick={() => stopMut.mutate()}
-          disabled={busy || (status === "idle" && !paused)}
+          disabled={busy || status === "idle"}
           aria-label="Parar"
         >
           <Square className="mr-1.5 h-4 w-4" /> Parar
