@@ -56,9 +56,11 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
   const runningHere = !!active && active.task_id === taskId;
   const now = useNowTick(runningHere);
   const elapsedSec = useMemo(() => {
-    if (!runningHere || !active?.started_at) return 0;
-    return Math.max(0, Math.floor((now - new Date(active.started_at).getTime()) / 1000));
-  }, [active?.started_at, now, runningHere]);
+    if (!runningHere || !active) return 0;
+    const baselineSeconds = Math.max(0, active.elapsed_seconds ?? 0);
+    const receivedAt = stateQ.dataUpdatedAt || now;
+    return baselineSeconds + Math.max(0, Math.floor((now - receivedAt) / 1000));
+  }, [active, now, runningHere, stateQ.dataUpdatedAt]);
 
   const totalSeconds = (state?.totalSeconds ?? 0) + (runningHere ? elapsedSec : 0);
   // Enquanto roda, o relógio principal representa somente a sessão atual.
@@ -96,6 +98,7 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
           task_id: taskId,
           brand_id: brandId,
           started_at: new Date().toISOString(),
+           elapsed_seconds: 0,
         },
         paused: false,
       });
