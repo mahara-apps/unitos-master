@@ -81,7 +81,6 @@ import {
   updateTopicFn,
   type GenerateMonthlyPlanResult,
   type MonthlyPlanListItem,
-  type MonthlyPlanStatus,
   type MonthlyPlanTopic,
   type MonthlyPlanWithTopics,
 } from "@/lib/monthly-plans.functions";
