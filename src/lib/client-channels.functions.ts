@@ -196,6 +196,11 @@ export const listClientLinkedChannelsFn = createServerFn({ method: "GET" })
 export type WorkspaceChannel = LinkedChannel & {
   clients: Array<{ id: string; name: string }>;
   createdAt: string;
+  lastSyncedAt: string | null;
+  tokenExpiresAt: string | null;
+  lastError: string | null;
+  scopes: string[];
+  externalId: string;
 };
 
 export const listWorkspaceChannelsFn = createServerFn({ method: "GET" })
@@ -205,7 +210,7 @@ export const listWorkspaceChannelsFn = createServerFn({ method: "GET" })
     const { data: rows, error } = await context.supabase
       .from("social_connections")
       .select(
-        "id, provider, channel, external_name, account_username, status, metadata, page_id, instagram_business_id, channel_name, created_at",
+        "id, provider, channel, external_name, account_username, status, metadata, page_id, instagram_business_id, channel_name, created_at, last_synced_at, token_expires_at, last_error, scopes, external_id",
       )
       .eq("brand_id", data.brandId)
       .order("created_at", { ascending: false });
@@ -251,6 +256,11 @@ export const listWorkspaceChannelsFn = createServerFn({ method: "GET" })
         instagramBusinessId: r.instagram_business_id ?? null,
         clients: byConn.get(r.id) ?? [],
         createdAt: r.created_at,
+        lastSyncedAt: r.last_synced_at ?? null,
+        tokenExpiresAt: r.token_expires_at ?? null,
+        lastError: r.last_error ?? null,
+        scopes: (r.scopes ?? []) as string[],
+        externalId: r.external_id,
       };
     });
   });
