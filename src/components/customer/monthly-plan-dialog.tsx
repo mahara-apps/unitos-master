@@ -33,7 +33,7 @@ type Props = {
   disabledReason?: string;
 };
 
-const WEEKS_PER_MONTH = 4.33;
+
 const CHANNEL_LABEL: Record<string, string> = {
   instagram: "Instagram",
   tiktok: "TikTok",
