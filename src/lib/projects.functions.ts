@@ -155,22 +155,29 @@ export const getProject = createServerFn({ method: "GET" })
     const { data: postRows } = await context.supabase
       .from("posts")
       .select(
-        "id, title, stage, review_status, published_at, scheduled_at, channels, cover_url, created_at, updated_at, monthly_plan_topic_id, assignee_id, format",
+        "id, title, stage, stage_id, review_status, published_at, scheduled_at, channels, cover_url, created_at, updated_at, monthly_plan_topic_id, assignee_id, format",
       )
       .eq("brand_id", data.brandId)
       .eq("project_id", data.projectId)
       .order("created_at", { ascending: false });
 
     const posts = postRows ?? [];
+    const stageMap = await loadStageMap(
+      context.supabase,
+      posts.map((p) => p.stage_id as string | null),
+    );
+    const stageOf = (p: { stage_id?: string | null; stage?: string | null }) =>
+      effectiveStage(p.stage_id ?? null, p.stage ?? null, stageMap);
     const stats: ProjectStats = { total: posts.length, approved: 0, published: 0, pending: 0 };
     for (const p of posts) {
-      const stage = String(p.stage ?? "").toLowerCase();
+      const stage = stageOf(p);
       const review = String(p.review_status ?? "").toLowerCase();
       const published = !!p.published_at || stage === "published";
       if (published) stats.published += 1;
       if (review === "approved" || stage === "approved") stats.approved += 1;
       if (!published && review !== "approved" && stage !== "approved") stats.pending += 1;
     }
+
 
     // Itens da pauta vinculada (inclui os que ainda não viraram peça).
     const items: ProjectPlanItem[] = [];
