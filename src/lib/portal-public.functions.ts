@@ -172,16 +172,27 @@ async function fillCovers(posts: PortalPost[]): Promise<void> {
 export const resolvePortalTokenFn = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => tokenIn.parse(i))
   .handler(async ({ data }): Promise<PortalResolveResult> => {
-    const res = await rpc<Omit<PortalResolveResult, "theme">>("portal_resolve", {
-      _token: data.token,
-    });
-    // O jsonb vem do banco sem garantias: valida antes de virar CSS/style.
-    const theme = resolvePortalTheme(normalizePortalTheme(res.client?.portal_theme), {
-      color: res.client?.color ?? null,
-      logoUrl: null,
-      agencyName: res.brand?.name ?? null,
-    });
-    return { ...res, theme };
+    try {
+      const res = await rpc<Omit<PortalResolveResult, "theme" | "error">>("portal_resolve", {
+        _token: data.token,
+      });
+      // O jsonb vem do banco sem garantias: valida antes de virar CSS/style.
+      const theme = resolvePortalTheme(normalizePortalTheme(res.client?.portal_theme), {
+        color: res.client?.color ?? null,
+        logoUrl: null,
+        agencyName: res.brand?.name ?? null,
+      });
+      return { ...res, theme };
+    } catch (e) {
+      return {
+        clientId: null,
+        brandId: null,
+        client: null,
+        brand: null,
+        theme: null,
+        error: e instanceof Error ? e.message : "invalid_token",
+      };
+    }
   });
 
 export const getPortalMetricsFn = createServerFn({ method: "POST" })
