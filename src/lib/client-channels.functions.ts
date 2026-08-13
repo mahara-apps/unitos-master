@@ -6,7 +6,11 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
  * Vínculo N:N entre clientes e contas sociais (social_connections) do
  * workspace/marca. As contas são conectadas globalmente em /connections
  * e atribuídas a cada cliente a partir do perfil do cliente.
+ *
+ * FONTE DE VERDADE (Fase 1/2): `client_social_accounts`.
+ * O campo legado `social_connections.client_id` NUNCA é consultado aqui.
  */
+
 
 export type ClientChannelRow = {
   connectionId: string;
