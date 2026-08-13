@@ -160,7 +160,6 @@ function ProjectDetailPage() {
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const [status, setStatus] = useState<string>("active");
-  const [clientId, setClientId] = useState<string | null>(null);
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [startDate, setStartDate] = useState<string | null>(null);
   const [dueAt, setDueAt] = useState<string | null>(null);
@@ -173,7 +172,6 @@ function ProjectDetailPage() {
     setName(project.name);
     setDesc(project.description ?? "");
     setStatus(project.status);
-    setClientId(project.client_id ?? null);
     setOwnerId(project.owner_id ?? null);
     setStartDate(project.start_date ?? null);
     setDueAt(project.due_at ?? null);
