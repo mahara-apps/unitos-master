@@ -42,7 +42,7 @@ export const listProjects = createServerFn({ method: "GET" })
     let query = context.supabase
       .from("projects")
       .select(
-        "id, brand_id, client_id, name, description, status, color, progress, start_date, due_at, goals, owner_id, created_at, updated_at, monthly_plan_id, monthly_plans(id, title, status)",
+        "id, brand_id, client_id, name, description, status, color, progress, start_date, due_at, goals, owner_id, created_at, updated_at, monthly_plan_id, monthly_plans!projects_monthly_plan_id_fkey(id, title, status)",
       )
       .eq("brand_id", data.brandId)
       .order("created_at", { ascending: false });
@@ -98,7 +98,7 @@ export const getProject = createServerFn({ method: "GET" })
     const { data: projectRaw, error } = await context.supabase
       .from("projects")
       .select(
-        "id, brand_id, client_id, name, description, status, color, progress, start_date, due_at, goals, owner_id, created_at, updated_at, monthly_plan_id, monthly_plans(id, title, status)",
+        "id, brand_id, client_id, name, description, status, color, progress, start_date, due_at, goals, owner_id, created_at, updated_at, monthly_plan_id, monthly_plans!projects_monthly_plan_id_fkey(id, title, status)",
       )
       .eq("brand_id", data.brandId)
       .eq("id", data.projectId)
