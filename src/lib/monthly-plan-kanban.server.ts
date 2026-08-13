@@ -113,6 +113,27 @@ export async function materializePlanToKanban(
 
   const pipelineId = await ensureDefaultPipeline(sb, args.brandId, args.clientId, args.userId);
 
+  // Garante o projeto da pauta e vincula as peças a ele (projeto = execução da pauta).
+  let projectId: string | null = null;
+  try {
+    const { ensurePlanProject } = await import("@/lib/monthly-plan-project.server");
+    const { data: planRow } = await sb
+      .from("monthly_plans")
+      .select("title")
+      .eq("id", args.planId)
+      .maybeSingle();
+    const res = await ensurePlanProject(sb, {
+      planId: args.planId,
+      brandId: args.brandId,
+      clientId: args.clientId,
+      title: (planRow as unknown as { title: string | null } | null)?.title ?? null,
+      userId: args.userId,
+    });
+    projectId = res.projectId;
+  } catch {
+    projectId = null;
+  }
+
   const { data: stages } = await sb
     .from("content_pipeline_stages")
     .select("id, position, is_terminal")
@@ -140,6 +161,7 @@ export async function materializePlanToKanban(
     return {
       brand_id: args.brandId,
       client_id: args.clientId,
+      project_id: projectId,
       pipeline_id: pipelineId,
       stage_id: stage.id,
       stage: "idea",
