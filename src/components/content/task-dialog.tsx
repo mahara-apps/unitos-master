@@ -1100,9 +1100,8 @@ function TaskLayout({
           <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
             Vai publicar? Selecione a conta de destino
           </Label>
-          {(
-
             <div className="flex flex-wrap gap-1.5">
+
               {assignedConnections.map((row) => {
                 const meta = CHANNELS.find((c) => c.id === row.channel);
                 const Icon = meta?.icon;
