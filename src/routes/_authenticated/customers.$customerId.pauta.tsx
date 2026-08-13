@@ -263,6 +263,7 @@ export function MonthlyPlanView({
             </p>
           </div>
           <Button
+            variant="ai"
             className="h-10 gap-2"
             disabled={!hasVolumetry || volumetryQ.isLoading}
             onClick={() => setWizardOpen(true)}
@@ -862,9 +863,8 @@ function ApprovalView({
             {!locked ? (
               <div className="flex items-center gap-2">
                 <Button
-                  variant="secondary"
                   size="sm"
-                  className="gap-1.5"
+                  className="gap-1.5 border border-emerald-500/30 bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25"
                   onClick={() => approveAll.mutate(pendingTopics.map((t) => t.id))}
                   disabled={approveAll.isPending || pendingTopics.length === 0}
                 >
@@ -935,7 +935,7 @@ function ApprovalView({
 
           <Button
             variant="outline"
-            className="gap-1.5 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+            className="gap-1.5 border-destructive/40 text-destructive bg-destructive/5 hover:bg-destructive/10 hover:text-destructive"
             onClick={() => discard.mutate()}
             disabled={discard.isPending}
           >
@@ -1136,15 +1136,32 @@ function TopicCard({
             : "border-border/60 bg-card/40 hover:border-border"
       }`}
     >
-      {!locked ? (
-        <button
-          onClick={onDelete}
-          className="absolute right-2 top-2 rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
-          aria-label="Remover tópico"
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span
+          className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${
+            topic.status === "approved"
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+              : topic.status === "rejected"
+                ? "border-rose-500/30 bg-rose-500/10 text-rose-400"
+                : "border-amber-500/30 bg-amber-500/10 text-amber-400"
+          }`}
         >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
-      ) : null}
+          {topic.status === "approved"
+            ? "Aprovado"
+            : topic.status === "rejected"
+              ? "Descartado"
+              : "Pendente"}
+        </span>
+        {!locked ? (
+          <button
+            onClick={onDelete}
+            className="rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+            aria-label="Remover tópico"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        ) : null}
+      </div>
       {topic.client_status && topic.client_status !== "pending" ? (
         <div className="mb-2 space-y-1">
           <span
@@ -1263,8 +1280,12 @@ function TopicCard({
           <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-border/50 pt-3">
             <Button
               size="sm"
-              variant={topic.status === "approved" ? "default" : "outline"}
-              className="h-7 gap-1 px-2 text-xs"
+              variant="outline"
+              className={`h-7 gap-1 px-2 text-xs ${
+                topic.status === "approved"
+                  ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25"
+                  : ""
+              }`}
               disabled={missing}
               title={missing ? "Defina plataforma e formato" : undefined}
               onClick={() => onStatus(topic.status === "approved" ? "pending" : "approved")}
@@ -1273,8 +1294,12 @@ function TopicCard({
             </Button>
             <Button
               size="sm"
-              variant={topic.status === "rejected" ? "secondary" : "ghost"}
-              className="h-7 gap-1 px-2 text-xs"
+              variant="ghost"
+              className={`h-7 gap-1 px-2 text-xs ${
+                topic.status === "rejected"
+                  ? "border border-rose-500/30 bg-rose-500/15 text-rose-400 hover:bg-rose-500/25"
+                  : ""
+              }`}
               onClick={() => onStatus(topic.status === "rejected" ? "pending" : "rejected")}
             >
               <X className="h-3.5 w-3.5" /> Descartar

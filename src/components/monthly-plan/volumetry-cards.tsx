@@ -35,7 +35,7 @@ function MetricCard({
   const available = Math.max(0, quota - generated);
   const pct = quota > 0 ? Math.min(100, Math.round((generated / quota) * 100)) : 0;
   return (
-    <Card className={emphasis ? "border-primary/40 bg-primary/5" : undefined}>
+    <Card className={emphasis ? "border-emerald-500/30 bg-emerald-500/5" : undefined}>
       <CardContent className="space-y-3 p-4">
         <div className="flex items-baseline justify-between gap-2">
           <span className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -45,7 +45,10 @@ function MetricCard({
         </div>
         {sub ? <p className="text-[11px] text-muted-foreground">{sub}</p> : null}
         <div className="space-y-1.5">
-          <Progress value={pct} className="h-1.5" />
+          <Progress
+            value={pct}
+            className={`h-1.5${emphasis ? " bg-emerald-500/20 [&>div]:bg-emerald-500" : ""}`}
+          />
           <div className="flex items-center justify-between text-[11px] text-muted-foreground">
             <span className="tabular-nums">{generated} gerados</span>
             <span className="font-medium tabular-nums text-foreground">
