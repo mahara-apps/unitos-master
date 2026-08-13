@@ -437,7 +437,7 @@ function ProjectDetailPage() {
                   </Badge>
                   {it.post && project.client_id ? (
                     <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-[11px]">
-                      <Link to="/content" search={{ postId: it.post.id }}>
+                      <Link to="/content">
                         Abrir
                       </Link>
                     </Button>
@@ -479,7 +479,7 @@ function ProjectDetailPage() {
                     {state.label}
                   </Badge>
                   <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-[11px]">
-                    <Link to="/content" search={{ postId: p.id }}>
+                    <Link to="/content">
                       Abrir
                     </Link>
                   </Button>
