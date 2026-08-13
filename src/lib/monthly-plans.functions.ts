@@ -438,7 +438,6 @@ export const getPlanVolumetryFn = createServerFn({ method: "POST" })
     );
     const generatedTotal = PLAN_CHANNELS.reduce((s, c) => s + (generatedThisMonth[c] ?? 0), 0);
     const approvedOverage = await loadApprovedOverage(context.supabase, {
-      brandId: data.brandId,
       clientId: data.clientId,
     });
 

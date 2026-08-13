@@ -19,16 +19,17 @@ function emptyMap(): OverageMap {
 /** Excedentes já autorizados no mês corrente, por canal. */
 export async function loadApprovedOverage(
   supabase: SupabaseClient,
-  args: { brandId: string; clientId: string; periodMonth?: string },
+  args: { brandId?: string; clientId: string; periodMonth?: string },
 ): Promise<OverageMap> {
   const map = emptyMap();
-  const { data } = await supabase
+  let q = supabase
     .from("plan_overage_requests" as never)
     .select("channel, overage, status")
-    .eq("brand_id", args.brandId)
     .eq("client_id", args.clientId)
     .eq("period_month", args.periodMonth ?? currentPeriodMonth())
     .eq("status", "approved");
+  if (args.brandId) q = q.eq("brand_id", args.brandId);
+  const { data } = await q;
   for (const r of (data ?? []) as Array<{ channel: string; overage: number }>) {
     const c = (r.channel ?? "").toLowerCase() as PlanChannel;
     if (c in map) map[c] = (map[c] ?? 0) + (Number(r.overage) || 0);
