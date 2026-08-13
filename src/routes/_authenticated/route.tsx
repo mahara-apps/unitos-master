@@ -41,8 +41,15 @@ export const Route = createFileRoute("/_authenticated")({
       const next = location.href.startsWith("/") && !location.href.startsWith("/login") ? location.href : "/dashboard";
       throw redirect({ to: "/login", search: { next } });
     }
+    // Cliente final (client_members.role = 'portal_client') sem vínculo de
+    // equipe não entra na UI interna — vai para a área do portal.
+    const access = await getMyPortalAccessFn().catch(() => null);
+    if (access && access.isPortalUser && !access.isTeamMember) {
+      throw redirect({ to: "/area/inicio" });
+    }
     return { user: data.user };
   },
+
   component: AppShell,
 });
 
