@@ -300,7 +300,7 @@ function ProjectDetailPage() {
       </div>
 
       {/* Formulário compacto */}
-      <DashboardPanelSurface className="grid gap-4 p-5 md:grid-cols-3">
+      <DashboardPanelSurface className="grid gap-4 p-5 md:grid-cols-2">
         <div className="grid gap-1.5">
           <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Status</Label>
           <Select
@@ -314,25 +314,6 @@ function ProjectDetailPage() {
             <SelectContent>
               {STATUS_OPTIONS.map((s) => (
                 <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid gap-1.5">
-          <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Cliente</Label>
-          <Select
-            value={clientId ?? "none"}
-            onValueChange={(v) => {
-              const next = v === "none" ? null : v;
-              setClientId(next);
-              saveField({ client_id: next });
-            }}
-          >
-            <SelectTrigger className="h-9"><SelectValue placeholder="Selecionar" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Sem cliente</SelectItem>
-              {clients.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
