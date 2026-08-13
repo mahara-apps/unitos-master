@@ -4,6 +4,27 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const ProjectStatus = z.enum(["planning", "active", "in_progress", "paused", "done", "archived"]);
 
+export type ProjectPlanRef = { id: string; title: string | null; status: string };
+
+type ProjectListRow = {
+  id: string;
+  brand_id: string;
+  client_id: string | null;
+  name: string;
+  description: string | null;
+  status: string;
+  color: string | null;
+  progress: number | null;
+  start_date: string | null;
+  due_at: string | null;
+  goals: string | null;
+  owner_id: string | null;
+  created_at: string;
+  updated_at: string;
+  monthly_plan_id: string | null;
+  monthly_plans: ProjectPlanRef | null;
+};
+
 export const listProjects = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
