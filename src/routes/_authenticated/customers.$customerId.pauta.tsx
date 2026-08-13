@@ -860,15 +860,31 @@ function ApprovalView({
 
             </div>
             {!locked ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                onClick={() => addTopic.mutate()}
-                disabled={addTopic.isPending}
-              >
-                <Plus className="h-4 w-4" /> Novo tópico
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => approveAll.mutate(pendingTopics.map((t) => t.id))}
+                  disabled={approveAll.isPending || pendingTopics.length === 0}
+                >
+                  {approveAll.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCheck className="h-4 w-4" />
+                  )}
+                  Aprovar todos ({pendingTopics.length})
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => addTopic.mutate()}
+                  disabled={addTopic.isPending}
+                >
+                  <Plus className="h-4 w-4" /> Novo tópico
+                </Button>
+              </div>
             ) : null}
           </div>
 
