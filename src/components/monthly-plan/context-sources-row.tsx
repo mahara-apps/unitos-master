@@ -66,21 +66,27 @@ export function ContextSourcesRow({
     tone: "ok",
   });
 
+  const toneCls: Record<string, string> = {
+    strategy: "border-violet-500/30 bg-violet-500/5 text-violet-400",
+    metrics: "border-sky-500/30 bg-sky-500/5 text-sky-400",
+    brain: "border-emerald-500/30 bg-emerald-500/5 text-emerald-400",
+    warn: "border-amber-500/40 bg-amber-500/5 text-amber-500",
+  };
+
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {chips.map((c, i) => (
-        <span
-          key={i}
-          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${
-            c.tone === "warn"
-              ? "border-amber-500/40 bg-amber-500/5 text-amber-500"
-              : "border-border/60 bg-background/60 text-muted-foreground"
-          }`}
-        >
-          {c.icon}
-          {c.text}
-        </span>
-      ))}
+      {chips.map((c, i) => {
+        const tone = (c.tone === "warn" ? "warn" : (c.toneMap ?? "strategy")) as keyof typeof toneCls;
+        return (
+          <span
+            key={i}
+            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] ${toneCls[tone]}`}
+          >
+            {c.icon}
+            {c.text}
+          </span>
+        );
+      })}
       {sources.model ? (
         <span className="text-[11px] text-muted-foreground/70">modelo: {sources.model}</span>
       ) : null}
