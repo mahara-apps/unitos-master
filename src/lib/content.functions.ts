@@ -10,6 +10,8 @@ import {
   deriveTargetConnectionIds,
   type PlacementDestination,
 } from "@/lib/placements.server";
+import { resolveLegacyStage } from "@/lib/post-stage.server";
+
 
 const DestinationSchema = z.object({
   connectionId: z.string().uuid(),
@@ -651,28 +653,18 @@ export const movePostFn = createServerFn({ method: "POST" })
       .eq("id", data.postId)
       .maybeSingle();
 
-    // Legacy compatibility: o trigger `notify_post_approval_events`
-    // (migration 20260720211101) observa mudanças em `posts.stage` (enum
-    // post_stage) para disparar notificações de "aguardando aprovação" e
-    // "post aprovado". O Kanban atual usa stage_id (FK para
-    // content_pipeline_stages customizáveis), então precisamos espelhar o
-    // estado legado sempre que o card entrar numa coluna com key "review"
-    // ou numa coluna terminal. NÃO REMOVER sem antes migrar o trigger.
-    const { data: destStage } = await context.supabase
-      .from("content_pipeline_stages")
-      .select("key, is_terminal")
-      .eq("id", data.toStageId)
-      .maybeSingle();
-    const destKey = (destStage?.key as string | null | undefined)?.toLowerCase() ?? "";
+    // `posts.stage_id` é a fonte operacional do estágio; `posts.stage` é o
+    // campo legado (consumido pela tela de Projeto, relatórios e pelo trigger
+    // `notify_post_approval_events`). Sempre que stage_id muda, espelhamos o
+    // valor legado usando o helper canônico (mesma regra da trigger no banco).
+    // NÃO REMOVER sem antes migrar os consumidores legados.
+    const legacyStage = await resolveLegacyStage(context.supabase, data.toStageId);
     const updatePatch: Record<string, unknown> = {
       stage_id: data.toStageId,
       position: data.toPosition,
     };
-    if (destKey === "review") {
-      updatePatch.stage = "review";
-    } else if (destStage?.is_terminal) {
-      updatePatch.stage = "scheduled";
-    }
+    if (legacyStage) updatePatch.stage = legacyStage;
+
     const { error } = await context.supabase
       .from("posts")
       .update(updatePatch as never)
@@ -826,16 +818,20 @@ export const createPostFn = createServerFn({ method: "POST" })
       .limit(1);
     const nextPos = ((maxRow?.[0]?.position ?? -1) as number) + 1024;
 
+    // stage legado derivado da coluna do pipeline (fonte operacional)
+    const legacyStage = (await resolveLegacyStage(context.supabase, data.stageId, "idea")) ?? "idea";
+
     const insertRow: Record<string, unknown> = {
       brand_id: data.brandId,
       client_id: data.clientId,
       pipeline_id: data.pipelineId,
       stage_id: data.stageId,
       title: data.title.trim(),
-      stage: "idea",
+      stage: legacyStage,
       position: nextPos,
       created_by: context.userId,
     };
+
     const optional: Array<keyof typeof data> = [
       "copy", "channels", "target_connection_ids", "format", "priority", "tags", "scheduled_at",
       "remind_at", "internal_briefing", "client_briefing", "script",
@@ -950,15 +946,20 @@ export const updatePostFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const patch: Record<string, unknown> = { ...data.patch };
+    // stage_id é a fonte operacional: ao mudar de coluna, espelhamos o campo
+    // legado `posts.stage` pelo helper canônico.
+    if (typeof patch.stage_id === "string") {
+      const legacy = await resolveLegacyStage(context.supabase, patch.stage_id as string);
+      if (legacy) patch.stage = legacy;
+    }
     if (patch.review_status === "approved") {
       patch.approved_at = new Date().toISOString();
       patch.approved_by = context.userId;
-      // Legacy compatibility: mantém `posts.stage` sincronizado para o
-      // trigger `notify_post_approval_events` (migration 20260720211101)
-      // disparar a notificação de "post aprovado". Ver movePostFn para o
-      // contexto completo. NÃO REMOVER sem antes migrar o trigger.
+      // Regra de negócio: aprovação força o estágio legado "approved" (o
+      // trigger `notify_post_approval_events` depende dele).
       patch.stage = "approved";
     }
+
     // Destinos estruturados sobrescrevem channels/target_connection_ids
     // (post_placements é a fonte de verdade).
     if (data.destinations !== undefined) {
@@ -1049,7 +1050,10 @@ export const reworkPostFn = createServerFn({ method: "POST" })
     };
     if (targetStageId && targetStageId !== post.stage_id) {
       patch.stage_id = targetStageId;
+      const legacy = await resolveLegacyStage(context.supabase, targetStageId);
+      if (legacy) patch.stage = legacy;
     }
+
 
     const { error } = await context.supabase
       .from("posts")
