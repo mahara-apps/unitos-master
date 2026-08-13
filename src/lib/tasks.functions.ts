@@ -174,15 +174,23 @@ export const listProjectsFn = createServerFn({ method: "GET" })
 export const countMyPendingTasksFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z.object({ brandId: z.string().uuid() }).parse(i),
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid().nullable().optional(),
+      })
+      .parse(i),
   )
   .handler(async ({ data, context }): Promise<{ count: number }> => {
-    const { count, error } = await context.supabase
+    let q = context.supabase
       .from("tasks")
       .select("id", { count: "exact", head: true })
       .eq("brand_id", data.brandId)
       .eq("assignee_id", context.userId)
       .neq("status", "done");
+    // Respeita o escopo do cliente ativo na sidebar.
+    if (data.clientId) q = q.eq("client_id", data.clientId);
+    const { count, error } = await q;
     if (error) throw error;
     return { count: count ?? 0 };
   });
