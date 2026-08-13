@@ -184,7 +184,9 @@ function CustomerDetailReady({
   const TABS = ALL_TABS;
   const [activeTab, setActiveTab] = useState<string>(initialTab ?? "overview");
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [planId, setPlanIdState] = useState<string | null>(initialPlanId ?? null);
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   useEffect(() => {
     if (activeTab === "brain") setActiveTab("briefing");
@@ -194,6 +196,28 @@ function CustomerDetailReady({
   useEffect(() => {
     if (initialTab && initialTab !== "brain") setActiveTab(initialTab);
   }, [initialTab]);
+
+  // Troca de aba mantém a URL compartilhável (?tab=...).
+  const goToTab = (value: string) => {
+    setActiveTab(value);
+    navigate({
+      to: "/customers/$customerId",
+      params: { customerId },
+      search: { tab: value, ...(value === "pauta" && planId ? { planId } : {}) } as never,
+      replace: true,
+    });
+  };
+
+  const setPlanId = (id: string | null) => {
+    setPlanIdState(id);
+    navigate({
+      to: "/customers/$customerId",
+      params: { customerId },
+      search: { tab: "pauta", ...(id ? { planId: id } : {}) } as never,
+      replace: true,
+    });
+  };
+
 
 
   // Lista de customers do brand ativo — só para nome/cor do header.
