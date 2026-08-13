@@ -1621,175 +1621,22 @@ function ApprovalLinkSection({ postId }: { postId: string }) {
   );
 }
 
-// ----------------- Structured Copy Editor -----------------
+// ----------------- Legenda (copy única) -----------------
 
-type CopySections = {
-  gancho: string;
-  headline: string;
-  body: string;
-  cta: string;
-  hashtags: string;
-};
+// Compatibilidade: copies antigas foram salvas com marcadores de seção
+// (### GANCHO / ### HEADLINE / ### COPY / ### CTA / ### HASHTAGS). A nova UI
+// trabalha com uma legenda única, então achatamos o texto ao carregar sem
+// destruir nada no banco.
+const COPY_SECTION_RE = /^###\s+(?:GANCHO|HEADLINE|COPY|CTA|HASHTAGS)\s*$/gim;
 
-const EMPTY_SECTIONS: CopySections = {
-  gancho: "",
-  headline: "",
-  body: "",
-  cta: "",
-  hashtags: "",
-};
-
-const SECTION_RE = /^###\s+(GANCHO|HEADLINE|COPY|CTA|HASHTAGS)\s*$/gim;
-
-function parseCopySections(raw: string | null | undefined): CopySections {
-  if (!raw) return { ...EMPTY_SECTIONS };
-  const parts = raw.split(SECTION_RE);
-  if (parts.length <= 1) return { ...EMPTY_SECTIONS, body: raw.trim() };
-  const out: CopySections = { ...EMPTY_SECTIONS };
-  for (let i = 1; i < parts.length; i += 2) {
-    const key = (parts[i] ?? "").toLowerCase();
-    const value = (parts[i + 1] ?? "").trim();
-    if (key === "gancho") out.gancho = value;
-    else if (key === "headline") out.headline = value;
-    else if (key === "copy") out.body = value;
-    else if (key === "cta") out.cta = value;
-    else if (key === "hashtags") out.hashtags = value;
-  }
-  return out;
-}
-
-function serializeCopySections(sec: CopySections): string {
-  const parts: string[] = [];
-  if (sec.gancho.trim()) parts.push(`### GANCHO\n${sec.gancho.trim()}`);
-  if (sec.headline.trim()) parts.push(`### HEADLINE\n${sec.headline.trim()}`);
-  if (sec.body.trim()) parts.push(`### COPY\n${sec.body.trim()}`);
-  if (sec.cta.trim()) parts.push(`### CTA\n${sec.cta.trim()}`);
-  if (sec.hashtags.trim()) parts.push(`### HASHTAGS\n${sec.hashtags.trim()}`);
-  return parts.join("\n\n");
-}
-
-const COPY_FIELDS: Array<{
-  key: keyof CopySections;
-  label: string;
-  placeholder: string;
-  rows: number;
-  aiField?: "copy" | "hashtags" | "cta" | "hook" | "headline";
-}> = [
-  { key: "gancho", label: "HOOK", placeholder: "Primeira linha que segura o scroll…", rows: 2, aiField: "hook" },
-  { key: "headline", label: "Headline", placeholder: "Ideia central em uma frase…", rows: 2, aiField: "headline" },
-  { key: "body", label: "Copy principal", placeholder: "Desenvolva o argumento…", rows: 6, aiField: "copy" },
-  { key: "cta", label: "CTA", placeholder: "Chamada para ação…", rows: 2, aiField: "cta" },
-  { key: "hashtags", label: "Hashtags", placeholder: "#marca #categoria #campanha", rows: 2, aiField: "hashtags" },
-];
-
-function CopyEditor({
-  value,
-  onChange,
-  postId,
-}: {
-  value: string;
-  onChange: (next: string) => void;
-  postId?: string;
-}) {
-  const sections = useMemo(() => parseCopySections(value), [value]);
-  const setSection = (key: keyof CopySections, next: string) => {
-    onChange(serializeCopySections({ ...sections, [key]: next }));
-  };
-
-  return (
-    <Tabs defaultValue={COPY_FIELDS[0].key} className="overflow-hidden rounded-xl border border-border/60 bg-card">
-      <TabsList className="h-10 w-full justify-start gap-1 rounded-none border-b border-border/60 bg-background/60 px-2">
-        {COPY_FIELDS.map((f) => {
-          const filled = sections[f.key].trim().length > 0;
-          return (
-            <TabsTrigger
-              key={f.key}
-              value={f.key}
-              className="h-7 gap-1.5 px-2.5 text-[11px] font-semibold uppercase tracking-widest"
-            >
-              {f.label}
-              {filled ? (
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              ) : null}
-            </TabsTrigger>
-          );
-        })}
-      </TabsList>
-      {COPY_FIELDS.map((f) => (
-        <TabsContent key={f.key} value={f.key} className="mt-0 px-3 py-3">
-          <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
-              {f.label}
-            </span>
-            <div className="flex items-center gap-1">
-              {postId && f.aiField ? (
-                <>
-                  <MicroAiButton
-                    postId={postId}
-                    field={f.aiField}
-                    tooltip="Regenerar com IA"
-                    icon="sparkles"
-                    onText={(t) => setSection(f.key, t)}
-                  />
-                  <MicroAiButton
-                    postId={postId}
-                    field={f.aiField}
-                    tooltip="Melhorar tom"
-                    icon="wand"
-                    onText={(t) => setSection(f.key, t)}
-                  />
-                </>
-              ) : null}
-            </div>
-          </div>
-          <Textarea
-            value={sections[f.key]}
-            onChange={(e) => setSection(f.key, e.target.value)}
-            placeholder={f.placeholder}
-            rows={f.rows}
-            className="min-h-0 resize-none border-0 bg-transparent p-0 text-sm leading-relaxed shadow-none focus-visible:ring-0"
-          />
-        </TabsContent>
-      ))}
-    </Tabs>
-  );
-}
-
-function MicroAiButton({
-  postId,
-  field,
-  tooltip,
-  icon,
-  onText,
-}: {
-  postId: string;
-  field: "copy" | "hashtags" | "cta" | "script" | "briefing" | "hook" | "headline";
-  tooltip: string;
-  icon: "sparkles" | "wand";
-  onText: (t: string) => void;
-}) {
-  const runAi = useServerFn(aiInlineGenerateFn);
-  const m = useMutation({
-    mutationFn: () => runAi({ data: { postId, field } }),
-    onSuccess: (r: { text: string }) => {
-      onText(r.text);
-      toast.success("Atualizado com IA");
-    },
-    onError: (e: Error) => toast.error(describeError(e)),
-  });
-  const Icon = icon === "sparkles" ? Sparkles : Wand2;
-  return (
-    <button
-      type="button"
-      title={tooltip}
-      aria-label={tooltip}
-      onClick={() => m.mutate()}
-      disabled={m.isPending}
-      className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-background/60 text-muted-foreground transition hover:border-border hover:text-foreground disabled:opacity-60"
-    >
-      {m.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Icon className="h-3 w-3" />}
-    </button>
-  );
+export function flattenCopy(raw: string | null | undefined): string {
+  if (!raw) return "";
+  if (!/^###\s+/m.test(raw)) return raw;
+  return raw
+    .split(COPY_SECTION_RE)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 // ---------------- Media helpers ----------------
