@@ -332,7 +332,12 @@ function CustomizeModal({
           </Button>
           <Button
             disabled={isSaving || !label.trim()}
-            onClick={() => onSave(label.trim(), expiry === "never" ? null : Number(expiry))}
+            onClick={() =>
+              onSave(
+                label.trim(),
+                expiry === "keep" ? undefined : expiry === "never" ? null : Number(expiry),
+              )
+            }
           >
             {isSaving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
             Salvar
