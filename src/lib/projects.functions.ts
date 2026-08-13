@@ -105,6 +105,13 @@ export type ProjectPlanItem = {
     assignee_id: string | null;
     cover_url: string | null;
   } | null;
+  tasks: {
+    count: number;
+    open: number;
+    assignee_id: string | null;
+    assignee_name: string | null;
+    due_at: string | null;
+  };
 };
 
 export const getProject = createServerFn({ method: "GET" })
@@ -178,8 +185,55 @@ export const getProject = createServerFn({ method: "GET" })
         const tid = (p as { monthly_plan_topic_id?: string | null }).monthly_plan_topic_id;
         if (tid) byTopic.set(tid, p);
       }
+      // Tarefas de produção vinculadas às peças (execução operacional).
+      const postIds = posts.map((p) => p.id as string);
+      const tasksByPost = new Map<
+        string,
+        { count: number; open: number; assignee_id: string | null; due_at: string | null }
+      >();
+      const assigneeNames = new Map<string, string>();
+      if (postIds.length > 0) {
+        const { data: taskRows } = await context.supabase
+          .from("tasks")
+          .select("id, post_id, status, assignee_id, due_at")
+          .eq("brand_id", data.brandId)
+          .in("post_id", postIds);
+        const tasks = (taskRows ?? []) as unknown as Array<{
+          post_id: string | null;
+          status: string | null;
+          assignee_id: string | null;
+          due_at: string | null;
+        }>;
+        for (const t of tasks) {
+          if (!t.post_id) continue;
+          const cur =
+            tasksByPost.get(t.post_id) ?? { count: 0, open: 0, assignee_id: null, due_at: null };
+          cur.count += 1;
+          if (String(t.status ?? "") !== "done") cur.open += 1;
+          if (!cur.assignee_id && t.assignee_id) cur.assignee_id = t.assignee_id;
+          if (!cur.due_at && t.due_at) cur.due_at = t.due_at;
+          tasksByPost.set(t.post_id, cur);
+        }
+        const ids = Array.from(
+          new Set(Array.from(tasksByPost.values()).map((v) => v.assignee_id).filter(Boolean)),
+        ) as string[];
+        if (ids.length > 0) {
+          const { data: profiles } = await context.supabase
+            .from("user_profiles")
+            .select("user_id, full_name")
+            .in("user_id", ids);
+          for (const pr of (profiles ?? []) as unknown as Array<{
+            user_id: string;
+            full_name: string | null;
+          }>) {
+            if (pr.full_name) assigneeNames.set(pr.user_id, pr.full_name);
+          }
+        }
+      }
+
       for (const t of topics) {
         const post = byTopic.get(t.id) ?? null;
+        const agg = post ? tasksByPost.get(post.id as string) ?? null : null;
         items.push({
           topic_id: t.id,
           title: t.topic_title,
@@ -198,6 +252,13 @@ export const getProject = createServerFn({ method: "GET" })
                 cover_url: (post.cover_url as string | null) ?? null,
               }
             : null,
+          tasks: {
+            count: agg?.count ?? 0,
+            open: agg?.open ?? 0,
+            assignee_id: agg?.assignee_id ?? null,
+            assignee_name: agg?.assignee_id ? assigneeNames.get(agg.assignee_id) ?? null : null,
+            due_at: agg?.due_at ?? null,
+          },
         });
       }
     }
