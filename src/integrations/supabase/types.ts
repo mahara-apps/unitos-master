@@ -5718,6 +5718,13 @@ export type Database = {
         Args: { _brand_id?: string }
         Returns: number
       }
+      derive_post_stage: {
+        Args: {
+          _current: Database["public"]["Enums"]["post_stage"]
+          _stage_id: string
+        }
+        Returns: Database["public"]["Enums"]["post_stage"]
+      }
       derive_relationships_from_event: {
         Args: { _event_id: string }
         Returns: number
