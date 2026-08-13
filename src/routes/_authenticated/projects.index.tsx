@@ -515,12 +515,33 @@ function ProjectsIndexPage() {
               ))}
             </SelectContent>
           </Select>
-          <ClientFilterCombobox
-            value={clientFilter}
-            onChange={setClientFilter}
-            clients={clients}
-            sidebarClientId={activeClientId ?? null}
-          />
+          {activeClientId ? (
+            <span
+              title="Troque o cliente no seletor da barra lateral"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 text-xs text-muted-foreground"
+            >
+              <span
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{
+                  background:
+                    clients.find((c) => c.id === activeClientId)?.color ?? "#8b5cf6",
+                }}
+              />
+              <span className="truncate font-medium text-foreground">
+                {clientName(activeClientId) || "Cliente ativo"}
+              </span>
+              <span className="hidden text-[10px] uppercase tracking-wide sm:inline">
+                sidebar
+              </span>
+            </span>
+          ) : (
+            <ClientFilterCombobox
+              value={clientFilter}
+              onChange={setClientFilter}
+              clients={clients}
+              sidebarClientId={null}
+            />
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
