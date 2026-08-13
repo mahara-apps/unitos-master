@@ -259,12 +259,15 @@ function ProjectSelect({
   value,
   onChange,
   className,
+  fallback,
 }: {
   brandId: string;
   clientId: string;
   value: string | null;
   onChange: (id: string | null) => void;
   className?: string;
+  /** Projeto já vinculado à peça — garante exibição mesmo antes da lista carregar. */
+  fallback?: { id: string; name: string; color: string | null } | null;
 }) {
   const fetchProjects = useServerFn(listProjects);
   const { data } = useQuery({
@@ -273,7 +276,16 @@ function ProjectSelect({
     staleTime: 60_000,
     enabled: !!brandId && !!clientId,
   });
-  const projects = (data?.projects ?? []) as Array<{ id: string; name: string; color: string | null; status: string }>;
+  const projects = ((data?.projects ?? []) as Array<{
+    id: string;
+    name: string;
+    color: string | null;
+    status: string;
+  }>).filter((p) => p.status !== "archived");
+  const options =
+    fallback && !projects.some((p) => p.id === fallback.id)
+      ? [{ ...fallback, status: "active" }, ...projects]
+      : projects;
   return (
     <Select
       value={value ?? "none"}
@@ -285,19 +297,17 @@ function ProjectSelect({
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="none">Sem projeto</SelectItem>
-        {projects
-          .filter((p) => p.status !== "archived")
-          .map((p) => (
-            <SelectItem key={p.id} value={p.id}>
-              <span className="inline-flex items-center gap-2">
-                <span
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{ background: p.color ?? "#8b5cf6" }}
-                />
-                {p.name}
-              </span>
-            </SelectItem>
-          ))}
+        {options.map((p) => (
+          <SelectItem key={p.id} value={p.id}>
+            <span className="inline-flex items-center gap-2">
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ background: p.color ?? "#8b5cf6" }}
+              />
+              {p.name}
+            </span>
+          </SelectItem>
+        ))}
       </SelectContent>
     </Select>
   );
