@@ -1203,11 +1203,16 @@ function TaskLayout({
 
         {mediaSlot ? <div>{mediaSlot}</div> : null}
 
-        <div className="space-y-1">
-          <CopyEditor
+        <div className="space-y-1.5">
+          <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+            Legenda
+          </Label>
+          <Textarea
             value={state.copy}
-            onChange={(v) => set("copy", v)}
-            postId={mode === "edit" ? postId : undefined}
+            onChange={(e) => set("copy", e.target.value)}
+            rows={14}
+            placeholder="Legenda completa da peça (abertura, desenvolvimento, CTA e hashtags)…"
+            className="min-h-[260px] text-sm leading-relaxed"
           />
           {mode === "edit" ? (
             <div className="flex justify-end px-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
@@ -1249,15 +1254,6 @@ function TaskLayout({
               rows={5}
               placeholder="Roteiro / script do vídeo..."
             />
-            {mode === "edit" && postId ? (
-              <AiFieldButton
-                postId={postId}
-                field="script"
-                label="Gerar roteiro"
-                size="xs"
-                onText={(t) => set("script", t)}
-              />
-            ) : null}
           </TabsContent>
         </Tabs>
       </div>
