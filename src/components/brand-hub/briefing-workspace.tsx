@@ -59,6 +59,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CHANNELS, CHANNEL_STYLES } from "@/components/content/stage-colors";
 import { FORMATS_BY_CHANNEL, FORMAT_LABEL, type PlacementFormat } from "@/lib/scheduling-formats";
+import {
+  PLAN_CHANNELS,
+  PLAN_CHANNELS_DEFAULT,
+  PLAN_CHANNEL_LABEL,
+  type PlanChannel,
+} from "@/lib/monthly-plan-fields";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 /* ----------------------------- Types / helpers ----------------------------- */
 
