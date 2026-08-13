@@ -120,7 +120,11 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
               .from("social_posts")
               .update({ provider_response: result.providerResponse as any })
               .eq("id", post.id);
+            // Reflete a publicação na peça editorial (posts/post_placements),
+            // que é o que Calendário, Projeto e Conteúdo leem.
+            await syncEditorialPublished(supabaseAdmin, post.id, post.placement);
             results.push({ id: post.id, ok: true });
+
           } catch (err) {
             const msg = formatPublishError(err);
             await (supabaseAdmin as any).rpc("mark_social_post_failed", {
