@@ -267,7 +267,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
     // agendado mesmo com a conexão social quebrada — e o cron nunca publicaria.
     type ValidatedScheduleTarget = {
       destination: (typeof data.destinations)[number];
-      connection: { id: string; provider: string; client_id: string | null };
+      connection: { id: string; provider: string };
     };
     const validatedScheduleTargets: ValidatedScheduleTarget[] = [];
     const scheduleWarnings: Array<{ channel: string; format: string; error: string }> = [];
@@ -275,12 +275,22 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       const connIds = Array.from(new Set(data.destinations.map((d) => d.connectionId)));
       const { data: conns, error: connsErr } = await supabase
         .from("social_connections")
-        .select("id, brand_id, client_id, provider, status, access_token_ciphertext")
+        .select("id, brand_id, provider, status, access_token_ciphertext")
         .eq("brand_id", data.brandId)
         .in("id", connIds);
       if (connsErr) throw new Error(connsErr.message);
       const connMap = new Map(
         (conns ?? []).map((c) => [c.id as string, c]),
+      );
+      // Vínculo canal ↔ cliente: única fonte de verdade.
+      const { data: links, error: linksErr } = await supabase
+        .from("client_social_accounts")
+        .select("connection_id")
+        .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId);
+      if (linksErr) throw new Error(linksErr.message);
+      const linkedIds = new Set(
+        ((links ?? []) as Array<{ connection_id: string }>).map((l) => l.connection_id),
       );
       for (const d of data.destinations) {
         // Suportado hoje: Feed IG/FB e Stories no IG (multi-frame automático).
@@ -305,9 +315,9 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             `Conexão ${d.channel} sem token — reconecte a página antes de agendar.`,
           );
         }
-        if (conn.client_id && conn.client_id !== data.clientId) {
+        if (!linkedIds.has(d.connectionId)) {
           throw new Error(
-            `Conexão ${d.channel} não pertence a este cliente.`,
+            `Canal ${d.channel} não está vinculado a este cliente. Vincule em Perfil do cliente > Canais.`,
           );
         }
         if (conn.status !== "active") {
@@ -320,7 +330,6 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           connection: {
             id: conn.id as string,
             provider: conn.provider as string,
-            client_id: (conn.client_id as string | null) ?? null,
           },
         });
       }
@@ -331,6 +340,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         );
       }
     }
+
 
     // Canais únicos (post.channels usa enum post_channel — filtra os aceitos)
     const channels = deriveChannelsFromDestinations(data.destinations);
