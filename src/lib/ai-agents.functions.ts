@@ -535,14 +535,6 @@ const PautasSchema = z.object({
   ),
 });
 
-const ContentSchema = z.object({
-  legenda_principal: z.string(),
-  variacoes_gancho: z.array(z.string()),
-  cta: z.string(),
-  hashtags: z.array(z.string()),
-  roteiro_video: z.string().nullable(),
-});
-
 const CompetitorSchema = z.object({
   snapshot: z.object({
     bio_resumo: z.string(),
@@ -642,14 +634,6 @@ Se não houver concorrentes mencionados, retorne competitive_matrix como array v
 }
 
 Diversifique pilares e cohorts entre as pautas. Responda SOMENTE com o JSON, sem markdown.`,
-
-  content: `Você é um redator de conteúdo para redes sociais escrevendo EXATAMENTE no tom de voz descrito no Voice Card abaixo. Sua prioridade #1 é soar como esta marca especificamente — não como um redator genérico de agência.
-
-Antes de escrever, releia as frases-exemplo do Voice Card e as características de tom. Sua legenda deve ser indistinguível, em estilo, dessas frases-exemplo. Evite qualquer palavra listada em "palavras_evitar".
-
-Use a pauta e a persona/cohort alvo para definir o ângulo e o gancho. Gere a legenda final, 2 variações alternativas de gancho, um CTA (baseado nos modelos do Voice Card) e 5-8 hashtags relevantes. Se o formato for Reels/vídeo, preencha "roteiro_video"; caso contrário retorne null.
-
-Responda SOMENTE com o JSON, sem markdown, sem texto antes ou depois.`,
 
   competitor: `Você é um analista de inteligência competitiva para agências de marketing. A partir do texto colado abaixo (bio de perfil + posts recentes de um concorrente), extraia um snapshot estruturado e gere sugestões de pauta inspiradas nesse concorrente para o cliente da agência.
 
@@ -943,59 +927,9 @@ export const pautaSuggestFn = createServerFn({ method: "POST" })
     return { output: out };
   });
 
-// 7. content.generate
-export const contentGenerateFn = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) =>
-    z
-      .object({
-        brandId: z.string().uuid(),
-        clientId: z.string().uuid(),
-        voiceCardJson: z.unknown(),
-        pautaJson: z.unknown(),
-        personaOuCohortJson: z.unknown(),
-        plataforma: z.string(),
-        formato: z.string(),
-        pautaId: z.string().uuid().optional(),
-        postId: z.string().uuid().optional(),
-      })
-      .parse(i),
-  )
-  .handler(async ({ data, context }) => {
-    const out = await runAgent({
-      agent: "content.generate",
-      brandId: data.brandId,
-      clientId: data.clientId,
-      userId: context.userId,
-      supabase: context.supabase,
-      system: P.content,
-      prompt: [
-        `Voice Card:\n${JSON.stringify(data.voiceCardJson, null, 2)}`,
-        `Pauta:\n${JSON.stringify(data.pautaJson, null, 2)}`,
-        `Persona/cohort alvo:\n${JSON.stringify(data.personaOuCohortJson, null, 2)}`,
-        `Plataforma: ${data.plataforma}`,
-        `Formato: ${data.formato}`,
-      ].join("\n\n"),
-      schema: ContentSchema,
-    });
-
-    const { data: row, error } = await context.supabase
-      .from("brand_ai_content")
-      .insert({
-        brand_id: data.brandId,
-        client_id: data.clientId,
-        post_id: data.postId ?? null,
-        pauta_id: data.pautaId ?? null,
-        plataforma: data.plataforma,
-        formato: data.formato,
-        data: out,
-        created_by: context.userId,
-      })
-      .select()
-      .single();
-    if (error) throw error;
-    return { row, output: out };
-  });
+// 7. (removido) content.generate — a geração de peça agora é orquestrada por
+// `src/lib/post-agents.server.ts` consumindo os prompts reais de `agent_prompts`
+// (copywriter_senior / roteirista_social / art_director_social).
 
 // 8. competitor.extract
 export const competitorExtractFn = createServerFn({ method: "POST" })

@@ -58,6 +58,7 @@ import {
   removePostReferenceMediaFn,
   signPostReferenceMediaFn,
   listBrandAssigneesFn,
+  regeneratePostContentFn,
   type PipelineStage,
   type BoardPost,
   type PostTimelineEvent,
@@ -769,9 +770,15 @@ function EditBody({
               ) : null}
               {aiPhase === "copy_ready" ? (
                 <Badge variant="outline" className="rounded-md border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                  Copy + Design prontos
+                  Legenda gerada pelos agentes
                 </Badge>
               ) : null}
+              {aiPhase === "copy_failed" ? (
+                <Badge variant="outline" className="rounded-md border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                  Geração incompleta
+                </Badge>
+              ) : null}
+
             </div>
           </div>
         </div>
@@ -843,6 +850,11 @@ function EditBody({
           postId={postId}
           createdAt={post.created_at}
           copyAutosaveStatus={copyAutosaveStatus}
+          captionActions={
+            !state.copy.trim() || aiPhase === "copy_failed" ? (
+              <RegenerateCaptionButton postId={postId} invalidateKey={invalidateKey} />
+            ) : null
+          }
           brandId={brandId}
           clientId={clientId}
           mediaSlot={
@@ -1006,6 +1018,7 @@ function TaskLayout({
   postId,
   createdAt,
   copyAutosaveStatus,
+  captionActions,
   mediaSlot,
   brandId,
   clientId,
@@ -1017,6 +1030,7 @@ function TaskLayout({
   postId?: string;
   createdAt?: string | null;
   copyAutosaveStatus?: "idle" | "saving" | "saved";
+  captionActions?: React.ReactNode;
   mediaSlot?: ReactNode;
   brandId?: string;
   clientId?: string;
@@ -1173,9 +1187,12 @@ function TaskLayout({
         {mediaSlot ? <div>{mediaSlot}</div> : null}
 
         <div className="space-y-1.5">
-          <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
-            Legenda
-          </Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+              Legenda
+            </Label>
+            {captionActions}
+          </div>
           <Textarea
             value={state.copy}
             onChange={(e) => set("copy", e.target.value)}
@@ -1391,6 +1408,44 @@ function initialsOf(name: string | null): string {
     .slice(0, 2)
     .map((p) => p[0]?.toUpperCase() ?? "")
     .join("") || "?";
+}
+
+/**
+ * Só aparece quando a geração automática dos agentes não concluiu a legenda.
+ * Reexecuta o MESMO orquestrador da materialização da pauta (agent_prompts).
+ */
+function RegenerateCaptionButton({
+  postId,
+  invalidateKey,
+}: {
+  postId: string;
+  invalidateKey: readonly unknown[];
+}) {
+  const qc = useQueryClient();
+  const run = useServerFn(regeneratePostContentFn);
+  const mut = useMutation({
+    mutationFn: () => run({ data: { postId, force: true } }),
+    onSuccess: () => {
+      toast.success("Legenda gerada pelos agentes");
+      qc.invalidateQueries({ queryKey: invalidateKey });
+      qc.invalidateQueries({ queryKey: ["post-detail", postId] });
+    },
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Falha ao gerar a legenda"),
+  });
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      className="h-7 gap-1.5 text-xs"
+      disabled={mut.isPending}
+      onClick={() => mut.mutate()}
+    >
+      {mut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+      {mut.isPending ? "Gerando…" : "Concluir geração"}
+    </Button>
+  );
 }
 
 function Timeline({ items }: { items: PostTimelineEvent[] }) {
