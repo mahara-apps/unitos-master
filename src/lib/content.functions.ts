@@ -818,16 +818,20 @@ export const createPostFn = createServerFn({ method: "POST" })
       .limit(1);
     const nextPos = ((maxRow?.[0]?.position ?? -1) as number) + 1024;
 
+    // stage legado derivado da coluna do pipeline (fonte operacional)
+    const legacyStage = (await resolveLegacyStage(context.supabase, data.stageId, "idea")) ?? "idea";
+
     const insertRow: Record<string, unknown> = {
       brand_id: data.brandId,
       client_id: data.clientId,
       pipeline_id: data.pipelineId,
       stage_id: data.stageId,
       title: data.title.trim(),
-      stage: "idea",
+      stage: legacyStage,
       position: nextPos,
       created_by: context.userId,
     };
+
     const optional: Array<keyof typeof data> = [
       "copy", "channels", "target_connection_ids", "format", "priority", "tags", "scheduled_at",
       "remind_at", "internal_briefing", "client_briefing", "script",
