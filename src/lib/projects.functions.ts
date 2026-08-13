@@ -89,6 +89,24 @@ export const listProjects = createServerFn({ method: "GET" })
 
 export type ProjectStats = { total: number; approved: number; published: number; pending: number };
 
+export type ProjectPlanItem = {
+  topic_id: string;
+  title: string;
+  channel: string | null;
+  format: string | null;
+  topic_status: string | null;
+  client_status: string | null;
+  post: {
+    id: string;
+    stage: string | null;
+    review_status: string | null;
+    published_at: string | null;
+    scheduled_at: string | null;
+    assignee_id: string | null;
+    cover_url: string | null;
+  } | null;
+};
+
 export const getProject = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
