@@ -647,19 +647,21 @@ function ProjectsIndexPage() {
                         <span className="truncate text-sm font-medium text-foreground">{p.name}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      {client ? (
-                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <span
-                            className="h-2 w-2 rounded-full"
-                            style={{ background: client.color ?? "#8b5cf6" }}
-                          />
-                          <span className="truncate">{client.name}</span>
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
+                    {activeClientId ? null : (
+                      <TableCell className="hidden md:table-cell">
+                        {client ? (
+                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <span
+                              className="h-2 w-2 rounded-full"
+                              style={{ background: client.color ?? "#8b5cf6" }}
+                            />
+                            <span className="truncate">{client.name}</span>
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell>
                       <Badge
                         variant="outline"
