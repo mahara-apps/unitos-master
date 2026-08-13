@@ -5,6 +5,8 @@ import {
   BrainCircuit,
   CheckCircle2,
   Download,
+  Eye,
+  EyeOff,
   FileText,
   Loader2,
   MoreHorizontal,
