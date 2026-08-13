@@ -10,6 +10,8 @@ import {
   deriveTargetConnectionIds,
   type PlacementDestination,
 } from "@/lib/placements.server";
+import { resolveLegacyStage } from "@/lib/post-stage.server";
+
 
 const DestinationSchema = z.object({
   connectionId: z.string().uuid(),
