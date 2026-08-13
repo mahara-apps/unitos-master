@@ -132,20 +132,21 @@ function toForm(client: BrandHubClient): FormState {
     palette: hub.palette ?? [],
     do_text: hub.do_dont?.do ?? "",
     dont_text: hub.do_dont?.dont ?? "",
-    volumetry: {
-      instagram: hub.volumetry?.instagram ?? 0,
-      tiktok: hub.volumetry?.tiktok ?? 0,
-      linkedin: hub.volumetry?.linkedin ?? 0,
-      youtube: hub.volumetry?.youtube ?? 0,
-      facebook: hub.volumetry?.facebook ?? 0,
-    },
-    formats: {
-      instagram: hub.formats?.instagram ?? [],
-      tiktok: hub.formats?.tiktok ?? [],
-      linkedin: hub.formats?.linkedin ?? [],
-      youtube: hub.formats?.youtube ?? [],
-      facebook: hub.formats?.facebook ?? [],
-    },
+    volumetry: PLAN_CHANNELS.reduce<Record<SocialKey, number>>(
+      (acc, c) => {
+        acc[c] = Number((hub.volumetry as Record<string, number> | undefined)?.[c] ?? 0) || 0;
+        return acc;
+      },
+      {} as Record<SocialKey, number>,
+    ),
+    formats: PLAN_CHANNELS.reduce<Record<SocialKey, string[]>>(
+      (acc, c) => {
+        const v = (hub.formats as Record<string, string[]> | undefined)?.[c];
+        acc[c] = Array.isArray(v) ? v : [];
+        return acc;
+      },
+      {} as Record<SocialKey, string[]>,
+    ),
     goals: hub.goals ?? "",
   };
 }
