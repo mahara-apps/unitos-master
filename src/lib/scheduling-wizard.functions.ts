@@ -6,6 +6,8 @@ import {
   deriveChannelsFromDestinations,
   deriveTargetConnectionIds,
 } from "@/lib/placements.server";
+import { resolveStageIdByKey } from "@/lib/post-stage.server";
+
 
 /**
  * Server functions do wizard de agendamento (/calendar).
@@ -381,6 +383,34 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
     }
 
+    // ---- Estágio operacional (stage_id) acompanha a ação ----
+    // O wizard historicamente escrevia só o campo legado `posts.stage`, o que
+    // deixava a peça parada na coluna antiga do Kanban. Aqui movemos a coluna
+    // real do pipeline da peça (quando existir equivalente).
+    {
+      const { data: row } = await supabase
+        .from("posts")
+        .select("pipeline_id, stage_id")
+        .eq("id", postId)
+        .maybeSingle();
+      const pipelineId = (row?.pipeline_id as string | null) ?? null;
+      const keys =
+        data.action === "schedule"
+          ? ["scheduled"]
+          : data.action === "save_draft"
+            ? ["idea", "briefing"]
+            : ["approved"];
+      const stageId = await resolveStageIdByKey(supabase, pipelineId, keys);
+      if (stageId && stageId !== (row?.stage_id as string | null)) {
+        await supabase
+          .from("posts")
+          .update({ stage_id: stageId } as never)
+          .eq("id", postId)
+          .eq("brand_id", data.brandId);
+      }
+    }
+
+
     // ---- Sync placements por (channel, format) via helper compartilhado ----
     await syncPostPlacements(supabase, {
       postId,
@@ -632,12 +662,35 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       }
       const okCount = results.filter((r) => r.ok).length;
       if (okCount > 0) {
+        const nowIso = new Date().toISOString();
+        // `stage_id` não é tocado aqui de propósito: os pipelines não têm coluna
+        // "published" e o trigger `posts_sync_legacy_stage` só reage a stage_id.
         await supabase
           .from("posts")
-          .update({ stage: "published", published_at: new Date().toISOString() } as any)
+          .update({ stage: "published", published_at: nowIso } as any)
           .eq("id", postId)
           .eq("brand_id", data.brandId);
+
+        // Placements dos destinos publicados com sucesso viram histórico
+        // (o calendário lê status/published_at do placement).
+        const okFormats = results.filter((r) => r.ok).map((r) => r.format);
+        if (okFormats.length) {
+          await supabase
+            .from("post_placements")
+            .update({ status: "published", published_at: nowIso } as never)
+            .eq("post_id", postId)
+            .in("format", okFormats);
+        }
+        const failFormats = results.filter((r) => !r.ok).map((r) => r.format);
+        if (failFormats.length) {
+          await supabase
+            .from("post_placements")
+            .update({ status: "failed" } as never)
+            .eq("post_id", postId)
+            .in("format", failFormats);
+        }
       }
+
       return { ok: okCount > 0, postId, published: okCount, results };
     }
 

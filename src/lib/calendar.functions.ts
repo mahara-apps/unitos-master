@@ -52,7 +52,33 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
     const { data: placements, error: plErr } = await plq;
     if (plErr) throw plErr;
 
-    const postIds = Array.from(new Set((placements ?? []).map((p) => p.post_id as string)));
+    const placementPostIds = Array.from(
+      new Set((placements ?? []).map((p) => p.post_id as string)),
+    );
+
+    // Fallback: peças com data agendada mas SEM placement (ex.: agendamento
+    // interno/materialização da pauta) também precisam aparecer no calendário.
+    let dq = context.supabase
+      .from("posts")
+      .select(
+        "id,title,channels,cover_url,client_id,brand_id,pipeline_id,stage_id,review_status,ai_phase,created_by,stage,scheduled_at,published_at",
+      )
+      .eq("brand_id", data.brandId)
+      .is("deleted_at", null)
+      .not("scheduled_at", "is", null)
+      .gte("scheduled_at", data.from)
+      .lte("scheduled_at", data.to)
+      .in("stage", ["approved", "scheduled", "published"]);
+    if (data.clientId) dq = dq.eq("client_id", data.clientId);
+    const { data: datedPosts, error: dErr } = await dq;
+    if (dErr) throw dErr;
+    const orphanPosts = (datedPosts ?? []).filter(
+      (p) => !placementPostIds.includes(p.id as string),
+    );
+
+    const postIds = Array.from(
+      new Set([...placementPostIds, ...orphanPosts.map((p) => p.id as string)]),
+    );
     if (postIds.length === 0) return [];
 
     const { data: postsData, error } = await context.supabase
@@ -64,6 +90,7 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
       .is("deleted_at", null);
     if (error) throw error;
     const postById = new Map((postsData ?? []).map((p) => [p.id as string, p]));
+
 
     // Count placements per post to flag multi-placement
     const placementCountByPost = new Map<string, number>();
@@ -85,7 +112,7 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
       );
     }
 
-    return (placements ?? [])
+    const fromPlacements = (placements ?? [])
       .map((pl) => {
         const post = postById.get(pl.post_id as string);
         if (!post || !pl.scheduled_at) return null;
@@ -111,4 +138,30 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
         } as CalendarPost;
       })
       .filter((v): v is CalendarPost => v !== null);
+
+    // Peças datadas sem placement: entrada virtual (placement_id nulo).
+    const fromPosts = orphanPosts.map((p) => ({
+      id: `post:${p.id as string}`,
+      placement_id: null,
+      post_id: p.id as string,
+      title: p.title as string,
+      scheduled_at: p.scheduled_at as string,
+      channels: (p.channels as string[]) ?? [],
+      cover_url: (p.cover_url as string | null) ?? null,
+      client_id: p.client_id as string,
+      brand_id: p.brand_id as string,
+      pipeline_id: (p.pipeline_id as string | null) ?? null,
+      stage_id: (p.stage_id as string | null) ?? null,
+      review_status: (p.review_status as string | null) ?? null,
+      ai_phase: (p.ai_phase as string | null) ?? null,
+      format: null,
+      status: p.published_at ? "published" : "scheduled",
+      published_at: (p.published_at as string | null) ?? null,
+      is_multi_placement: false,
+      author: p.created_by ? authors.get(p.created_by as string) ?? null : null,
+    })) as CalendarPost[];
+
+    return [...fromPlacements, ...fromPosts].sort((a, b) =>
+      a.scheduled_at.localeCompare(b.scheduled_at),
+    );
   });

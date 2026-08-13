@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { loadStageMap, effectiveStage } from "@/lib/post-stage.server";
+
 
 const ProjectStatus = z.enum(["planning", "active", "in_progress", "paused", "done", "archived"]);
 
@@ -66,10 +68,16 @@ export const listProjects = createServerFn({ method: "GET" })
 
     const { data: postRows, error: postErr } = await context.supabase
       .from("posts")
-      .select("id, project_id, stage, published_at, review_status")
+      .select("id, project_id, stage, stage_id, published_at, review_status")
       .eq("brand_id", data.brandId)
       .in("project_id", ids);
     if (postErr) throw postErr;
+
+    // `stage_id` é a fonte operacional; o enum legado é só fallback.
+    const stageMap = await loadStageMap(
+      context.supabase,
+      (postRows ?? []).map((p) => p.stage_id as string | null),
+    );
 
     const stats: Record<string, ProjectStats> = {};
     for (const id of ids) stats[id] = { total: 0, approved: 0, published: 0, pending: 0 };
@@ -77,13 +85,14 @@ export const listProjects = createServerFn({ method: "GET" })
       const s = stats[p.project_id as string];
       if (!s) continue;
       s.total += 1;
-      const stage = String(p.stage ?? "").toLowerCase();
+      const stage = effectiveStage(p.stage_id as string | null, p.stage as string | null, stageMap);
       const review = String(p.review_status ?? "").toLowerCase();
       const published = !!p.published_at || stage === "published";
       if (published) s.published += 1;
       if (review === "approved" || stage === "approved") s.approved += 1;
       if (!published && review !== "approved" && stage !== "approved") s.pending += 1;
     }
+
     return { projects, stats };
   });
 
@@ -146,22 +155,29 @@ export const getProject = createServerFn({ method: "GET" })
     const { data: postRows } = await context.supabase
       .from("posts")
       .select(
-        "id, title, stage, review_status, published_at, scheduled_at, channels, cover_url, created_at, updated_at, monthly_plan_topic_id, assignee_id, format",
+        "id, title, stage, stage_id, review_status, published_at, scheduled_at, channels, cover_url, created_at, updated_at, monthly_plan_topic_id, assignee_id, format",
       )
       .eq("brand_id", data.brandId)
       .eq("project_id", data.projectId)
       .order("created_at", { ascending: false });
 
     const posts = postRows ?? [];
+    const stageMap = await loadStageMap(
+      context.supabase,
+      posts.map((p) => p.stage_id as string | null),
+    );
+    const stageOf = (p: { stage_id?: string | null; stage?: string | null }) =>
+      effectiveStage(p.stage_id ?? null, p.stage ?? null, stageMap);
     const stats: ProjectStats = { total: posts.length, approved: 0, published: 0, pending: 0 };
     for (const p of posts) {
-      const stage = String(p.stage ?? "").toLowerCase();
+      const stage = stageOf(p);
       const review = String(p.review_status ?? "").toLowerCase();
       const published = !!p.published_at || stage === "published";
       if (published) stats.published += 1;
       if (review === "approved" || stage === "approved") stats.approved += 1;
       if (!published && review !== "approved" && stage !== "approved") stats.pending += 1;
     }
+
 
     // Itens da pauta vinculada (inclui os que ainda não viraram peça).
     const items: ProjectPlanItem[] = [];
@@ -244,7 +260,7 @@ export const getProject = createServerFn({ method: "GET" })
           post: post
             ? {
                 id: post.id,
-                stage: (post.stage as string | null) ?? null,
+                stage: stageOf(post as { stage_id?: string | null; stage?: string | null }),
                 review_status: (post.review_status as string | null) ?? null,
                 published_at: (post.published_at as string | null) ?? null,
                 scheduled_at: (post.scheduled_at as string | null) ?? null,

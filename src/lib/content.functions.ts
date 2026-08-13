@@ -972,6 +972,17 @@ export const updatePostFn = createServerFn({ method: "POST" })
       .eq("id", data.postId);
     if (error) throw error;
 
+    // Mudança de data na peça precisa refletir nos placements ainda não
+    // publicados — o calendário lê `post_placements.scheduled_at`.
+    if (data.destinations === undefined && patch.scheduled_at !== undefined) {
+      await context.supabase
+        .from("post_placements")
+        .update({ scheduled_at: patch.scheduled_at as string | null } as never)
+        .eq("post_id", data.postId)
+        .neq("status", "published");
+    }
+
+
     if (data.destinations !== undefined) {
       const { data: row, error: rErr } = await context.supabase
         .from("posts")

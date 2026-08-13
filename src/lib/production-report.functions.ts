@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { loadStageMap, effectiveStage } from "@/lib/post-stage.server";
 
 export type ProductionOrigin = "pauta" | "direto";
 
@@ -40,7 +41,7 @@ export const listProductionReportFn = createServerFn({ method: "POST" })
     let q = context.supabase
       .from("posts")
       .select(
-        "id, title, channels, format, stage, monthly_plan_topic_id, scheduled_at, published_at, created_at",
+        "id, title, channels, format, stage, stage_id, monthly_plan_topic_id, scheduled_at, published_at, created_at",
       )
       .eq("brand_id", data.brandId)
       .eq("client_id", data.clientId)
@@ -62,24 +63,29 @@ export const listProductionReportFn = createServerFn({ method: "POST" })
       channels: string[] | null;
       format: string | null;
       stage: string;
+      stage_id: string | null;
       monthly_plan_topic_id: string | null;
       scheduled_at: string | null;
       published_at: string | null;
       created_at: string;
     }>;
 
+    // Estágio efetivo vem de `stage_id` (coluna real do pipeline).
+    const stageMap = await loadStageMap(context.supabase, list.map((p) => p.stage_id));
+
     const byChannel: Record<string, number> = {};
     let publishedCount = 0;
     const mapped: ProductionRow[] = list.map((p) => {
       const channels = p.channels ?? [];
       for (const c of channels) byChannel[c] = (byChannel[c] ?? 0) + 1;
-      if (p.stage === "published") publishedCount += 1;
+      const stage = effectiveStage(p.stage_id, p.stage, stageMap);
+      if (stage === "published" || !!p.published_at) publishedCount += 1;
       return {
         id: p.id,
         title: p.title,
         channels,
         format: p.format,
-        stage: p.stage,
+        stage,
         origin: p.monthly_plan_topic_id ? "pauta" : "direto",
         date: p.published_at ?? p.scheduled_at ?? null,
         created_at: p.created_at,
