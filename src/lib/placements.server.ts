@@ -103,8 +103,10 @@ export async function syncPostPlacements(
     is_primary: i === 0,
   }));
 
+  if (!rows.length) return;
   const { error: insErr } = await supabase.from("post_placements").insert(rows);
   if (insErr) throw new Error(insErr.message);
+
 }
 
 /**
