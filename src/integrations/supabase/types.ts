@@ -3079,6 +3079,7 @@ export type Database = {
           storage_path: string
           updated_at: string
           uploaded_by: string | null
+          visible_to_client: boolean
         }
         Insert: {
           ai_error?: string | null
@@ -3098,6 +3099,7 @@ export type Database = {
           storage_path: string
           updated_at?: string
           uploaded_by?: string | null
+          visible_to_client?: boolean
         }
         Update: {
           ai_error?: string | null
@@ -3117,6 +3119,7 @@ export type Database = {
           storage_path?: string
           updated_at?: string
           uploaded_by?: string | null
+          visible_to_client?: boolean
         }
         Relationships: [
           {

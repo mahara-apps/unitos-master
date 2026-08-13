@@ -37,6 +37,7 @@ export type ClientDocumentAi = {
   ai_error: string | null;
   analyzed_at: string | null;
   applied_to_briefing_at: string | null;
+  visible_to_client: boolean;
   ai_summary: {
     document_type?: string | null;
     executive_summary?: string | null;
@@ -67,7 +68,7 @@ export const listClientDocumentsAi = createServerFn({ method: "GET" })
     })
       .from("client_documents")
       .select(
-        "id, name, storage_path, mime_type, size_bytes, created_at, ai_status, ai_model, ai_error, analyzed_at, applied_to_briefing_at, ai_summary",
+        "id, name, storage_path, mime_type, size_bytes, created_at, ai_status, ai_model, ai_error, analyzed_at, applied_to_briefing_at, ai_summary, visible_to_client",
       )
       .eq("brand_id", data.brandId)
       .eq("client_id", data.clientId)
@@ -75,6 +76,28 @@ export const listClientDocumentsAi = createServerFn({ method: "GET" })
     if (error) throw error as Error;
     return rows ?? [];
   });
+
+const VisibilityInput = Scope.extend({
+  documentId: z.string().uuid(),
+  visible: z.boolean(),
+});
+
+/** Fase 0a: controle explícito de exposição de documentos no portal do cliente (padrão: não visível). */
+export const setClientDocumentVisibility = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => VisibilityInput.parse(i))
+  .handler(async ({ data, context }): Promise<{ ok: true; visible: boolean }> => {
+    const { error } = await context.supabase
+      .from("client_documents")
+      .update({ visible_to_client: data.visible })
+      .eq("id", data.documentId)
+      .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId);
+    if (error) throw error as Error;
+    return { ok: true, visible: data.visible };
+  });
+
+
 
 const ApplyInput = Scope.extend({
   documentId: z.string().uuid(),

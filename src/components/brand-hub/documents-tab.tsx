@@ -5,6 +5,8 @@ import {
   BrainCircuit,
   CheckCircle2,
   Download,
+  Eye,
+  EyeOff,
   FileText,
   Loader2,
   MoreHorizontal,
@@ -18,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { ExpandedModal } from "@/components/ui/expanded-modal";
 import {
   DropdownMenu,
@@ -42,6 +45,7 @@ import {
   applyDocumentToBriefing,
   getBriefingSnapshot,
   listClientDocumentsAi,
+  setClientDocumentVisibility,
   type ClientDocumentAi,
   type DocumentBriefingSummary,
 } from "@/lib/documents-ai.functions";
@@ -116,6 +120,7 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
   const sign = useServerFn(signClientDocument);
   const apply = useServerFn(applyDocumentToBriefing);
   const snapshot = useServerFn(getBriefingSnapshot);
+  const setVisibility = useServerFn(setClientDocumentVisibility);
   const qc = useQueryClient();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -200,6 +205,22 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
     },
   });
 
+  const visibility = useMutation({
+    mutationFn: (v: { id: string; visible: boolean }) =>
+      setVisibility({ data: { brandId, clientId, documentId: v.id, visible: v.visible } }),
+    onSuccess: (_res, v) => {
+      toast.success(
+        v.visible
+          ? "Documento agora está visível no portal do cliente"
+          : "Documento oculto do portal do cliente",
+      );
+      invalidate();
+    },
+    onError: () => toast.error("Falha ao atualizar visibilidade"),
+  });
+
+
+
   const download = async (id: string) => {
     try {
       const { url } = await sign({ data: { brandId, clientId, documentId: id } });
@@ -254,6 +275,9 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
         <p className="mt-1 max-w-md text-center text-xs text-muted-foreground">
           Envie brandbooks, manuais de marca, pesquisas ou decks. A IA lê cada documento, interpreta em nível sênior e sugere melhorias para o briefing. Máx. 25 MB por arquivo.
         </p>
+        <p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+          <EyeOff className="h-3 w-3" /> Todo documento novo entra como <span className="underline">não visível</span> ao cliente. Libere manualmente na lista abaixo.
+        </p>
         <Button
           size="sm"
           variant="outline"
@@ -279,8 +303,9 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[40%]">Nome</TableHead>
+              <TableHead className="w-[34%]">Nome</TableHead>
               <TableHead>Leitura da IA</TableHead>
+              <TableHead className="w-[200px]">Visível ao cliente</TableHead>
               <TableHead>Enviado</TableHead>
               <TableHead>Tamanho</TableHead>
               <TableHead className="w-16 text-right">Ações</TableHead>
@@ -289,13 +314,13 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
           <TableBody>
             {docsQ.isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-xs text-muted-foreground">
+                <TableCell colSpan={6} className="py-10 text-center text-xs text-muted-foreground">
                   Carregando documentos…
                 </TableCell>
               </TableRow>
             ) : docs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-xs text-muted-foreground">
+                <TableCell colSpan={6} className="py-10 text-center text-xs text-muted-foreground">
                   Nenhum documento ainda. Envie um brandbook ou pesquisa acima para começar.
                 </TableCell>
               </TableRow>
@@ -328,6 +353,35 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
                       {d.ai_status === "failed" && d.ai_error ? (
                         <span className="line-clamp-2 text-[11px] text-destructive">{d.ai_error}</span>
                       ) : null}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={d.visible_to_client}
+                        disabled={visibility.isPending}
+                        aria-label={
+                          d.visible_to_client
+                            ? "Ocultar documento do portal do cliente"
+                            : "Tornar documento visível no portal do cliente"
+                        }
+                        onCheckedChange={(v) => visibility.mutate({ id: d.id, visible: v })}
+                      />
+                      {d.visible_to_client ? (
+                        <Badge
+                          variant="outline"
+                          className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                        >
+                          <Eye className="mr-1 h-3 w-3" /> Visível no portal
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                        >
+                          <EyeOff className="mr-1 h-3 w-3" /> Não visível
+                        </Badge>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
