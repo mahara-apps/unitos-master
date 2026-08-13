@@ -329,24 +329,7 @@ function CustomerDetailReady({
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${
-                    completion >= 60
-                      ? "bg-emerald-500/10 text-emerald-300 ring-emerald-500/30"
-                      : "bg-amber-500/10 text-amber-300 ring-amber-500/30"
-                  }`}
-                >
-                  Briefing {completion}%
-                </span>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 gap-1.5"
-                  onClick={() => goToTab("pauta")}
-                >
-                  <ClipboardList className="h-3.5 w-3.5" />
-                  Pauta
-                </Button>
+
                 {needsOnboarding && (
                   <Button
                     size="sm"
