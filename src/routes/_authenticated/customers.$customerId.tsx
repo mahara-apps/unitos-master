@@ -281,27 +281,8 @@ function CustomerDetailReady({
     {
       title: customer?.name ?? (customersQ.isLoading ? "Carregando…" : "Cliente"),
       subtitle: customer?.niche ?? "—",
-      actions: (
-        <div className="flex items-center gap-1">
-          {needsOnboarding && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1.5 border-fuchsia-500/40 text-fuchsia-300 hover:bg-fuchsia-500/10 hover:text-fuchsia-200"
-              onClick={() => {
-                setActiveTab("briefing");
-                setWizardOpen(true);
-              }}
-              title="Completar onboarding rápido"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Completar onboarding
-            </Button>
-          )}
-        </div>
-      ),
     },
-    [customer?.name, customer?.niche, customerId, needsOnboarding],
+    [customer?.name, customer?.niche, customerId],
   );
 
   const scope = { brandId, clientId: customerId };
