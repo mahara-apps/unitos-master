@@ -6,7 +6,8 @@ import { loadBriefingContext } from "@/lib/monthly-plan-context.server";
 import { loadStrategyContext } from "@/lib/monthly-plan-strategy.server";
 import { loadPerformanceContext } from "@/lib/monthly-plan-performance.server";
 import { runPlanAgent } from "@/lib/monthly-plan-agent.server";
-import { PLAN_CHANNELS, PLAN_FORMATS } from "@/lib/monthly-plan-fields";
+import { PLAN_CHANNELS, PLAN_FORMATS, type PlanChannel } from "@/lib/monthly-plan-fields";
+import { currentPeriodMonth, loadApprovedOverage } from "@/lib/plan-overage.server";
 
 /* ---------- Types ---------- */
 
@@ -26,6 +27,11 @@ export type GenerateMonthlyPlanResult =
   | {
       ok: false;
       code: "ai_provider_not_configured" | "ai_provider_key_missing" | "ai_model_unavailable";
+    }
+  | {
+      ok: false;
+      code: "overage_not_authorized";
+      overage: Array<{ channel: PlanChannel; quota: number; requested: number; overage: number }>;
     };
 
 
