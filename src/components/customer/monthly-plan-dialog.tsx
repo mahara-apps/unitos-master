@@ -6,7 +6,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrandHub } from "@/lib/brand-hub.functions";
-import { getWeeksInMonth, getWeeksForPeriod } from "@/lib/monthly-plan-fields";
+import {
+  getWeeksInMonth,
+  getWeeksForPeriod,
+  normalizeVolumetryBasis,
+  resolveQuota,
+} from "@/lib/monthly-plan-fields";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -59,6 +64,9 @@ export function MonthlyPlanDialog({ brandId, clientId, disabled, disabledReason 
     enabled: open,
   });
   const volumetry = hubQ.data?.brand_hub?.volumetry ?? {};
+  const basis = normalizeVolumetryBasis(
+    (hubQ.data?.brand_hub as { volumetry_basis?: unknown } | undefined)?.volumetry_basis,
+  );
 
   // Semanas calculadas pelo calendário real do mês-alvo (próximo mês).
   const autoWeeksFirstMonth = useMemo(() => {
@@ -76,18 +84,22 @@ export function MonthlyPlanDialog({ brandId, clientId, disabled, disabledReason 
   );
 
   const perMonthByChannel = Object.entries(volumetry)
-    .map(([k, v]) => ({ channel: k, perWeek: Number(v) || 0 }))
-    .filter((c) => c.perWeek > 0)
-    .map((c) => ({ ...c, perMonth: Math.round(c.perWeek * weeksFirstMonth) }));
+    .map(([k, v]) => ({ channel: k, ...resolveQuota(Number(v) || 0, basis, weeksFirstMonth) }))
+    .filter((c) => c.perMonth > 0);
   const totalPerMonth = perMonthByChannel.reduce((a, c) => a + c.perMonth, 0);
   const hasVolumetry = totalPerMonth > 0;
 
   const periodo =
     meses === 1 ? "próximo mês" : `próximos ${meses} meses`;
-  const totalPecas = manualMode || !hasVolumetry ? manualQty * meses : totalWeeks * perMonthByChannel.reduce((s, c) => s + c.perWeek, 0);
+  const totalPecas =
+    manualMode || !hasVolumetry
+      ? manualQty * meses
+      : basis === "monthly"
+        ? totalPerMonth * meses
+        : Math.round(totalWeeks * perMonthByChannel.reduce((s, c) => s + c.perWeek, 0));
   const channelMix = !manualMode && hasVolumetry
     ? perMonthByChannel.reduce<Record<string, number>>((acc, c) => {
-        acc[c.channel] = c.perWeek * totalWeeks;
+        acc[c.channel] = basis === "monthly" ? c.perMonth * meses : Math.round(c.perWeek * totalWeeks);
         return acc;
       }, {})
     : undefined;
@@ -221,8 +233,14 @@ export function MonthlyPlanDialog({ brandId, clientId, disabled, disabledReason 
                       {CHANNEL_LABEL[c.channel] ?? c.channel}
                     </span>
                     <span className="tabular-nums text-muted-foreground">
-                      {c.perWeek}/sem →{" "}
-                      <span className="font-medium text-foreground">{c.perMonth}</span>/mês
+                      {basis === "monthly" ? (
+                        <span className="font-medium text-foreground">{c.perMonth}/mês</span>
+                      ) : (
+                        <>
+                          {c.perWeek}/sem →{" "}
+                          <span className="font-medium text-foreground">{c.perMonth}</span>/mês
+                        </>
+                      )}
                     </span>
                   </li>
                 ))}
