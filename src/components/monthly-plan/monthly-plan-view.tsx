@@ -49,6 +49,7 @@ import { describeError } from "@/lib/errors";
 import {
   GeneratePlanWizard,
   type GenerateSelection,
+  type OverageItem,
 } from "@/components/monthly-plan/generate-plan-wizard";
 import { requestPlanOverageFn } from "@/lib/plan-overage.functions";
 import { VolumetryCards, type PlanVolumetry } from "@/components/monthly-plan/volumetry-cards";
