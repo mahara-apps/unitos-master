@@ -37,12 +37,14 @@ export type PortalPost = {
 };
 export type PortalApproval = { status: string; notes: string | null; decided_at: string | null; decided_by_name: string | null };
 type PortalResolveResult = {
-  clientId: string;
-  brandId: string;
-  client: PortalClient;
+  clientId: string | null;
+  brandId: string | null;
+  client: PortalClient | null;
   brand: PortalBrand | null;
   /** Fase 3 — tema já normalizado/validado no server (hex + URL http(s)). */
-  theme: ResolvedPortalTheme;
+  theme: ResolvedPortalTheme | null;
+  /** Token inválido/revogado/expirado: retorna erro em vez de lançar (evita tela branca). */
+  error?: string;
 };
 type PortalMetrics = { pending: number; approvedThisMonth: number; scheduled: number; total: number };
 type PortalPostResult = { post: PortalPost; approval: PortalApproval | null };
@@ -170,16 +172,27 @@ async function fillCovers(posts: PortalPost[]): Promise<void> {
 export const resolvePortalTokenFn = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => tokenIn.parse(i))
   .handler(async ({ data }): Promise<PortalResolveResult> => {
-    const res = await rpc<Omit<PortalResolveResult, "theme">>("portal_resolve", {
-      _token: data.token,
-    });
-    // O jsonb vem do banco sem garantias: valida antes de virar CSS/style.
-    const theme = resolvePortalTheme(normalizePortalTheme(res.client?.portal_theme), {
-      color: res.client?.color ?? null,
-      logoUrl: null,
-      agencyName: res.brand?.name ?? null,
-    });
-    return { ...res, theme };
+    try {
+      const res = await rpc<Omit<PortalResolveResult, "theme" | "error">>("portal_resolve", {
+        _token: data.token,
+      });
+      // O jsonb vem do banco sem garantias: valida antes de virar CSS/style.
+      const theme = resolvePortalTheme(normalizePortalTheme(res.client?.portal_theme), {
+        color: res.client?.color ?? null,
+        logoUrl: null,
+        agencyName: res.brand?.name ?? null,
+      });
+      return { ...res, theme };
+    } catch (e) {
+      return {
+        clientId: null,
+        brandId: null,
+        client: null,
+        brand: null,
+        theme: null,
+        error: e instanceof Error ? e.message : "invalid_token",
+      };
+    }
   });
 
 export const getPortalMetricsFn = createServerFn({ method: "POST" })

@@ -45,7 +45,8 @@ function PortalShell() {
   const activeTab = activePortalTab(pathname, token);
 
   if (sessionQ.isLoading) return <FullScreenLoader />;
-  if (sessionQ.error || !sessionQ.data?.client) return <TokenError message={(sessionQ.error as Error)?.message} />;
+  if (sessionQ.error || !sessionQ.data?.client)
+    return <TokenError message={sessionQ.data?.error ?? (sessionQ.error as Error)?.message} />;
 
   const client = sessionQ.data.client;
   const brand = sessionQ.data.brand;
