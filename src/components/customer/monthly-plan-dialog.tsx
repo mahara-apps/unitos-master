@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrandHub } from "@/lib/brand-hub.functions";
+import { WEEKS_PER_MONTH } from "@/lib/monthly-plan-fields";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -33,7 +34,7 @@ type Props = {
   disabledReason?: string;
 };
 
-const WEEKS_PER_MONTH = 4.33;
+
 const CHANNEL_LABEL: Record<string, string> = {
   instagram: "Instagram",
   tiktok: "TikTok",

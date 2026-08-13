@@ -38,4 +38,5 @@ export const PLAN_FORMATS = [
   "Vídeo curto",
 ] as const;
 
-export const WEEKS_PER_MONTH = 4.3;
+/** Mês contábil da pauta = 4 semanas cheias (4/sem => 16/mês, soma exata). */
+export const WEEKS_PER_MONTH = 4;
