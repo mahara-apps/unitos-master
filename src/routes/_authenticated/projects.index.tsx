@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import {
@@ -282,22 +282,26 @@ function ProjectsIndexPage() {
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
-  // O cliente ativo da sidebar apenas inicializa o filtro; o usuário pode trocar aqui.
+  // Com cliente ativo na sidebar, o escopo fica travado nesse cliente.
   const [clientFilter, setClientFilter] = useState<string>(activeClientId ?? "all");
+  useEffect(() => {
+    if (activeClientId) setClientFilter(activeClientId);
+  }, [activeClientId]);
+  const effectiveClientId = activeClientId ?? (clientFilter === "all" ? null : clientFilter);
   const [sortKey, setSortKey] = useState<SortKey>("due");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [formOpen, setFormOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
 
   const projectsQ = useQuery({
-    queryKey: ["projects", brandId, statusFilter, ownerFilter, clientFilter],
+    queryKey: ["projects", brandId, statusFilter, ownerFilter, effectiveClientId],
     queryFn: () =>
       list({
         data: {
           brandId: brandId!,
           status: statusFilter === "all" ? null : (statusFilter as never),
           ownerId: ownerFilter === "all" ? null : ownerFilter,
-          clientId: clientFilter === "all" ? null : clientFilter,
+          clientId: effectiveClientId,
         },
       }),
     enabled: !!brandId,
@@ -435,7 +439,7 @@ function ProjectsIndexPage() {
     q.trim().length > 0 ||
     statusFilter !== "all" ||
     ownerFilter !== "all" ||
-    clientFilter !== "all";
+    (!activeClientId && clientFilter !== "all");
 
   return (
     <DashboardPageShell>
@@ -511,12 +515,33 @@ function ProjectsIndexPage() {
               ))}
             </SelectContent>
           </Select>
-          <ClientFilterCombobox
-            value={clientFilter}
-            onChange={setClientFilter}
-            clients={clients}
-            sidebarClientId={activeClientId ?? null}
-          />
+          {activeClientId ? (
+            <span
+              title="Troque o cliente no seletor da barra lateral"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 text-xs text-muted-foreground"
+            >
+              <span
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{
+                  background:
+                    clients.find((c) => c.id === activeClientId)?.color ?? "#8b5cf6",
+                }}
+              />
+              <span className="truncate font-medium text-foreground">
+                {clientName(activeClientId) || "Cliente ativo"}
+              </span>
+              <span className="hidden text-[10px] uppercase tracking-wide sm:inline">
+                sidebar
+              </span>
+            </span>
+          ) : (
+            <ClientFilterCombobox
+              value={clientFilter}
+              onChange={setClientFilter}
+              clients={clients}
+              sidebarClientId={null}
+            />
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -536,7 +561,7 @@ function ProjectsIndexPage() {
               onClear={() => setOwnerFilter("all")}
             />
           ) : null}
-          {clientFilter !== "all" ? (
+          {!activeClientId && clientFilter !== "all" ? (
             <FilterChip
               label={`Cliente: ${clientName(clientFilter) || "—"}`}
               onClear={() => setClientFilter("all")}
@@ -551,7 +576,7 @@ function ProjectsIndexPage() {
                 setQ("");
                 setStatusFilter("all");
                 setOwnerFilter("all");
-                setClientFilter("all");
+                if (!activeClientId) setClientFilter("all");
               }}
             >
               Limpar filtros
@@ -580,7 +605,9 @@ function ProjectsIndexPage() {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <SortHeader label="Projeto" sortKey="name" active={sortKey} dir={sortDir} onSort={onSort} />
-                <SortHeader label="Cliente" sortKey="client" active={sortKey} dir={sortDir} onSort={onSort} className="hidden md:table-cell" />
+                {activeClientId ? null : (
+                  <SortHeader label="Cliente" sortKey="client" active={sortKey} dir={sortDir} onSort={onSort} className="hidden md:table-cell" />
+                )}
                 <SortHeader label="Status" sortKey="status" active={sortKey} dir={sortDir} onSort={onSort} />
                 <TableHead className="hidden text-[11px] font-medium uppercase tracking-wide text-muted-foreground lg:table-cell">
                   Pauta
@@ -620,19 +647,21 @@ function ProjectsIndexPage() {
                         <span className="truncate text-sm font-medium text-foreground">{p.name}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      {client ? (
-                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <span
-                            className="h-2 w-2 rounded-full"
-                            style={{ background: client.color ?? "#8b5cf6" }}
-                          />
-                          <span className="truncate">{client.name}</span>
-                        </span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
+                    {activeClientId ? null : (
+                      <TableCell className="hidden md:table-cell">
+                        {client ? (
+                          <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <span
+                              className="h-2 w-2 rounded-full"
+                              style={{ background: client.color ?? "#8b5cf6" }}
+                            />
+                            <span className="truncate">{client.name}</span>
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell>
                       <Badge
                         variant="outline"
