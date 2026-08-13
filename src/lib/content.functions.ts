@@ -1050,7 +1050,10 @@ export const reworkPostFn = createServerFn({ method: "POST" })
     };
     if (targetStageId && targetStageId !== post.stage_id) {
       patch.stage_id = targetStageId;
+      const legacy = await resolveLegacyStage(context.supabase, targetStageId);
+      if (legacy) patch.stage = legacy;
     }
+
 
     const { error } = await context.supabase
       .from("posts")
