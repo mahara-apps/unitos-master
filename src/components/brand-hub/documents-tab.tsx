@@ -352,6 +352,35 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
                       ) : null}
                     </div>
                   </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={d.visible_to_client}
+                        disabled={visibility.isPending}
+                        aria-label={
+                          d.visible_to_client
+                            ? "Ocultar documento do portal do cliente"
+                            : "Tornar documento visível no portal do cliente"
+                        }
+                        onCheckedChange={(v) => visibility.mutate({ id: d.id, visible: v })}
+                      />
+                      {d.visible_to_client ? (
+                        <Badge
+                          variant="outline"
+                          className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                        >
+                          <Eye className="mr-1 h-3 w-3" /> Visível no portal
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant="outline"
+                          className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                        >
+                          <EyeOff className="mr-1 h-3 w-3" /> Não visível
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {new Date(d.created_at).toLocaleString("pt-BR", { dateStyle: "medium", timeStyle: "short" })}
                   </TableCell>
