@@ -21,11 +21,8 @@ export const listProjects = createServerFn({ method: "GET" })
     let query = context.supabase
       .from("projects")
       .select(
-        sel(
-          "id, brand_id, client_id, name, description, status, color, progress, start_date, due_at, goals, owner_id, created_at, updated_at, monthly_plan_id, monthly_plans(id, title, status)",
-        ),
+        "id, brand_id, client_id, name, description, status, color, progress, start_date, due_at, goals, owner_id, created_at, updated_at, monthly_plan_id, monthly_plans(id, title, status)",
       )
-      .returns<ProjectRow[]>()
       .eq("brand_id", data.brandId)
       .order("created_at", { ascending: false });
 
@@ -34,12 +31,18 @@ export const listProjects = createServerFn({ method: "GET" })
     if (data.ownerId) query = query.eq("owner_id", data.ownerId);
     if (data.q && data.q.trim()) query = query.ilike("name", `%${data.q.trim()}%`);
 
-    const { data: rows, error } = await query;
+    const { data: rawRows, error } = await query;
     if (error) throw error;
-    const projects = rows ?? [];
+    const projects = ((rawRows ?? []) as unknown as ProjectListRow[]).map((p) => ({
+      ...p,
+      plan: p.monthly_plans
+        ? { id: p.monthly_plans.id, title: p.monthly_plans.title, status: p.monthly_plans.status }
+        : null,
+    }));
     if (projects.length === 0) return { projects: [], stats: {} as Record<string, ProjectStats> };
 
     const ids = projects.map((p) => p.id);
+
     const { data: postRows, error: postErr } = await context.supabase
       .from("posts")
       .select("id, project_id, stage, published_at, review_status")
