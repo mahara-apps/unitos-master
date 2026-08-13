@@ -263,6 +263,7 @@ export function MonthlyPlanView({
             </p>
           </div>
           <Button
+            variant="ai"
             className="h-10 gap-2"
             disabled={!hasVolumetry || volumetryQ.isLoading}
             onClick={() => setWizardOpen(true)}
