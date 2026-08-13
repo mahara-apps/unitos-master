@@ -1111,6 +1111,7 @@ export const getPostDetailFn = createServerFn({ method: "POST" })
     post: BoardPost;
     timeline: PostTimelineEvent[];
     destinations: Array<{ connectionId: string; channel: string; format: "feed" | "stories" | "reels" | "carrossel" }>;
+    project: { id: string; name: string; color: string | null } | null;
   }> => {
     const [{ data: post, error }, { data: events }, { data: placements }] = await Promise.all([
       context.supabase
