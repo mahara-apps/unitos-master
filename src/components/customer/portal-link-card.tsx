@@ -32,6 +32,8 @@ import {
   updatePortalTokenFn,
 } from "@/lib/customer-dashboard.functions";
 import { PortalThemeForm } from "@/components/customer/portal-theme-form";
+import { PortalAccessSection } from "@/components/customer/portal-access-section";
+
 
 const EXPIRY_OPTIONS = [
   { value: "never", label: "Sem expiração" },
@@ -268,6 +270,10 @@ export function PortalLinkCard({
           </div>
         )}
       </CardContent>
+
+      <PortalAccessSection clientId={clientId} />
+
+
 
       {active && (
         <CustomizeModal
