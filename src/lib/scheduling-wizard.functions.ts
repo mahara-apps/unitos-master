@@ -541,6 +541,16 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         "@/lib/meta/publishing.server"
       );
       const svc = new MetaPublishingService();
+      // Vínculo canal ↔ cliente (client_social_accounts) = fonte de verdade.
+      const { data: pubLinks, error: pubLinksErr } = await supabase
+        .from("client_social_accounts")
+        .select("connection_id")
+        .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId);
+      if (pubLinksErr) throw new Error(pubLinksErr.message);
+      const publishLinkedIds = new Set(
+        ((pubLinks ?? []) as Array<{ connection_id: string }>).map((l) => l.connection_id),
+      );
       const results: Array<{ channel: string; format: string; ok: boolean; error?: string; permalink?: string | null }> = [];
       for (const d of data.destinations) {
         // Publicação direta: Feed IG/FB e Stories no IG (multi-frame automático).
@@ -563,11 +573,11 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
               : "facebook_feed";
         const dbPlacement: "feed" | "story" = isStory ? "story" : "feed";
         try {
-          // Carrega conexão (isolada por brand/cliente)
+          // Carrega conexão do workspace (a marca é a dona do canal)
           const { data: conn, error: connErr } = await supabase
             .from("social_connections")
             .select(
-              "id, brand_id, client_id, provider, external_id, account_id, access_token_ciphertext, status",
+              "id, brand_id, provider, external_id, account_id, access_token_ciphertext, status",
             )
             .eq("id", d.connectionId)
             .eq("brand_id", data.brandId)
@@ -575,9 +585,10 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           if (connErr) throw new Error(connErr.message);
           if (!conn) throw new Error("Conexão não encontrada");
           if (!conn.access_token_ciphertext) throw new Error("Conexão sem token — reconecte a página");
-          if (conn.client_id && conn.client_id !== data.clientId) {
-            throw new Error("Conexão não pertence a este cliente");
+          if (!publishLinkedIds.has(d.connectionId)) {
+            throw new Error("Canal não vinculado a este cliente");
           }
+
 
           // Stories multi-frame: publica cada mídia como um Story separado.
           // Feed/Reels: 1 chamada, primeira mídia.
