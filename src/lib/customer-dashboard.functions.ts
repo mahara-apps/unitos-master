@@ -390,3 +390,63 @@ export const createPortalTokenFn = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return row;
   });
+
+/**
+ * Fase 0c — revogação de link do portal.
+ * mode "revoke": apenas revoga (cliente fica sem link ativo).
+ * mode "revokeAndCreate": revoga TODOS os links ativos do cliente e emite um
+ * novo, mantendo a premissa de "um link ativo por cliente" da Fase 1.
+ * O escopo é garantido por RLS (context.supabase) + checagem de brand do cliente.
+ */
+export const revokePortalTokenFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        mode: z.enum(["revoke", "revokeAndCreate"]).default("revoke"),
+        label: z.string().trim().min(1).max(80).default("Portal do cliente"),
+        expiresInDays: z.number().int().min(1).max(365).nullable().default(null),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: client, error: cErr } = await context.supabase
+      .from("clients")
+      .select("id, brand_id")
+      .eq("id", data.clientId)
+      .maybeSingle();
+    if (cErr) throw new Error(cErr.message);
+    if (!client) throw new Error("forbidden");
+
+    const nowIso = new Date().toISOString();
+    const { data: revoked, error: rErr } = await context.supabase
+      .from("portal_tokens")
+      .update({ revoked_at: nowIso })
+      .eq("client_id", data.clientId)
+      .is("revoked_at", null)
+      .select("id");
+    if (rErr) throw new Error(rErr.message);
+    const revokedCount = (revoked ?? []).length;
+
+    if (data.mode === "revoke") {
+      return { ok: true, revokedCount, token: null };
+    }
+
+    const expires_at = data.expiresInDays
+      ? new Date(Date.now() + data.expiresInDays * 24 * 3600 * 1000).toISOString()
+      : null;
+    const { data: row, error: iErr } = await context.supabase
+      .from("portal_tokens")
+      .insert({
+        client_id: data.clientId,
+        token: randomToken(),
+        label: data.label,
+        expires_at,
+        created_by: context.userId,
+      })
+      .select("id,token,label,expires_at,revoked_at,last_seen_at,created_at")
+      .single();
+    if (iErr) throw new Error(iErr.message);
+    return { ok: true, revokedCount, token: row };
+  });
