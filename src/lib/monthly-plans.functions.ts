@@ -1023,6 +1023,38 @@ export const submitPlanToClientFn = createServerFn({ method: "POST" })
     return { token, url: `/pauta/${plan.id}?token=${token}`, expires_at: expiresAt };
   });
 
+/** Cria/vincula o projeto ativo da pauta aprovada internamente (idempotente). */
+export const ensurePlanProjectFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ planId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }): Promise<{ projectId: string | null; created: boolean }> => {
+    const { data: planRow } = await context.supabase
+      .from("monthly_plans" as never)
+      .select("id, brand_id, client_id, title, status, internal_approved_at, project_id")
+      .eq("id", data.planId)
+      .maybeSingle();
+    if (!planRow) throw new Error("plan_not_found");
+    const plan = planRow as unknown as {
+      id: string;
+      brand_id: string;
+      client_id: string | null;
+      title: string | null;
+      status: MonthlyPlanStatus;
+      internal_approved_at: string | null;
+      project_id: string | null;
+    };
+    if (!plan.internal_approved_at) return { projectId: plan.project_id, created: false };
+
+    const { ensurePlanProject } = await import("@/lib/monthly-plan-project.server");
+    return await ensurePlanProject(context.supabase as never, {
+      planId: plan.id,
+      brandId: plan.brand_id,
+      clientId: plan.client_id,
+      title: plan.title,
+      userId: context.userId,
+    });
+  });
+
 export const getPlanClientLinkFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ planId: z.string().uuid() }).parse(i))
