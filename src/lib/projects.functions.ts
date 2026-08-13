@@ -260,7 +260,7 @@ export const getProject = createServerFn({ method: "GET" })
           post: post
             ? {
                 id: post.id,
-                stage: (post.stage as string | null) ?? null,
+                stage: stageOf(post as { stage_id?: string | null; stage?: string | null }),
                 review_status: (post.review_status as string | null) ?? null,
                 published_at: (post.published_at as string | null) ?? null,
                 scheduled_at: (post.scheduled_at as string | null) ?? null,
