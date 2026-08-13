@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { listClients } from "@/lib/workspace.functions";
 import { StrategyResults } from "@/components/ai-agents/strategy-results";
 import { CustomerOverview } from "@/components/customer/overview/customer-overview";
+import { ProductionTab } from "@/components/customer/production/production-tab";
 import { BasicInfoTab } from "@/components/customer/basic-info-tab";
 import { ChannelsTab } from "@/components/customer/channels-tab";
 import { AccountManagementTab } from "@/components/customer/account-management-tab";
@@ -44,6 +45,7 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
             "briefing",
             "estrategia",
             "pauta",
+            "producao",
             "brain",
             "channels",
             "cadastro",
@@ -60,6 +62,7 @@ type CustomerTab =
   | "briefing"
   | "estrategia"
   | "pauta"
+  | "producao"
   | "brain"
   | "channels"
   | "cadastro"
@@ -70,6 +73,7 @@ const ALL_TABS = [
   { value: "briefing", label: "Briefing" },
   { value: "estrategia", label: "Estratégia IA" },
   { value: "pauta", label: "Pauta" },
+  { value: "producao", label: "Produção" },
   { value: "channels", label: "Canais" },
   { value: "gestao", label: "Gestão da conta" },
   { value: "cadastro", label: "Cadastro" },
@@ -412,6 +416,10 @@ function CustomerDetailReady({
                   planId={planId}
                   onSelectPlan={setPlanId}
                 />
+              </TabsContent>
+
+              <TabsContent value="producao">
+                <ProductionTab brandId={brandId} clientId={customerId} />
               </TabsContent>
 
               <TabsContent value="cadastro">
