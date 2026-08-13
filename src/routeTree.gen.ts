@@ -40,6 +40,7 @@ import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authen
 import { Route as AuthenticatedMonthlyPlanIndexRouteImport } from './routes/_authenticated/monthly-plan.index'
 import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authenticated/customers.index'
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat.index'
+import { Route as PortalTokenAprovacoesRouteImport } from './routes/portal.$token.aprovacoes'
 import { Route as PBriefingTokenRouteImport } from './routes/p.briefing.$token'
 import { Route as ApiPublicSeedSuperadminsRouteImport } from './routes/api/public/seed-superadmins'
 import { Route as ApiJobsPostPhase2RouteImport } from './routes/api/jobs/post-phase2'
@@ -246,6 +247,11 @@ const AuthenticatedChatIndexRoute = AuthenticatedChatIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedChatRoute,
+} as any)
+const PortalTokenAprovacoesRoute = PortalTokenAprovacoesRouteImport.update({
+  id: '/aprovacoes',
+  path: '/aprovacoes',
+  getParentRoute: () => PortalTokenRoute,
 } as any)
 const PBriefingTokenRoute = PBriefingTokenRouteImport.update({
   id: '/p/briefing/$token',
@@ -553,6 +559,7 @@ export interface FileRoutesByFullPath {
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
   '/api/public/seed-superadmins': typeof ApiPublicSeedSuperadminsRoute
   '/p/briefing/$token': typeof PBriefingTokenRoute
+  '/portal/$token/aprovacoes': typeof PortalTokenAprovacoesRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
   '/customers/': typeof AuthenticatedCustomersIndexRoute
   '/monthly-plan/': typeof AuthenticatedMonthlyPlanIndexRoute
@@ -624,6 +631,7 @@ export interface FileRoutesByTo {
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
   '/api/public/seed-superadmins': typeof ApiPublicSeedSuperadminsRoute
   '/p/briefing/$token': typeof PBriefingTokenRoute
+  '/portal/$token/aprovacoes': typeof PortalTokenAprovacoesRoute
   '/chat': typeof AuthenticatedChatIndexRoute
   '/customers': typeof AuthenticatedCustomersIndexRoute
   '/monthly-plan': typeof AuthenticatedMonthlyPlanIndexRoute
@@ -703,6 +711,7 @@ export interface FileRoutesById {
   '/api/jobs/post-phase2': typeof ApiJobsPostPhase2Route
   '/api/public/seed-superadmins': typeof ApiPublicSeedSuperadminsRoute
   '/p/briefing/$token': typeof PBriefingTokenRoute
+  '/portal/$token/aprovacoes': typeof PortalTokenAprovacoesRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
   '/_authenticated/monthly-plan/': typeof AuthenticatedMonthlyPlanIndexRoute
@@ -782,6 +791,7 @@ export interface FileRouteTypes {
     | '/api/jobs/post-phase2'
     | '/api/public/seed-superadmins'
     | '/p/briefing/$token'
+    | '/portal/$token/aprovacoes'
     | '/chat/'
     | '/customers/'
     | '/monthly-plan/'
@@ -853,6 +863,7 @@ export interface FileRouteTypes {
     | '/api/jobs/post-phase2'
     | '/api/public/seed-superadmins'
     | '/p/briefing/$token'
+    | '/portal/$token/aprovacoes'
     | '/chat'
     | '/customers'
     | '/monthly-plan'
@@ -931,6 +942,7 @@ export interface FileRouteTypes {
     | '/api/jobs/post-phase2'
     | '/api/public/seed-superadmins'
     | '/p/briefing/$token'
+    | '/portal/$token/aprovacoes'
     | '/_authenticated/chat/'
     | '/_authenticated/customers/'
     | '/_authenticated/monthly-plan/'
@@ -1215,6 +1227,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/chat/'
       preLoaderRoute: typeof AuthenticatedChatIndexRouteImport
       parentRoute: typeof AuthenticatedChatRoute
+    }
+    '/portal/$token/aprovacoes': {
+      id: '/portal/$token/aprovacoes'
+      path: '/aprovacoes'
+      fullPath: '/portal/$token/aprovacoes'
+      preLoaderRoute: typeof PortalTokenAprovacoesRouteImport
+      parentRoute: typeof PortalTokenRoute
     }
     '/p/briefing/$token': {
       id: '/p/briefing/$token'
@@ -1706,10 +1725,12 @@ const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
 interface PortalTokenRouteChildren {
+  PortalTokenAprovacoesRoute: typeof PortalTokenAprovacoesRoute
   PortalTokenIndexRoute: typeof PortalTokenIndexRoute
 }
 
 const PortalTokenRouteChildren: PortalTokenRouteChildren = {
+  PortalTokenAprovacoesRoute: PortalTokenAprovacoesRoute,
   PortalTokenIndexRoute: PortalTokenIndexRoute,
 }
 
