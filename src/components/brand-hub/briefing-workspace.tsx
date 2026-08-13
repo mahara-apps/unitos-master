@@ -1088,6 +1088,12 @@ function VolumetriaTab({
   setForm: (f: FormState) => void;
 }) {
   const [extra, setExtra] = useState<SocialKey[]>([]);
+  const basis = form.volumetry_basis;
+  const maxQty = volumetryMax(basis);
+  const weeksInMonth = useMemo(() => {
+    const now = new Date();
+    return getWeeksInMonth(now.getFullYear(), now.getMonth());
+  }, []);
   const visible = SOCIALS.filter(
     ({ key }) =>
       PLAN_CHANNELS_DEFAULT.includes(key) || (form.volumetry[key] ?? 0) > 0 || extra.includes(key),
@@ -1097,9 +1103,33 @@ function VolumetriaTab({
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <SectionCard
-        title="Volume semanal por canal"
-        hint="Meta de publicações por semana. A pauta respeita estes limites."
+        title={basis === "monthly" ? "Volume mensal por canal" : "Volume semanal por canal"}
+        hint={
+          basis === "monthly"
+            ? "Meta de publicações por mês. A pauta respeita estes limites."
+            : "Meta de publicações por semana. A pauta respeita estes limites."
+        }
       >
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2">
+          <span className="text-xs text-muted-foreground">Base do volume</span>
+          <div className="ml-auto flex items-center gap-1">
+            {(["weekly", "monthly"] as const).map((b) => (
+              <button
+                key={b}
+                type="button"
+                onClick={() => setForm({ ...form, volumetry_basis: b })}
+                className={cn(
+                  "rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors",
+                  basis === b
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80",
+                )}
+              >
+                {b === "weekly" ? "Por semana" : "Por mês"}
+              </button>
+            ))}
+          </div>
+        </div>
         {hidden.length > 0 && (
           <div className="mb-2 flex justify-end">
             <DropdownMenu>
@@ -1131,7 +1161,7 @@ function VolumetriaTab({
                 ...form,
                 volumetry: {
                   ...form.volumetry,
-                  [key]: Math.max(0, Math.min(21, Math.round(n || 0))),
+                  [key]: Math.max(0, Math.min(maxQty, Math.round(n || 0))),
                 },
               });
             const toggleOn = (v: boolean) =>
@@ -1139,7 +1169,7 @@ function VolumetriaTab({
                 ...form,
                 volumetry: {
                   ...form.volumetry,
-                  [key]: v ? Math.max(1, value || 3) : 0,
+                  [key]: v ? Math.max(1, value || (basis === "monthly" ? 12 : 3)) : 0,
                 },
               });
             const toggleFormat = (f: PlacementFormat) => {
@@ -1180,11 +1210,18 @@ function VolumetriaTab({
                     value={value}
                     onChange={setQty}
                     min={0}
-                    max={21}
-                    suffix="/ sem"
+                    max={maxQty}
+                    suffix={basis === "monthly" ? "/ mês" : "/ sem"}
                     label={label}
                   />
                 </div>
+                {on && (
+                  <p className="mt-1 pl-6 text-[11px] text-muted-foreground tabular-nums">
+                    {basis === "monthly"
+                      ? `≈ ${resolveQuota(value, basis, weeksInMonth).perWeek}/semana`
+                      : `= ${resolveQuota(value, basis, weeksInMonth).perMonth}/mês (${weeksInMonth} semanas)`}
+                  </p>
+                )}
                 {on && available.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap items-center gap-1 pl-6">
                     <span className="text-[11px] text-muted-foreground">Formatos</span>
