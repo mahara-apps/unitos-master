@@ -133,6 +133,8 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
         model,
         system: opts.system,
         prompt: opts.prompt,
+        // Retry é controlado aqui (backoff próprio) para respeitar a quota do provedor.
+        maxRetries: 0,
         output: Output.object({ schema: opts.schema }),
       });
       return { output: res.output as z.infer<T>, attempts: attempt };
