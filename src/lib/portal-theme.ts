@@ -57,7 +57,7 @@ export function normalizePortalTheme(raw: unknown): PortalTheme {
     if (r.success) (out as Record<string, unknown>)[key as string] = r.data;
   };
   pick(hex, "accent");
-  pick(httpUrl, "logo_url");
+  pick(httpUrlOrEmpty as unknown as z.ZodType<string | null | undefined>, "logo_url");
   pick(hex, "bg");
   pick(z.boolean(), "dark");
   pick(z.string().trim().max(80), "footer_label");
