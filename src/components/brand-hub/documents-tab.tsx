@@ -311,13 +311,13 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
           <TableBody>
             {docsQ.isLoading ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-xs text-muted-foreground">
+                <TableCell colSpan={6} className="py-10 text-center text-xs text-muted-foreground">
                   Carregando documentos…
                 </TableCell>
               </TableRow>
             ) : docs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-xs text-muted-foreground">
+                <TableCell colSpan={6} className="py-10 text-center text-xs text-muted-foreground">
                   Nenhum documento ainda. Envie um brandbook ou pesquisa acima para começar.
                 </TableCell>
               </TableRow>
