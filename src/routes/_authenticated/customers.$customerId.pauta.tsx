@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  CheckCheck,
   ChevronDown,
   ChevronUp,
   ChevronsUpDown,
@@ -642,6 +643,34 @@ function ApprovalView({
     },
   });
 
+  const approveAll = useMutation({
+    mutationFn: async (ids: string[]) => {
+      let ok = 0;
+      const failed: string[] = [];
+      for (const topicId of ids) {
+        try {
+          await setDecision({ data: { topicId, status: "approved" as const } });
+          ok += 1;
+        } catch {
+          failed.push(topicId);
+        }
+      }
+      return { ok, failed: failed.length };
+    },
+    onSuccess: ({ ok, failed }) => {
+      invalidate();
+      if (ok > 0) toast.success(`${ok} ${ok === 1 ? "item aprovado" : "itens aprovados"}.`);
+      if (failed > 0)
+        toast.warning(
+          `${failed} ${failed === 1 ? "item ficou" : "itens ficaram"} sem aprovar — defina plataforma e formato.`,
+        );
+    },
+    onError: (e) => {
+      invalidate();
+      toast.error(`Falha ao aprovar todos: ${describeError(e)}`);
+    },
+  });
+
   const regenM = useMutation({
     mutationFn: (input: { topicId: string; instruction: string }) =>
       regenerate({ data: input }),
@@ -831,15 +860,31 @@ function ApprovalView({
 
             </div>
             {!locked ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                onClick={() => addTopic.mutate()}
-                disabled={addTopic.isPending}
-              >
-                <Plus className="h-4 w-4" /> Novo tópico
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => approveAll.mutate(pendingTopics.map((t) => t.id))}
+                  disabled={approveAll.isPending || pendingTopics.length === 0}
+                >
+                  {approveAll.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCheck className="h-4 w-4" />
+                  )}
+                  Aprovar todos ({pendingTopics.length})
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => addTopic.mutate()}
+                  disabled={addTopic.isPending}
+                >
+                  <Plus className="h-4 w-4" /> Novo tópico
+                </Button>
+              </div>
             ) : null}
           </div>
 
