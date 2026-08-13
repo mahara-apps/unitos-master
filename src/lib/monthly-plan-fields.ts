@@ -74,6 +74,7 @@ export function getWeeksForPeriod(
   months: number,
   opts: { fromCurrent?: boolean; from?: Date; override?: number } = {},
 ): number {
+
   if (opts.override) return opts.override * months;
   const base = opts.from ?? new Date();
   const startOffset = opts.fromCurrent ? 0 : 1;
