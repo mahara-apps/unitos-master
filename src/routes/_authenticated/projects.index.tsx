@@ -58,6 +58,7 @@ import {
   type ProjectStats,
 } from "@/lib/projects.functions";
 import { NewFromTemplateDialog } from "@/components/projects/new-from-template-dialog";
+import { PlanStatusBadge } from "@/lib/monthly-plan-status";
 import {
   DropdownMenu,
   DropdownMenuContent,
