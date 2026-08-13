@@ -64,19 +64,29 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
             const { data: conn, error: connErr } = await supabaseAdmin
               .from("social_connections")
               .select(
-                "id, brand_id, client_id, provider, channel, external_id, account_id, access_token_ciphertext",
+                "id, brand_id, provider, channel, external_id, account_id, access_token_ciphertext",
               )
               .eq("id", post.connection_id)
               .eq("brand_id", post.brand_id)
               .maybeSingle();
             if (connErr) throw new Error(connErr.message);
             if (!conn) throw new Error("Conexão removida");
-            // Revalida isolamento no worker também (defesa em profundidade).
-            if (post.client_id && conn.client_id && conn.client_id !== post.client_id) {
-              throw new Error(
-                "Conexão não pertence ao mesmo cliente do post agendado",
-              );
+            // Defesa em profundidade: o canal precisa estar vinculado ao
+            // cliente do post em client_social_accounts (fonte de verdade).
+            if (post.client_id) {
+              const { data: link, error: linkErr } = await supabaseAdmin
+                .from("client_social_accounts")
+                .select("id")
+                .eq("brand_id", post.brand_id)
+                .eq("client_id", post.client_id)
+                .eq("connection_id", post.connection_id)
+                .maybeSingle();
+              if (linkErr) throw new Error(linkErr.message);
+              if (!link) {
+                throw new Error("Canal não está vinculado ao cliente do post agendado");
+              }
             }
+
 
             const caption = buildCaption(
               post.caption ?? undefined,
