@@ -1077,11 +1077,39 @@ function VolumetriaTab({
   form: FormState;
   setForm: (f: FormState) => void;
 }) {
+  const [extra, setExtra] = useState<SocialKey[]>([]);
+  const visible = SOCIALS.filter(
+    ({ key }) =>
+      PLAN_CHANNELS_DEFAULT.includes(key) || (form.volumetry[key] ?? 0) > 0 || extra.includes(key),
+  );
+  const hidden = SOCIALS.filter((s) => !visible.some((v) => v.key === s.key));
+
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <SectionCard title="Volume semanal por canal" hint="Meta de publicações por semana.">
+      <SectionCard
+        title="Volume semanal por canal"
+        hint="Meta de publicações por semana. A pauta respeita estes limites."
+      >
+        {hidden.length > 0 && (
+          <div className="mb-2 flex justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 gap-1 text-xs">
+                  <Plus className="h-3.5 w-3.5" /> Canais
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {hidden.map(({ key, label }) => (
+                  <DropdownMenuItem key={key} onClick={() => setExtra((p) => [...p, key])}>
+                    {label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
         <div className="divide-y divide-border/60">
-          {SOCIALS.map(({ key, label }) => {
+          {visible.map(({ key, label }) => {
             const value = form.volumetry[key] ?? 0;
             const on = value > 0;
             const meta = CHANNELS.find((c) => c.id === key);
