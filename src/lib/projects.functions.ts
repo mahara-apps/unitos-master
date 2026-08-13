@@ -120,7 +120,9 @@ export const getProject = createServerFn({ method: "GET" })
 
     const { data: postRows } = await context.supabase
       .from("posts")
-      .select("id, title, stage, review_status, published_at, scheduled_at, channels, cover_url, created_at, updated_at")
+      .select(
+        "id, title, stage, review_status, published_at, scheduled_at, channels, cover_url, created_at, updated_at, monthly_plan_topic_id, assignee_id, format",
+      )
       .eq("brand_id", data.brandId)
       .eq("project_id", data.projectId)
       .order("created_at", { ascending: false });
@@ -135,7 +137,54 @@ export const getProject = createServerFn({ method: "GET" })
       if (review === "approved" || stage === "approved") stats.approved += 1;
       if (!published && review !== "approved" && stage !== "approved") stats.pending += 1;
     }
-    return { project, posts, stats };
+
+    // Itens da pauta vinculada (inclui os que ainda não viraram peça).
+    const items: ProjectPlanItem[] = [];
+    if (projectRow.monthly_plan_id) {
+      const { data: topicRows } = await context.supabase
+        .from("monthly_plan_topics" as never)
+        .select("id, topic_title, channel, content_format, status, client_status, position")
+        .eq("monthly_plan_id", projectRow.monthly_plan_id)
+        .order("position", { ascending: true });
+      const topics = (topicRows ?? []) as unknown as Array<{
+        id: string;
+        topic_title: string;
+        channel: string | null;
+        content_format: string | null;
+        status: string | null;
+        client_status: string | null;
+        position: number;
+      }>;
+      const byTopic = new Map<string, (typeof posts)[number]>();
+      for (const p of posts) {
+        const tid = (p as { monthly_plan_topic_id?: string | null }).monthly_plan_topic_id;
+        if (tid) byTopic.set(tid, p);
+      }
+      for (const t of topics) {
+        const post = byTopic.get(t.id) ?? null;
+        items.push({
+          topic_id: t.id,
+          title: t.topic_title,
+          channel: t.channel,
+          format: t.content_format,
+          topic_status: t.status,
+          client_status: t.client_status,
+          post: post
+            ? {
+                id: post.id,
+                stage: (post.stage as string | null) ?? null,
+                review_status: (post.review_status as string | null) ?? null,
+                published_at: (post.published_at as string | null) ?? null,
+                scheduled_at: (post.scheduled_at as string | null) ?? null,
+                assignee_id: (post as { assignee_id?: string | null }).assignee_id ?? null,
+                cover_url: (post.cover_url as string | null) ?? null,
+              }
+            : null,
+        });
+      }
+    }
+
+    return { project, posts, stats, items };
   });
 
 const ProjectPayload = z.object({
