@@ -71,17 +71,16 @@ export type PortalAccountStatus = {
   fullName: string | null;
   lastSeenAt: string | null;
   createdAt: string | null;
-  /** true quando o e-mail cadastrado não serve para criar conta (vazio ou domínio de teste). */
+  /** true quando o e-mail cadastrado não serve para criar conta (vazio ou formato inválido). */
   emailBlocked: boolean;
 };
 
 function isUsableEmail(email: string | null): boolean {
   if (!email) return false;
-  const ok = z.string().email().safeParse(email.trim()).success;
-  if (!ok) return false;
-  const domain = email.trim().toLowerCase().split("@")[1] ?? "";
-  return !/(^|\.)(mock|test|local|invalid|example)$/.test(domain);
+  // Domínios fictícios são aceitos: o ciclo de acesso é feito por convite dentro do cadastro do cliente.
+  return z.string().email().safeParse(email.trim()).success;
 }
+
 
 export const getPortalAccountFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -154,10 +153,9 @@ export const createPortalAccountFn = createServerFn({ method: "POST" })
 
     const email = (data.email ?? client.contact_email ?? "").trim().toLowerCase();
     if (!isUsableEmail(email)) {
-      throw new Error(
-        "invalid_email: informe um e-mail real do contato do cliente (o cadastro atual não serve para criar conta).",
-      );
+      throw new Error("invalid_email: informe um e-mail válido para o contato do cliente.");
     }
+
     const fullName = data.fullName?.trim() || client.contact_name?.trim() || client.name;
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
