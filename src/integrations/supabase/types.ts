@@ -5461,6 +5461,7 @@ export type Database = {
           id: string
           job_id: string | null
           position: number
+          post_id: string | null
           priority: Database["public"]["Enums"]["task_priority"]
           project_id: string | null
           status: Database["public"]["Enums"]["task_status"]
@@ -5482,6 +5483,7 @@ export type Database = {
           id?: string
           job_id?: string | null
           position?: number
+          post_id?: string | null
           priority?: Database["public"]["Enums"]["task_priority"]
           project_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
@@ -5503,6 +5505,7 @@ export type Database = {
           id?: string
           job_id?: string | null
           position?: number
+          post_id?: string | null
           priority?: Database["public"]["Enums"]["task_priority"]
           project_id?: string | null
           status?: Database["public"]["Enums"]["task_status"]
@@ -5537,6 +5540,13 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "project_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
             referencedColumns: ["id"]
           },
           {
