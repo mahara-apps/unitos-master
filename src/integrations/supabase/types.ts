@@ -3345,6 +3345,7 @@ export type Database = {
           niche: string | null
           owner_user_id: string | null
           palette: Json | null
+          portal_theme: Json
           socials: Json | null
           tone_of_voice: string | null
           updated_at: string
@@ -3376,6 +3377,7 @@ export type Database = {
           niche?: string | null
           owner_user_id?: string | null
           palette?: Json | null
+          portal_theme?: Json
           socials?: Json | null
           tone_of_voice?: string | null
           updated_at?: string
@@ -3407,6 +3409,7 @@ export type Database = {
           niche?: string | null
           owner_user_id?: string | null
           palette?: Json | null
+          portal_theme?: Json
           socials?: Json | null
           tone_of_voice?: string | null
           updated_at?: string
