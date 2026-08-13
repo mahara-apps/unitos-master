@@ -31,6 +31,7 @@ import {
   revokePortalTokenFn,
   updatePortalTokenFn,
 } from "@/lib/customer-dashboard.functions";
+import { PortalThemeForm } from "@/components/customer/portal-theme-form";
 
 const EXPIRY_OPTIONS = [
   { value: "never", label: "Sem expiração" },
@@ -272,6 +273,7 @@ export function PortalLinkCard({
         <CustomizeModal
           open={customizeOpen}
           onOpenChange={setCustomizeOpen}
+          clientId={clientId}
           initialLabel={active.label ?? "Portal do cliente"}
           expiresAt={active.expires_at}
           isSaving={updateMut.isPending}
@@ -287,6 +289,7 @@ export function PortalLinkCard({
 function CustomizeModal({
   open,
   onOpenChange,
+  clientId,
   initialLabel,
   expiresAt,
   isSaving,
@@ -294,6 +297,7 @@ function CustomizeModal({
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
+  clientId: string;
   initialLabel: string;
   expiresAt: string | null;
   isSaving: boolean;
@@ -316,7 +320,7 @@ function CustomizeModal({
       onOpenChange={onOpenChange}
       size="sm"
       title="Personalizar portal"
-      description="Rótulo interno e validade do link. A identidade visual do portal entra na próxima fase."
+      description="Rótulo interno, validade do link e identidade visual do portal."
       footer={
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={isSaving}>
@@ -374,6 +378,7 @@ function CustomizeModal({
               : "Este link não expira — o padrão para links novos."}
           </p>
         </div>
+        <PortalThemeForm clientId={clientId} />
       </div>
     </ExpandedModal>
   );

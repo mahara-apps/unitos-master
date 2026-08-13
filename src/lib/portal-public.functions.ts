@@ -3,6 +3,9 @@ import { getRequestHeader } from "@tanstack/react-start/server";
 import { createHash } from "crypto";
 import { z } from "zod";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { normalizePortalTheme, resolvePortalTheme } from "@/lib/portal-theme";
+
+type ResolvedPortalTheme = ReturnType<typeof resolvePortalTheme>;
 
 type Json = string | number | boolean | null | Json[] | { [key: string]: Json };
 
@@ -14,6 +17,8 @@ export type PortalClient = {
   socials: Json | null;
   contact_name: string | null;
   contact_email: string | null;
+  logo_url: string | null;
+  portal_theme?: Json | null;
 };
 export type PortalBrand = { id: string; name: string };
 export type PortalPost = {
@@ -31,7 +36,14 @@ export type PortalPost = {
   approval?: { status: string; notes: string | null; decided_at: string | null };
 };
 export type PortalApproval = { status: string; notes: string | null; decided_at: string | null; decided_by_name: string | null };
-type PortalResolveResult = { clientId: string; brandId: string; client: PortalClient; brand: PortalBrand | null };
+type PortalResolveResult = {
+  clientId: string;
+  brandId: string;
+  client: PortalClient;
+  brand: PortalBrand | null;
+  /** Fase 3 — tema já normalizado/validado no server (hex + URL http(s)). */
+  theme: ResolvedPortalTheme;
+};
 type PortalMetrics = { pending: number; approvedThisMonth: number; scheduled: number; total: number };
 type PortalPostResult = { post: PortalPost; approval: PortalApproval | null };
 type PortalFile = { id: string; name: string; storage_path: string; mime_type: string | null; size_bytes: number | null; created_at: string };
@@ -157,9 +169,18 @@ async function fillCovers(posts: PortalPost[]): Promise<void> {
 
 export const resolvePortalTokenFn = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => tokenIn.parse(i))
-  .handler(async ({ data }): Promise<PortalResolveResult> =>
-    rpc<PortalResolveResult>("portal_resolve", { _token: data.token }),
-  );
+  .handler(async ({ data }): Promise<PortalResolveResult> => {
+    const res = await rpc<Omit<PortalResolveResult, "theme">>("portal_resolve", {
+      _token: data.token,
+    });
+    // O jsonb vem do banco sem garantias: valida antes de virar CSS/style.
+    const theme = resolvePortalTheme(normalizePortalTheme(res.client?.portal_theme), {
+      color: res.client?.color ?? null,
+      logoUrl: null,
+      agencyName: res.brand?.name ?? null,
+    });
+    return { ...res, theme };
+  });
 
 export const getPortalMetricsFn = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => tokenIn.parse(i))
