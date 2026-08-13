@@ -439,7 +439,7 @@ function ProjectsIndexPage() {
     q.trim().length > 0 ||
     statusFilter !== "all" ||
     ownerFilter !== "all" ||
-    clientFilter !== "all";
+    (!activeClientId && clientFilter !== "all");
 
   return (
     <DashboardPageShell>
