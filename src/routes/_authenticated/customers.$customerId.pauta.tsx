@@ -8,6 +8,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Check,
+  CheckCheck,
   ChevronDown,
   ChevronUp,
   ChevronsUpDown,
