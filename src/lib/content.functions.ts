@@ -651,28 +651,18 @@ export const movePostFn = createServerFn({ method: "POST" })
       .eq("id", data.postId)
       .maybeSingle();
 
-    // Legacy compatibility: o trigger `notify_post_approval_events`
-    // (migration 20260720211101) observa mudanças em `posts.stage` (enum
-    // post_stage) para disparar notificações de "aguardando aprovação" e
-    // "post aprovado". O Kanban atual usa stage_id (FK para
-    // content_pipeline_stages customizáveis), então precisamos espelhar o
-    // estado legado sempre que o card entrar numa coluna com key "review"
-    // ou numa coluna terminal. NÃO REMOVER sem antes migrar o trigger.
-    const { data: destStage } = await context.supabase
-      .from("content_pipeline_stages")
-      .select("key, is_terminal")
-      .eq("id", data.toStageId)
-      .maybeSingle();
-    const destKey = (destStage?.key as string | null | undefined)?.toLowerCase() ?? "";
+    // `posts.stage_id` é a fonte operacional do estágio; `posts.stage` é o
+    // campo legado (consumido pela tela de Projeto, relatórios e pelo trigger
+    // `notify_post_approval_events`). Sempre que stage_id muda, espelhamos o
+    // valor legado usando o helper canônico (mesma regra da trigger no banco).
+    // NÃO REMOVER sem antes migrar os consumidores legados.
+    const legacyStage = await resolveLegacyStage(context.supabase, data.toStageId);
     const updatePatch: Record<string, unknown> = {
       stage_id: data.toStageId,
       position: data.toPosition,
     };
-    if (destKey === "review") {
-      updatePatch.stage = "review";
-    } else if (destStage?.is_terminal) {
-      updatePatch.stage = "scheduled";
-    }
+    if (legacyStage) updatePatch.stage = legacyStage;
+
     const { error } = await context.supabase
       .from("posts")
       .update(updatePatch as never)
