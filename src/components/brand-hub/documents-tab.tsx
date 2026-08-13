@@ -300,8 +300,9 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[40%]">Nome</TableHead>
+              <TableHead className="w-[34%]">Nome</TableHead>
               <TableHead>Leitura da IA</TableHead>
+              <TableHead className="w-[200px]">Visível ao cliente</TableHead>
               <TableHead>Enviado</TableHead>
               <TableHead>Tamanho</TableHead>
               <TableHead className="w-16 text-right">Ações</TableHead>
