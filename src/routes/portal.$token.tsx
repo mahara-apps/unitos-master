@@ -77,7 +77,11 @@ function PortalShell() {
 
   const client = sessionQ.data.client;
   const brand = sessionQ.data.brand;
-  const accent = client.color || "#6366F1";
+  // Fase 3 — tema já validado no server (hex/URL). Sem customização, cai no
+  // accent de clients.color, iniciais como avatar e crédito da agência.
+  const theme = sessionQ.data.theme;
+  const accent = theme?.accent || client.color || "#6366F1";
+  const logoUrl = theme?.logoUrl ?? null;
   const initials = (client.name || "?")
     .split(" ")
     .map((w: string) => w[0])
@@ -86,17 +90,31 @@ function PortalShell() {
     .toUpperCase();
 
   return (
-    <div className="min-h-screen bg-background text-foreground" style={{ ["--portal-accent" as string]: accent }}>
+    <div
+      className={`min-h-screen bg-background text-foreground ${theme?.dark ? "dark" : ""}`}
+      style={{
+        ["--portal-accent" as string]: accent,
+        ...(theme?.bg ? { ["--background" as string]: theme.bg, background: theme.bg } : {}),
+      }}
+    >
       <div className="flex min-h-screen">
         {/* White-label sidebar */}
         <aside className="hidden w-64 shrink-0 flex-col border-r border-border/60 bg-card lg:flex">
           <div className="flex items-center gap-3 border-b border-border/60 px-5 py-5">
-            <div
-              className="flex h-10 w-10 items-center justify-center rounded-xl text-sm font-semibold text-white shadow-sm"
-              style={{ background: `linear-gradient(135deg, ${accent}, ${accent}cc)` }}
-            >
-              {initials}
-            </div>
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={client.name ?? "Logo"}
+                className="h-10 w-10 shrink-0 rounded-xl object-contain"
+              />
+            ) : (
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-xl text-sm font-semibold text-white shadow-sm"
+                style={{ background: `linear-gradient(135deg, ${accent}, ${accent}cc)` }}
+              >
+                {initials}
+              </div>
+            )}
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold tracking-tight">{client.name}</div>
               <div className="truncate font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
