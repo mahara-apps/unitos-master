@@ -7,12 +7,12 @@ import { toast } from "sonner";
 import {
   ArrowLeft,
   Archive,
-  CheckCircle2,
-  Clock,
+  ExternalLink,
   FileText,
   Image as ImageIcon,
+  MoreHorizontal,
   Plus,
-  Target,
+  Settings2,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,7 +72,6 @@ import {
   DashboardPageShell,
   DashboardPanelSurface,
 } from "@/components/ui/dashboard-primitives";
-import { KpiCard } from "@/components/ui/kpi-card";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { JobsPanel } from "@/components/projects/jobs-panel";
 
@@ -89,19 +100,49 @@ const STATUS_OPTIONS = [
   { value: "done", label: "Concluída" },
 ];
 
+const CHANNEL_LABELS: Record<string, string> = {
+  instagram: "Instagram",
+  tiktok: "TikTok",
+  linkedin: "LinkedIn",
+  x: "X",
+  threads: "Threads",
+  youtube: "YouTube",
+  facebook: "Facebook",
+  blog: "Blog",
+};
+
 function fmtDate(iso?: string | null) {
   if (!iso) return "—";
   return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
 }
+
+/** Etapa legível de uma peça. */
+function itemState(post: {
+  stage: string | null;
+  review_status: string | null;
+  published_at: string | null;
+} | null): { label: string; tone: "muted" | "amber" | "emerald" | "primary" } {
+  if (!post) return { label: "Pendente de produção", tone: "muted" };
+  if (post.published_at || post.stage === "published") return { label: "Publicado", tone: "primary" };
+  const review = (post.review_status ?? "").toLowerCase();
+  if (review === "approved" || post.stage === "approved") return { label: "Aprovado", tone: "emerald" };
+  if (post.stage === "review" || review === "pending") return { label: "Em revisão", tone: "amber" };
+  return { label: "Em produção", tone: "amber" };
+}
+
+const TONE_CLASS: Record<string, string> = {
+  muted: "border-border/60 text-muted-foreground",
+  amber: "border-amber-500/40 text-amber-600 dark:text-amber-400",
+  emerald: "border-emerald-500/40 text-emerald-600 dark:text-emerald-400",
+  primary: "border-primary/40 text-primary",
+};
 
 function ProjectDetailPage() {
   const { projectId } = Route.useParams();
   const { brandId } = useActiveContext();
   const navigate = useNavigate();
   const [openNewTask, setOpenNewTask] = useState(false);
-  function goCreateItem() {
-    setOpenNewTask(true);
-  }
+  const [openSettings, setOpenSettings] = useState(false);
 
   const qc = useQueryClient();
 
@@ -136,9 +177,14 @@ function ProjectDetailPage() {
 
   const project = projectQ.data?.project;
   const posts = projectQ.data?.posts ?? [];
+  const items = projectQ.data?.items ?? [];
   const stats = projectQ.data?.stats ?? { total: 0, approved: 0, published: 0, pending: 0 };
 
-  // Pipeline + stages para o cliente do projeto (para o drawer de nova peça)
+  // Peças criadas fora da pauta (sem tópico vinculado).
+  const extraPosts = posts.filter(
+    (p) => !(p as { monthly_plan_topic_id?: string | null }).monthly_plan_topic_id,
+  );
+
   const pipelineQ = useQuery({
     queryKey: ["project-pipeline", brandId, project?.client_id],
     enabled: !!brandId && !!project?.client_id,
@@ -208,30 +254,53 @@ function ProjectDetailPage() {
   usePageHeader(
     {
       title: project?.name ?? "Projeto",
-      subtitle: "Detalhes, progresso e itens do projeto",
+      subtitle: "Execução da pauta",
       actions: (
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-9" onClick={() => archMut.mutate()} disabled={archMut.isPending}>
-            <Archive className="mr-2 h-4 w-4" /> Arquivar
-          </Button>
-          <Button variant="destructive" size="sm" className="h-9" onClick={() => setConfirmDelete(true)}>
-            <Trash2 className="mr-2 h-4 w-4" /> Excluir
-          </Button>
+          {project?.plan ? (
+            <Button asChild variant="outline" size="sm" className="h-9">
+              <Link to="/monthly-plan/$planId" params={{ planId: project.plan.id }}>
+                <ExternalLink className="mr-2 h-4 w-4" /> Ver pauta
+              </Link>
+            </Button>
+          ) : null}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-9 w-9 p-0" aria-label="Mais ações">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-52">
+              <DropdownMenuItem onClick={() => setOpenSettings(true)}>
+                <Settings2 className="mr-2 h-4 w-4" /> Configurações do projeto
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => archMut.mutate()} disabled={archMut.isPending}>
+                <Archive className="mr-2 h-4 w-4" /> Arquivar
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" /> Excluir
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
     },
-    [project?.id, project?.name, archMut.isPending],
+    [project?.id, project?.name, project?.plan?.id, archMut.isPending],
   );
 
-  const total = stats.total || 0;
-  const pct = total > 0 ? Math.round((stats.published / total) * 100) : 0;
+  const totalItems = items.length > 0 ? items.length + extraPosts.length : stats.total;
+  const doneItems = stats.approved + stats.published;
+  const pct = totalItems > 0 ? Math.min(100, Math.round((doneItems / totalItems) * 100)) : 0;
 
   if (projectQ.isLoading) {
     return (
       <DashboardPageShell>
         <div className="h-8 w-1/3 animate-pulse rounded bg-muted" />
-        <div className="h-40 animate-pulse rounded-xl bg-muted" />
-        <div className="h-40 animate-pulse rounded-xl bg-muted" />
+        <div className="h-24 animate-pulse rounded-xl bg-muted" />
+        <div className="h-64 animate-pulse rounded-xl bg-muted" />
       </DashboardPageShell>
     );
   }
@@ -253,213 +322,293 @@ function ProjectDetailPage() {
     patchMut.mutate(patch);
   }
 
+  const clientName = clients.find((c) => c.id === project.client_id)?.name ?? "Sem cliente";
+  const ownerName = team.find((m) => m.user_id === project.owner_id)?.full_name ?? "Sem responsável";
+  const statusLabel =
+    STATUS_OPTIONS.find((s) => s.value === project.status)?.label ?? project.status;
+
   return (
     <DashboardPageShell>
-      <Button variant="ghost" size="sm" className="-ml-2 h-9" onClick={() => navigate({ to: "/projects" })}>
+      <Button variant="ghost" size="sm" className="-ml-2 h-9 w-fit" onClick={() => navigate({ to: "/projects" })}>
         <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
       </Button>
 
-      {/* Header do projeto */}
-      <div className="flex items-start gap-4">
-        <div
-          className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl text-white"
-          style={{ background: color }}
-        >
-          <ImageIcon className="h-6 w-6 opacity-80" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onBlur={() => name !== project.name && saveField({ name })}
-            className="h-auto border-0 bg-transparent px-0 text-2xl font-semibold shadow-none focus-visible:ring-0"
-          />
-          <Textarea
-            value={desc}
-            onChange={(e) => setDesc(e.target.value)}
-            onBlur={() => (desc || null) !== (project.description || null) && saveField({ description: desc || null })}
-            placeholder="Adicione uma descrição..."
-            className="min-h-[32px] resize-none border-0 bg-transparent px-0 text-sm text-muted-foreground shadow-none focus-visible:ring-0"
-            rows={1}
-          />
-          {project.plan ? (
-            <div className="mt-1 flex flex-wrap items-center gap-2">
-              <PlanStatusBadge status={project.plan.status} prefix="Pauta:" />
-              <Link
-                to="/monthly-plan/$planId"
-                params={{ planId: project.plan.id }}
-                className="text-[11px] font-medium text-primary underline-offset-2 hover:underline"
-              >
-                Ver pauta{project.plan.title ? ` — ${project.plan.title}` : ""}
-              </Link>
-            </div>
-          ) : null}
-        </div>
+      {/* Contexto essencial */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
+        <span className="flex items-center gap-1.5 font-medium text-foreground">
+          <span className="h-2 w-2 rounded-full" style={{ background: color }} />
+          {clientName}
+        </span>
+        <span>•</span>
+        <span>
+          {fmtDate(project.start_date)} — {fmtDate(project.due_at)}
+        </span>
+        <span>•</span>
+        <span>{ownerName}</span>
+        <span>•</span>
+        <Badge variant="outline" className="text-[10px]">{statusLabel}</Badge>
+        {project.plan ? <PlanStatusBadge status={project.plan.status} prefix="Pauta:" /> : null}
       </div>
 
-      {/* Formulário compacto */}
-      <DashboardPanelSurface className="grid gap-4 p-5 md:grid-cols-2">
-        <div className="grid gap-1.5">
-          <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Status</Label>
-          <Select
-            value={status}
-            onValueChange={(v) => {
-              setStatus(v);
-              saveField({ status: v });
-            }}
-          >
-            <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {STATUS_OPTIONS.map((s) => (
-                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid gap-1.5">
-          <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Responsável</Label>
-          <Select
-            value={ownerId ?? "none"}
-            onValueChange={(v) => {
-              const next = v === "none" ? null : v;
-              setOwnerId(next);
-              saveField({ owner_id: next });
-            }}
-          >
-            <SelectTrigger className="h-9"><SelectValue placeholder="Nenhum" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">Nenhum</SelectItem>
-              {team.map((m) => (
-                <SelectItem key={m.user_id} value={m.user_id}>
-                  {m.full_name ?? "Sem nome"}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <DateEdit
-          label="Data de início"
-          value={startDate}
-          onChange={(v) => {
-            setStartDate(v);
-            saveField({ start_date: v });
-          }}
-        />
-        <DateEdit
-          label="Data de término"
-          value={dueAt}
-          onChange={(v) => {
-            setDueAt(v);
-            saveField({ due_at: v });
-          }}
-        />
-        <div className="grid gap-1.5">
-          <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Cor</Label>
-          <div className="flex flex-wrap gap-1.5">
-            {COLORS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                onClick={() => {
-                  setColor(c);
-                  saveField({ color: c });
-                }}
-                aria-label={`Cor ${c}`}
-                className={`h-6 w-6 rounded-full ring-offset-2 ring-offset-background transition ${
-                  color === c ? "ring-2 ring-foreground" : ""
-                }`}
-                style={{ background: c }}
-              />
-            ))}
-          </div>
-        </div>
-        <div className="grid gap-1.5 md:col-span-3">
-          <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Objetivos / Metas</Label>
-          <Textarea
-            value={goals}
-            onChange={(e) => setGoals(e.target.value)}
-            onBlur={() => (goals || null) !== (project.goals || null) && saveField({ goals: goals || null })}
-            placeholder="Ex.: Aumentar vendas em 30%, gerar 500 leads..."
-            rows={2}
-          />
-        </div>
-      </DashboardPanelSurface>
-
-      {/* KPIs */}
-      <div className="grid gap-3 md:grid-cols-4">
-        <KpiCard icon={<FileText className="h-4 w-4" />} label="Total de peças" value={stats.total} tone="neutral" />
-        <KpiCard icon={<CheckCircle2 className="h-4 w-4" />} label="Aprovadas" value={stats.approved} tone="emerald" />
-        <KpiCard icon={<Target className="h-4 w-4" />} label="Publicadas" value={stats.published} tone="pink" />
-        <KpiCard icon={<Clock className="h-4 w-4" />} label="Pendentes" value={stats.pending} tone="amber" />
-      </div>
-
-      {/* Progresso */}
+      {/* Faixa única de progresso */}
       <DashboardPanelSurface className="p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
-            Progresso do projeto
-          </h3>
-          <span className="text-2xl font-semibold" style={{ color }}>
+        <div className="mb-2 flex items-end justify-between gap-4">
+          <div>
+            <h3 className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+              Progresso
+            </h3>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {doneItems} de {totalItems} peças concluídas
+            </p>
+          </div>
+          <span className="text-3xl font-semibold leading-none" style={{ color }}>
             {pct}%
           </span>
         </div>
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>Itens concluídos</span>
-          <span>{stats.published} de {stats.total}</span>
+        <Progress value={pct} className="h-2" />
+        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-muted-foreground">
+          <span>Total <strong className="text-foreground tabular-nums">{totalItems}</strong></span>
+          <span>Em produção <strong className="text-foreground tabular-nums">{stats.pending}</strong></span>
+          <span>Aprovadas <strong className="text-foreground tabular-nums">{stats.approved}</strong></span>
+          <span>Publicadas <strong className="text-foreground tabular-nums">{stats.published}</strong></span>
         </div>
-        <Progress value={pct} className="mt-2 h-2" />
       </DashboardPanelSurface>
 
-      {/* Itens do projeto */}
+      {/* Itens da pauta neste projeto */}
       <DashboardPanelSurface>
         <div className="flex items-center justify-between border-b border-border/60 bg-background/40 px-4 py-2.5">
           <div className="flex items-center gap-2">
             <h3 className="text-[11px] font-mono uppercase tracking-widest text-foreground">
-              Itens do projeto
+              {project.plan ? "Itens da pauta" : "Peças do projeto"}
             </h3>
             <span className="rounded-md border border-border/60 bg-background/60 px-1.5 py-0.5 font-mono text-xs tabular-nums text-foreground">
-              {posts.length}
+              {items.length + extraPosts.length}
             </span>
           </div>
-          <Button size="sm" className="h-9" onClick={goCreateItem}>
-            <Plus className="mr-2 h-4 w-4" /> Novo item
+          <Button size="sm" className="h-9" onClick={() => setOpenNewTask(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Nova peça
           </Button>
         </div>
-        {posts.length === 0 ? (
+
+        {items.length === 0 && extraPosts.length === 0 ? (
           <PanelEmptyState
             icon={<FileText className="h-4 w-4" />}
-            text="Nenhum item vinculado a este projeto. Clique em Novo item para começar."
+            text={
+              project.plan
+                ? "A pauta vinculada ainda não tem itens aprovados. Abra a pauta para aprovar e enviar para produção."
+                : "Nenhuma peça vinculada a este projeto."
+            }
           />
         ) : (
-          <div className="divide-y divide-border/60 px-4">
-            {posts.map((p) => (
-              <div key={p.id} className="flex items-center gap-3 py-3">
-                <div className="h-10 w-10 shrink-0 overflow-hidden rounded-md bg-muted">
-                  {p.cover_url ? (
-                    <img src={p.cover_url} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center">
-                      <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{p.title || "Sem título"}</div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {fmtDate(p.scheduled_at)} · {p.stage ?? "sem etapa"}
+          <div className="divide-y divide-border/60">
+            {items.map((it) => {
+              const state = itemState(it.post);
+              return (
+                <div key={it.topic_id} className="flex items-center gap-3 px-4 py-3">
+                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md bg-muted">
+                    {it.post?.cover_url ? (
+                      <img src={it.post.cover_url} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    )}
                   </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{it.title}</div>
+                    <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                      {it.channel ? (
+                        <span>{CHANNEL_LABELS[it.channel] ?? it.channel}</span>
+                      ) : (
+                        <span>Canal não definido</span>
+                      )}
+                      <span>·</span>
+                      <span>{it.format ?? "formato não definido"}</span>
+                      {it.post?.scheduled_at ? (
+                        <>
+                          <span>·</span>
+                          <span>{fmtDate(it.post.scheduled_at)}</span>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+                  <Badge variant="outline" className={`text-[10px] ${TONE_CLASS[state.tone]}`}>
+                    {state.label}
+                  </Badge>
+                  {it.post && project.client_id ? (
+                    <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-[11px]">
+                      <Link to="/content" search={{ postId: it.post.id }}>
+                        Abrir
+                      </Link>
+                    </Button>
+                  ) : project.plan ? (
+                    <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-[11px]">
+                      <Link to="/monthly-plan/$planId" params={{ planId: project.plan.id }}>
+                        Ver na pauta
+                      </Link>
+                    </Button>
+                  ) : null}
                 </div>
-                <Badge variant="outline" className="text-[10px]">
-                  {p.published_at ? "Publicado" : (p.review_status ?? p.stage ?? "—")}
-                </Badge>
-              </div>
-            ))}
+              );
+            })}
+
+            {extraPosts.map((p) => {
+              const state = itemState({
+                stage: (p.stage as string | null) ?? null,
+                review_status: (p.review_status as string | null) ?? null,
+                published_at: (p.published_at as string | null) ?? null,
+              });
+              return (
+                <div key={p.id} className="flex items-center gap-3 px-4 py-3">
+                  <div className="h-9 w-9 shrink-0 overflow-hidden rounded-md bg-muted">
+                    {p.cover_url ? (
+                      <img src={p.cover_url} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{p.title || "Sem título"}</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Fora da pauta · {fmtDate(p.scheduled_at)}
+                    </div>
+                  </div>
+                  <Badge variant="outline" className={`text-[10px] ${TONE_CLASS[state.tone]}`}>
+                    {state.label}
+                  </Badge>
+                  <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-[11px]">
+                    <Link to="/content" search={{ postId: p.id }}>
+                      Abrir
+                    </Link>
+                  </Button>
+                </div>
+              );
+            })}
           </div>
         )}
       </DashboardPanelSurface>
 
-      {/* Jobs & Tarefas com Timesheet */}
+      {/* Tarefas do projeto */}
       <JobsPanel brandId={brandId!} projectId={projectId} />
+
+      {/* Configurações do projeto */}
+      <Dialog open={openSettings} onOpenChange={setOpenSettings}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Configurações do projeto</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-1.5 md:col-span-2">
+              <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Nome</Label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onBlur={() => name !== project.name && saveField({ name })}
+              />
+            </div>
+            <div className="grid gap-1.5 md:col-span-2">
+              <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Descrição</Label>
+              <Textarea
+                value={desc}
+                onChange={(e) => setDesc(e.target.value)}
+                onBlur={() =>
+                  (desc || null) !== (project.description || null) &&
+                  saveField({ description: desc || null })
+                }
+                rows={2}
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Status</Label>
+              <Select
+                value={status}
+                onValueChange={(v) => {
+                  setStatus(v);
+                  saveField({ status: v });
+                }}
+              >
+                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-1.5">
+              <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Responsável</Label>
+              <Select
+                value={ownerId ?? "none"}
+                onValueChange={(v) => {
+                  const next = v === "none" ? null : v;
+                  setOwnerId(next);
+                  saveField({ owner_id: next });
+                }}
+              >
+                <SelectTrigger className="h-9"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {team.map((m) => (
+                    <SelectItem key={m.user_id} value={m.user_id}>
+                      {m.full_name ?? "Sem nome"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DateEdit
+              label="Data de início"
+              value={startDate}
+              onChange={(v) => {
+                setStartDate(v);
+                saveField({ start_date: v });
+              }}
+            />
+            <DateEdit
+              label="Data de término"
+              value={dueAt}
+              onChange={(v) => {
+                setDueAt(v);
+                saveField({ due_at: v });
+              }}
+            />
+            <div className="grid gap-1.5 md:col-span-2">
+              <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Cor</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => {
+                      setColor(c);
+                      saveField({ color: c });
+                    }}
+                    aria-label={`Cor ${c}`}
+                    className={`h-6 w-6 rounded-full ring-offset-2 ring-offset-background transition ${
+                      color === c ? "ring-2 ring-foreground" : ""
+                    }`}
+                    style={{ background: c }}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="grid gap-1.5 md:col-span-2">
+              <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Objetivos / Metas
+              </Label>
+              <Textarea
+                value={goals}
+                onChange={(e) => setGoals(e.target.value)}
+                onBlur={() => (goals || null) !== (project.goals || null) && saveField({ goals: goals || null })}
+                placeholder="Ex.: Aumentar vendas em 30%, gerar 500 leads..."
+                rows={2}
+              />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
