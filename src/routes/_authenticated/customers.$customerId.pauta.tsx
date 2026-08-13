@@ -863,9 +863,8 @@ function ApprovalView({
             {!locked ? (
               <div className="flex items-center gap-2">
                 <Button
-                  variant="secondary"
                   size="sm"
-                  className="gap-1.5"
+                  className="gap-1.5 border border-emerald-500/30 bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25"
                   onClick={() => approveAll.mutate(pendingTopics.map((t) => t.id))}
                   disabled={approveAll.isPending || pendingTopics.length === 0}
                 >
