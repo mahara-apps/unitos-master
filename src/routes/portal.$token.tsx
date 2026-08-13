@@ -143,7 +143,9 @@ function PortalShell() {
             })}
           </nav>
           <div className="border-t border-border/60 px-5 py-4 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            {brand?.name ? `por ${brand.name}` : "portal white-label"}
+            {theme?.showAgencyCredit === false
+              ? theme?.footerLabel ?? ""
+              : theme?.footerLabel ?? (brand?.name ? `por ${brand.name}` : "portal white-label")}
           </div>
         </aside>
 
