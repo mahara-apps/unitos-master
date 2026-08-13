@@ -38,11 +38,13 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
     z
       .object({
         onboarding: z.union([z.literal("1"), z.literal(1), z.boolean()]).optional(),
+        planId: z.string().uuid().optional(),
         tab: z
           .enum([
             "overview",
             "briefing",
             "estrategia",
+            "pauta",
             "brain",
             "channels",
             "cadastro",
@@ -54,12 +56,23 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
   component: CustomerDetail,
 });
 
+type CustomerTab =
+  | "overview"
+  | "briefing"
+  | "estrategia"
+  | "pauta"
+  | "brain"
+  | "channels"
+  | "cadastro"
+  | "gestao";
+
 const ALL_TABS = [
   { value: "overview", label: "Visão geral" },
   { value: "briefing", label: "Briefing" },
   { value: "estrategia", label: "Estratégia IA" },
-  { value: "gestao", label: "Gestão da conta" },
+  { value: "pauta", label: "Pauta" },
   { value: "channels", label: "Canais" },
+  { value: "gestao", label: "Gestão da conta" },
   { value: "cadastro", label: "Cadastro" },
 ] as const;
 
