@@ -102,7 +102,7 @@ export function PortalLinkCard({
   });
 
   const updateMut = useMutation({
-    mutationFn: (vars: { tokenId: string; label: string; expiresInDays: number | null }) =>
+    mutationFn: (vars: { tokenId: string; label: string; expiresInDays?: number | null }) =>
       update({ data: { clientId, ...vars } }),
     onSuccess: () => {
       toast.success("Personalização salva.");
@@ -117,9 +117,7 @@ export function PortalLinkCard({
     active && typeof window !== "undefined"
       ? `${window.location.origin}/portal/${active.token}`
       : "";
-  const isExpired = active?.expires_at
-    ? new Date(active.expires_at).getTime() < Date.now()
-    : false;
+  const isExpired = active?.expires_at ? new Date(active.expires_at).getTime() < Date.now() : false;
 
   const copy = () => {
     navigator.clipboard.writeText(url);
@@ -178,9 +176,7 @@ export function PortalLinkCard({
               </div>
               <div className="mt-0.5 break-all font-mono text-xs">{url}</div>
               <div className="mt-1.5 text-[11px] text-muted-foreground">
-                {active.expires_at
-                  ? `Expira em ${fmtDate(active.expires_at)}`
-                  : "Sem expiração"}
+                {active.expires_at ? `Expira em ${fmtDate(active.expires_at)}` : "Sem expiração"}
                 {" · "}
                 {active.last_seen_at
                   ? `último acesso ${fmtDateTime(active.last_seen_at)}`
@@ -301,16 +297,18 @@ function CustomizeModal({
   initialLabel: string;
   expiresAt: string | null;
   isSaving: boolean;
-  onSave: (label: string, expiresInDays: number | null) => void;
+  onSave: (label: string, expiresInDays: number | null | undefined) => void;
 }) {
+  // "keep" só existe quando o link já tem prazo — evita zerar a validade sem intenção.
+  const initialExpiry = expiresAt ? "keep" : "never";
   const [label, setLabel] = useState(initialLabel);
-  const [expiry, setExpiry] = useState<string>("never");
+  const [expiry, setExpiry] = useState<string>(initialExpiry);
 
   useEffect(() => {
     if (!open) return;
     setLabel(initialLabel);
-    setExpiry("never");
-  }, [open, initialLabel]);
+    setExpiry(initialExpiry);
+  }, [open, initialLabel, initialExpiry]);
 
   return (
     <ExpandedModal
@@ -326,7 +324,12 @@ function CustomizeModal({
           </Button>
           <Button
             disabled={isSaving || !label.trim()}
-            onClick={() => onSave(label.trim(), expiry === "never" ? null : Number(expiry))}
+            onClick={() =>
+              onSave(
+                label.trim(),
+                expiry === "keep" ? undefined : expiry === "never" ? null : Number(expiry),
+              )
+            }
           >
             {isSaving && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
             Salvar
@@ -355,6 +358,9 @@ function CustomizeModal({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              {expiresAt && (
+                <SelectItem value="keep">Manter validade atual ({fmtDate(expiresAt)})</SelectItem>
+              )}
               {EXPIRY_OPTIONS.map((o) => (
                 <SelectItem key={o.value} value={o.value}>
                   {o.label}
@@ -364,8 +370,8 @@ function CustomizeModal({
           </Select>
           <p className="text-[11px] text-muted-foreground">
             {expiresAt
-              ? `Hoje expira em ${fmtDate(expiresAt)}. Salvar recalcula a partir de agora.`
-              : "Hoje o link não expira."}
+              ? `Hoje expira em ${fmtDate(expiresAt)}. Escolher um prazo recalcula a partir de agora; "Sem expiração" remove o prazo.`
+              : "Este link não expira — o padrão para links novos."}
           </p>
         </div>
       </div>
