@@ -282,8 +282,12 @@ function ProjectsIndexPage() {
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
-  // O cliente ativo da sidebar apenas inicializa o filtro; o usuário pode trocar aqui.
+  // Com cliente ativo na sidebar, o escopo fica travado nesse cliente.
   const [clientFilter, setClientFilter] = useState<string>(activeClientId ?? "all");
+  useEffect(() => {
+    if (activeClientId) setClientFilter(activeClientId);
+  }, [activeClientId]);
+  const effectiveClientId = activeClientId ?? (clientFilter === "all" ? null : clientFilter);
   const [sortKey, setSortKey] = useState<SortKey>("due");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [formOpen, setFormOpen] = useState(false);
