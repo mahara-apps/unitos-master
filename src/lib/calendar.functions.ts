@@ -52,7 +52,33 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
     const { data: placements, error: plErr } = await plq;
     if (plErr) throw plErr;
 
-    const postIds = Array.from(new Set((placements ?? []).map((p) => p.post_id as string)));
+    const placementPostIds = Array.from(
+      new Set((placements ?? []).map((p) => p.post_id as string)),
+    );
+
+    // Fallback: peças com data agendada mas SEM placement (ex.: agendamento
+    // interno/materialização da pauta) também precisam aparecer no calendário.
+    let dq = context.supabase
+      .from("posts")
+      .select(
+        "id,title,channels,cover_url,client_id,brand_id,pipeline_id,stage_id,review_status,ai_phase,created_by,stage,scheduled_at,published_at",
+      )
+      .eq("brand_id", data.brandId)
+      .is("deleted_at", null)
+      .not("scheduled_at", "is", null)
+      .gte("scheduled_at", data.from)
+      .lte("scheduled_at", data.to)
+      .in("stage", ["approved", "scheduled", "published"]);
+    if (data.clientId) dq = dq.eq("client_id", data.clientId);
+    const { data: datedPosts, error: dErr } = await dq;
+    if (dErr) throw dErr;
+    const orphanPosts = (datedPosts ?? []).filter(
+      (p) => !placementPostIds.includes(p.id as string),
+    );
+
+    const postIds = Array.from(
+      new Set([...placementPostIds, ...orphanPosts.map((p) => p.id as string)]),
+    );
     if (postIds.length === 0) return [];
 
     const { data: postsData, error } = await context.supabase
@@ -64,6 +90,7 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
       .is("deleted_at", null);
     if (error) throw error;
     const postById = new Map((postsData ?? []).map((p) => [p.id as string, p]));
+
 
     // Count placements per post to flag multi-placement
     const placementCountByPost = new Map<string, number>();
