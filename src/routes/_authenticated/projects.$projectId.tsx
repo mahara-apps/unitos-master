@@ -128,9 +128,15 @@ function itemState(post: {
   if (post.published_at || post.stage === "published") return { label: "Publicado", tone: "primary" };
   const review = (post.review_status ?? "").toLowerCase();
   if (review === "approved" || post.stage === "approved") return { label: "Aprovado", tone: "emerald" };
-  if (post.stage === "review" || review === "pending") return { label: "Em revisão", tone: "amber" };
+  // `posts.stage` é espelhado a partir da coluna do Kanban (stage_id).
+  if (post.stage === "scheduled") return { label: "Agendado", tone: "primary" };
+  if (post.stage === "review") return { label: "Em revisão", tone: "amber" };
+  if (post.stage === "idea") return { label: "Ideia", tone: "muted" };
+  if (post.stage === "production") return { label: "Em produção", tone: "amber" };
+  if (review === "pending") return { label: "Em revisão", tone: "amber" };
   return { label: "Em produção", tone: "amber" };
 }
+
 
 const TONE_CLASS: Record<string, string> = {
   muted: "border-border/60 text-muted-foreground",
