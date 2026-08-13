@@ -122,10 +122,12 @@ export function AppSidebar() {
   const activeClient = clientId ? clientsCache?.find((c) => c.id === clientId) ?? null : null;
   const countPending = useServerFn(countMyPendingTasksFn);
   const pendingQ = useQuery({
-    queryKey: ["tasks-pending-count", brandId],
+    queryKey: ["tasks-pending-count", brandId, clientId ?? null],
     queryFn: async () => {
       try {
-        return await countPending({ data: { brandId: brandId! } });
+        return await countPending({
+          data: { brandId: brandId!, clientId: clientId ?? null },
+        });
       } catch (err) {
         // Session may have expired mid-refetch; swallow auth errors so the
         // sidebar badge never blanks the app before the auth gate redirects.
