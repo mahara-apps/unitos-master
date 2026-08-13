@@ -288,6 +288,17 @@ function CustomerDetailReady({
     qc.invalidateQueries({ queryKey: CUSTOMER_QUERY_KEYS.legacyContext(scope) });
   };
 
+  // Sub-rotas do painel (brain, media-plan) renderizam sozinhas.
+  const isChildRoute = pathname.replace(/\/+$/, "") !== `/customers/${customerId}`;
+  if (isChildRoute) return <Outlet />;
+
+  const initials = (customer?.name ?? "?")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+
   return (
     <ScrollArea className="h-[calc(100vh-3.5rem)] bg-background">
       <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
@@ -296,61 +307,122 @@ function CustomerDetailReady({
             Este cliente não pertence ao workspace ativo.
           </div>
         ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList variant="bordered">
-              {TABS.map((t) => (
-                <TabsTrigger
-                  key={t.value}
-                  value={t.value}
-                  className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
+          <>
+            {/* Faixa de identidade do cliente */}
+            <header className="flex flex-wrap items-center gap-4 rounded-2xl border border-border/60 bg-gradient-to-r from-primary/10 via-card to-card px-4 py-4 sm:px-5">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-base font-semibold text-primary ring-1 ring-primary/25">
+                {initials || "?"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h1 className="truncate text-lg font-semibold tracking-tight">
+                  {customer?.name ?? (customersQ.isLoading ? "Carregando…" : "Cliente")}
+                </h1>
+                <p className="truncate text-xs text-muted-foreground">
+                  {customer?.niche ?? "Sem nicho definido"}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${
+                    completion >= 60
+                      ? "bg-emerald-500/10 text-emerald-300 ring-emerald-500/30"
+                      : "bg-amber-500/10 text-amber-300 ring-amber-500/30"
+                  }`}
                 >
-                  {t.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            <TabsContent value="overview">
-              <div className="space-y-4">
-                {brainEnabled && <BrainWidget preset="customers" clientId={customerId} />}
-                <CustomerDashboard
+                  Briefing {completion}%
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5"
+                  onClick={() => goToTab("pauta")}
+                >
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  Pauta
+                </Button>
+                {needsOnboarding && (
+                  <Button
+                    size="sm"
+                    className="h-8 gap-1.5"
+                    onClick={() => {
+                      goToTab("briefing");
+                      setWizardOpen(true);
+                    }}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Completar onboarding
+                  </Button>
+                )}
+              </div>
+            </header>
+
+            <Tabs value={activeTab} onValueChange={goToTab} className="space-y-4">
+              <TabsList variant="bordered" className="flex-wrap">
+                {TABS.map((t) => (
+                  <TabsTrigger
+                    key={t.value}
+                    value={t.value}
+                    className="gap-1.5 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
+                  >
+                    {t.label}
+                    {t.value === "briefing" && needsOnboarding && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                    )}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <TabsContent value="overview">
+                <div className="space-y-4">
+                  {brainEnabled && <BrainWidget preset="customers" clientId={customerId} />}
+                  <CustomerDashboard
+                    brandId={brandId}
+                    clientId={customerId}
+                    onOpenBriefing={() => goToTab("briefing")}
+                  />
+                </div>
+              </TabsContent>
+              <TabsContent value="briefing">
+                <BriefingWorkspace
                   brandId={brandId}
                   clientId={customerId}
-                  onOpenBriefing={() => setActiveTab("briefing")}
+                  embedded
+                  layout="stacked"
+                  onStrategyGenerated={() => {
+                    invalidateAll();
+                    qc.invalidateQueries({
+                      queryKey: ["strategy-runs", brandId, customerId],
+                    });
+                  }}
                 />
-              </div>
-            </TabsContent>
-            <TabsContent value="briefing">
-              <BriefingWorkspace
-                brandId={brandId}
-                clientId={customerId}
-                embedded
-                layout="stacked"
-                onStrategyGenerated={() => {
-                  invalidateAll();
-                  qc.invalidateQueries({
-                    queryKey: ["strategy-runs", brandId, customerId],
-                  });
-                }}
-              />
-            </TabsContent>
-            <TabsContent value="estrategia">
-              <StrategyResults
-                brandId={brandId}
-                clientId={customerId}
-                onGenerate={() => setActiveTab("briefing")}
-                onRestored={invalidateAll}
-              />
-            </TabsContent>
+              </TabsContent>
+              <TabsContent value="estrategia">
+                <StrategyResults
+                  brandId={brandId}
+                  clientId={customerId}
+                  onGenerate={() => goToTab("briefing")}
+                  onRestored={invalidateAll}
+                />
+              </TabsContent>
+              <TabsContent value="pauta">
+                <MonthlyPlanView
+                  brandId={brandId}
+                  clientId={customerId}
+                  planId={planId}
+                  onSelectPlan={setPlanId}
+                />
+              </TabsContent>
 
-            <TabsContent value="cadastro">
-              <BasicInfoTab brandId={brandId} clientId={customerId} />
-            </TabsContent>
-            <TabsContent value="gestao">
-              <AccountManagementTab brandId={brandId} clientId={customerId} />
-            </TabsContent>
-            <TabsContent value="channels">
-              <ChannelsTab brandId={brandId} clientId={customerId} />
-            </TabsContent>
-          </Tabs>
+              <TabsContent value="cadastro">
+                <BasicInfoTab brandId={brandId} clientId={customerId} />
+              </TabsContent>
+              <TabsContent value="gestao">
+                <AccountManagementTab brandId={brandId} clientId={customerId} />
+              </TabsContent>
+              <TabsContent value="channels">
+                <ChannelsTab brandId={brandId} clientId={customerId} />
+              </TabsContent>
+            </Tabs>
+          </>
         )}
       </div>
 
