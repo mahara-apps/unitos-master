@@ -53,10 +53,22 @@ export async function syncPostPlacements(
     status = "draft",
   } = input;
 
+  // Placements JÁ PUBLICADOS são histórico: nunca apagados nem reescritos.
+  const { data: publishedRows, error: pubErr } = await supabase
+    .from("post_placements")
+    .select("format")
+    .eq("post_id", postId)
+    .eq("status", "published");
+  if (pubErr) throw new Error(pubErr.message);
+  const publishedFormats = new Set(
+    ((publishedRows ?? []) as Array<{ format: string }>).map((r) => r.format),
+  );
+
   const { error: delErr } = await supabase
     .from("post_placements")
     .delete()
-    .eq("post_id", postId);
+    .eq("post_id", postId)
+    .neq("status", "published");
   if (delErr) throw new Error(delErr.message);
 
   if (!destinations.length) return;
@@ -64,7 +76,11 @@ export async function syncPostPlacements(
   const mediaJson = mediaPaths.map((p) => ({ storagePath: p }));
   // UNIQUE(post_id, format) — deduplica mantendo o último por format.
   const byFormat = new Map<PlacementFormatEnum, PlacementDestination>();
-  for (const d of destinations) byFormat.set(d.format, d);
+  for (const d of destinations) {
+    if (publishedFormats.has(d.format)) continue;
+    byFormat.set(d.format, d);
+  }
+
 
   const rows = Array.from(byFormat.values()).map((d, i) => ({
     post_id: postId,
