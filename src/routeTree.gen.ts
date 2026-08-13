@@ -40,6 +40,7 @@ import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authen
 import { Route as AuthenticatedMonthlyPlanIndexRouteImport } from './routes/_authenticated/monthly-plan.index'
 import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authenticated/customers.index'
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat.index'
+import { Route as PortalTokenFeedRouteImport } from './routes/portal.$token.feed'
 import { Route as PortalTokenCalendarioRouteImport } from './routes/portal.$token.calendario'
 import { Route as PortalTokenAprovacoesRouteImport } from './routes/portal.$token.aprovacoes'
 import { Route as PBriefingTokenRouteImport } from './routes/p.briefing.$token'
@@ -248,6 +249,11 @@ const AuthenticatedChatIndexRoute = AuthenticatedChatIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedChatRoute,
+} as any)
+const PortalTokenFeedRoute = PortalTokenFeedRouteImport.update({
+  id: '/feed',
+  path: '/feed',
+  getParentRoute: () => PortalTokenRoute,
 } as any)
 const PortalTokenCalendarioRoute = PortalTokenCalendarioRouteImport.update({
   id: '/calendario',
@@ -567,6 +573,7 @@ export interface FileRoutesByFullPath {
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/portal/$token/aprovacoes': typeof PortalTokenAprovacoesRoute
   '/portal/$token/calendario': typeof PortalTokenCalendarioRoute
+  '/portal/$token/feed': typeof PortalTokenFeedRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
   '/customers/': typeof AuthenticatedCustomersIndexRoute
   '/monthly-plan/': typeof AuthenticatedMonthlyPlanIndexRoute
@@ -640,6 +647,7 @@ export interface FileRoutesByTo {
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/portal/$token/aprovacoes': typeof PortalTokenAprovacoesRoute
   '/portal/$token/calendario': typeof PortalTokenCalendarioRoute
+  '/portal/$token/feed': typeof PortalTokenFeedRoute
   '/chat': typeof AuthenticatedChatIndexRoute
   '/customers': typeof AuthenticatedCustomersIndexRoute
   '/monthly-plan': typeof AuthenticatedMonthlyPlanIndexRoute
@@ -721,6 +729,7 @@ export interface FileRoutesById {
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/portal/$token/aprovacoes': typeof PortalTokenAprovacoesRoute
   '/portal/$token/calendario': typeof PortalTokenCalendarioRoute
+  '/portal/$token/feed': typeof PortalTokenFeedRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
   '/_authenticated/monthly-plan/': typeof AuthenticatedMonthlyPlanIndexRoute
@@ -802,6 +811,7 @@ export interface FileRouteTypes {
     | '/p/briefing/$token'
     | '/portal/$token/aprovacoes'
     | '/portal/$token/calendario'
+    | '/portal/$token/feed'
     | '/chat/'
     | '/customers/'
     | '/monthly-plan/'
@@ -875,6 +885,7 @@ export interface FileRouteTypes {
     | '/p/briefing/$token'
     | '/portal/$token/aprovacoes'
     | '/portal/$token/calendario'
+    | '/portal/$token/feed'
     | '/chat'
     | '/customers'
     | '/monthly-plan'
@@ -955,6 +966,7 @@ export interface FileRouteTypes {
     | '/p/briefing/$token'
     | '/portal/$token/aprovacoes'
     | '/portal/$token/calendario'
+    | '/portal/$token/feed'
     | '/_authenticated/chat/'
     | '/_authenticated/customers/'
     | '/_authenticated/monthly-plan/'
@@ -1239,6 +1251,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/chat/'
       preLoaderRoute: typeof AuthenticatedChatIndexRouteImport
       parentRoute: typeof AuthenticatedChatRoute
+    }
+    '/portal/$token/feed': {
+      id: '/portal/$token/feed'
+      path: '/feed'
+      fullPath: '/portal/$token/feed'
+      preLoaderRoute: typeof PortalTokenFeedRouteImport
+      parentRoute: typeof PortalTokenRoute
     }
     '/portal/$token/calendario': {
       id: '/portal/$token/calendario'
@@ -1746,12 +1765,14 @@ const AuthenticatedRouteRouteWithChildren =
 interface PortalTokenRouteChildren {
   PortalTokenAprovacoesRoute: typeof PortalTokenAprovacoesRoute
   PortalTokenCalendarioRoute: typeof PortalTokenCalendarioRoute
+  PortalTokenFeedRoute: typeof PortalTokenFeedRoute
   PortalTokenIndexRoute: typeof PortalTokenIndexRoute
 }
 
 const PortalTokenRouteChildren: PortalTokenRouteChildren = {
   PortalTokenAprovacoesRoute: PortalTokenAprovacoesRoute,
   PortalTokenCalendarioRoute: PortalTokenCalendarioRoute,
+  PortalTokenFeedRoute: PortalTokenFeedRoute,
   PortalTokenIndexRoute: PortalTokenIndexRoute,
 }
 
