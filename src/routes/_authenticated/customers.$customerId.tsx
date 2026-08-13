@@ -126,6 +126,7 @@ function CustomerDetail() {
         customerId={customerId}
         openOnboarding={!!onboarding}
         initialTab={tab}
+        initialPlanId={planId}
       />
     </Suspense>
   );
