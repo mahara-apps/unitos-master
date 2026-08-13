@@ -60,7 +60,7 @@ import { supportsKind, type ProviderName as AiProviderName } from "@/lib/ai-capa
 import { getAiModelStatus, runAiModelHealthNow } from "@/lib/ai-models.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveContext } from "@/hooks/use-active-context";
-import { WorkspaceChannelsPanel } from "@/components/connections/workspace-channels-panel";
+import { ConnectedChannelsSection } from "@/components/connections/connected-channels-section";
 import { useAccessRole } from "@/hooks/use-access-role";
 import {
   getConnections,
