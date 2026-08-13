@@ -6,6 +6,12 @@ import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import { getBrandAiModelAdmin } from "@/lib/ai-provider.server";
 import { buildSlotScheduler, extractBestHoursFromChannels } from "@/lib/scheduling";
+import {
+  PLAN_CHANNELS,
+  getWeeksInMonth,
+  normalizeVolumetryBasis,
+  resolveQuota,
+} from "@/lib/monthly-plan-fields";
 
 // Phase 2 — Human-gated idea generation.
 // Runs ONLY after the strategy artifacts (voice/personas/cohorts/swot) exist
@@ -131,14 +137,18 @@ async function runIdeas(params: {
     // ---- Volumetria (posts/semana por canal) ---------------------------------
     const hub = ((hubR.data as { brand_hub?: Record<string, unknown> } | null)?.brand_hub ?? {}) as {
       volumetry?: Record<string, number>;
+      volumetry_basis?: unknown;
     };
-    const CHANNELS = ["instagram", "tiktok", "linkedin", "youtube", "facebook"] as const;
+    const CHANNELS = PLAN_CHANNELS;
+    const ideasBasis = normalizeVolumetryBasis(hub.volumetry_basis);
+    const ideasNow = new Date();
+    const ideasWeeks = getWeeksInMonth(ideasNow.getFullYear(), ideasNow.getMonth());
     const perWeek: Record<string, number> = {};
     let weeklyTotal = 0;
     for (const c of CHANNELS) {
-      const v = Math.max(0, Math.floor(Number(hub.volumetry?.[c] ?? 0)));
-      perWeek[c] = v;
-      weeklyTotal += v;
+      const q = resolveQuota(Number(hub.volumetry?.[c] ?? 0) || 0, ideasBasis, ideasWeeks);
+      perWeek[c] = q.perWeek;
+      weeklyTotal += q.perWeek;
     }
     // Alocação por canal (largest remainder) para as N ideias.
     const channelAllocation: string[] = [];
