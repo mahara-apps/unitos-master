@@ -13,11 +13,16 @@ const hex = z
   .trim()
   .regex(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/, "cor deve ser um hex (#RGB ou #RRGGBB)");
 
+// Aceita URL absoluta http(s) OU caminho relativo à raiz ("/..."), usado pelos
+// assets internos do sistema (clients.logo_url costuma ser "/__l5e/...").
 const httpUrl = z
   .string()
   .trim()
   .max(2000)
-  .refine((v) => /^https?:\/\//i.test(v), "URL deve começar com http(s)://");
+  .refine(
+    (v) => /^https?:\/\//i.test(v) || /^\/[^/]/.test(v),
+    "URL deve começar com http(s):// ou /",
+  );
 
 // Aceita string vazia (campo limpo no formulário) tratando-a como "sem logo".
 const httpUrlOrEmpty = z.preprocess(
