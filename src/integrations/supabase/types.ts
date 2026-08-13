@@ -5735,7 +5735,6 @@ export type Database = {
         }
         Returns: Json
       }
-      portal_feed: { Args: { _token: string }; Returns: Json }
       portal_files: {
         Args: { _search?: string; _token: string }
         Returns: Json
