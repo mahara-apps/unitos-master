@@ -252,12 +252,14 @@ export function ConnectedChannelsSection({
           open={portfolioOpen}
           onOpenChange={(v) => {
             setPortfolioOpen(v);
-            if (!v) setPortfolioSessionId(null);
+            if (!v) {
+              setPortfolioSessionId(null);
+              invalidate();
+            }
           }}
           sessionId={portfolioSessionId}
           brandId={brandId ?? ""}
           channel={portfolioChannel}
-          onDone={invalidate}
         />
       ) : null}
 
