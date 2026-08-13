@@ -102,7 +102,11 @@ export function PortalLinkCard({
   });
 
   const updateMut = useMutation({
-    mutationFn: (vars: { tokenId: string; label: string; expiresInDays: number | null }) =>
+    mutationFn: (vars: {
+      tokenId: string;
+      label: string;
+      expiresInDays?: number | null;
+    }) =>
       update({ data: { clientId, ...vars } }),
     onSuccess: () => {
       toast.success("Personalização salva.");
