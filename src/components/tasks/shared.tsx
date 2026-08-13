@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { format } from "date-fns";
@@ -35,6 +36,7 @@ import {
   CalendarClock,
   ListChecks,
   Plus,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -706,6 +708,14 @@ export function TaskDrawer({
       headerExtra={
         task ? (
           <>
+            {task.post_id ? (
+              <Button asChild size="sm" variant="outline" className="h-8">
+                <Link to="/content" search={{ post: task.post_id }} onClick={onClose}>
+                  <FileText className="mr-1.5 h-4 w-4" />
+                  Ver peça
+                </Link>
+              </Button>
+            ) : null}
             <Button
               size="sm"
               variant={isDone ? "secondary" : "default"}

@@ -65,6 +65,7 @@ export const Route = createFileRoute("/_authenticated/content")({
     z
       .object({
         project: z.string().uuid().optional(),
+        post: z.string().uuid().optional(),
         new: z.coerce.boolean().optional(),
       })
       .parse(s),
@@ -123,6 +124,7 @@ function ContentPage() {
           brandId={brandId}
           clientId={clientId}
           defaultProjectId={search.project ?? null}
+          initialPostId={search.post ?? null}
           autoOpenNewTask={!!search.new}
         />
       )}
@@ -134,11 +136,13 @@ function ContentReady({
   brandId,
   clientId,
   defaultProjectId,
+  initialPostId,
   autoOpenNewTask,
 }: {
   brandId: string;
   clientId: string;
   defaultProjectId: string | null;
+  initialPostId: string | null;
   autoOpenNewTask: boolean;
 }) {
   const qc = useQueryClient();
@@ -162,10 +166,15 @@ function ContentReady({
   const [activePipelineId, setActivePipelineId] = useState<string | null>(null);
   const [openNewPipeline, setOpenNewPipeline] = useState(false);
   const [openRenamePipeline, setOpenRenamePipeline] = useState(false);
-  const [openPostId, setOpenPostId] = useState<string | null>(null);
+  const [openPostId, setOpenPostId] = useState<string | null>(initialPostId);
   const [openColumnConfig, setOpenColumnConfig] = useState(false);
   const [newTaskStageId, setNewTaskStageId] = useState<string | null>(null);
   const [openNewTask, setOpenNewTask] = useState(false);
+
+  useEffect(() => {
+    if (initialPostId) setOpenPostId(initialPostId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPostId]);
 
   useEffect(() => {
     if (autoOpenNewTask) {
