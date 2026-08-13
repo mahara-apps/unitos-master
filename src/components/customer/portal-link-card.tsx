@@ -366,6 +366,9 @@ function CustomizeModal({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              {expiresAt && (
+                <SelectItem value="keep">Manter validade atual ({fmtDate(expiresAt)})</SelectItem>
+              )}
               {EXPIRY_OPTIONS.map((o) => (
                 <SelectItem key={o.value} value={o.value}>
                   {o.label}
@@ -375,8 +378,8 @@ function CustomizeModal({
           </Select>
           <p className="text-[11px] text-muted-foreground">
             {expiresAt
-              ? `Hoje expira em ${fmtDate(expiresAt)}. Salvar recalcula a partir de agora.`
-              : "Hoje o link não expira."}
+              ? `Hoje expira em ${fmtDate(expiresAt)}. Escolher um prazo recalcula a partir de agora; "Sem expiração" remove o prazo.`
+              : "Este link não expira — o padrão para links novos."}
           </p>
         </div>
       </div>
