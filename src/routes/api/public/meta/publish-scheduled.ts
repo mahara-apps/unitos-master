@@ -141,6 +141,50 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
   },
 });
 
+/**
+ * Propaga a publicação do `social_posts` para a peça editorial:
+ * `post_placements.status/published_at` e `posts.stage/published_at`.
+ * Idempotente e silenciosa (falha aqui não deve reverter a publicação real).
+ */
+async function syncEditorialPublished(
+  supabaseAdmin: any,
+  socialPostId: string,
+  placement: string,
+): Promise<void> {
+  try {
+    const { data: sp } = await supabaseAdmin
+      .from("social_posts")
+      .select("post_id")
+      .eq("id", socialPostId)
+      .maybeSingle();
+    const postId = (sp?.post_id as string | null) ?? null;
+    if (!postId) return;
+    const nowIso = new Date().toISOString();
+    const format = placement === "story" ? "stories" : "feed";
+    await supabaseAdmin
+      .from("post_placements")
+      .update({ status: "published", published_at: nowIso })
+      .eq("post_id", postId)
+      .eq("format", format);
+    const { data: pending } = await supabaseAdmin
+      .from("post_placements")
+      .select("id")
+      .eq("post_id", postId)
+      .neq("status", "published")
+      .limit(1);
+    // Só marca a peça como publicada quando não há mais destino pendente.
+    if (!pending || pending.length === 0) {
+      await supabaseAdmin
+        .from("posts")
+        .update({ stage: "published", published_at: nowIso })
+        .eq("id", postId);
+    }
+  } catch (err) {
+    console.error("[publish-scheduled] editorial sync failed", err);
+  }
+}
+
+
 function buildCaption(base?: string, hashtags: string[] = [], mentions: string[] = []): string | undefined {
   const parts: string[] = [];
   if (base) parts.push(base);
