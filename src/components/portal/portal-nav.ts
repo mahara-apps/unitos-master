@@ -17,7 +17,7 @@ export const PORTAL_TABS: Array<{
   { id: "home", label: "Início", icon: Home, to: "/portal/$token/", segment: "" },
   { id: "approvals", label: "Aprovações", icon: CheckSquare, to: "/portal/$token/aprovacoes", segment: "aprovacoes" },
   { id: "calendar", label: "Calendário", icon: CalendarDays, to: "/portal/$token/calendario", segment: "calendario" },
-  { id: "feed", label: "Feed", icon: Images, to: "/portal/$token/feed", segment: "feed" },
+  
   { id: "files", label: "Arquivos", icon: FolderOpen, to: "/portal/$token/arquivos", segment: "arquivos" },
   { id: "briefing", label: "Briefing", icon: FileText, to: "/portal/$token/briefing", segment: "briefing" },
 ];
