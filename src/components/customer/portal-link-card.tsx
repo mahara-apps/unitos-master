@@ -301,16 +301,18 @@ function CustomizeModal({
   initialLabel: string;
   expiresAt: string | null;
   isSaving: boolean;
-  onSave: (label: string, expiresInDays: number | null) => void;
+  onSave: (label: string, expiresInDays: number | null | undefined) => void;
 }) {
+  // "keep" só existe quando o link já tem prazo — evita zerar a validade sem intenção.
+  const initialExpiry = expiresAt ? "keep" : "never";
   const [label, setLabel] = useState(initialLabel);
-  const [expiry, setExpiry] = useState<string>("never");
+  const [expiry, setExpiry] = useState<string>(initialExpiry);
 
   useEffect(() => {
     if (!open) return;
     setLabel(initialLabel);
-    setExpiry("never");
-  }, [open, initialLabel]);
+    setExpiry(initialExpiry);
+  }, [open, initialLabel, initialExpiry]);
 
   return (
     <ExpandedModal
