@@ -1074,9 +1074,7 @@ function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <UpcomingClientCard posts={stats.data?.upcomingPosts ?? []} loading={stats.isLoading} />
-      </div>
+      <UpcomingClientCard posts={stats.data?.upcomingPosts ?? []} loading={stats.isLoading} />
 
       <RecentActivityCard activity={stats.data?.recentActivity ?? []} loading={stats.isLoading} />
     </div>
