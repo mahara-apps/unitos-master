@@ -788,45 +788,37 @@ function ApprovalView({
   return (
     <div className="pb-32">
       <DashboardPageShell className="space-y-8">
-        <StatusBanner
-          status={plan.status}
-          feedback={plan.client_feedback}
-          decisionAt={plan.client_decision_at}
-          decisionMode={plan.client_decision_mode ?? null}
-          counts={{
-            approved: clientApprovedCount,
-            changes: clientChangesCount,
-            rejected: clientRejectedCount,
-          }}
-          link={clientLink}
-        />
+        {(plan.status === "changes_requested" || plan.status === "client_rejected") &&
+        plan.client_feedback ? (
+          <p className="text-xs text-amber-400">
+            Feedback do cliente: {plan.client_feedback}
+          </p>
+        ) : null}
 
         {plan.internal_approved_at ? (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/40 px-4 py-3">
-            <div className="flex items-center gap-2 text-sm">
-              <FolderKanban className="h-4 w-4 text-violet-400" />
-              <span className="text-muted-foreground">
-                {plan.project_id
-                  ? "Esta pauta já existe como projeto ativo."
-                  : "Esta pauta foi aprovada internamente e ainda não tem projeto vinculado."}
-              </span>
-            </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <FolderKanban className="h-3.5 w-3.5 text-violet-400" />
             {plan.project_id ? (
-              <Button
-                size="sm"
-                variant="outline"
+              <button
+                type="button"
+                className="underline underline-offset-2 hover:text-foreground"
                 onClick={() => navigate({ to: "/projects/$projectId", params: { projectId: plan.project_id! } })}
               >
                 Ver projeto
-              </Button>
+              </button>
             ) : (
-              <Button size="sm" onClick={() => ensureProjectM.mutate()} disabled={ensureProjectM.isPending}>
-                {ensureProjectM.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
-                Criar projeto
-              </Button>
+              <button
+                type="button"
+                className="underline underline-offset-2 hover:text-foreground disabled:opacity-50"
+                onClick={() => ensureProjectM.mutate()}
+                disabled={ensureProjectM.isPending}
+              >
+                {ensureProjectM.isPending ? "Criando projeto…" : "Criar projeto"}
+              </button>
             )}
           </div>
         ) : null}
+
 
 
         {/* Estratégia */}
