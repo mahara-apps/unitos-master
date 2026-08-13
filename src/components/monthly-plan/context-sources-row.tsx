@@ -30,11 +30,13 @@ export function ContextSourcesRow({
               : ""
           }`,
           tone: "ok",
+          kind: "strategy",
         }
       : {
           icon: <AlertTriangle className="h-3 w-3" />,
           text: "Sem estratégia IA ativa",
           tone: "warn",
+          kind: "strategy",
         },
   );
 
@@ -44,11 +46,13 @@ export function ContextSourcesRow({
           icon: <BarChart3 className="h-3 w-3" />,
           text: `Métricas reais: ${metricsChannels.map(label).join(", ")}`,
           tone: "ok",
+          kind: "metrics",
         }
       : {
           icon: <AlertTriangle className="h-3 w-3" />,
           text: "Sem métricas de contas conectadas",
           tone: "warn",
+          kind: "metrics",
         },
   );
 
@@ -57,6 +61,7 @@ export function ContextSourcesRow({
       icon: <AlertTriangle className="h-3 w-3" />,
       text: `Sem conta conectada: ${missing.map(label).join(", ")}`,
       tone: "warn",
+      kind: "metrics",
     });
   }
 
@@ -64,6 +69,7 @@ export function ContextSourcesRow({
     icon: <FileText className="h-3 w-3" />,
     text: sources.brain_context ? "Briefing + Brain" : "Briefing",
     tone: "ok",
+    kind: "brain",
   });
 
   const toneCls: Record<string, string> = {
