@@ -6,6 +6,8 @@ import {
   deriveChannelsFromDestinations,
   deriveTargetConnectionIds,
 } from "@/lib/placements.server";
+import { resolveStageIdByKey } from "@/lib/post-stage.server";
+
 
 /**
  * Server functions do wizard de agendamento (/calendar).
