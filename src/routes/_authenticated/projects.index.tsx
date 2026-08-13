@@ -561,7 +561,7 @@ function ProjectsIndexPage() {
               onClear={() => setOwnerFilter("all")}
             />
           ) : null}
-          {clientFilter !== "all" ? (
+          {!activeClientId && clientFilter !== "all" ? (
             <FilterChip
               label={`Cliente: ${clientName(clientFilter) || "—"}`}
               onClear={() => setClientFilter("all")}
@@ -576,7 +576,7 @@ function ProjectsIndexPage() {
                 setQ("");
                 setStatusFilter("all");
                 setOwnerFilter("all");
-                setClientFilter("all");
+                if (!activeClientId) setClientFilter("all");
               }}
             >
               Limpar filtros
