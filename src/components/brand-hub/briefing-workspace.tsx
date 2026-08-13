@@ -63,7 +63,12 @@ import {
   PLAN_CHANNELS,
   PLAN_CHANNELS_DEFAULT,
   PLAN_CHANNEL_LABEL,
+  getWeeksInMonth,
+  normalizeVolumetryBasis,
+  resolveQuota,
+  volumetryMax,
   type PlanChannel,
+  type VolumetryBasis,
 } from "@/lib/monthly-plan-fields";
 import {
   DropdownMenu,
@@ -102,6 +107,7 @@ type FormState = {
   dont_text: string;
   // Volumetria & Metas
   volumetry: Record<SocialKey, number>;
+  volumetry_basis: VolumetryBasis;
   formats: Record<SocialKey, string[]>;
   goals: string;
 };
@@ -138,6 +144,9 @@ function toForm(client: BrandHubClient): FormState {
         return acc;
       },
       {} as Record<SocialKey, number>,
+    ),
+    volumetry_basis: normalizeVolumetryBasis(
+      (hub as { volumetry_basis?: unknown }).volumetry_basis,
     ),
     formats: PLAN_CHANNELS.reduce<Record<SocialKey, string[]>>(
       (acc, c) => {
@@ -355,6 +364,7 @@ export function BriefingWorkspace({
             palette: form.palette,
             do_dont: { do: form.do_text, dont: form.dont_text },
             volumetry: form.volumetry,
+            volumetry_basis: form.volumetry_basis,
             formats: form.formats,
             goals: form.goals,
             competitors,
