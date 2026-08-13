@@ -1010,6 +1010,7 @@ export const submitPlanToClientFn = createServerFn({ method: "POST" })
       .neq("client_status", "approved");
 
     // Aprovação interna → a pauta passa a existir como projeto ativo (idempotente).
+    const { ensurePlanProject } = await import("@/lib/monthly-plan-project.server");
     await ensurePlanProject(context.supabase as never, {
       planId: plan.id,
       brandId: plan.brand_id,
