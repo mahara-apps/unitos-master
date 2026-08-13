@@ -17,6 +17,8 @@ export type PlanVolumetry = {
   formatsByChannel: Record<string, string[]>;
   generatedThisMonth: Record<string, number>;
   generatedTotal: number;
+  /** Excedentes autorizados pelo gestor no mês corrente, por canal. */
+  approvedOverage?: Record<string, number>;
 };
 
 function MetricCard({
@@ -101,15 +103,22 @@ export function VolumetryCards({
         emphasis
         label="Total do cliente"
         sub="Soma das cotas mensais"
-        quota={volumetry.totalTarget}
+        quota={
+          volumetry.totalTarget +
+          Object.values(volumetry.approvedOverage ?? {}).reduce((a, b) => a + (b || 0), 0)
+        }
         generated={volumetry.generatedTotal}
       />
       {channels.map((c: PlanChannel) => (
         <MetricCard
           key={c}
           label={PLAN_CHANNEL_LABEL[c]}
-          sub={`${volumetry.weekly[c] ?? 0}/semana · ${volumetry.monthlyQuota[c] ?? 0}/mês`}
-          quota={volumetry.monthlyQuota[c] ?? 0}
+          sub={`${volumetry.weekly[c] ?? 0}/semana · ${volumetry.monthlyQuota[c] ?? 0}/mês${
+            (volumetry.approvedOverage?.[c] ?? 0) > 0
+              ? ` · +${volumetry.approvedOverage?.[c]} extra`
+              : ""
+          }`}
+          quota={(volumetry.monthlyQuota[c] ?? 0) + (volumetry.approvedOverage?.[c] ?? 0)}
           generated={volumetry.generatedThisMonth[c] ?? 0}
         />
       ))}

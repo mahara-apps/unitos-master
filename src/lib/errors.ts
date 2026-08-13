@@ -56,6 +56,9 @@ export function describeError(err: unknown): string {
     const p = raw.match(/ai_provider_key_missing:([a-z]+)/i)?.[1];
     return `A chave${p ? ` do provedor ${p}` : ""} não foi encontrada. Reconfigure em Conexões.`;
   }
+  if (lower.includes("overage_not_authorized")) {
+    return "A quantidade solicitada excede a volumetria do briefing. Solicite liberação do excedente ao gestor da conta.";
+  }
   if (lower.includes("ai_model_unavailable")) {
     return "O provedor configurado não oferece um modelo para esta função. Ajuste o provedor em Conexões.";
   }
