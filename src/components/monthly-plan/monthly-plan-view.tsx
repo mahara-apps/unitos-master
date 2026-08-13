@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronUp,
   ChevronsUpDown,
+  FolderKanban,
 
   Link as LinkIcon,
   Loader2,
@@ -65,6 +66,7 @@ import {
   createTopicFn,
   deleteTopicFn,
   discardMonthlyPlanFn,
+  ensurePlanProjectFn,
   generateMonthlyPlanFn,
   getMonthlyPlanFn,
   getPlanClientLinkFn,
@@ -542,6 +544,7 @@ function ApprovalView({
   const undoRegen = useServerFn(undoTopicRegenerationFn);
   const submitToClient = useServerFn(submitPlanToClientFn);
   const getLink = useServerFn(getPlanClientLinkFn);
+  const ensureProject = useServerFn(ensurePlanProjectFn);
 
   const q = useQuery({
     queryKey: ["monthly-plan", planId],
@@ -712,6 +715,27 @@ function ApprovalView({
     enabled: q.data?.plan.status === "pending_client" || q.data?.plan.status === "client_approved",
   });
 
+  const ensureProjectM = useMutation({
+    mutationFn: () => ensureProject({ data: { planId } }),
+    onSuccess: (res) => {
+      invalidate();
+      if (res.created) toast.success("Projeto da pauta criado.");
+    },
+    onError: (e) => toast.error(`Falha ao criar projeto: ${describeError(e)}`),
+  });
+
+  // Auto-cura: pauta aprovada internamente sem projeto vinculado.
+  const healedRef = useRef(false);
+  const planForHeal = q.data?.plan;
+  useEffect(() => {
+    if (!planForHeal?.internal_approved_at) return;
+    if (planForHeal.project_id) return;
+    if (healedRef.current) return;
+    healedRef.current = true;
+    ensureProjectM.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planForHeal?.id, planForHeal?.internal_approved_at, planForHeal?.project_id]);
+
   const approve = useMutation({
     mutationFn: () => approvePlan({ data: { planId, brandId, clientId } }),
     onSuccess: (res) => {
@@ -776,6 +800,33 @@ function ApprovalView({
           }}
           link={clientLink}
         />
+
+        {plan.internal_approved_at ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/40 px-4 py-3">
+            <div className="flex items-center gap-2 text-sm">
+              <FolderKanban className="h-4 w-4 text-violet-400" />
+              <span className="text-muted-foreground">
+                {plan.project_id
+                  ? "Esta pauta já existe como projeto ativo."
+                  : "Esta pauta foi aprovada internamente e ainda não tem projeto vinculado."}
+              </span>
+            </div>
+            {plan.project_id ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate({ to: "/projects/$projectId", params: { projectId: plan.project_id! } })}
+              >
+                Ver projeto
+              </Button>
+            ) : (
+              <Button size="sm" onClick={() => ensureProjectM.mutate()} disabled={ensureProjectM.isPending}>
+                {ensureProjectM.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+                Criar projeto
+              </Button>
+            )}
+          </div>
+        ) : null}
 
 
         {/* Estratégia */}
