@@ -231,7 +231,8 @@ export async function materializePlanToKanban(
       }));
 
     // Não bloqueia a materialização das peças caso a criação de tarefas falhe.
-    await sb.from("tasks").insert(taskRows as never);
+    if (taskRows.length > 0) await sb.from("tasks").insert(taskRows as never);
+
   }
 
   if (args.markPlanApproved !== false) {
