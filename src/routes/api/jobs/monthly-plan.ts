@@ -30,6 +30,7 @@ const BodySchema = z.object({
   direction: z.string().max(2000).optional(),
   startFrom: z.enum(["current-remaining", "next-month"]).optional(),
   assigneeId: z.string().uuid().optional(),
+  weeksPerMonth: z.number().int().min(1).max(6).optional(),
 });
 
 

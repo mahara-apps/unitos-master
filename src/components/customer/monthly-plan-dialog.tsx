@@ -1,12 +1,12 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Sparkles, Loader2, AlertTriangle, Pencil } from "lucide-react";
+import { Sparkles, Loader2, AlertTriangle, Pencil, CalendarDays } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrandHub } from "@/lib/brand-hub.functions";
-import { WEEKS_PER_MONTH } from "@/lib/monthly-plan-fields";
+import { getWeeksInMonth, getWeeksForPeriod } from "@/lib/monthly-plan-fields";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -49,6 +49,8 @@ export function MonthlyPlanDialog({ brandId, clientId, disabled, disabledReason 
   const [manualMode, setManualMode] = useState(false);
   const [manualQty, setManualQty] = useState(12);
   const [pending, setPending] = useState(false);
+  // null = auto (calculado pelo calendário); 4 ou 5 = override manual
+  const [weeksOverride, setWeeksOverride] = useState<number | null>(null);
 
   const fetchHub = useServerFn(getBrandHub);
   const hubQ = useQuery({
@@ -57,19 +59,35 @@ export function MonthlyPlanDialog({ brandId, clientId, disabled, disabledReason 
     enabled: open,
   });
   const volumetry = hubQ.data?.brand_hub?.volumetry ?? {};
+
+  // Semanas calculadas pelo calendário real do mês-alvo (próximo mês).
+  const autoWeeksFirstMonth = useMemo(() => {
+    const now = new Date();
+    const target = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    return getWeeksInMonth(target.getFullYear(), target.getMonth());
+  }, []);
+
+  const weeksFirstMonth = weeksOverride ?? autoWeeksFirstMonth;
+
+  // Total de semanas em todos os meses do período (para o cálculo de peças).
+  const totalWeeks = useMemo(
+    () => getWeeksForPeriod(meses, { override: weeksOverride ?? undefined }),
+    [meses, weeksOverride],
+  );
+
   const perMonthByChannel = Object.entries(volumetry)
     .map(([k, v]) => ({ channel: k, perWeek: Number(v) || 0 }))
     .filter((c) => c.perWeek > 0)
-    .map((c) => ({ ...c, perMonth: Math.round(c.perWeek * WEEKS_PER_MONTH) }));
+    .map((c) => ({ ...c, perMonth: Math.round(c.perWeek * weeksFirstMonth) }));
   const totalPerMonth = perMonthByChannel.reduce((a, c) => a + c.perMonth, 0);
   const hasVolumetry = totalPerMonth > 0;
 
   const periodo =
     meses === 1 ? "próximo mês" : `próximos ${meses} meses`;
-  const totalPecas = manualMode || !hasVolumetry ? manualQty * meses : totalPerMonth * meses;
+  const totalPecas = manualMode || !hasVolumetry ? manualQty * meses : totalWeeks * perMonthByChannel.reduce((s, c) => s + c.perWeek, 0);
   const channelMix = !manualMode && hasVolumetry
     ? perMonthByChannel.reduce<Record<string, number>>((acc, c) => {
-        acc[c.channel] = c.perMonth * meses;
+        acc[c.channel] = c.perWeek * totalWeeks;
         return acc;
       }, {})
     : undefined;
@@ -93,6 +111,7 @@ export function MonthlyPlanDialog({ brandId, clientId, disabled, disabledReason 
           periodo,
           meses,
           channelMix,
+          weeksPerMonth: weeksFirstMonth,
         }),
       });
       if (!res.ok) {
@@ -151,6 +170,36 @@ export function MonthlyPlanDialog({ brandId, clientId, disabled, disabledReason 
             </Select>
           </div>
 
+          {/* Seletor de semanas — calculado pelo calendário, ajustável manualmente */}
+          <div className="flex items-center gap-2 rounded-lg border bg-muted/30 px-3 py-2">
+            <CalendarDays className="h-4 w-4 text-muted-foreground" />
+            <div className="flex-1 text-xs text-muted-foreground">
+              <span className="text-foreground font-medium">{weeksFirstMonth}</span> semanas/mês
+              {!weeksOverride && autoWeeksFirstMonth === 5 && (
+                <span className="ml-1 text-emerald-500">(mês de 5 semanas)</span>
+              )}
+              {!weeksOverride && autoWeeksFirstMonth === 4 && (
+                <span className="ml-1 text-muted-foreground/70">(auto)</span>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              {([null, 4, 5] as const).map((w) => (
+                <button
+                  key={w ?? "auto"}
+                  type="button"
+                  onClick={() => setWeeksOverride(w)}
+                  className={`rounded-md px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                    weeksOverride === w
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}
+                >
+                  {w === null ? "Auto" : `${w} sem`}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {!manualMode && hasVolumetry && (
             <div className="rounded-lg border bg-muted/30 p-3">
               <div className="mb-2 flex items-center justify-between">
@@ -181,6 +230,11 @@ export function MonthlyPlanDialog({ brandId, clientId, disabled, disabledReason 
               <div className="mt-2 border-t pt-2 text-xs text-muted-foreground">
                 Total: <span className="font-medium text-foreground">{totalPecas}</span>{" "}
                 peças em {periodo}.
+                {meses > 1 && (
+                  <span className="ml-1">
+                    ({totalWeeks} semanas no total)
+                  </span>
+                )}
               </div>
             </div>
           )}

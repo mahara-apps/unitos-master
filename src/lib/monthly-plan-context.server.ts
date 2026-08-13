@@ -35,8 +35,9 @@ function pushLine(lines: string[], label: string, value: unknown) {
 export async function loadBriefingContext(
   supabase: SupabaseClient,
   clientId: string,
-  opts: { briefingId?: string | null } = {},
+  opts: { briefingId?: string | null; weeksPerMonth?: number } = {},
 ): Promise<BriefingContext> {
+  const weeksPerMonth = opts.weeksPerMonth && opts.weeksPerMonth > 0 ? opts.weeksPerMonth : WEEKS_PER_MONTH;
   const [clientRes, docsRes, briefingRes] = await Promise.all([
     supabase
       .from("clients")
@@ -121,7 +122,7 @@ export async function loadBriefingContext(
   );
   const monthlyQuota = PLAN_CHANNELS.reduce<Record<PlanChannel, number>>(
     (acc, c) => {
-      acc[c] = Math.round(weekly[c] * WEEKS_PER_MONTH);
+      acc[c] = Math.round(weekly[c] * weeksPerMonth);
       return acc;
     },
     {} as Record<PlanChannel, number>,
