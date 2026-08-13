@@ -294,14 +294,14 @@ function ProjectsIndexPage() {
   const [templateOpen, setTemplateOpen] = useState(false);
 
   const projectsQ = useQuery({
-    queryKey: ["projects", brandId, statusFilter, ownerFilter, clientFilter],
+    queryKey: ["projects", brandId, statusFilter, ownerFilter, effectiveClientId],
     queryFn: () =>
       list({
         data: {
           brandId: brandId!,
           status: statusFilter === "all" ? null : (statusFilter as never),
           ownerId: ownerFilter === "all" ? null : ownerFilter,
-          clientId: clientFilter === "all" ? null : clientFilter,
+          clientId: effectiveClientId,
         },
       }),
     enabled: !!brandId,
