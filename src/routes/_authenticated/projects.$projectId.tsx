@@ -74,6 +74,8 @@ import {
 } from "@/components/ui/dashboard-primitives";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { JobsPanel } from "@/components/projects/jobs-panel";
+import { ProjectTasksPanel } from "@/components/projects/project-tasks-panel";
+import { listJobsFn } from "@/lib/project-jobs.functions";
 
 export const Route = createFileRoute("/_authenticated/projects/$projectId")({
   component: ProjectDetailPage,
@@ -143,6 +145,7 @@ function ProjectDetailPage() {
   const navigate = useNavigate();
   const [openNewTask, setOpenNewTask] = useState(false);
   const [openSettings, setOpenSettings] = useState(false);
+  const [showJobs, setShowJobs] = useState(false);
 
   const qc = useQueryClient();
 
@@ -155,6 +158,13 @@ function ProjectDetailPage() {
   const listPipes = useServerFn(listPipelinesFn);
   const ensureDefault = useServerFn(ensureDefaultPipelineFn);
   const loadBoard = useServerFn(loadBoardFn);
+  const listJobsForCount = useServerFn(listJobsFn);
+
+  const jobsCountQ = useQuery({
+    queryKey: ["project-jobs", brandId, projectId],
+    queryFn: () => listJobsForCount({ data: { brandId: brandId!, projectId } }),
+    enabled: !!brandId,
+  });
 
   const projectQ = useQuery({
     queryKey: ["project", brandId, projectId],
@@ -424,10 +434,24 @@ function ProjectDetailPage() {
                       )}
                       <span>·</span>
                       <span>{it.format ?? "formato não definido"}</span>
-                      {it.post?.scheduled_at ? (
+                      {it.tasks.assignee_name ? (
                         <>
                           <span>·</span>
-                          <span>{fmtDate(it.post.scheduled_at)}</span>
+                          <span>{it.tasks.assignee_name}</span>
+                        </>
+                      ) : null}
+                      {it.post?.scheduled_at || it.tasks.due_at ? (
+                        <>
+                          <span>·</span>
+                          <span>{fmtDate(it.post?.scheduled_at ?? it.tasks.due_at)}</span>
+                        </>
+                      ) : null}
+                      {it.tasks.count > 0 ? (
+                        <>
+                          <span>·</span>
+                          <span>
+                            {it.tasks.count} {it.tasks.count === 1 ? "tarefa" : "tarefas"}
+                          </span>
                         </>
                       ) : null}
                     </div>
@@ -435,10 +459,10 @@ function ProjectDetailPage() {
                   <Badge variant="outline" className={`text-[10px] ${TONE_CLASS[state.tone]}`}>
                     {state.label}
                   </Badge>
-                  {it.post && project.client_id ? (
-                    <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-[11px]">
-                      <Link to="/content">
-                        Abrir
+                  {it.post ? (
+                    <Button asChild size="sm" className="h-8 px-3 text-[11px]">
+                      <Link to="/content" search={{ post: it.post.id }}>
+                        Abrir peça
                       </Link>
                     </Button>
                   ) : project.plan ? (
@@ -478,9 +502,9 @@ function ProjectDetailPage() {
                   <Badge variant="outline" className={`text-[10px] ${TONE_CLASS[state.tone]}`}>
                     {state.label}
                   </Badge>
-                  <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-[11px]">
-                    <Link to="/content">
-                      Abrir
+                  <Button asChild size="sm" className="h-8 px-3 text-[11px]">
+                    <Link to="/content" search={{ post: p.id }}>
+                      Abrir peça
                     </Link>
                   </Button>
                 </div>
@@ -490,8 +514,26 @@ function ProjectDetailPage() {
         )}
       </DashboardPanelSurface>
 
-      {/* Tarefas do projeto */}
-      <JobsPanel brandId={brandId!} projectId={projectId} />
+      {/* Tarefas do projeto (execução operacional) */}
+      <ProjectTasksPanel
+        brandId={brandId!}
+        projectId={projectId}
+        clientId={project.client_id ?? null}
+      />
+
+      {/* Jobs: apenas quando existirem (fluxo opcional/avançado) */}
+      {(jobsCountQ.data?.length ?? 0) > 0 || showJobs ? (
+        <JobsPanel brandId={brandId!} projectId={projectId} />
+      ) : (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-fit px-2 text-[11px] text-muted-foreground"
+          onClick={() => setShowJobs(true)}
+        >
+          <Plus className="mr-1.5 h-3.5 w-3.5" /> Organizar em jobs (opcional)
+        </Button>
+      )}
 
       {/* Configurações do projeto */}
       <Dialog open={openSettings} onOpenChange={setOpenSettings}>
