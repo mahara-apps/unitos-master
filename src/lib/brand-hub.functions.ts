@@ -30,13 +30,19 @@ export type BrandHubData = {
     linkedin?: number;
     youtube?: number;
     facebook?: number;
+    x?: number;
+    threads?: number;
   };
+  /** Base do volume informado: por semana (padrão) ou por mês. */
+  volumetry_basis?: "weekly" | "monthly";
   formats?: {
     instagram?: string[];
     tiktok?: string[];
     linkedin?: string[];
     youtube?: string[];
     facebook?: string[];
+    x?: string[];
+    threads?: string[];
   };
   goals?: string;
   tone_text?: string;
