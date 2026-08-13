@@ -271,14 +271,6 @@ export const listPortalCalendarFn = createServerFn({ method: "POST" })
     (await rpc<PortalPost[]>("portal_calendar", { _token: data.token, _month: data.month ?? null })) ?? [],
   );
 
-export const listPortalFeedFn = createServerFn({ method: "POST" })
-  .inputValidator((i: unknown) => tokenIn.parse(i))
-  .handler(async ({ data }): Promise<PortalPost[]> => {
-    const rows = await rpc<PortalPost[]>("portal_feed", { _token: data.token });
-    await fillCovers(rows ?? []);
-    return rows ?? [];
-  });
-
 export const listPortalFilesFn = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => tokenIn.extend({ search: z.string().optional() }).parse(i))
   .handler(async ({ data }): Promise<Array<PortalFile & { url: string | null }>> => {

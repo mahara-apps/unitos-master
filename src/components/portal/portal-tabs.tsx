@@ -3,9 +3,10 @@ import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  CheckSquare, CalendarDays, Images, FolderOpen, FileText,
+  CheckSquare, CalendarDays, FolderOpen, FileText,
   Check, X, MessageSquareWarning, MessageCircle, ExternalLink,
-  Download, Search, Clock, Loader2, ChevronLeft, ImageIcon, User2, CalendarClock,
+  Download, Search, Clock, Loader2, ChevronLeft, ChevronRight, ImageIcon, User2, CalendarClock,
+  Hourglass, CheckCircle2, Layers, ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +21,6 @@ import {
   getPortalPostFn,
   decidePortalApprovalFn,
   listPortalCalendarFn,
-  listPortalFeedFn,
   listPortalFilesFn,
   listPortalBriefingsFn,
 } from "@/lib/portal-public.functions";
@@ -31,6 +31,15 @@ import {
 
 /* ---------------------------------- HOME ---------------------------------- */
 
+type HomeCardTone = "amber" | "emerald" | "sky" | "neutral";
+
+const HOME_TONES: Record<HomeCardTone, { chip: string; bar: string; value: string }> = {
+  amber: { chip: "bg-amber-500/10 text-amber-600 dark:text-amber-400", bar: "bg-amber-500", value: "text-amber-600 dark:text-amber-400" },
+  emerald: { chip: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", bar: "bg-emerald-500", value: "text-foreground" },
+  sky: { chip: "bg-sky-500/10 text-sky-600 dark:text-sky-400", bar: "bg-sky-500", value: "text-foreground" },
+  neutral: { chip: "bg-muted text-muted-foreground", bar: "bg-border", value: "text-foreground" },
+};
+
 export function HomeTab({ token }: { token: string }) {
   const fn = useServerFn(getPortalMetricsFn);
   const q = useQuery({
@@ -39,35 +48,86 @@ export function HomeTab({ token }: { token: string }) {
     staleTime: 30_000,
   });
   const m = q.data;
-  const cards = [
-    { label: "Aguardando você", value: m?.pending ?? 0, tone: "amber", to: "/portal/$token/aprovacoes" },
-    { label: "Aprovados no mês", value: m?.approvedThisMonth ?? 0, tone: "emerald", to: "/portal/$token/feed" },
-    { label: "Agendados", value: m?.scheduled ?? 0, tone: "sky", to: "/portal/$token/calendario" },
-    { label: "Total de posts", value: m?.total ?? 0, tone: "neutral", to: "/portal/$token/feed" },
+  const cards: Array<{
+    label: string;
+    value: number;
+    hint: string;
+    tone: HomeCardTone;
+    icon: typeof Hourglass;
+    to: string;
+    search?: Record<string, string>;
+  }> = [
+    {
+      label: "Aguardando você",
+      value: m?.pending ?? 0,
+      hint: (m?.pending ?? 0) > 0 ? "Revisar agora" : "Nada pendente",
+      tone: "amber",
+      icon: Hourglass,
+      to: "/portal/$token/aprovacoes",
+    },
+    {
+      label: "Aprovados no mês",
+      value: m?.approvedThisMonth ?? 0,
+      hint: "Neste mês",
+      tone: "emerald",
+      icon: CheckCircle2,
+      to: "/portal/$token/aprovacoes",
+    },
+    {
+      label: "Agendados",
+      value: m?.scheduled ?? 0,
+      hint: "Na fila de publicação",
+      tone: "sky",
+      icon: CalendarClock,
+      to: "/portal/$token/calendario",
+    },
+    {
+      label: "Total de posts",
+      value: m?.total ?? 0,
+      hint: "Histórico da conta",
+      tone: "neutral",
+      icon: Layers,
+      to: "/portal/$token/calendario",
+    },
   ];
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {cards.map((c) => (
-          <Link
-            key={c.label}
-            to={c.to}
-            params={{ token }}
-            className="group rounded-xl border border-border/60 bg-card p-4 text-left transition-colors hover:border-border"
-          >
-            <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{c.label}</div>
-            <div className="mt-3 flex items-end justify-between">
-              <div className="text-3xl font-semibold tabular-nums tracking-tight">{q.isLoading ? "—" : c.value}</div>
-              <div className={`h-2 w-2 rounded-full bg-${c.tone}-500`} />
-            </div>
-          </Link>
-        ))}
+        {cards.map((c) => {
+          const t = HOME_TONES[c.tone];
+          const Icon = c.icon;
+          return (
+            <Link
+              key={c.label}
+              to={c.to}
+              params={{ token }}
+              className="group relative overflow-hidden rounded-xl border border-border/60 bg-card p-4 text-left transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-sm"
+            >
+              <span className={`absolute inset-x-0 top-0 h-0.5 ${t.bar}`} />
+              <div className="flex items-start justify-between gap-2">
+                <div className="font-mono text-[10px] uppercase leading-tight tracking-widest text-muted-foreground">
+                  {c.label}
+                </div>
+                <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${t.chip}`}>
+                  <Icon className="h-3.5 w-3.5" />
+                </span>
+              </div>
+              <div className={`mt-4 text-3xl font-semibold tabular-nums tracking-tight ${t.value}`}>
+                {q.isLoading ? <Skeleton className="h-8 w-10" /> : c.value}
+              </div>
+              <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                {c.hint}
+                <ArrowRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
+              </div>
+            </Link>
+          );
+        })}
       </div>
       <div className="rounded-xl border border-border/60 bg-card p-6">
         <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">bem-vindo</div>
         <h2 className="mt-2 text-lg font-semibold">Tudo o que sua marca está publicando, em um só lugar.</h2>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Use as abas ao lado para <b>aprovar posts</b>, ver o <b>calendário</b> do mês, explorar o <b>feed</b> planejado,
+          Use as abas ao lado para <b>aprovar posts</b>, ver o <b>calendário</b> do mês,
           acessar <b>arquivos</b> compartilhados e <b>preencher briefings</b> quando solicitado pela equipe.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
@@ -136,40 +196,68 @@ export function ApprovalsTab({ token }: { token: string }) {
 function ApprovalCard({ post, onOpen }: { post: Record<string, unknown>; onOpen: () => void }) {
   const status = ((post.approval as { status: string } | undefined)?.status ?? "pending") as
     | "pending" | "approved" | "rejected" | "adjust";
-  const tone: Record<typeof status, string> = {
-    pending: "border-amber-500/40 text-amber-500",
-    approved: "border-emerald-500/40 text-emerald-500",
-    rejected: "border-rose-500/40 text-rose-500",
-    adjust: "border-sky-500/40 text-sky-500",
+  const tone: Record<typeof status, { badge: string; bar: string }> = {
+    pending: { badge: "border-amber-500/40 text-amber-600 dark:text-amber-400", bar: "bg-amber-500" },
+    approved: { badge: "border-emerald-500/40 text-emerald-600 dark:text-emerald-400", bar: "bg-emerald-500" },
+    rejected: { badge: "border-rose-500/40 text-rose-600 dark:text-rose-400", bar: "bg-rose-500" },
+    adjust: { badge: "border-sky-500/40 text-sky-600 dark:text-sky-400", bar: "bg-sky-500" },
   };
   const label = { pending: "Aguardando", approved: "Aprovado", rejected: "Rejeitado", adjust: "Ajustes" }[status];
+  const channels = Array.isArray(post.channels) ? (post.channels as string[]) : [];
   return (
     <button
       onClick={onOpen}
-      className="group overflow-hidden rounded-xl border border-border/60 bg-card text-left transition-colors hover:border-border"
+      className="group relative flex flex-col overflow-hidden rounded-xl border border-border/60 bg-card text-left transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-md"
     >
+      <span className={`absolute inset-x-0 top-0 z-10 h-0.5 ${tone[status].bar}`} />
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
         {post.cover_url ? (
           <img
             src={post.cover_url as string}
             alt=""
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
-            sem preview
+          <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 text-muted-foreground">
+            <ImageIcon className="h-6 w-6 opacity-40" />
+            <span className="font-mono text-[10px] uppercase tracking-widest">sem preview</span>
           </div>
         )}
-        <Badge variant="outline" className={`absolute left-2 top-2 border bg-background/80 backdrop-blur ${tone[status]}`}>
+        <Badge
+          variant="outline"
+          className={`absolute left-2 top-2.5 border bg-background/85 backdrop-blur ${tone[status].badge}`}
+        >
           {label}
         </Badge>
-      </div>
-      <div className="space-y-1 p-3">
-        <div className="truncate text-sm font-medium">{(post.title as string) || "Sem título"}</div>
-        <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          <span>{(post.format as string) || "—"}</span>
-          {post.scheduled_at ? <><span>·</span><span>{formatDate(post.scheduled_at as string)}</span></> : null}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/70 via-black/10 to-transparent p-2.5 opacity-0 transition-opacity group-hover:opacity-100">
+          <span className="inline-flex items-center gap-1 rounded-md bg-white/95 px-2 py-1 text-[11px] font-medium text-black">
+            {status === "pending" ? "Revisar" : "Ver detalhes"}
+            <ArrowRight className="h-3 w-3" />
+          </span>
         </div>
+      </div>
+      <div className="flex flex-1 flex-col gap-2 p-3">
+        <div className="line-clamp-2 text-sm font-medium leading-snug">
+          {(post.title as string) || "Sem título"}
+        </div>
+        <div className="mt-auto flex flex-wrap items-center gap-1.5">
+          {post.format ? (
+            <Badge variant="secondary" className="rounded-md px-1.5 py-0 font-mono text-[9px] uppercase tracking-wider">
+              {post.format as string}
+            </Badge>
+          ) : null}
+          {channels.slice(0, 2).map((c) => (
+            <Badge key={c} variant="outline" className="rounded-md px-1.5 py-0 font-mono text-[9px] uppercase tracking-wider">
+              {c}
+            </Badge>
+          ))}
+        </div>
+        {post.scheduled_at ? (
+          <div className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            <CalendarClock className="h-3 w-3" />
+            {formatDate(post.scheduled_at as string)}
+          </div>
+        ) : null}
       </div>
     </button>
   );
@@ -447,6 +535,8 @@ export function CalendarTab({ token }: { token: string }) {
     return map;
   }, [q.data]);
 
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -472,16 +562,24 @@ export function CalendarTab({ token }: { token: string }) {
           {days.map((d, i) => {
             const key = d?.toISOString().slice(0, 10);
             const items = key ? byDay.get(key) ?? [] : [];
+            const isOpen = !!(key && expanded[key]);
             return (
               <div
                 key={i}
-                className={`min-h-[92px] border-b border-r border-border/60 p-2 text-xs ${d ? "" : "bg-muted/20"}`}
+                className={`min-h-[92px] border-b border-r border-border/60 p-2 text-xs align-top ${d ? "" : "bg-muted/20"}`}
               >
                 {d && (
                   <>
-                    <div className="mb-1 text-[11px] font-medium text-muted-foreground">{d.getDate()}</div>
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-[11px] font-medium text-muted-foreground">{d.getDate()}</span>
+                      {items.length > 0 && (
+                        <span className="rounded-full bg-primary/10 px-1.5 font-mono text-[9px] text-primary">
+                          {items.length}
+                        </span>
+                      )}
+                    </div>
                     <div className="space-y-1">
-                      {items.slice(0, 3).map((p) => (
+                      {(isOpen ? items : items.slice(0, 3)).map((p) => (
                         <div
                           key={p.id as string}
                           className="truncate rounded border border-border/60 bg-background px-1.5 py-1 text-[10px]"
@@ -491,7 +589,17 @@ export function CalendarTab({ token }: { token: string }) {
                         </div>
                       ))}
                       {items.length > 3 && (
-                        <div className="text-[10px] text-muted-foreground">+{items.length - 3}</div>
+                        <button
+                          type="button"
+                          onClick={() => key && setExpanded((s) => ({ ...s, [key]: !s[key] }))}
+                          className="inline-flex w-full items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/10"
+                        >
+                          {isOpen ? (
+                            <>Ver menos <ChevronLeft className="h-3 w-3 rotate-90" /></>
+                          ) : (
+                            <>+{items.length - 3} <ChevronRight className="h-3 w-3" /></>
+                          )}
+                        </button>
                       )}
                     </div>
                   </>
@@ -502,28 +610,6 @@ export function CalendarTab({ token }: { token: string }) {
         </div>
       </div>
       {q.isLoading && <Skeleton className="h-4 w-32" />}
-    </div>
-  );
-}
-
-/* ---------------------------------- FEED ---------------------------------- */
-
-export function FeedTab({ token }: { token: string }) {
-  const fn = useServerFn(listPortalFeedFn);
-  const q = useQuery({ queryKey: ["portal", "feed", token], queryFn: () => fn({ data: { token } }) });
-  if (q.isLoading) return <GridSkeleton />;
-  if (!q.data?.length) return <EmptyState icon={Images} title="Feed vazio" description="Nenhum post aprovado ou publicado ainda." />;
-  return (
-    <div className="grid grid-cols-3 gap-1 sm:gap-2">
-      {q.data.map((p) => (
-        <div key={p.id as string} className="relative aspect-square overflow-hidden bg-muted">
-          {p.cover_url ? (
-            <img src={p.cover_url as string} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">sem preview</div>
-          )}
-        </div>
-      ))}
     </div>
   );
 }

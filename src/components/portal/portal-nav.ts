@@ -1,6 +1,6 @@
-import { Home, CheckSquare, CalendarDays, Images, FolderOpen, FileText } from "lucide-react";
+import { Home, CheckSquare, CalendarDays, FolderOpen, FileText } from "lucide-react";
 
-export type PortalTabId = "home" | "approvals" | "calendar" | "feed" | "files" | "briefing";
+export type PortalTabId = "home" | "approvals" | "calendar" | "files" | "briefing";
 
 /**
  * Fase 4a — cada aba do portal virou rota real. `to` é o path do TanStack
@@ -17,7 +17,7 @@ export const PORTAL_TABS: Array<{
   { id: "home", label: "Início", icon: Home, to: "/portal/$token/", segment: "" },
   { id: "approvals", label: "Aprovações", icon: CheckSquare, to: "/portal/$token/aprovacoes", segment: "aprovacoes" },
   { id: "calendar", label: "Calendário", icon: CalendarDays, to: "/portal/$token/calendario", segment: "calendario" },
-  { id: "feed", label: "Feed", icon: Images, to: "/portal/$token/feed", segment: "feed" },
+  
   { id: "files", label: "Arquivos", icon: FolderOpen, to: "/portal/$token/arquivos", segment: "arquivos" },
   { id: "briefing", label: "Briefing", icon: FileText, to: "/portal/$token/briefing", segment: "briefing" },
 ];
