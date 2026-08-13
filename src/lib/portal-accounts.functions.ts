@@ -153,10 +153,9 @@ export const createPortalAccountFn = createServerFn({ method: "POST" })
 
     const email = (data.email ?? client.contact_email ?? "").trim().toLowerCase();
     if (!isUsableEmail(email)) {
-      throw new Error(
-        "invalid_email: informe um e-mail real do contato do cliente (o cadastro atual não serve para criar conta).",
-      );
+      throw new Error("invalid_email: informe um e-mail válido para o contato do cliente.");
     }
+
     const fullName = data.fullName?.trim() || client.contact_name?.trim() || client.name;
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
