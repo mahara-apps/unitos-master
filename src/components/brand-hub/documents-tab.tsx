@@ -205,6 +205,22 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
     },
   });
 
+  const visibility = useMutation({
+    mutationFn: (v: { id: string; visible: boolean }) =>
+      setVisibility({ data: { brandId, clientId, documentId: v.id, visible: v.visible } }),
+    onSuccess: (_res, v) => {
+      toast.success(
+        v.visible
+          ? "Documento agora está visível no portal do cliente"
+          : "Documento oculto do portal do cliente",
+      );
+      invalidate();
+    },
+    onError: () => toast.error("Falha ao atualizar visibilidade"),
+  });
+
+
+
   const download = async (id: string) => {
     try {
       const { url } = await sign({ data: { brandId, clientId, documentId: id } });
