@@ -67,7 +67,7 @@ export const listClientDocumentsAi = createServerFn({ method: "GET" })
       };
     })
       .from("client_documents")
-    .select(
+      .select(
         "id, name, storage_path, mime_type, size_bytes, created_at, ai_status, ai_model, ai_error, analyzed_at, applied_to_briefing_at, ai_summary, visible_to_client",
       )
       .eq("brand_id", data.brandId)
