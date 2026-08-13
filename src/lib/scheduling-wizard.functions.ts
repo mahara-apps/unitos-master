@@ -383,6 +383,34 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
     }
 
+    // ---- Estágio operacional (stage_id) acompanha a ação ----
+    // O wizard historicamente escrevia só o campo legado `posts.stage`, o que
+    // deixava a peça parada na coluna antiga do Kanban. Aqui movemos a coluna
+    // real do pipeline da peça (quando existir equivalente).
+    {
+      const { data: row } = await supabase
+        .from("posts")
+        .select("pipeline_id, stage_id")
+        .eq("id", postId)
+        .maybeSingle();
+      const pipelineId = (row?.pipeline_id as string | null) ?? null;
+      const keys =
+        data.action === "schedule"
+          ? ["scheduled"]
+          : data.action === "save_draft"
+            ? ["idea", "briefing"]
+            : ["approved"];
+      const stageId = await resolveStageIdByKey(supabase, pipelineId, keys);
+      if (stageId && stageId !== (row?.stage_id as string | null)) {
+        await supabase
+          .from("posts")
+          .update({ stage_id: stageId } as never)
+          .eq("id", postId)
+          .eq("brand_id", data.brandId);
+      }
+    }
+
+
     // ---- Sync placements por (channel, format) via helper compartilhado ----
     await syncPostPlacements(supabase, {
       postId,
