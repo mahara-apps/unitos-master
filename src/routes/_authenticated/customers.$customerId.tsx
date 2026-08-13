@@ -81,7 +81,7 @@ const isUuid = (v: string | null | undefined): v is string => !!v && UUID_RE.tes
 
 function CustomerDetail() {
   const { customerId } = Route.useParams();
-  const { onboarding, tab } = Route.useSearch();
+  const { onboarding, tab, planId } = Route.useSearch();
   const { brandId, setClientId } = useActiveContext();
   const { role, allowedClientIds, isReady } = useAccessRole();
   const navigate = useNavigate();
