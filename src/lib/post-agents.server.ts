@@ -362,7 +362,11 @@ export async function generatePostsContentSequential(
   postIds: string[],
   opts: { userId?: string | null } = {},
 ): Promise<void> {
+  let first = true;
   for (const id of postIds) {
+    // Espaçamento entre peças: evita estourar rate limit do provedor da marca.
+    if (!first) await new Promise((r) => setTimeout(r, 4000));
+    first = false;
     try {
       await generatePostContent(id, { userId: opts.userId ?? null });
     } catch (err) {
