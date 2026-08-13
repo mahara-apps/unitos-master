@@ -68,10 +68,16 @@ export const listProjects = createServerFn({ method: "GET" })
 
     const { data: postRows, error: postErr } = await context.supabase
       .from("posts")
-      .select("id, project_id, stage, published_at, review_status")
+      .select("id, project_id, stage, stage_id, published_at, review_status")
       .eq("brand_id", data.brandId)
       .in("project_id", ids);
     if (postErr) throw postErr;
+
+    // `stage_id` é a fonte operacional; o enum legado é só fallback.
+    const stageMap = await loadStageMap(
+      context.supabase,
+      (postRows ?? []).map((p) => p.stage_id as string | null),
+    );
 
     const stats: Record<string, ProjectStats> = {};
     for (const id of ids) stats[id] = { total: 0, approved: 0, published: 0, pending: 0 };
@@ -79,13 +85,14 @@ export const listProjects = createServerFn({ method: "GET" })
       const s = stats[p.project_id as string];
       if (!s) continue;
       s.total += 1;
-      const stage = String(p.stage ?? "").toLowerCase();
+      const stage = effectiveStage(p.stage_id as string | null, p.stage as string | null, stageMap);
       const review = String(p.review_status ?? "").toLowerCase();
       const published = !!p.published_at || stage === "published";
       if (published) s.published += 1;
       if (review === "approved" || stage === "approved") s.approved += 1;
       if (!published && review !== "approved" && stage !== "approved") s.pending += 1;
     }
+
     return { projects, stats };
   });
 
