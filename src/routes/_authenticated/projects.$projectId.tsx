@@ -283,6 +283,18 @@ function ProjectDetailPage() {
             className="min-h-[32px] resize-none border-0 bg-transparent px-0 text-sm text-muted-foreground shadow-none focus-visible:ring-0"
             rows={1}
           />
+          {project.plan ? (
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <PlanStatusBadge status={project.plan.status} prefix="Pauta:" />
+              <Link
+                to="/monthly-plan/$planId"
+                params={{ planId: project.plan.id }}
+                className="text-[11px] font-medium text-primary underline-offset-2 hover:underline"
+              >
+                Ver pauta{project.plan.title ? ` — ${project.plan.title}` : ""}
+              </Link>
+            </div>
+          ) : null}
         </div>
       </div>
 
