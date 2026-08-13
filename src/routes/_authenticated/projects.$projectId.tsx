@@ -145,6 +145,7 @@ function ProjectDetailPage() {
   const navigate = useNavigate();
   const [openNewTask, setOpenNewTask] = useState(false);
   const [openSettings, setOpenSettings] = useState(false);
+  const [showJobs, setShowJobs] = useState(false);
 
   const qc = useQueryClient();
 

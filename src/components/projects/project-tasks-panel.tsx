@@ -7,7 +7,8 @@ import { ptBR } from "date-fns/locale";
 import { CheckSquare, User2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DashboardPanelSurface, PanelEmptyState } from "@/components/dashboard/panel-card";
+import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
+import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { listTasksFn, type TaskRow } from "@/lib/tasks.functions";
 
 const STATUS_LABEL: Record<string, string> = {
