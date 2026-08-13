@@ -2053,18 +2053,14 @@ function MediaReferenceBlock({
   fileInput,
   onFiles,
   onRemove,
-  onGenerate,
   uploading,
-  generating,
 }: {
   refs: RefEntry[];
   signedUrls: Record<string, string>;
   fileInput: React.RefObject<HTMLInputElement | null>;
   onFiles: (files: File[]) => void;
   onRemove: (path: string) => void;
-  onGenerate: () => void;
   uploading: boolean;
-  generating: boolean;
 }) {
   const [dragActive, setDragActive] = useState(false);
   return (
