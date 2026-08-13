@@ -484,17 +484,21 @@ export const updatePortalTokenFn = createServerFn({ method: "POST" })
         clientId: z.string().uuid(),
         tokenId: z.string().uuid(),
         label: z.string().trim().min(1).max(80),
-        expiresInDays: z.number().int().min(1).max(365).nullable().default(null),
+        // Ausente = manter a validade atual. null = remover expiração.
+        expiresInDays: z.number().int().min(1).max(365).nullable().optional(),
       })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
-    const expires_at = data.expiresInDays
-      ? new Date(Date.now() + data.expiresInDays * 24 * 3600 * 1000).toISOString()
-      : null;
+    const patch: { label: string; expires_at?: string | null } = { label: data.label };
+    if (data.expiresInDays !== undefined) {
+      patch.expires_at = data.expiresInDays
+        ? new Date(Date.now() + data.expiresInDays * 24 * 3600 * 1000).toISOString()
+        : null;
+    }
     const { data: row, error } = await context.supabase
       .from("portal_tokens")
-      .update({ label: data.label, expires_at })
+      .update(patch)
       .eq("id", data.tokenId)
       .eq("client_id", data.clientId)
       .is("revoked_at", null)
