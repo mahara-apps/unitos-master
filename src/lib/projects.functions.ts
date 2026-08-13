@@ -220,13 +220,13 @@ export const getProject = createServerFn({ method: "GET" })
         if (ids.length > 0) {
           const { data: profiles } = await context.supabase
             .from("user_profiles")
-            .select("user_id, full_name")
-            .in("user_id", ids);
+            .select("id, full_name")
+            .in("id", ids);
           for (const pr of (profiles ?? []) as unknown as Array<{
-            user_id: string;
+            id: string;
             full_name: string | null;
           }>) {
-            if (pr.full_name) assigneeNames.set(pr.user_id, pr.full_name);
+            if (pr.full_name) assigneeNames.set(pr.id, pr.full_name);
           }
         }
       }
