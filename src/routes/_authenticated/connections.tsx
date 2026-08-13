@@ -564,9 +564,17 @@ function ConnectionsPage() {
 
         <SectionHeader
           icon={<Radio className="h-3.5 w-3.5" />}
-          title="canais sociais"
+          title="contas conectadas (workspace)"
+          hint="Vínculo com clientes é feito no perfil do cliente > Canais"
+        />
+        <WorkspaceChannelsPanel brandId={brandId} />
+
+        <SectionHeader
+          icon={<Radio className="h-3.5 w-3.5" />}
+          title="conectar novo canal"
           hint="Instagram · TikTok · Facebook · YouTube · LinkedIn · X · Threads"
         />
+
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           {SOCIAL_CHANNELS.map((c) => {
             const accounts = accountsForChannel(c, data?.channels?.[c.id], metaConnections);
