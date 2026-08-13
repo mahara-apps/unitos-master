@@ -1136,15 +1136,32 @@ function TopicCard({
             : "border-border/60 bg-card/40 hover:border-border"
       }`}
     >
-      {!locked ? (
-        <button
-          onClick={onDelete}
-          className="absolute right-2 top-2 rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
-          aria-label="Remover tópico"
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span
+          className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-medium ${
+            topic.status === "approved"
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+              : topic.status === "rejected"
+                ? "border-rose-500/30 bg-rose-500/10 text-rose-400"
+                : "border-amber-500/30 bg-amber-500/10 text-amber-400"
+          }`}
         >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
-      ) : null}
+          {topic.status === "approved"
+            ? "Aprovado"
+            : topic.status === "rejected"
+              ? "Descartado"
+              : "Pendente"}
+        </span>
+        {!locked ? (
+          <button
+            onClick={onDelete}
+            className="rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
+            aria-label="Remover tópico"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        ) : null}
+      </div>
       {topic.client_status && topic.client_status !== "pending" ? (
         <div className="mb-2 space-y-1">
           <span
