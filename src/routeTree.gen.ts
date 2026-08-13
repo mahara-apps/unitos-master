@@ -34,6 +34,7 @@ import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedBrainRouteImport } from './routes/_authenticated/brain'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
+import { Route as PortalTokenIndexRouteImport } from './routes/portal.$token.index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated/projects.index'
 import { Route as AuthenticatedMonthlyPlanIndexRouteImport } from './routes/_authenticated/monthly-plan.index'
@@ -211,6 +212,11 @@ const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
   id: '/agents',
   path: '/agents',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const PortalTokenIndexRoute = PortalTokenIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PortalTokenRoute,
 } as any)
 const AuthenticatedSettingsIndexRoute =
   AuthenticatedSettingsIndexRouteImport.update({
@@ -521,7 +527,7 @@ export interface FileRoutesByFullPath {
   '/invite/$token': typeof InviteTokenRoute
   '/pauta/$planId': typeof PautaPlanIdRoute
   '/plano/$planId': typeof PlanoPlanIdRoute
-  '/portal/$token': typeof PortalTokenRoute
+  '/portal/$token': typeof PortalTokenRouteWithChildren
   '/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
   '/brain/graph': typeof AuthenticatedBrainGraphRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
@@ -552,6 +558,7 @@ export interface FileRoutesByFullPath {
   '/monthly-plan/': typeof AuthenticatedMonthlyPlanIndexRoute
   '/projects/': typeof AuthenticatedProjectsIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/portal/$token/': typeof PortalTokenIndexRoute
   '/customers/$customerId/brain': typeof AuthenticatedCustomersCustomerIdBrainRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
@@ -592,7 +599,6 @@ export interface FileRoutesByTo {
   '/invite/$token': typeof InviteTokenRoute
   '/pauta/$planId': typeof PautaPlanIdRoute
   '/plano/$planId': typeof PlanoPlanIdRoute
-  '/portal/$token': typeof PortalTokenRoute
   '/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
   '/brain/graph': typeof AuthenticatedBrainGraphRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
@@ -623,6 +629,7 @@ export interface FileRoutesByTo {
   '/monthly-plan': typeof AuthenticatedMonthlyPlanIndexRoute
   '/projects': typeof AuthenticatedProjectsIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
+  '/portal/$token': typeof PortalTokenIndexRoute
   '/customers/$customerId/brain': typeof AuthenticatedCustomersCustomerIdBrainRoute
   '/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
@@ -670,7 +677,7 @@ export interface FileRoutesById {
   '/invite/$token': typeof InviteTokenRoute
   '/pauta/$planId': typeof PautaPlanIdRoute
   '/plano/$planId': typeof PlanoPlanIdRoute
-  '/portal/$token': typeof PortalTokenRoute
+  '/portal/$token': typeof PortalTokenRouteWithChildren
   '/_authenticated/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
   '/_authenticated/brain/graph': typeof AuthenticatedBrainGraphRoute
   '/_authenticated/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
@@ -701,6 +708,7 @@ export interface FileRoutesById {
   '/_authenticated/monthly-plan/': typeof AuthenticatedMonthlyPlanIndexRoute
   '/_authenticated/projects/': typeof AuthenticatedProjectsIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
+  '/portal/$token/': typeof PortalTokenIndexRoute
   '/_authenticated/customers/$customerId/brain': typeof AuthenticatedCustomersCustomerIdBrainRoute
   '/_authenticated/customers/$customerId/briefing': typeof AuthenticatedCustomersCustomerIdBriefingRoute
   '/_authenticated/customers/$customerId/media-plan': typeof AuthenticatedCustomersCustomerIdMediaPlanRoute
@@ -779,6 +787,7 @@ export interface FileRouteTypes {
     | '/monthly-plan/'
     | '/projects/'
     | '/settings/'
+    | '/portal/$token/'
     | '/customers/$customerId/brain'
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/media-plan'
@@ -819,7 +828,6 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/pauta/$planId'
     | '/plano/$planId'
-    | '/portal/$token'
     | '/brain/diagnostics'
     | '/brain/graph'
     | '/chat/$conversationId'
@@ -850,6 +858,7 @@ export interface FileRouteTypes {
     | '/monthly-plan'
     | '/projects'
     | '/settings'
+    | '/portal/$token'
     | '/customers/$customerId/brain'
     | '/customers/$customerId/briefing'
     | '/customers/$customerId/media-plan'
@@ -927,6 +936,7 @@ export interface FileRouteTypes {
     | '/_authenticated/monthly-plan/'
     | '/_authenticated/projects/'
     | '/_authenticated/settings/'
+    | '/portal/$token/'
     | '/_authenticated/customers/$customerId/brain'
     | '/_authenticated/customers/$customerId/briefing'
     | '/_authenticated/customers/$customerId/media-plan'
@@ -959,7 +969,7 @@ export interface RootRouteChildren {
   InviteTokenRoute: typeof InviteTokenRoute
   PautaPlanIdRoute: typeof PautaPlanIdRoute
   PlanoPlanIdRoute: typeof PlanoPlanIdRoute
-  PortalTokenRoute: typeof PortalTokenRoute
+  PortalTokenRoute: typeof PortalTokenRouteWithChildren
   ApiChatStreamRoute: typeof ApiChatStreamRoute
   ApiJobsAnalyzeDocumentRoute: typeof ApiJobsAnalyzeDocumentRoute
   ApiJobsCopilotRoute: typeof ApiJobsCopilotRoute
@@ -1163,6 +1173,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/agents'
       preLoaderRoute: typeof AuthenticatedAgentsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/portal/$token/': {
+      id: '/portal/$token/'
+      path: '/'
+      fullPath: '/portal/$token/'
+      preLoaderRoute: typeof PortalTokenIndexRouteImport
+      parentRoute: typeof PortalTokenRoute
     }
     '/_authenticated/settings/': {
       id: '/_authenticated/settings/'
@@ -1688,6 +1705,18 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface PortalTokenRouteChildren {
+  PortalTokenIndexRoute: typeof PortalTokenIndexRoute
+}
+
+const PortalTokenRouteChildren: PortalTokenRouteChildren = {
+  PortalTokenIndexRoute: PortalTokenIndexRoute,
+}
+
+const PortalTokenRouteWithChildren = PortalTokenRoute._addFileChildren(
+  PortalTokenRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
@@ -1698,7 +1727,7 @@ const rootRouteChildren: RootRouteChildren = {
   InviteTokenRoute: InviteTokenRoute,
   PautaPlanIdRoute: PautaPlanIdRoute,
   PlanoPlanIdRoute: PlanoPlanIdRoute,
-  PortalTokenRoute: PortalTokenRoute,
+  PortalTokenRoute: PortalTokenRouteWithChildren,
   ApiChatStreamRoute: ApiChatStreamRoute,
   ApiJobsAnalyzeDocumentRoute: ApiJobsAnalyzeDocumentRoute,
   ApiJobsCopilotRoute: ApiJobsCopilotRoute,
