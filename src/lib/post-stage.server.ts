@@ -72,3 +72,31 @@ export async function resolveLegacyStage(
     .maybeSingle();
   return deriveLegacyStage(data as StageShape | null, current ?? null);
 }
+
+/**
+ * Caminho inverso: dado o pipeline da peça, devolve o `stage_id` da coluna cuja
+ * `key` corresponde (na ordem de preferência informada). Usado pelos fluxos que
+ * antes escreviam somente o campo legado `posts.stage` (wizard de agendamento /
+ * publicação), garantindo que a coluna do Kanban acompanhe o estado real.
+ *
+ * Retorna `null` quando o pipeline não tem coluna equivalente — nesse caso o
+ * chamador não deve incluir `stage_id` no patch.
+ */
+export async function resolveStageIdByKey(
+  supabase: import("@supabase/supabase-js").SupabaseClient,
+  pipelineId: string | null | undefined,
+  keys: string[],
+): Promise<string | null> {
+  if (!pipelineId || !keys.length) return null;
+  const { data } = await supabase
+    .from("content_pipeline_stages")
+    .select("id, key, is_terminal")
+    .eq("pipeline_id", pipelineId);
+  const rows = (data ?? []) as Array<{ id: string; key: string | null; is_terminal: boolean | null }>;
+  for (const key of keys) {
+    const hit = rows.find((r) => (r.key ?? "").toLowerCase() === key.toLowerCase());
+    if (hit) return hit.id;
+  }
+  return null;
+}
+
