@@ -275,6 +275,9 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
         <p className="mt-1 max-w-md text-center text-xs text-muted-foreground">
           Envie brandbooks, manuais de marca, pesquisas ou decks. A IA lê cada documento, interpreta em nível sênior e sugere melhorias para o briefing. Máx. 25 MB por arquivo.
         </p>
+        <p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+          <EyeOff className="h-3 w-3" /> Todo documento novo entra como <span className="underline">não visível</span> ao cliente. Libere manualmente na lista abaixo.
+        </p>
         <Button
           size="sm"
           variant="outline"
