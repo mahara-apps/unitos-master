@@ -12,7 +12,8 @@ import { resolveStageIdByKey } from "@/lib/post-stage.server";
 /**
  * Server functions do wizard de agendamento (/calendar).
  * Reaproveita `posts` + `post_placements` + `social_connections`.
- * Todas as leituras de conexão filtram por (brand_id, client_id).
+ * Leituras de posts filtram por (brand_id, client_id); canais vêm do vínculo
+ * client_social_accounts (o campo legado social_connections.client_id não é usado).
  */
 
 // ============================================================
@@ -267,7 +268,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
     // agendado mesmo com a conexão social quebrada — e o cron nunca publicaria.
     type ValidatedScheduleTarget = {
       destination: (typeof data.destinations)[number];
-      connection: { id: string; provider: string; client_id: string | null };
+      connection: { id: string; provider: string };
     };
     const validatedScheduleTargets: ValidatedScheduleTarget[] = [];
     const scheduleWarnings: Array<{ channel: string; format: string; error: string }> = [];
@@ -275,12 +276,22 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       const connIds = Array.from(new Set(data.destinations.map((d) => d.connectionId)));
       const { data: conns, error: connsErr } = await supabase
         .from("social_connections")
-        .select("id, brand_id, client_id, provider, status, access_token_ciphertext")
+        .select("id, brand_id, provider, status, access_token_ciphertext")
         .eq("brand_id", data.brandId)
         .in("id", connIds);
       if (connsErr) throw new Error(connsErr.message);
       const connMap = new Map(
         (conns ?? []).map((c) => [c.id as string, c]),
+      );
+      // Vínculo canal ↔ cliente: única fonte de verdade.
+      const { data: links, error: linksErr } = await supabase
+        .from("client_social_accounts")
+        .select("connection_id")
+        .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId);
+      if (linksErr) throw new Error(linksErr.message);
+      const linkedIds = new Set(
+        ((links ?? []) as Array<{ connection_id: string }>).map((l) => l.connection_id),
       );
       for (const d of data.destinations) {
         // Suportado hoje: Feed IG/FB e Stories no IG (multi-frame automático).
@@ -305,9 +316,9 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             `Conexão ${d.channel} sem token — reconecte a página antes de agendar.`,
           );
         }
-        if (conn.client_id && conn.client_id !== data.clientId) {
+        if (!linkedIds.has(d.connectionId)) {
           throw new Error(
-            `Conexão ${d.channel} não pertence a este cliente.`,
+            `Canal ${d.channel} não está vinculado a este cliente. Vincule em Perfil do cliente > Canais.`,
           );
         }
         if (conn.status !== "active") {
@@ -320,7 +331,6 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           connection: {
             id: conn.id as string,
             provider: conn.provider as string,
-            client_id: (conn.client_id as string | null) ?? null,
           },
         });
       }
@@ -331,6 +341,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         );
       }
     }
+
 
     // Canais únicos (post.channels usa enum post_channel — filtra os aceitos)
     const channels = deriveChannelsFromDestinations(data.destinations);
@@ -531,6 +542,16 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         "@/lib/meta/publishing.server"
       );
       const svc = new MetaPublishingService();
+      // Vínculo canal ↔ cliente (client_social_accounts) = fonte de verdade.
+      const { data: pubLinks, error: pubLinksErr } = await supabase
+        .from("client_social_accounts")
+        .select("connection_id")
+        .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId);
+      if (pubLinksErr) throw new Error(pubLinksErr.message);
+      const publishLinkedIds = new Set(
+        ((pubLinks ?? []) as Array<{ connection_id: string }>).map((l) => l.connection_id),
+      );
       const results: Array<{ channel: string; format: string; ok: boolean; error?: string; permalink?: string | null }> = [];
       for (const d of data.destinations) {
         // Publicação direta: Feed IG/FB e Stories no IG (multi-frame automático).
@@ -553,11 +574,11 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
               : "facebook_feed";
         const dbPlacement: "feed" | "story" = isStory ? "story" : "feed";
         try {
-          // Carrega conexão (isolada por brand/cliente)
+          // Carrega conexão do workspace (a marca é a dona do canal)
           const { data: conn, error: connErr } = await supabase
             .from("social_connections")
             .select(
-              "id, brand_id, client_id, provider, external_id, account_id, access_token_ciphertext, status",
+              "id, brand_id, provider, external_id, account_id, access_token_ciphertext, status",
             )
             .eq("id", d.connectionId)
             .eq("brand_id", data.brandId)
@@ -565,9 +586,10 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           if (connErr) throw new Error(connErr.message);
           if (!conn) throw new Error("Conexão não encontrada");
           if (!conn.access_token_ciphertext) throw new Error("Conexão sem token — reconecte a página");
-          if (conn.client_id && conn.client_id !== data.clientId) {
-            throw new Error("Conexão não pertence a este cliente");
+          if (!publishLinkedIds.has(d.connectionId)) {
+            throw new Error("Canal não vinculado a este cliente");
           }
+
 
           // Stories multi-frame: publica cada mídia como um Story separado.
           // Feed/Reels: 1 chamada, primeira mídia.

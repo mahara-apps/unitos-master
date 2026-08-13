@@ -80,6 +80,24 @@ export const listBrandChannelsFn = createServerFn({ method: "GET" })
   });
 
 // ---------------------------------------------------------------------------
+// Helper — IDs de conexões vinculadas a um cliente (client_social_accounts).
+// Nunca usa o campo legado `social_connections.client_id`.
+// ---------------------------------------------------------------------------
+async function linkedConnectionIds(
+  supabase: { from: (t: string) => any },
+  brandId: string,
+  clientId: string,
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("client_social_accounts")
+    .select("connection_id")
+    .eq("brand_id", brandId)
+    .eq("client_id", clientId);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as Array<{ connection_id: string }>).map((r) => r.connection_id);
+}
+
+// ---------------------------------------------------------------------------
 // Existência de canal ativo — usado pelo prompt "Substituir conexão"
 // ---------------------------------------------------------------------------
 const ExistsInput = z.object({
@@ -92,16 +110,22 @@ export const checkBrandChannelExistsFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => ExistsInput.parse(i))
   .handler(async ({ data, context }) => {
+    let ids: string[] | null = null;
+    if (data.clientId) {
+      ids = await linkedConnectionIds(context.supabase as any, data.brandId, data.clientId);
+      if (!ids.length) return { exists: false as const };
+    }
     let q = context.supabase
       .from("social_connections")
       .select("id, external_name, account_username, provider")
       .eq("brand_id", data.brandId)
       .eq("channel", data.channel)
       .in("status", ["active", "attention"]);
-    // Isolamento por cliente: se veio clientId, só considera conta desse cliente.
-    // Sem clientId, considera apenas conexões institucionais (client_id IS NULL).
-    q = data.clientId ? q.eq("client_id", data.clientId) : q.is("client_id", null);
-    const { data: row, error } = await q.maybeSingle();
+    if (ids) q = q.in("id", ids);
+    const { data: row, error } = await q
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
     if (error) throw new Error(error.message);
     if (!row) return { exists: false as const };
     return {
@@ -114,8 +138,8 @@ export const checkBrandChannelExistsFn = createServerFn({ method: "GET" })
   });
 
 // ---------------------------------------------------------------------------
-// Resolver conexão pela marca + canal — Brand como fonte da verdade.
-// Nenhuma tela deve pedir ao usuário para escolher connectionId.
+// Resolver conexão pela marca + canal.
+// Com clientId, resolve SOMENTE entre canais vinculados ao cliente.
 // ---------------------------------------------------------------------------
 const ResolveInput = z.object({
   brandId: z.string().uuid(),
@@ -127,15 +151,26 @@ export const resolveBrandChannelFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => ResolveInput.parse(i))
   .handler(async ({ data, context }) => {
+    let ids: string[] | null = null;
+    if (data.clientId) {
+      ids = await linkedConnectionIds(context.supabase as any, data.brandId, data.clientId);
+      if (!ids.length) {
+        throw new Error(
+          `Nenhum canal ${data.channel} vinculado a este cliente. Vincule em Perfil do cliente > Canais.`,
+        );
+      }
+    }
     let q = context.supabase
       .from("social_connections")
       .select("id, provider, channel, external_id, external_name, account_username, status")
       .eq("brand_id", data.brandId)
       .eq("channel", data.channel)
       .in("status", ["active", "attention"]);
-    // Brand-as-source-of-truth + isolamento por cliente. Nunca "primeira da marca".
-    q = data.clientId ? q.eq("client_id", data.clientId) : q.is("client_id", null);
-    const { data: row, error } = await q.maybeSingle();
+    if (ids) q = q.in("id", ids);
+    const { data: row, error } = await q
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
     if (error) throw new Error(error.message);
     if (!row) {
       throw new Error(

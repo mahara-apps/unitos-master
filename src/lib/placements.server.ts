@@ -87,8 +87,11 @@ export async function syncPostPlacements(
     brand_id: brandId,
     client_id: clientId,
     format: d.format,
+    // Coluna canônica (Fase 1): FK real para social_connections.
+    connection_id: d.connectionId,
     scheduled_at: scheduledIso,
     copy_override: {
+      // Espelho legado — leitores antigos continuam funcionando.
       connection_id: d.connectionId,
       channel: d.channel,
       ...(d.copyOverride ? { copy: d.copyOverride } : {}),
@@ -102,6 +105,7 @@ export async function syncPostPlacements(
     status,
     is_primary: i === 0,
   }));
+
 
   if (!rows.length) return;
   const { error: insErr } = await supabase.from("post_placements").insert(rows);

@@ -6,7 +6,11 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
  * Vínculo N:N entre clientes e contas sociais (social_connections) do
  * workspace/marca. As contas são conectadas globalmente em /connections
  * e atribuídas a cada cliente a partir do perfil do cliente.
+ *
+ * FONTE DE VERDADE (Fase 1/2): `client_social_accounts`.
+ * O campo legado `social_connections.client_id` NUNCA é consultado aqui.
  */
+
 
 export type ClientChannelRow = {
   connectionId: string;
@@ -117,4 +121,136 @@ export const toggleClientChannelFn = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
     }
     return { ok: true, assigned: data.assigned };
+  });
+// ---------------------------------------------------------------------------
+// Canais VINCULADOS a um cliente (fonte de verdade: client_social_accounts)
+// Usado pelo editor de peça, calendário e perfil do cliente.
+// ---------------------------------------------------------------------------
+
+export type LinkedChannel = {
+  connectionId: string;
+  channel: string;
+  provider: string;
+  accountLabel: string;
+  handle: string | null;
+  avatarUrl: string | null;
+  status: string;
+  pageId: string | null;
+  instagramBusinessId: string | null;
+};
+
+export const listClientLinkedChannelsFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => ListInput.parse(i))
+  .handler(async ({ data, context }): Promise<LinkedChannel[]> => {
+    const { data: links, error: lErr } = await context.supabase
+      .from("client_social_accounts")
+      .select("connection_id")
+      .eq("client_id", data.clientId)
+      .eq("brand_id", data.brandId);
+    if (lErr) throw new Error(lErr.message);
+    const ids = (links ?? []).map((l) => l.connection_id);
+    if (!ids.length) return [];
+
+    const { data: rows, error } = await context.supabase
+      .from("social_connections")
+      .select(
+        "id, provider, channel, external_name, account_username, status, metadata, page_id, instagram_business_id, channel_name",
+      )
+      .eq("brand_id", data.brandId)
+      .in("id", ids)
+      .in("status", ["active", "attention"])
+      .order("channel", { ascending: true });
+    if (error) throw new Error(error.message);
+
+    return (rows ?? []).map((r) => {
+      const meta = (r.metadata ?? {}) as Record<string, unknown>;
+      const avatar =
+        r.channel === "instagram"
+          ? ((meta.instagram_picture_url ?? meta.page_picture_url ?? null) as string | null)
+          : r.channel === "facebook"
+            ? ((meta.page_picture_url ?? null) as string | null)
+            : null;
+      const handle =
+        r.channel === "instagram"
+          ? (r.account_username ?? r.channel_name ?? null)
+          : (r.external_name ?? r.channel_name ?? null);
+      return {
+        connectionId: r.id,
+        channel: r.channel,
+        provider: r.provider,
+        accountLabel: r.external_name ?? handle ?? r.channel,
+        handle,
+        avatarUrl: avatar,
+        status: r.status,
+        pageId: r.page_id ?? null,
+        instagramBusinessId: r.instagram_business_id ?? null,
+      };
+    });
+  });
+
+// ---------------------------------------------------------------------------
+// Canais do WORKSPACE + clientes vinculados — tela Integrações
+// ---------------------------------------------------------------------------
+
+export type WorkspaceChannel = LinkedChannel & {
+  clients: Array<{ id: string; name: string }>;
+  createdAt: string;
+};
+
+export const listWorkspaceChannelsFn = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }): Promise<WorkspaceChannel[]> => {
+    const { data: rows, error } = await context.supabase
+      .from("social_connections")
+      .select(
+        "id, provider, channel, external_name, account_username, status, metadata, page_id, instagram_business_id, channel_name, created_at",
+      )
+      .eq("brand_id", data.brandId)
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    if (!rows?.length) return [];
+
+    const { data: links, error: lErr } = await context.supabase
+      .from("client_social_accounts")
+      .select("connection_id, client_id, clients:client_id(id, name)")
+      .eq("brand_id", data.brandId);
+    if (lErr) throw new Error(lErr.message);
+
+    const byConn = new Map<string, Array<{ id: string; name: string }>>();
+    for (const l of links ?? []) {
+      const c = (l as { clients?: { id: string; name: string } | null }).clients;
+      if (!c) continue;
+      const arr = byConn.get(l.connection_id) ?? [];
+      arr.push({ id: c.id, name: c.name });
+      byConn.set(l.connection_id, arr);
+    }
+
+    return rows.map((r) => {
+      const meta = (r.metadata ?? {}) as Record<string, unknown>;
+      const avatar =
+        r.channel === "instagram"
+          ? ((meta.instagram_picture_url ?? meta.page_picture_url ?? null) as string | null)
+          : r.channel === "facebook"
+            ? ((meta.page_picture_url ?? null) as string | null)
+            : null;
+      const handle =
+        r.channel === "instagram"
+          ? (r.account_username ?? r.channel_name ?? null)
+          : (r.external_name ?? r.channel_name ?? null);
+      return {
+        connectionId: r.id,
+        channel: r.channel,
+        provider: r.provider,
+        accountLabel: r.external_name ?? handle ?? r.channel,
+        handle,
+        avatarUrl: avatar,
+        status: r.status,
+        pageId: r.page_id ?? null,
+        instagramBusinessId: r.instagram_business_id ?? null,
+        clients: byConn.get(r.id) ?? [],
+        createdAt: r.created_at,
+      };
+    });
   });
