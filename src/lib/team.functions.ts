@@ -334,6 +334,11 @@ export const revokeBrandInvite = createServerFn({ method: "POST" })
   });
 
 const RevokePortalInput = z.object({ brandId: z.string().uuid(), tokenId: z.string().uuid() });
+/**
+ * @deprecated Fase 2 — use `revokePortalTokenFn` (src/lib/customer-dashboard.functions.ts),
+ * que opera por cliente e cobre os modos `revoke` / `revokeAndCreate`.
+ * Mantida apenas por compatibilidade; nenhuma tela do app a utiliza.
+ */
 export const revokePortalTokenFromTeam = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => RevokePortalInput.parse(input))

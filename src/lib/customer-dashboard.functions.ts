@@ -450,3 +450,57 @@ export const revokePortalTokenFn = createServerFn({ method: "POST" })
     if (iErr) throw new Error(iErr.message);
     return { ok: true, revokedCount, token: row };
   });
+
+/**
+ * Fase 2 — leitura enxuta do link do portal para o card no perfil do cliente.
+ * Retorna o link ativo (premissa: no máximo 1 por cliente, garantida por índice
+ * único no banco) e a data da última revogação, para o badge "revogado".
+ */
+export const getPortalLinkFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { data: rows, error } = await context.supabase
+      .from("portal_tokens")
+      .select("id,token,label,expires_at,revoked_at,last_seen_at,created_at")
+      .eq("client_id", data.clientId)
+      .order("created_at", { ascending: false });
+    if (error) throw new Error(error.message);
+    const all = rows ?? [];
+    const active = all.find((t) => !t.revoked_at) ?? null;
+    const lastRevokedAt = all.find((t) => !!t.revoked_at)?.revoked_at ?? null;
+    return { active, lastRevokedAt, total: all.length };
+  });
+
+/**
+ * Fase 2 — personalização do link ativo (rótulo e expiração), sem rotacionar
+ * o token. Escopo garantido por RLS via context.supabase + filtro por cliente.
+ */
+export const updatePortalTokenFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        tokenId: z.string().uuid(),
+        label: z.string().trim().min(1).max(80),
+        expiresInDays: z.number().int().min(1).max(365).nullable().default(null),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const expires_at = data.expiresInDays
+      ? new Date(Date.now() + data.expiresInDays * 24 * 3600 * 1000).toISOString()
+      : null;
+    const { data: row, error } = await context.supabase
+      .from("portal_tokens")
+      .update({ label: data.label, expires_at })
+      .eq("id", data.tokenId)
+      .eq("client_id", data.clientId)
+      .is("revoked_at", null)
+      .select("id,token,label,expires_at,revoked_at,last_seen_at,created_at")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!row) throw new Error("portal_link_not_found");
+    return row;
+  });

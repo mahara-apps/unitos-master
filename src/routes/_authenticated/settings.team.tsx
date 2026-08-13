@@ -8,8 +8,8 @@ import {
   updateBrandMember,
   removeBrandMember,
   revokeBrandInvite,
-  revokePortalTokenFromTeam,
 } from "@/lib/team.functions";
+import { revokePortalTokenFn } from "@/lib/customer-dashboard.functions";
 import { PERMISSION_GROUPS, type PermissionId } from "@/lib/permissions";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { Button } from "@/components/ui/button";
@@ -290,21 +290,27 @@ function InviteRow({ brandId, invite }: {
 function PortalTokenRow({ brandId, token }: {
   brandId: string;
   token: {
-    id: string; token: string; label: string | null; client_name: string;
+    id: string; token: string; label: string | null; client_id: string; client_name: string;
     expires_at: string | null; revoked_at: string | null;
     last_seen_at?: string | null; created_at: string;
   };
 }) {
   const qc = useQueryClient();
-  const revoke = useServerFn(revokePortalTokenFromTeam);
+  // Fase 2: a revogação passa a usar revokePortalTokenFn (por cliente),
+  // função única de gestão do portal. revokePortalTokenFromTeam está deprecada.
+  const revoke = useServerFn(revokePortalTokenFn);
   const link = typeof window !== "undefined" ? `${window.location.origin}/portal/${token.token}` : "";
   const isRevoked = Boolean(token.revoked_at);
   const isExpired = token.expires_at ? new Date(token.expires_at).getTime() < Date.now() : false;
   const daysLeft = token.expires_at ? Math.ceil((new Date(token.expires_at).getTime() - Date.now()) / 86_400_000) : null;
   const soon = !isRevoked && !isExpired && daysLeft !== null && daysLeft <= 3;
   const revokeMut = useMutation({
-    mutationFn: () => revoke({ data: { brandId, tokenId: token.id } }),
-    onSuccess: () => { toast.success("Acesso revogado"); qc.invalidateQueries({ queryKey: ["brand-team", brandId] }); },
+    mutationFn: () => revoke({ data: { clientId: token.client_id, mode: "revoke" } }),
+    onSuccess: () => {
+      toast.success("Portal desligado");
+      qc.invalidateQueries({ queryKey: ["brand-team", brandId] });
+      qc.invalidateQueries({ queryKey: ["portal-link", token.client_id] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
   return (

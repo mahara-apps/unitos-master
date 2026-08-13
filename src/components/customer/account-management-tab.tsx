@@ -47,6 +47,7 @@ import {
 } from "@/lib/client-journey.functions";
 import { listBrandTeam } from "@/lib/team.functions";
 import { listTemplatesFn } from "@/lib/project-templates.functions";
+import { PortalLinkCard } from "@/components/customer/portal-link-card";
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const DATE_FMT = new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" });
@@ -154,6 +155,8 @@ export function AccountManagementTab({
         onSubmit={(patch) => updateMut.mutate({ data: { brandId, clientId, patch } })}
         isSaving={updateMut.isPending}
       />
+
+      <PortalLinkCard clientId={clientId} clientName={account.name ?? null} />
 
       <JourneyPipeline
         currentIdx={currentIdx}

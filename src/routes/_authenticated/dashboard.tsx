@@ -52,7 +52,6 @@ import {
   type DashboardStats,
 } from "@/lib/dashboard.functions";
 import {
-  createPortalTokenFn,
   loadCustomerDashboardFn,
 } from "@/lib/customer-dashboard.functions";
 import { Sparkline } from "@/components/dashboard/sparkline";
@@ -1075,115 +1074,13 @@ function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <ClientPortalCard
-          clientId={clientId}
-          portalTokens={(customer.data?.portalTokens ?? []) as PortalToken[]}
-        />
-        <UpcomingClientCard posts={stats.data?.upcomingPosts ?? []} loading={stats.isLoading} />
-      </div>
+      <UpcomingClientCard posts={stats.data?.upcomingPosts ?? []} loading={stats.isLoading} />
 
       <RecentActivityCard activity={stats.data?.recentActivity ?? []} loading={stats.isLoading} />
     </div>
   );
 }
 
-
-type PortalToken = {
-  id: string;
-  token: string;
-  label: string | null;
-  expires_at: string | null;
-  revoked_at: string | null;
-  last_seen_at?: string | null;
-  created_at: string;
-};
-
-function ClientPortalCard({
-  clientId,
-  portalTokens,
-}: {
-  clientId: string;
-  portalTokens: PortalToken[];
-}) {
-  const qc = useQueryClient();
-  const createToken = useServerFn(createPortalTokenFn);
-  const [label, setLabel] = React.useState("");
-  const [expires, setExpires] = React.useState<Date | undefined>(undefined);
-  const mut = useMutation({
-    mutationFn: async () => {
-      const expiresInDays = expires
-        ? Math.max(1, Math.ceil((expires.getTime() - Date.now()) / 86_400_000))
-        : null;
-      return createToken({
-        data: { clientId, label: label.trim() || "Link público", expiresInDays },
-      });
-    },
-    onSuccess: () => {
-      toast.success("Link do portal gerado.");
-      setLabel("");
-      setExpires(undefined);
-      qc.invalidateQueries({ queryKey: ["customer-dashboard"] });
-    },
-    onError: (e) => toast.error((e as Error).message ?? "Falha ao gerar link"),
-  });
-  const active = portalTokens.filter((t) => !t.revoked_at);
-  return (
-    <Card
-      title="Portal público"
-      subtitle="Compartilhe uma URL somente-leitura com o cliente"
-      icon={<ExternalLink className="h-4 w-4" />}
-    >
-      <div className="px-4 py-3">
-        <div className="grid gap-2 sm:grid-cols-[1fr_180px_auto]">
-          <Input placeholder="Identificação (ex: Cliente ACME)" value={label} onChange={(e) => setLabel(e.target.value)} />
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className={cn("justify-start font-normal", !expires && "text-muted-foreground")}>
-                <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                {expires ? format(expires, "PPP", { locale: ptBR }) : "Expiração"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-auto p-0">
-              <Calendar mode="single" selected={expires} onSelect={setExpires} initialFocus className="pointer-events-auto p-3" disabled={(d) => d < new Date()} />
-            </PopoverContent>
-          </Popover>
-          <Button onClick={() => mut.mutate()} disabled={mut.isPending}>
-            <Plus className="mr-1 h-3.5 w-3.5" /> Gerar
-          </Button>
-        </div>
-        {active.length > 0 && (
-          <ul className="mt-3 space-y-1.5">
-            {active.slice(0, 4).map((t) => {
-              const url = `${typeof window !== "undefined" ? window.location.origin : ""}/portal/${t.token}`;
-              return (
-                <li key={t.id} className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background/40 px-2 py-1.5 text-xs">
-                  <div className="min-w-0">
-                    <div className="truncate font-medium">{t.label ?? "Link público"}</div>
-                    <div className="truncate font-mono text-[10px] text-muted-foreground">
-                      {url}
-                      {t.last_seen_at && ` · último acesso ${new Date(t.last_seen_at).toLocaleDateString()}`}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <a href={url} target="_blank" rel="noreferrer">
-                      <Button size="sm" variant="ghost" title="Abrir portal">
-                        <ExternalLink className="h-3 w-3" />
-                      </Button>
-                    </a>
-                    <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(url); toast.success("Link copiado."); }}>
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-    </Card>
-  );
-}
 
 function UpcomingClientCard({
   posts,
