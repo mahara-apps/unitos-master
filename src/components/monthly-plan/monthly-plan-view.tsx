@@ -724,6 +724,18 @@ function ApprovalView({
     onError: (e) => toast.error(`Falha ao criar projeto: ${describeError(e)}`),
   });
 
+  // Auto-cura: pauta aprovada internamente sem projeto vinculado.
+  const healedRef = useRef(false);
+  const planForHeal = q.data?.plan;
+  useEffect(() => {
+    if (!planForHeal?.internal_approved_at) return;
+    if (planForHeal.project_id) return;
+    if (healedRef.current) return;
+    healedRef.current = true;
+    ensureProjectM.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planForHeal?.id, planForHeal?.internal_approved_at, planForHeal?.project_id]);
+
   const approve = useMutation({
     mutationFn: () => approvePlan({ data: { planId, brandId, clientId } }),
     onSuccess: (res) => {
