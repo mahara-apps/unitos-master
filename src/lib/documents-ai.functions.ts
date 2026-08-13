@@ -77,6 +77,28 @@ export const listClientDocumentsAi = createServerFn({ method: "GET" })
     return rows ?? [];
   });
 
+const VisibilityInput = Scope.extend({
+  documentId: z.string().uuid(),
+  visible: z.boolean(),
+});
+
+/** Fase 0a: controle explícito de exposição de documentos no portal do cliente (padrão: não visível). */
+export const setClientDocumentVisibility = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => VisibilityInput.parse(i))
+  .handler(async ({ data, context }): Promise<{ ok: true; visible: boolean }> => {
+    const { error } = await context.supabase
+      .from("client_documents")
+      .update({ visible_to_client: data.visible })
+      .eq("id", data.documentId)
+      .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId);
+    if (error) throw error as Error;
+    return { ok: true, visible: data.visible };
+  });
+
+
+
 const ApplyInput = Scope.extend({
   documentId: z.string().uuid(),
   fields: z.array(z.string().min(1).max(60)).min(1),
