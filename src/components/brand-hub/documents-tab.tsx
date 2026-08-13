@@ -45,6 +45,7 @@ import {
   applyDocumentToBriefing,
   getBriefingSnapshot,
   listClientDocumentsAi,
+  setClientDocumentVisibility,
   type ClientDocumentAi,
   type DocumentBriefingSummary,
 } from "@/lib/documents-ai.functions";
