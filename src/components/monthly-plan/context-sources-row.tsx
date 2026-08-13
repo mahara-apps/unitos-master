@@ -82,7 +82,7 @@ export function ContextSourcesRow({
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {chips.map((c, i) => {
-        const tone = (c.tone === "warn" ? "warn" : (c.toneMap ?? "strategy")) as keyof typeof toneCls;
+        const tone = (c.tone === "warn" ? "warn" : c.kind) as keyof typeof toneCls;
         return (
           <span
             key={i}
