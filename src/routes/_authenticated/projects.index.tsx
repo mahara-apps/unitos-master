@@ -1,13 +1,17 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import {
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
   Calendar as CalendarIcon,
+  Check,
   CheckCircle2,
+  ChevronsUpDown,
   FileBarChart2,
   Filter,
   Layers,
@@ -16,6 +20,7 @@ import {
   Send,
   TrendingUp,
   User as UserIcon,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,8 +28,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { BrainWidget } from "@/components/brain/brain-widget";
-import { useFeatureAccess } from "@/hooks/use-feature-access";
 import {
   Select,
   SelectContent,
@@ -32,6 +35,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -66,6 +85,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/projects/")({
   component: ProjectsIndexPage,
@@ -111,10 +131,149 @@ function fmtDate(iso?: string | null) {
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+type SortKey = "name" | "client" | "status" | "due" | "progress";
+type SortDir = "asc" | "desc";
+
+function ClientFilterCombobox(props: {
+  value: string;
+  onChange: (v: string) => void;
+  clients: Array<{ id: string; name: string; color: string | null }>;
+  sidebarClientId: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = props.clients.find((c) => c.id === props.value);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="h-9 w-[220px] justify-between px-3 text-xs font-normal"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            {selected ? (
+              <span
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{ background: selected.color ?? "#8b5cf6" }}
+              />
+            ) : (
+              <UserIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            )}
+            <span className="truncate">{selected ? selected.name : "Todos os clientes"}</span>
+          </span>
+          <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[260px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Buscar cliente..." className="h-9 text-xs" />
+          <CommandList>
+            <CommandEmpty className="py-4 text-center text-xs text-muted-foreground">
+              Nenhum cliente encontrado.
+            </CommandEmpty>
+            <CommandGroup>
+              <CommandItem
+                value="Todos os clientes"
+                onSelect={() => {
+                  props.onChange("all");
+                  setOpen(false);
+                }}
+                className="text-xs"
+              >
+                <Check
+                  className={cn(
+                    "mr-2 h-3.5 w-3.5",
+                    props.value === "all" ? "opacity-100" : "opacity-0",
+                  )}
+                />
+                Todos os clientes
+              </CommandItem>
+              {props.clients.map((c) => (
+                <CommandItem
+                  key={c.id}
+                  value={c.name}
+                  onSelect={() => {
+                    props.onChange(c.id);
+                    setOpen(false);
+                  }}
+                  className="text-xs"
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-3.5 w-3.5",
+                      props.value === c.id ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  <span
+                    className="mr-2 h-2 w-2 shrink-0 rounded-full"
+                    style={{ background: c.color ?? "#8b5cf6" }}
+                  />
+                  <span className="truncate">{c.name}</span>
+                  {props.sidebarClientId === c.id ? (
+                    <span className="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">
+                      sidebar
+                    </span>
+                  ) : null}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function SortHeader(props: {
+  label: string;
+  sortKey: SortKey;
+  active: SortKey;
+  dir: SortDir;
+  onSort: (k: SortKey) => void;
+  className?: string;
+}) {
+  const isActive = props.active === props.sortKey;
+  return (
+    <TableHead className={props.className}>
+      <button
+        type="button"
+        onClick={() => props.onSort(props.sortKey)}
+        className={cn(
+          "flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide transition-colors hover:text-foreground",
+          isActive ? "text-foreground" : "text-muted-foreground",
+        )}
+      >
+        {props.label}
+        {isActive ? (
+          props.dir === "asc" ? (
+            <ArrowUp className="h-3 w-3" />
+          ) : (
+            <ArrowDown className="h-3 w-3" />
+          )
+        ) : null}
+      </button>
+    </TableHead>
+  );
+}
+
+function FilterChip(props: { label: string; onClear: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={props.onClear}
+      className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+    >
+      {props.label}
+      <X className="h-3 w-3" />
+    </button>
+  );
+}
+
 function ProjectsIndexPage() {
   const { brandId, clientId: activeClientId } = useActiveContext();
   const qc = useQueryClient();
-  const brainEnabled = useFeatureAccess("brain").enabled;
+  const navigate = useNavigate();
   const list = useServerFn(listProjects);
   const create = useServerFn(createProject);
   const clientsFn = useServerFn(listClients);
@@ -123,11 +282,10 @@ function ProjectsIndexPage() {
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [ownerFilter, setOwnerFilter] = useState<string>("all");
+  // O cliente ativo da sidebar apenas inicializa o filtro; o usuário pode trocar aqui.
   const [clientFilter, setClientFilter] = useState<string>(activeClientId ?? "all");
-  // Trava o filtro no cliente ativo da sidebar (modo agência = "all").
-  useEffect(() => {
-    setClientFilter(activeClientId ?? "all");
-  }, [activeClientId]);
+  const [sortKey, setSortKey] = useState<SortKey>("due");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [formOpen, setFormOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
 
@@ -158,28 +316,69 @@ function ProjectsIndexPage() {
   const team = (teamQ.data?.members ?? []) as Array<{ user_id: string; full_name: string | null }>;
   const clients = (clientsQ.data ?? []) as Array<{ id: string; name: string; color: string | null }>;
 
-  const filtered = useMemo(() => {
-    const rows = projectsQ.data?.projects ?? [];
+  const clientName = (id: string | null) =>
+    clients.find((c) => c.id === id)?.name ?? "";
+
+  const rows = useMemo(() => {
+    const all = projectsQ.data?.projects ?? [];
+    const stats = projectsQ.data?.stats ?? {};
     const query = q.trim().toLowerCase();
-    if (!query) return rows;
-    return rows.filter((r) => r.name.toLowerCase().includes(query));
-  }, [projectsQ.data, q]);
+    const filtered = !query
+      ? all
+      : all.filter(
+          (r) =>
+            r.name.toLowerCase().includes(query) ||
+            clientName(r.client_id).toLowerCase().includes(query),
+        );
+
+    const dir = sortDir === "asc" ? 1 : -1;
+    const value = (p: (typeof all)[number]) => {
+      const s: ProjectStats = stats[p.id] ?? { total: 0, approved: 0, published: 0, pending: 0 };
+      switch (sortKey) {
+        case "name":
+          return p.name.toLowerCase();
+        case "client":
+          return clientName(p.client_id).toLowerCase();
+        case "status":
+          return STATUS_META[p.status]?.label?.toLowerCase() ?? p.status;
+        case "due":
+          return p.due_at ? new Date(p.due_at).getTime() : Number.MAX_SAFE_INTEGER;
+        case "progress":
+          return s.total > 0 ? s.published / s.total : -1;
+      }
+    };
+    return [...filtered].sort((a, b) => {
+      const va = value(a);
+      const vb = value(b);
+      if (va === vb) return a.name.localeCompare(b.name);
+      return va > vb ? dir : -dir;
+    });
+  }, [projectsQ.data, q, sortKey, sortDir, clients]);
+
+  function onSort(k: SortKey) {
+    if (k === sortKey) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(k);
+      setSortDir(k === "name" || k === "client" || k === "status" ? "asc" : "asc");
+    }
+  }
 
   const kpis = useMemo(() => {
-    const rows = projectsQ.data?.projects ?? [];
+    const all = projectsQ.data?.projects ?? [];
     const stats = projectsQ.data?.stats ?? {};
     let total = 0;
     let published = 0;
     let approved = 0;
-    for (const p of rows) {
+    for (const p of all) {
       const s = stats[p.id];
       if (!s) continue;
       total += s.total || 0;
       published += s.published || 0;
       approved += s.approved || 0;
     }
-    const active = rows.filter((r) => r.status === "active" || r.status === "in_progress").length;
-    return { count: rows.length, active, total, published, approved };
+    const active = all.filter((r) => r.status === "active" || r.status === "in_progress").length;
+    return { count: all.length, active, total, published, approved };
   }, [projectsQ.data]);
 
   const createMut = useMutation({
@@ -199,10 +398,6 @@ function ProjectsIndexPage() {
       subtitle: "Gerencie seus projetos e acompanhe o progresso das publicações.",
       actions: (
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-9">
-            <FileBarChart2 className="mr-2 h-4 w-4" />
-            Relatório
-          </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="sm" className="h-9">
@@ -235,6 +430,12 @@ function ProjectsIndexPage() {
       </DashboardPageShell>
     );
   }
+
+  const hasFilters =
+    q.trim().length > 0 ||
+    statusFilter !== "all" ||
+    ownerFilter !== "all" ||
+    clientFilter !== "all";
 
   return (
     <DashboardPageShell>
@@ -271,151 +472,202 @@ function ProjectsIndexPage() {
       </div>
 
       {/* Filtros */}
-      <DashboardPanelSurface className="flex flex-wrap items-center gap-3 px-4 py-3">
-        <div className="relative w-full max-w-xs">
-          <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar..."
-            className="h-9 pl-8 text-xs"
+      <DashboardPanelSurface className="space-y-3 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[200px] flex-1">
+            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar por projeto ou cliente..."
+              className="h-9 pl-8 text-xs"
+            />
+          </div>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-9 w-[160px] text-xs">
+              <Filter className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+              <SelectValue placeholder="Todos" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os status</SelectItem>
+              {Object.entries(STATUS_META).map(([k, v]) => (
+                <SelectItem key={k} value={k}>
+                  {v.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={ownerFilter} onValueChange={setOwnerFilter}>
+            <SelectTrigger className="h-9 w-[180px] text-xs">
+              <UserIcon className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+              <SelectValue placeholder="Todos..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os responsáveis</SelectItem>
+              {team.map((m) => (
+                <SelectItem key={m.user_id} value={m.user_id}>
+                  {m.full_name ?? "Sem nome"}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <ClientFilterCombobox
+            value={clientFilter}
+            onChange={setClientFilter}
+            clients={clients}
+            sidebarClientId={activeClientId ?? null}
           />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="h-9 w-[160px] text-xs">
-            <Filter className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-            <SelectValue placeholder="Todos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os status</SelectItem>
-            {Object.entries(STATUS_META).map(([k, v]) => (
-              <SelectItem key={k} value={k}>
-                {v.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={ownerFilter} onValueChange={setOwnerFilter}>
-          <SelectTrigger className="h-9 w-[180px] text-xs">
-            <UserIcon className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-            <SelectValue placeholder="Todos..." />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os responsáveis</SelectItem>
-            {team.map((m) => (
-              <SelectItem key={m.user_id} value={m.user_id}>
-                {m.full_name ?? "Sem nome"}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={clientFilter}
-          onValueChange={setClientFilter}
-          disabled={!!activeClientId}
-        >
-          <SelectTrigger className="h-9 w-[180px] text-xs">
-            <CalendarIcon className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
-            <SelectValue placeholder="Cliente" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os clientes</SelectItem>
-            {clients.map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] text-muted-foreground">
+            {rows.length} {rows.length === 1 ? "projeto" : "projetos"}
+          </span>
+          {q.trim() ? <FilterChip label={`Busca: ${q.trim()}`} onClear={() => setQ("")} /> : null}
+          {statusFilter !== "all" ? (
+            <FilterChip
+              label={`Status: ${STATUS_META[statusFilter]?.label ?? statusFilter}`}
+              onClear={() => setStatusFilter("all")}
+            />
+          ) : null}
+          {ownerFilter !== "all" ? (
+            <FilterChip
+              label={`Responsável: ${team.find((m) => m.user_id === ownerFilter)?.full_name ?? "—"}`}
+              onClear={() => setOwnerFilter("all")}
+            />
+          ) : null}
+          {clientFilter !== "all" ? (
+            <FilterChip
+              label={`Cliente: ${clientName(clientFilter) || "—"}`}
+              onClear={() => setClientFilter("all")}
+            />
+          ) : null}
+          {hasFilters ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-[11px]"
+              onClick={() => {
+                setQ("");
+                setStatusFilter("all");
+                setOwnerFilter("all");
+                setClientFilter("all");
+              }}
+            >
+              Limpar filtros
+            </Button>
+          ) : null}
+        </div>
       </DashboardPanelSurface>
 
-      {brainEnabled && <BrainWidget preset="projects" />}
-
-      {/* Grid de projetos */}
+      {/* Lista de projetos */}
       {projectsQ.isLoading ? (
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+        <DashboardPanelSurface className="space-y-2 p-4">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-40 animate-pulse rounded-xl border border-border/60 bg-card" />
+            <div key={i} className="h-10 animate-pulse rounded-md bg-muted/60" />
           ))}
-        </div>
-      ) : filtered.length === 0 ? (
+        </DashboardPanelSurface>
+      ) : rows.length === 0 ? (
         <DashboardPanelSurface>
           <PanelEmptyState
             icon={<FileBarChart2 className="h-4 w-4" />}
-            text="Nenhum projeto encontrado. Crie o primeiro clicando em Novo Projeto."
+            text="Nenhum projeto encontrado. Crie o primeiro clicando em Novo projeto."
           />
         </DashboardPanelSurface>
       ) : (
-        <div className="grid w-full grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((p) => {
-            const stats: ProjectStats =
-              projectsQ.data?.stats?.[p.id] ?? { total: 0, approved: 0, published: 0, pending: 0 };
-            const client = clients.find((c) => c.id === p.client_id);
-            const meta = STATUS_META[p.status] ?? STATUS_META.active;
-            const total = stats.total || 0;
-            const pct = total > 0 ? Math.round((stats.published / total) * 100) : 0;
-            return (
-              <Link
-                key={p.id}
-                to="/projects/$projectId"
-                params={{ projectId: p.id }}
-                className="group relative flex flex-col overflow-hidden rounded-xl border border-border/60 bg-card p-5 transition-all hover:border-border hover:shadow-sm"
-              >
-                <span
-                  aria-hidden
-                  className="absolute inset-y-0 left-0 w-1"
-                  style={{ background: p.color ?? "#8b5cf6" }}
-                />
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ background: p.color ?? "#8b5cf6" }}
-                    />
-                    <div className="truncate text-sm font-semibold text-foreground">{p.name}</div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    {p.plan ? <PlanStatusBadge status={p.plan.status} prefix="Pauta:" /> : null}
-                    <Badge variant="outline" className={`h-5 shrink-0 rounded-full px-2 text-[10px] ${meta.className}`}>
-                      {meta.label}
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                  <CalendarIcon className="h-3 w-3" />
-                  <span>
-                    {fmtDate(p.start_date)} — {fmtDate(p.due_at)}
-                  </span>
-                </div>
-
-                <div className="mt-4 space-y-1.5">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="font-mono uppercase tracking-widest text-muted-foreground">
-                      Progresso
-                    </span>
-                    <span className="font-medium text-foreground">
-                      {stats.published}/{total} publicadas
-                    </span>
-                  </div>
-                  <Progress value={pct} className="h-1.5" />
-                </div>
-
-                {client ? (
-                  <div className="mt-4 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                    <span
-                      className="h-2 w-2 rounded-full"
-                      style={{ background: client.color ?? "#8b5cf6" }}
-                    />
-                    <span className="truncate">{client.name}</span>
-                  </div>
-                ) : (
-                  <div className="mt-4 text-[11px] text-muted-foreground">Sem cliente vinculado</div>
-                )}
-              </Link>
-            );
-          })}
-        </div>
+        <DashboardPanelSurface className="overflow-hidden p-0">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <SortHeader label="Projeto" sortKey="name" active={sortKey} dir={sortDir} onSort={onSort} />
+                <SortHeader label="Cliente" sortKey="client" active={sortKey} dir={sortDir} onSort={onSort} className="hidden md:table-cell" />
+                <SortHeader label="Status" sortKey="status" active={sortKey} dir={sortDir} onSort={onSort} />
+                <TableHead className="hidden text-[11px] font-medium uppercase tracking-wide text-muted-foreground lg:table-cell">
+                  Pauta
+                </TableHead>
+                <SortHeader label="Período" sortKey="due" active={sortKey} dir={sortDir} onSort={onSort} className="hidden lg:table-cell" />
+                <SortHeader label="Progresso" sortKey="progress" active={sortKey} dir={sortDir} onSort={onSort} className="w-[200px]" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((p) => {
+                const stats: ProjectStats =
+                  projectsQ.data?.stats?.[p.id] ?? { total: 0, approved: 0, published: 0, pending: 0 };
+                const client = clients.find((c) => c.id === p.client_id);
+                const meta = STATUS_META[p.status] ?? STATUS_META.active;
+                const total = stats.total || 0;
+                const pct = total > 0 ? Math.round((stats.published / total) * 100) : 0;
+                return (
+                  <TableRow
+                    key={p.id}
+                    tabIndex={0}
+                    onClick={() =>
+                      navigate({ to: "/projects/$projectId", params: { projectId: p.id } })
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        navigate({ to: "/projects/$projectId", params: { projectId: p.id } });
+                      }
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <TableCell className="max-w-[280px]">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ background: p.color ?? "#8b5cf6" }}
+                        />
+                        <span className="truncate text-sm font-medium text-foreground">{p.name}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      {client ? (
+                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span
+                            className="h-2 w-2 rounded-full"
+                            style={{ background: client.color ?? "#8b5cf6" }}
+                          />
+                          <span className="truncate">{client.name}</span>
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={`h-5 shrink-0 rounded-full px-2 text-[10px] ${meta.className}`}
+                      >
+                        {meta.label}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      {p.plan ? (
+                        <PlanStatusBadge status={p.plan.status} prefix="Pauta:" />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="hidden whitespace-nowrap text-[11px] text-muted-foreground lg:table-cell">
+                      {fmtDate(p.start_date)} — {fmtDate(p.due_at)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                          <span>
+                            {stats.published}/{total} publicadas
+                          </span>
+                          <span className="font-medium text-foreground">{pct}%</span>
+                        </div>
+                        <Progress value={pct} className="h-1.5" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </DashboardPanelSurface>
       )}
 
       <ProjectFormDialog
