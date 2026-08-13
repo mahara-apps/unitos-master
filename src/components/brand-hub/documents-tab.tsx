@@ -120,6 +120,7 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
   const sign = useServerFn(signClientDocument);
   const apply = useServerFn(applyDocumentToBriefing);
   const snapshot = useServerFn(getBriefingSnapshot);
+  const setVisibility = useServerFn(setClientDocumentVisibility);
   const qc = useQueryClient();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [dragging, setDragging] = useState(false);
