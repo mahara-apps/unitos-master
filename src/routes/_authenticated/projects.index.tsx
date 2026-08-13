@@ -605,7 +605,9 @@ function ProjectsIndexPage() {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <SortHeader label="Projeto" sortKey="name" active={sortKey} dir={sortDir} onSort={onSort} />
-                <SortHeader label="Cliente" sortKey="client" active={sortKey} dir={sortDir} onSort={onSort} className="hidden md:table-cell" />
+                {activeClientId ? null : (
+                  <SortHeader label="Cliente" sortKey="client" active={sortKey} dir={sortDir} onSort={onSort} className="hidden md:table-cell" />
+                )}
                 <SortHeader label="Status" sortKey="status" active={sortKey} dir={sortDir} onSort={onSort} />
                 <TableHead className="hidden text-[11px] font-medium uppercase tracking-wide text-muted-foreground lg:table-cell">
                   Pauta
