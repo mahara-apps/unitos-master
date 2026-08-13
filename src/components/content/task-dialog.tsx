@@ -10,7 +10,6 @@ import { toast } from "sonner";
 import {
   Loader2,
   Trash2,
-  Sparkles,
   Upload,
   X,
   ImageIcon,
@@ -49,7 +48,6 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@/components/ui/tabs";
-import { Wand2 } from "lucide-react";
 import {
   createPostFn,
   updatePostFn,
@@ -59,14 +57,12 @@ import {
   uploadPostReferenceMediaFn,
   removePostReferenceMediaFn,
   signPostReferenceMediaFn,
-  generatePostReferenceImageFn,
   listBrandAssigneesFn,
   type PipelineStage,
   type BoardPost,
   type PostTimelineEvent,
   type ScriptScene,
 } from "@/lib/content.functions";
-import { aiInlineGenerateFn } from "@/lib/copilot-inline.functions";
 import {
   listApprovalTokensFn,
   createApprovalTokenFn,
@@ -482,7 +478,6 @@ function EditBody({
   const uploadRef = useServerFn(uploadPostReferenceMediaFn);
   const removeRef = useServerFn(removePostReferenceMediaFn);
   const signRefs = useServerFn(signPostReferenceMediaFn);
-  const generateRefImage = useServerFn(generatePostReferenceImageFn);
 
   const { data } = useSuspenseQuery({
     queryKey: ["post-detail", postId],
@@ -499,7 +494,6 @@ function EditBody({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
-  const [approving, setApproving] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -644,7 +638,7 @@ function EditBody({
   const [copyAutosaveStatus, setCopyAutosaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const initialCopyRef = useRef(state.copy);
   useEffect(() => {
-    initialCopyRef.current = post.copy ?? "";
+    initialCopyRef.current = flattenCopy(post.copy);
   }, [post.id, post.copy]);
   useEffect(() => {
     if (state.copy === initialCopyRef.current) return;
@@ -989,7 +983,7 @@ function stateFromPost(
     targetConnectionIds: (post.target_connection_ids ?? []) as string[],
     format: post.format ?? "",
     destinations,
-    copy: post.copy ?? "",
+    copy: flattenCopy(post.copy),
     internalBriefing: post.internal_briefing ?? "",
     clientBriefing: post.client_briefing ?? "",
     script: scriptText,
