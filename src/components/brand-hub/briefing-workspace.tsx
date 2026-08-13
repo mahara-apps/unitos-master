@@ -106,13 +106,10 @@ type FormState = {
   goals: string;
 };
 
-const SOCIALS: Array<{ key: SocialKey; label: string }> = [
-  { key: "instagram", label: "Instagram" },
-  { key: "tiktok", label: "TikTok" },
-  { key: "linkedin", label: "LinkedIn" },
-  { key: "youtube", label: "YouTube" },
-  { key: "facebook", label: "Facebook" },
-];
+const SOCIALS: Array<{ key: SocialKey; label: string }> = PLAN_CHANNELS.map((key) => ({
+  key,
+  label: PLAN_CHANNEL_LABEL[key],
+}));
 
 function toForm(client: BrandHubClient): FormState {
   const hub = client.brand_hub ?? {};
