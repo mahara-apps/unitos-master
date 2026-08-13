@@ -68,10 +68,60 @@ function getPublic(): SupabaseClient {
   });
 }
 
+/**
+ * Rate limiting do portal público (0b).
+ * - IP real vem dos headers de borda (cf-connecting-ip / x-forwarded-for).
+ * - Nunca guardamos o IP: só um hash SHA-256 com salt fixo do projeto.
+ * - Só gravamos em caso de token inválido (upsert em falha); acesso válido
+ *   não escreve nada na tabela portal_rate_limit.
+ */
+function getClientIp(): string | null {
+  const candidates = [
+    getRequestHeader("cf-connecting-ip"),
+    getRequestHeader("x-real-ip"),
+    (getRequestHeader("x-forwarded-for") ?? "").split(",")[0],
+  ];
+  for (const c of candidates) {
+    const v = (c ?? "").trim();
+    if (v) return v;
+  }
+  return null;
+}
+
+function hashIp(): string | null {
+  const ip = getClientIp();
+  if (!ip) return null;
+  const salt = process.env.SUPABASE_PROJECT_ID ?? process.env.SUPABASE_URL ?? "portal";
+  return createHash("sha256").update(`${salt}:${ip}`).digest("hex");
+}
+
+const TOKEN_ERRORS = ["invalid_token", "token_revoked", "token_expired"];
+
+function isTokenError(message: string): boolean {
+  return TOKEN_ERRORS.some((e) => message.includes(e));
+}
+
 async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
   const c = getPublic();
+  const ipHash = args["_token"] ? hashIp() : null;
+
+  if (ipHash) {
+    const { data: status } = await c.rpc("portal_rate_status", { _ip_hash: ipHash });
+    const s = status as { blocked?: boolean; retry_after?: number } | null;
+    if (s?.blocked) {
+      throw new Error(
+        `portal_rate_limited: muitas tentativas inválidas. Tente novamente em ${Math.ceil((s.retry_after ?? 60) / 60)} min.`,
+      );
+    }
+  }
+
   const { data, error } = await c.rpc(fn, args);
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (ipHash && isTokenError(error.message)) {
+      await c.rpc("portal_rate_register_failure", { _ip_hash: ipHash });
+    }
+    throw new Error(error.message);
+  }
   return data as T;
 }
 
