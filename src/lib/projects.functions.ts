@@ -95,16 +95,28 @@ export const getProject = createServerFn({ method: "GET" })
     z.object({ brandId: z.string().uuid(), projectId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { data: project, error } = await context.supabase
+    const { data: projectRaw, error } = await context.supabase
       .from("projects")
       .select(
-        "id, brand_id, client_id, name, description, status, color, progress, start_date, due_at, goals, owner_id, created_at, updated_at",
+        "id, brand_id, client_id, name, description, status, color, progress, start_date, due_at, goals, owner_id, created_at, updated_at, monthly_plan_id, monthly_plans(id, title, status)",
       )
       .eq("brand_id", data.brandId)
       .eq("id", data.projectId)
       .maybeSingle();
     if (error) throw error;
-    if (!project) throw new Error("Projeto não encontrado");
+    if (!projectRaw) throw new Error("Projeto não encontrado");
+    const projectRow = projectRaw as unknown as ProjectListRow;
+    const project = {
+      ...projectRow,
+      plan: projectRow.monthly_plans
+        ? {
+            id: projectRow.monthly_plans.id,
+            title: projectRow.monthly_plans.title,
+            status: projectRow.monthly_plans.status,
+          }
+        : null,
+    };
+
 
     const { data: postRows } = await context.supabase
       .from("posts")
