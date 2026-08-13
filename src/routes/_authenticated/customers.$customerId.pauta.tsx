@@ -1280,8 +1280,12 @@ function TopicCard({
           <div className="mt-4 flex flex-wrap items-center gap-1.5 border-t border-border/50 pt-3">
             <Button
               size="sm"
-              variant={topic.status === "approved" ? "default" : "outline"}
-              className="h-7 gap-1 px-2 text-xs"
+              variant="outline"
+              className={`h-7 gap-1 px-2 text-xs ${
+                topic.status === "approved"
+                  ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25"
+                  : ""
+              }`}
               disabled={missing}
               title={missing ? "Defina plataforma e formato" : undefined}
               onClick={() => onStatus(topic.status === "approved" ? "pending" : "approved")}
@@ -1290,8 +1294,12 @@ function TopicCard({
             </Button>
             <Button
               size="sm"
-              variant={topic.status === "rejected" ? "secondary" : "ghost"}
-              className="h-7 gap-1 px-2 text-xs"
+              variant="ghost"
+              className={`h-7 gap-1 px-2 text-xs ${
+                topic.status === "rejected"
+                  ? "border border-rose-500/30 bg-rose-500/15 text-rose-400 hover:bg-rose-500/25"
+                  : ""
+              }`}
               onClick={() => onStatus(topic.status === "rejected" ? "pending" : "rejected")}
             >
               <X className="h-3.5 w-3.5" /> Descartar
