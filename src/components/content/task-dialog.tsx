@@ -750,51 +750,6 @@ function EditBody({
     onError: (e: Error) => toast.error(describeError(e)),
   });
 
-  const generateMedia = useMutation({
-    mutationFn: () => generateRefImage({ data: { postId } }),
-    onSuccess: () => {
-      toast.success("Imagem gerada pela IA");
-      qc.invalidateQueries({ queryKey: ["post-detail", postId] });
-    },
-    onError: (e: Error) => toast.error(describeError(e)),
-  });
-
-  async function handleApproveAndGenerate() {
-    setApproving(true);
-    try {
-      await updatePost({
-        data: {
-          postId,
-          patch: {
-            review_status: "approved",
-            title: state.title.trim(),
-            copy: state.copy.trim() || null,
-          },
-        },
-      });
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
-      if (!token) throw new Error("Sessão expirada");
-      const res = await fetch("/api/jobs/post-phase2", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ postId }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      toast.success("Fase 2 iniciada em segundo plano");
-      qc.invalidateQueries({ queryKey: invalidateKey });
-      qc.invalidateQueries({ queryKey: ["post-detail", postId] });
-      qc.invalidateQueries({ queryKey: ["ai-jobs", "active"] });
-      onOpenChange(false);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Falha ao aprovar");
-    } finally {
-      setApproving(false);
-    }
-  }
 
   return (
     <>
