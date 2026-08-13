@@ -373,9 +373,12 @@ function ProjectsIndexPage() {
                     />
                     <div className="truncate text-sm font-semibold text-foreground">{p.name}</div>
                   </div>
-                  <Badge variant="outline" className={`h-5 shrink-0 rounded-full px-2 text-[10px] ${meta.className}`}>
-                    {meta.label}
-                  </Badge>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {p.plan ? <PlanStatusBadge status={p.plan.status} prefix="Pauta:" /> : null}
+                    <Badge variant="outline" className={`h-5 shrink-0 rounded-full px-2 text-[10px] ${meta.className}`}>
+                      {meta.label}
+                    </Badge>
+                  </div>
                 </div>
 
                 <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
