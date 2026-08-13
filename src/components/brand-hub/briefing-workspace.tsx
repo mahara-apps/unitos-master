@@ -62,7 +62,7 @@ import { FORMATS_BY_CHANNEL, FORMAT_LABEL, type PlacementFormat } from "@/lib/sc
 
 /* ----------------------------- Types / helpers ----------------------------- */
 
-type SocialKey = "instagram" | "tiktok" | "linkedin" | "youtube" | "facebook";
+type SocialKey = PlanChannel;
 
 type FormState = {
   // Identidade
