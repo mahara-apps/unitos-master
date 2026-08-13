@@ -1,8 +1,9 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useEffect, useState } from "react";
-import { AlertTriangle, Sparkles } from "lucide-react";
+import { AlertTriangle, ClipboardList, Sparkles } from "lucide-react";
+import { MonthlyPlanView } from "@/components/monthly-plan/monthly-plan-view";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -38,11 +39,13 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
     z
       .object({
         onboarding: z.union([z.literal("1"), z.literal(1), z.boolean()]).optional(),
+        planId: z.string().uuid().optional(),
         tab: z
           .enum([
             "overview",
             "briefing",
             "estrategia",
+            "pauta",
             "brain",
             "channels",
             "cadastro",
@@ -54,12 +57,23 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
   component: CustomerDetail,
 });
 
+type CustomerTab =
+  | "overview"
+  | "briefing"
+  | "estrategia"
+  | "pauta"
+  | "brain"
+  | "channels"
+  | "cadastro"
+  | "gestao";
+
 const ALL_TABS = [
   { value: "overview", label: "Visão geral" },
   { value: "briefing", label: "Briefing" },
   { value: "estrategia", label: "Estratégia IA" },
-  { value: "gestao", label: "Gestão da conta" },
+  { value: "pauta", label: "Pauta" },
   { value: "channels", label: "Canais" },
+  { value: "gestao", label: "Gestão da conta" },
   { value: "cadastro", label: "Cadastro" },
 ] as const;
 
@@ -68,7 +82,7 @@ const isUuid = (v: string | null | undefined): v is string => !!v && UUID_RE.tes
 
 function CustomerDetail() {
   const { customerId } = Route.useParams();
-  const { onboarding, tab } = Route.useSearch();
+  const { onboarding, tab, planId } = Route.useSearch();
   const { brandId, setClientId } = useActiveContext();
   const { role, allowedClientIds, isReady } = useAccessRole();
   const navigate = useNavigate();
@@ -113,6 +127,7 @@ function CustomerDetail() {
         customerId={customerId}
         openOnboarding={!!onboarding}
         initialTab={tab}
+        initialPlanId={planId}
       />
     </Suspense>
   );
@@ -154,18 +169,13 @@ function CustomerDetailReady({
   customerId,
   openOnboarding,
   initialTab,
+  initialPlanId,
 }: {
   brandId: string;
   customerId: string;
   openOnboarding: boolean;
-  initialTab?:
-    | "overview"
-    | "briefing"
-    | "estrategia"
-    | "brain"
-    | "channels"
-    | "cadastro"
-    | "gestao";
+  initialTab?: CustomerTab;
+  initialPlanId?: string;
 }) {
   const list = useServerFn(listClients);
   const fetchHub = useServerFn(getBrandHub);
@@ -174,7 +184,9 @@ function CustomerDetailReady({
   const TABS = ALL_TABS;
   const [activeTab, setActiveTab] = useState<string>(initialTab ?? "overview");
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [planId, setPlanIdState] = useState<string | null>(initialPlanId ?? null);
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   useEffect(() => {
     if (activeTab === "brain") setActiveTab("briefing");
@@ -184,6 +196,28 @@ function CustomerDetailReady({
   useEffect(() => {
     if (initialTab && initialTab !== "brain") setActiveTab(initialTab);
   }, [initialTab]);
+
+  // Troca de aba mantém a URL compartilhável (?tab=...).
+  const goToTab = (value: string) => {
+    setActiveTab(value);
+    navigate({
+      to: "/customers/$customerId",
+      params: { customerId },
+      search: { tab: value, ...(value === "pauta" && planId ? { planId } : {}) } as never,
+      replace: true,
+    });
+  };
+
+  const setPlanId = (id: string | null) => {
+    setPlanIdState(id);
+    navigate({
+      to: "/customers/$customerId",
+      params: { customerId },
+      search: { tab: "pauta", ...(id ? { planId: id } : {}) } as never,
+      replace: true,
+    });
+  };
+
 
 
   // Lista de customers do brand ativo — só para nome/cor do header.
@@ -247,27 +281,8 @@ function CustomerDetailReady({
     {
       title: customer?.name ?? (customersQ.isLoading ? "Carregando…" : "Cliente"),
       subtitle: customer?.niche ?? "—",
-      actions: (
-        <div className="flex items-center gap-1">
-          {needsOnboarding && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 gap-1.5 border-fuchsia-500/40 text-fuchsia-300 hover:bg-fuchsia-500/10 hover:text-fuchsia-200"
-              onClick={() => {
-                setActiveTab("briefing");
-                setWizardOpen(true);
-              }}
-              title="Completar onboarding rápido"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Completar onboarding
-            </Button>
-          )}
-        </div>
-      ),
     },
-    [customer?.name, customer?.niche, customerId, needsOnboarding],
+    [customer?.name, customer?.niche, customerId],
   );
 
   const scope = { brandId, clientId: customerId };
@@ -279,6 +294,17 @@ function CustomerDetailReady({
     qc.invalidateQueries({ queryKey: CUSTOMER_QUERY_KEYS.legacyContext(scope) });
   };
 
+  // Sub-rotas do painel (brain, media-plan) renderizam sozinhas.
+  const isChildRoute = pathname.replace(/\/+$/, "") !== `/customers/${customerId}`;
+  if (isChildRoute) return <Outlet />;
+
+  const initials = (customer?.name ?? "?")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+
   return (
     <ScrollArea className="h-[calc(100vh-3.5rem)] bg-background">
       <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
@@ -287,61 +313,122 @@ function CustomerDetailReady({
             Este cliente não pertence ao workspace ativo.
           </div>
         ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList variant="bordered">
-              {TABS.map((t) => (
-                <TabsTrigger
-                  key={t.value}
-                  value={t.value}
-                  className="data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
+          <>
+            {/* Faixa de identidade do cliente */}
+            <header className="flex flex-wrap items-center gap-4 rounded-2xl border border-border/60 bg-gradient-to-r from-primary/10 via-card to-card px-4 py-4 sm:px-5">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-base font-semibold text-primary ring-1 ring-primary/25">
+                {initials || "?"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <h1 className="truncate text-lg font-semibold tracking-tight">
+                  {customer?.name ?? (customersQ.isLoading ? "Carregando…" : "Cliente")}
+                </h1>
+                <p className="truncate text-xs text-muted-foreground">
+                  {customer?.niche ?? "Sem nicho definido"}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${
+                    completion >= 60
+                      ? "bg-emerald-500/10 text-emerald-300 ring-emerald-500/30"
+                      : "bg-amber-500/10 text-amber-300 ring-amber-500/30"
+                  }`}
                 >
-                  {t.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-            <TabsContent value="overview">
-              <div className="space-y-4">
-                {brainEnabled && <BrainWidget preset="customers" clientId={customerId} />}
-                <CustomerDashboard
+                  Briefing {completion}%
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5"
+                  onClick={() => goToTab("pauta")}
+                >
+                  <ClipboardList className="h-3.5 w-3.5" />
+                  Pauta
+                </Button>
+                {needsOnboarding && (
+                  <Button
+                    size="sm"
+                    className="h-8 gap-1.5"
+                    onClick={() => {
+                      goToTab("briefing");
+                      setWizardOpen(true);
+                    }}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Completar onboarding
+                  </Button>
+                )}
+              </div>
+            </header>
+
+            <Tabs value={activeTab} onValueChange={goToTab} className="space-y-4">
+              <TabsList variant="bordered" className="flex-wrap">
+                {TABS.map((t) => (
+                  <TabsTrigger
+                    key={t.value}
+                    value={t.value}
+                    className="gap-1.5 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
+                  >
+                    {t.label}
+                    {t.value === "briefing" && needsOnboarding && (
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                    )}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              <TabsContent value="overview">
+                <div className="space-y-4">
+                  {brainEnabled && <BrainWidget preset="customers" clientId={customerId} />}
+                  <CustomerDashboard
+                    brandId={brandId}
+                    clientId={customerId}
+                    onOpenBriefing={() => goToTab("briefing")}
+                  />
+                </div>
+              </TabsContent>
+              <TabsContent value="briefing">
+                <BriefingWorkspace
                   brandId={brandId}
                   clientId={customerId}
-                  onOpenBriefing={() => setActiveTab("briefing")}
+                  embedded
+                  layout="stacked"
+                  onStrategyGenerated={() => {
+                    invalidateAll();
+                    qc.invalidateQueries({
+                      queryKey: ["strategy-runs", brandId, customerId],
+                    });
+                  }}
                 />
-              </div>
-            </TabsContent>
-            <TabsContent value="briefing">
-              <BriefingWorkspace
-                brandId={brandId}
-                clientId={customerId}
-                embedded
-                layout="stacked"
-                onStrategyGenerated={() => {
-                  invalidateAll();
-                  qc.invalidateQueries({
-                    queryKey: ["strategy-runs", brandId, customerId],
-                  });
-                }}
-              />
-            </TabsContent>
-            <TabsContent value="estrategia">
-              <StrategyResults
-                brandId={brandId}
-                clientId={customerId}
-                onGenerate={() => setActiveTab("briefing")}
-                onRestored={invalidateAll}
-              />
-            </TabsContent>
+              </TabsContent>
+              <TabsContent value="estrategia">
+                <StrategyResults
+                  brandId={brandId}
+                  clientId={customerId}
+                  onGenerate={() => goToTab("briefing")}
+                  onRestored={invalidateAll}
+                />
+              </TabsContent>
+              <TabsContent value="pauta">
+                <MonthlyPlanView
+                  brandId={brandId}
+                  clientId={customerId}
+                  planId={planId}
+                  onSelectPlan={setPlanId}
+                />
+              </TabsContent>
 
-            <TabsContent value="cadastro">
-              <BasicInfoTab brandId={brandId} clientId={customerId} />
-            </TabsContent>
-            <TabsContent value="gestao">
-              <AccountManagementTab brandId={brandId} clientId={customerId} />
-            </TabsContent>
-            <TabsContent value="channels">
-              <ChannelsTab brandId={brandId} clientId={customerId} />
-            </TabsContent>
-          </Tabs>
+              <TabsContent value="cadastro">
+                <BasicInfoTab brandId={brandId} clientId={customerId} />
+              </TabsContent>
+              <TabsContent value="gestao">
+                <AccountManagementTab brandId={brandId} clientId={customerId} />
+              </TabsContent>
+              <TabsContent value="channels">
+                <ChannelsTab brandId={brandId} clientId={customerId} />
+              </TabsContent>
+            </Tabs>
+          </>
         )}
       </div>
 

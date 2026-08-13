@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { z } from "zod";
 
 import { useActiveContext } from "@/hooks/use-active-context";
-import { MonthlyPlanView } from "./customers.$customerId.pauta";
+import { MonthlyPlanView } from "@/components/monthly-plan/monthly-plan-view";
 
 const SearchSchema = z.object({ planId: z.string().uuid().optional() });
 

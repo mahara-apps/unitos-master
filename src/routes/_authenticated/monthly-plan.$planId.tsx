@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { useActiveContext } from "@/hooks/use-active-context";
-import { MonthlyPlanView } from "./customers.$customerId.pauta";
+import { MonthlyPlanView } from "@/components/monthly-plan/monthly-plan-view";
 
 export const Route = createFileRoute("/_authenticated/monthly-plan/$planId")({
   component: MonthlyPlanDetailPage,
