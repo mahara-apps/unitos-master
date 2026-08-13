@@ -4466,6 +4466,7 @@ export type Database = {
         Row: {
           brand_id: string
           client_id: string
+          connection_id: string | null
           copy_override: Json | null
           created_at: string
           external_ref: string | null
@@ -4482,6 +4483,7 @@ export type Database = {
         Insert: {
           brand_id: string
           client_id: string
+          connection_id?: string | null
           copy_override?: Json | null
           created_at?: string
           external_ref?: string | null
@@ -4498,6 +4500,7 @@ export type Database = {
         Update: {
           brand_id?: string
           client_id?: string
+          connection_id?: string | null
           copy_override?: Json | null
           created_at?: string
           external_ref?: string | null
@@ -4531,6 +4534,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_placements_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "social_connections"
             referencedColumns: ["id"]
           },
           {
@@ -5060,17 +5070,21 @@ export type Database = {
           account_username: string | null
           brand_id: string
           channel: string
+          channel_name: string | null
           client_id: string | null
           created_at: string
           created_by: string | null
           external_id: string
           external_name: string | null
           id: string
+          instagram_business_id: string | null
           last_error: string | null
           last_synced_at: string | null
+          meta_user_id: string | null
           metadata: Json
           owner_external_id: string | null
           owner_name: string | null
+          page_id: string | null
           provider: string
           refresh_token_ciphertext: string | null
           scopes: string[]
@@ -5084,17 +5098,21 @@ export type Database = {
           account_username?: string | null
           brand_id: string
           channel: string
+          channel_name?: string | null
           client_id?: string | null
           created_at?: string
           created_by?: string | null
           external_id: string
           external_name?: string | null
           id?: string
+          instagram_business_id?: string | null
           last_error?: string | null
           last_synced_at?: string | null
+          meta_user_id?: string | null
           metadata?: Json
           owner_external_id?: string | null
           owner_name?: string | null
+          page_id?: string | null
           provider: string
           refresh_token_ciphertext?: string | null
           scopes?: string[]
@@ -5108,17 +5126,21 @@ export type Database = {
           account_username?: string | null
           brand_id?: string
           channel?: string
+          channel_name?: string | null
           client_id?: string | null
           created_at?: string
           created_by?: string | null
           external_id?: string
           external_name?: string | null
           id?: string
+          instagram_business_id?: string | null
           last_error?: string | null
           last_synced_at?: string | null
+          meta_user_id?: string | null
           metadata?: Json
           owner_external_id?: string | null
           owner_name?: string | null
+          page_id?: string | null
           provider?: string
           refresh_token_ciphertext?: string | null
           scopes?: string[]
@@ -5901,6 +5923,27 @@ export type Database = {
           _strength_delta?: number
           _to_id: string
           _to_type: string
+        }
+        Returns: string
+      }
+      upsert_social_connection: {
+        Args: {
+          _access_token_ciphertext: string
+          _account_username?: string
+          _brand_id: string
+          _channel: string
+          _created_by?: string
+          _external_id: string
+          _external_name?: string
+          _instagram_business_id?: string
+          _meta_user_id?: string
+          _metadata?: Json
+          _owner_external_id?: string
+          _owner_name?: string
+          _page_id?: string
+          _provider: string
+          _scopes?: string[]
+          _token_expires_at?: string
         }
         Returns: string
       }
