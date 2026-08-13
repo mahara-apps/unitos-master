@@ -7,11 +7,13 @@ import {
   PLAN_CHANNELS,
   PLAN_CHANNEL_LABEL,
   type PlanChannel,
+  type VolumetryBasis,
 } from "@/lib/monthly-plan-fields";
 
 export type PlanVolumetry = {
   weekly: Record<string, number>;
   monthlyQuota: Record<string, number>;
+  volumetryBasis?: VolumetryBasis;
   totalTarget: number;
   hasBriefing: boolean;
   formatsByChannel: Record<string, string[]>;
@@ -89,7 +91,7 @@ export function VolumetryCards({
         <div>
           <p className="font-medium">Volumetria não definida.</p>
           <p className="mt-0.5">
-            Defina quantas peças por semana em cada canal no briefing do cliente (aba Briefing →
+            Defina quantas peças por semana (ou por mês) em cada canal no briefing do cliente (aba Briefing →
             Metas de publicação) para gerar a pauta.
           </p>
         </div>
@@ -113,7 +115,11 @@ export function VolumetryCards({
         <MetricCard
           key={c}
           label={PLAN_CHANNEL_LABEL[c]}
-          sub={`${volumetry.weekly[c] ?? 0}/semana · ${volumetry.monthlyQuota[c] ?? 0}/mês${
+          sub={`${
+            volumetry.volumetryBasis === "monthly"
+              ? `${volumetry.monthlyQuota[c] ?? 0}/mês (base mensal)`
+              : `${volumetry.weekly[c] ?? 0}/semana · ${volumetry.monthlyQuota[c] ?? 0}/mês`
+          }${
             (volumetry.approvedOverage?.[c] ?? 0) > 0
               ? ` · +${volumetry.approvedOverage?.[c]} extra`
               : ""

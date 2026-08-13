@@ -74,6 +74,7 @@ export function getWeeksForPeriod(
   months: number,
   opts: { fromCurrent?: boolean; from?: Date; override?: number } = {},
 ): number {
+
   if (opts.override) return opts.override * months;
   const base = opts.from ?? new Date();
   const startOffset = opts.fromCurrent ? 0 : 1;
@@ -83,4 +84,40 @@ export function getWeeksForPeriod(
     total += getWeeksInMonth(target.getFullYear(), target.getMonth());
   }
   return total;
+}
+
+/* ---------------------------------------------------------------------------
+ * Base da volumetria: o gestor pode definir o volume por semana (padrão) ou
+ * direto por mês. `resolveQuota` é a fonte única para derivar os dois números.
+ * ------------------------------------------------------------------------- */
+
+export const VOLUMETRY_BASIS = ["weekly", "monthly"] as const;
+export type VolumetryBasis = (typeof VOLUMETRY_BASIS)[number];
+export const DEFAULT_VOLUMETRY_BASIS: VolumetryBasis = "weekly";
+
+export function normalizeVolumetryBasis(v: unknown): VolumetryBasis {
+  return v === "monthly" ? "monthly" : "weekly";
+}
+
+/** Limite do stepper conforme a base escolhida. */
+export function volumetryMax(basis: VolumetryBasis): number {
+  return basis === "monthly" ? 90 : 21;
+}
+
+/**
+ * Converte o valor informado no briefing em `{ perWeek, perMonth }`.
+ * - basis "weekly": valor = posts/semana → mês = valor × semanas reais do mês
+ * - basis "monthly": valor = posts/mês → semana = mês ÷ semanas (informativo)
+ */
+export function resolveQuota(
+  value: number,
+  basis: VolumetryBasis,
+  weeksInMonth: number = WEEKS_PER_MONTH,
+): { perWeek: number; perMonth: number } {
+  const v = Math.max(0, Number(value) || 0);
+  const weeks = weeksInMonth > 0 ? weeksInMonth : WEEKS_PER_MONTH;
+  if (basis === "monthly") {
+    return { perWeek: Math.round((v / weeks) * 10) / 10, perMonth: Math.round(v) };
+  }
+  return { perWeek: v, perMonth: Math.round(v * weeks) };
 }

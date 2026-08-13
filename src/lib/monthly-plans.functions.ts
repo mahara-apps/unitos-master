@@ -450,6 +450,7 @@ export const getPlanVolumetryFn = createServerFn({ method: "POST" })
     return {
       weekly: ctx.weekly,
       monthlyQuota: ctx.monthlyQuota,
+      volumetryBasis: ctx.volumetryBasis,
       totalTarget: ctx.totalTarget,
       hasBriefing: ctx.text.trim().length > 0,
       formatsByChannel: ctx.formatsByChannel,

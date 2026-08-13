@@ -30,13 +30,19 @@ export type BrandHubData = {
     linkedin?: number;
     youtube?: number;
     facebook?: number;
+    x?: number;
+    threads?: number;
   };
+  /** Base do volume informado: por semana (padrão) ou por mês. */
+  volumetry_basis?: "weekly" | "monthly";
   formats?: {
     instagram?: string[];
     tiktok?: string[];
     linkedin?: string[];
     youtube?: string[];
     facebook?: string[];
+    x?: string[];
+    threads?: string[];
   };
   goals?: string;
   tone_text?: string;
@@ -135,13 +141,16 @@ const HubPatch = Scope.extend({
         .optional(),
       volumetry: z
         .object({
-          instagram: z.number().int().min(0).max(50).optional(),
-          tiktok: z.number().int().min(0).max(50).optional(),
-          linkedin: z.number().int().min(0).max(50).optional(),
-          youtube: z.number().int().min(0).max(50).optional(),
-          facebook: z.number().int().min(0).max(50).optional(),
+          instagram: z.number().int().min(0).max(200).optional(),
+          tiktok: z.number().int().min(0).max(200).optional(),
+          linkedin: z.number().int().min(0).max(200).optional(),
+          youtube: z.number().int().min(0).max(200).optional(),
+          facebook: z.number().int().min(0).max(200).optional(),
+          x: z.number().int().min(0).max(200).optional(),
+          threads: z.number().int().min(0).max(200).optional(),
         })
         .optional(),
+      volumetry_basis: z.enum(["weekly", "monthly"]).optional(),
       formats: z
         .object({
           instagram: z.array(z.string().max(24)).max(8).optional(),
@@ -149,6 +158,8 @@ const HubPatch = Scope.extend({
           linkedin: z.array(z.string().max(24)).max(8).optional(),
           youtube: z.array(z.string().max(24)).max(8).optional(),
           facebook: z.array(z.string().max(24)).max(8).optional(),
+          x: z.array(z.string().max(24)).max(8).optional(),
+          threads: z.array(z.string().max(24)).max(8).optional(),
         })
         .optional(),
       goals: z.string().max(3000).optional(),

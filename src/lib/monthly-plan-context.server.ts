@@ -1,5 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { PLAN_CHANNELS, WEEKS_PER_MONTH, type PlanChannel } from "@/lib/monthly-plan-fields";
+import {
+  PLAN_CHANNELS,
+  WEEKS_PER_MONTH,
+  normalizeVolumetryBasis,
+  resolveQuota,
+  type PlanChannel,
+  type VolumetryBasis,
+} from "@/lib/monthly-plan-fields";
 
 /**
  * Contexto de briefing consolidado do cliente (sempre usado pela IA na Pauta).
@@ -13,6 +20,8 @@ export type BriefingContext = {
   niche: string | null;
   weekly: Record<PlanChannel, number>;
   monthlyQuota: Record<PlanChannel, number>;
+  /** Base informada no briefing: volume por semana ou por mês. */
+  volumetryBasis: VolumetryBasis;
   totalTarget: number;
   /** Formatos preferidos por canal, conforme briefing (pode vir vazio). */
   formatsByChannel: Record<PlanChannel, string[]>;
@@ -113,27 +122,25 @@ export async function loadBriefingContext(
 
   // Metas & volumetria
   const vol = (hub.volumetry ?? {}) as Record<string, number | undefined>;
-  const weekly = PLAN_CHANNELS.reduce<Record<PlanChannel, number>>(
-    (acc, c) => {
-      acc[c] = Number(vol[c] ?? 0) || 0;
-      return acc;
-    },
-    {} as Record<PlanChannel, number>,
-  );
-  const monthlyQuota = PLAN_CHANNELS.reduce<Record<PlanChannel, number>>(
-    (acc, c) => {
-      acc[c] = Math.round(weekly[c] * weeksPerMonth);
-      return acc;
-    },
-    {} as Record<PlanChannel, number>,
-  );
+  const volumetryBasis = normalizeVolumetryBasis(hub.volumetry_basis);
+  const weekly = {} as Record<PlanChannel, number>;
+  const monthlyQuota = {} as Record<PlanChannel, number>;
+  for (const c of PLAN_CHANNELS) {
+    const q = resolveQuota(Number(vol[c] ?? 0) || 0, volumetryBasis, weeksPerMonth);
+    weekly[c] = q.perWeek;
+    monthlyQuota[c] = q.perMonth;
+  }
   const totalTarget = PLAN_CHANNELS.reduce((s, c) => s + monthlyQuota[c], 0);
 
   pushLine(
     lines,
-    "Volumetria semanal",
-    PLAN_CHANNELS.filter((c) => weekly[c] > 0)
-      .map((c) => `${c}: ${weekly[c]}/sem`)
+    volumetryBasis === "monthly" ? "Volumetria mensal" : "Volumetria semanal",
+    PLAN_CHANNELS.filter((c) => monthlyQuota[c] > 0)
+      .map((c) =>
+        volumetryBasis === "monthly"
+          ? `${c}: ${monthlyQuota[c]}/mês`
+          : `${c}: ${weekly[c]}/sem (${monthlyQuota[c]}/mês)`,
+      )
       .join(", "),
   );
   const formats = (hub.formats ?? {}) as Record<string, string[] | undefined>;
@@ -188,6 +195,7 @@ export async function loadBriefingContext(
     niche: row.niche ?? null,
     weekly,
     monthlyQuota,
+    volumetryBasis,
     totalTarget,
     formatsByChannel,
   };

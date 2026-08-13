@@ -163,11 +163,12 @@ function composeBriefingFromRecord(
 
   // Volumetria, formatos & metas
   const vol = (hub.volumetry ?? {}) as Record<string, number | undefined>;
+  const volBasis = (hub as { volumetry_basis?: unknown }).volumetry_basis === "monthly" ? "mês" : "sem";
   const volStr = Object.entries(vol)
     .filter(([, n]) => typeof n === "number" && (n as number) > 0)
-    .map(([k, n]) => `${k}: ${n}/sem`)
+    .map(([k, n]) => `${k}: ${n}/${volBasis}`)
     .join(", ");
-  push("Volumetria semanal", volStr, "metas");
+  push(volBasis === "mês" ? "Volumetria mensal" : "Volumetria semanal", volStr, "metas");
   const formats = (hub.formats ?? {}) as Record<string, string[] | undefined>;
   const formatsStr = Object.entries(formats)
     .filter(([, v]) => Array.isArray(v) && v.length > 0)
