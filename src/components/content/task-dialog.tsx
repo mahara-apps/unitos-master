@@ -2141,20 +2141,6 @@ function MediaReferenceBlock({
             <Button
               variant="outline"
               size="sm"
-              onClick={onGenerate}
-              disabled={generating}
-              title="Gerar imagem de referência usando o hook, headline e copy"
-            >
-              {generating ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="mr-2 h-4 w-4" />
-              )}
-              Gerar com IA
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
               onClick={() => fileInput.current?.click()}
               disabled={uploading}
             >
