@@ -6,7 +6,7 @@ import { loadBriefingContext } from "@/lib/monthly-plan-context.server";
 import { loadStrategyContext } from "@/lib/monthly-plan-strategy.server";
 import { loadPerformanceContext } from "@/lib/monthly-plan-performance.server";
 import { runPlanAgent } from "@/lib/monthly-plan-agent.server";
-import { PLAN_CHANNELS, PLAN_FORMATS, type PlanChannel } from "@/lib/monthly-plan-fields";
+import { PLAN_CHANNELS, PLAN_FORMATS, getWeeksInMonth, type PlanChannel } from "@/lib/monthly-plan-fields";
 import { currentPeriodMonth, loadApprovedOverage } from "@/lib/plan-overage.server";
 
 /* ---------- Types ---------- */
@@ -138,6 +138,8 @@ const GenerateInput = z.object({
     )
     .min(1)
     .optional(),
+  /** Semanas de produção no mês-alvo (4 ou 5 conforme o calendário). */
+  weeksPerMonth: z.number().int().min(1).max(6).optional(),
 });
 
 const AiPlanSchema = z.object({
@@ -167,6 +169,7 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       context.supabase.from("brands").select("name").eq("id", data.brandId).maybeSingle(),
       loadBriefingContext(context.supabase, data.clientId, {
         briefingId: data.briefingId ?? null,
+        weeksPerMonth: data.weeksPerMonth,
       }),
     ]);
 
@@ -426,10 +429,13 @@ export const getPlanVolumetryFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ clientId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
-    const ctx = await loadBriefingContext(context.supabase, data.clientId);
+    // Usa o número real de semanas do mês corrente para exibir a cota correta.
+    const now = new Date();
+    const ctx = await loadBriefingContext(context.supabase, data.clientId, {
+      weeksPerMonth: getWeeksInMonth(now.getFullYear(), now.getMonth()),
+    });
 
     // Quantidade já gerada no mês corrente (todas as pautas do cliente).
-    const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
     const generatedThisMonth = await countGeneratedThisMonth(
       context.supabase,
