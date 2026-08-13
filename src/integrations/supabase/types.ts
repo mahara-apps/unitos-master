@@ -5545,6 +5545,22 @@ export type Database = {
           token_id: string
         }[]
       }
+      _portal_session_any: {
+        Args: { _token?: string }
+        Returns: {
+          brand_id: string
+          client_id: string
+          token_id: string
+        }[]
+      }
+      _portal_session_user: {
+        Args: never
+        Returns: {
+          brand_id: string
+          client_id: string
+          token_id: string
+        }[]
+      }
       accept_brand_invite: { Args: { _token: string }; Returns: string }
       brain_archive_and_prune_events: { Args: never; Returns: Json }
       brain_cleanup_ttl: { Args: never; Returns: Json }
@@ -5721,37 +5737,40 @@ export type Database = {
       media_plan_public_items: { Args: { _token: string }; Returns: Json }
       media_plan_public_resolve: { Args: { _token: string }; Returns: Json }
       portal_approvals: {
-        Args: { _status?: string; _token: string }
+        Args: { _status?: string; _token?: string }
         Returns: Json
       }
-      portal_briefings: { Args: { _token: string }; Returns: Json }
+      portal_briefings: { Args: { _token?: string }; Returns: Json }
       portal_calendar: {
-        Args: { _month?: string; _token: string }
+        Args: { _month?: string; _token?: string }
         Returns: Json
       }
       portal_client_ids: { Args: { _user_id: string }; Returns: string[] }
       portal_decide: {
         Args: {
-          _decision: string
-          _identity: string
-          _note: string
-          _post_id: string
-          _token: string
+          _decision?: string
+          _identity?: string
+          _note?: string
+          _post_id?: string
+          _token?: string
         }
         Returns: Json
       }
       portal_files: {
-        Args: { _search?: string; _token: string }
+        Args: { _search?: string; _token?: string }
         Returns: Json
       }
-      portal_metrics: { Args: { _token: string }; Returns: Json }
-      portal_post: { Args: { _post_id: string; _token: string }; Returns: Json }
+      portal_metrics: { Args: { _token?: string }; Returns: Json }
+      portal_post: {
+        Args: { _post_id?: string; _token?: string }
+        Returns: Json
+      }
       portal_rate_register_failure: {
         Args: { _ip_hash: string }
         Returns: Json
       }
       portal_rate_status: { Args: { _ip_hash: string }; Returns: Json }
-      portal_resolve: { Args: { _token: string }; Returns: Json }
+      portal_resolve: { Args: { _token?: string }; Returns: Json }
       process_brain_learning_queue: { Args: { _limit?: number }; Returns: Json }
       reap_brain_learning_queue: { Args: never; Returns: number }
       reap_stuck_ai_jobs: { Args: never; Returns: number }
