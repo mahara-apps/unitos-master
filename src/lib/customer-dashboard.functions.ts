@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { computeClientHealthScore } from "@/lib/client-health";
+import { normalizePortalTheme, portalThemeSchema } from "@/lib/portal-theme";
 
 const scope = z.object({
   brandId: z.string().uuid(),
@@ -515,4 +516,87 @@ export const updatePortalTokenFn = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     if (!row) throw new Error("portal_link_not_found");
     return row;
+  });
+
+/* ------------------------- Fase 3 — tema do portal ------------------------- */
+
+/**
+ * Lê o tema do portal + os defaults de identidade do cliente (cor/logo do
+ * cadastro), usados como sugestão quando o usuário liga "customizada".
+ */
+export const getPortalThemeFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { data: row, error } = await context.supabase
+      .from("clients")
+      .select("id,brand_id,name,color,logo_url,portal_theme")
+      .eq("id", data.clientId)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!row) throw new Error("client_not_found");
+    return {
+      theme: normalizePortalTheme(row.portal_theme),
+      defaults: { color: row.color ?? null, logoUrl: row.logo_url ?? null },
+    };
+  });
+
+/** Salva o tema já validado (hex/URL) — jsonb que vai direto pro style público. */
+export const updatePortalThemeFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ clientId: z.string().uuid(), theme: portalThemeSchema }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const theme = portalThemeSchema.parse(data.theme);
+    const { data: row, error } = await context.supabase
+      .from("clients")
+      .update({ portal_theme: theme as never })
+      .eq("id", data.clientId)
+      .select("id,portal_theme")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!row) throw new Error("client_not_found");
+    return { theme: normalizePortalTheme(row.portal_theme) };
+  });
+
+/**
+ * Upload da logo white-label do portal — reaproveita o bucket brand-assets já
+ * usado no Briefing. Não escreve em clients.logo_url: o white-label pode
+ * divergir da identidade interna.
+ */
+export const uploadPortalLogoFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        clientId: z.string().uuid(),
+        filename: z.string().max(200),
+        contentType: z.string().max(120),
+        base64: z.string().min(1),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { data: client, error: ce } = await context.supabase
+      .from("clients")
+      .select("id,brand_id")
+      .eq("id", data.clientId)
+      .maybeSingle();
+    if (ce) throw new Error(ce.message);
+    if (!client) throw new Error("client_not_found");
+
+    const bin = Uint8Array.from(atob(data.base64), (c) => c.charCodeAt(0));
+    if (bin.byteLength > 5 * 1024 * 1024) throw new Error("asset_too_large");
+    const safeName = data.filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `${client.brand_id}/${client.id}/portal-logo-${Date.now()}-${safeName}`;
+    const { error } = await context.supabase.storage
+      .from("brand-assets")
+      .upload(path, bin, { contentType: data.contentType, upsert: true });
+    if (error) throw error;
+    const { data: signed, error: se } = await context.supabase.storage
+      .from("brand-assets")
+      .createSignedUrl(path, 60 * 60 * 24 * 365);
+    if (se) throw se;
+    return { url: signed.signedUrl, path };
   });
