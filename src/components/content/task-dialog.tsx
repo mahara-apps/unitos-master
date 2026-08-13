@@ -69,7 +69,9 @@ import {
   createApprovalTokenFn,
   revokeApprovalTokenFn,
 } from "@/lib/approval.functions";
-import { listClientChannelAssignmentsFn, type ClientChannelRow } from "@/lib/client-channels.functions";
+import { listClientLinkedChannelsFn, type LinkedChannel } from "@/lib/client-channels.functions";
+import { useAccessRole } from "@/hooks/use-access-role";
+import { Link } from "@tanstack/react-router";
 import { saveScheduledPostFn } from "@/lib/scheduling-wizard.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -1046,13 +1048,16 @@ function TaskLayout({
   clientId?: string;
 }) {
   const [tagInput, setTagInput] = useState("");
-  const listClientChannels = useServerFn(listClientChannelAssignmentsFn);
+  const { role } = useAccessRole();
+  // Fonte única: client_social_accounts → social_connections (canais do cliente).
+  const listClientChannels = useServerFn(listClientLinkedChannelsFn);
   const clientChannelsQ = useQuery({
     enabled: !!(brandId && clientId),
-    queryKey: ["task-dialog-client-channels", brandId, clientId],
+    queryKey: ["client-linked-channels", brandId, clientId],
     queryFn: () => listClientChannels({ data: { brandId: brandId!, clientId: clientId! } }),
+    staleTime: 30_000,
   });
-  const assignedConnections = (clientChannelsQ.data ?? []).filter((r) => r.assigned);
+  const assignedConnections = clientChannelsQ.data ?? [];
   const set = <K extends keyof TaskState>(key: K, value: TaskState[K]) =>
     setState((prev) => ({ ...prev, [key]: value }));
   const toggleChannel = (id: string) =>
@@ -1062,7 +1067,7 @@ function TaskLayout({
         ? prev.channels.filter((c) => c !== id)
         : [...prev.channels, id],
     }));
-  const toggleTargetConnection = (row: ClientChannelRow) =>
+  const toggleTargetConnection = (row: LinkedChannel) =>
     setState((prev) => {
       const has = prev.destinations.some((d) => d.connectionId === row.connectionId);
       const nextDests = has
@@ -1169,8 +1174,23 @@ function TaskLayout({
               })}
             </div>
         </div>
+        ) : brandId && clientId && !clientChannelsQ.isLoading ? (
+          <div className="space-y-1.5 rounded-md border border-dashed p-3">
+            <p className="text-xs text-muted-foreground">
+              Nenhum canal vinculado a este cliente.
+            </p>
+            {role === "admin" ? (
+              <Link
+                to="/customers/$customerId"
+                params={{ customerId: clientId }}
+                search={{ tab: "channels" }}
+                className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Vincular canal
+              </Link>
+            ) : null}
+          </div>
         ) : null}
-
 
         <div className="space-y-2">
           <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
