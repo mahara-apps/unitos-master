@@ -102,11 +102,7 @@ export function PortalLinkCard({
   });
 
   const updateMut = useMutation({
-    mutationFn: (vars: {
-      tokenId: string;
-      label: string;
-      expiresInDays?: number | null;
-    }) =>
+    mutationFn: (vars: { tokenId: string; label: string; expiresInDays?: number | null }) =>
       update({ data: { clientId, ...vars } }),
     onSuccess: () => {
       toast.success("Personalização salva.");
@@ -121,9 +117,7 @@ export function PortalLinkCard({
     active && typeof window !== "undefined"
       ? `${window.location.origin}/portal/${active.token}`
       : "";
-  const isExpired = active?.expires_at
-    ? new Date(active.expires_at).getTime() < Date.now()
-    : false;
+  const isExpired = active?.expires_at ? new Date(active.expires_at).getTime() < Date.now() : false;
 
   const copy = () => {
     navigator.clipboard.writeText(url);
@@ -182,9 +176,7 @@ export function PortalLinkCard({
               </div>
               <div className="mt-0.5 break-all font-mono text-xs">{url}</div>
               <div className="mt-1.5 text-[11px] text-muted-foreground">
-                {active.expires_at
-                  ? `Expira em ${fmtDate(active.expires_at)}`
-                  : "Sem expiração"}
+                {active.expires_at ? `Expira em ${fmtDate(active.expires_at)}` : "Sem expiração"}
                 {" · "}
                 {active.last_seen_at
                   ? `último acesso ${fmtDateTime(active.last_seen_at)}`

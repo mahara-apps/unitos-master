@@ -22,23 +22,29 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const nowMs = Date.now();
     const toMs = data.range?.to ? new Date(data.range.to).getTime() : nowMs;
-    const fromMs = data.range?.from
-      ? new Date(data.range.from).getTime()
-      : toMs - 30 * 86_400_000;
+    const fromMs = data.range?.from ? new Date(data.range.from).getTime() : toMs - 30 * 86_400_000;
     const safeFrom = Math.min(fromMs, toMs);
-    const rangeDays = Math.max(
-      1,
-      Math.min(90, Math.ceil((toMs - safeFrom) / 86_400_000) || 1),
-    );
+    const rangeDays = Math.max(1, Math.min(90, Math.ceil((toMs - safeFrom) / 86_400_000) || 1));
     const fromIso = new Date(safeFrom).toISOString();
     const toIso = new Date(toMs).toISOString();
     const midCut = Math.max(safeFrom, toMs - Math.floor(rangeDays / 2) * 86_400_000);
     const midCutIso = new Date(midCut).toISOString();
 
-    const [client, portalTokens, activity, pipelinesRes, tasks, usage, aiJobsCountRes, briefingRes] = await Promise.all([
+    const [
+      client,
+      portalTokens,
+      activity,
+      pipelinesRes,
+      tasks,
+      usage,
+      aiJobsCountRes,
+      briefingRes,
+    ] = await Promise.all([
       context.supabase
         .from("clients")
-        .select("id,name,niche,color,socials,contact_name,contact_email,tone_of_voice,is_active,created_at,updated_at,brand_hub")
+        .select(
+          "id,name,niche,color,socials,contact_name,contact_email,tone_of_voice,is_active,created_at,updated_at,brand_hub",
+        )
         .eq("id", data.clientId)
         .maybeSingle(),
       context.supabase
@@ -96,9 +102,7 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
         | null
         | undefined) ?? null;
     const brandHubFilled =
-      !!brandHub &&
-      typeof brandHub === "object" &&
-      Object.keys(brandHub).length > 0;
+      !!brandHub && typeof brandHub === "object" && Object.keys(brandHub).length > 0;
     const briefingUpdatedAt: string | null = brandHubFilled
       ? ((client.data as { updated_at?: string } | null)?.updated_at ?? null)
       : ((briefingRes?.data?.updated_at as string | null) ?? null);
@@ -123,7 +127,9 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
           }),
       context.supabase
         .from("posts")
-        .select("id,stage,stage_id,pipeline_id,scheduled_at,published_at,created_at,updated_at,deleted_at")
+        .select(
+          "id,stage,stage_id,pipeline_id,scheduled_at,published_at,created_at,updated_at,deleted_at",
+        )
         .eq("brand_id", data.brandId)
         .eq("client_id", data.clientId)
         .is("deleted_at", null),
@@ -357,7 +363,9 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
 function randomToken(len = 40): string {
   const bytes = new Uint8Array(len);
   crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("").slice(0, len);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, len);
 }
 
 export const createPortalTokenFn = createServerFn({ method: "POST" })
