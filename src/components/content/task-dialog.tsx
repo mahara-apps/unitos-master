@@ -1479,48 +1479,6 @@ function Timeline({ items }: { items: PostTimelineEvent[] }) {
   );
 }
 
-function AiFieldButton({
-  postId,
-  field,
-  label,
-  onText,
-  size = "sm",
-}: {
-  postId: string;
-  field: "copy" | "hashtags" | "cta" | "script" | "briefing" | "hook" | "headline";
-  label: string;
-  onText: (t: string) => void;
-  size?: "xs" | "sm";
-}) {
-  const runAi = useServerFn(aiInlineGenerateFn);
-  const m = useMutation({
-    mutationFn: () => runAi({ data: { postId, field } }),
-    onSuccess: (r: { text: string }) => {
-      onText(r.text);
-      toast.success(`${label} gerado`);
-    },
-    onError: (e: Error) => toast.error(describeError(e)),
-  });
-  const cls =
-    size === "xs"
-      ? "h-7 rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 text-xs text-violet-700 hover:bg-violet-500/20 dark:text-violet-300"
-      : "h-8 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 text-xs text-violet-700 hover:bg-violet-500/20 dark:text-violet-300";
-  return (
-    <button
-      type="button"
-      className={`inline-flex items-center gap-1.5 ${cls}`}
-      onClick={() => m.mutate()}
-      disabled={m.isPending}
-    >
-      {m.isPending ? (
-        <Loader2 className="h-3 w-3 animate-spin" />
-      ) : (
-        <Sparkles className="h-3 w-3" />
-      )}
-      {label}
-    </button>
-  );
-}
 
 function ApprovalLinkSection({ postId }: { postId: string }) {
   const qc = useQueryClient();
