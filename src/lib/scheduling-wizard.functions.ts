@@ -662,12 +662,35 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       }
       const okCount = results.filter((r) => r.ok).length;
       if (okCount > 0) {
+        const nowIso = new Date().toISOString();
+        // `stage_id` não é tocado aqui de propósito: os pipelines não têm coluna
+        // "published" e o trigger `posts_sync_legacy_stage` só reage a stage_id.
         await supabase
           .from("posts")
-          .update({ stage: "published", published_at: new Date().toISOString() } as any)
+          .update({ stage: "published", published_at: nowIso } as any)
           .eq("id", postId)
           .eq("brand_id", data.brandId);
+
+        // Placements dos destinos publicados com sucesso viram histórico
+        // (o calendário lê status/published_at do placement).
+        const okFormats = results.filter((r) => r.ok).map((r) => r.format);
+        if (okFormats.length) {
+          await supabase
+            .from("post_placements")
+            .update({ status: "published", published_at: nowIso } as never)
+            .eq("post_id", postId)
+            .in("format", okFormats);
+        }
+        const failFormats = results.filter((r) => !r.ok).map((r) => r.format);
+        if (failFormats.length) {
+          await supabase
+            .from("post_placements")
+            .update({ status: "failed" } as never)
+            .eq("post_id", postId)
+            .in("format", failFormats);
+        }
       }
+
       return { ok: okCount > 0, postId, published: okCount, results };
     }
 
