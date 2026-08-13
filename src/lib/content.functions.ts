@@ -1111,12 +1111,13 @@ export const getPostDetailFn = createServerFn({ method: "POST" })
     post: BoardPost;
     timeline: PostTimelineEvent[];
     destinations: Array<{ connectionId: string; channel: string; format: "feed" | "stories" | "reels" | "carrossel" }>;
+    project: { id: string; name: string; color: string | null } | null;
   }> => {
     const [{ data: post, error }, { data: events }, { data: placements }] = await Promise.all([
       context.supabase
         .from("posts")
         .select(
-          "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,reference_media,design_brief,ai_phase,approved_at,approved_by,rework_notes,priority,format,tags,visible_in_portal,internal_briefing,client_briefing,script,references,target_connection_ids",
+          "id,title,copy,channels,scheduled_at,published_at,remind_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,reference_media,design_brief,ai_phase,approved_at,approved_by,rework_notes,priority,format,tags,visible_in_portal,internal_briefing,client_briefing,script,references,target_connection_ids,project_id,monthly_plan_topic_id,projects:project_id(id,name,color)",
         )
         .eq("id", data.postId)
         .single(),
@@ -1163,8 +1164,48 @@ export const getPostDetailFn = createServerFn({ method: "POST" })
         }),
       );
     }
+    // Herança real do projeto: peça materializada de uma pauta que já possui
+    // projeto deve apontar para o MESMO projects.id. Corrige vínculo ausente
+    // sem criar projeto novo e sem inventar dados.
+    const rawPost = post as unknown as {
+      project_id: string | null;
+      monthly_plan_topic_id: string | null;
+      projects?: { id: string; name: string; color: string | null } | null;
+    };
+    let project = rawPost.projects ?? null;
+    let projectId = rawPost.project_id ?? null;
+    if (!projectId && rawPost.monthly_plan_topic_id) {
+      const { data: topic } = await context.supabase
+        .from("monthly_plan_topics")
+        .select("monthly_plan_id")
+        .eq("id", rawPost.monthly_plan_topic_id)
+        .maybeSingle();
+      const planId = (topic as unknown as { monthly_plan_id: string | null } | null)?.monthly_plan_id ?? null;
+      if (planId) {
+        const { data: plan } = await context.supabase
+          .from("monthly_plans")
+          .select("project_id, projects:project_id(id,name,color)")
+          .eq("id", planId)
+          .maybeSingle();
+        const planRow = plan as unknown as {
+          project_id: string | null;
+          projects?: { id: string; name: string; color: string | null } | null;
+        } | null;
+        if (planRow?.project_id) {
+          projectId = planRow.project_id;
+          project = planRow.projects ?? null;
+          await context.supabase
+            .from("posts")
+            .update({ project_id: projectId } as never)
+            .eq("id", data.postId)
+            .is("project_id", null);
+        }
+      }
+    }
+
     return {
-      post: post as BoardPost,
+      post: { ...(post as BoardPost), project_id: projectId },
+      project,
       timeline: (events ?? []).map((e) => ({
         id: e.id,
         verb: e.verb,

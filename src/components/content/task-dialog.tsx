@@ -10,7 +10,6 @@ import { toast } from "sonner";
 import {
   Loader2,
   Trash2,
-  Sparkles,
   Upload,
   X,
   ImageIcon,
@@ -49,7 +48,6 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@/components/ui/tabs";
-import { Wand2 } from "lucide-react";
 import {
   createPostFn,
   updatePostFn,
@@ -59,14 +57,12 @@ import {
   uploadPostReferenceMediaFn,
   removePostReferenceMediaFn,
   signPostReferenceMediaFn,
-  generatePostReferenceImageFn,
   listBrandAssigneesFn,
   type PipelineStage,
   type BoardPost,
   type PostTimelineEvent,
   type ScriptScene,
 } from "@/lib/content.functions";
-import { aiInlineGenerateFn } from "@/lib/copilot-inline.functions";
 import {
   listApprovalTokensFn,
   createApprovalTokenFn,
@@ -259,12 +255,15 @@ function ProjectSelect({
   value,
   onChange,
   className,
+  fallback,
 }: {
   brandId: string;
   clientId: string;
   value: string | null;
   onChange: (id: string | null) => void;
   className?: string;
+  /** Projeto já vinculado à peça — garante exibição mesmo antes da lista carregar. */
+  fallback?: { id: string; name: string; color: string | null } | null;
 }) {
   const fetchProjects = useServerFn(listProjects);
   const { data } = useQuery({
@@ -273,7 +272,16 @@ function ProjectSelect({
     staleTime: 60_000,
     enabled: !!brandId && !!clientId,
   });
-  const projects = (data?.projects ?? []) as Array<{ id: string; name: string; color: string | null; status: string }>;
+  const projects = ((data?.projects ?? []) as Array<{
+    id: string;
+    name: string;
+    color: string | null;
+    status: string;
+  }>).filter((p) => p.status !== "archived");
+  const options =
+    fallback && !projects.some((p) => p.id === fallback.id)
+      ? [{ ...fallback, status: "active" }, ...projects]
+      : projects;
   return (
     <Select
       value={value ?? "none"}
@@ -285,19 +293,17 @@ function ProjectSelect({
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="none">Sem projeto</SelectItem>
-        {projects
-          .filter((p) => p.status !== "archived")
-          .map((p) => (
-            <SelectItem key={p.id} value={p.id}>
-              <span className="inline-flex items-center gap-2">
-                <span
-                  className="h-2.5 w-2.5 rounded-full"
-                  style={{ background: p.color ?? "#8b5cf6" }}
-                />
-                {p.name}
-              </span>
-            </SelectItem>
-          ))}
+        {options.map((p) => (
+          <SelectItem key={p.id} value={p.id}>
+            <span className="inline-flex items-center gap-2">
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ background: p.color ?? "#8b5cf6" }}
+              />
+              {p.name}
+            </span>
+          </SelectItem>
+        ))}
       </SelectContent>
     </Select>
   );
@@ -472,7 +478,6 @@ function EditBody({
   const uploadRef = useServerFn(uploadPostReferenceMediaFn);
   const removeRef = useServerFn(removePostReferenceMediaFn);
   const signRefs = useServerFn(signPostReferenceMediaFn);
-  const generateRefImage = useServerFn(generatePostReferenceImageFn);
 
   const { data } = useSuspenseQuery({
     queryKey: ["post-detail", postId],
@@ -489,7 +494,6 @@ function EditBody({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
-  const [approving, setApproving] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -634,7 +638,7 @@ function EditBody({
   const [copyAutosaveStatus, setCopyAutosaveStatus] = useState<"idle" | "saving" | "saved">("idle");
   const initialCopyRef = useRef(state.copy);
   useEffect(() => {
-    initialCopyRef.current = post.copy ?? "";
+    initialCopyRef.current = flattenCopy(post.copy);
   }, [post.id, post.copy]);
   useEffect(() => {
     if (state.copy === initialCopyRef.current) return;
@@ -740,51 +744,6 @@ function EditBody({
     onError: (e: Error) => toast.error(describeError(e)),
   });
 
-  const generateMedia = useMutation({
-    mutationFn: () => generateRefImage({ data: { postId } }),
-    onSuccess: () => {
-      toast.success("Imagem gerada pela IA");
-      qc.invalidateQueries({ queryKey: ["post-detail", postId] });
-    },
-    onError: (e: Error) => toast.error(describeError(e)),
-  });
-
-  async function handleApproveAndGenerate() {
-    setApproving(true);
-    try {
-      await updatePost({
-        data: {
-          postId,
-          patch: {
-            review_status: "approved",
-            title: state.title.trim(),
-            copy: state.copy.trim() || null,
-          },
-        },
-      });
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
-      if (!token) throw new Error("Sessão expirada");
-      const res = await fetch("/api/jobs/post-phase2", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ postId }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      toast.success("Fase 2 iniciada em segundo plano");
-      qc.invalidateQueries({ queryKey: invalidateKey });
-      qc.invalidateQueries({ queryKey: ["post-detail", postId] });
-      qc.invalidateQueries({ queryKey: ["ai-jobs", "active"] });
-      onOpenChange(false);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Falha ao aprovar");
-    } finally {
-      setApproving(false);
-    }
-  }
 
   return (
     <>
@@ -839,14 +798,10 @@ function EditBody({
             clientId={clientId}
             value={state.projectId}
             onChange={(id) => setState((p) => ({ ...p, projectId: id }))}
+            fallback={data.project}
           />
           <div className="flex items-center justify-end gap-1.5">
-            {reviewStatus === "pending" && aiPhase === "idea" ? (
-              <Button size="sm" onClick={handleApproveAndGenerate} disabled={approving} className="h-9 w-full">
-                {approving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
-                Aprovar & gerar
-              </Button>
-            ) : reviewStatus !== "approved" ? (
+            {reviewStatus !== "approved" ? (
               <>
                 <Button size="sm" onClick={() => approveOnly.mutate()} disabled={approveOnly.isPending} className="h-9 flex-1">
                   {approveOnly.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />}
@@ -864,7 +819,7 @@ function EditBody({
                     {approveAndSchedule.isPending ? (
                       <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                     ) : (
-                      <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                      <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
                     )}
                     + Agendar
                   </Button>
@@ -897,9 +852,7 @@ function EditBody({
               fileInput={fileInput}
               onFiles={(fs) => upload.mutate(fs)}
               onRemove={(p) => removeMedia.mutate(p)}
-              onGenerate={() => generateMedia.mutate()}
               uploading={upload.isPending}
-              generating={generateMedia.isPending}
             />
           }
         />
@@ -1030,7 +983,7 @@ function stateFromPost(
     targetConnectionIds: (post.target_connection_ids ?? []) as string[],
     format: post.format ?? "",
     destinations,
-    copy: post.copy ?? "",
+    copy: flattenCopy(post.copy),
     internalBriefing: post.internal_briefing ?? "",
     clientBriefing: post.client_briefing ?? "",
     script: scriptText,
@@ -1244,11 +1197,16 @@ function TaskLayout({
 
         {mediaSlot ? <div>{mediaSlot}</div> : null}
 
-        <div className="space-y-1">
-          <CopyEditor
+        <div className="space-y-1.5">
+          <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+            Legenda
+          </Label>
+          <Textarea
             value={state.copy}
-            onChange={(v) => set("copy", v)}
-            postId={mode === "edit" ? postId : undefined}
+            onChange={(e) => set("copy", e.target.value)}
+            rows={14}
+            placeholder="Legenda completa da peça (abertura, desenvolvimento, CTA e hashtags)…"
+            className="min-h-[260px] text-sm leading-relaxed"
           />
           {mode === "edit" ? (
             <div className="flex justify-end px-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
@@ -1290,15 +1248,6 @@ function TaskLayout({
               rows={5}
               placeholder="Roteiro / script do vídeo..."
             />
-            {mode === "edit" && postId ? (
-              <AiFieldButton
-                postId={postId}
-                field="script"
-                label="Gerar roteiro"
-                size="xs"
-                onText={(t) => set("script", t)}
-              />
-            ) : null}
           </TabsContent>
         </Tabs>
       </div>
@@ -1524,48 +1473,6 @@ function Timeline({ items }: { items: PostTimelineEvent[] }) {
   );
 }
 
-function AiFieldButton({
-  postId,
-  field,
-  label,
-  onText,
-  size = "sm",
-}: {
-  postId: string;
-  field: "copy" | "hashtags" | "cta" | "script" | "briefing" | "hook" | "headline";
-  label: string;
-  onText: (t: string) => void;
-  size?: "xs" | "sm";
-}) {
-  const runAi = useServerFn(aiInlineGenerateFn);
-  const m = useMutation({
-    mutationFn: () => runAi({ data: { postId, field } }),
-    onSuccess: (r: { text: string }) => {
-      onText(r.text);
-      toast.success(`${label} gerado`);
-    },
-    onError: (e: Error) => toast.error(describeError(e)),
-  });
-  const cls =
-    size === "xs"
-      ? "h-7 rounded-full border border-violet-500/30 bg-violet-500/10 px-2.5 text-xs text-violet-700 hover:bg-violet-500/20 dark:text-violet-300"
-      : "h-8 rounded-full border border-violet-500/30 bg-violet-500/10 px-3 text-xs text-violet-700 hover:bg-violet-500/20 dark:text-violet-300";
-  return (
-    <button
-      type="button"
-      className={`inline-flex items-center gap-1.5 ${cls}`}
-      onClick={() => m.mutate()}
-      disabled={m.isPending}
-    >
-      {m.isPending ? (
-        <Loader2 className="h-3 w-3 animate-spin" />
-      ) : (
-        <Sparkles className="h-3 w-3" />
-      )}
-      {label}
-    </button>
-  );
-}
 
 function ApprovalLinkSection({ postId }: { postId: string }) {
   const qc = useQueryClient();
@@ -1666,175 +1573,22 @@ function ApprovalLinkSection({ postId }: { postId: string }) {
   );
 }
 
-// ----------------- Structured Copy Editor -----------------
+// ----------------- Legenda (copy única) -----------------
 
-type CopySections = {
-  gancho: string;
-  headline: string;
-  body: string;
-  cta: string;
-  hashtags: string;
-};
+// Compatibilidade: copies antigas foram salvas com marcadores de seção
+// (### GANCHO / ### HEADLINE / ### COPY / ### CTA / ### HASHTAGS). A nova UI
+// trabalha com uma legenda única, então achatamos o texto ao carregar sem
+// destruir nada no banco.
+const COPY_SECTION_RE = /^###\s+(?:GANCHO|HEADLINE|COPY|CTA|HASHTAGS)\s*$/gim;
 
-const EMPTY_SECTIONS: CopySections = {
-  gancho: "",
-  headline: "",
-  body: "",
-  cta: "",
-  hashtags: "",
-};
-
-const SECTION_RE = /^###\s+(GANCHO|HEADLINE|COPY|CTA|HASHTAGS)\s*$/gim;
-
-function parseCopySections(raw: string | null | undefined): CopySections {
-  if (!raw) return { ...EMPTY_SECTIONS };
-  const parts = raw.split(SECTION_RE);
-  if (parts.length <= 1) return { ...EMPTY_SECTIONS, body: raw.trim() };
-  const out: CopySections = { ...EMPTY_SECTIONS };
-  for (let i = 1; i < parts.length; i += 2) {
-    const key = (parts[i] ?? "").toLowerCase();
-    const value = (parts[i + 1] ?? "").trim();
-    if (key === "gancho") out.gancho = value;
-    else if (key === "headline") out.headline = value;
-    else if (key === "copy") out.body = value;
-    else if (key === "cta") out.cta = value;
-    else if (key === "hashtags") out.hashtags = value;
-  }
-  return out;
-}
-
-function serializeCopySections(sec: CopySections): string {
-  const parts: string[] = [];
-  if (sec.gancho.trim()) parts.push(`### GANCHO\n${sec.gancho.trim()}`);
-  if (sec.headline.trim()) parts.push(`### HEADLINE\n${sec.headline.trim()}`);
-  if (sec.body.trim()) parts.push(`### COPY\n${sec.body.trim()}`);
-  if (sec.cta.trim()) parts.push(`### CTA\n${sec.cta.trim()}`);
-  if (sec.hashtags.trim()) parts.push(`### HASHTAGS\n${sec.hashtags.trim()}`);
-  return parts.join("\n\n");
-}
-
-const COPY_FIELDS: Array<{
-  key: keyof CopySections;
-  label: string;
-  placeholder: string;
-  rows: number;
-  aiField?: "copy" | "hashtags" | "cta" | "hook" | "headline";
-}> = [
-  { key: "gancho", label: "HOOK", placeholder: "Primeira linha que segura o scroll…", rows: 2, aiField: "hook" },
-  { key: "headline", label: "Headline", placeholder: "Ideia central em uma frase…", rows: 2, aiField: "headline" },
-  { key: "body", label: "Copy principal", placeholder: "Desenvolva o argumento…", rows: 6, aiField: "copy" },
-  { key: "cta", label: "CTA", placeholder: "Chamada para ação…", rows: 2, aiField: "cta" },
-  { key: "hashtags", label: "Hashtags", placeholder: "#marca #categoria #campanha", rows: 2, aiField: "hashtags" },
-];
-
-function CopyEditor({
-  value,
-  onChange,
-  postId,
-}: {
-  value: string;
-  onChange: (next: string) => void;
-  postId?: string;
-}) {
-  const sections = useMemo(() => parseCopySections(value), [value]);
-  const setSection = (key: keyof CopySections, next: string) => {
-    onChange(serializeCopySections({ ...sections, [key]: next }));
-  };
-
-  return (
-    <Tabs defaultValue={COPY_FIELDS[0].key} className="overflow-hidden rounded-xl border border-border/60 bg-card">
-      <TabsList className="h-10 w-full justify-start gap-1 rounded-none border-b border-border/60 bg-background/60 px-2">
-        {COPY_FIELDS.map((f) => {
-          const filled = sections[f.key].trim().length > 0;
-          return (
-            <TabsTrigger
-              key={f.key}
-              value={f.key}
-              className="h-7 gap-1.5 px-2.5 text-[11px] font-semibold uppercase tracking-widest"
-            >
-              {f.label}
-              {filled ? (
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              ) : null}
-            </TabsTrigger>
-          );
-        })}
-      </TabsList>
-      {COPY_FIELDS.map((f) => (
-        <TabsContent key={f.key} value={f.key} className="mt-0 px-3 py-3">
-          <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
-              {f.label}
-            </span>
-            <div className="flex items-center gap-1">
-              {postId && f.aiField ? (
-                <>
-                  <MicroAiButton
-                    postId={postId}
-                    field={f.aiField}
-                    tooltip="Regenerar com IA"
-                    icon="sparkles"
-                    onText={(t) => setSection(f.key, t)}
-                  />
-                  <MicroAiButton
-                    postId={postId}
-                    field={f.aiField}
-                    tooltip="Melhorar tom"
-                    icon="wand"
-                    onText={(t) => setSection(f.key, t)}
-                  />
-                </>
-              ) : null}
-            </div>
-          </div>
-          <Textarea
-            value={sections[f.key]}
-            onChange={(e) => setSection(f.key, e.target.value)}
-            placeholder={f.placeholder}
-            rows={f.rows}
-            className="min-h-0 resize-none border-0 bg-transparent p-0 text-sm leading-relaxed shadow-none focus-visible:ring-0"
-          />
-        </TabsContent>
-      ))}
-    </Tabs>
-  );
-}
-
-function MicroAiButton({
-  postId,
-  field,
-  tooltip,
-  icon,
-  onText,
-}: {
-  postId: string;
-  field: "copy" | "hashtags" | "cta" | "script" | "briefing" | "hook" | "headline";
-  tooltip: string;
-  icon: "sparkles" | "wand";
-  onText: (t: string) => void;
-}) {
-  const runAi = useServerFn(aiInlineGenerateFn);
-  const m = useMutation({
-    mutationFn: () => runAi({ data: { postId, field } }),
-    onSuccess: (r: { text: string }) => {
-      onText(r.text);
-      toast.success("Atualizado com IA");
-    },
-    onError: (e: Error) => toast.error(describeError(e)),
-  });
-  const Icon = icon === "sparkles" ? Sparkles : Wand2;
-  return (
-    <button
-      type="button"
-      title={tooltip}
-      aria-label={tooltip}
-      onClick={() => m.mutate()}
-      disabled={m.isPending}
-      className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 bg-background/60 text-muted-foreground transition hover:border-border hover:text-foreground disabled:opacity-60"
-    >
-      {m.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Icon className="h-3 w-3" />}
-    </button>
-  );
+function flattenCopy(raw: string | null | undefined): string {
+  if (!raw) return "";
+  if (!/^###\s+/m.test(raw)) return raw;
+  return raw
+    .split(COPY_SECTION_RE)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 // ---------------- Media helpers ----------------
@@ -2098,18 +1852,14 @@ function MediaReferenceBlock({
   fileInput,
   onFiles,
   onRemove,
-  onGenerate,
   uploading,
-  generating,
 }: {
   refs: RefEntry[];
   signedUrls: Record<string, string>;
   fileInput: React.RefObject<HTMLInputElement | null>;
   onFiles: (files: File[]) => void;
   onRemove: (path: string) => void;
-  onGenerate: () => void;
   uploading: boolean;
-  generating: boolean;
 }) {
   const [dragActive, setDragActive] = useState(false);
   return (
@@ -2187,20 +1937,6 @@ function MediaReferenceBlock({
             }}
           />
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onGenerate}
-              disabled={generating}
-              title="Gerar imagem de referência usando o hook, headline e copy"
-            >
-              {generating ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="mr-2 h-4 w-4" />
-              )}
-              Gerar com IA
-            </Button>
             <Button
               variant="outline"
               size="sm"
