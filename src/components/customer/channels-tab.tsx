@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useAccessRole } from "@/hooks/use-access-role";
 import {
   CHANNEL_FORMATS,
   channelDef,
@@ -40,14 +41,14 @@ import {
 export function ChannelsTab({
   brandId,
   clientId,
-  canManage = true,
 }: {
   brandId: string;
   clientId: string;
-  /** owner/manager/super_admin podem vincular e desvincular. */
-  canManage?: boolean;
 }) {
   const qc = useQueryClient();
+  // owner/manager/super_admin podem vincular e desvincular.
+  const { role } = useAccessRole();
+  const canManage = role === "admin";
   const listLinkedFn = useServerFn(listClientLinkedChannelsFn);
   const [pickerOpen, setPickerOpen] = useState(false);
 

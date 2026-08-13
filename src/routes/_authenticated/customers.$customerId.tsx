@@ -412,12 +412,7 @@ function CustomerDetailReady({
                 <AccountManagementTab brandId={brandId} clientId={customerId} />
               </TabsContent>
               <TabsContent value="channels">
-                <ChannelsTab
-                  brandId={brandId}
-                  clientId={customerId}
-                  canManage={role === "admin"}
-                />
-
+                <ChannelsTab brandId={brandId} clientId={customerId} />
               </TabsContent>
             </Tabs>
           </>
