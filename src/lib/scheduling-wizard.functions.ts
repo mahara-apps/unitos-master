@@ -12,7 +12,8 @@ import { resolveStageIdByKey } from "@/lib/post-stage.server";
 /**
  * Server functions do wizard de agendamento (/calendar).
  * Reaproveita `posts` + `post_placements` + `social_connections`.
- * Todas as leituras de conexão filtram por (brand_id, client_id).
+ * Leituras de posts filtram por (brand_id, client_id); canais vêm do vínculo
+ * client_social_accounts (o campo legado social_connections.client_id não é usado).
  */
 
 // ============================================================
