@@ -81,7 +81,6 @@ import {
   updateTopicFn,
   type GenerateMonthlyPlanResult,
   type MonthlyPlanListItem,
-  type MonthlyPlanStatus,
   type MonthlyPlanTopic,
   type MonthlyPlanWithTopics,
 } from "@/lib/monthly-plans.functions";
@@ -788,45 +787,37 @@ function ApprovalView({
   return (
     <div className="pb-32">
       <DashboardPageShell className="space-y-8">
-        <StatusBanner
-          status={plan.status}
-          feedback={plan.client_feedback}
-          decisionAt={plan.client_decision_at}
-          decisionMode={plan.client_decision_mode ?? null}
-          counts={{
-            approved: clientApprovedCount,
-            changes: clientChangesCount,
-            rejected: clientRejectedCount,
-          }}
-          link={clientLink}
-        />
+        {(plan.status === "changes_requested" || plan.status === "client_rejected") &&
+        plan.client_feedback ? (
+          <p className="text-xs text-amber-400">
+            Feedback do cliente: {plan.client_feedback}
+          </p>
+        ) : null}
 
         {plan.internal_approved_at ? (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 bg-card/40 px-4 py-3">
-            <div className="flex items-center gap-2 text-sm">
-              <FolderKanban className="h-4 w-4 text-violet-400" />
-              <span className="text-muted-foreground">
-                {plan.project_id
-                  ? "Esta pauta já existe como projeto ativo."
-                  : "Esta pauta foi aprovada internamente e ainda não tem projeto vinculado."}
-              </span>
-            </div>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <FolderKanban className="h-3.5 w-3.5 text-violet-400" />
             {plan.project_id ? (
-              <Button
-                size="sm"
-                variant="outline"
+              <button
+                type="button"
+                className="underline underline-offset-2 hover:text-foreground"
                 onClick={() => navigate({ to: "/projects/$projectId", params: { projectId: plan.project_id! } })}
               >
                 Ver projeto
-              </Button>
+              </button>
             ) : (
-              <Button size="sm" onClick={() => ensureProjectM.mutate()} disabled={ensureProjectM.isPending}>
-                {ensureProjectM.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : null}
-                Criar projeto
-              </Button>
+              <button
+                type="button"
+                className="underline underline-offset-2 hover:text-foreground disabled:opacity-50"
+                onClick={() => ensureProjectM.mutate()}
+                disabled={ensureProjectM.isPending}
+              >
+                {ensureProjectM.isPending ? "Criando projeto…" : "Criar projeto"}
+              </button>
             )}
           </div>
         ) : null}
+
 
 
         {/* Estratégia */}
@@ -1027,101 +1018,6 @@ function ApprovalView({
   );
 }
 
-function StatusBanner({
-  status,
-  feedback,
-  link,
-  decisionAt,
-  decisionMode,
-  counts,
-}: {
-  status: MonthlyPlanStatus;
-  feedback: string | null;
-  link: string | null;
-  decisionAt?: string | null;
-  decisionMode?: string | null;
-  counts?: { approved: number; changes: number; rejected: number };
-}) {
-  const decided = decisionAt
-    ? new Date(decisionAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })
-    : null;
-  const summary = counts
-    ? `${counts.approved} aprovados · ${counts.changes} com ajuste · ${counts.rejected} rejeitados`
-    : null;
-  const meta = (
-    <>
-      {decided ? (
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          Decisão do cliente em {decided}
-          {decisionMode === "per_item" ? " (item por item)" : ""}
-          {summary ? ` · ${summary}` : ""}
-        </p>
-      ) : null}
-    </>
-  );
-
-  if (status === "draft") {
-    return (
-      <div className="rounded-xl border border-border/60 bg-muted/30 p-4 text-xs text-muted-foreground">
-        Aprovação interna: decida cada item (aprovar/descartar) e defina plataforma e formato.
-        Só depois a pauta vai ao cliente — e apenas os itens aprovados pelo cliente viram cards.
-      </div>
-    );
-  }
-  if (status === "pending_client") {
-    return (
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-400">
-        Aguardando decisão do cliente (aprovar, rejeitar ou pedir ajustes).
-        {link ? ` Link: ${link}` : ""}
-      </div>
-    );
-  }
-  if (status === "changes_requested") {
-    return (
-      <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-400">
-        <p className="font-medium">O cliente pediu ajustes.</p>
-        {feedback ? <p className="mt-1 text-muted-foreground">{feedback}</p> : null}
-        <p className="mt-1">
-          Ajuste os itens marcados e envie novamente. Os itens já aprovados pelo cliente foram
-          para o Kanban de produção.
-        </p>
-        {meta}
-      </div>
-    );
-  }
-  if (status === "client_rejected") {
-    return (
-      <div className="rounded-xl border border-rose-500/30 bg-rose-500/5 p-4 text-xs text-rose-400">
-        <p className="font-medium">O cliente rejeitou a pauta.</p>
-        {feedback ? <p className="mt-1 text-muted-foreground">{feedback}</p> : null}
-        <p className="mt-1">Refaça os itens e envie novamente para aprovação.</p>
-        {meta}
-      </div>
-    );
-  }
-  if (status === "client_approved") {
-    return (
-      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-xs text-emerald-400">
-        <p className="font-medium">Cliente aprovou a pauta.</p>
-        <p className="mt-1">
-          Os cards já foram criados no Kanban de produção. Use “Enviar para produção” apenas se
-          algum item não tiver aparecido lá.
-        </p>
-        {meta}
-      </div>
-    );
-  }
-  if (status === "approved") {
-    return (
-      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-xs text-emerald-400">
-        <p className="font-medium">Pauta em produção.</p>
-        <p className="mt-1">Os itens aprovados pelo cliente estão no Kanban de conteúdo.</p>
-        {meta}
-      </div>
-    );
-  }
-  return null;
-}
 
 
 /* --------------------------------------------------------------- */
