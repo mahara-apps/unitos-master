@@ -71,6 +71,7 @@ import {
 } from "@/lib/approval.functions";
 import { listClientLinkedChannelsFn, type LinkedChannel } from "@/lib/client-channels.functions";
 import { useAccessRole } from "@/hooks/use-access-role";
+import { Link } from "@tanstack/react-router";
 import { saveScheduledPostFn } from "@/lib/scheduling-wizard.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
