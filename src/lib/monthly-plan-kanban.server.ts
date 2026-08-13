@@ -182,8 +182,40 @@ export async function materializePlanToKanban(
     };
   });
 
-  const { error: insErr } = await sb.from("posts").insert(rows as never);
+  const { data: insertedPosts, error: insErr } = await sb
+    .from("posts")
+    .insert(rows as never)
+    .select("id, title, monthly_plan_topic_id");
   if (insErr) throw insErr;
+
+  // Uma tarefa de produção por peça criada (vinculada ao projeto e à peça).
+  const createdPosts = (insertedPosts ?? []) as unknown as Array<{
+    id: string;
+    title: string | null;
+    monthly_plan_topic_id: string | null;
+  }>;
+  if (createdPosts.length > 0) {
+    const channelByTopic = new Map(pending.map((t) => [t.id, t.channel]));
+    const taskRows = createdPosts.map((p) => {
+      const channel = p.monthly_plan_topic_id
+        ? channelByTopic.get(p.monthly_plan_topic_id) ?? null
+        : null;
+      const base = (p.title ?? "Peça").trim();
+      return {
+        brand_id: args.brandId,
+        client_id: args.clientId,
+        project_id: projectId,
+        post_id: p.id,
+        title: `Produzir: ${base}${channel ? ` (${channel})` : ""}`.slice(0, 200),
+        description: "Tarefa criada automaticamente após a aprovação da pauta pelo cliente.",
+        status: "todo",
+        priority: "medium",
+        created_by: args.userId,
+      };
+    });
+    // Não bloqueia a materialização das peças caso a criação de tarefas falhe.
+    await sb.from("tasks").insert(taskRows as never);
+  }
 
   if (args.markPlanApproved !== false) {
     await sb
@@ -191,6 +223,7 @@ export async function materializePlanToKanban(
       .update({ status: "approved" } as never)
       .eq("id", args.planId);
   }
+
 
 
   return { created: rows.length, skipped: list.length - rows.length };
