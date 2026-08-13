@@ -21,9 +21,10 @@ export type BrandChannelRef = {
   brandId: string;
   channel: SocialChannel;
   /**
-   * Quando o post pertence a um cliente específico, resolvemos a conta
-   * social daquele cliente. Sem `clientId`, resolvemos apenas conexões
-   * institucionais da marca (client_id IS NULL — ex.: blog da agência).
+   * Quando o post pertence a um cliente específico, resolvemos o canal
+   * VINCULADO àquele cliente em `client_social_accounts` (única fonte de
+   * verdade). Sem `clientId`, qualquer canal ativo da marca serve.
+   * O campo legado `social_connections.client_id` nunca é consultado.
    */
   clientId?: string | null;
 };
@@ -37,14 +38,36 @@ export async function resolveBrandChannelConnection(
   ref: BrandChannelRef,
   userTokenForCache: string,
 ): Promise<ResolvedConnection> {
+  let allowedIds: string[] | null = null;
+  if (ref.clientId) {
+    const { data: links, error: lErr } = await supabase
+      .from("client_social_accounts")
+      .select("connection_id")
+      .eq("brand_id", ref.brandId)
+      .eq("client_id", ref.clientId);
+    if (lErr) throw new SocialServiceError("db_error", lErr.message, 500);
+    allowedIds = (links ?? []).map((l) => l.connection_id);
+    if (!allowedIds.length) {
+      throw new SocialServiceError(
+        "not_found",
+        `Nenhum canal ${ref.channel} vinculado a este cliente. Vincule em Perfil do cliente > Canais.`,
+        404,
+        { brandId: ref.brandId, channel: ref.channel, clientId: ref.clientId },
+      );
+    }
+  }
+
   let q = supabase
     .from("social_connections")
-    .select("id, status, client_id")
+    .select("id, status")
     .eq("brand_id", ref.brandId)
     .eq("channel", ref.channel)
     .in("status", ["active", "attention"]);
-  q = ref.clientId ? q.eq("client_id", ref.clientId) : q.is("client_id", null);
-  const { data, error } = await q.maybeSingle();
+  if (allowedIds) q = q.in("id", allowedIds);
+  const { data, error } = await q
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   if (error) throw new SocialServiceError("db_error", error.message, 500);
   if (!data) {
@@ -58,6 +81,7 @@ export async function resolveBrandChannelConnection(
 
   return resolveConnection(supabase, data.id, userTokenForCache);
 }
+
 
 /** Lista todos os canais ativos de uma Marca (leitura, sem decripta token). */
 export async function listBrandChannels(
