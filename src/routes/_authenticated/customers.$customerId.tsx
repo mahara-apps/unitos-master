@@ -2,7 +2,7 @@ import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/rea
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useEffect, useState } from "react";
-import { AlertTriangle, ClipboardList, Sparkles } from "lucide-react";
+import { AlertTriangle, Sparkles } from "lucide-react";
 import { MonthlyPlanView } from "@/components/monthly-plan/monthly-plan-view";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
