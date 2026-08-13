@@ -18,6 +18,15 @@ export type PlanTopicForKanban = {
   position: number;
 };
 
+const POST_CHANNELS = ["instagram", "tiktok", "linkedin", "x", "youtube", "blog"] as const;
+
+/** Converte o canal do tópico da pauta no enum `post_channel` (quando existir). */
+function normalizeChannel(raw: string | null): string[] {
+  const s = (raw ?? "").trim().toLowerCase();
+  const hit = POST_CHANNELS.find((c) => s.includes(c)) ?? (s.includes("twitter") ? "x" : null);
+  return hit ? [hit] : [];
+}
+
 export function isKanbanReady(t: Pick<PlanTopicForKanban, "channel" | "content_format">): boolean {
   return !!(t.channel && t.channel.trim() && t.content_format && t.content_format.trim());
 }
@@ -109,13 +118,16 @@ export async function materializePlanToKanban(
       .filter(Boolean) as string[],
   );
   const pending = list.filter((t) => !already.has(t.id));
-  if (pending.length === 0) return { created: 0, skipped: list.length };
+  // Sem `return` antecipado quando não há pendências: a reexecução ainda
+  // precisa garantir projeto, tarefas e conclusão de gerações que falharam.
 
   const pipelineId = await ensureDefaultPipeline(sb, args.brandId, args.clientId, args.userId);
 
   // Garante o projeto da pauta e vincula as peças a ele (projeto = execução da pauta).
+  // Peça originada de pauta NUNCA fica sem projeto: se o projeto não puder
+  // ser garantido, a materialização falha em vez de gravar estado inválido.
   let projectId: string | null = null;
-  try {
+  {
     const { ensurePlanProject } = await import("@/lib/monthly-plan-project.server");
     const { data: planRow } = await sb
       .from("monthly_plans")
@@ -130,9 +142,8 @@ export async function materializePlanToKanban(
       userId: args.userId,
     });
     projectId = res.projectId;
-  } catch {
-    projectId = null;
   }
+  if (!projectId) throw new Error("plan_project_missing");
 
   const { data: stages } = await sb
     .from("content_pipeline_stages")
@@ -167,6 +178,7 @@ export async function materializePlanToKanban(
       stage: "idea",
       title: t.topic_title,
       format: t.content_format,
+      channels: normalizeChannel(t.channel),
       internal_briefing: [
         t.angle,
         t.target_audience ? `Público-alvo: ${t.target_audience}` : "",
@@ -182,25 +194,40 @@ export async function materializePlanToKanban(
     };
   });
 
-  const { data: insertedPosts, error: insErr } = await sb
-    .from("posts")
-    .insert(rows as never)
-    .select("id, title, monthly_plan_topic_id");
-  if (insErr) throw insErr;
+  let insertedPosts: unknown[] = [];
+  if (rows.length > 0) {
+    const { data, error: insErr } = await sb
+      .from("posts")
+      .insert(rows as never)
+      .select("id, title, monthly_plan_topic_id");
+    if (insErr) throw insErr;
+    insertedPosts = (data ?? []) as unknown[];
+  }
 
   // Uma tarefa de produção por peça da pauta (idempotente: inclui peças já
   // existentes que ainda não tenham tarefa, e nunca duplica).
   const topicIds = list.map((t) => t.id);
   const { data: planPosts } = await sb
     .from("posts")
-    .select("id, title, scheduled_at, monthly_plan_topic_id")
+    .select("id, title, copy, scheduled_at, monthly_plan_topic_id")
     .in("monthly_plan_topic_id", topicIds.length > 0 ? topicIds : ["00000000-0000-0000-0000-000000000000"]);
   const allPlanPosts = (planPosts ?? []) as unknown as Array<{
     id: string;
     title: string | null;
+    copy: string | null;
     scheduled_at: string | null;
     monthly_plan_topic_id: string | null;
   }>;
+
+  // Backfill de vínculo: peças antigas da pauta sem projeto passam a apontar
+  // para o projeto da pauta (validação no backend, não só na UI).
+  if (allPlanPosts.length > 0) {
+    await sb
+      .from("posts")
+      .update({ project_id: projectId, pipeline_id: pipelineId } as never)
+      .in("id", allPlanPosts.map((p) => p.id))
+      .is("project_id", null);
+  }
 
   if (allPlanPosts.length > 0) {
     const postIds = allPlanPosts.map((p) => p.id);
@@ -233,6 +260,28 @@ export async function materializePlanToKanban(
     // Não bloqueia a materialização das peças caso a criação de tarefas falhe.
     if (taskRows.length > 0) await sb.from("tasks").insert(taskRows as never);
 
+    // Tarefas antigas da pauta sem projeto herdam o projeto da pauta.
+    await sb
+      .from("tasks")
+      .update({ project_id: projectId } as never)
+      .in("post_id", postIds)
+      .is("project_id", null);
+
+  }
+
+  // Orquestração dos agentes (agent_prompts): cada peça nova nasce com a
+  // legenda produzida pelo cérebro. Idempotente — peças com copy são ignoradas.
+  const newPostIds = ((insertedPosts ?? []) as unknown as { id: string }[]).map((p) => p.id);
+  const emptyPlanPostIds = allPlanPosts
+    .filter((p) => !(p.copy ?? "").trim())
+    .map((p) => p.id);
+  const toGenerate = Array.from(new Set([...newPostIds, ...emptyPlanPostIds]));
+  if (toGenerate.length > 0) {
+    const [{ waitUntil }, { generatePostsContentSequential }] = await Promise.all([
+      import("@/lib/wait-until.server"),
+      import("@/lib/post-agents.server"),
+    ]);
+    waitUntil(generatePostsContentSequential(toGenerate, { userId: args.userId }));
   }
 
   if (args.markPlanApproved !== false) {

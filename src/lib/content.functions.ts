@@ -1003,6 +1003,35 @@ export const deletePostFn = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+// ---------- Completar/refazer a geração da peça pelos agentes ----------
+// Usa o mesmo orquestrador da materialização da pauta (agent_prompts).
+export const regeneratePostContentFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ postId: z.string().uuid(), force: z.boolean().optional() }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    // Autorização: o usuário precisa alcançar a peça via RLS.
+    const { data: post, error } = await context.supabase
+      .from("posts")
+      .select("id")
+      .eq("id", data.postId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!post) throw new Error("Peça não encontrada");
+
+    const { generatePostContent } = await import("@/lib/post-agents.server");
+    const res = await generatePostContent(data.postId, {
+      force: data.force ?? true,
+      userId: context.userId,
+    });
+    if (res.status === "failed") {
+      throw new Error(`A geração falhou no agente ${res.agent}: ${res.error}`);
+    }
+    return res;
+  });
+
+
 // ---------- Rework: reset status, move card back to review stage ----------
 
 export const reworkPostFn = createServerFn({ method: "POST" })
