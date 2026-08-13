@@ -3,9 +3,10 @@ import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  CheckSquare, CalendarDays, Images, FolderOpen, FileText,
+  CheckSquare, CalendarDays, FolderOpen, FileText,
   Check, X, MessageSquareWarning, MessageCircle, ExternalLink,
-  Download, Search, Clock, Loader2, ChevronLeft, ImageIcon, User2, CalendarClock,
+  Download, Search, Clock, Loader2, ChevronLeft, ChevronRight, ImageIcon, User2, CalendarClock,
+  Hourglass, CheckCircle2, Layers, ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +21,6 @@ import {
   getPortalPostFn,
   decidePortalApprovalFn,
   listPortalCalendarFn,
-  listPortalFeedFn,
   listPortalFilesFn,
   listPortalBriefingsFn,
 } from "@/lib/portal-public.functions";
@@ -31,6 +31,15 @@ import {
 
 /* ---------------------------------- HOME ---------------------------------- */
 
+type HomeCardTone = "amber" | "emerald" | "sky" | "neutral";
+
+const HOME_TONES: Record<HomeCardTone, { chip: string; bar: string; value: string }> = {
+  amber: { chip: "bg-amber-500/10 text-amber-600 dark:text-amber-400", bar: "bg-amber-500", value: "text-amber-600 dark:text-amber-400" },
+  emerald: { chip: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", bar: "bg-emerald-500", value: "text-foreground" },
+  sky: { chip: "bg-sky-500/10 text-sky-600 dark:text-sky-400", bar: "bg-sky-500", value: "text-foreground" },
+  neutral: { chip: "bg-muted text-muted-foreground", bar: "bg-border", value: "text-foreground" },
+};
+
 export function HomeTab({ token }: { token: string }) {
   const fn = useServerFn(getPortalMetricsFn);
   const q = useQuery({
@@ -39,35 +48,86 @@ export function HomeTab({ token }: { token: string }) {
     staleTime: 30_000,
   });
   const m = q.data;
-  const cards = [
-    { label: "Aguardando você", value: m?.pending ?? 0, tone: "amber", to: "/portal/$token/aprovacoes" },
-    { label: "Aprovados no mês", value: m?.approvedThisMonth ?? 0, tone: "emerald", to: "/portal/$token/feed" },
-    { label: "Agendados", value: m?.scheduled ?? 0, tone: "sky", to: "/portal/$token/calendario" },
-    { label: "Total de posts", value: m?.total ?? 0, tone: "neutral", to: "/portal/$token/feed" },
+  const cards: Array<{
+    label: string;
+    value: number;
+    hint: string;
+    tone: HomeCardTone;
+    icon: typeof Hourglass;
+    to: string;
+    search?: Record<string, string>;
+  }> = [
+    {
+      label: "Aguardando você",
+      value: m?.pending ?? 0,
+      hint: (m?.pending ?? 0) > 0 ? "Revisar agora" : "Nada pendente",
+      tone: "amber",
+      icon: Hourglass,
+      to: "/portal/$token/aprovacoes",
+    },
+    {
+      label: "Aprovados no mês",
+      value: m?.approvedThisMonth ?? 0,
+      hint: "Neste mês",
+      tone: "emerald",
+      icon: CheckCircle2,
+      to: "/portal/$token/aprovacoes",
+    },
+    {
+      label: "Agendados",
+      value: m?.scheduled ?? 0,
+      hint: "Na fila de publicação",
+      tone: "sky",
+      icon: CalendarClock,
+      to: "/portal/$token/calendario",
+    },
+    {
+      label: "Total de posts",
+      value: m?.total ?? 0,
+      hint: "Histórico da conta",
+      tone: "neutral",
+      icon: Layers,
+      to: "/portal/$token/calendario",
+    },
   ];
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {cards.map((c) => (
-          <Link
-            key={c.label}
-            to={c.to}
-            params={{ token }}
-            className="group rounded-xl border border-border/60 bg-card p-4 text-left transition-colors hover:border-border"
-          >
-            <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{c.label}</div>
-            <div className="mt-3 flex items-end justify-between">
-              <div className="text-3xl font-semibold tabular-nums tracking-tight">{q.isLoading ? "—" : c.value}</div>
-              <div className={`h-2 w-2 rounded-full bg-${c.tone}-500`} />
-            </div>
-          </Link>
-        ))}
+        {cards.map((c) => {
+          const t = HOME_TONES[c.tone];
+          const Icon = c.icon;
+          return (
+            <Link
+              key={c.label}
+              to={c.to}
+              params={{ token }}
+              className="group relative overflow-hidden rounded-xl border border-border/60 bg-card p-4 text-left transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-sm"
+            >
+              <span className={`absolute inset-x-0 top-0 h-0.5 ${t.bar}`} />
+              <div className="flex items-start justify-between gap-2">
+                <div className="font-mono text-[10px] uppercase leading-tight tracking-widest text-muted-foreground">
+                  {c.label}
+                </div>
+                <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${t.chip}`}>
+                  <Icon className="h-3.5 w-3.5" />
+                </span>
+              </div>
+              <div className={`mt-4 text-3xl font-semibold tabular-nums tracking-tight ${t.value}`}>
+                {q.isLoading ? <Skeleton className="h-8 w-10" /> : c.value}
+              </div>
+              <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
+                {c.hint}
+                <ArrowRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
+              </div>
+            </Link>
+          );
+        })}
       </div>
       <div className="rounded-xl border border-border/60 bg-card p-6">
         <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">bem-vindo</div>
         <h2 className="mt-2 text-lg font-semibold">Tudo o que sua marca está publicando, em um só lugar.</h2>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Use as abas ao lado para <b>aprovar posts</b>, ver o <b>calendário</b> do mês, explorar o <b>feed</b> planejado,
+          Use as abas ao lado para <b>aprovar posts</b>, ver o <b>calendário</b> do mês,
           acessar <b>arquivos</b> compartilhados e <b>preencher briefings</b> quando solicitado pela equipe.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
@@ -502,28 +562,6 @@ export function CalendarTab({ token }: { token: string }) {
         </div>
       </div>
       {q.isLoading && <Skeleton className="h-4 w-32" />}
-    </div>
-  );
-}
-
-/* ---------------------------------- FEED ---------------------------------- */
-
-export function FeedTab({ token }: { token: string }) {
-  const fn = useServerFn(listPortalFeedFn);
-  const q = useQuery({ queryKey: ["portal", "feed", token], queryFn: () => fn({ data: { token } }) });
-  if (q.isLoading) return <GridSkeleton />;
-  if (!q.data?.length) return <EmptyState icon={Images} title="Feed vazio" description="Nenhum post aprovado ou publicado ainda." />;
-  return (
-    <div className="grid grid-cols-3 gap-1 sm:gap-2">
-      {q.data.map((p) => (
-        <div key={p.id as string} className="relative aspect-square overflow-hidden bg-muted">
-          {p.cover_url ? (
-            <img src={p.cover_url as string} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">sem preview</div>
-          )}
-        </div>
-      ))}
     </div>
   );
 }
