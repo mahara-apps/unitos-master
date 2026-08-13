@@ -1,388 +1,381 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import {
-  Facebook,
-  Instagram,
-  Loader2,
-  Plus,
-  Radio,
-  Music2,
-  Youtube,
-  Linkedin,
-  Twitter,
-  AtSign,
-  type LucideIcon,
-} from "lucide-react";
+import { Link2, Loader2, Plus, Settings2, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { MetaPortfolioDialog } from "@/components/connections/meta-portfolio-dialog";
-import { getActiveMetaSession, startMetaOAuth } from "@/lib/meta/meta.functions";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
-  listClientChannelAssignmentsFn,
+  CHANNEL_FORMATS,
+  channelDef,
+  normalizeStatus,
+  StatusDot,
+} from "@/components/connections/channel-meta";
+import {
+  listClientLinkedChannelsFn,
+  listWorkspaceChannelsFn,
   toggleClientChannelFn,
-  type ClientChannelRow,
+  type LinkedChannel,
+  type WorkspaceChannel,
 } from "@/lib/client-channels.functions";
 
-type ChannelKey =
-  | "instagram"
-  | "facebook"
-  | "tiktok"
-  | "youtube"
-  | "linkedin"
-  | "twitter"
-  | "threads";
-
-type ChannelDef = {
-  key: ChannelKey;
-  label: string;
-  icon: LucideIcon;
-  tone: string;
-  /** true = OAuth já implementado (Meta). false = placeholder "em breve". */
-  available: boolean;
-  /** Fluxo de conexão do provider (só para available=true). */
-  provider?: "meta";
-};
-
-const CHANNELS: ChannelDef[] = [
-  { key: "instagram", label: "Instagram", icon: Instagram, tone: "text-pink-500", available: true, provider: "meta" },
-  { key: "facebook", label: "Facebook", icon: Facebook, tone: "text-sky-600", available: true, provider: "meta" },
-  { key: "tiktok", label: "TikTok", icon: Music2, tone: "text-foreground", available: false },
-  { key: "linkedin", label: "LinkedIn", icon: Linkedin, tone: "text-sky-700", available: false },
-  { key: "youtube", label: "YouTube", icon: Youtube, tone: "text-red-500", available: false },
-  { key: "threads", label: "Threads", icon: AtSign, tone: "text-foreground", available: false },
-  { key: "twitter", label: "X / Twitter", icon: Twitter, tone: "text-foreground", available: false },
-];
-
-const CHANNEL_META = new Map(CHANNELS.map((c) => [c.key, c]));
-const AVAILABLE_CHANNELS = CHANNELS.filter((c) => c.available);
-const UPCOMING_CHANNELS = CHANNELS.filter((c) => !c.available);
-
+/**
+ * Perfil do cliente > Canais.
+ *
+ * Mostra EXCLUSIVAMENTE os canais vinculados a este cliente
+ * (`client_social_accounts`). Nunca lista canais de outros clientes nem
+ * inicia OAuth — a conexão de contas acontece em /connections (workspace).
+ */
 export function ChannelsTab({
   brandId,
   clientId,
+  canManage = true,
 }: {
   brandId: string;
   clientId: string;
+  /** owner/manager/super_admin podem vincular e desvincular. */
+  canManage?: boolean;
 }) {
   const qc = useQueryClient();
-  const listFn = useServerFn(listClientChannelAssignmentsFn);
-  const toggleFn = useServerFn(toggleClientChannelFn);
-  const startMetaFn = useServerFn(startMetaOAuth);
-  const getActiveMetaSessionFn = useServerFn(getActiveMetaSession);
-  const [connecting, setConnecting] = useState<null | "facebook" | "instagram">(null);
-  const [portfolioSessionId, setPortfolioSessionId] = useState<string | null>(null);
-  const [portfolioOpen, setPortfolioOpen] = useState(false);
-  const [portfolioChannel, setPortfolioChannel] = useState<"facebook" | "instagram" | null>(null);
+  const listLinkedFn = useServerFn(listClientLinkedChannelsFn);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
-  const queryKey = ["client-channels", brandId, clientId] as const;
-  const q = useQuery({
-    queryKey,
-    queryFn: () => listFn({ data: { brandId, clientId } }),
+  const linkedKey = ["client-linked-channels", brandId, clientId] as const;
+  const linkedQ = useQuery({
+    queryKey: linkedKey,
+    queryFn: () => listLinkedFn({ data: { brandId, clientId } }),
     staleTime: 30_000,
   });
 
-  useEffect(() => {
-    function onMessage(ev: MessageEvent) {
-      const d = ev.data as {
-        source?: string;
-        type?: string;
-        ok?: boolean;
-        error?: string;
-        message?: string;
-        sessionId?: string | null;
-        channel?: "facebook" | "instagram" | null;
-        scopes?: string[];
-      };
-      if (!d || d.source !== "meta-oauth") return;
-      if (d.type === "missing-scopes" && d.scopes?.length) {
-        toast.warning(`Permissões negadas: ${d.scopes.join(", ")}.`, { duration: 8000 });
-        return;
-      }
-      setConnecting(null);
-      if (d.ok && d.sessionId) {
-        toast.success(d.message ?? "Meta conectada");
-        setPortfolioSessionId(d.sessionId);
-        setPortfolioChannel(d.channel ?? null);
-        setPortfolioOpen(true);
-      } else if (d.error) {
-        toast.error(d.error);
-      }
-    }
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, []);
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: linkedKey });
+    qc.invalidateQueries({ queryKey: ["workspace-channels", brandId] });
+    qc.invalidateQueries({ queryKey: ["client-channels", brandId, clientId] });
+    qc.invalidateQueries({ queryKey: ["wizard-connections", brandId, clientId] });
+    qc.invalidateQueries({ queryKey: ["social-analytics", brandId, clientId] });
+  };
 
-  async function connectMeta(channel: "facebook" | "instagram") {
-    setConnecting(channel);
-    try {
-      const existing = await getActiveMetaSessionFn({ data: { brandId } });
-      if (existing.sessionId) {
-        setPortfolioSessionId(existing.sessionId);
-        setPortfolioChannel(channel);
-        setPortfolioOpen(true);
-        setConnecting(null);
-        return;
-      }
-    } catch {
-      // Fall back to OAuth.
-    }
-
-    const popup = window.open("", "meta-oauth", "width=760,height=820,resizable=yes,scrollbars=yes");
-    try {
-      const { authorizeUrl } = await startMetaFn({ data: { brandId, channel } });
-      if (popup) popup.location.href = authorizeUrl;
-      else window.location.href = authorizeUrl;
-    } catch (e) {
-      setConnecting(null);
-      popup?.close();
-      toast.error(e instanceof Error ? e.message : "Falha ao iniciar OAuth da Meta");
-    }
-  }
-
-  const toggleMut = useMutation({
-    mutationFn: (v: { connectionId: string; assigned: boolean }) =>
-      toggleFn({ data: { brandId, clientId, ...v } }),
-    onMutate: async (v) => {
-      await qc.cancelQueries({ queryKey });
-      const prev = qc.getQueryData<ClientChannelRow[]>(queryKey);
-      qc.setQueryData<ClientChannelRow[]>(queryKey, (rows) =>
-        (rows ?? []).map((r) =>
-          r.connectionId === v.connectionId ? { ...r, assigned: v.assigned } : r,
-        ),
-      );
-      return { prev };
-    },
-    onError: (e, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(queryKey, ctx.prev);
-      toast.error(e instanceof Error ? e.message : "Falha ao atualizar vínculo");
-    },
-    onSuccess: (_r, v) => {
-      toast.success(v.assigned ? "Canal vinculado" : "Vínculo removido");
-      qc.invalidateQueries({ queryKey: ["wizard-connections", brandId, clientId] });
-      qc.invalidateQueries({ queryKey: ["social-analytics", brandId, clientId] });
-      qc.invalidateQueries({ queryKey: ["social-analytics-top", brandId, clientId] });
-    },
-  });
-
-  const rows = q.data ?? [];
-  const assignedCount = rows.filter((r) => r.assigned).length;
-
-  const assignedRows = rows.filter((r) => r.assigned);
-  const availableRows = rows.filter((r) => !r.assigned);
-  const hasAnyAccount = rows.length > 0;
-
-  function ChannelIcon({ channel }: { channel: string }) {
-    const def = CHANNEL_META.get(channel as ChannelKey);
-    if (!def) return null;
-    const Icon = def.icon;
-    return <Icon className={`h-3.5 w-3.5 ${def.tone}`} />;
-  }
-
-  function RowItem({ row }: { row: ClientChannelRow }) {
-    const def = CHANNEL_META.get(row.channel as ChannelKey);
-    return (
-      <li className="flex items-center justify-between gap-3 px-4 py-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <Avatar className="h-9 w-9">
-            <AvatarImage src={row.avatarUrl ?? undefined} alt={row.accountLabel} />
-            <AvatarFallback className="text-[10px] uppercase">
-              {row.channel.slice(0, 2)}
-            </AvatarFallback>
-          </Avatar>
-          <div className="min-w-0">
-            <div className="truncate text-sm font-medium">{row.accountLabel}</div>
-            <div className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-muted-foreground">
-              <ChannelIcon channel={row.channel} />
-              <span className="truncate">
-                {def?.label ?? row.channel}
-                {row.handle ? ` · @${row.handle}` : ""}
-                {row.status !== "active" ? ` · ${row.status}` : ""}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {toggleMut.isPending && toggleMut.variables?.connectionId === row.connectionId ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-          ) : null}
-          <Switch
-            checked={row.assigned}
-            onCheckedChange={(v) =>
-              toggleMut.mutate({ connectionId: row.connectionId, assigned: v })
-            }
-            aria-label={`Vincular ${row.accountLabel} a este cliente`}
-          />
-        </div>
-      </li>
-    );
-  }
-
-  const connectButton = (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button size="sm" className="h-8 gap-1.5 text-xs" disabled={!!connecting}>
-          {connecting ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Plus className="h-3.5 w-3.5" />
-          )}
-          Conectar Nova Conta
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
-        {AVAILABLE_CHANNELS.map((def) => {
-          const Icon = def.icon;
-          return (
-            <DropdownMenuItem
-              key={def.key}
-              onSelect={() => connectMeta(def.key as "facebook" | "instagram")}
-              className="gap-2"
-            >
-              <Icon className={`h-4 w-4 ${def.tone}`} />
-              <span>{def.label}</span>
-            </DropdownMenuItem>
-          );
-        })}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+  const rows = linkedQ.data ?? [];
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 text-sm font-semibold">
-            <Radio className="h-4 w-4 text-primary" />
-            Canais deste cliente
-            <Badge variant="secondary" className="shrink-0 text-[10px]">
-              {assignedCount} {assignedCount === 1 ? "ativo" : "ativos"}
-            </Badge>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Ative uma conta com o toggle ou conecte uma nova. Vínculos aparecem no wizard do Calendário.
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-medium">Canais vinculados</h3>
+          <p className="text-xs text-muted-foreground">
+            Contas que este cliente pode usar para publicar.
           </p>
         </div>
-        {connectButton}
+        {canManage && rows.length > 0 ? (
+          <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setPickerOpen(true)}>
+            <Plus className="h-3.5 w-3.5" />
+            Vincular canal
+          </Button>
+        ) : null}
       </div>
 
-      {q.isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-16 w-full rounded-xl" />
+      {linkedQ.isLoading ? (
+        <div className="grid gap-2.5 md:grid-cols-2">
+          {[0, 1].map((i) => (
+            <Skeleton key={i} className="h-[112px] w-full rounded-xl" />
           ))}
         </div>
-      ) : !hasAnyAccount ? (
-        <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 bg-card px-6 py-12 text-center">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/60">
-            <Radio className="h-5 w-5 text-muted-foreground" />
+      ) : rows.length === 0 ? (
+        <Card className="flex flex-col items-start gap-2 border-dashed p-5">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Link2 className="h-4 w-4 text-muted-foreground" />
+            Nenhum canal vinculado
           </div>
-          <div>
-            <div className="text-sm font-medium">Nenhuma conta social conectada</div>
-            <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-              Autorize uma conta da Meta (Instagram ou Facebook) para começar a agendar publicações para este cliente.
+          <p className="text-xs text-muted-foreground">
+            Este cliente ainda não possui canais sociais vinculados.
+          </p>
+          {canManage ? (
+            <Button size="sm" className="mt-1 h-8 gap-1.5 text-xs" onClick={() => setPickerOpen(true)}>
+              <Plus className="h-3.5 w-3.5" />
+              Vincular canal
+            </Button>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Solicite a um administrador o vínculo de um canal.
             </p>
-          </div>
-          {connectButton}
-        </div>
-      ) : (
-        <div className="space-y-6">
-          <section className="overflow-hidden rounded-xl border border-border/60 bg-card">
-            <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5">
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Canais Vinculados
-              </div>
-              <Badge variant="secondary" className="text-[10px]">
-                {assignedRows.length}
-              </Badge>
-            </div>
-            {assignedRows.length === 0 ? (
-              <p className="px-4 py-6 text-center text-xs text-muted-foreground">
-                Nenhuma conta vinculada. Ative uma conta abaixo ou conecte uma nova.
-              </p>
-            ) : (
-              <ul className="divide-y divide-border/60">
-                {assignedRows.map((row) => (
-                  <RowItem key={row.connectionId} row={row} />
-                ))}
-              </ul>
-            )}
-          </section>
-
-          {availableRows.length > 0 && (
-            <section className="overflow-hidden rounded-xl border border-border/60 bg-card">
-              <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5">
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Disponíveis no Workspace
-                </div>
-                <Badge variant="outline" className="text-[10px]">
-                  {availableRows.length}
-                </Badge>
-              </div>
-              <ul className="divide-y divide-border/60">
-                {availableRows.map((row) => (
-                  <RowItem key={row.connectionId} row={row} />
-                ))}
-              </ul>
-            </section>
           )}
+        </Card>
+      ) : (
+        <div className="grid gap-2.5 md:grid-cols-2">
+          {rows.map((row) => (
+            <LinkedChannelCard
+              key={row.connectionId}
+              row={row}
+              brandId={brandId}
+              clientId={clientId}
+              canManage={canManage}
+              onChanged={invalidate}
+            />
+          ))}
         </div>
       )}
 
-      <div className="pt-2">
-        <div className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          Próximas Integrações
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {UPCOMING_CHANNELS.map((def) => {
-            const Icon = def.icon;
-            return (
-              <div
-                key={def.key}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/30 px-2.5 py-1 text-[11px] text-muted-foreground"
-                title={`${def.label} — em breve`}
-              >
-                <Icon className="h-3.5 w-3.5 opacity-60" />
-                <span>{def.label}</span>
-                <span className="ml-1 rounded bg-muted px-1 py-px text-[9px] uppercase tracking-wide">
-                  Em breve
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="rounded-lg border border-dashed border-border/60 px-4 py-3 text-[11px] text-muted-foreground">
-        Precisa gerenciar Business Manager, contas de anúncio ou credenciais de API globais? Isso vive em{" "}
-        <Link to="/connections" className="font-medium underline underline-offset-2">Integrações</Link> (acesso admin).
-      </div>
-
-      <MetaPortfolioDialog
+      <LinkChannelDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
         brandId={brandId}
         clientId={clientId}
-        sessionId={portfolioSessionId}
-        open={portfolioOpen}
-        channel={portfolioChannel}
-        onOpenChange={(open) => {
-          setPortfolioOpen(open);
-          if (!open) {
-            qc.invalidateQueries({ queryKey });
-            qc.invalidateQueries({ queryKey: ["wizard-connections", brandId, clientId] });
-          }
-        }}
+        onChanged={invalidate}
       />
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+function LinkedChannelCard({
+  row,
+  brandId,
+  clientId,
+  canManage,
+  onChanged,
+}: {
+  row: LinkedChannel;
+  brandId: string;
+  clientId: string;
+  canManage: boolean;
+  onChanged: () => void;
+}) {
+  const toggleFn = useServerFn(toggleClientChannelFn);
+  const def = channelDef(row.channel);
+  const Icon = def.icon;
+  const status = normalizeStatus(row.status);
+  const formats = CHANNEL_FORMATS[row.channel] ?? [];
+
+  const unlinkMut = useMutation({
+    mutationFn: () =>
+      toggleFn({
+        data: { brandId, clientId, connectionId: row.connectionId, assigned: false },
+      }),
+    onSuccess: () => {
+      toast.success("Vínculo removido");
+      onChanged();
+    },
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Falha ao remover vínculo"),
+  });
+
+  return (
+    <Card className="flex flex-col gap-2.5 p-3.5">
+      <div className="flex items-start gap-2.5">
+        <Avatar className="h-9 w-9 shrink-0">
+          <AvatarImage src={row.avatarUrl ?? undefined} alt={row.accountLabel} />
+          <AvatarFallback className="text-[10px] uppercase">
+            {row.channel.slice(0, 2)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <Icon className={`h-3.5 w-3.5 shrink-0 ${def.tone}`} />
+            <span className="truncate text-sm font-medium">{def.label}</span>
+          </div>
+          <p className="truncate text-xs text-muted-foreground">
+            {row.handle ? `@${row.handle.replace(/^@/, "")}` : row.accountLabel}
+          </p>
+        </div>
+        <StatusDot
+          status={status}
+          label={status === "active" ? "Ativo" : undefined}
+          className="shrink-0"
+        />
+      </div>
+
+      {formats.length ? (
+        <div className="flex flex-wrap gap-1">
+          {formats.map((f) => (
+            <Badge key={f} variant="secondary" className="text-[10px] font-normal">
+              {f}
+            </Badge>
+          ))}
+        </div>
+      ) : null}
+
+      <div className="flex items-center justify-between gap-2 border-t pt-2.5">
+        <Button asChild size="sm" variant="ghost" className="h-7 gap-1.5 px-2 text-xs">
+          <Link to="/connections">
+            <Settings2 className="h-3.5 w-3.5" />
+            Gerenciar
+          </Link>
+        </Button>
+        {canManage ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-destructive"
+            disabled={unlinkMut.isPending}
+            onClick={() => unlinkMut.mutate()}
+          >
+            {unlinkMut.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" />
+            )}
+            Desvincular
+          </Button>
+        ) : null}
+      </div>
+    </Card>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+function LinkChannelDialog({
+  open,
+  onOpenChange,
+  brandId,
+  clientId,
+  onChanged,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  brandId: string;
+  clientId: string;
+  onChanged: () => void;
+}) {
+  const listFn = useServerFn(listWorkspaceChannelsFn);
+  const toggleFn = useServerFn(toggleClientChannelFn);
+
+  const { data = [], isLoading } = useQuery({
+    queryKey: ["workspace-channels", brandId],
+    queryFn: () => listFn({ data: { brandId } }),
+    enabled: open,
+    staleTime: 30_000,
+  });
+
+  const linkMut = useMutation({
+    mutationFn: (connectionId: string) =>
+      toggleFn({ data: { brandId, clientId, connectionId, assigned: true } }),
+    onSuccess: () => {
+      toast.success("Canal vinculado");
+      onOpenChange(false);
+      onChanged();
+    },
+    onError: (e) =>
+      toast.error(e instanceof Error ? e.message : "Falha ao vincular canal"),
+  });
+
+  const candidates = data.filter(
+    (c) => normalizeStatus(c.status) !== "disconnected",
+  );
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-base">Selecionar canal</DialogTitle>
+          <DialogDescription className="text-xs">
+            Somente contas já conectadas ao workspace. Para conectar uma nova
+            conta, use a tela de Integrações.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isLoading ? (
+          <div className="space-y-2">
+            {[0, 1].map((i) => (
+              <Skeleton key={i} className="h-14 w-full rounded-lg" />
+            ))}
+          </div>
+        ) : candidates.length === 0 ? (
+          <div className="space-y-2 rounded-lg border border-dashed p-4">
+            <p className="text-sm font-medium">Nenhuma conta conectada</p>
+            <p className="text-xs text-muted-foreground">
+              Conecte uma conta no workspace antes de vincular a este cliente.
+            </p>
+            <Button asChild size="sm" variant="outline" className="h-8 text-xs">
+              <Link to="/connections">Abrir Integrações</Link>
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-1.5">
+            {candidates.map((c) => (
+              <CandidateRow
+                key={c.connectionId}
+                row={c}
+                clientId={clientId}
+                pending={linkMut.isPending && linkMut.variables === c.connectionId}
+                onSelect={() => linkMut.mutate(c.connectionId)}
+              />
+            ))}
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CandidateRow({
+  row,
+  clientId,
+  pending,
+  onSelect,
+}: {
+  row: WorkspaceChannel;
+  clientId: string;
+  pending: boolean;
+  onSelect: () => void;
+}) {
+  const def = channelDef(row.channel);
+  const Icon = def.icon;
+  const alreadyHere = row.clients.some((c) => c.id === clientId);
+  const otherClients = row.clients.filter((c) => c.id !== clientId);
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg border p-3">
+      <Avatar className="h-8 w-8 shrink-0">
+        <AvatarImage src={row.avatarUrl ?? undefined} alt={row.accountLabel} />
+        <AvatarFallback className="text-[10px] uppercase">
+          {row.channel.slice(0, 2)}
+        </AvatarFallback>
+      </Avatar>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <Icon className={`h-3.5 w-3.5 shrink-0 ${def.tone}`} />
+          <span className="truncate text-sm font-medium">{def.label}</span>
+        </div>
+        <p className="truncate text-xs text-muted-foreground">
+          {row.handle ? `@${row.handle.replace(/^@/, "")}` : row.accountLabel}
+        </p>
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2">
+          <StatusDot status={normalizeStatus(row.status)} />
+          {otherClients.length ? (
+            <span className="text-[11px] text-muted-foreground">
+              Vinculado a outro cliente
+            </span>
+          ) : null}
+        </div>
+      </div>
+      {alreadyHere ? (
+        <Badge variant="secondary" className="shrink-0 text-[10px]">
+          Vinculado
+        </Badge>
+      ) : (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 shrink-0 px-2.5 text-xs"
+          disabled={pending}
+          onClick={onSelect}
+        >
+          {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Selecionar"}
+        </Button>
+      )}
     </div>
   );
 }
