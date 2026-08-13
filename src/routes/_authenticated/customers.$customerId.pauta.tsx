@@ -935,7 +935,7 @@ function ApprovalView({
 
           <Button
             variant="outline"
-            className="gap-1.5 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+            className="gap-1.5 border-destructive/40 text-destructive bg-destructive/5 hover:bg-destructive/10 hover:text-destructive"
             onClick={() => discard.mutate()}
             disabled={discard.isPending}
           >
