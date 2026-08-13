@@ -55,7 +55,7 @@ import { Plus } from "lucide-react";
 const VIEWS = ["list", "kanban", "calendar", "mine"] as const;
 type View = (typeof VIEWS)[number];
 
-const searchSchema = z.object({
+export const searchSchema = z.object({
   view: z.enum(VIEWS).catch("list"),
   taskId: z.string().uuid().optional(),
   groupBy: z
