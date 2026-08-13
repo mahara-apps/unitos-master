@@ -395,9 +395,6 @@ function ProjectDetailPage() {
               {items.length + extraPosts.length}
             </span>
           </div>
-          <Button size="sm" className="h-9" onClick={() => setOpenNewTask(true)}>
-            <Plus className="mr-2 h-4 w-4" /> Nova peça
-          </Button>
         </div>
 
         {items.length === 0 && extraPosts.length === 0 ? (
