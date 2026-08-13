@@ -1,0 +1,74 @@
+/**
+ * Fase 1 da unificação de estágio das peças.
+ *
+ * `posts.stage_id` (FK -> content_pipeline_stages) é a FONTE OPERACIONAL do
+ * estágio. `posts.stage` (enum post_stage) permanece como campo LEGADO, ainda
+ * consumido por telas/queries antigas (Projeto, Production Report, dashboard) e
+ * pelo trigger `notify_post_approval_events`.
+ *
+ * Este módulo é o ÚNICO ponto canônico de derivação `stage_id -> stage` no app.
+ * Há também uma garantia equivalente no banco (função `public.derive_post_stage`
+ * + trigger `posts_sync_legacy_stage`), que cobre escritas em massa e escritas
+ * fora do app. As duas implementações seguem exatamente a mesma regra.
+ */
+
+export type LegacyPostStage =
+  | "idea"
+  | "production"
+  | "review"
+  | "approved"
+  | "scheduled"
+  | "published";
+
+const ENUM_KEYS = new Set<LegacyPostStage>([
+  "idea",
+  "production",
+  "review",
+  "approved",
+  "scheduled",
+  "published",
+]);
+
+export type StageShape = { key?: string | null; is_terminal?: boolean | null };
+
+/**
+ * Deriva o valor legado de `posts.stage` a partir da coluna do pipeline.
+ *
+ * Regra:
+ * - key ∈ enum post_stage -> usa a key diretamente;
+ * - stage customizado terminal -> "scheduled" (mantém o comportamento legado);
+ * - qualquer outro stage customizado (ou stage inexistente) -> preserva o valor
+ *   atual. NUNCA inventamos um valor de enum para colunas customizadas.
+ */
+export function deriveLegacyStage(
+  stage: StageShape | null | undefined,
+  current: LegacyPostStage | string | null | undefined,
+): LegacyPostStage | null {
+  const fallback = (current && ENUM_KEYS.has(current as LegacyPostStage)
+    ? (current as LegacyPostStage)
+    : null);
+  if (!stage) return fallback;
+  const key = (stage.key ?? "").toLowerCase() as LegacyPostStage;
+  if (ENUM_KEYS.has(key)) return key;
+  if (stage.is_terminal) return "scheduled";
+  return fallback;
+}
+
+/**
+ * Busca o stage do pipeline e devolve o valor legado correspondente.
+ * Retorna `null` quando não há valor seguro a gravar (nesse caso o chamador
+ * simplesmente não inclui `stage` no patch).
+ */
+export async function resolveLegacyStage(
+  supabase: import("@supabase/supabase-js").SupabaseClient,
+  stageId: string | null | undefined,
+  current?: LegacyPostStage | string | null,
+): Promise<LegacyPostStage | null> {
+  if (!stageId) return null;
+  const { data } = await supabase
+    .from("content_pipeline_stages")
+    .select("key, is_terminal")
+    .eq("id", stageId)
+    .maybeSingle();
+  return deriveLegacyStage(data as StageShape | null, current ?? null);
+}
