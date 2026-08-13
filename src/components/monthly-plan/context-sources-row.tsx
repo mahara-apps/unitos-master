@@ -18,7 +18,7 @@ export function ContextSourcesRow({
   const missing = (sources.channels_without_account ?? []) as PlanChannel[];
   const label = (c: PlanChannel) => PLAN_CHANNEL_LABEL[c] ?? c;
 
-  const chips: Array<{ icon: React.ReactNode; text: string; tone: "ok" | "warn" }> = [];
+  const chips: Array<{ icon: React.ReactNode; text: string; tone: "ok" | "warn"; kind: "strategy" | "metrics" | "brain" }> = [];
 
   chips.push(
     strategyBlocks.length
