@@ -4,6 +4,27 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const ProjectStatus = z.enum(["planning", "active", "in_progress", "paused", "done", "archived"]);
 
+export type ProjectPlanRef = { id: string; title: string | null; status: string };
+
+type ProjectListRow = {
+  id: string;
+  brand_id: string;
+  client_id: string | null;
+  name: string;
+  description: string | null;
+  status: string;
+  color: string | null;
+  progress: number | null;
+  start_date: string | null;
+  due_at: string | null;
+  goals: string | null;
+  owner_id: string | null;
+  created_at: string;
+  updated_at: string;
+  monthly_plan_id: string | null;
+  monthly_plans: ProjectPlanRef | null;
+};
+
 export const listProjects = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
@@ -21,7 +42,7 @@ export const listProjects = createServerFn({ method: "GET" })
     let query = context.supabase
       .from("projects")
       .select(
-        "id, brand_id, client_id, name, description, status, color, progress, start_date, due_at, goals, owner_id, created_at, updated_at",
+        "id, brand_id, client_id, name, description, status, color, progress, start_date, due_at, goals, owner_id, created_at, updated_at, monthly_plan_id, monthly_plans(id, title, status)",
       )
       .eq("brand_id", data.brandId)
       .order("created_at", { ascending: false });
@@ -31,12 +52,18 @@ export const listProjects = createServerFn({ method: "GET" })
     if (data.ownerId) query = query.eq("owner_id", data.ownerId);
     if (data.q && data.q.trim()) query = query.ilike("name", `%${data.q.trim()}%`);
 
-    const { data: rows, error } = await query;
+    const { data: rawRows, error } = await query;
     if (error) throw error;
-    const projects = rows ?? [];
+    const projects = ((rawRows ?? []) as unknown as ProjectListRow[]).map((p) => ({
+      ...p,
+      plan: p.monthly_plans
+        ? { id: p.monthly_plans.id, title: p.monthly_plans.title, status: p.monthly_plans.status }
+        : null,
+    }));
     if (projects.length === 0) return { projects: [], stats: {} as Record<string, ProjectStats> };
 
     const ids = projects.map((p) => p.id);
+
     const { data: postRows, error: postErr } = await context.supabase
       .from("posts")
       .select("id, project_id, stage, published_at, review_status")
@@ -68,16 +95,28 @@ export const getProject = createServerFn({ method: "GET" })
     z.object({ brandId: z.string().uuid(), projectId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { data: project, error } = await context.supabase
+    const { data: projectRaw, error } = await context.supabase
       .from("projects")
       .select(
-        "id, brand_id, client_id, name, description, status, color, progress, start_date, due_at, goals, owner_id, created_at, updated_at",
+        "id, brand_id, client_id, name, description, status, color, progress, start_date, due_at, goals, owner_id, created_at, updated_at, monthly_plan_id, monthly_plans(id, title, status)",
       )
       .eq("brand_id", data.brandId)
       .eq("id", data.projectId)
       .maybeSingle();
     if (error) throw error;
-    if (!project) throw new Error("Projeto não encontrado");
+    if (!projectRaw) throw new Error("Projeto não encontrado");
+    const projectRow = projectRaw as unknown as ProjectListRow;
+    const project = {
+      ...projectRow,
+      plan: projectRow.monthly_plans
+        ? {
+            id: projectRow.monthly_plans.id,
+            title: projectRow.monthly_plans.title,
+            status: projectRow.monthly_plans.status,
+          }
+        : null,
+    };
+
 
     const { data: postRows } = await context.supabase
       .from("posts")

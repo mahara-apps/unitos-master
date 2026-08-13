@@ -4919,6 +4919,7 @@ export type Database = {
           due_at: string | null
           goals: string | null
           id: string
+          monthly_plan_id: string | null
           name: string
           owner_id: string | null
           progress: number
@@ -4935,6 +4936,7 @@ export type Database = {
           due_at?: string | null
           goals?: string | null
           id?: string
+          monthly_plan_id?: string | null
           name: string
           owner_id?: string | null
           progress?: number
@@ -4951,6 +4953,7 @@ export type Database = {
           due_at?: string | null
           goals?: string | null
           id?: string
+          monthly_plan_id?: string | null
           name?: string
           owner_id?: string | null
           progress?: number
@@ -4978,6 +4981,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_monthly_plan_id_fkey"
+            columns: ["monthly_plan_id"]
+            isOneToOne: false
+            referencedRelation: "monthly_plans"
             referencedColumns: ["id"]
           },
         ]

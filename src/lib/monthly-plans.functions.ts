@@ -935,7 +935,7 @@ export const submitPlanToClientFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<PlanClientLink> => {
     const { data: planRow } = await context.supabase
       .from("monthly_plans" as never)
-      .select("id, brand_id, client_id, status")
+      .select("id, brand_id, client_id, status, title, project_id")
       .eq("id", data.planId)
       .maybeSingle();
     if (!planRow) throw new Error("plan_not_found");
@@ -944,6 +944,8 @@ export const submitPlanToClientFn = createServerFn({ method: "POST" })
       brand_id: string;
       client_id: string;
       status: MonthlyPlanStatus;
+      title: string | null;
+      project_id: string | null;
     };
 
     const { data: topics } = await context.supabase
@@ -1007,6 +1009,15 @@ export const submitPlanToClientFn = createServerFn({ method: "POST" })
       .eq("monthly_plan_id", plan.id)
       .neq("client_status", "approved");
 
+    // Aprovação interna → a pauta passa a existir como projeto ativo (idempotente).
+    const { ensurePlanProject } = await import("@/lib/monthly-plan-project.server");
+    await ensurePlanProject(context.supabase as never, {
+      planId: plan.id,
+      brandId: plan.brand_id,
+      clientId: plan.client_id,
+      title: plan.title,
+      userId: context.userId,
+    });
 
     return { token, url: `/pauta/${plan.id}?token=${token}`, expires_at: expiresAt };
   });
