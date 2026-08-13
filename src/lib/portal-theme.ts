@@ -19,10 +19,17 @@ const httpUrl = z
   .max(2000)
   .refine((v) => /^https?:\/\//i.test(v), "URL deve começar com http(s)://");
 
+// Aceita string vazia (campo limpo no formulário) tratando-a como "sem logo".
+const httpUrlOrEmpty = z.preprocess(
+  (v) => (typeof v === "string" && v.trim() === "" ? null : v),
+  httpUrl.nullish(),
+);
+
 export const portalThemeSchema = z.object({
   mode: z.enum(["system", "custom"]).default("system"),
   accent: hex.nullish(),
-  logo_url: httpUrl.nullish(),
+  logo_url: httpUrlOrEmpty,
+
   bg: hex.nullish(),
   dark: z.boolean().nullish(),
   footer_label: z.string().trim().max(80).nullish(),
@@ -50,7 +57,7 @@ export function normalizePortalTheme(raw: unknown): PortalTheme {
     if (r.success) (out as Record<string, unknown>)[key as string] = r.data;
   };
   pick(hex, "accent");
-  pick(httpUrl, "logo_url");
+  pick(httpUrlOrEmpty as unknown as z.ZodType<string | null | undefined>, "logo_url");
   pick(hex, "bg");
   pick(z.boolean(), "dark");
   pick(z.string().trim().max(80), "footer_label");
