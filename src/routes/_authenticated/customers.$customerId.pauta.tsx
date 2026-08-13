@@ -643,6 +643,34 @@ function ApprovalView({
     },
   });
 
+  const approveAll = useMutation({
+    mutationFn: async (ids: string[]) => {
+      let ok = 0;
+      const failed: string[] = [];
+      for (const topicId of ids) {
+        try {
+          await setDecision({ data: { topicId, status: "approved" as const } });
+          ok += 1;
+        } catch {
+          failed.push(topicId);
+        }
+      }
+      return { ok, failed: failed.length };
+    },
+    onSuccess: ({ ok, failed }) => {
+      invalidate();
+      if (ok > 0) toast.success(`${ok} ${ok === 1 ? "item aprovado" : "itens aprovados"}.`);
+      if (failed > 0)
+        toast.warning(
+          `${failed} ${failed === 1 ? "item ficou" : "itens ficaram"} sem aprovar — defina plataforma e formato.`,
+        );
+    },
+    onError: (e) => {
+      invalidate();
+      toast.error(`Falha ao aprovar todos: ${describeError(e)}`);
+    },
+  });
+
   const regenM = useMutation({
     mutationFn: (input: { topicId: string; instruction: string }) =>
       regenerate({ data: input }),
