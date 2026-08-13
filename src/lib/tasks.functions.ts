@@ -12,6 +12,7 @@ export type TaskRow = {
   brand_id: string;
   client_id: string | null;
   project_id: string | null;
+  post_id: string | null;
   title: string;
   description: string | null;
   status: TaskStatus;
@@ -58,7 +59,7 @@ export const listTasksFn = createServerFn({ method: "GET" })
     let q = context.supabase
       .from("tasks")
       .select(
-        "id, brand_id, client_id, project_id, title, description, status, priority, assignee_id, due_at, done, done_at, created_by, created_at, updated_at",
+        "id, brand_id, client_id, project_id, post_id, title, description, status, priority, assignee_id, due_at, done, done_at, created_by, created_at, updated_at",
       )
       .eq("brand_id", data.brandId)
       .order("created_at", { ascending: false })
