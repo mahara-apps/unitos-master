@@ -188,31 +188,48 @@ export async function materializePlanToKanban(
     .select("id, title, monthly_plan_topic_id");
   if (insErr) throw insErr;
 
-  // Uma tarefa de produção por peça criada (vinculada ao projeto e à peça).
-  const createdPosts = (insertedPosts ?? []) as unknown as Array<{
+  // Uma tarefa de produção por peça da pauta (idempotente: inclui peças já
+  // existentes que ainda não tenham tarefa, e nunca duplica).
+  const topicIds = list.map((t) => t.id);
+  const { data: planPosts } = await sb
+    .from("posts")
+    .select("id, title, scheduled_at, monthly_plan_topic_id")
+    .in("monthly_plan_topic_id", topicIds.length > 0 ? topicIds : ["00000000-0000-0000-0000-000000000000"]);
+  const allPlanPosts = (planPosts ?? []) as unknown as Array<{
     id: string;
     title: string | null;
+    scheduled_at: string | null;
     monthly_plan_topic_id: string | null;
   }>;
-  if (createdPosts.length > 0) {
-    const channelByTopic = new Map(pending.map((t) => [t.id, t.channel]));
-    const taskRows = createdPosts.map((p) => {
-      const channel = p.monthly_plan_topic_id
-        ? channelByTopic.get(p.monthly_plan_topic_id) ?? null
-        : null;
-      const base = (p.title ?? "Peça").trim();
-      return {
+
+  if (allPlanPosts.length > 0) {
+    const postIds = allPlanPosts.map((p) => p.id);
+    const { data: existingTasks } = await sb
+      .from("tasks")
+      .select("post_id")
+      .in("post_id", postIds);
+    const withTask = new Set(
+      ((existingTasks ?? []) as unknown as { post_id: string | null }[])
+        .map((t) => t.post_id)
+        .filter(Boolean) as string[],
+    );
+
+    const taskRows = allPlanPosts
+      .filter((p) => !withTask.has(p.id))
+      .map((p) => ({
         brand_id: args.brandId,
         client_id: args.clientId,
         project_id: projectId,
         post_id: p.id,
-        title: `Produzir: ${base}${channel ? ` (${channel})` : ""}`.slice(0, 200),
+        title: `Produzir: ${(p.title ?? "Peça").trim()}`.slice(0, 200),
         description: "Tarefa criada automaticamente após a aprovação da pauta pelo cliente.",
         status: "todo",
         priority: "medium",
+        // Prazo somente quando a peça já tem data de publicação definida.
+        due_at: p.scheduled_at ?? null,
         created_by: args.userId,
-      };
-    });
+      }));
+
     // Não bloqueia a materialização das peças caso a criação de tarefas falhe.
     await sb.from("tasks").insert(taskRows as never);
   }
