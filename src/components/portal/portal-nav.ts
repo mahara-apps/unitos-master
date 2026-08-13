@@ -1,6 +1,6 @@
-import { Home, CheckSquare, CalendarDays, Images, FolderOpen, FileText } from "lucide-react";
+import { Home, CheckSquare, CalendarDays, FolderOpen, FileText } from "lucide-react";
 
-export type PortalTabId = "home" | "approvals" | "calendar" | "feed" | "files" | "briefing";
+export type PortalTabId = "home" | "approvals" | "calendar" | "files" | "briefing";
 
 /**
  * Fase 4a — cada aba do portal virou rota real. `to` é o path do TanStack
