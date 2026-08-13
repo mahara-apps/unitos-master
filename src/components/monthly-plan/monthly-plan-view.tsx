@@ -50,6 +50,7 @@ import {
   GeneratePlanWizard,
   type GenerateSelection,
 } from "@/components/monthly-plan/generate-plan-wizard";
+import { requestPlanOverageFn } from "@/lib/plan-overage.functions";
 import { VolumetryCards, type PlanVolumetry } from "@/components/monthly-plan/volumetry-cards";
 import { ContextSourcesRow } from "@/components/monthly-plan/context-sources-row";
 import {
@@ -146,6 +147,29 @@ export function MonthlyPlanView({
 
   const [wizardOpen, setWizardOpen] = useState(false);
 
+  const requestOverage = useServerFn(requestPlanOverageFn);
+  const overageM = useMutation({
+    mutationFn: (input: { items: OverageItem[]; justification: string }) =>
+      requestOverage({
+        data: {
+          brandId,
+          clientId,
+          justification: input.justification,
+          items: input.items.map((it) => ({
+            channel: it.channel,
+            quota: it.quota,
+            requested: it.requested,
+            overage: it.overage,
+          })),
+        },
+      }),
+    onSuccess: () => {
+      toast.success("Solicitação de excedente enviada ao gestor da conta.");
+      setWizardOpen(false);
+    },
+    onError: (err) => toast.error(describeError(err)),
+  });
+
   const generate = useServerFn(generateMonthlyPlanFn);
   const [loadingStep, setLoadingStep] = useState(0);
   const [generationError, setGenerationError] = useState<string | null>(null);
@@ -179,6 +203,12 @@ export function MonthlyPlanView({
     },
     onSuccess: (result: GenerateMonthlyPlanResult) => {
       if (!result.ok) {
+        if (result.code === "overage_not_authorized") {
+          const msg = describeError("overage_not_authorized");
+          setGenerationError(msg);
+          toast.error(msg);
+          return;
+        }
         const msg = describeError(result.code);
         setGenerationError(msg);
         toast.error(`Não foi possível gerar a pauta: ${msg}`, {
@@ -254,6 +284,8 @@ export function MonthlyPlanView({
           loadingMessage={LOADING_MESSAGES[loadingStep] ?? LOADING_MESSAGES[0]!}
           generationError={generationError}
           onGenerate={(input) => generateM.mutate(input)}
+          requestingOverage={overageM.isPending}
+          onRequestOverage={(items, justification) => overageM.mutate({ items, justification })}
         />
       </DashboardPageShell>
     );
