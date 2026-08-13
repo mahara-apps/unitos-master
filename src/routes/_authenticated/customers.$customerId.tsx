@@ -167,18 +167,13 @@ function CustomerDetailReady({
   customerId,
   openOnboarding,
   initialTab,
+  initialPlanId,
 }: {
   brandId: string;
   customerId: string;
   openOnboarding: boolean;
-  initialTab?:
-    | "overview"
-    | "briefing"
-    | "estrategia"
-    | "brain"
-    | "channels"
-    | "cadastro"
-    | "gestao";
+  initialTab?: CustomerTab;
+  initialPlanId?: string;
 }) {
   const list = useServerFn(listClients);
   const fetchHub = useServerFn(getBrandHub);
