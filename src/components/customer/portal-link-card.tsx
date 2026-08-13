@@ -269,6 +269,10 @@ export function PortalLinkCard({
         )}
       </CardContent>
 
+      <PortalAccessSection clientId={clientId} />
+
+
+
       {active && (
         <CustomizeModal
           open={customizeOpen}
