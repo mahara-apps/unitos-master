@@ -378,15 +378,14 @@ function CustomerDetailReady({
                 ))}
               </TabsList>
               <TabsContent value="overview">
-                <div className="space-y-4">
-                  {brainEnabled && <BrainWidget preset="customers" clientId={customerId} />}
-                  <CustomerDashboard
-                    brandId={brandId}
-                    clientId={customerId}
-                    onOpenBriefing={() => goToTab("briefing")}
-                  />
-                </div>
+                <CustomerOverview
+                  brandId={brandId}
+                  clientId={customerId}
+                  onOpenBriefing={() => goToTab("briefing")}
+                  onOpenTab={goToTab}
+                />
               </TabsContent>
+
               <TabsContent value="briefing">
                 <BriefingWorkspace
                   brandId={brandId}
