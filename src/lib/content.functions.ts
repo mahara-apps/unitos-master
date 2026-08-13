@@ -1037,6 +1037,16 @@ export const regeneratePostContentFn = createServerFn({ method: "POST" })
       userId: context.userId,
     });
     if (res.status === "failed") {
+      if (res.kind === "provider_quota") {
+        throw new Error(
+          "A geração não foi concluída porque a cota da API de IA da marca foi atingida. A peça ficou pendente e pode ser retomada mais tarde.",
+        );
+      }
+      if (res.kind === "provider_rate_limit" || res.kind === "provider_unavailable") {
+        throw new Error(
+          "O provedor de IA está temporariamente indisponível. A peça ficou pendente e pode ser retomada em instantes.",
+        );
+      }
       throw new Error(`A geração falhou no agente ${res.agent}: ${res.error}`);
     }
     return res;
@@ -1508,3 +1518,21 @@ export const generatePostReferenceImageFn = createServerFn({ method: "POST" })
     return { ok: true, path };
   });
 
+
+// ---------- Fila de retomada: peças pendentes voltam ao pipeline oficial ----------
+export const resumePendingPostsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid().optional(),
+        clientId: z.string().uuid().optional(),
+        projectId: z.string().uuid().optional(),
+        limit: z.number().min(1).max(20).optional(),
+      })
+      .parse(i ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { resumePendingPostContent } = await import("@/lib/post-agents.server");
+    return resumePendingPostContent({ ...data, userId: context.userId });
+  });

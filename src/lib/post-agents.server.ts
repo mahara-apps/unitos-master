@@ -58,65 +58,187 @@ function isVideoFormat(format: string | null, channels: string[] | null): boolea
   return /reel|tiktok|short|v[ií]deo|video|youtube/.test(s);
 }
 
+/** Classificação de falha do provedor: quota/rate limit é sempre retryable. */
+export type FailureKind =
+  | "provider_quota"
+  | "provider_rate_limit"
+  | "provider_unavailable"
+  | "invalid_output"
+  | "config"
+  | "unknown";
+
+export function classifyAiError(err: unknown): { kind: FailureKind; retryable: boolean } {
+  const raw = err instanceof Error ? `${err.name} ${err.message}` : String(err);
+  const msg = raw.toLowerCase();
+  const status =
+    typeof (err as { statusCode?: number })?.statusCode === "number"
+      ? (err as { statusCode: number }).statusCode
+      : typeof (err as { status?: number })?.status === "number"
+        ? (err as { status: number }).status
+        : undefined;
+
+  if (
+    status === 402 ||
+    msg.includes("quota") ||
+    msg.includes("free_tier") ||
+    msg.includes("insufficient_quota") ||
+    msg.includes("billing") ||
+    msg.includes("credit")
+  ) {
+    return { kind: "provider_quota", retryable: true };
+  }
+  if (status === 429 || msg.includes("rate limit") || msg.includes("too many requests")) {
+    return { kind: "provider_rate_limit", retryable: true };
+  }
+  if (
+    (status != null && status >= 500) ||
+    msg.includes("overloaded") ||
+    msg.includes("unavailable") ||
+    msg.includes("timeout") ||
+    msg.includes("etimedout") ||
+    msg.includes("fetch failed") ||
+    msg.includes("network")
+  ) {
+    return { kind: "provider_unavailable", retryable: true };
+  }
+  if (msg.includes("ai_invalid_output") || msg.includes("empty_caption")) {
+    return { kind: "invalid_output", retryable: true };
+  }
+  if (msg.includes("prompt_missing") || msg.includes("api_key") || msg.includes("credential")) {
+    return { kind: "config", retryable: false };
+  }
+  return { kind: "unknown", retryable: false };
+}
+
+/** Espaçamento único entre chamadas/peças — centralizado aqui. */
+const SPACING_MS = 4000;
+/** Backoff progressivo entre tentativas do MESMO agente. */
+const BACKOFF_MS = [15_000, 45_000];
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function runStructured<T extends z.ZodTypeAny>(opts: {
   brandId: string;
   system: string;
   prompt: string;
   schema: T;
-}): Promise<z.infer<T>> {
-  const { model } = await getBrandAiModelAdmin(opts.brandId, "text", "operational");
-  try {
-    const res = await generateText({
-      model,
-      system: opts.system,
-      prompt: opts.prompt,
-      output: Output.object({ schema: opts.schema }),
-    });
-    return res.output as z.infer<T>;
-  } catch (err) {
-    if (NoObjectGeneratedError.isInstance(err)) {
-      const raw = (err.text ?? "")
-        .replace(/^```(?:json)?\s*/i, "")
-        .replace(/```\s*$/i, "")
-        .trim();
-      try {
-        return JSON.parse(raw) as z.infer<T>;
-      } catch {
-        throw new Error("ai_invalid_output");
+  onAttempt?: (attempt: number, kind: FailureKind, message: string) => Promise<void> | void;
+}): Promise<{ output: z.infer<T>; attempts: number }> {
+  const maxAttempts = BACKOFF_MS.length + 1;
+  let lastErr: unknown = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const { model } = await getBrandAiModelAdmin(opts.brandId, "text", "operational");
+      const res = await generateText({
+        model,
+        system: opts.system,
+        prompt: opts.prompt,
+        // Retry é controlado aqui (backoff próprio) para respeitar a quota do provedor.
+        maxRetries: 0,
+        output: Output.object({ schema: opts.schema }),
+      });
+      return { output: res.output as z.infer<T>, attempts: attempt };
+    } catch (err) {
+      // Saída malformada: tenta recuperar o JSON bruto antes de contar falha.
+      if (NoObjectGeneratedError.isInstance(err)) {
+        const raw = (err.text ?? "")
+          .replace(/^```(?:json)?\s*/i, "")
+          .replace(/```\s*$/i, "")
+          .trim();
+        try {
+          return { output: JSON.parse(raw) as z.infer<T>, attempts: attempt };
+        } catch {
+          lastErr = new Error("ai_invalid_output");
+        }
+      } else {
+        lastErr = err;
       }
+
+      const { retryable, kind } = classifyAiError(lastErr);
+      const message = lastErr instanceof Error ? lastErr.message : String(lastErr);
+      await opts.onAttempt?.(attempt, kind, message);
+      if (!retryable || attempt === maxAttempts) break;
+      await sleep(BACKOFF_MS[attempt - 1]!);
     }
-    throw err;
   }
+  throw lastErr ?? new Error("ai_unknown_error");
 }
 
-async function logFailure(
+async function logAttempt(
   admin: import("@supabase/supabase-js").SupabaseClient,
   post: Pick<PostRow, "id" | "brand_id" | "client_id">,
-  agent: string,
-  step: string,
-  message: string,
+  info: {
+    agent: string;
+    step: string;
+    channel: string;
+    format: string;
+    attempt: number;
+    ok: boolean;
+    kind?: FailureKind;
+    retryable?: boolean;
+    message?: string;
+  },
 ) {
-  console.error(
-    `[post-agents] falha agente=${agent} etapa=${step} post=${post.id} cliente=${post.client_id}: ${message}`,
-  );
+  if (!info.ok) {
+    console.error(
+      `[post-agents] falha agente=${info.agent} etapa=${info.step} tentativa=${info.attempt} ` +
+        `motivo=${info.kind} retryable=${info.retryable} post=${post.id}: ${info.message}`,
+    );
+  }
   try {
     await admin.from("activity_events").insert({
       brand_id: post.brand_id,
       client_id: post.client_id,
       entity_type: "post",
       entity_id: post.id,
-      verb: "ai_generation_failed",
-      payload: { agent, step, error: message.slice(0, 800) },
+      verb: info.ok ? "ai_agent_succeeded" : "ai_generation_failed",
+      payload: {
+        post_id: post.id,
+        agent: info.agent,
+        step: info.step,
+        channel: info.channel,
+        format: info.format,
+        attempt: info.attempt,
+        ok: info.ok,
+        failure_kind: info.kind ?? null,
+        retryable: info.retryable ?? null,
+        error: info.message ? info.message.slice(0, 800) : null,
+        at: new Date().toISOString(),
+      },
     } as never);
   } catch {
     // auditoria não crítica
   }
 }
 
+
 export type GeneratePostResult =
   | { status: "generated"; agents: string[] }
   | { status: "skipped"; reason: string }
-  | { status: "failed"; agent: string; error: string };
+  | {
+      status: "failed";
+      agent: string;
+      error: string;
+      kind: FailureKind;
+      retryable: boolean;
+    };
+
+/** Fases persistidas em `posts.ai_phase`. */
+export const AI_PHASE = {
+  idea: "idea",
+  running: "copy_running",
+  ready: "copy_ready",
+  retryable: "copy_failed_retryable",
+  permanent: "copy_failed_permanent",
+} as const;
+
+/** Fases que podem ser retomadas pelo pipeline oficial. */
+export const RESUMABLE_AI_PHASES = [
+  "idea",
+  "copy_failed",
+  "copy_failed_retryable",
+] as const;
+
 
 /**
  * Gera o conteúdo de uma peça. Idempotente: se a legenda já existe e
@@ -222,9 +344,23 @@ export async function generatePostContent(
     prompts = await loadAgentPrompts(post.brand_id, agentIds);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    await logFailure(admin, post, "agent_prompts", "load_prompts", msg);
-    await admin.from("posts").update({ ai_phase: "copy_failed" } as never).eq("id", post.id);
-    return { status: "failed", agent: "agent_prompts", error: msg };
+    const { kind, retryable } = classifyAiError(err);
+    await logAttempt(admin, post, {
+      agent: "agent_prompts",
+      step: "load_prompts",
+      channel: String(channel),
+      format: String(format),
+      attempt: 1,
+      ok: false,
+      kind,
+      retryable,
+      message: msg,
+    });
+    await admin
+      .from("posts")
+      .update({ ai_phase: retryable ? AI_PHASE.retryable : AI_PHASE.permanent } as never)
+      .eq("id", post.id);
+    return { status: "failed", agent: "agent_prompts", error: msg, kind, retryable };
   }
 
   const vars = () => ({
@@ -240,70 +376,117 @@ export async function generatePostContent(
 
   const used: string[] = [];
   const patch: Record<string, unknown> = {};
+  const onAttempt =
+    (agent: string, step: string) =>
+    async (attempt: number, kind: FailureKind, message: string) => {
+      await logAttempt(admin, post, {
+        agent,
+        step,
+        channel: String(channel),
+        format: String(format),
+        attempt,
+        ok: false,
+        kind,
+        retryable: classifyAiError(new Error(message)).retryable,
+        message,
+      });
+    };
 
   // 1) Roteirista (somente vídeo) — o roteiro alimenta a legenda depois.
   let scriptText = "";
   if (needsScript && prompts.get("roteirista_social")) {
     try {
-      const out = await runStructured({
+      const { output, attempts } = await runStructured({
         brandId: post.brand_id,
         system: fillTemplate(prompts.get("roteirista_social")!, vars()),
         prompt:
           `${contextBlock}\n\nEscreva o roteiro completo desta peça de vídeo (${format} / ${channel}).\n` +
           `Responda EXCLUSIVAMENTE em JSON: {"script":"roteiro completo em texto, com cenas e falas"}`,
         schema: ScriptSchema,
+        onAttempt: onAttempt("roteirista_social", "script"),
       });
-      scriptText = (out.script ?? "").trim();
+      scriptText = (output.script ?? "").trim();
       if (scriptText) {
         patch.script = [{ cena: 1, fala: scriptText }];
         used.push("roteirista_social");
+        await logAttempt(admin, post, {
+          agent: "roteirista_social",
+          step: "script",
+          channel: String(channel),
+          format: String(format),
+          attempt: attempts,
+          ok: true,
+        });
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      await logFailure(admin, post, "roteirista_social", "script", msg);
-      await admin.from("posts").update({ ai_phase: "copy_failed" } as never).eq("id", post.id);
-      return { status: "failed", agent: "roteirista_social", error: msg };
+      const { kind, retryable } = classifyAiError(err);
+      await admin
+        .from("posts")
+        .update({ ai_phase: retryable ? AI_PHASE.retryable : AI_PHASE.permanent } as never)
+        .eq("id", post.id);
+      return { status: "failed", agent: "roteirista_social", error: msg, kind, retryable };
     }
   }
 
   // 2) Direção de arte (somente peças estáticas sem briefing visual).
   if (needsVisual && prompts.get("art_director_social")) {
     try {
-      const out = await runStructured({
+      await sleep(SPACING_MS);
+      const { output, attempts } = await runStructured({
         brandId: post.brand_id,
         system: fillTemplate(prompts.get("art_director_social")!, vars()),
         prompt:
           `${contextBlock}\n\nDescreva a direção visual desta peça (${format} / ${channel}).\n` +
           `Responda EXCLUSIVAMENTE em JSON: {"visual_direction":"orientação visual objetiva para o designer"}`,
         schema: VisualSchema,
+        onAttempt: onAttempt("art_director_social", "visual_direction"),
       });
-      const vd = (out.visual_direction ?? "").trim();
+      const vd = (output.visual_direction ?? "").trim();
       if (vd) {
         patch.design_brief = vd;
         used.push("art_director_social");
+        await logAttempt(admin, post, {
+          agent: "art_director_social",
+          step: "visual_direction",
+          channel: String(channel),
+          format: String(format),
+          attempt: attempts,
+          ok: true,
+        });
       }
-    } catch (err) {
-      // Direção visual é complementar: registra e segue para a copy.
-      await logFailure(
-        admin,
-        post,
-        "art_director_social",
-        "visual_direction",
-        err instanceof Error ? err.message : String(err),
-      );
+    } catch {
+      // Direção visual é complementar: já registrada em activity_events, segue para a copy.
     }
   }
 
   // 3) Copywriter — LEGENDA final, campo único e pronto para publicação.
   const copyPrompt = prompts.get("copywriter_senior");
   if (!copyPrompt) {
-    await logFailure(admin, post, "copywriter_senior", "load_prompt", "prompt_missing");
-    await admin.from("posts").update({ ai_phase: "copy_failed" } as never).eq("id", post.id);
-    return { status: "failed", agent: "copywriter_senior", error: "prompt_missing" };
+    await logAttempt(admin, post, {
+      agent: "copywriter_senior",
+      step: "load_prompt",
+      channel: String(channel),
+      format: String(format),
+      attempt: 1,
+      ok: false,
+      kind: "config",
+      retryable: false,
+      message: "prompt_missing",
+    });
+    await admin.from("posts").update({ ai_phase: AI_PHASE.permanent } as never).eq("id", post.id);
+    return {
+      status: "failed",
+      agent: "copywriter_senior",
+      error: "prompt_missing",
+      kind: "config",
+      retryable: false,
+    };
   }
 
   try {
-    const out = await runStructured({
+    if (used.length > 0) await sleep(SPACING_MS);
+    const { output, attempts } = await runStructured({
       brandId: post.brand_id,
       system: fillTemplate(copyPrompt, vars()),
       prompt:
@@ -317,27 +500,56 @@ export async function generatePostContent(
         `Não use rótulos como "Hook:", "CTA:" ou "Hashtags:".\n` +
         `Responda EXCLUSIVAMENTE em JSON: {"caption":"legenda completa","reasoning_summary":"1 frase explicando a escolha"}`,
       schema: CopySchema,
+      onAttempt: onAttempt("copywriter_senior", "caption"),
     });
-    const caption = (out.caption ?? "").trim();
+    const caption = (output.caption ?? "").trim();
     if (!caption) throw new Error("empty_caption");
     patch.copy = caption;
     used.push("copywriter_senior");
+    await logAttempt(admin, post, {
+      agent: "copywriter_senior",
+      step: "caption",
+      channel: String(channel),
+      format: String(format),
+      attempt: attempts,
+      ok: true,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    await logFailure(admin, post, "copywriter_senior", "caption", msg);
-    // Persiste o que já foi produzido (roteiro/visual), mas sinaliza a falha.
+    const { kind, retryable } = classifyAiError(err);
+    // Persiste o que já foi produzido (roteiro/visual) — nunca legenda genérica.
+    delete patch.copy;
     if (Object.keys(patch).length > 0) {
       await admin.from("posts").update(patch as never).eq("id", post.id);
     }
-    await admin.from("posts").update({ ai_phase: "copy_failed" } as never).eq("id", post.id);
-    return { status: "failed", agent: "copywriter_senior", error: msg };
+    await admin
+      .from("posts")
+      .update({ ai_phase: retryable ? AI_PHASE.retryable : AI_PHASE.permanent } as never)
+      .eq("id", post.id);
+    return { status: "failed", agent: "copywriter_senior", error: msg, kind, retryable };
   }
 
-  patch.ai_phase = "copy_ready";
+  patch.ai_phase = AI_PHASE.ready;
   const { error: updErr } = await admin.from("posts").update(patch as never).eq("id", post.id);
   if (updErr) {
-    await logFailure(admin, post, "persist", "update_post", updErr.message);
-    return { status: "failed", agent: "persist", error: updErr.message };
+    await logAttempt(admin, post, {
+      agent: "persist",
+      step: "update_post",
+      channel: String(channel),
+      format: String(format),
+      attempt: 1,
+      ok: false,
+      kind: "unknown",
+      retryable: true,
+      message: updErr.message,
+    });
+    return {
+      status: "failed",
+      agent: "persist",
+      error: updErr.message,
+      kind: "unknown",
+      retryable: true,
+    };
   }
 
   try {
@@ -348,7 +560,7 @@ export async function generatePostContent(
       entity_type: "post",
       entity_id: post.id,
       verb: "ai_generated",
-      payload: { agents: used, channel, format },
+      payload: { post_id: post.id, agents: used, channel, format, ok: true, at: new Date().toISOString() },
     } as never);
   } catch {
     // auditoria não crítica
@@ -357,20 +569,73 @@ export async function generatePostContent(
   return { status: "generated", agents: used };
 }
 
-/** Executa a geração para várias peças em série (evita estouro de budget). */
+/**
+ * Executa a geração para várias peças em série, com espaçamento centralizado.
+ * Se o provedor esgotar a quota, interrompe a fila: as peças restantes ficam
+ * em estado retryable e são retomadas depois (manual ou nova execução).
+ */
 export async function generatePostsContentSequential(
   postIds: string[],
   opts: { userId?: string | null } = {},
-): Promise<void> {
+): Promise<{ generated: number; retryable: number; permanent: number; stopped: boolean }> {
+  let generated = 0;
+  let retryable = 0;
+  let permanent = 0;
   let first = true;
+
   for (const id of postIds) {
-    // Espaçamento entre peças: evita estourar rate limit do provedor da marca.
-    if (!first) await new Promise((r) => setTimeout(r, 4000));
+    if (!first) await sleep(SPACING_MS);
     first = false;
     try {
-      await generatePostContent(id, { userId: opts.userId ?? null });
+      const res = await generatePostContent(id, { userId: opts.userId ?? null });
+      if (res.status === "generated") generated++;
+      else if (res.status === "failed") {
+        if (res.retryable) retryable++;
+        else permanent++;
+        if (res.kind === "provider_quota") {
+          console.warn("[post-agents] quota do provedor esgotada — fila interrompida", id);
+          return { generated, retryable, permanent, stopped: true };
+        }
+      }
     } catch (err) {
       console.error("[post-agents] erro inesperado", id, err);
+      permanent++;
     }
   }
+  return { generated, retryable, permanent, stopped: false };
 }
+
+/**
+ * Fila de retomada: peças em `idea` / `copy_failed*` voltam ao MESMO pipeline.
+ * Idempotente — nunca cria post ou task, apenas completa a peça existente.
+ */
+export async function resumePendingPostContent(args: {
+  brandId?: string | null;
+  clientId?: string | null;
+  projectId?: string | null;
+  planId?: string | null;
+  limit?: number;
+  userId?: string | null;
+}): Promise<{ candidates: number; generated: number; retryable: number; permanent: number; stopped: boolean }> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const admin = supabaseAdmin as unknown as import("@supabase/supabase-js").SupabaseClient;
+
+  let q = admin
+    .from("posts")
+    .select("id, monthly_plan_topic_id")
+    .in("ai_phase", RESUMABLE_AI_PHASES as unknown as string[])
+    .is("deleted_at", null)
+    .or("copy.is.null,copy.eq.")
+    .order("created_at", { ascending: true })
+    .limit(args.limit ?? 10);
+  if (args.brandId) q = q.eq("brand_id", args.brandId);
+  if (args.clientId) q = q.eq("client_id", args.clientId);
+  if (args.projectId) q = q.eq("project_id", args.projectId);
+
+  const { data, error } = await q;
+  if (error) throw error;
+  const ids = ((data ?? []) as { id: string }[]).map((p) => p.id);
+  const res = await generatePostsContentSequential(ids, { userId: args.userId ?? null });
+  return { candidates: ids.length, ...res };
+}
+

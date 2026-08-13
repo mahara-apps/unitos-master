@@ -773,11 +773,17 @@ function EditBody({
                   Legenda gerada pelos agentes
                 </Badge>
               ) : null}
-              {aiPhase === "copy_failed" ? (
-                <Badge variant="outline" className="rounded-md border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400">
-                  Geração incompleta
+              {aiPhase === "copy_failed_retryable" || aiPhase === "copy_failed" ? (
+                <Badge variant="outline" className="rounded-md border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                  Geração pendente — pode tentar novamente
                 </Badge>
               ) : null}
+              {aiPhase === "copy_failed_permanent" ? (
+                <Badge variant="outline" className="rounded-md border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                  Geração bloqueada — verificar configuração
+                </Badge>
+              ) : null}
+
 
             </div>
           </div>
@@ -851,8 +857,12 @@ function EditBody({
           createdAt={post.created_at}
           copyAutosaveStatus={copyAutosaveStatus}
           captionActions={
-            !state.copy.trim() || aiPhase === "copy_failed" ? (
+            !state.copy.trim() ||
+            aiPhase === "copy_failed" ||
+            aiPhase === "copy_failed_retryable" ||
+            aiPhase === "copy_failed_permanent" ? (
               <RegenerateCaptionButton postId={postId} invalidateKey={invalidateKey} />
+
             ) : null
           }
           brandId={brandId}
@@ -1443,7 +1453,7 @@ function RegenerateCaptionButton({
       onClick={() => mut.mutate()}
     >
       {mut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-      {mut.isPending ? "Gerando…" : "Concluir geração"}
+      {mut.isPending ? "Gerando…" : "Gerar legenda"}
     </Button>
   );
 }
