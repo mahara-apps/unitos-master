@@ -946,15 +946,20 @@ export const updatePostFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const patch: Record<string, unknown> = { ...data.patch };
+    // stage_id é a fonte operacional: ao mudar de coluna, espelhamos o campo
+    // legado `posts.stage` pelo helper canônico.
+    if (typeof patch.stage_id === "string") {
+      const legacy = await resolveLegacyStage(context.supabase, patch.stage_id as string);
+      if (legacy) patch.stage = legacy;
+    }
     if (patch.review_status === "approved") {
       patch.approved_at = new Date().toISOString();
       patch.approved_by = context.userId;
-      // Legacy compatibility: mantém `posts.stage` sincronizado para o
-      // trigger `notify_post_approval_events` (migration 20260720211101)
-      // disparar a notificação de "post aprovado". Ver movePostFn para o
-      // contexto completo. NÃO REMOVER sem antes migrar o trigger.
+      // Regra de negócio: aprovação força o estágio legado "approved" (o
+      // trigger `notify_post_approval_events` depende dele).
       patch.stage = "approved";
     }
+
     // Destinos estruturados sobrescrevem channels/target_connection_ids
     // (post_placements é a fonte de verdade).
     if (data.destinations !== undefined) {
