@@ -37,6 +37,7 @@ export type ClientDocumentAi = {
   ai_error: string | null;
   analyzed_at: string | null;
   applied_to_briefing_at: string | null;
+  visible_to_client: boolean;
   ai_summary: {
     document_type?: string | null;
     executive_summary?: string | null;
