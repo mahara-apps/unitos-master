@@ -1581,7 +1581,7 @@ function ApprovalLinkSection({ postId }: { postId: string }) {
 // destruir nada no banco.
 const COPY_SECTION_RE = /^###\s+(?:GANCHO|HEADLINE|COPY|CTA|HASHTAGS)\s*$/gim;
 
-export function flattenCopy(raw: string | null | undefined): string {
+function flattenCopy(raw: string | null | undefined): string {
   if (!raw) return "";
   if (!/^###\s+/m.test(raw)) return raw;
   return raw
