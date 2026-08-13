@@ -11,16 +11,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { useAccessRole } from "@/hooks/use-access-role";
-import { useFeatureAccess } from "@/hooks/use-feature-access";
 import { FALLBACK_ROUTE } from "@/lib/permissions";
 import { toast } from "sonner";
 import { listClients } from "@/lib/workspace.functions";
 import { StrategyResults } from "@/components/ai-agents/strategy-results";
-import { CustomerDashboard } from "@/components/customer/customer-dashboard";
+import { CustomerOverview } from "@/components/customer/overview/customer-overview";
 import { BasicInfoTab } from "@/components/customer/basic-info-tab";
 import { ChannelsTab } from "@/components/customer/channels-tab";
 import { AccountManagementTab } from "@/components/customer/account-management-tab";
-import { BrainWidget } from "@/components/brain/brain-widget";
 import { BriefingWorkspace } from "@/components/brand-hub/briefing-workspace";
 import { QuickOnboardingWizard } from "@/components/brand-hub/quick-onboarding-wizard";
 import { getBrandHub } from "@/lib/brand-hub.functions";
@@ -180,7 +178,6 @@ function CustomerDetailReady({
   const list = useServerFn(listClients);
   const fetchHub = useServerFn(getBrandHub);
   const qc = useQueryClient();
-  const brainEnabled = useFeatureAccess("brain").enabled;
   const TABS = ALL_TABS;
   const [activeTab, setActiveTab] = useState<string>(initialTab ?? "overview");
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -378,15 +375,14 @@ function CustomerDetailReady({
                 ))}
               </TabsList>
               <TabsContent value="overview">
-                <div className="space-y-4">
-                  {brainEnabled && <BrainWidget preset="customers" clientId={customerId} />}
-                  <CustomerDashboard
-                    brandId={brandId}
-                    clientId={customerId}
-                    onOpenBriefing={() => goToTab("briefing")}
-                  />
-                </div>
+                <CustomerOverview
+                  brandId={brandId}
+                  clientId={customerId}
+                  onOpenBriefing={() => goToTab("briefing")}
+                  onOpenTab={goToTab}
+                />
               </TabsContent>
+
               <TabsContent value="briefing">
                 <BriefingWorkspace
                   brandId={brandId}
