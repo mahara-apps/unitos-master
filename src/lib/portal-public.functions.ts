@@ -1,4 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequestHeader } from "@tanstack/react-start/server";
+import { createHash } from "crypto";
 import { z } from "zod";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
