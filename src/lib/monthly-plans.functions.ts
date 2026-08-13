@@ -6,7 +6,8 @@ import { loadBriefingContext } from "@/lib/monthly-plan-context.server";
 import { loadStrategyContext } from "@/lib/monthly-plan-strategy.server";
 import { loadPerformanceContext } from "@/lib/monthly-plan-performance.server";
 import { runPlanAgent } from "@/lib/monthly-plan-agent.server";
-import { PLAN_CHANNELS, PLAN_FORMATS } from "@/lib/monthly-plan-fields";
+import { PLAN_CHANNELS, PLAN_FORMATS, type PlanChannel } from "@/lib/monthly-plan-fields";
+import { currentPeriodMonth, loadApprovedOverage } from "@/lib/plan-overage.server";
 
 /* ---------- Types ---------- */
 
@@ -26,6 +27,11 @@ export type GenerateMonthlyPlanResult =
   | {
       ok: false;
       code: "ai_provider_not_configured" | "ai_provider_key_missing" | "ai_model_unavailable";
+    }
+  | {
+      ok: false;
+      code: "overage_not_authorized";
+      overage: Array<{ channel: PlanChannel; quota: number; requested: number; overage: number }>;
     };
 
 
@@ -182,6 +188,37 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
     const activeChannels = PLAN_CHANNELS.filter((c) => (quota[c] ?? 0) > 0);
     const totalTarget = activeChannels.reduce((s, c) => s + (quota[c] ?? 0), 0);
     if (totalTarget <= 0) throw new Error("volumetry_required");
+
+    // Respeita a volumetria do briefing: excedentes exigem autorização do gestor.
+    const period = currentPeriodMonth();
+    const approvedOverage = await loadApprovedOverage(context.supabase, {
+      brandId: data.brandId,
+      clientId: data.clientId,
+      periodMonth: period,
+    });
+    const generated = await countGeneratedThisMonth(context.supabase, data.clientId, period);
+    const overageItems: Array<{
+      channel: PlanChannel;
+      quota: number;
+      requested: number;
+      overage: number;
+    }> = [];
+    for (const c of activeChannels) {
+      const allowance =
+        (briefingCtx.monthlyQuota[c] ?? 0) + (approvedOverage[c] ?? 0) - (generated[c] ?? 0);
+      const requested = quota[c] ?? 0;
+      if (requested > Math.max(0, allowance)) {
+        overageItems.push({
+          channel: c,
+          quota: Math.max(0, allowance),
+          requested,
+          overage: requested - Math.max(0, allowance),
+        });
+      }
+    }
+    if (overageItems.length) {
+      return { ok: false, code: "overage_not_authorized", overage: overageItems };
+    }
 
     // Estratégia IA ativa + desempenho real das contas conectadas (por canal).
     const [strategy, performance] = await Promise.all([
@@ -394,28 +431,15 @@ export const getPlanVolumetryFn = createServerFn({ method: "POST" })
     // Quantidade já gerada no mês corrente (todas as pautas do cliente).
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-    const generatedThisMonth = PLAN_CHANNELS.reduce<Record<string, number>>((acc, c) => {
-      acc[c] = 0;
-      return acc;
-    }, {});
-    let generatedTotal = 0;
-    const { data: planRows } = await context.supabase
-      .from("monthly_plans" as never)
-      .select("id")
-      .eq("client_id", data.clientId)
-      .gte("created_at", monthStart);
-    const planIds = ((planRows ?? []) as Array<{ id: string }>).map((p) => p.id);
-    if (planIds.length) {
-      const { data: topicRows } = await context.supabase
-        .from("monthly_plan_topics" as never)
-        .select("channel")
-        .in("monthly_plan_id", planIds);
-      for (const t of (topicRows ?? []) as Array<{ channel: string | null }>) {
-        const c = (t.channel ?? "").toLowerCase();
-        if (c in generatedThisMonth) generatedThisMonth[c] = (generatedThisMonth[c] ?? 0) + 1;
-        generatedTotal += 1;
-      }
-    }
+    const generatedThisMonth = await countGeneratedThisMonth(
+      context.supabase,
+      data.clientId,
+      monthStart,
+    );
+    const generatedTotal = PLAN_CHANNELS.reduce((s, c) => s + (generatedThisMonth[c] ?? 0), 0);
+    const approvedOverage = await loadApprovedOverage(context.supabase, {
+      clientId: data.clientId,
+    });
 
     return {
       weekly: ctx.weekly,
@@ -425,8 +449,40 @@ export const getPlanVolumetryFn = createServerFn({ method: "POST" })
       formatsByChannel: ctx.formatsByChannel,
       generatedThisMonth,
       generatedTotal,
+      approvedOverage,
     };
   });
+
+/** Conta peças já geradas no mês corrente, por canal. */
+async function countGeneratedThisMonth(
+  supabase: Parameters<typeof loadApprovedOverage>[0],
+  clientId: string,
+  monthStartOrPeriod: string,
+): Promise<Record<string, number>> {
+  const monthStart = monthStartOrPeriod.length === 10
+    ? new Date(`${monthStartOrPeriod}T00:00:00.000Z`).toISOString()
+    : monthStartOrPeriod;
+  const out = PLAN_CHANNELS.reduce<Record<string, number>>((acc, c) => {
+    acc[c] = 0;
+    return acc;
+  }, {});
+  const { data: planRows } = await supabase
+    .from("monthly_plans" as never)
+    .select("id")
+    .eq("client_id", clientId)
+    .gte("created_at", monthStart);
+  const planIds = ((planRows ?? []) as Array<{ id: string }>).map((p) => p.id);
+  if (!planIds.length) return out;
+  const { data: topicRows } = await supabase
+    .from("monthly_plan_topics" as never)
+    .select("channel")
+    .in("monthly_plan_id", planIds);
+  for (const t of (topicRows ?? []) as Array<{ channel: string | null }>) {
+    const c = (t.channel ?? "").toLowerCase();
+    if (c in out) out[c] = (out[c] ?? 0) + 1;
+  }
+  return out;
+}
 
 /* ---------- CRUD ---------- */
 

@@ -4271,6 +4271,82 @@ export type Database = {
           },
         ]
       }
+      plan_overage_requests: {
+        Row: {
+          brand_id: string
+          channel: string
+          client_id: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          id: string
+          justification: string | null
+          overage: number
+          period_month: string
+          quota: number
+          requested: number
+          requested_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          channel: string
+          client_id: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          justification?: string | null
+          overage?: number
+          period_month: string
+          quota?: number
+          requested?: number
+          requested_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          channel?: string
+          client_id?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          id?: string
+          justification?: string | null
+          overage?: number
+          period_month?: string
+          quota?: number
+          requested?: number
+          requested_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_overage_requests_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "plan_overage_requests_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "plan_overage_requests_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       portal_rate_limit: {
         Row: {
           blocked_until: string | null

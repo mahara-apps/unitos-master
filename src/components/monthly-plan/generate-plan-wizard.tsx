@@ -30,6 +30,13 @@ import type { PlanVolumetry } from "./volumetry-cards";
 
 export type GenerateSelection = { channel: PlanChannel; quantity: number; formats: string[] };
 
+export type OverageItem = {
+  channel: PlanChannel;
+  quota: number;
+  requested: number;
+  overage: number;
+};
+
 const STEPS = ["Escopo", "Canais e volume", "Formatos"] as const;
 
 export function GeneratePlanWizard({
@@ -41,6 +48,8 @@ export function GeneratePlanWizard({
   loadingMessage,
   generationError,
   onGenerate,
+  onRequestOverage,
+  requestingOverage,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -54,6 +63,8 @@ export function GeneratePlanWizard({
     briefingId: string | null;
     selection: GenerateSelection[];
   }) => void;
+  onRequestOverage?: (items: OverageItem[], justification: string) => void;
+  requestingOverage?: boolean;
 }) {
   const [step, setStep] = useState(0);
   const [theme, setTheme] = useState("");
@@ -61,6 +72,7 @@ export function GeneratePlanWizard({
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
   const [qty, setQty] = useState<Record<string, number>>({});
   const [formats, setFormats] = useState<Record<string, string[]>>({});
+  const [justification, setJustification] = useState("");
 
   const channels = useMemo(
     () => PLAN_CHANNELS.filter((c) => (volumetry?.monthlyQuota[c] ?? 0) > 0),
@@ -91,10 +103,20 @@ export function GeneratePlanWizard({
 
   const activeChannels = channels.filter((c) => enabled[c] && (qty[c] ?? 0) > 0);
   const total = activeChannels.reduce((s, c) => s + (qty[c] ?? 0), 0);
-  const overQuota = activeChannels.filter(
-    (c) =>
-      (qty[c] ?? 0) + (volumetry?.generatedThisMonth[c] ?? 0) > (volumetry?.monthlyQuota[c] ?? 0),
-  );
+  const allowanceFor = (c: PlanChannel) =>
+    Math.max(
+      0,
+      (volumetry?.monthlyQuota[c] ?? 0) +
+        (volumetry?.approvedOverage?.[c] ?? 0) -
+        (volumetry?.generatedThisMonth[c] ?? 0),
+    );
+  const overageItems: OverageItem[] = activeChannels
+    .map((c) => {
+      const allowance = allowanceFor(c);
+      const requested = qty[c] ?? 0;
+      return { channel: c, quota: allowance, requested, overage: requested - allowance };
+    })
+    .filter((it) => it.overage > 0);
   const missingFormats = activeChannels.filter((c) => (formats[c] ?? []).length === 0);
 
   const toggleFormat = (c: string, f: string) =>
@@ -222,10 +244,13 @@ export function GeneratePlanWizard({
                   <span className="text-muted-foreground">Total a gerar</span>
                   <span className="font-medium tabular-nums">{total} peças</span>
                 </div>
-                {overQuota.length ? (
+                {overageItems.length ? (
                   <p className="text-[11px] text-amber-400">
-                    Acima da meta mensal em:{" "}
-                    {overQuota.map((c) => PLAN_CHANNEL_LABEL[c]).join(", ")}.
+                    Excede a volumetria em:{" "}
+                    {overageItems
+                      .map((it) => `${PLAN_CHANNEL_LABEL[it.channel]} (+${it.overage})`)
+                      .join(", ")}
+                    . Será necessário solicitar liberação do gestor.
                   </p>
                 ) : null}
               </div>
@@ -271,6 +296,42 @@ export function GeneratePlanWizard({
                     {missingFormats.map((c) => PLAN_CHANNEL_LABEL[c]).join(", ")}.
                   </p>
                 ) : null}
+                {overageItems.length ? (
+                  <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+                    <div className="flex gap-2 text-xs text-amber-400">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <div>
+                        <p className="font-medium">Excedente de volumetria</p>
+                        <ul className="mt-1 space-y-0.5 tabular-nums">
+                          {overageItems.map((it) => (
+                            <li key={it.channel}>
+                              {PLAN_CHANNEL_LABEL[it.channel]}: {it.requested} pedidas ·{" "}
+                              {it.quota} disponíveis · +{it.overage} excedente
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                    <Input
+                      value={justification}
+                      onChange={(e) => setJustification(e.target.value)}
+                      placeholder="Justificativa para o gestor (opcional)"
+                      className="h-9"
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={requestingOverage}
+                      onClick={() => onRequestOverage?.(overageItems, justification.trim())}
+                      className="gap-1.5"
+                    >
+                      {requestingOverage ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : null}
+                      Solicitar liberação
+                    </Button>
+                  </div>
+                ) : null}
                 {generationError ? (
                   <div
                     role="alert"
@@ -306,7 +367,7 @@ export function GeneratePlanWizard({
               ) : (
                 <Button
                   className="gap-2"
-                  disabled={total === 0 || missingFormats.length > 0}
+                  disabled={total === 0 || missingFormats.length > 0 || overageItems.length > 0}
                   onClick={submit}
                 >
                   <Sparkles className="h-4 w-4" /> Gerar {total} peças

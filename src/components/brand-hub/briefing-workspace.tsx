@@ -59,10 +59,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CHANNELS, CHANNEL_STYLES } from "@/components/content/stage-colors";
 import { FORMATS_BY_CHANNEL, FORMAT_LABEL, type PlacementFormat } from "@/lib/scheduling-formats";
+import {
+  PLAN_CHANNELS,
+  PLAN_CHANNELS_DEFAULT,
+  PLAN_CHANNEL_LABEL,
+  type PlanChannel,
+} from "@/lib/monthly-plan-fields";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 /* ----------------------------- Types / helpers ----------------------------- */
 
-type SocialKey = "instagram" | "tiktok" | "linkedin" | "youtube" | "facebook";
+type SocialKey = PlanChannel;
 
 type FormState = {
   // Identidade
@@ -94,13 +106,10 @@ type FormState = {
   goals: string;
 };
 
-const SOCIALS: Array<{ key: SocialKey; label: string }> = [
-  { key: "instagram", label: "Instagram" },
-  { key: "tiktok", label: "TikTok" },
-  { key: "linkedin", label: "LinkedIn" },
-  { key: "youtube", label: "YouTube" },
-  { key: "facebook", label: "Facebook" },
-];
+const SOCIALS: Array<{ key: SocialKey; label: string }> = PLAN_CHANNELS.map((key) => ({
+  key,
+  label: PLAN_CHANNEL_LABEL[key],
+}));
 
 function toForm(client: BrandHubClient): FormState {
   const hub = client.brand_hub ?? {};
@@ -123,20 +132,21 @@ function toForm(client: BrandHubClient): FormState {
     palette: hub.palette ?? [],
     do_text: hub.do_dont?.do ?? "",
     dont_text: hub.do_dont?.dont ?? "",
-    volumetry: {
-      instagram: hub.volumetry?.instagram ?? 0,
-      tiktok: hub.volumetry?.tiktok ?? 0,
-      linkedin: hub.volumetry?.linkedin ?? 0,
-      youtube: hub.volumetry?.youtube ?? 0,
-      facebook: hub.volumetry?.facebook ?? 0,
-    },
-    formats: {
-      instagram: hub.formats?.instagram ?? [],
-      tiktok: hub.formats?.tiktok ?? [],
-      linkedin: hub.formats?.linkedin ?? [],
-      youtube: hub.formats?.youtube ?? [],
-      facebook: hub.formats?.facebook ?? [],
-    },
+    volumetry: PLAN_CHANNELS.reduce<Record<SocialKey, number>>(
+      (acc, c) => {
+        acc[c] = Number((hub.volumetry as Record<string, number> | undefined)?.[c] ?? 0) || 0;
+        return acc;
+      },
+      {} as Record<SocialKey, number>,
+    ),
+    formats: PLAN_CHANNELS.reduce<Record<SocialKey, string[]>>(
+      (acc, c) => {
+        const v = (hub.formats as Record<string, string[]> | undefined)?.[c];
+        acc[c] = Array.isArray(v) ? v : [];
+        return acc;
+      },
+      {} as Record<SocialKey, string[]>,
+    ),
     goals: hub.goals ?? "",
   };
 }
@@ -1067,11 +1077,39 @@ function VolumetriaTab({
   form: FormState;
   setForm: (f: FormState) => void;
 }) {
+  const [extra, setExtra] = useState<SocialKey[]>([]);
+  const visible = SOCIALS.filter(
+    ({ key }) =>
+      PLAN_CHANNELS_DEFAULT.includes(key) || (form.volumetry[key] ?? 0) > 0 || extra.includes(key),
+  );
+  const hidden = SOCIALS.filter((s) => !visible.some((v) => v.key === s.key));
+
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <SectionCard title="Volume semanal por canal" hint="Meta de publicações por semana.">
+      <SectionCard
+        title="Volume semanal por canal"
+        hint="Meta de publicações por semana. A pauta respeita estes limites."
+      >
+        {hidden.length > 0 && (
+          <div className="mb-2 flex justify-end">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 gap-1 text-xs">
+                  <Plus className="h-3.5 w-3.5" /> Canais
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {hidden.map(({ key, label }) => (
+                  <DropdownMenuItem key={key} onClick={() => setExtra((p) => [...p, key])}>
+                    {label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
         <div className="divide-y divide-border/60">
-          {SOCIALS.map(({ key, label }) => {
+          {visible.map(({ key, label }) => {
             const value = form.volumetry[key] ?? 0;
             const on = value > 0;
             const meta = CHANNELS.find((c) => c.id === key);

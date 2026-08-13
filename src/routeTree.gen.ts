@@ -60,6 +60,7 @@ import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authent
 import { Route as AuthenticatedSettingsSlaRouteImport } from './routes/_authenticated/settings.sla'
 import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_authenticated/settings.profile'
 import { Route as AuthenticatedSettingsPermissionsRouteImport } from './routes/_authenticated/settings.permissions'
+import { Route as AuthenticatedSettingsOveragesRouteImport } from './routes/_authenticated/settings.overages'
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings.notifications'
 import { Route as AuthenticatedSettingsLogsRouteImport } from './routes/_authenticated/settings.logs'
 import { Route as AuthenticatedSettingsBrandingRouteImport } from './routes/_authenticated/settings.branding'
@@ -358,6 +359,12 @@ const AuthenticatedSettingsPermissionsRoute =
     path: '/permissions',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsOveragesRoute =
+  AuthenticatedSettingsOveragesRouteImport.update({
+    id: '/overages',
+    path: '/overages',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsNotificationsRoute =
   AuthenticatedSettingsNotificationsRouteImport.update({
     id: '/notifications',
@@ -574,6 +581,7 @@ export interface FileRoutesByFullPath {
   '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
   '/settings/logs': typeof AuthenticatedSettingsLogsRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/settings/overages': typeof AuthenticatedSettingsOveragesRoute
   '/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/sla': typeof AuthenticatedSettingsSlaRoute
@@ -650,6 +658,7 @@ export interface FileRoutesByTo {
   '/settings/branding': typeof AuthenticatedSettingsBrandingRoute
   '/settings/logs': typeof AuthenticatedSettingsLogsRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/settings/overages': typeof AuthenticatedSettingsOveragesRoute
   '/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
   '/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/settings/sla': typeof AuthenticatedSettingsSlaRoute
@@ -735,6 +744,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/branding': typeof AuthenticatedSettingsBrandingRoute
   '/_authenticated/settings/logs': typeof AuthenticatedSettingsLogsRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/_authenticated/settings/overages': typeof AuthenticatedSettingsOveragesRoute
   '/_authenticated/settings/permissions': typeof AuthenticatedSettingsPermissionsRoute
   '/_authenticated/settings/profile': typeof AuthenticatedSettingsProfileRoute
   '/_authenticated/settings/sla': typeof AuthenticatedSettingsSlaRoute
@@ -819,6 +829,7 @@ export interface FileRouteTypes {
     | '/settings/branding'
     | '/settings/logs'
     | '/settings/notifications'
+    | '/settings/overages'
     | '/settings/permissions'
     | '/settings/profile'
     | '/settings/sla'
@@ -895,6 +906,7 @@ export interface FileRouteTypes {
     | '/settings/branding'
     | '/settings/logs'
     | '/settings/notifications'
+    | '/settings/overages'
     | '/settings/permissions'
     | '/settings/profile'
     | '/settings/sla'
@@ -979,6 +991,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/branding'
     | '/_authenticated/settings/logs'
     | '/_authenticated/settings/notifications'
+    | '/_authenticated/settings/overages'
     | '/_authenticated/settings/permissions'
     | '/_authenticated/settings/profile'
     | '/_authenticated/settings/sla'
@@ -1424,6 +1437,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsPermissionsRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/settings/overages': {
+      id: '/_authenticated/settings/overages'
+      path: '/overages'
+      fullPath: '/settings/overages'
+      preLoaderRoute: typeof AuthenticatedSettingsOveragesRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/notifications': {
       id: '/_authenticated/settings/notifications'
       path: '/notifications'
@@ -1748,6 +1768,7 @@ interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsBrandingRoute: typeof AuthenticatedSettingsBrandingRoute
   AuthenticatedSettingsLogsRoute: typeof AuthenticatedSettingsLogsRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
+  AuthenticatedSettingsOveragesRoute: typeof AuthenticatedSettingsOveragesRoute
   AuthenticatedSettingsPermissionsRoute: typeof AuthenticatedSettingsPermissionsRoute
   AuthenticatedSettingsProfileRoute: typeof AuthenticatedSettingsProfileRoute
   AuthenticatedSettingsSlaRoute: typeof AuthenticatedSettingsSlaRoute
@@ -1762,6 +1783,7 @@ const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsLogsRoute: AuthenticatedSettingsLogsRoute,
   AuthenticatedSettingsNotificationsRoute:
     AuthenticatedSettingsNotificationsRoute,
+  AuthenticatedSettingsOveragesRoute: AuthenticatedSettingsOveragesRoute,
   AuthenticatedSettingsPermissionsRoute: AuthenticatedSettingsPermissionsRoute,
   AuthenticatedSettingsProfileRoute: AuthenticatedSettingsProfileRoute,
   AuthenticatedSettingsSlaRoute: AuthenticatedSettingsSlaRoute,
