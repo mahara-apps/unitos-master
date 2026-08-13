@@ -4265,6 +4265,33 @@ export type Database = {
           },
         ]
       }
+      portal_rate_limit: {
+        Row: {
+          blocked_until: string | null
+          created_at: string
+          fail_count: number
+          ip_hash: string
+          updated_at: string
+          window_start: string
+        }
+        Insert: {
+          blocked_until?: string | null
+          created_at?: string
+          fail_count?: number
+          ip_hash: string
+          updated_at?: string
+          window_start?: string
+        }
+        Update: {
+          blocked_until?: string | null
+          created_at?: string
+          fail_count?: number
+          ip_hash?: string
+          updated_at?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       portal_tokens: {
         Row: {
           client_id: string
@@ -5712,6 +5739,11 @@ export type Database = {
       }
       portal_metrics: { Args: { _token: string }; Returns: Json }
       portal_post: { Args: { _post_id: string; _token: string }; Returns: Json }
+      portal_rate_register_failure: {
+        Args: { _ip_hash: string }
+        Returns: Json
+      }
+      portal_rate_status: { Args: { _ip_hash: string }; Returns: Json }
       portal_resolve: { Args: { _token: string }; Returns: Json }
       process_brain_learning_queue: { Args: { _limit?: number }; Returns: Json }
       reap_brain_learning_queue: { Args: never; Returns: number }
