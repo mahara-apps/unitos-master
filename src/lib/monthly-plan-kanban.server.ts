@@ -161,6 +161,7 @@ export async function materializePlanToKanban(
     return {
       brand_id: args.brandId,
       client_id: args.clientId,
+      project_id: projectId,
       pipeline_id: pipelineId,
       stage_id: stage.id,
       stage: "idea",
