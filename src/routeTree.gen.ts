@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as PortalRouteRouteImport } from './routes/_portal/route'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PortalTokenRouteImport } from './routes/portal.$token'
@@ -53,6 +54,7 @@ import { Route as ApiJobsCustomerPipelineRouteImport } from './routes/api/jobs/c
 import { Route as ApiJobsCopilotRouteImport } from './routes/api/jobs/copilot'
 import { Route as ApiJobsAnalyzeDocumentRouteImport } from './routes/api/jobs/analyze-document'
 import { Route as ApiChatStreamRouteImport } from './routes/api/chat.stream'
+import { Route as PortalAreaInicioRouteImport } from './routes/_portal/area.inicio'
 import { Route as AuthenticatedSuperAdminFeaturesRouteImport } from './routes/_authenticated/super-admin.features'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsSlaRouteImport } from './routes/_authenticated/settings.sla'
@@ -103,6 +105,10 @@ const LoginRoute = LoginRouteImport.update({
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortalRouteRoute = PortalRouteRouteImport.update({
+  id: '/_portal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
@@ -316,6 +322,11 @@ const ApiChatStreamRoute = ApiChatStreamRouteImport.update({
   id: '/api/chat/stream',
   path: '/api/chat/stream',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PortalAreaInicioRoute = PortalAreaInicioRouteImport.update({
+  id: '/area/inicio',
+  path: '/area/inicio',
+  getParentRoute: () => PortalRouteRoute,
 } as any)
 const AuthenticatedSuperAdminFeaturesRoute =
   AuthenticatedSuperAdminFeaturesRouteImport.update({
@@ -568,6 +579,7 @@ export interface FileRoutesByFullPath {
   '/settings/sla': typeof AuthenticatedSettingsSlaRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
+  '/area/inicio': typeof PortalAreaInicioRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
@@ -643,6 +655,7 @@ export interface FileRoutesByTo {
   '/settings/sla': typeof AuthenticatedSettingsSlaRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
+  '/area/inicio': typeof PortalAreaInicioRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
@@ -687,6 +700,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/_portal': typeof PortalRouteRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -726,6 +740,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/sla': typeof AuthenticatedSettingsSlaRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/_authenticated/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
+  '/_portal/area/inicio': typeof PortalAreaInicioRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
@@ -809,6 +824,7 @@ export interface FileRouteTypes {
     | '/settings/sla'
     | '/settings/team'
     | '/super-admin/features'
+    | '/area/inicio'
     | '/api/chat/stream'
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
@@ -884,6 +900,7 @@ export interface FileRouteTypes {
     | '/settings/sla'
     | '/settings/team'
     | '/super-admin/features'
+    | '/area/inicio'
     | '/api/chat/stream'
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
@@ -927,6 +944,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authenticated'
+    | '/_portal'
     | '/forgot-password'
     | '/login'
     | '/reset-password'
@@ -966,6 +984,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/sla'
     | '/_authenticated/settings/team'
     | '/_authenticated/super-admin/features'
+    | '/_portal/area/inicio'
     | '/api/chat/stream'
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
@@ -1010,6 +1029,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  PortalRouteRoute: typeof PortalRouteRouteWithChildren
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -1066,6 +1086,13 @@ declare module '@tanstack/react-router' {
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_portal': {
+      id: '/_portal'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof PortalRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -1354,6 +1381,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/chat/stream'
       preLoaderRoute: typeof ApiChatStreamRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_portal/area/inicio': {
+      id: '/_portal/area/inicio'
+      path: '/area/inicio'
+      fullPath: '/area/inicio'
+      preLoaderRoute: typeof PortalAreaInicioRouteImport
+      parentRoute: typeof PortalRouteRoute
     }
     '/_authenticated/super-admin/features': {
       id: '/_authenticated/super-admin/features'
@@ -1781,6 +1815,18 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface PortalRouteRouteChildren {
+  PortalAreaInicioRoute: typeof PortalAreaInicioRoute
+}
+
+const PortalRouteRouteChildren: PortalRouteRouteChildren = {
+  PortalAreaInicioRoute: PortalAreaInicioRoute,
+}
+
+const PortalRouteRouteWithChildren = PortalRouteRoute._addFileChildren(
+  PortalRouteRouteChildren,
+)
+
 interface PortalTokenRouteChildren {
   PortalTokenAprovacoesRoute: typeof PortalTokenAprovacoesRoute
   PortalTokenArquivosRoute: typeof PortalTokenArquivosRoute
@@ -1804,6 +1850,7 @@ const PortalTokenRouteWithChildren = PortalTokenRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  PortalRouteRoute: PortalRouteRouteWithChildren,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
   ResetPasswordRoute: ResetPasswordRoute,

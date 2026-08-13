@@ -3217,6 +3217,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          last_seen_at: string | null
           role: string
           user_id: string
         }
@@ -3226,6 +3227,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          last_seen_at?: string | null
           role?: string
           user_id: string
         }
@@ -3235,6 +3237,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          last_seen_at?: string | null
           role?: string
           user_id?: string
         }
@@ -5660,6 +5663,7 @@ export type Database = {
         Args: { _brand_id: string; _user_id: string }
         Returns: boolean
       }
+      is_portal_user: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin:
         | { Args: never; Returns: boolean }
         | { Args: { _user_id: string }; Returns: boolean }
@@ -5725,6 +5729,7 @@ export type Database = {
         Args: { _month?: string; _token: string }
         Returns: Json
       }
+      portal_client_ids: { Args: { _user_id: string }; Returns: string[] }
       portal_decide: {
         Args: {
           _decision: string
