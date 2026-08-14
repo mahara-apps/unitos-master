@@ -8,10 +8,12 @@ import {
   SESSION_INVALID_PREFIX,
   isMetaRateLimit,
   nowIso,
+  readPagesPayload,
 } from "./portfolio-shared";
 
 export type {
   PortfolioPage,
+  PortfolioStandaloneInstagram,
   PortfolioThreadsAccount,
   PortfolioAdAccount,
   PortfolioResponse,
@@ -20,6 +22,7 @@ export { SESSION_INVALID_PREFIX } from "./portfolio-shared";
 
 import type {
   PortfolioPage,
+  PortfolioStandaloneInstagram,
   PortfolioThreadsAccount,
   PortfolioAdAccount,
   PortfolioResponse,
