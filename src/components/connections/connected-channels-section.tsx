@@ -110,9 +110,17 @@ export function ConnectedChannelsSection({
   async function connectMeta(channel: "facebook" | "instagram") {
     if (!brandId) return;
     setConnecting(channel);
+    // O popup PRECISA ser aberto de forma síncrona no clique; qualquer `await`
+    // antes disso faz o navegador bloquear a janela.
+    const popup = window.open(
+      "",
+      "meta-oauth",
+      "width=760,height=820,resizable=yes,scrollbars=yes",
+    );
     try {
       const existing = await sessionFn({ data: { brandId } });
       if (existing.sessionId) {
+        popup?.close();
         setConnectOpen(false);
         setPortfolioSessionId(existing.sessionId);
         setPortfolioChannel(channel);
@@ -123,11 +131,6 @@ export function ConnectedChannelsSection({
     } catch {
       // segue para o OAuth
     }
-    const popup = window.open(
-      "",
-      "meta-oauth",
-      "width=760,height=820,resizable=yes,scrollbars=yes",
-    );
     try {
       const { authorizeUrl } = await startMetaFn({ data: { brandId, channel } });
       if (popup) popup.location.href = authorizeUrl;
@@ -138,6 +141,7 @@ export function ConnectedChannelsSection({
       toast.error(e instanceof Error ? e.message : "Falha ao iniciar OAuth da Meta");
     }
   }
+
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["workspace-channels", brandId] });
