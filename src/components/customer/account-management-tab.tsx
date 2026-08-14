@@ -433,6 +433,28 @@ function AccountInfoCard({
   );
 }
 
+function toForm(a: ClientAccount): AccountForm {
+  return {
+    monthly_contract_value:
+      a.monthly_contract_value != null ? String(a.monthly_contract_value) : "",
+    margin_percent: a.margin_percent != null ? String(a.margin_percent) : "",
+    contract_start_date: a.contract_start_date ?? "",
+    contract_renewal_date: a.contract_renewal_date ?? "",
+    contract_status: a.contract_status ?? "ativo",
+    internal_notes: a.internal_notes ?? "",
+    owner_user_id: a.owner_user_id ?? "",
+  };
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">{label}</Label>
+      {children}
+    </div>
+  );
+}
+
 
 /* -------------------------------------------------------------------------- */
 /*  Pipeline                                                                  */
