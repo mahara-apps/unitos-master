@@ -775,8 +775,11 @@ async function runStep(params: {
         prompt: `Texto bruto do briefing:\n"""\n${state.texto}\n"""`,
         strategic: false,
         brandId: state.brandId,
+        step,
+        onAttempt,
       });
       const briefing = normalizeBriefingPayload(value);
+      assertValidOutput(step, briefing);
       models[step] = `${provider}:${modelId}`;
       state.briefing = briefing;
 
@@ -815,8 +818,11 @@ async function runStep(params: {
         prompt: `Briefing estruturado:\n${briefingJson()}`,
         strategic: true,
         brandId: state.brandId,
+        step,
+        onAttempt,
       });
       const voice = normalizeVoicePayload(value);
+      assertValidOutput(step, voice);
       models[step] = `${provider}:${modelId}`;
       state.voice = voice;
       await replaceActive(supabase, "brand_voice_cards", state, userId, voice);
@@ -826,9 +832,11 @@ async function runStep(params: {
         prompt: `Briefing:\n${briefingJson()}`,
         strategic: true,
         brandId: state.brandId,
+        step,
+        onAttempt,
       });
       const personas = normalizePersonasPayload(value);
-      if (!personas.personas.length) throw new Error("Nenhuma persona gerada — tente novamente.");
+      assertValidOutput(step, personas);
       models[step] = `${provider}:${modelId}`;
       state.personas = personas;
       await replaceActive(supabase, "brand_personas", state, userId, personas);
@@ -838,8 +846,11 @@ async function runStep(params: {
         prompt: `Briefing:\n${briefingJson()}\n\nPersonas:\n${compactPersonas(state.personas ?? { personas: [] })}`,
         strategic: true,
         brandId: state.brandId,
+        step,
+        onAttempt,
       });
       const cohorts = normalizeCohortsPayload(value);
+      assertValidOutput(step, cohorts);
       models[step] = `${provider}:${modelId}`;
       state.cohorts = cohorts;
       await replaceActive(supabase, "brand_cohorts", state, userId, cohorts);
@@ -853,12 +864,19 @@ async function runStep(params: {
         ].join("\n\n"),
         strategic: true,
         brandId: state.brandId,
+        step,
+        onAttempt,
       });
       const swot = normalizeSwotPayload(value);
+      assertValidOutput(step, swot);
       models[step] = `${provider}:${modelId}`;
+      state.swot = swot;
       await replaceActive(supabase, "brand_swot", state, userId, swot);
     }
 
+    // Etapa concluída E persistida — registra para a retomada idempotente.
+    done.add(step);
+    state.done = STEPS.filter((s) => done.has(s));
     state.models = models;
     await patch({ input: state as never });
 
@@ -870,53 +888,79 @@ async function runStep(params: {
       return;
     }
 
-
-    // Última etapa concluída — avisa o usuário para revisar.
-    const reviewRoute = `/customers/${state.clientId}/briefing`;
-    const { error: notifErr } = await supabase.from("notifications").insert({
-      user_id: userId,
-      brand_id: state.brandId,
-      kind: "system",
-      title: "Estratégia gerada — revise antes de criar ideias",
-      body: "Voice card, personas, cohorts e SWOT prontos. Confira, ajuste e depois clique em Gerar ideias.",
-      href: reviewRoute,
-      payload: { event: "strategy_ready", client_id: state.clientId },
-    });
-    if (notifErr) console.warn("[notifications] insert failed", notifErr);
-
-    await patch({
-      status: "succeeded",
-      progress: 100,
-      step_label: null,
-      finished_at: new Date().toISOString(),
-      target_route: reviewRoute,
-      result: {
-        title: "Estratégia pronta para revisão",
-        content: "Revise voice, personas, cohorts e SWOT. Depois clique em Gerar ideias.",
-        sources: state.sources ?? null,
-        models: state.models ?? null,
-      } as never,
-    });
+    await finishJob(supabase, patch, state, userId);
   } catch (err) {
-    const raw = err instanceof Error ? err.message : String(err);
-    const message = raw.startsWith("ai_provider_not_configured")
-      ? "Nenhuma IA configurada para esta marca. Cadastre uma chave em Conexões."
-      : raw.startsWith("ai_provider_key_missing")
-        ? "A chave do provedor de IA não foi encontrada. Reconfigure em Conexões."
-        : raw.startsWith("ai_model_unavailable")
-          ? `Modelo indisponível no provedor selecionado para a etapa "${STEP_META[step].label}". Verifique a chave/provedor em Conexões. Detalhe: ${raw}`
-          : `Falha na etapa "${STEP_META[step].label}": ${raw}`;
+    // Interrupção segura: a cadeia PARA aqui. Nada é apagado, nada falso é
+    // gravado e as etapas restantes ficam retomáveis.
+    const { kind, retryable } = classifyAiError(err);
+    const detail =
+      err instanceof StepFailure ? err.detail : unwrapAiError(err).text.slice(0, 800);
+    const m = FAILURE_MESSAGE_PT[kind];
+    const message = `${m.title} — etapa "${STEP_META[step].label}". ${m.body}`;
+
+    console.error(
+      `[customer-pipeline] etapa=${step} FALHOU motivo=${kind} retryable=${retryable}: ${detail}`,
+    );
+
+    const { data: current } = await supabase
+      .from("ai_jobs")
+      .select("input")
+      .eq("id", jobId)
+      .maybeSingle();
+    const st = (current?.input ?? {}) as unknown as JobState;
 
     await patch({
       status: "failed",
       error: message,
       finished_at: new Date().toISOString(),
       step_label: null,
+      result: {
+        failure_kind: kind,
+        retryable,
+        failed_step: step,
+        completed_steps: st.done ?? [],
+        detail: detail.slice(0, 500),
+      } as never,
     });
   } finally {
     clearInterval(beat);
   }
 }
+
+/** Conclui o job: notifica e marca sucesso. */
+async function finishJob(
+  supabase: ReturnType<typeof buildUserClient>,
+  patch: (fields: Partial<Database["public"]["Tables"]["ai_jobs"]["Update"]>) => unknown,
+  state: JobState,
+  userId: string,
+) {
+  const reviewRoute = `/customers/${state.clientId}/briefing`;
+  const { error: notifErr } = await supabase.from("notifications").insert({
+    user_id: userId,
+    brand_id: state.brandId,
+    kind: "system",
+    title: "Estratégia gerada — revise antes de criar ideias",
+    body: "Voice card, personas, cohorts e SWOT prontos. Confira, ajuste e depois clique em Gerar ideias.",
+    href: reviewRoute,
+    payload: { event: "strategy_ready", client_id: state.clientId },
+  });
+  if (notifErr) console.warn("[notifications] insert failed", notifErr);
+
+  await patch({
+    status: "succeeded",
+    progress: 100,
+    step_label: null,
+    finished_at: new Date().toISOString(),
+    target_route: reviewRoute,
+    result: {
+      title: "Estratégia pronta para revisão",
+      content: "Revise voice, personas, cohorts e SWOT. Depois clique em Gerar ideias.",
+      sources: state.sources ?? null,
+      models: state.models ?? null,
+    } as never,
+  });
+}
+
 
 /**
  * Agenda a próxima etapa como uma nova requisição a esta mesma rota.
