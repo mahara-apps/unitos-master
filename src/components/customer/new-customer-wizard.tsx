@@ -600,7 +600,7 @@ export function NewCustomerWizard({ brandId, open, onOpenChange }: NewCustomerWi
                 </Button>
                 <Button onClick={() => mut.mutate()} disabled={mut.isPending || !brandId}>
                   {mut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Criar cliente
+                  {mut.isPending ? "Criando cliente..." : "Criar cliente"}
                 </Button>
               </div>
             </div>
