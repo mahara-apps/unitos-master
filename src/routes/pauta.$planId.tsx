@@ -1,3 +1,4 @@
+import { contentFormatLabel } from "@/lib/content-formats";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -313,7 +314,7 @@ function PublicMonthlyPlanPage() {
                     ) : null}
                     {t.content_format ? (
                       <span className={`${PILL} border-violet-500/30 bg-violet-500/10 text-violet-400`}>
-                        {t.content_format}
+                        {contentFormatLabel(t.content_format)}
                       </span>
                     ) : null}
                   </div>

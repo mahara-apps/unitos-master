@@ -1,3 +1,4 @@
+import { contentFormatLabel } from "@/lib/content-formats";
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { PlanStatusBadge } from "@/lib/monthly-plan-status";
 import { useServerFn } from "@tanstack/react-start";
@@ -436,7 +437,7 @@ function ProjectDetailPage() {
                         <span>Canal não definido</span>
                       )}
                       <span>·</span>
-                      <span>{it.format ?? "formato não definido"}</span>
+                      <span>{it.format ? contentFormatLabel(it.format) : "formato não definido"}</span>
                       {it.tasks.assignee_name ? (
                         <>
                           <span>·</span>

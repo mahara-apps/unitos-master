@@ -1,3 +1,4 @@
+import { normalizeContentFormat } from "@/lib/content-formats";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CircleDot } from "lucide-react";
@@ -26,8 +27,7 @@ export function EventChip({
     const primaryChannel = p.channels?.[0];
     const netKey = classifySocialNetwork(primaryChannel);
     const NetIcon = SOCIAL_NETWORKS[netKey].Icon;
-    const isStory =
-      typeof p.format === "string" && /^stor(y|ies)$/i.test(p.format);
+    const isStory = normalizeContentFormat(p.format) === "stories";
     const isPublished = p.status === "published";
     const statusLabel = isPublished ? "Publicado" : "Agendado";
     return (

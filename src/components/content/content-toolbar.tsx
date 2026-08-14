@@ -11,7 +11,8 @@ import {
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CHANNELS, FORMATS } from "./stage-colors";
+import { CHANNELS } from "./stage-colors";
+import { CONTENT_FORMATS, CONTENT_FORMAT_LABEL, normalizeContentFormat } from "@/lib/content-formats";
 
 export type CreatedRange = "any" | "today" | "7d" | "30d";
 export type ScheduledRange = "any" | "today" | "7d";
@@ -153,9 +154,9 @@ export function ContentToolbar({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="any">Todos formatos</SelectItem>
-                {FORMATS.map((f) => (
+                {CONTENT_FORMATS.map((f) => (
                   <SelectItem key={f} value={f}>
-                    {f}
+                    {CONTENT_FORMAT_LABEL[f]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -254,10 +255,11 @@ export function applyContentFilters<
       if (!ch.includes(f.channel)) return false;
     }
     if (f.format !== "any") {
-      const target = f.format.toLowerCase();
-      const primary = (p.format ?? "").toLowerCase();
+      // Comparação sempre em chave canônica — tolera registros legados.
+      const target = normalizeContentFormat(f.format);
+      const primary = normalizeContentFormat(p.format);
       const inPlacements = (p.placements ?? []).some(
-        (pl) => (pl.format ?? "").toLowerCase() === target,
+        (pl) => normalizeContentFormat(pl.format) === target,
       );
       if (primary !== target && !inPlacements) return false;
     }

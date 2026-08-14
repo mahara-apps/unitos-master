@@ -1,3 +1,4 @@
+import { CONTENT_FORMAT_LABEL, formatsForChannel } from "@/lib/content-formats";
 import {
   AtSign,
   Facebook,
@@ -65,8 +66,8 @@ export function channelDef(channel: string): ChannelDef {
 
 /** Formatos suportados por canal (apresentação; a validação real é no wizard). */
 export const CHANNEL_FORMATS: Record<string, string[]> = {
-  instagram: ["Feed", "Reels", "Stories"],
-  facebook: ["Feed", "Stories"],
+  instagram: formatsForChannel("instagram").map((f) => CONTENT_FORMAT_LABEL[f]),
+  facebook: formatsForChannel("facebook").map((f) => CONTENT_FORMAT_LABEL[f]),
 };
 
 export type StatusKey = "active" | "attention" | "disconnected" | "soon";

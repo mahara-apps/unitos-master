@@ -209,7 +209,7 @@ export function ScheduleWizard({
         if (!c) continue;
         next.push({
           channel: c.channel as SocialChannel,
-          format: "Feed" as PlacementFormat,
+          format: "feed" satisfies PlacementFormat,
           connectionId: id,
         });
       }

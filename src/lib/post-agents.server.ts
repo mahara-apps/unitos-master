@@ -1,3 +1,4 @@
+import { contentFormatLabel } from "@/lib/content-formats";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
 import { getBrandAiModelAdmin } from "@/lib/ai-provider.server";
@@ -260,7 +261,8 @@ export async function generatePostContent(
   ]);
 
   const channel = (post.channels ?? [])[0] ?? topic?.channel ?? "instagram";
-  const format = post.format ?? topic?.content_format ?? "Feed";
+  // Prompt recebe o LABEL derivado da chave canônica (nunca rótulo legado).
+  const format = contentFormatLabel(post.format ?? topic?.content_format ?? "feed");
 
   const pieceBriefing = [
     post.internal_briefing?.trim() ? `Briefing interno:\n${post.internal_briefing.trim()}` : "",

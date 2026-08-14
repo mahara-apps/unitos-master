@@ -75,37 +75,21 @@ import { Link } from "@tanstack/react-router";
 import { saveScheduledPostFn } from "@/lib/scheduling-wizard.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
-import { CHANNELS, CHANNEL_STYLES, FORMATS, FORMAT_STYLES, PRIORITY_STYLES } from "./stage-colors";
+import { CHANNELS, CHANNEL_STYLES, FORMAT_STYLES, PRIORITY_STYLES } from "./stage-colors";
+import {
+  CONTENT_FORMATS,
+  CONTENT_FORMAT_LABEL,
+  normalizeContentFormat,
+} from "@/lib/content-formats";
 import { type PlacementFormat } from "@/lib/placements.functions";
 import { listProjects } from "@/lib/projects.functions";
 import { FolderKanban } from "lucide-react";
 import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { describeError } from "@/lib/errors";
 
-// UI helpers to bridge display strings ("Feed"/"Story"/"Reels"/"Carrossel")
-// used elsewhere in this component with the DB enum used by placements.
-const FORMAT_TO_ENUM: Record<string, PlacementFormat> = {
-  Feed: "feed",
-  feed: "feed",
-  Story: "stories",
-  Stories: "stories",
-  stories: "stories",
-  Reels: "reels",
-  reels: "reels",
-  Carrossel: "carrossel",
-  Carousel: "carrossel",
-  carrossel: "carrossel",
-};
-const ENUM_TO_LABEL: Record<PlacementFormat, string> = {
-  feed: "Feed",
-  stories: "Stories",
-  reels: "Reels",
-  carrossel: "Carrossel",
-};
-function toEnum(f: string | null | undefined): PlacementFormat {
-  if (!f) return "feed";
-  return FORMAT_TO_ENUM[f] ?? "feed";
-}
+// Taxonomia de formatos: fonte única em `@/lib/content-formats`.
+// Internamente SEMPRE chave canônica ("feed" | "stories" | "reels" |
+// "carrossel"); a UI exibe o label via CONTENT_FORMAT_LABEL.
 
 type Priority = "low" | "medium" | "high" | "urgent";
 
@@ -725,13 +709,14 @@ function EditBody({
           r.uploaded === 1 ? "Mídia anexada" : `${r.uploaded} mídias anexadas`,
         );
         // Auto-carrossel when ending with 2+ media (except Story format).
-        if (r.totalAfter >= 2 && state.format !== "Story") {
-          if (state.format !== "Carrossel") {
-            setState((s) => ({ ...s, format: "Carrossel" }));
+        const current = normalizeContentFormat(state.format);
+        if (r.totalAfter >= 2 && current !== "stories") {
+          if (current !== "carrossel") {
+            setState((s) => ({ ...s, format: "carrossel" }));
             toast.info("Formato ajustado para Carrossel");
           }
-        } else if (r.totalAfter <= 1 && state.format === "Carrossel") {
-          setState((s) => ({ ...s, format: "Feed" }));
+        } else if (r.totalAfter <= 1 && current === "carrossel") {
+          setState((s) => ({ ...s, format: "feed" }));
         }
       }
       qc.invalidateQueries({ queryKey: ["post-detail", postId] });
@@ -963,7 +948,7 @@ function emptyState(stageId: string): TaskState {
     assigneeId: null,
     channels: [],
     targetConnectionIds: [],
-    format: "Feed",
+    format: "feed",
     destinations: [],
     copy: "",
     internalBriefing: "",
@@ -1005,7 +990,7 @@ function stateFromPost(
     assigneeId: (post.assignee_id ?? null) as string | null,
     channels: (post.channels ?? []) as string[],
     targetConnectionIds: (post.target_connection_ids ?? []) as string[],
-    format: post.format ?? "",
+    format: normalizeContentFormat(post.format) ?? "",
     destinations,
     copy: flattenCopy(post.copy),
     internalBriefing: post.internal_briefing ?? "",
@@ -1077,7 +1062,7 @@ function TaskLayout({
             {
               connectionId: row.connectionId,
               channel: row.channel,
-              format: toEnum(prev.format || "Feed"),
+              format: normalizeContentFormat(prev.format) ?? "feed",
             },
           ];
       const nextIds = nextDests.map((d) => d.connectionId);
@@ -1162,10 +1147,11 @@ function TaskLayout({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="feed">Feed</SelectItem>
-                          <SelectItem value="stories">Stories</SelectItem>
-                          <SelectItem value="reels">Reels</SelectItem>
-                          <SelectItem value="carrossel">Carrossel</SelectItem>
+                          {CONTENT_FORMATS.map((f) => (
+                            <SelectItem key={f} value={f}>
+                              {CONTENT_FORMAT_LABEL[f]}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     ) : null}
@@ -1197,7 +1183,7 @@ function TaskLayout({
             Formato
           </Label>
           <div className="flex flex-wrap gap-1.5">
-            {FORMATS.map((f) => (
+            {CONTENT_FORMATS.map((f) => (
               <button
                 key={f}
                 type="button"
@@ -1208,7 +1194,7 @@ function TaskLayout({
                     : "border-border/60 bg-background/60 text-muted-foreground hover:border-border hover:text-foreground"
                 }`}
               >
-                {f}
+                {CONTENT_FORMAT_LABEL[f]}
               </button>
             ))}
           </div>

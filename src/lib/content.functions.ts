@@ -1,3 +1,4 @@
+import { normalizeContentFormat } from "@/lib/content-formats";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -840,6 +841,10 @@ export const createPostFn = createServerFn({ method: "POST" })
     for (const k of optional) {
       if (data[k] !== undefined) insertRow[k as string] = data[k];
     }
+    // Fronteira de escrita: `posts.format` só aceita chave canônica.
+    if (data.format !== undefined) {
+      insertRow.format = data.format ? normalizeContentFormat(data.format) : null;
+    }
 
     // Quando o cliente envia `destinations` estruturados, eles se tornam a
     // fonte de verdade — `channels`/`target_connection_ids` viram cache.
@@ -946,6 +951,10 @@ export const updatePostFn = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const patch: Record<string, unknown> = { ...data.patch };
+    // Fronteira de escrita: `posts.format` só aceita chave canônica.
+    if (patch.format !== undefined) {
+      patch.format = patch.format ? normalizeContentFormat(patch.format) : null;
+    }
     // stage_id é a fonte operacional: ao mudar de coluna, espelhamos o campo
     // legado `posts.stage` pelo helper canônico.
     if (typeof patch.stage_id === "string") {
