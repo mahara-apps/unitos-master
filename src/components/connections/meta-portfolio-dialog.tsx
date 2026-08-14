@@ -160,12 +160,22 @@ export function MetaPortfolioDialog({
               ? err
               : "Falha ao carregar contas da Meta";
         const isRateLimit = msg.startsWith("RATE_LIMIT:");
-        toast.error(
-          isRateLimit
-            ? "Limite de requisições da Meta atingido. Por favor, aguarde alguns minutos antes de tentar novamente."
-            : msg,
-          { duration: 9000 },
-        );
+        const isSessionDead = msg.startsWith(SESSION_INVALID_PREFIX);
+        if (isSessionDead) {
+          toast.info("Sua sessão da Meta expirou. Abrindo login novamente…", {
+            duration: 6000,
+          });
+          void reauthorize(
+            channel === "ads" || !channel ? "facebook" : channel,
+          );
+        } else {
+          toast.error(
+            isRateLimit
+              ? "Limite de requisições da Meta atingido. Por favor, aguarde alguns minutos antes de tentar novamente."
+              : msg,
+            { duration: 9000 },
+          );
+        }
         refreshNextRef.current = false;
         throw err instanceof Error ? err : new Error(msg);
       }
@@ -183,11 +193,14 @@ export function MetaPortfolioDialog({
 
   const isRateLimited =
     !!error && (error as Error).message.startsWith("RATE_LIMIT:");
+  const isSessionInvalid =
+    !!error && (error as Error).message.startsWith(SESSION_INVALID_PREFIX);
 
   const handleResync = () => {
     refreshNextRef.current = true;
     void refetch();
   };
+
 
   const [pending, setPending] = useState<Set<string>>(new Set());
 
