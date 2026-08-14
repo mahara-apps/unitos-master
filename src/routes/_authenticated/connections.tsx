@@ -560,9 +560,7 @@ function ConnectionsPage() {
               config={data?.providers?.[p.id]}
               brandId={brandId}
               onChanged={invalidate}
-              totalMonthUsd={used}
-              totalMonthTokens={data?.usage.monthTokens ?? 0}
-              totalCalls={totalCalls}
+              usage={byProvider[p.id] ?? { usd: 0, tokens: 0, calls: 0 }}
             />
           ))}
         </div>
@@ -1011,9 +1009,7 @@ function ProviderCard({
   config,
   brandId,
   onChanged,
-  totalMonthUsd,
-  totalMonthTokens,
-  totalCalls,
+  usage,
 }: {
   provider: ProviderDef;
   config?: {
@@ -1026,9 +1022,7 @@ function ProviderCard({
   };
   brandId: string;
   onChanged: () => void;
-  totalMonthUsd: number;
-  totalMonthTokens: number;
-  totalCalls: number;
+  usage: { usd: number; tokens: number; calls: number };
 }) {
   const [open, setOpen] = useState(false);
   const [apiKey, setApiKey] = useState("");
@@ -1083,11 +1077,9 @@ function ProviderCard({
 
   const connected = !!config?.connected;
   const Icon = provider.icon;
-  // TODO: persist per-provider model + expose usage breakdown by provider
-  // from the server. Until then the card mirrors aggregate telemetry.
-  const share = connected && totalCalls > 0 ? 1 / PROVIDERS.filter(() => true).length : 0;
-  const estCostUsd = connected ? totalMonthUsd * share : 0;
-  const estTokens = connected ? Math.round(totalMonthTokens * share) : 0;
+  // Consumo real do mês atribuído a este provedor (derivado do modelo usado).
+  const estCostUsd = usage.usd;
+  const estTokens = usage.tokens;
 
   return (
     <DashboardPanelSurface className="p-4">
