@@ -33,9 +33,39 @@ export const MODEL_CATALOG: Record<
     image: null, // Anthropic não gera imagem
   },
   gemini: {
-    strategic: "gemini-2.5-pro",
-    operational: "gemini-2.5-flash",
+    // `*-latest` acompanha a geração atual do Google. `gemini-2.5-pro` foi
+    // descontinuado para novas contas e passou a rejeitar as chamadas.
+    // O plano da conta não libera cota nos modelos Pro; flash-latest é o mais
+    // capaz disponível e sempre aponta para a geração atual.
+    strategic: "gemini-flash-latest",
+    operational: "gemini-flash-latest",
     image: "imagen-4.0-generate-001",
+  },
+};
+
+/**
+ * Cadeia de fallback por papel: se o modelo em uso for rejeitado pelo provedor
+ * (descontinuado / indisponível para a conta), tentamos o próximo da lista e
+ * gravamos o override para as próximas execuções.
+ */
+export const MODEL_FALLBACKS: Record<
+  ProviderName,
+  Record<ProviderRole, string[]>
+> = {
+  openai: {
+    strategic: ["gpt-5", "gpt-5.1", "gpt-4.1"],
+    operational: ["gpt-5-mini", "gpt-4.1-mini", "gpt-4o-mini"],
+    image: ["gpt-image-1", "dall-e-3"],
+  },
+  anthropic: {
+    strategic: ["claude-opus-4-1", "claude-sonnet-4-5", "claude-3-7-sonnet-latest"],
+    operational: ["claude-sonnet-4-5", "claude-3-5-haiku-latest"],
+    image: [],
+  },
+  gemini: {
+    strategic: ["gemini-flash-latest", "gemini-3.6-flash", "gemini-2.5-flash"],
+    operational: ["gemini-flash-latest", "gemini-3.6-flash", "gemini-2.5-flash"],
+    image: ["imagen-4.0-generate-001", "imagen-4.0-fast-generate-001"],
   },
 };
 
@@ -45,6 +75,7 @@ export const DEFAULT_TEXT_MODEL: Record<ProviderName, string> = {
   anthropic: MODEL_CATALOG.anthropic.operational!,
   gemini: MODEL_CATALOG.gemini.operational!,
 };
+
 
 /** Compiled default (sem overrides). */
 export function getModel(
@@ -112,3 +143,65 @@ export async function resolveModel(
   const hit = overrides.find((o) => o.provider === provider && o.role === role);
   return hit?.modelId ?? fallback;
 }
+
+/**
+ * Próximo modelo da cadeia de fallback do papel, ignorando os já tentados.
+ */
+export function nextFallbackModel(
+  provider: ProviderName,
+  role: ProviderRole,
+  tried: string[],
+): string | null {
+  const chain = MODEL_FALLBACKS[provider][role] ?? [];
+  const lower = tried.map((t) => t.toLowerCase());
+  return chain.find((id) => !lower.includes(id.toLowerCase())) ?? null;
+}
+
+/** Grava (upsert) o modelo promovido em runtime e limpa o cache. */
+export async function saveCatalogOverride(args: {
+  provider: ProviderName;
+  role: ProviderRole;
+  modelId: string;
+  replacedModelId: string | null;
+  reason: string | null;
+  source?: string;
+}): Promise<void> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.from("ai_model_catalog_overrides").upsert(
+      {
+        provider: args.provider,
+        role: args.role,
+        model_id: args.modelId,
+        replaced_model_id: args.replacedModelId,
+        reason: args.reason?.slice(0, 500) ?? null,
+        source: args.source ?? "runtime",
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "provider,role" },
+    );
+    invalidateCatalogCache();
+  } catch (err) {
+    console.error("[ai-models-catalog] falha ao gravar override", err);
+  }
+}
+
+/** Erro do provedor indicando modelo descontinuado / indisponível. */
+export function isModelUnavailableError(message: string): boolean {
+  const m = message.toLowerCase();
+  if (m.includes("rate limit") || m.includes("quota") || m.includes("billing")) return false;
+  if (m.includes("api key") || m.includes("unauthorized") || m.includes("401")) return false;
+  return [
+    "model_not_found",
+    "does not exist",
+    "not found",
+    "is not supported",
+    "deprecated",
+    "retired",
+    "no longer available",
+    "unsupported model",
+    "invalid model",
+    "404",
+  ].some((p) => m.includes(p));
+}
+

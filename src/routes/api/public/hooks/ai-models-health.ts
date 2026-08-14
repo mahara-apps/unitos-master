@@ -10,10 +10,17 @@ export const Route = createFileRoute("/api/public/hooks/ai-models-health")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        // O projeto expõe a chave publicável em SUPABASE_PUBLISHABLE_KEY;
+        // SUPABASE_ANON_KEY é mantida por compatibilidade.
+        const expected = [
+          process.env["SUPABASE_PUBLISHABLE_KEY"],
+          process.env["SUPABASE_ANON_KEY"],
+        ].filter((v): v is string => !!v);
         const apikey = request.headers.get("apikey");
-        if (!apikey || apikey !== process.env["SUPABASE_ANON_KEY"]) {
+        if (!apikey || !expected.includes(apikey)) {
           return new Response("Unauthorized", { status: 401 });
         }
+
 
         try {
           const result = await runAiModelHealthCheck();

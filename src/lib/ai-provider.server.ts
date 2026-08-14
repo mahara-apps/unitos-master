@@ -6,9 +6,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptCredential } from "./credentials-crypto.server";
 import {
   resolveModel,
+  nextFallbackModel,
+  saveCatalogOverride,
+  isModelUnavailableError,
   type ProviderName,
   type ProviderRole,
 } from "./ai-models-catalog.server";
+
 import { IMAGE_PROVIDERS, supportsKind } from "./ai-capabilities";
 
 export type { ProviderName, ProviderRole };
@@ -84,6 +88,75 @@ export async function getBrandProviderKey(
   return { provider, apiKey };
 }
 
+function instantiateModel(
+  provider: ProviderName,
+  apiKey: string,
+  modelId: string,
+): LanguageModel {
+  if (provider === "openai") return createOpenAI({ apiKey })(modelId);
+  if (provider === "anthropic") return createAnthropic({ apiKey })(modelId);
+  return createGoogleGenerativeAI({ apiKey })(modelId);
+}
+
+type ModelV2 = Extract<LanguageModel, { doGenerate: unknown }>;
+
+/**
+ * Envolve o modelo: se o provedor rejeitar por modelo descontinuado /
+ * indisponível, tenta o próximo da cadeia de fallback do papel, promove o
+ * modelo no catálogo e refaz a chamada — em vez de derrubar o job.
+ */
+function withModelFallback(
+  base: ModelV2,
+  ctx: { provider: ProviderName; role: ProviderRole; apiKey: string },
+): ModelV2 {
+  const attempt = async <T,>(
+    op: "doGenerate" | "doStream",
+    options: Parameters<ModelV2["doGenerate"]>[0],
+  ): Promise<T> => {
+    const tried: string[] = [base.modelId];
+    let current: ModelV2 = base;
+    for (;;) {
+      try {
+        return (await (current[op] as (o: unknown) => Promise<unknown>)(options)) as T;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (!isModelUnavailableError(msg)) throw err;
+        const next = nextFallbackModel(ctx.provider, ctx.role, tried);
+        if (!next) {
+          throw new Error(
+            `ai_model_unavailable:${ctx.provider}:${ctx.role}: o modelo ${tried[tried.length - 1]} foi descontinuado pelo provedor e não há substituto configurado. Detalhe: ${msg}`,
+          );
+        }
+        console.warn(
+          `[ai-provider] ${ctx.provider}/${ctx.role}: ${tried[tried.length - 1]} indisponível — tentando ${next}`,
+        );
+        await saveCatalogOverride({
+          provider: ctx.provider,
+          role: ctx.role,
+          modelId: next,
+          replacedModelId: tried[tried.length - 1] ?? null,
+          reason: msg,
+        });
+        tried.push(next);
+        current = instantiateModel(ctx.provider, ctx.apiKey, next) as ModelV2;
+      }
+    }
+  };
+
+  return {
+    ...base,
+    specificationVersion: base.specificationVersion,
+    provider: base.provider,
+    modelId: base.modelId,
+    supportedUrls: base.supportedUrls,
+    doGenerate: (options: Parameters<ModelV2["doGenerate"]>[0]) =>
+      attempt<Awaited<ReturnType<ModelV2["doGenerate"]>>>("doGenerate", options),
+    doStream: (options: Parameters<ModelV2["doStream"]>[0]) =>
+      attempt<Awaited<ReturnType<ModelV2["doStream"]>>>("doStream", options),
+
+  } as ModelV2;
+}
+
 /**
  * Load the brand's configured AI provider + decrypted key and return an
  * AI SDK LanguageModel for the requested role from the model catalog.
@@ -102,17 +175,12 @@ export async function getBrandAiModel(
     );
   }
 
-  let model: LanguageModel;
-  if (provider === "openai") {
-    model = createOpenAI({ apiKey })(modelId);
-  } else if (provider === "anthropic") {
-    model = createAnthropic({ apiKey })(modelId);
-  } else {
-    model = createGoogleGenerativeAI({ apiKey })(modelId);
-  }
+  const base = instantiateModel(provider, apiKey, modelId) as ModelV2;
+  const model = withModelFallback(base, { provider, role, apiKey });
 
   return { provider, modelId, model };
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Embeddings (1536 dims — matches the brain_embeddings vector column) */
