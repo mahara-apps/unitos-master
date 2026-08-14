@@ -3,7 +3,7 @@ import type { BrandHubClient, BrandHubData } from "@/lib/brand-hub.functions";
 /**
  * Canonical checklist used to score the Briefing completion. Kept in sync
  * with the fields the Briefing Workspace exposes and with the inputs the
- * `/api/jobs/monthly-plan` agent chain expects.
+ * `generateMonthlyPlanFn` (pipeline canônico de pauta) expects.
  */
 const CHECKS: Array<(hub: BrandHubData, client?: Pick<BrandHubClient, "tone_of_voice">) => boolean> = [
   (h, c) => nonEmpty(h.tone_text) || nonEmpty(c?.tone_of_voice ?? null),

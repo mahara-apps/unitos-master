@@ -299,7 +299,7 @@ const SwotSchema = z.object({
     }),
   ),
 });
-// Pauta generation moved to /api/jobs/generate-ideas — Phase 2, human-gated.
+// Pauta generation moved to generateMonthlyPlanFn (pipeline canônico) — gate humano.
 
 function parseJsonLoose(raw: string): unknown {
   const cleaned = raw
