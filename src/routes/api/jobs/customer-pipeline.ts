@@ -558,6 +558,9 @@ type JobState = {
   voice?: z.infer<typeof VoiceSchema>;
   personas?: z.infer<typeof PersonasSchema>;
   cohorts?: z.infer<typeof CohortsSchema>;
+  swot?: z.infer<typeof SwotSchema>;
+  /** Etapas já concluídas e persistidas — base da retomada idempotente. */
+  done?: Step[];
   models?: Record<string, string>;
 };
 
@@ -571,6 +574,60 @@ function compactCohorts(c: z.infer<typeof CohortsSchema>): string {
   return c.cohorts.map((x) => `${x.name}: ${x.behavioral_traits.slice(0, 160)}`).join("\n");
 }
 
+// ---------------- Validação mínima de output por agente ----------------
+// Output vazio/inválido nunca é persistido: vira `ai_invalid_output` e o
+// conteúdo anterior do cliente permanece ativo.
+
+const nonEmpty = (s: unknown): boolean => typeof s === "string" && s.trim().length > 0;
+
+function assertValidOutput(step: Step, payload: unknown): void {
+  const fail = (why: string): never => {
+    throw new Error(`ai_invalid_output: ${why}`);
+  };
+  if (step === "briefing") {
+    const b = payload as z.infer<typeof BriefingSchema>;
+    const hasAny =
+      nonEmpty(b.publico_alvo) ||
+      nonEmpty(b.tom_de_voz) ||
+      b.dores_do_cliente_final.length > 0 ||
+      b.diferenciais.length > 0;
+    if (!hasAny) fail("briefing estruturado vazio");
+    return;
+  }
+  if (step === "voice") {
+    const vc = (payload as z.infer<typeof VoiceSchema>).voice_card;
+    if (!nonEmpty(vc.brand_personality) && vc.tone_characteristics.length === 0) {
+      fail("voice card sem personalidade nem características de tom");
+    }
+    return;
+  }
+  if (step === "personas") {
+    const list = (payload as z.infer<typeof PersonasSchema>).personas;
+    if (list.length === 0) fail("nenhuma persona gerada");
+    if (!list.some((p) => nonEmpty(p.descricao) || p.dores.length > 0)) fail("personas sem conteúdo");
+    return;
+  }
+  if (step === "cohorts") {
+    const list = (payload as z.infer<typeof CohortsSchema>).cohorts;
+    if (list.length === 0) fail("nenhum cohort gerado");
+    if (!list.some((c) => nonEmpty(c.behavioral_traits) || nonEmpty(c.content_strategy))) {
+      fail("cohorts sem conteúdo");
+    }
+    return;
+  }
+  const s = (payload as z.infer<typeof SwotSchema>).swot_analysis;
+  const total =
+    s.strengths.length + s.weaknesses.length + s.opportunities.length + s.threats.length;
+  if (total === 0) fail("SWOT vazio");
+}
+
+/**
+ * Substituição segura do card ativo (P-05).
+ *
+ * Ordem: insere o novo registro JÁ VALIDADO e só depois desativa os
+ * anteriores. Se o insert falhar, o card anterior continua ativo — nunca
+ * deixamos o cliente sem voz/personas por causa de um erro do provedor.
+ */
 async function replaceActive(
   supabase: ReturnType<typeof buildUserClient>,
   table: "brand_voice_cards" | "brand_personas" | "brand_cohorts" | "brand_swot",
@@ -578,20 +635,67 @@ async function replaceActive(
   userId: string,
   data: unknown,
 ) {
-  await supabase
+  const { data: inserted, error } = await supabase
+    .from(table)
+    .insert({
+      brand_id: state.brandId,
+      client_id: state.clientId,
+      data: data as never,
+      created_by: userId,
+    })
+    .select("id")
+    .single();
+  if (error || !inserted) throw new Error(error?.message ?? `Falha ao salvar em ${table}`);
+
+  const { error: deactErr } = await supabase
     .from(table)
     .update({ is_active: false })
     .eq("brand_id", state.brandId)
     .eq("client_id", state.clientId)
-    .eq("is_active", true);
-  const { error } = await supabase.from(table).insert({
-    brand_id: state.brandId,
-    client_id: state.clientId,
-    data: data as never,
-    created_by: userId,
-  });
-  if (error) throw new Error(error.message);
+    .eq("is_active", true)
+    .neq("id", inserted.id);
+  if (deactErr) console.warn(`[customer-pipeline] falha ao desativar registros antigos em ${table}`, deactErr);
 }
+
+/** Auditoria de tentativa em `activity_events` — mesmo padrão da Copy. */
+async function logStrategyAttempt(
+  state: Pick<JobState, "brandId" | "clientId">,
+  info: {
+    agent: string;
+    step: Step;
+    attempt: number;
+    ok: boolean;
+    kind?: FailureKind;
+    retryable?: boolean;
+    message?: string;
+  },
+) {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await (supabaseAdmin as unknown as import("@supabase/supabase-js").SupabaseClient)
+      .from("activity_events")
+      .insert({
+        brand_id: state.brandId,
+        client_id: state.clientId,
+        entity_type: "client_strategy",
+        entity_id: state.clientId,
+        verb: info.ok ? "ai_agent_succeeded" : "ai_generation_failed",
+        payload: {
+          agent: info.agent,
+          step: info.step,
+          attempt: info.attempt,
+          ok: info.ok,
+          failure_kind: info.kind ?? null,
+          retryable: info.retryable ?? null,
+          error: info.message ? info.message.slice(0, 800) : null,
+          at: new Date().toISOString(),
+        },
+      } as never);
+  } catch {
+    // auditoria não crítica
+  }
+}
+
 
 async function runStep(params: {
   jobId: string;
