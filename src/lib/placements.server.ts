@@ -2,13 +2,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Shared helper — reconciliação de `post_placements` a partir de destinos
- * (conta + formato). Usado pelo wizard de agendamento e pelo Kanban editorial
- * para manter os placements como fonte única de verdade sobre destinos reais.
+ * (conta + formato). Único caminho oficial de escrita de placements: usado pelo
+ * wizard de agendamento e pelo Kanban editorial.
  *
- * Estratégia: apaga todos os placements do post e reinsere (baixa cardinalidade).
- * A UNIQUE em (post_id, format) implica "1 formato por card" — quando o mesmo
- * formato aparece em múltiplos destinos, apenas o último vence.
+ * Estratégia: apaga os placements não publicados do post e reinsere.
+ * Unicidade real (Fase 4): `(post_id, connection_id, format)` — a mesma peça
+ * pode ter IG Feed + FB Feed. Destinos idênticos (mesmo canal + mesmo formato)
+ * são deduplicados de forma DETERMINÍSTICA: vence a PRIMEIRA ocorrência.
  */
+
 
 export type PlacementFormatEnum = "feed" | "stories" | "reels" | "carrossel";
 
