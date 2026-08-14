@@ -171,7 +171,11 @@ const UpdateClientInput = z.object({
   clientId: z.string().uuid(),
   patch: z.object({
     name: z.string().trim().min(2).max(120).optional(),
+    legal_name: z.string().max(200).nullable().optional(),
+    cnpj: z.string().max(24).nullable().optional(),
+    description: z.string().max(2000).nullable().optional(),
     niche: z.string().max(120).nullable().optional(),
+    logo_url: z.string().max(500).nullable().optional().or(z.literal("")),
     color: z.string().nullable().optional(),
     tone_of_voice: z.string().max(120).nullable().optional(),
     contact_name: z.string().max(120).nullable().optional(),
