@@ -378,7 +378,8 @@ export function NewCustomerWizard({ brandId, open, onOpenChange }: NewCustomerWi
                 <Input
                   className="mt-1"
                   value={cnpj}
-                  onChange={(e) => setCnpj(e.target.value)}
+                  onChange={(e) => setCnpj(maskCnpj(e.target.value))}
+                  inputMode="numeric"
                   placeholder="00.000.000/0000-00"
                 />
               </div>
