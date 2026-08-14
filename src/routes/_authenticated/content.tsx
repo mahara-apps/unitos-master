@@ -36,7 +36,6 @@ import {
 import { ContentBoard } from "@/components/content/content-board";
 import { ColumnConfigDialog } from "@/components/content/column-config-dialog";
 import { TaskDialog } from "@/components/content/task-dialog";
-import { GeneratePlanDialog } from "@/components/calendar/generate-plan-dialog";
 import { AgencyContentView, AgencyContentFallback } from "@/components/content/agency-content-view";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { supabase } from "@/integrations/supabase/client";
@@ -186,7 +185,6 @@ function ContentReady({
 
   const pipelines = pipelinesQuery.data;
   const effectivePipelineId = activePipelineId ?? pipelines[0]?.id ?? null;
-  const [aiPlanOpen, setAiPlanOpen] = useState(false);
 
   usePageHeader(
     {
@@ -338,18 +336,6 @@ function ContentReady({
         </Suspense>
       ) : null}
 
-      <GeneratePlanDialog
-        brandId={brandId}
-        clientId={clientId}
-        open={aiPlanOpen}
-        onOpenChange={setAiPlanOpen}
-        onGenerated={() => {
-          setTimeout(() => {
-            qc.invalidateQueries({ queryKey: ["content-board", brandId, clientId] });
-            qc.invalidateQueries({ queryKey: ["calendar"] });
-          }, 1200);
-        }}
-      />
     </DashboardPageShell>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { describeError, readApiError } from "@/lib/errors";
+import { generateMonthlyPlanFn } from "@/lib/monthly-plans.functions";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -247,6 +248,8 @@ export function BriefingWorkspace({
   const fetchHub = useServerFn(getBrandHub);
   const saveHub = useServerFn(updateBrandHub);
 
+  const navigate = useNavigate();
+  const generatePlan = useServerFn(generateMonthlyPlanFn);
   const hubQ = useQuery({
     queryKey: ["brand-hub", brandId, clientId],
     queryFn: () => fetchHub({ data: { brandId, clientId } }),
@@ -456,10 +459,8 @@ export function BriefingWorkspace({
       runStrategy={runStrategy}
       ideasOpen={ideasOpen}
       setIdeasOpen={setIdeasOpen}
-      ideasQty={ideasQty}
-      setIdeasQty={setIdeasQty}
-      ideasPeriod={ideasPeriod}
-      setIdeasPeriod={setIdeasPeriod}
+      ideasTheme={ideasTheme}
+      setIdeasTheme={setIdeasTheme}
       runIdeas={runIdeas}
     />
   );
@@ -1429,10 +1430,8 @@ type StackedProps = {
   runStrategy: () => Promise<void> | void;
   ideasOpen: boolean;
   setIdeasOpen: (v: boolean) => void;
-  ideasQty: number;
-  setIdeasQty: (n: number) => void;
-  ideasPeriod: string;
-  setIdeasPeriod: (v: string) => void;
+  ideasTheme: string;
+  setIdeasTheme: (v: string) => void;
   runIdeas: () => Promise<void> | void;
 };
 
@@ -1442,7 +1441,7 @@ function StackedBrainLayout(props: StackedProps) {
     onSave, saving, savedAt, onGenerateStrategy, onGenerateIdeas, onImportText,
     strategyReady, generating, appendSlot,
     regenOpen, setRegenOpen, runStrategy,
-    ideasOpen, setIdeasOpen, ideasQty, setIdeasQty, ideasPeriod, setIdeasPeriod,
+    ideasOpen, setIdeasOpen, ideasTheme, setIdeasTheme,
     genIdeas, runIdeas,
   } = props;
   const [active, setActive] = useState<string>(BRAIN_SECTIONS[0].id);
