@@ -203,6 +203,7 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
         userId: context.userId,
         input: data,
         period,
+        jobId: lock.jobId,
       });
       await releasePlanGenerationLock(context.supabase, lock.jobId, {
         ok: result.ok,
