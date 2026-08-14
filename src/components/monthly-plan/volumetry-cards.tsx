@@ -147,6 +147,7 @@ export function VolumetryCards({
           }`}
           quota={(volumetry.monthlyQuota[c] ?? 0) + (volumetry.approvedOverage?.[c] ?? 0)}
           generated={volumetry.generatedThisMonth[c] ?? 0}
+          breakdown={volumetry.formatQuota?.[c]}
         />
       ))}
     </div>
