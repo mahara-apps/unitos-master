@@ -92,9 +92,6 @@ export async function syncPostPlacements(
 
   const rows = Array.from(byDestination.values()).map((d, i) => ({
 
-
-
-  const rows = Array.from(byFormat.values()).map((d, i) => ({
     post_id: postId,
     brand_id: brandId,
     client_id: clientId,
