@@ -8,14 +8,23 @@ import { createFileRoute } from "@tanstack/react-router";
  * publicação quando duas execuções do cron rodam em paralelo.
  *
  * Isolamento: a RPC revalida que `social_connections.brand_id` bate com o
- * post e que `client_id` do post é compatível com o `client_id` da conexão.
- * Nunca escolher "a primeira conexão da marca" — a conexão vem do próprio
- * `social_posts.connection_id` reservado.
+ * post e que existe vínculo em `client_social_accounts` (connection_id +
+ * client_id + brand_id) — o campo legado `social_connections.client_id` não é
+ * mais consultado. Nunca escolher "a primeira conexão da marca": a conexão vem
+ * do próprio `social_posts.connection_id` reservado.
  *
  * Retry: sucesso -> `mark_social_post_published`; erro -> `mark_social_post_failed`
  * (incrementa `publish_attempts`, muda para `failed` após 5 tentativas).
  *
+ * Sincronização (Fase 4/C1): ao virar `published`, o trigger
+ * `trg_social_posts_sync_publication` chama `sync_post_publication_state`, que
+ * marca o `post_placements` do destino real (connection_id + família de formato)
+ * e, quando não resta destino pendente, marca a peça (`posts.stage`,
+ * `published_at`) e move o `stage_id` para a coluna "Publicado" do Kanban.
+ * Idempotente: nunca reescreve histórico já publicado.
+ *
  * Auth: bypass no edge via /api/public/*; exige `apikey` = anon publishable key.
+
  */
 export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
   server: {
