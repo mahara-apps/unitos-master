@@ -35,7 +35,9 @@ export const MODEL_CATALOG: Record<
   gemini: {
     // `*-latest` acompanha a geração atual do Google. `gemini-2.5-pro` foi
     // descontinuado para novas contas e passou a rejeitar as chamadas.
-    strategic: "gemini-pro-latest",
+    // O plano da conta não libera cota nos modelos Pro; flash-latest é o mais
+    // capaz disponível e sempre aponta para a geração atual.
+    strategic: "gemini-flash-latest",
     operational: "gemini-flash-latest",
     image: "imagen-4.0-generate-001",
   },
@@ -61,7 +63,7 @@ export const MODEL_FALLBACKS: Record<
     image: [],
   },
   gemini: {
-    strategic: ["gemini-pro-latest", "gemini-3.1-pro-preview", "gemini-2.5-flash"],
+    strategic: ["gemini-flash-latest", "gemini-3.6-flash", "gemini-2.5-flash"],
     operational: ["gemini-flash-latest", "gemini-3.6-flash", "gemini-2.5-flash"],
     image: ["imagen-4.0-generate-001", "imagen-4.0-fast-generate-001"],
   },
