@@ -65,6 +65,24 @@ export function describeError(err: unknown): string {
   if (lower.includes("overage_not_authorized")) {
     return "A quantidade solicitada excede a volumetria do briefing. Solicite liberação do excedente ao gestor da conta.";
   }
+  if (lower.includes("ai_provider_quota")) {
+    return "O provedor de IA atingiu o limite de uso disponível. Nada incompleto foi salvo — tente novamente mais tarde.";
+  }
+  if (lower.includes("ai_provider_rate_limit")) {
+    return "A IA recebeu muitas solicitações em sequência. Aguarde alguns instantes e gere novamente.";
+  }
+  if (lower.includes("ai_provider_unavailable")) {
+    return "O provedor de IA está temporariamente indisponível. Tente novamente em alguns instantes.";
+  }
+  if (lower.includes("ai_invalid_output")) {
+    return "A IA não conseguiu concluir a geração. Nada incompleto foi salvo — tente novamente.";
+  }
+  if (lower.includes("incomplete_generation")) {
+    return "A IA não preencheu todas as vagas da volumetria. Nada incompleto foi salvo — ao tentar novamente, a geração é retomada de onde parou.";
+  }
+  if (lower.includes("ai_generation_failed")) {
+    return "Não foi possível concluir a geração. Nada incompleto foi salvo — tente novamente.";
+  }
   if (lower.includes("ai_model_unavailable")) {
     return "O provedor configurado não oferece um modelo para esta função. Ajuste o provedor em Conexões.";
   }
