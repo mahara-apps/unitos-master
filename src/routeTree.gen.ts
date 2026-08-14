@@ -47,8 +47,6 @@ import { Route as PortalTokenArquivosRouteImport } from './routes/portal.$token.
 import { Route as PortalTokenAprovacoesRouteImport } from './routes/portal.$token.aprovacoes'
 import { Route as PBriefingTokenRouteImport } from './routes/p.briefing.$token'
 import { Route as ApiPublicSeedSuperadminsRouteImport } from './routes/api/public/seed-superadmins'
-import { Route as ApiJobsMonthlyPlanRouteImport } from './routes/api/jobs/monthly-plan'
-import { Route as ApiJobsGenerateIdeasRouteImport } from './routes/api/jobs/generate-ideas'
 import { Route as ApiJobsCustomerPipelineRouteImport } from './routes/api/jobs/customer-pipeline'
 import { Route as ApiJobsCopilotRouteImport } from './routes/api/jobs/copilot'
 import { Route as ApiJobsAnalyzeDocumentRouteImport } from './routes/api/jobs/analyze-document'
@@ -288,16 +286,6 @@ const ApiPublicSeedSuperadminsRoute =
     path: '/api/public/seed-superadmins',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiJobsMonthlyPlanRoute = ApiJobsMonthlyPlanRouteImport.update({
-  id: '/api/jobs/monthly-plan',
-  path: '/api/jobs/monthly-plan',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiJobsGenerateIdeasRoute = ApiJobsGenerateIdeasRouteImport.update({
-  id: '/api/jobs/generate-ideas',
-  path: '/api/jobs/generate-ideas',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiJobsCustomerPipelineRoute = ApiJobsCustomerPipelineRouteImport.update({
   id: '/api/jobs/customer-pipeline',
   path: '/api/jobs/customer-pipeline',
@@ -586,8 +574,6 @@ export interface FileRoutesByFullPath {
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
-  '/api/jobs/generate-ideas': typeof ApiJobsGenerateIdeasRoute
-  '/api/jobs/monthly-plan': typeof ApiJobsMonthlyPlanRoute
   '/api/public/seed-superadmins': typeof ApiPublicSeedSuperadminsRoute
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/portal/$token/aprovacoes': typeof PortalTokenAprovacoesRoute
@@ -662,8 +648,6 @@ export interface FileRoutesByTo {
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
-  '/api/jobs/generate-ideas': typeof ApiJobsGenerateIdeasRoute
-  '/api/jobs/monthly-plan': typeof ApiJobsMonthlyPlanRoute
   '/api/public/seed-superadmins': typeof ApiPublicSeedSuperadminsRoute
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/portal/$token/aprovacoes': typeof PortalTokenAprovacoesRoute
@@ -747,8 +731,6 @@ export interface FileRoutesById {
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
-  '/api/jobs/generate-ideas': typeof ApiJobsGenerateIdeasRoute
-  '/api/jobs/monthly-plan': typeof ApiJobsMonthlyPlanRoute
   '/api/public/seed-superadmins': typeof ApiPublicSeedSuperadminsRoute
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/portal/$token/aprovacoes': typeof PortalTokenAprovacoesRoute
@@ -831,8 +813,6 @@ export interface FileRouteTypes {
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
-    | '/api/jobs/generate-ideas'
-    | '/api/jobs/monthly-plan'
     | '/api/public/seed-superadmins'
     | '/p/briefing/$token'
     | '/portal/$token/aprovacoes'
@@ -907,8 +887,6 @@ export interface FileRouteTypes {
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
-    | '/api/jobs/generate-ideas'
-    | '/api/jobs/monthly-plan'
     | '/api/public/seed-superadmins'
     | '/p/briefing/$token'
     | '/portal/$token/aprovacoes'
@@ -991,8 +969,6 @@ export interface FileRouteTypes {
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
-    | '/api/jobs/generate-ideas'
-    | '/api/jobs/monthly-plan'
     | '/api/public/seed-superadmins'
     | '/p/briefing/$token'
     | '/portal/$token/aprovacoes'
@@ -1043,8 +1019,6 @@ export interface RootRouteChildren {
   ApiJobsAnalyzeDocumentRoute: typeof ApiJobsAnalyzeDocumentRoute
   ApiJobsCopilotRoute: typeof ApiJobsCopilotRoute
   ApiJobsCustomerPipelineRoute: typeof ApiJobsCustomerPipelineRoute
-  ApiJobsGenerateIdeasRoute: typeof ApiJobsGenerateIdeasRoute
-  ApiJobsMonthlyPlanRoute: typeof ApiJobsMonthlyPlanRoute
   ApiPublicSeedSuperadminsRoute: typeof ApiPublicSeedSuperadminsRoute
   PBriefingTokenRoute: typeof PBriefingTokenRoute
   ApiPublicApprovalTokenRoute: typeof ApiPublicApprovalTokenRoute
@@ -1331,20 +1305,6 @@ declare module '@tanstack/react-router' {
       path: '/api/public/seed-superadmins'
       fullPath: '/api/public/seed-superadmins'
       preLoaderRoute: typeof ApiPublicSeedSuperadminsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/jobs/monthly-plan': {
-      id: '/api/jobs/monthly-plan'
-      path: '/api/jobs/monthly-plan'
-      fullPath: '/api/jobs/monthly-plan'
-      preLoaderRoute: typeof ApiJobsMonthlyPlanRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/jobs/generate-ideas': {
-      id: '/api/jobs/generate-ideas'
-      path: '/api/jobs/generate-ideas'
-      fullPath: '/api/jobs/generate-ideas'
-      preLoaderRoute: typeof ApiJobsGenerateIdeasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/jobs/customer-pipeline': {
@@ -1865,8 +1825,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiJobsAnalyzeDocumentRoute: ApiJobsAnalyzeDocumentRoute,
   ApiJobsCopilotRoute: ApiJobsCopilotRoute,
   ApiJobsCustomerPipelineRoute: ApiJobsCustomerPipelineRoute,
-  ApiJobsGenerateIdeasRoute: ApiJobsGenerateIdeasRoute,
-  ApiJobsMonthlyPlanRoute: ApiJobsMonthlyPlanRoute,
   ApiPublicSeedSuperadminsRoute: ApiPublicSeedSuperadminsRoute,
   PBriefingTokenRoute: PBriefingTokenRoute,
   ApiPublicApprovalTokenRoute: ApiPublicApprovalTokenRoute,

@@ -56,6 +56,12 @@ export function describeError(err: unknown): string {
     const p = raw.match(/ai_provider_key_missing:([a-z]+)/i)?.[1];
     return `A chave${p ? ` do provedor ${p}` : ""} não foi encontrada. Reconfigure em Conexões.`;
   }
+  if (lower.includes("generation_in_progress")) {
+    return "Já existe uma geração de pauta em andamento para este cliente neste período. Aguarde a conclusão.";
+  }
+  if (lower.includes("volumetry_required")) {
+    return "Defina a volumetria (canal + formato + quantidade) no briefing antes de gerar a pauta.";
+  }
   if (lower.includes("overage_not_authorized")) {
     return "A quantidade solicitada excede a volumetria do briefing. Solicite liberação do excedente ao gestor da conta.";
   }
