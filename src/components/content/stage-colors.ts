@@ -1,4 +1,5 @@
 import type { StageColor } from "@/lib/content.functions";
+import type { ContentFormat } from "@/lib/content-formats";
 
 export const STAGE_BG: Record<StageColor, string> = {
   muted: "bg-muted-foreground/60",
@@ -36,27 +37,20 @@ export const PRIORITY_STYLES: Record<string, string> = {
 export const FORMAT_STYLE =
   "border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300";
 
-export const FORMAT_STYLES: Record<string, string> = {
-  Feed: "border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-300",
-  Reels: "border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300",
-  Story: "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300",
-  Carrossel: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
+export const FORMAT_STYLES: Record<ContentFormat, string> = {
+  feed: "border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-300",
+  reels: "border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300",
+  stories: "border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300",
+  carrossel: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
 };
 
-// Normaliza qualquer variação de casing/plataforma vinda do banco em uma das
-// 4 chaves canônicas de formato. Retorna null quando o valor não é um formato
-// (ex.: "tiktok", "youtube" — que são canais e já são exibidos por outro chip).
-export type FormatKey = "Feed" | "Reels" | "Story" | "Carrossel";
-export function normalizeFormat(raw: string | null | undefined): FormatKey | null {
-  if (!raw) return null;
-  const s = String(raw).trim().toLowerCase();
-  if (!s) return null;
-  if (s === "feed") return "Feed";
-  if (s === "reel" || s === "reels") return "Reels";
-  if (s === "story" || s === "stories" || s === "storie") return "Story";
-  if (s === "carrossel" || s === "carousel" || s === "carrocel") return "Carrossel";
-  return null;
-}
+/**
+ * Taxonomia de formatos: fonte única em `@/lib/content-formats`.
+ * Aqui ficam APENAS estilos de exibição, indexados pelas chaves canônicas.
+ * `normalizeFormat`/`FormatKey`/`FORMATS` (rótulos capitalizados) foram
+ * removidos — use `normalizeContentFormat`, `ContentFormat`, `CONTENT_FORMATS`
+ * e `CONTENT_FORMAT_LABEL`.
+ */
 
 export const PRIORITY_LABEL: Record<string, string> = {
   none: "Sem prioridade",
