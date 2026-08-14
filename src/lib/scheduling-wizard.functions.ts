@@ -552,7 +552,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       const publishLinkedIds = new Set(
         ((pubLinks ?? []) as Array<{ connection_id: string }>).map((l) => l.connection_id),
       );
-      const results: Array<{ channel: string; format: string; ok: boolean; error?: string; permalink?: string | null }> = [];
+      const results: Array<{ channel: string; format: string; ok: boolean; error?: string; permalink?: string | null; connectionId?: string }> = [];
       for (const d of data.destinations) {
         // Publicação direta: Feed IG/FB e Stories no IG (multi-frame automático).
         const supported =
