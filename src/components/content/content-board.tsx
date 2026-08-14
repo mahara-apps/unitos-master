@@ -45,7 +45,8 @@ import {
   type PipelineStage,
   type StageColor,
 } from "@/lib/content.functions";
-import { STAGE_GRADIENT, PRIORITY_STYLES, PRIORITY_LABEL, FORMAT_STYLES, CHANNELS, CHANNEL_STYLES, normalizeFormat, type FormatKey } from "./stage-colors";
+import { STAGE_GRADIENT, PRIORITY_STYLES, PRIORITY_LABEL, FORMAT_STYLES, CHANNELS, CHANNEL_STYLES } from "./stage-colors";
+import { CONTENT_FORMAT_LABEL, normalizeContentFormat, type ContentFormat } from "@/lib/content-formats";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Settings2, AlarmClock } from "lucide-react";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
@@ -655,17 +656,17 @@ function PostCard({
     .filter(Boolean) as typeof CHANNELS;
   // Derive up to 3 canonical format chips, preferring posts.format, falling
   // back to post_placements. Non-format values (e.g. "tiktok") are ignored.
-  const formatKeys: FormatKey[] = (() => {
-    const seen = new Set<FormatKey>();
-    const out: FormatKey[] = [];
-    const push = (k: FormatKey | null) => {
+  const formatKeys: ContentFormat[] = (() => {
+    const seen = new Set<ContentFormat>();
+    const out: ContentFormat[] = [];
+    const push = (k: ContentFormat | null) => {
       if (k && !seen.has(k)) {
         seen.add(k);
         out.push(k);
       }
     };
-    push(normalizeFormat(post.format));
-    for (const pl of post.placements ?? []) push(normalizeFormat(pl.format));
+    push(normalizeContentFormat(post.format));
+    for (const pl of post.placements ?? []) push(normalizeContentFormat(pl.format));
     return out.slice(0, 3);
   })();
   const snippet = (post.copy ?? "")
@@ -739,7 +740,7 @@ function PostCard({
                 key={f}
                 className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[8px] font-semibold uppercase tracking-wider ${FORMAT_STYLES[f]}`}
               >
-                {f}
+                {CONTENT_FORMAT_LABEL[f]}
               </span>
             ))}
             {priority ? (

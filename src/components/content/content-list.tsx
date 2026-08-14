@@ -22,9 +22,12 @@ import {
   CHANNELS,
   CHANNEL_STYLES,
   FORMAT_STYLES,
-  normalizeFormat,
-  type FormatKey,
 } from "./stage-colors";
+import {
+  CONTENT_FORMAT_LABEL,
+  normalizeContentFormat,
+  type ContentFormat,
+} from "@/lib/content-formats";
 
 const COLOR_DOT: Record<string, string> = {
   muted: "bg-muted-foreground/60",
@@ -89,17 +92,17 @@ export function ContentList({ board, posts, onOpenPost }: Props) {
               const channelDefs = (p.channels ?? [])
                 .map((id) => CHANNELS.find((c) => c.id === id))
                 .filter(Boolean) as typeof CHANNELS;
-              const formatKeys: FormatKey[] = (() => {
-                const seen = new Set<FormatKey>();
-                const out: FormatKey[] = [];
-                const push = (k: FormatKey | null) => {
+              const formatKeys: ContentFormat[] = (() => {
+                const seen = new Set<ContentFormat>();
+                const out: ContentFormat[] = [];
+                const push = (k: ContentFormat | null) => {
                   if (k && !seen.has(k)) {
                     seen.add(k);
                     out.push(k);
                   }
                 };
-                push(normalizeFormat(p.format));
-                for (const pl of p.placements ?? []) push(normalizeFormat(pl.format));
+                push(normalizeContentFormat(p.format));
+                for (const pl of p.placements ?? []) push(normalizeContentFormat(pl.format));
                 return out.slice(0, 2);
               })();
               const scheduled = p.scheduled_at ? new Date(p.scheduled_at) : null;
@@ -175,7 +178,7 @@ export function ContentList({ board, posts, onOpenPost }: Props) {
                             key={f}
                             className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[10px] font-semibold uppercase tracking-wider ${FORMAT_STYLES[f]}`}
                           >
-                            {f}
+                            {CONTENT_FORMAT_LABEL[f]}
                           </span>
                         ))
                       )}
