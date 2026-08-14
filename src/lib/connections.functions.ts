@@ -33,8 +33,21 @@ export type ConnectionsSettings = {
     monthTokens: number;
     totalCalls: number;
     successCalls: number;
+    /** Consumo do mês por provedor (openai | anthropic | gemini). */
+    byProvider: Record<string, { usd: number; tokens: number; calls: number }>;
   };
 };
+
+/** Deriva o provedor a partir do id do modelo registrado. */
+function providerFromModel(model: string | null): string {
+  const m = (model ?? "").toLowerCase();
+  if (m.includes("claude")) return "anthropic";
+  if (m.includes("gemini") || m.includes("imagen")) return "gemini";
+  if (m.includes("gpt") || m.includes("o1") || m.includes("o3") || m.includes("dall"))
+    return "openai";
+  return "outros";
+}
+
 
 function maskKey(key: string): string {
   if (!key) return "";
