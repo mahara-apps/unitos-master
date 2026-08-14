@@ -3,6 +3,15 @@ import { generateText, NoObjectGeneratedError, Output } from "ai";
 import type { z } from "zod";
 import { getBrandAiModel } from "@/lib/ai-provider.server";
 import { buildBrandContextBlueprint } from "@/lib/ai-agents.functions";
+import {
+  BACKOFF_MS,
+  SPACING_MS,
+  classifyAiError,
+  describeFailure,
+  sleep,
+  unwrapAiError,
+  type FailureKind,
+} from "@/lib/ai-failures.server";
 
 /**
  * Camada de agente para a Pauta mensal.
