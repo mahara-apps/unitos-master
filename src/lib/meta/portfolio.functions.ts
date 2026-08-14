@@ -208,7 +208,8 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
 
         const loadedCount =
           ch === "instagram"
-            ? cachedPages.filter((p) => !!p.instagramBusinessId).length
+            ? cachedPages.filter((p) => !!p.instagramBusinessId).length +
+              cachedStandaloneIg.length
             : ch === "facebook"
               ? cachedPages.length
               : ch === "threads"
@@ -222,7 +223,12 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
         const { error: upErr } = await supabaseAdmin
           .from("meta_oauth_sessions")
           .update({
-            pages: cachedPages as unknown as import("@/integrations/supabase/types").Json,
+            pages: {
+              pages: cachedPages,
+              standaloneInstagram: cachedStandaloneIg,
+              warnings: scanWarnings,
+              businessCount,
+            } as unknown as import("@/integrations/supabase/types").Json,
             threads_accounts: cachedThreads as unknown as import("@/integrations/supabase/types").Json,
             ad_accounts: cachedAds as unknown as import("@/integrations/supabase/types").Json,
             portfolio_loaded_at: loadedAt,
@@ -354,6 +360,10 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
       pagesCount: pages.length,
       pagesWithIgCount: pages.filter((p) => !!p.instagramBusinessId).length,
       pagesWithoutIgCount: pages.filter((p) => !p.instagramBusinessId).length,
+      standaloneInstagram: cachedStandaloneIg,
+      standaloneInstagramCount: cachedStandaloneIg.length,
+      scanWarnings,
+      businessCount,
       threadsAccounts,
       adAccounts,
       connected,
