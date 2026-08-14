@@ -222,8 +222,11 @@ export function MonthlyPlanView({
       const res = result.data;
       qc.setQueryData(["monthly-plan", res.plan.id], res);
       qc.invalidateQueries({ queryKey: ["monthly-plans", "list", brandId, clientId] });
+      setGenerationError(null);
+      setWizardOpen(false);
       setPlanId(res.plan.id);
     },
+
     onError: (err) => {
       const msg = describeError(err);
       const isAiConfig = /IA configurada|chave|provedor/i.test(msg);
@@ -300,14 +303,18 @@ export function MonthlyPlanView({
       planId={planId}
       brandId={brandId}
       clientId={clientId}
-      onBack={() => setPlanId(null)}
+      onBack={() => {
+        setWizardOpen(false);
+        setPlanId(null);
+      }}
       onDiscarded={() => {
-
+        setWizardOpen(false);
         setPlanId(null);
         setTheme("");
         setBriefingId("__none");
         qc.invalidateQueries({ queryKey: ["monthly-plans", "list", brandId, clientId] });
       }}
+
     />
   );
 }
