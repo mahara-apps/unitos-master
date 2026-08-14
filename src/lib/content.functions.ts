@@ -1,3 +1,4 @@
+import { normalizeContentFormat } from "@/lib/content-formats";
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
@@ -839,6 +840,10 @@ export const createPostFn = createServerFn({ method: "POST" })
     ];
     for (const k of optional) {
       if (data[k] !== undefined) insertRow[k as string] = data[k];
+    }
+    // Fronteira de escrita: `posts.format` só aceita chave canônica.
+    if (data.format !== undefined) {
+      insertRow.format = data.format ? normalizeContentFormat(data.format) : null;
     }
 
     // Quando o cliente envia `destinations` estruturados, eles se tornam a
