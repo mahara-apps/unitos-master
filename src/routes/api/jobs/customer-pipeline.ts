@@ -679,9 +679,10 @@ async function runStep(params: {
     if (next) {
       await patch({ progress: STEP_META[next].progress, step_label: STEP_META[next].label });
       clearInterval(beat);
-      await scheduleStep({ baseUrl, token, jobId, step: next });
+      await scheduleStep({ baseUrl, token, jobId, step: next, userId });
       return;
     }
+
 
     // Última etapa concluída — avisa o usuário para revisar.
     const reviewRoute = `/customers/${state.clientId}/briefing`;
@@ -730,39 +731,62 @@ async function runStep(params: {
   }
 }
 
-/** Agenda a próxima etapa como uma nova requisição a esta mesma rota. */
+/**
+ * Agenda a próxima etapa como uma nova requisição a esta mesma rota.
+ * Se a subrequisição falhar (rede/isolate/401), executa a etapa inline no
+ * mesmo processo em vez de marcar o job como falho — o encadeamento continua.
+ */
 async function scheduleStep(opts: {
   baseUrl: string;
   token: string;
   jobId: string;
   step: Step;
+  userId: string;
 }) {
+  let lastErr = "";
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const res = await fetch(`${opts.baseUrl}/api/jobs/customer-pipeline`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${opts.token}`,
+        },
+        body: JSON.stringify({ jobId: opts.jobId, step: opts.step }),
+      });
+      if (!res.ok) throw new Error(`${res.status} ${await res.text().catch(() => "")}`);
+      return;
+    } catch (err) {
+      lastErr = err instanceof Error ? err.message : String(err);
+      console.error("[customer-pipeline] falha ao agendar etapa", opts.step, lastErr);
+    }
+  }
+
+  // Fallback: roda a etapa aqui mesmo. runStep já trata seus próprios erros.
+  console.warn("[customer-pipeline] executando etapa inline após falha de agendamento", opts.step);
   try {
-    const res = await fetch(`${opts.baseUrl}/api/jobs/customer-pipeline`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${opts.token}`,
-      },
-      body: JSON.stringify({ jobId: opts.jobId, step: opts.step }),
+    await runStep({
+      jobId: opts.jobId,
+      step: opts.step,
+      token: opts.token,
+      userId: opts.userId,
+      baseUrl: opts.baseUrl,
     });
-    if (!res.ok) throw new Error(`${res.status} ${await res.text().catch(() => "")}`);
   } catch (err) {
-    console.error("[customer-pipeline] falha ao agendar etapa", opts.step, err);
-    // Marca o job como falho para o usuário poder reexecutar em vez de
-    // esperar o reaper.
+    const detail = err instanceof Error ? err.message : String(err);
     const supabase = buildUserClient(opts.token);
     await supabase
       .from("ai_jobs")
       .update({
         status: "failed",
-        error: `Não foi possível continuar na etapa "${STEP_META[opts.step].label}".`,
+        error: `Não foi possível continuar na etapa "${STEP_META[opts.step].label}". Detalhe: ${detail || lastErr}`,
         finished_at: new Date().toISOString(),
         step_label: null,
       })
       .eq("id", opts.jobId);
   }
 }
+
 
 export const Route = createFileRoute("/api/jobs/customer-pipeline")({
   server: {
