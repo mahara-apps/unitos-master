@@ -87,7 +87,14 @@ export const startMetaOAuth = createServerFn({ method: "POST" })
     const { MetaProvider, getMetaScopesForChannel, signOAuthState } = await import(
       "./provider.server"
     );
-    const provider = new MetaProvider();
+    const { getRequest } = await import("@tanstack/react-start/server");
+    let origin: string | null = null;
+    try {
+      origin = new URL(getRequest().url).origin;
+    } catch {
+      origin = null;
+    }
+    const provider = new MetaProvider({ origin });
     const state = await signOAuthState({
       brandId: data.brandId,
       userId: context.userId,
@@ -105,6 +112,7 @@ export const startMetaOAuth = createServerFn({ method: "POST" })
       redirectUri: provider.redirectUri,
     };
   });
+
 
 /**
  * Reuses the most recent unexpired Meta user-token session for the current
