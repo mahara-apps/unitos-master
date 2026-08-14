@@ -40,6 +40,9 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
 
   const [form, setForm] = useState({
     name: "",
+    legal_name: "",
+    cnpj: "",
+    description: "",
     niche: "",
     website: "",
     address: "",
@@ -57,6 +60,9 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
     if (!client) return;
     setForm({
       name: client.name ?? "",
+      legal_name: (clientAny.legal_name as string) ?? "",
+      cnpj: (clientAny.cnpj as string) ?? "",
+      description: (clientAny.description as string) ?? "",
       niche: client.niche ?? "",
       website: (clientAny.website as string) ?? "",
       address: (clientAny.address as string) ?? "",
