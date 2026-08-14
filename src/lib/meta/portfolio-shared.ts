@@ -77,6 +77,11 @@ export const LinkInput = z.object({
   channel: z.enum(["facebook", "instagram", "threads", "ads"]),
   targetId: z.string().min(1),
   clientId: z.string().uuid().optional(),
+  /**
+   * When the target is a Page that has an Instagram Business account attached,
+   * link both channels in one action (Página + Instagram vêm juntos).
+   */
+  linkPair: z.boolean().optional(),
 });
 
 export const UnlinkInput = z.object({
