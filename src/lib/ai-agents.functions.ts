@@ -371,37 +371,21 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
     ? `${brandBlueprint}\n\n---\n\n${opts.system}`
     : opts.system;
 
-  const { model, modelId } = await getBrandAiModel(
+  // O provider já mede tokens/custo e aplica o teto mensal para toda chamada.
+  const { model } = await getBrandAiModel(
     opts.supabase,
     opts.brandId,
     "text",
+    "operational",
+    { agent: opts.agent, clientId: opts.clientId, userId: opts.userId },
   );
   // structuredOutputs kept for backwards-compat but ignored (each provider
   // enforces its own structured-output flow via the ai-sdk Output helper).
   void AGENT_MODEL[opts.agent];
 
   let output: unknown;
-  let inTok = 0;
-  let outTok = 0;
-  let success = true;
-  let errMsg: string | null = null;
 
   try {
-    // Enforce budget before spending tokens.
-    const { data: budget, error: budgetErr } = await opts.supabase.rpc(
-      "check_ai_usage_budget",
-      { _brand_id: opts.brandId, _client_id: opts.clientId, _user_id: opts.userId },
-    );
-    if (budgetErr) {
-      // Fail-open on infra errors — do not block user work if the RPC itself fails.
-      console.warn("[ai budget] check failed", budgetErr);
-    } else if (budget && (budget as { allowed?: boolean }).allowed === false) {
-      const b = budget as { blocked_by?: string; limit_usd?: number; spent_usd?: number };
-      throw new Error(
-        `ai_budget_exceeded:${b.blocked_by ?? "brand"}:${b.spent_usd ?? 0}:${b.limit_usd ?? 0}`,
-      );
-    }
-
     const res = await generateText({
       model,
       system: finalSystem,
@@ -409,8 +393,6 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
       output: Output.object({ schema: opts.schema }),
     });
     output = res.output;
-    inTok = res.usage?.inputTokens ?? 0;
-    outTok = res.usage?.outputTokens ?? 0;
   } catch (error) {
     if (NoObjectGeneratedError.isInstance(error)) {
       const raw = error.text ?? "";
@@ -418,42 +400,17 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
         // Tentativa de parse defensiva: modelos às vezes vêm com markdown.
         const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
         output = JSON.parse(cleaned);
-        inTok = error.usage?.inputTokens ?? 0;
-        outTok = error.usage?.outputTokens ?? 0;
       } catch {
-        success = false;
-        errMsg = "Parsing falhou; texto bruto disponível para edição manual";
         output = { __raw: raw };
       }
     } else {
-      success = false;
-      errMsg = error instanceof Error ? error.message : String(error);
       throw error;
-    }
-  } finally {
-    // Log de uso (best-effort; não bloqueia resposta se falhar,
-    // mas erros são logados para não engolir falhas silenciosas de RLS/schema).
-    try {
-      const { error: usageErr } = await opts.supabase.from("brand_ai_usage").insert({
-        brand_id: opts.brandId,
-        client_id: opts.clientId,
-        agent: opts.agent,
-        model: modelId,
-        input_tokens: inTok,
-        output_tokens: outTok,
-        cost_usd: estimateCost(modelId, inTok, outTok),
-        success,
-        error_message: errMsg,
-        actor_id: opts.userId,
-      });
-      if (usageErr) console.warn("[brand_ai_usage] insert failed", usageErr);
-    } catch (e) {
-      console.warn("[brand_ai_usage] insert threw", e);
     }
   }
 
   return output as z.infer<T>;
 }
+
 
 // ---------- Schemas ----------
 
