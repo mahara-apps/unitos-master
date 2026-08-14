@@ -17,6 +17,8 @@ export type PlanVolumetry = {
   totalTarget: number;
   hasBriefing: boolean;
   formatsByChannel: Record<string, string[]>;
+  /** Cota mensal por canal → formato canônico. */
+  formatQuota?: Record<string, Partial<Record<ContentFormat, number>>>;
   generatedThisMonth: Record<string, number>;
   generatedTotal: number;
   /** Excedentes autorizados pelo gestor no mês corrente, por canal. */

@@ -30,13 +30,13 @@ export const PLAN_CHANNELS_DEFAULT: PlanChannel[] = [
   "facebook",
 ];
 
-export const PLAN_FORMATS = [
-  "Reels",
-  "Carrossel",
-  "Storie",
-  "Post estático",
-  "Vídeo curto",
-] as const;
+/**
+ * Formatos: NÃO declarar aqui. O mapa canônico único vive em
+ * `@/lib/content-formats` (chaves técnicas feed/stories/reels/carrossel,
+ * labels de UI e aliases legados). O antigo `PLAN_FORMATS` foi removido para
+ * eliminar o vocabulário duplicado.
+ */
+
 
 /**
  * Mês contábil da pauta. Não é mais um valor fixo — depende do calendário real

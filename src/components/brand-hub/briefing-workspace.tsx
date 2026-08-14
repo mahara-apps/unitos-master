@@ -72,6 +72,15 @@ import {
   type VolumetryBasis,
 } from "@/lib/monthly-plan-fields";
 import {
+  CONTENT_FORMATS,
+  CONTENT_FORMAT_LABEL,
+  breakdownFromTotal,
+  normalizeVolumetryBreakdown,
+  sumChannelBreakdown,
+  formatsForChannel,
+  type ContentFormat,
+} from "@/lib/content-formats";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -107,8 +116,11 @@ type FormState = {
   do_text: string;
   dont_text: string;
   // Volumetria & Metas
+  /** Total por canal — derivado do breakdown (somente leitura na UI). */
   volumetry: Record<SocialKey, number>;
   volumetry_basis: VolumetryBasis;
+  /** Fonte de verdade: canal → formato canônico → quantidade. */
+  volumetry_breakdown: Record<SocialKey, Partial<Record<ContentFormat, number>>>;
   formats: Record<SocialKey, string[]>;
   goals: string;
 };
@@ -139,6 +151,21 @@ function toForm(client: BrandHubClient): FormState {
     palette: hub.palette ?? [],
     do_text: hub.do_dont?.do ?? "",
     dont_text: hub.do_dont?.dont ?? "",
+    volumetry_breakdown: PLAN_CHANNELS.reduce<
+      Record<SocialKey, Partial<Record<ContentFormat, number>>>
+    >(
+      (acc, c) => {
+        const normalized = normalizeVolumetryBreakdown(hub.volumetry_breakdown)[c];
+        const legacyTotal = Number((hub.volumetry as Record<string, number> | undefined)?.[c] ?? 0) || 0;
+        // Cliente legado (sem breakdown): deriva do total + formatos preferidos.
+        acc[c] =
+          normalized && Object.keys(normalized).length
+            ? normalized
+            : breakdownFromTotal(c, legacyTotal, (hub.formats as Record<string, string[]> | undefined)?.[c] ?? []);
+        return acc;
+      },
+      {} as Record<SocialKey, Partial<Record<ContentFormat, number>>>,
+    ),
     volumetry: PLAN_CHANNELS.reduce<Record<SocialKey, number>>(
       (acc, c) => {
         acc[c] = Number((hub.volumetry as Record<string, number> | undefined)?.[c] ?? 0) || 0;
@@ -366,6 +393,11 @@ export function BriefingWorkspace({
             do_dont: { do: form.do_text, dont: form.dont_text },
             volumetry: form.volumetry,
             volumetry_basis: form.volumetry_basis,
+            // Fonte de verdade: o servidor recalcula `volumetry` a partir daqui.
+            volumetry_breakdown: form.volumetry_breakdown as Record<
+              string,
+              Record<string, number>
+            >,
             formats: form.formats,
             goals: form.goals,
             competitors,
@@ -1151,35 +1183,37 @@ function VolumetriaTab({
         )}
         <div className="divide-y divide-border/60">
           {visible.map(({ key, label }) => {
-            const value = form.volumetry[key] ?? 0;
+            const bucket = form.volumetry_breakdown[key] ?? {};
+            const value = sumChannelBreakdown(bucket);
             const on = value > 0;
             const meta = CHANNELS.find((c) => c.id === key);
             const Icon = meta?.icon;
-            const available = (FORMATS_BY_CHANNEL[key] ?? []) as PlacementFormat[];
-            const selected = (form.formats[key] ?? []) as string[];
-            const setQty = (n: number) =>
+            const available = formatsForChannel(key);
+            const patchBucket = (next: Partial<Record<ContentFormat, number>>) => {
+              const cleaned: Partial<Record<ContentFormat, number>> = {};
+              for (const f of CONTENT_FORMATS) {
+                const n = Math.max(0, Math.min(maxQty, Math.round(next[f] ?? 0)));
+                if (n > 0) cleaned[f] = n;
+              }
               setForm({
                 ...form,
-                volumetry: {
-                  ...form.volumetry,
-                  [key]: Math.max(0, Math.min(maxQty, Math.round(n || 0))),
+                volumetry_breakdown: { ...form.volumetry_breakdown, [key]: cleaned },
+                // Total do canal = soma dos formatos (mantido para compatibilidade).
+                volumetry: { ...form.volumetry, [key]: sumChannelBreakdown(cleaned) },
+                // `formats` continua refletindo os formatos com volume > 0.
+                formats: {
+                  ...form.formats,
+                  [key]: CONTENT_FORMATS.filter((f) => (cleaned[f] ?? 0) > 0),
                 },
               });
-            const toggleOn = (v: boolean) =>
-              setForm({
-                ...form,
-                volumetry: {
-                  ...form.volumetry,
-                  [key]: v ? Math.max(1, value || (basis === "monthly" ? 12 : 3)) : 0,
-                },
-              });
-            const toggleFormat = (f: PlacementFormat) => {
-              const has = selected.includes(f);
-              const next = has ? selected.filter((x) => x !== f) : [...selected, f];
-              setForm({
-                ...form,
-                formats: { ...form.formats, [key]: next },
-              });
+            };
+            const setFormatQty = (f: ContentFormat, n: number) =>
+              patchBucket({ ...bucket, [f]: n });
+            const toggleOn = (v: boolean) => {
+              if (!v) return patchBucket({});
+              const first = available[0];
+              if (!first) return;
+              patchBucket({ [first]: basis === "monthly" ? 4 : 1 });
             };
             return (
               <div key={key} className={cn("py-2 transition-opacity", !on && "opacity-60")}>
@@ -1206,15 +1240,9 @@ function VolumetriaTab({
                     {Icon ? <Icon className="h-2.5 w-2.5" /> : null}
                     {label}
                   </span>
-                  <Stepper
-                    className="ml-auto"
-                    value={value}
-                    onChange={setQty}
-                    min={0}
-                    max={maxQty}
-                    suffix={basis === "monthly" ? "/ mês" : "/ sem"}
-                    label={label}
-                  />
+                  <span className="ml-auto text-[11px] font-semibold tabular-nums text-foreground/80">
+                    {value} {basis === "monthly" ? "/ mês" : "/ sem"}
+                  </span>
                 </div>
                 {on && (
                   <p className="mt-1 pl-6 text-[11px] text-muted-foreground tabular-nums">
@@ -1224,26 +1252,29 @@ function VolumetriaTab({
                   </p>
                 )}
                 {on && available.length > 0 && (
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1 pl-6">
-                    <span className="text-[11px] text-muted-foreground">Formatos</span>
-                    {available.map((f) => {
-                      const active = selected.includes(f);
-                      return (
-                        <button
-                          type="button"
-                          key={f}
-                          onClick={() => toggleFormat(f)}
-                          className={cn(
-                            "inline-flex h-5 items-center rounded-full border px-2 text-[10px] font-medium transition-colors",
-                            active
-                              ? "border-primary/40 bg-primary/10 text-primary"
-                              : "border-border/60 bg-background text-muted-foreground hover:text-foreground",
-                          )}
-                        >
-                          {FORMAT_LABEL[f]}
-                        </button>
-                      );
-                    })}
+                  <div className="mt-1.5 space-y-1 pl-6">
+                    <span className="text-[11px] text-muted-foreground">
+                      Volumetria por formato
+                    </span>
+                    {available.map((f) => (
+                      <div
+                        key={f}
+                        className="flex h-7 items-center gap-2 rounded-md border border-border/50 bg-muted/20 px-2"
+                      >
+                        <span className="text-[11px] font-medium text-foreground/80">
+                          {CONTENT_FORMAT_LABEL[f]}
+                        </span>
+                        <Stepper
+                          className="ml-auto"
+                          value={bucket[f] ?? 0}
+                          onChange={(n) => setFormatQty(f, n)}
+                          min={0}
+                          max={maxQty}
+                          suffix={basis === "monthly" ? "/ mês" : "/ sem"}
+                          label={`${label} ${CONTENT_FORMAT_LABEL[f]}`}
+                        />
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -1251,6 +1282,7 @@ function VolumetriaTab({
           })}
         </div>
       </SectionCard>
+
 
       <SectionCard title="Metas & restrições" hint="Objetivos de negócio e limitações.">
         <LabeledTextarea
