@@ -545,22 +545,24 @@ function JourneyHistory({
   }>;
 }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-card">
-      <div className="border-b border-border/60 px-4 py-3">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-          Histórico da jornada
-        </div>
-        <div className="mt-0.5 text-sm font-medium">
-          {timeline.length === 0 ? "Sem movimentações registradas" : `${timeline.length} evento(s)`}
-        </div>
-      </div>
+    <ProfileSection
+      title="Histórico da jornada"
+      subtitle={
+        timeline.length === 0
+          ? "Sem movimentações registradas"
+          : `${timeline.length} evento(s) registrados`
+      }
+      icon={<History className="h-4 w-4" />}
+      bodyClassName={timeline.length === 0 ? undefined : "px-0 py-0"}
+    >
       {timeline.length === 0 ? (
-        <div className="p-6 text-center text-xs text-muted-foreground">
-          Nenhuma movimentação ainda. Quando você mover o cliente entre etapas, os eventos
-          aparecerão aqui.
-        </div>
+        <ProfileEmpty
+          icon={<History className="h-4 w-4" />}
+          title="Nenhuma movimentação ainda"
+          hint="Quando você mover o cliente entre etapas, os eventos aparecerão aqui."
+        />
       ) : (
-        <ol className="divide-y divide-border/60">
+        <ol className="divide-y divide-border/40">
           {timeline.map((ev) => {
             const from = ev.from_stage
               ? JOURNEY_STAGE_LABEL[ev.from_stage as JourneyStage] ?? ev.from_stage
@@ -568,19 +570,19 @@ function JourneyHistory({
             const to =
               JOURNEY_STAGE_LABEL[ev.to_stage as JourneyStage] ?? ev.to_stage;
             return (
-              <li key={ev.id} className="flex items-start gap-3 px-4 py-3 text-sm">
+              <li key={ev.id} className="flex items-start gap-3 px-5 py-3 text-sm">
                 <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
                     {from && (
                       <>
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge variant="outline" className="text-[10px] font-medium">
                           {from}
                         </Badge>
                         <ChevronRight className="h-3 w-3 text-muted-foreground" />
                       </>
                     )}
-                    <Badge className="bg-primary/15 text-primary text-[10px] hover:bg-primary/15">
+                    <Badge tone="sky" className="text-[10px]">
                       {to}
                     </Badge>
                     {ev.project_name && (
@@ -604,8 +606,9 @@ function JourneyHistory({
           })}
         </ol>
       )}
-    </div>
+    </ProfileSection>
   );
+
 }
 
 /* -------------------------------------------------------------------------- */
