@@ -9,6 +9,11 @@ import {
   type PlanChannel,
   type VolumetryBasis,
 } from "@/lib/monthly-plan-fields";
+import {
+  CONTENT_FORMATS,
+  CONTENT_FORMAT_LABEL,
+  type ContentFormat,
+} from "@/lib/content-formats";
 
 export type PlanVolumetry = {
   weekly: Record<string, number>;
