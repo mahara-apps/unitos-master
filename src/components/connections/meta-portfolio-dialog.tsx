@@ -441,34 +441,54 @@ export function MetaPortfolioDialog({
                 <p className="font-medium">
                   {isRateLimited
                     ? "Limite de requisições da Meta atingido."
-                    : "Não foi possível carregar as contas da Meta."}
+                    : isSessionInvalid
+                      ? "Sessão da Meta expirada."
+                      : "Não foi possível carregar as contas da Meta."}
                 </p>
                 <p className="text-destructive/80">
                   {isRateLimited
                     ? "Por favor, aguarde alguns minutos antes de tentar novamente. O portfólio salvo será mantido."
-                    : (error as Error).message ||
-                      "Tente novamente ou reconecte sua conta Meta."}
+                    : isSessionInvalid
+                      ? "Faça login na Meta novamente para recarregar suas contas."
+                      : (error as Error).message ||
+                        "Tente novamente ou reconecte sua conta Meta."}
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleResync}
-                disabled={isFetching || isRateLimited}
-              >
-                {isFetching ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                ) : (
+              {isSessionInvalid ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    void reauthorize(
+                      channel === "ads" || !channel ? "facebook" : channel,
+                    )
+                  }
+                >
                   <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                )}
-                Tentar novamente
-              </Button>
+                  Entrar novamente na Meta
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleResync}
+                  disabled={isFetching || isRateLimited}
+                >
+                  {isFetching ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  Tentar novamente
+                </Button>
+              )}
               <Button size="sm" variant="ghost" onClick={() => onOpenChange(false)}>
                 Fechar
               </Button>
             </div>
+
           </div>
         ) : (
           <Tabs defaultValue={channel ?? "facebook"} className="w-full">
