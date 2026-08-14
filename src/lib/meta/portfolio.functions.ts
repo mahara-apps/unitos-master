@@ -270,16 +270,40 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
             `${RATE_LIMIT_PREFIX} Limite de requisições da Meta atingido. Aguarde alguns minutos antes de tentar novamente.`,
           );
         }
-        if (err instanceof MetaGraphError) {
+        // A transient Meta failure must not blank a portfolio that was already
+        // loaded. Keep serving the last successful snapshot and surface the
+        // refresh problem as a non-blocking warning (stale-while-revalidate).
+        const cachedAssetCount =
+          cachedPages.length + cachedStandaloneIg.length + cachedThreads.length + cachedAds.length;
+        if (cachedAssetCount > 0) {
+          const detail = err instanceof Error ? err.message : "Falha temporária da Meta.";
+          const warning = `Não foi possível atualizar agora: ${detail} As contas da última sincronização continuam disponíveis.`;
+          scanWarnings = Array.from(new Set([...scanWarnings, warning]));
+          portfolioStatus = "loaded";
+          portfolioError = detail;
+          await supabaseAdmin
+            .from("meta_oauth_sessions")
+            .update({
+              portfolio_load_status: "loaded",
+              portfolio_error: detail,
+              pages: {
+                pages: cachedPages,
+                standaloneInstagram: cachedStandaloneIg,
+                warnings: scanWarnings,
+                businessCount,
+              } as unknown as import("@/integrations/supabase/types").Json,
+            })
+            .eq("id", session.id);
+        } else if (err instanceof MetaGraphError) {
           await updateErrorStatus("error", err.message);
           throw new Error(`Meta: ${err.message}`);
-        }
-        if (err instanceof Error) {
+        } else if (err instanceof Error) {
           await updateErrorStatus("error", err.message);
           throw err;
+        } else {
+          await updateErrorStatus("error", "Falha ao consultar a Graph API da Meta.");
+          throw new Error("Falha ao consultar a Graph API da Meta.");
         }
-        await updateErrorStatus("error", "Falha ao consultar a Graph API da Meta.");
-        throw new Error("Falha ao consultar a Graph API da Meta.");
       }
     }
 

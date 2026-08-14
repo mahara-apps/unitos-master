@@ -342,6 +342,11 @@ export class MetaProvider {
       "id,name,access_token,category,tasks,picture.type(large){url}," +
       "instagram_business_account{id,username,profile_picture_url}," +
       "connected_instagram_account{id,username,profile_picture_url}";
+    const COMPAT_PAGE_FIELDS =
+      "id,name,access_token,category,tasks,picture.type(large){url}," +
+      "instagram_business_account{id,username,profile_picture_url}";
+    const MINIMAL_PAGE_FIELDS =
+      "id,name,access_token,category,tasks,instagram_business_account{id,username}";
     const IG_FIELDS = "id,username,name,profile_picture_url";
 
     const ingestPages = (rows: PageRow[]) => {
@@ -385,9 +390,31 @@ export class MetaProvider {
       }
     };
 
-    // 1) Pages administered directly by the user profile. This edge is the
-    //    only one that reliably returns page access tokens, so it runs first.
-    await loop<PageRow>("/me/accounts", { fields: PAGE_FIELDS, limit: "100" }, ingestPages);
+    // 1) Pages administered directly by the user profile. Meta occasionally
+    //    returns a generic HTTP 500 when a field is unavailable for one asset
+    //    in a large portfolio. Retry with progressively conservative field
+    //    sets instead of discarding the entire account list.
+    let directPagesLoaded = false;
+    let directPagesError: unknown = null;
+    for (const fields of [PAGE_FIELDS, COMPAT_PAGE_FIELDS, MINIMAL_PAGE_FIELDS]) {
+      try {
+        await loop<PageRow>("/me/accounts", { fields, limit: "100" }, ingestPages);
+        directPagesLoaded = true;
+        break;
+      } catch (err) {
+        directPagesError = err;
+        if (isFatalScanError(err) && !(err instanceof MetaGraphError && err.status >= 500)) {
+          throw err;
+        }
+      }
+    }
+    if (!directPagesLoaded) {
+      warnings.push(
+        `A Meta apresentou uma instabilidade ao listar as Páginas administradas diretamente${
+          directPagesError instanceof MetaGraphError ? `: ${directPagesError.message}` : ""
+        }. Os portfólios empresariais continuarão sendo verificados.`,
+      );
+    }
 
     // 2 + 3) Business Portfolios. Failures here are non-fatal: we still want
     //        to show whatever /me/accounts returned, with a visible warning.
@@ -410,7 +437,7 @@ export class MetaProvider {
         try {
           await loop<PageRow>(
             `/${biz.id}/${edge}`,
-            { fields: PAGE_FIELDS, limit: "100" },
+            { fields: COMPAT_PAGE_FIELDS, limit: "100" },
             ingestPages,
           );
         } catch (err) {
