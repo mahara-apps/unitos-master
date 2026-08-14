@@ -33,9 +33,37 @@ export const MODEL_CATALOG: Record<
     image: null, // Anthropic não gera imagem
   },
   gemini: {
-    strategic: "gemini-2.5-pro",
-    operational: "gemini-2.5-flash",
+    // `*-latest` acompanha a geração atual do Google. `gemini-2.5-pro` foi
+    // descontinuado para novas contas e passou a rejeitar as chamadas.
+    strategic: "gemini-pro-latest",
+    operational: "gemini-flash-latest",
     image: "imagen-4.0-generate-001",
+  },
+};
+
+/**
+ * Cadeia de fallback por papel: se o modelo em uso for rejeitado pelo provedor
+ * (descontinuado / indisponível para a conta), tentamos o próximo da lista e
+ * gravamos o override para as próximas execuções.
+ */
+export const MODEL_FALLBACKS: Record<
+  ProviderName,
+  Record<ProviderRole, string[]>
+> = {
+  openai: {
+    strategic: ["gpt-5", "gpt-5.1", "gpt-4.1"],
+    operational: ["gpt-5-mini", "gpt-4.1-mini", "gpt-4o-mini"],
+    image: ["gpt-image-1", "dall-e-3"],
+  },
+  anthropic: {
+    strategic: ["claude-opus-4-1", "claude-sonnet-4-5", "claude-3-7-sonnet-latest"],
+    operational: ["claude-sonnet-4-5", "claude-3-5-haiku-latest"],
+    image: [],
+  },
+  gemini: {
+    strategic: ["gemini-pro-latest", "gemini-3.1-pro-preview", "gemini-2.5-flash"],
+    operational: ["gemini-flash-latest", "gemini-3.6-flash", "gemini-2.5-flash"],
+    image: ["imagen-4.0-generate-001", "imagen-4.0-fast-generate-001"],
   },
 };
 
@@ -45,6 +73,7 @@ export const DEFAULT_TEXT_MODEL: Record<ProviderName, string> = {
   anthropic: MODEL_CATALOG.anthropic.operational!,
   gemini: MODEL_CATALOG.gemini.operational!,
 };
+
 
 /** Compiled default (sem overrides). */
 export function getModel(
