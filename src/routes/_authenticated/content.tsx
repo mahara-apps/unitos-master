@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -36,7 +36,6 @@ import {
 import { ContentBoard } from "@/components/content/content-board";
 import { ColumnConfigDialog } from "@/components/content/column-config-dialog";
 import { TaskDialog } from "@/components/content/task-dialog";
-import { GeneratePlanDialog } from "@/components/calendar/generate-plan-dialog";
 import { AgencyContentView, AgencyContentFallback } from "@/components/content/agency-content-view";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { supabase } from "@/integrations/supabase/client";
@@ -184,9 +183,9 @@ function ContentReady({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpenNewTask]);
 
+  const navigate = useNavigate();
   const pipelines = pipelinesQuery.data;
   const effectivePipelineId = activePipelineId ?? pipelines[0]?.id ?? null;
-  const [aiPlanOpen, setAiPlanOpen] = useState(false);
 
   usePageHeader(
     {
@@ -247,11 +246,11 @@ function ContentReady({
                   <span className="text-[11px] text-muted-foreground">Criar uma tarefa em branco</span>
                 </div>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setAiPlanOpen(true)}>
+              <DropdownMenuItem onClick={() => void navigate({ to: "/monthly-plan" })}>
                 <Sparkles className="mr-2 h-4 w-4 text-fuchsia-500" />
                 <div className="flex flex-col">
                   <span>Gerar com IA</span>
-                  <span className="text-[11px] text-muted-foreground">Plano estratégico e distribuição</span>
+                  <span className="text-[11px] text-muted-foreground">Gerar pauta mensal (canal + formato)</span>
                 </div>
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -338,18 +337,6 @@ function ContentReady({
         </Suspense>
       ) : null}
 
-      <GeneratePlanDialog
-        brandId={brandId}
-        clientId={clientId}
-        open={aiPlanOpen}
-        onOpenChange={setAiPlanOpen}
-        onGenerated={() => {
-          setTimeout(() => {
-            qc.invalidateQueries({ queryKey: ["content-board", brandId, clientId] });
-            qc.invalidateQueries({ queryKey: ["calendar"] });
-          }, 1200);
-        }}
-      />
     </DashboardPageShell>
   );
 }

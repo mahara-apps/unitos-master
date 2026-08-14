@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { readApiError } from "@/lib/errors";
-import { Link } from "@tanstack/react-router";
+import { describeError, readApiError } from "@/lib/errors";
+import { generateMonthlyPlanFn } from "@/lib/monthly-plans.functions";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -247,6 +248,8 @@ export function BriefingWorkspace({
   const fetchHub = useServerFn(getBrandHub);
   const saveHub = useServerFn(updateBrandHub);
 
+  const navigate = useNavigate();
+  const generatePlan = useServerFn(generateMonthlyPlanFn);
   const hubQ = useQuery({
     queryKey: ["brand-hub", brandId, clientId],
     queryFn: () => fetchHub({ data: { brandId, clientId } }),
@@ -270,8 +273,7 @@ export function BriefingWorkspace({
 
   // ------------- Gerar ideias (fase 2 · gate humano) --------------
   const [ideasOpen, setIdeasOpen] = useState(false);
-  const [ideasQty, setIdeasQty] = useState(8);
-  const [ideasPeriod, setIdeasPeriod] = useState("próximos 15 dias");
+  const [ideasTheme, setIdeasTheme] = useState("");
   const [genIdeas, setGenIdeas] = useState(false);
 
   // Strategy artifacts gate — enable "Gerar ideias" only when all four exist.
@@ -294,20 +296,21 @@ export function BriefingWorkspace({
   const runIdeas = async () => {
     setGenIdeas(true);
     try {
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
-      if (!token) throw new Error("Sessão expirada");
-      const res = await fetch("/api/jobs/generate-ideas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ brandId, clientId, quantidade: ideasQty, periodo: ideasPeriod }),
+      // Caminho canônico ÚNICO: monthly_plans -> monthly_plan_topics -> aprovação.
+      // A quantidade vem da volumetria (canal + formato) do briefing.
+      const res = await generatePlan({
+        data: { brandId, clientId, ...(ideasTheme.trim() ? { theme: ideasTheme.trim() } : {}) },
       });
-      if (!res.ok) throw new Error(await res.text());
-      toast.success("Gerando ideias em segundo plano — acompanhe pelo indicador de IA.");
-      qc.invalidateQueries({ queryKey: ["ai-jobs", "active"] });
+      if (!res.ok) {
+        toast.error(describeError(new Error(res.code)));
+        return;
+      }
+      toast.success("Pauta gerada — revise e aprove.");
+      qc.invalidateQueries({ queryKey: ["monthly-plans"] });
       setIdeasOpen(false);
+      void navigate({ to: "/monthly-plan/$planId", params: { planId: res.data.plan.id } });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Falha ao gerar ideias");
+      toast.error(describeError(e));
     } finally {
       setGenIdeas(false);
     }
@@ -456,10 +459,8 @@ export function BriefingWorkspace({
       runStrategy={runStrategy}
       ideasOpen={ideasOpen}
       setIdeasOpen={setIdeasOpen}
-      ideasQty={ideasQty}
-      setIdeasQty={setIdeasQty}
-      ideasPeriod={ideasPeriod}
-      setIdeasPeriod={setIdeasPeriod}
+      ideasTheme={ideasTheme}
+      setIdeasTheme={setIdeasTheme}
       runIdeas={runIdeas}
     />
   );
@@ -1429,10 +1430,8 @@ type StackedProps = {
   runStrategy: () => Promise<void> | void;
   ideasOpen: boolean;
   setIdeasOpen: (v: boolean) => void;
-  ideasQty: number;
-  setIdeasQty: (n: number) => void;
-  ideasPeriod: string;
-  setIdeasPeriod: (v: string) => void;
+  ideasTheme: string;
+  setIdeasTheme: (v: string) => void;
   runIdeas: () => Promise<void> | void;
 };
 
@@ -1442,7 +1441,7 @@ function StackedBrainLayout(props: StackedProps) {
     onSave, saving, savedAt, onGenerateStrategy, onGenerateIdeas, onImportText,
     strategyReady, generating, appendSlot,
     regenOpen, setRegenOpen, runStrategy,
-    ideasOpen, setIdeasOpen, ideasQty, setIdeasQty, ideasPeriod, setIdeasPeriod,
+    ideasOpen, setIdeasOpen, ideasTheme, setIdeasTheme,
     genIdeas, runIdeas,
   } = props;
   const [active, setActive] = useState<string>(BRAIN_SECTIONS[0].id);
@@ -1626,27 +1625,17 @@ function StackedBrainLayout(props: StackedProps) {
             <DialogTitle>Gerar ideias de conteúdo</DialogTitle>
             <DialogDescription>
               Pautas geradas a partir da estratégia revisada, distribuídas por canal e agendadas no calendário
-              respeitando a volumetria semanal (posts/semana por canal) do briefing.
+              respeitando a volumetria do briefing (canal + formato + quantidade).
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">
             <div className="grid gap-1.5">
-              <Label htmlFor="ideas-qty-stacked">Quantidade</Label>
+              <Label htmlFor="ideas-theme-stacked">Tema do mês (opcional)</Label>
               <Input
-                id="ideas-qty-stacked"
-                type="number"
-                min={1}
-                max={20}
-                value={ideasQty}
-                onChange={(e) => setIdeasQty(Math.max(1, Math.min(20, Number(e.target.value) || 1)))}
-              />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="ideas-period-stacked">Período</Label>
-              <Input
-                id="ideas-period-stacked"
-                value={ideasPeriod}
-                onChange={(e) => setIdeasPeriod(e.target.value)}
+                id="ideas-theme-stacked"
+                placeholder="Ex.: lançamento da coleção de verão"
+                value={ideasTheme}
+                onChange={(e) => setIdeasTheme(e.target.value)}
               />
             </div>
           </div>
