@@ -1176,6 +1176,7 @@ export const getDashboardInsights = createServerFn({ method: "POST" })
         data.brandId,
         "text",
         "operational",
+        { agent: "dashboard.insights", userId: context.userId },
       );
 
       const { output } = await generateText({

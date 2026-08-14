@@ -147,6 +147,7 @@ export const generateMediaPlanWithAi = createServerFn({ method: "POST" })
       data.brandId,
       "text",
       "strategic",
+      { agent: "media-plan.generate", clientId: data.clientId ?? null, userId: context.userId },
     );
 
     try {

@@ -128,7 +128,10 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const { model } = await getBrandAiModelAdmin(opts.brandId, "text", "operational");
+      const { model } = await getBrandAiModelAdmin(opts.brandId, "text", "operational", {
+        agent: opts.agent ?? "post.agent",
+        clientId: opts.clientId ?? null,
+      });
       const res = await generateText({
         model,
         system: opts.system,

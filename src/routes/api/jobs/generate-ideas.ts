@@ -170,6 +170,7 @@ async function runIdeas(params: {
       input.brandId,
       "text",
       "operational",
+      { agent: "ideas.generate", clientId: input.clientId ?? null },
     );
 
     const volumetriaBlock =
