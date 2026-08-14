@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -183,6 +183,7 @@ function ContentReady({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpenNewTask]);
 
+  const navigate = useNavigate();
   const pipelines = pipelinesQuery.data;
   const effectivePipelineId = activePipelineId ?? pipelines[0]?.id ?? null;
 
