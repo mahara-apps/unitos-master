@@ -147,10 +147,24 @@ export function AccountManagementTab({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 pb-2">
+      <ProfilePageHeader
+        title="Gestão da conta"
+        description="Controle as informações operacionais e administrativas deste cliente."
+        badge={
+          canEdit ? (
+            <Badge tone="emerald">Edição liberada</Badge>
+          ) : (
+            <Badge tone="amber" className="gap-1">
+              <Lock className="h-3 w-3" /> Somente leitura
+            </Badge>
+          )
+        }
+      />
+
       {!canEdit && (
-        <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-          <Lock className="h-3.5 w-3.5" />
+        <div className="flex items-start gap-2 rounded-xl border border-amber-500/25 bg-amber-500/5 px-4 py-3 text-[12px] text-amber-600 dark:text-amber-300">
+          <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           Você tem acesso somente leitura à gestão desta conta.
         </div>
       )}
@@ -163,8 +177,6 @@ export function AccountManagementTab({
         isSaving={updateMut.isPending}
       />
 
-      <PortalLinkCard clientId={clientId} clientName={account.name ?? null} />
-
       <JourneyPipeline
         currentIdx={currentIdx}
         mappingByStage={mappingByStage}
@@ -172,7 +184,11 @@ export function AccountManagementTab({
         canEdit={canEdit}
       />
 
-      <JourneyHistory timeline={timeline} />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <PortalLinkCard clientId={clientId} clientName={account.name ?? null} />
+        <JourneyHistory timeline={timeline} />
+      </div>
+
 
       <MoveDialog
         open={moveDialog.open}
