@@ -14,6 +14,8 @@ export type PlanResumeState = {
   topicsSaved: number;
   maxPosition: number;
   existingTitles: string[];
+  /** Tópicos já salvos por canal — evita contá-los duas vezes na volumetria. */
+  channelCounts: Record<string, number>;
 };
 
 export async function findResumableGeneration(
@@ -49,14 +51,24 @@ export async function findResumableGeneration(
 
     const { data: topics } = await supabase
       .from("monthly_plan_topics" as never)
-      .select("id, topic_title, position")
+      .select("id, topic_title, position, channel")
       .eq("monthly_plan_id", planId);
-    const list = (topics ?? []) as unknown as Array<{ topic_title: string; position: number }>;
+    const list = (topics ?? []) as unknown as Array<{
+      topic_title: string;
+      position: number;
+      channel: string | null;
+    }>;
+    const channelCounts: Record<string, number> = {};
+    for (const t of list) {
+      const c = (t.channel ?? "").trim();
+      if (c) channelCounts[c] = (channelCounts[c] ?? 0) + 1;
+    }
     return {
       planId,
       topicsSaved: list.length,
       maxPosition: list.reduce((m, t) => Math.max(m, t.position ?? 0), -1),
       existingTitles: list.map((t) => t.topic_title),
+      channelCounts,
     };
   }
   return null;
