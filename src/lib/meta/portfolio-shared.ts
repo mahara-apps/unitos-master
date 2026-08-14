@@ -72,7 +72,7 @@ export const LinkInput = z.object({
   sessionId: z.string().uuid(),
   channel: z.enum(["facebook", "instagram", "threads", "ads"]),
   targetId: z.string().min(1),
-  clientId: z.string().uuid().nullish(),
+  clientId: z.string().uuid().optional(),
 });
 
 export const UnlinkInput = z.object({
