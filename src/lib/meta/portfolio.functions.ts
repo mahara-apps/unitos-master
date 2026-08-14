@@ -313,10 +313,12 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
     // Which of these are already bound to this brand?
     const externalIds = [
       ...pages.map((p) => p.pageId),
-      ...pages.map((p) => p.instagramBusinessId).filter(Boolean) as string[],
+      ...(pages.map((p) => p.instagramBusinessId).filter(Boolean) as string[]),
+      ...cachedStandaloneIg.map((i) => i.instagramId),
       ...threadsAccounts.map((t) => t.threadsUserId),
       ...adAccounts.map((a) => a.adAccountId),
     ];
+
     const connected: PortfolioResponse["connected"] = {
       facebook: {},
       instagram: {},
