@@ -22,6 +22,9 @@ export const META_DEFAULT_SCOPES = [
   // "threads_content_publish",
   // Meta Ads
   "ads_read",
+  // Portfólios empresariais: sem isto só enxergamos as Páginas em que o usuário
+  // é admin direto, o que esconde a maior parte dos ativos de uma agência.
+  "business_management",
 ];
 
 export const META_BUSINESS_PORTFOLIO_SCOPE = "business_management";
@@ -35,10 +38,16 @@ export function getMetaScopesForChannel(channel?: MetaChannel | null): string[] 
       "instagram_basic",
       "instagram_manage_insights",
       "instagram_content_publish",
+      META_BUSINESS_PORTFOLIO_SCOPE,
     ];
   }
   if (channel === "facebook") {
-    return ["pages_show_list", "pages_read_engagement", "pages_manage_posts"];
+    return [
+      "pages_show_list",
+      "pages_read_engagement",
+      "pages_manage_posts",
+      META_BUSINESS_PORTFOLIO_SCOPE,
+    ];
   }
   if (channel === "ads") {
     return ["ads_read", META_BUSINESS_PORTFOLIO_SCOPE];
