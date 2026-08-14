@@ -404,7 +404,8 @@ export const createTopicFn = createServerFn({ method: "POST" })
       .insert({
         monthly_plan_id: data.planId,
         topic_title: data.topic_title,
-        content_format: data.content_format ?? null,
+        // Fronteira de escrita: sempre chave canônica.
+        content_format: data.content_format ? normalizeContentFormat(data.content_format) : null,
         channel: data.channel ?? null,
         angle: data.angle,
         status: "pending",
@@ -434,6 +435,12 @@ export const updateTopicFn = createServerFn({ method: "POST" })
     const patch: Record<string, unknown> = {};
     for (const k of ["topic_title", "content_format", "channel", "angle", "status"] as const) {
       if (data[k] !== undefined) patch[k] = data[k];
+    }
+    // Fronteira de escrita: sempre chave canônica.
+    if (data.content_format !== undefined) {
+      patch.content_format = data.content_format
+        ? normalizeContentFormat(data.content_format)
+        : null;
     }
     if (Object.keys(patch).length === 0) return { ok: true };
     const { error } = await context.supabase
