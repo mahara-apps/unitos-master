@@ -1,10 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { waitUntil } from "@/lib/wait-until.server";
 import { createClient } from "@supabase/supabase-js";
-import { streamText } from "ai";
+import { generateText } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import { getBrandAiModelAdmin } from "@/lib/ai-provider.server";
+import {
+  classifyAiError,
+  unwrapAiError,
+  FAILURE_MESSAGE_PT,
+  SPACING_MS,
+  BACKOFF_MS,
+  sleep,
+  type FailureKind,
+} from "@/lib/ai-failures.server";
+
 
 // Two-phase pipeline — Phase 1 (Strategy).
 // Executa briefing → voz → personas → cohorts → SWOT, mas UMA etapa por
@@ -308,44 +318,85 @@ function parseJsonLoose(raw: string): unknown {
   }
 }
 
+/** Falha de etapa já classificada — evita reclassificar mais adiante. */
+class StepFailure extends Error {
+  kind: FailureKind;
+  retryable: boolean;
+  detail: string;
+  constructor(kind: FailureKind, retryable: boolean, detail: string) {
+    super(`ai_strategy_step_failed:${kind}`);
+    this.name = "StepFailure";
+    this.kind = kind;
+    this.retryable = retryable;
+    this.detail = detail;
+  }
+}
+
 /**
- * Chamada em streaming consumida no servidor: mantém bytes fluindo (evita
- * corte por inatividade) e devolve o JSON já parseado, sem exigir suporte a
- * structured output do provedor.
+ * Executa um agente com o MESMO padrão de resiliência da Copy
+ * (`post-agents.server.ts`): 3 tentativas, backoff 15s/45s, retry do SDK
+ * desligado (`maxRetries: 0`) e classificação de falha compartilhada.
+ *
+ * Usa `generateText` (buffered) em vez de streaming: nada é renderizado
+ * progressivamente aqui e o streaming era justamente o que fazia o pacote `ai`
+ * mascarar 429/503 como "No output generated".
  */
 async function runJson(opts: {
   system: string;
   prompt: string;
   strategic: boolean;
   brandId: string;
+  step: Step;
+  onAttempt?: (info: { attempt: number; ok: boolean; kind?: FailureKind; retryable?: boolean; message?: string }) => Promise<void>;
 }): Promise<{ value: unknown; provider: string; modelId: string }> {
-  const { provider, modelId, model } = await getBrandAiModelAdmin(
-    opts.brandId,
-    "text",
-    opts.strategic ? "strategic" : "operational",
-    { agent: opts.strategic ? "customer.pipeline.strategic" : "customer.pipeline" },
-  );
+  const maxAttempts = BACKOFF_MS.length + 1;
+  const role = opts.strategic ? "strategic" : "operational";
+  let lastErr: unknown = null;
+  let lastKind: FailureKind = "unknown";
+  let lastRetryable = false;
 
-  const run = async () => {
-    const result = streamText({
-      model,
-      system: opts.system,
-      prompt: opts.prompt,
-    });
-    return await result.text;
-  };
-
-  let text: string;
-  try {
-    text = await withTimeout(run(), LLM_TIMEOUT_MS, opts.strategic ? "strategic" : "operational");
-  } catch (err) {
-    // Uma nova tentativa cobre instabilidade momentânea do provedor.
-    console.warn("[customer-pipeline] retry após falha:", err instanceof Error ? err.message : err);
-    text = await withTimeout(run(), LLM_TIMEOUT_MS, opts.strategic ? "strategic (retry)" : "operational (retry)");
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const { provider, modelId, model } = await getBrandAiModelAdmin(
+        opts.brandId,
+        "text",
+        role,
+        { agent: opts.strategic ? "customer.pipeline.strategic" : "customer.pipeline" },
+      );
+      const res = await withTimeout(
+        generateText({
+          model,
+          system: opts.system,
+          prompt: opts.prompt,
+          // Retry é controlado aqui (backoff próprio) para respeitar a quota.
+          maxRetries: 0,
+        }),
+        LLM_TIMEOUT_MS,
+        `${role} (tentativa ${attempt})`,
+      );
+      const text = (res.text ?? "").trim();
+      if (!text) throw new Error("ai_invalid_output: o provedor não retornou conteúdo.");
+      const value = parseJsonLoose(text);
+      await opts.onAttempt?.({ attempt, ok: true });
+      return { value, provider, modelId };
+    } catch (err) {
+      lastErr = err;
+      const { kind, retryable } = classifyAiError(err);
+      lastKind = kind;
+      lastRetryable = retryable;
+      const detail = unwrapAiError(err).text.slice(0, 800);
+      console.error(
+        `[customer-pipeline] etapa=${opts.step} tentativa=${attempt} motivo=${kind} retryable=${retryable}: ${detail}`,
+      );
+      await opts.onAttempt?.({ attempt, ok: false, kind, retryable, message: detail });
+      if (!retryable || attempt === maxAttempts) break;
+      await sleep(BACKOFF_MS[attempt - 1]!);
+    }
   }
 
-  return { value: parseJsonLoose(text), provider, modelId };
+  throw new StepFailure(lastKind, lastRetryable, unwrapAiError(lastErr).text.slice(0, 800));
 }
+
 
 const P = {
   briefing:
@@ -507,6 +558,9 @@ type JobState = {
   voice?: z.infer<typeof VoiceSchema>;
   personas?: z.infer<typeof PersonasSchema>;
   cohorts?: z.infer<typeof CohortsSchema>;
+  swot?: z.infer<typeof SwotSchema>;
+  /** Etapas já concluídas e persistidas — base da retomada idempotente. */
+  done?: Step[];
   models?: Record<string, string>;
 };
 
@@ -520,6 +574,60 @@ function compactCohorts(c: z.infer<typeof CohortsSchema>): string {
   return c.cohorts.map((x) => `${x.name}: ${x.behavioral_traits.slice(0, 160)}`).join("\n");
 }
 
+// ---------------- Validação mínima de output por agente ----------------
+// Output vazio/inválido nunca é persistido: vira `ai_invalid_output` e o
+// conteúdo anterior do cliente permanece ativo.
+
+const nonEmpty = (s: unknown): boolean => typeof s === "string" && s.trim().length > 0;
+
+function assertValidOutput(step: Step, payload: unknown): void {
+  const fail = (why: string): never => {
+    throw new Error(`ai_invalid_output: ${why}`);
+  };
+  if (step === "briefing") {
+    const b = payload as z.infer<typeof BriefingSchema>;
+    const hasAny =
+      nonEmpty(b.publico_alvo) ||
+      nonEmpty(b.tom_de_voz) ||
+      b.dores_do_cliente_final.length > 0 ||
+      b.diferenciais.length > 0;
+    if (!hasAny) fail("briefing estruturado vazio");
+    return;
+  }
+  if (step === "voice") {
+    const vc = (payload as z.infer<typeof VoiceSchema>).voice_card;
+    if (!nonEmpty(vc.brand_personality) && vc.tone_characteristics.length === 0) {
+      fail("voice card sem personalidade nem características de tom");
+    }
+    return;
+  }
+  if (step === "personas") {
+    const list = (payload as z.infer<typeof PersonasSchema>).personas;
+    if (list.length === 0) fail("nenhuma persona gerada");
+    if (!list.some((p) => nonEmpty(p.descricao) || p.dores.length > 0)) fail("personas sem conteúdo");
+    return;
+  }
+  if (step === "cohorts") {
+    const list = (payload as z.infer<typeof CohortsSchema>).cohorts;
+    if (list.length === 0) fail("nenhum cohort gerado");
+    if (!list.some((c) => nonEmpty(c.behavioral_traits) || nonEmpty(c.content_strategy))) {
+      fail("cohorts sem conteúdo");
+    }
+    return;
+  }
+  const s = (payload as z.infer<typeof SwotSchema>).swot_analysis;
+  const total =
+    s.strengths.length + s.weaknesses.length + s.opportunities.length + s.threats.length;
+  if (total === 0) fail("SWOT vazio");
+}
+
+/**
+ * Substituição segura do card ativo (P-05).
+ *
+ * Ordem: insere o novo registro JÁ VALIDADO e só depois desativa os
+ * anteriores. Se o insert falhar, o card anterior continua ativo — nunca
+ * deixamos o cliente sem voz/personas por causa de um erro do provedor.
+ */
 async function replaceActive(
   supabase: ReturnType<typeof buildUserClient>,
   table: "brand_voice_cards" | "brand_personas" | "brand_cohorts" | "brand_swot",
@@ -527,20 +635,67 @@ async function replaceActive(
   userId: string,
   data: unknown,
 ) {
-  await supabase
+  const { data: inserted, error } = await supabase
+    .from(table)
+    .insert({
+      brand_id: state.brandId,
+      client_id: state.clientId,
+      data: data as never,
+      created_by: userId,
+    })
+    .select("id")
+    .single();
+  if (error || !inserted) throw new Error(error?.message ?? `Falha ao salvar em ${table}`);
+
+  const { error: deactErr } = await supabase
     .from(table)
     .update({ is_active: false })
     .eq("brand_id", state.brandId)
     .eq("client_id", state.clientId)
-    .eq("is_active", true);
-  const { error } = await supabase.from(table).insert({
-    brand_id: state.brandId,
-    client_id: state.clientId,
-    data: data as never,
-    created_by: userId,
-  });
-  if (error) throw new Error(error.message);
+    .eq("is_active", true)
+    .neq("id", inserted.id);
+  if (deactErr) console.warn(`[customer-pipeline] falha ao desativar registros antigos em ${table}`, deactErr);
 }
+
+/** Auditoria de tentativa em `activity_events` — mesmo padrão da Copy. */
+async function logStrategyAttempt(
+  state: Pick<JobState, "brandId" | "clientId">,
+  info: {
+    agent: string;
+    step: Step;
+    attempt: number;
+    ok: boolean;
+    kind?: FailureKind;
+    retryable?: boolean;
+    message?: string;
+  },
+) {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await (supabaseAdmin as unknown as import("@supabase/supabase-js").SupabaseClient)
+      .from("activity_events")
+      .insert({
+        brand_id: state.brandId,
+        client_id: state.clientId,
+        entity_type: "client_strategy",
+        entity_id: state.clientId,
+        verb: info.ok ? "ai_agent_succeeded" : "ai_generation_failed",
+        payload: {
+          agent: info.agent,
+          step: info.step,
+          attempt: info.attempt,
+          ok: info.ok,
+          failure_kind: info.kind ?? null,
+          retryable: info.retryable ?? null,
+          error: info.message ? info.message.slice(0, 800) : null,
+          at: new Date().toISOString(),
+        },
+      } as never);
+  } catch {
+    // auditoria não crítica
+  }
+}
+
 
 async function runStep(params: {
   jobId: string;
@@ -571,6 +726,21 @@ async function runStep(params: {
     const state = (jobRow.input ?? {}) as unknown as JobState;
     if (!state.brandId || !state.clientId) throw new Error("Estado do job inválido");
 
+    const done = new Set<Step>(Array.isArray(state.done) ? state.done : []);
+
+    // Retomada idempotente: etapa já concluída não é regerada nem duplicada.
+    if (done.has(step)) {
+      console.info(`[customer-pipeline] etapa ${step} já concluída — pulando (retomada)`);
+      const skipNext = nextStep(step);
+      clearInterval(beat);
+      if (skipNext) {
+        await scheduleStep({ baseUrl, token, jobId, step: skipNext, userId });
+        return;
+      }
+      await finishJob(supabase, patch, state, userId);
+      return;
+    }
+
     const meta = STEP_META[step];
     await patch({
       status: "running",
@@ -579,8 +749,25 @@ async function runStep(params: {
       step_label: meta.label,
     });
 
+    // Espaçamento entre agentes (mesmo conceito da Copy): evita rajada de
+    // chamadas seguidas ao provedor, que é o que dispara o 429.
+    if (step !== "briefing") await sleep(SPACING_MS);
+
     const briefingJson = () => JSON.stringify(state.briefing ?? {}, null, 2);
     const models = { ...(state.models ?? {}) };
+    const onAttempt = (info: {
+      attempt: number;
+      ok: boolean;
+      kind?: FailureKind;
+      retryable?: boolean;
+      message?: string;
+    }) =>
+      logStrategyAttempt(state, {
+        agent: step === "briefing" ? "customer.pipeline" : "customer.pipeline.strategic",
+        step,
+        ...info,
+      });
+
 
     if (step === "briefing") {
       const { value, provider, modelId } = await runJson({
@@ -588,8 +775,11 @@ async function runStep(params: {
         prompt: `Texto bruto do briefing:\n"""\n${state.texto}\n"""`,
         strategic: false,
         brandId: state.brandId,
+        step,
+        onAttempt,
       });
       const briefing = normalizeBriefingPayload(value);
+      assertValidOutput(step, briefing);
       models[step] = `${provider}:${modelId}`;
       state.briefing = briefing;
 
@@ -628,8 +818,11 @@ async function runStep(params: {
         prompt: `Briefing estruturado:\n${briefingJson()}`,
         strategic: true,
         brandId: state.brandId,
+        step,
+        onAttempt,
       });
       const voice = normalizeVoicePayload(value);
+      assertValidOutput(step, voice);
       models[step] = `${provider}:${modelId}`;
       state.voice = voice;
       await replaceActive(supabase, "brand_voice_cards", state, userId, voice);
@@ -639,9 +832,11 @@ async function runStep(params: {
         prompt: `Briefing:\n${briefingJson()}`,
         strategic: true,
         brandId: state.brandId,
+        step,
+        onAttempt,
       });
       const personas = normalizePersonasPayload(value);
-      if (!personas.personas.length) throw new Error("Nenhuma persona gerada — tente novamente.");
+      assertValidOutput(step, personas);
       models[step] = `${provider}:${modelId}`;
       state.personas = personas;
       await replaceActive(supabase, "brand_personas", state, userId, personas);
@@ -651,8 +846,11 @@ async function runStep(params: {
         prompt: `Briefing:\n${briefingJson()}\n\nPersonas:\n${compactPersonas(state.personas ?? { personas: [] })}`,
         strategic: true,
         brandId: state.brandId,
+        step,
+        onAttempt,
       });
       const cohorts = normalizeCohortsPayload(value);
+      assertValidOutput(step, cohorts);
       models[step] = `${provider}:${modelId}`;
       state.cohorts = cohorts;
       await replaceActive(supabase, "brand_cohorts", state, userId, cohorts);
@@ -666,12 +864,19 @@ async function runStep(params: {
         ].join("\n\n"),
         strategic: true,
         brandId: state.brandId,
+        step,
+        onAttempt,
       });
       const swot = normalizeSwotPayload(value);
+      assertValidOutput(step, swot);
       models[step] = `${provider}:${modelId}`;
+      state.swot = swot;
       await replaceActive(supabase, "brand_swot", state, userId, swot);
     }
 
+    // Etapa concluída E persistida — registra para a retomada idempotente.
+    done.add(step);
+    state.done = STEPS.filter((s) => done.has(s));
     state.models = models;
     await patch({ input: state as never });
 
@@ -683,53 +888,79 @@ async function runStep(params: {
       return;
     }
 
-
-    // Última etapa concluída — avisa o usuário para revisar.
-    const reviewRoute = `/customers/${state.clientId}/briefing`;
-    const { error: notifErr } = await supabase.from("notifications").insert({
-      user_id: userId,
-      brand_id: state.brandId,
-      kind: "system",
-      title: "Estratégia gerada — revise antes de criar ideias",
-      body: "Voice card, personas, cohorts e SWOT prontos. Confira, ajuste e depois clique em Gerar ideias.",
-      href: reviewRoute,
-      payload: { event: "strategy_ready", client_id: state.clientId },
-    });
-    if (notifErr) console.warn("[notifications] insert failed", notifErr);
-
-    await patch({
-      status: "succeeded",
-      progress: 100,
-      step_label: null,
-      finished_at: new Date().toISOString(),
-      target_route: reviewRoute,
-      result: {
-        title: "Estratégia pronta para revisão",
-        content: "Revise voice, personas, cohorts e SWOT. Depois clique em Gerar ideias.",
-        sources: state.sources ?? null,
-        models: state.models ?? null,
-      } as never,
-    });
+    await finishJob(supabase, patch, state, userId);
   } catch (err) {
-    const raw = err instanceof Error ? err.message : String(err);
-    const message = raw.startsWith("ai_provider_not_configured")
-      ? "Nenhuma IA configurada para esta marca. Cadastre uma chave em Conexões."
-      : raw.startsWith("ai_provider_key_missing")
-        ? "A chave do provedor de IA não foi encontrada. Reconfigure em Conexões."
-        : raw.startsWith("ai_model_unavailable")
-          ? `Modelo indisponível no provedor selecionado para a etapa "${STEP_META[step].label}". Verifique a chave/provedor em Conexões. Detalhe: ${raw}`
-          : `Falha na etapa "${STEP_META[step].label}": ${raw}`;
+    // Interrupção segura: a cadeia PARA aqui. Nada é apagado, nada falso é
+    // gravado e as etapas restantes ficam retomáveis.
+    const { kind, retryable } = classifyAiError(err);
+    const detail =
+      err instanceof StepFailure ? err.detail : unwrapAiError(err).text.slice(0, 800);
+    const m = FAILURE_MESSAGE_PT[kind];
+    const message = `${m.title} — etapa "${STEP_META[step].label}". ${m.body}`;
+
+    console.error(
+      `[customer-pipeline] etapa=${step} FALHOU motivo=${kind} retryable=${retryable}: ${detail}`,
+    );
+
+    const { data: current } = await supabase
+      .from("ai_jobs")
+      .select("input")
+      .eq("id", jobId)
+      .maybeSingle();
+    const st = (current?.input ?? {}) as unknown as JobState;
 
     await patch({
       status: "failed",
       error: message,
       finished_at: new Date().toISOString(),
       step_label: null,
+      result: {
+        failure_kind: kind,
+        retryable,
+        failed_step: step,
+        completed_steps: st.done ?? [],
+        detail: detail.slice(0, 500),
+      } as never,
     });
   } finally {
     clearInterval(beat);
   }
 }
+
+/** Conclui o job: notifica e marca sucesso. */
+async function finishJob(
+  supabase: ReturnType<typeof buildUserClient>,
+  patch: (fields: Partial<Database["public"]["Tables"]["ai_jobs"]["Update"]>) => unknown,
+  state: JobState,
+  userId: string,
+) {
+  const reviewRoute = `/customers/${state.clientId}/briefing`;
+  const { error: notifErr } = await supabase.from("notifications").insert({
+    user_id: userId,
+    brand_id: state.brandId,
+    kind: "system",
+    title: "Estratégia gerada — revise antes de criar ideias",
+    body: "Voice card, personas, cohorts e SWOT prontos. Confira, ajuste e depois clique em Gerar ideias.",
+    href: reviewRoute,
+    payload: { event: "strategy_ready", client_id: state.clientId },
+  });
+  if (notifErr) console.warn("[notifications] insert failed", notifErr);
+
+  await patch({
+    status: "succeeded",
+    progress: 100,
+    step_label: null,
+    finished_at: new Date().toISOString(),
+    target_route: reviewRoute,
+    result: {
+      title: "Estratégia pronta para revisão",
+      content: "Revise voice, personas, cohorts e SWOT. Depois clique em Gerar ideias.",
+      sources: state.sources ?? null,
+      models: state.models ?? null,
+    } as never,
+  });
+}
+
 
 /**
  * Agenda a próxima etapa como uma nova requisição a esta mesma rota.
@@ -773,18 +1004,23 @@ async function scheduleStep(opts: {
       baseUrl: opts.baseUrl,
     });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const { kind, retryable } = classifyAiError(err);
+    const detail = unwrapAiError(err).text.slice(0, 500) || lastErr;
+    const m = FAILURE_MESSAGE_PT[kind];
+    console.error(`[customer-pipeline] etapa inline ${opts.step} falhou motivo=${kind}: ${detail}`);
     const supabase = buildUserClient(opts.token);
     await supabase
       .from("ai_jobs")
       .update({
         status: "failed",
-        error: `Não foi possível continuar na etapa "${STEP_META[opts.step].label}". Detalhe: ${detail || lastErr}`,
+        error: `${m.title} — etapa "${STEP_META[opts.step].label}". ${m.body}`,
         finished_at: new Date().toISOString(),
         step_label: null,
+        result: { failure_kind: kind, retryable, failed_step: opts.step, detail } as never,
       })
       .eq("id", opts.jobId);
   }
+
 }
 
 
@@ -878,11 +1114,65 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
           );
         }
 
+        // --- Proteção contra dupla execução ---
+        // Reutiliza `ai_jobs` (nenhuma tabela nova): um job queued/running com
+        // heartbeat recente significa que já existe geração em andamento.
+        const staleCutoff = new Date(Date.now() - 5 * 60_000).toISOString();
+        const { data: activeJob } = await supabase
+          .from("ai_jobs")
+          .select("id, updated_at, status")
+          .eq("client_id", input.clientId)
+          .eq("kind", "customer_strategy")
+          .in("status", ["queued", "running"])
+          .gt("updated_at", staleCutoff)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (activeJob) {
+          return new Response(
+            JSON.stringify({
+              error: "strategy_already_running",
+              jobId: activeJob.id,
+              message: "Já existe uma geração de estratégia em andamento.",
+            }),
+            { status: 409, headers: { "Content-Type": "application/json" } },
+          );
+        }
+
+        // --- Retomada idempotente ---
+        // Se a última execução falhou no meio, preserva as etapas concluídas e
+        // continua da primeira pendente, sem regerar nem duplicar nada.
+        const { data: lastJob } = await supabase
+          .from("ai_jobs")
+          .select("input, status")
+          .eq("client_id", input.clientId)
+          .eq("kind", "customer_strategy")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const lastState = (lastJob?.input ?? null) as unknown as JobState | null;
+        const resumeDone: Step[] =
+          lastJob?.status === "failed" && Array.isArray(lastState?.done)
+            ? STEPS.filter((s) => lastState!.done!.includes(s))
+            : [];
+        const startStep: Step = STEPS.find((s) => !resumeDone.includes(s)) ?? "briefing";
+
         const state: JobState = {
           brandId: input.brandId,
           clientId: input.clientId,
           texto: composed,
           sources,
+          ...(resumeDone.length > 0
+            ? {
+                done: resumeDone,
+                ...(lastState?.briefing ? { briefing: lastState.briefing } : {}),
+                ...(lastState?.voice ? { voice: lastState.voice } : {}),
+                ...(lastState?.personas ? { personas: lastState.personas } : {}),
+                ...(lastState?.cohorts ? { cohorts: lastState.cohorts } : {}),
+                ...(lastState?.swot ? { swot: lastState.swot } : {}),
+                ...(lastState?.models ? { models: lastState.models } : {}),
+              }
+            : {}),
         };
 
         const { data: job, error: jobErr } = await supabase
@@ -895,7 +1185,7 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
             title: "Estratégia do cliente",
             subtitle: "Briefing · Voz · Personas · Cohorts · SWOT",
             status: "queued",
-            progress: 0,
+            progress: resumeDone.length > 0 ? STEP_META[startStep].progress : 0,
             input: state as unknown as Database["public"]["Tables"]["ai_jobs"]["Insert"]["input"],
           })
           .select("id")
@@ -905,8 +1195,9 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
         }
 
         waitUntil(
-          runStep({ jobId: job.id, step: "briefing", token, userId, baseUrl }),
+          runStep({ jobId: job.id, step: startStep, token, userId, baseUrl }),
         );
+
 
         return new Response(JSON.stringify({ jobId: job.id }), {
           status: 202,
