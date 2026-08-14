@@ -100,3 +100,20 @@ export function describeError(err: unknown): string {
 
   return raw;
 }
+
+/**
+ * Extrai a mensagem legível da resposta de uma rota de API.
+ * Aceita corpo JSON (`{ message }` / `{ error }`) ou texto puro.
+ */
+export async function readApiError(res: Response, fallback = "Não foi possível concluir a operação."): Promise<string> {
+  const raw = await res.text().catch(() => "");
+  if (!raw) return fallback;
+  try {
+    const body = JSON.parse(raw) as { message?: unknown; error?: unknown };
+    if (typeof body.message === "string" && body.message.trim()) return body.message;
+    if (typeof body.error === "string" && body.error.trim()) return describeError(body.error);
+  } catch {
+    /* corpo não é JSON */
+  }
+  return describeError(raw);
+}
