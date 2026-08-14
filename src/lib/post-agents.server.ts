@@ -63,8 +63,17 @@ function isVideoFormat(format: string | null, channels: string[] | null): boolea
  * (fonte única compartilhada com o pipeline de Estratégia). Reexportados aqui
  * para preservar os pontos de importação existentes desta Copy.
  */
-export type { FailureKind } from "@/lib/ai-failures.server";
-export { classifyAiError } from "@/lib/ai-failures.server";
+import {
+  classifyAiError,
+  sleep,
+  SPACING_MS,
+  BACKOFF_MS,
+  type FailureKind,
+} from "@/lib/ai-failures.server";
+
+export { classifyAiError };
+export type { FailureKind };
+
 
 
 async function runStructured<T extends z.ZodTypeAny>(opts: {
