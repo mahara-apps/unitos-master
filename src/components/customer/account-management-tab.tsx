@@ -262,190 +262,177 @@ function AccountInfoCard({
     });
   };
 
-  return (
-    <div className="rounded-xl border border-border/60 bg-card">
-      <div className="border-b border-border/60 px-4 py-3">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-          Gestão da conta
-        </div>
-        <div className="mt-0.5 text-sm font-medium">Informações comerciais</div>
-      </div>
-      <div className="grid grid-cols-3 divide-x divide-border/60 border-b border-border/60 text-center">
-        <KpiCell label="MRR do cliente" value={BRL.format(mrr)} />
-        <KpiCell
-          label="Tempo de casa"
-          value={tenureMonths == null ? "—" : `${tenureMonths} ${tenureMonths === 1 ? "mês" : "meses"}`}
-        />
-        <KpiCell
-          label="Renovação"
-          value={
-            daysToRenewal == null
-              ? "—"
-              : daysToRenewal < 0
-                ? `Vencida há ${Math.abs(daysToRenewal)}d`
-                : `${daysToRenewal} dias`
-          }
-          tone={daysToRenewal != null && daysToRenewal < 30 ? "warn" : "default"}
-        />
-      </div>
-      <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2">
-        <Field label="Valor mensal do contrato">
-          <Input
-            inputMode="decimal"
-            placeholder="0,00"
-            disabled={!canEdit}
-            value={form.monthly_contract_value}
-            onChange={(e) =>
-              setForm((s) => ({ ...s, monthly_contract_value: e.target.value }))
-            }
-          />
-        </Field>
-        <Field label="Margem (%)">
-          <Input
-            inputMode="decimal"
-            placeholder="0,00"
-            disabled={!canEdit}
-            value={form.margin_percent}
-            onChange={(e) => setForm((s) => ({ ...s, margin_percent: e.target.value }))}
-          />
-        </Field>
-        <Field label="Data de início">
-          <Input
-            type="date"
-            disabled={!canEdit}
-            value={form.contract_start_date}
-            onChange={(e) =>
-              setForm((s) => ({ ...s, contract_start_date: e.target.value }))
-            }
-          />
-        </Field>
-        <Field label="Renovação prevista">
-          <Input
-            type="date"
-            disabled={!canEdit}
-            value={form.contract_renewal_date}
-            onChange={(e) =>
-              setForm((s) => ({ ...s, contract_renewal_date: e.target.value }))
-            }
-          />
-        </Field>
-        <Field label="Status contratual">
-          <Select
-            value={form.contract_status}
-            onValueChange={(v) => setForm((s) => ({ ...s, contract_status: v }))}
-            disabled={!canEdit}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(CONTRACT_STATUS_LABEL).map(([k, v]) => (
-                <SelectItem key={k} value={k}>
-                  {v}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field label="Responsável pela conta">
-          <Select
-            value={form.owner_user_id || "__none"}
-            onValueChange={(v) =>
-              setForm((s) => ({ ...s, owner_user_id: v === "__none" ? "" : v }))
-            }
-            disabled={!canEdit}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Selecionar" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none">Sem responsável</SelectItem>
-              {team.map((m) => (
-                <SelectItem key={m.user_id} value={m.user_id}>
-                  {m.full_name || m.user_id.slice(0, 8)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-        <div className="md:col-span-2">
-          <Field label="Notas internas">
-            <Textarea
-              rows={4}
-              disabled={!canEdit}
-              value={form.internal_notes}
-              onChange={(e) => setForm((s) => ({ ...s, internal_notes: e.target.value }))}
-              placeholder="Contexto do contrato, particularidades, histórico comercial…"
-            />
-          </Field>
-        </div>
-      </div>
-      {canEdit && (
-        <div className="flex justify-end gap-2 border-t border-border/60 px-4 py-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!dirty || isSaving}
-            onClick={() => setForm(toForm(account))}
-          >
-            Descartar
-          </Button>
-          <Button size="sm" disabled={!dirty || isSaving} onClick={submit}>
-            {isSaving ? "Salvando…" : "Salvar alterações"}
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function toForm(a: ClientAccount): AccountForm {
-  return {
-    monthly_contract_value:
-      a.monthly_contract_value != null ? String(a.monthly_contract_value) : "",
-    margin_percent: a.margin_percent != null ? String(a.margin_percent) : "",
-    contract_start_date: a.contract_start_date ?? "",
-    contract_renewal_date: a.contract_renewal_date ?? "",
-    contract_status: a.contract_status ?? "ativo",
-    internal_notes: a.internal_notes ?? "",
-    owner_user_id: a.owner_user_id ?? "",
+  const statusTone: Record<string, "emerald" | "amber" | "red" | "slate"> = {
+    ativo: "emerald",
+    pausado: "amber",
+    inadimplente: "red",
+    encerrado: "slate",
+    cancelado: "slate",
   };
-}
+  const tone = statusTone[form.contract_status] ?? "slate";
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="space-y-1.5">
-      <Label className="text-xs">{label}</Label>
-      {children}
-    </div>
+    <>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+        <ProfileSection
+          title="Status da conta"
+          subtitle="Situação contratual e indicadores comerciais"
+          icon={<CircleCheck className="h-4 w-4" />}
+          action={
+            <Badge tone={tone} className="capitalize">
+              {CONTRACT_STATUS_LABEL[form.contract_status as keyof typeof CONTRACT_STATUS_LABEL] ??
+                form.contract_status}
+            </Badge>
+          }
+        >
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <ProfileStat label="MRR do cliente" value={BRL.format(mrr)} tone="emerald" />
+            <ProfileStat
+              label="Tempo de casa"
+              value={
+                tenureMonths == null
+                  ? "—"
+                  : `${tenureMonths} ${tenureMonths === 1 ? "mês" : "meses"}`
+              }
+            />
+            <ProfileStat
+              label="Renovação"
+              value={
+                daysToRenewal == null
+                  ? "—"
+                  : daysToRenewal < 0
+                    ? `Vencida há ${Math.abs(daysToRenewal)}d`
+                    : `${daysToRenewal} dias`
+              }
+              tone={
+                daysToRenewal == null
+                  ? "default"
+                  : daysToRenewal < 0
+                    ? "destructive"
+                    : daysToRenewal < 30
+                      ? "amber"
+                      : "emerald"
+              }
+            />
+          </div>
+          <div className="mt-4">
+            <ProfileFieldGrid>
+              <ProfileField label="Status contratual">
+                <Select
+                  value={form.contract_status}
+                  onValueChange={(v) => setForm((s) => ({ ...s, contract_status: v }))}
+                  disabled={!canEdit}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(CONTRACT_STATUS_LABEL).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>
+                        {v}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </ProfileField>
+              <ProfileField label="Responsável pela conta">
+                <Select
+                  value={form.owner_user_id || "__none"}
+                  onValueChange={(v) =>
+                    setForm((s) => ({ ...s, owner_user_id: v === "__none" ? "" : v }))
+                  }
+                  disabled={!canEdit}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">Sem responsável</SelectItem>
+                    {team.map((m) => (
+                      <SelectItem key={m.user_id} value={m.user_id}>
+                        {m.full_name || m.user_id.slice(0, 8)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </ProfileField>
+            </ProfileFieldGrid>
+          </div>
+        </ProfileSection>
+
+        <ProfileSection
+          title="Contrato"
+          subtitle="Valores, vigência e observações internas"
+          icon={<FileText className="h-4 w-4" />}
+        >
+          <ProfileFieldGrid>
+            <ProfileField label="Valor mensal do contrato" hint="Somente números, em reais.">
+              <Input
+                inputMode="decimal"
+                placeholder="0,00"
+                disabled={!canEdit}
+                value={form.monthly_contract_value}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, monthly_contract_value: e.target.value }))
+                }
+              />
+            </ProfileField>
+            <ProfileField label="Margem (%)">
+              <Input
+                inputMode="decimal"
+                placeholder="0,00"
+                disabled={!canEdit}
+                value={form.margin_percent}
+                onChange={(e) => setForm((s) => ({ ...s, margin_percent: e.target.value }))}
+              />
+            </ProfileField>
+            <ProfileField label="Data de início">
+              <Input
+                type="date"
+                disabled={!canEdit}
+                value={form.contract_start_date}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, contract_start_date: e.target.value }))
+                }
+              />
+            </ProfileField>
+            <ProfileField label="Renovação prevista">
+              <Input
+                type="date"
+                disabled={!canEdit}
+                value={form.contract_renewal_date}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, contract_renewal_date: e.target.value }))
+                }
+              />
+            </ProfileField>
+            <ProfileField label="Notas internas" full>
+              <Textarea
+                rows={4}
+                disabled={!canEdit}
+                value={form.internal_notes}
+                onChange={(e) => setForm((s) => ({ ...s, internal_notes: e.target.value }))}
+                placeholder="Contexto do contrato, particularidades, histórico comercial…"
+                className="resize-y"
+              />
+            </ProfileField>
+          </ProfileFieldGrid>
+        </ProfileSection>
+      </div>
+
+      {canEdit && (
+        <ProfileSaveBar
+          dirty={dirty}
+          saving={isSaving}
+          onSave={submit}
+          onDiscard={() => setForm(toForm(account))}
+          hint="Nenhuma alteração pendente"
+        />
+      )}
+    </>
   );
 }
 
-function KpiCell({
-  label,
-  value,
-  tone = "default",
-}: {
-  label: string;
-  value: string;
-  tone?: "default" | "warn";
-}) {
-  return (
-    <div className="px-4 py-3">
-      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-        {label}
-      </div>
-      <div
-        className={cn(
-          "mt-1 font-mono text-xl font-semibold tabular-nums",
-          tone === "warn" && "text-amber-500",
-        )}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
 
 /* -------------------------------------------------------------------------- */
 /*  Pipeline                                                                  */
