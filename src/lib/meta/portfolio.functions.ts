@@ -1,97 +1,30 @@
 import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import {
+  GetInput,
+  LinkInput,
+  UnlinkInput,
+  RATE_LIMIT_PREFIX,
+  SESSION_INVALID_PREFIX,
+  isMetaRateLimit,
+  nowIso,
+} from "./portfolio-shared";
 
-/**
- * Portfolio flow — after the OAuth callback captures every Page + IG that the
- * Meta user administers into `meta_oauth_sessions`, these server functions let
- * the frontend list that portfolio and pick which accounts (per channel) to
- * bind to the current brand in `social_connections`.
- */
+export type {
+  PortfolioPage,
+  PortfolioThreadsAccount,
+  PortfolioAdAccount,
+  PortfolioResponse,
+} from "./portfolio-shared";
+export { SESSION_INVALID_PREFIX } from "./portfolio-shared";
 
-export type PortfolioPage = {
-  pageId: string;
-  pageName: string;
-  category: string | null;
-  pagePictureUrl: string | null;
-  instagramBusinessId: string | null;
-  instagramUsername: string | null;
-  instagramPictureUrl: string | null;
-};
+import type {
+  PortfolioPage,
+  PortfolioThreadsAccount,
+  PortfolioAdAccount,
+  PortfolioResponse,
+} from "./portfolio-shared";
 
-export type PortfolioThreadsAccount = {
-  threadsUserId: string;
-  username: string | null;
-  name: string | null;
-  pictureUrl: string | null;
-  linkedViaPageId?: string;
-};
-
-export type PortfolioAdAccount = {
-  adAccountId: string;
-  name: string | null;
-  currency: string | null;
-  timezone: string | null;
-  accountStatus: number | null;
-  businessName: string | null;
-};
-
-export type PortfolioResponse = {
-  sessionId: string;
-  metaUser: { id: string; name: string | null; email: string | null };
-  portfolioStatus: "not_loaded" | "loaded" | "empty" | "error" | "rate_limited";
-  portfolioLoadedAt: string | null;
-  portfolioError: string | null;
-  portfolioRateLimitedUntil: string | null;
-  scopes: string[];
-  requestedScopes: string[];
-  missingScopes: string[];
-  pages: PortfolioPage[];
-  pagesCount: number;
-  pagesWithIgCount: number;
-  pagesWithoutIgCount: number;
-  threadsAccounts: PortfolioThreadsAccount[];
-  adAccounts: PortfolioAdAccount[];
-  connected: {
-    facebook: Record<string, string>; // pageId -> connectionId
-    instagram: Record<string, string>; // igId -> connectionId
-    threads: Record<string, string>; // threadsUserId -> connectionId
-    ads: Record<string, string>; // adAccountId -> connectionId
-  };
-  expiresAt: string;
-};
-
-const GetInput = z.object({
-  brandId: z.string().uuid(),
-  sessionId: z.string().uuid(),
-  /**
-   * When set, restricts the Graph API scan to only what the requested
-   * channel needs. Omit to scan everything (used by the unified selector
-   * without a channel context).
-   */
-  channel: z.enum(["facebook", "instagram", "threads", "ads"]).optional(),
-  /**
-   * Force a re-scan even if cached portfolio exists on the session.
-   * Only set by the explicit "Sincronizar novamente" button in the UI —
-   * default flow is cache-first from `meta_oauth_sessions` to avoid
-   * hammering the Graph API and hitting Meta's rate limits.
-   */
-  refresh: z.boolean().optional(),
-});
-
-/** Meta rate-limit error codes (Graph API + Business Manager). */
-const META_RATE_LIMIT_CODES = new Set([4, 17, 32, 613]);
-const RATE_LIMIT_PREFIX = "RATE_LIMIT:";
-/** Prefix used so the UI can restart OAuth instead of showing a dead end. */
-export const SESSION_INVALID_PREFIX = "META_SESSION_INVALID:";
-
-function isMetaRateLimit(err: unknown): boolean {
-  if (!err || typeof err !== "object") return false;
-  const e = err as { status?: number; graph?: { code?: number } };
-  if (e.status === 429) return true;
-  if (e.graph?.code && META_RATE_LIMIT_CODES.has(e.graph.code)) return true;
-  return false;
-}
 
 export const getMetaPortfolio = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -401,14 +334,6 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
     };
   });
 
-const LinkInput = z.object({
-  brandId: z.string().uuid(),
-  sessionId: z.string().uuid(),
-  clientId: z.string().uuid().optional(),
-  /** Page ID (facebook/instagram), Threads user id, or ad account id */
-  targetId: z.string().min(1),
-  channel: z.enum(["facebook", "instagram", "threads", "ads"]),
-});
 
 export const linkMetaAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -572,14 +497,7 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
     return { ok: true, connectionId: upserted.id };
   });
 
-function nowIso(): string {
-  return new Date().toISOString();
-}
 
-const UnlinkInput = z.object({
-  brandId: z.string().uuid(),
-  connectionId: z.string().uuid(),
-});
 
 export const unlinkMetaAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
