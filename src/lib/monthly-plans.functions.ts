@@ -6,7 +6,21 @@ import { loadBriefingContext } from "@/lib/monthly-plan-context.server";
 import { loadStrategyContext } from "@/lib/monthly-plan-strategy.server";
 import { loadPerformanceContext } from "@/lib/monthly-plan-performance.server";
 import { runPlanAgent } from "@/lib/monthly-plan-agent.server";
-import { PLAN_CHANNELS, PLAN_FORMATS, getWeeksInMonth, type PlanChannel } from "@/lib/monthly-plan-fields";
+import { PLAN_CHANNELS, getWeeksInMonth, type PlanChannel } from "@/lib/monthly-plan-fields";
+import {
+  CONTENT_FORMATS,
+  CONTENT_FORMAT_LABEL,
+  describeDistribution,
+  normalizeContentFormat,
+  formatsForChannel,
+  type ContentFormat,
+} from "@/lib/content-formats";
+import {
+  createSlotAllocator,
+  channelTotals,
+  totalSlots,
+  type ChannelFormatQuota,
+} from "@/lib/monthly-plan-distribution";
 import { currentPeriodMonth, loadApprovedOverage } from "@/lib/plan-overage.server";
 
 /* ---------- Types ---------- */
@@ -128,13 +142,16 @@ const GenerateInput = z.object({
   clientId: z.string().uuid(),
   theme: z.string().trim().max(500).optional().default(""),
   briefingId: z.string().uuid().nullable().optional(),
-  /** Seleção opcional do wizard: canais, quantidade e formatos permitidos. */
+  /** Seleção opcional do wizard: canais, quantidade e cotas por formato. */
   selection: z
     .array(
       z.object({
         channel: z.enum(PLAN_CHANNELS),
         quantity: z.number().int().min(1).max(60),
+        /** Formatos permitidos (legado/compatibilidade). */
         formats: z.array(z.string()).default([]),
+        /** Cota por formato canônico: { feed: 4, stories: 4, reels: 2 }. */
+        formatQuotas: z.record(z.string(), z.number().int().min(0).max(60)).optional(),
       }),
     )
     .min(1)
@@ -177,20 +194,55 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
     // Volumetria é obrigatória — sem ela não há como definir quantas peças gerar.
     if (briefingCtx.totalTarget <= 0) throw new Error("volumetry_required");
 
-    // Cotas efetivas: seleção do wizard quando houver, senão a volumetria do briefing.
-    const quota: Record<string, number> = data.selection?.length
-      ? data.selection.reduce<Record<string, number>>((acc, s) => {
-          acc[s.channel] = (acc[s.channel] ?? 0) + s.quantity;
-          return acc;
-        }, {})
-      : { ...briefingCtx.monthlyQuota };
-    const allowedFormats: Record<string, string[]> = {};
-    for (const s of data.selection ?? []) {
-      const fmts = s.formats.filter((f) => (PLAN_FORMATS as readonly string[]).includes(f));
-      if (fmts.length) allowedFormats[s.channel] = fmts;
+    // Cotas efetivas por canal + FORMATO.
+    // Seleção do wizard quando houver; senão a volumetria do briefing.
+    const formatQuota: ChannelFormatQuota = {};
+    if (data.selection?.length) {
+      for (const s of data.selection) {
+        const allowed = formatsForChannel(s.channel);
+        const bucket: Partial<Record<ContentFormat, number>> = {};
+        for (const [rawF, qty] of Object.entries(s.formatQuotas ?? {})) {
+          const f = normalizeContentFormat(rawF);
+          if (!f || !allowed.includes(f)) continue;
+          const n = Math.max(0, Math.round(Number(qty) || 0));
+          if (n > 0) bucket[f] = (bucket[f] ?? 0) + n;
+        }
+        // Sem cota por formato: cai na cota por formato do briefing (ou total).
+        if (!Object.keys(bucket).length) {
+          const fromBriefing = briefingCtx.formatQuota[s.channel] ?? {};
+          const briefingSum = CONTENT_FORMATS.reduce((t, f) => t + (fromBriefing[f] ?? 0), 0);
+          if (briefingSum > 0) {
+            // Reescala proporcionalmente para a quantidade escolhida no wizard.
+            let left = s.quantity;
+            const entries = CONTENT_FORMATS.filter((f) => (fromBriefing[f] ?? 0) > 0);
+            entries.forEach((f, idx) => {
+              const share =
+                idx === entries.length - 1
+                  ? left
+                  : Math.min(left, Math.round((fromBriefing[f]! / briefingSum) * s.quantity));
+              if (share > 0) bucket[f] = share;
+              left -= share;
+            });
+          } else {
+            bucket[allowed[0] ?? "feed"] = s.quantity;
+          }
+        }
+        const existing = formatQuota[s.channel] ?? {};
+        for (const f of CONTENT_FORMATS) {
+          if (bucket[f]) existing[f] = (existing[f] ?? 0) + bucket[f]!;
+        }
+        formatQuota[s.channel] = existing;
+      }
+    } else {
+      for (const c of PLAN_CHANNELS) {
+        const bucket = briefingCtx.formatQuota[c] ?? {};
+        if (CONTENT_FORMATS.some((f) => (bucket[f] ?? 0) > 0)) formatQuota[c] = { ...bucket };
+      }
     }
+
+    const quota = channelTotals(formatQuota);
     const activeChannels = PLAN_CHANNELS.filter((c) => (quota[c] ?? 0) > 0);
-    const totalTarget = activeChannels.reduce((s, c) => s + (quota[c] ?? 0), 0);
+    const totalTarget = totalSlots(formatQuota);
     if (totalTarget <= 0) throw new Error("volumetry_required");
 
     // Respeita a volumetria do briefing: excedentes exigem autorização do gestor.
@@ -260,12 +312,14 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       console.warn("[monthly-plan] brain.getContext failed:", err);
     }
 
-    const distributionText = activeChannels
-      .map((c) => {
-        const fmts = allowedFormats[c];
-        return `  * ${c}: ${quota[c]} posts${fmts?.length ? ` (formatos permitidos: ${fmts.join(", ")})` : ""}`;
-      })
-      .join("\n");
+    // Distribuição canal → formato → quantidade (cotas exatas para a IA).
+    const distributionText = describeDistribution(
+      activeChannels.map((c) => ({
+        channel: c,
+        formats: formatQuota[c] ?? {},
+        total: quota[c] ?? 0,
+      })),
+    );
 
     const audienceOptions = [
       ...(strategy?.personaNames ?? []),
@@ -299,17 +353,17 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
       `- title: uma headline curta (máx 90 chars) que resume a estratégia do mês.`,
       `- description: 2-3 frases explicando o contexto do mês.`,
       `- objectives: 2-4 objetivos claros, separados por quebras de linha.`,
-      `- topics: EXATAMENTE ${totalTarget} ideias de posts, distribuídas por canal conforme a volumetria:\n${distributionText}\n  Cada ideia deve ter:`,
+      `- topics: EXATAMENTE ${totalTarget} ideias de posts, distribuídas por CANAL e FORMATO conforme a volumetria contratada (não altere as quantidades):\n${distributionText}\n  Cada ideia deve ter:`,
       `  * topic_title: título curto e criativo do post`,
-      `  * content_format: OBRIGATÓRIO — um de ${PLAN_FORMATS.map((f) => `"${f}"`).join(", ")}`,
+      `  * content_format: OBRIGATÓRIO — um de ${CONTENT_FORMATS.map((f) => `"${f}"`).join(", ")} (equivalências: ${CONTENT_FORMATS.map((f) => `${f} = ${CONTENT_FORMAT_LABEL[f]}`).join("; ")})`,
       `  * channel: OBRIGATÓRIO — um de ${PLAN_CHANNELS.map((c) => `"${c}"`).join(", ")} (respeitar cotas acima)`,
       `  * angle: gancho estratégico / direcionamento para produção (1-2 frases)`,
       audienceOptions.length
         ? `  * target_audience: OBRIGATÓRIO — persona ou cohort da estratégia ativa (${audienceOptions.slice(0, 8).join(", ")})`
         : `  * target_audience: público-alvo principal da ideia, derivado do briefing`,
       `  * rationale: 1 frase citando a evidência usada (métrica do canal, insight do briefing ou item da estratégia)`,
-      `- Priorize formatos que performaram melhor em cada canal e reduza os que performaram mal.`,
-      `- Balanceie formatos (não use só Reels).`,
+      `- A quantidade por canal + formato é contratual: cumpra exatamente, sem trocar formatos.`,
+      `- Dentro de cada cota, priorize os temas que performaram melhor no canal.`,
       `- Sem markdown, sem prefixos numéricos.`,
       `- Retorne EXATAMENTE um objeto JSON no schema.`,
     ]
@@ -375,26 +429,10 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
     if (planErr) throw planErr;
     const plan = planRow as unknown as MonthlyPlan;
 
-    // Normaliza canal/formato contra as cotas — nunca deixa item incompleto.
-    const remaining: Record<string, number> = { ...quota };
-    const nextChannelWithQuota = (): string => {
-      const found = activeChannels.find((c) => (remaining[c] ?? 0) > 0);
-      return found ?? activeChannels[0] ?? "instagram";
-    };
+    // Aloca canal + formato por vaga real da volumetria (determinístico).
+    const allocator = createSlotAllocator(formatQuota);
     const topicRows = parsed.topics.slice(0, totalTarget).map((t, i) => {
-      const raw = (t.channel ?? "").toString().trim().toLowerCase();
-      const channel =
-        (activeChannels as readonly string[]).includes(raw) && (remaining[raw] ?? 0) > 0
-          ? raw
-          : nextChannelWithQuota();
-      remaining[channel] = (remaining[channel] ?? 0) - 1;
-      const fmt = (t.content_format ?? "").trim();
-      const allowed = allowedFormats[channel];
-      const format = allowed?.length
-        ? (allowed.includes(fmt) ? fmt : allowed[i % allowed.length]!)
-        : (PLAN_FORMATS as readonly string[]).includes(fmt)
-          ? fmt
-          : "Post estático";
+      const { channel, format } = allocator.allocate(t.channel, t.content_format);
       return {
         monthly_plan_id: plan.id,
         topic_title: t.topic_title.slice(0, 240),
@@ -455,6 +493,10 @@ export const getPlanVolumetryFn = createServerFn({ method: "POST" })
       totalTarget: ctx.totalTarget,
       hasBriefing: ctx.text.trim().length > 0,
       formatsByChannel: ctx.formatsByChannel,
+      /** canal → formato → quantidade MENSAL (fonte da distribuição da pauta). */
+      formatQuota: ctx.formatQuota,
+      /** canais com breakdown explícito salvo no briefing. */
+      channelsWithBreakdown: ctx.channelsWithBreakdown,
       generatedThisMonth,
       generatedTotal,
       approvedOverage,

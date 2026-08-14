@@ -23,12 +23,25 @@ import { Stepper } from "@/components/ui/stepper";
 import {
   PLAN_CHANNELS,
   PLAN_CHANNEL_LABEL,
-  PLAN_FORMATS,
   type PlanChannel,
 } from "@/lib/monthly-plan-fields";
+import {
+  CONTENT_FORMATS,
+  CONTENT_FORMAT_LABEL,
+  breakdownFromTotal,
+  formatsForChannel,
+  sumChannelBreakdown,
+  type ContentFormat,
+} from "@/lib/content-formats";
 import type { PlanVolumetry } from "./volumetry-cards";
 
-export type GenerateSelection = { channel: PlanChannel; quantity: number; formats: string[] };
+export type GenerateSelection = {
+  channel: PlanChannel;
+  quantity: number;
+  formats: string[];
+  /** Cota por formato canônico — fonte da distribuição na geração. */
+  formatQuotas: Partial<Record<ContentFormat, number>>;
+};
 
 export type OverageItem = {
   channel: PlanChannel;
@@ -37,7 +50,7 @@ export type OverageItem = {
   overage: number;
 };
 
-const STEPS = ["Escopo", "Canais e volume", "Formatos"] as const;
+const STEPS = ["Escopo", "Canais", "Volumetria por formato"] as const;
 
 export function GeneratePlanWizard({
   open,
@@ -70,8 +83,10 @@ export function GeneratePlanWizard({
   const [theme, setTheme] = useState("");
   const [briefingId, setBriefingId] = useState("__none");
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
-  const [qty, setQty] = useState<Record<string, number>>({});
-  const [formats, setFormats] = useState<Record<string, string[]>>({});
+  /** Fonte de verdade da seleção: canal → formato → quantidade. */
+  const [fmtQty, setFmtQty] = useState<
+    Record<string, Partial<Record<ContentFormat, number>>>
+  >({});
   const [justification, setJustification] = useState("");
 
   const channels = useMemo(
@@ -79,30 +94,46 @@ export function GeneratePlanWizard({
     [volumetry],
   );
 
-  // Pré-preenche com o disponível do mês e os formatos do briefing.
+  // Pré-preenche com o disponível do mês, respeitando o breakdown do briefing.
   useEffect(() => {
     if (!open || !volumetry) return;
     const nextEnabled: Record<string, boolean> = {};
-    const nextQty: Record<string, number> = {};
-    const nextFormats: Record<string, string[]> = {};
+    const nextFmt: Record<string, Partial<Record<ContentFormat, number>>> = {};
     for (const c of channels) {
       const quota = volumetry.monthlyQuota[c] ?? 0;
       const available = Math.max(0, quota - (volumetry.generatedThisMonth[c] ?? 0));
       nextEnabled[c] = available > 0;
-      nextQty[c] = available > 0 ? available : quota;
-      const fromBriefing = (volumetry.formatsByChannel[c] ?? []).filter((f) =>
-        (PLAN_FORMATS as readonly string[]).includes(f),
-      );
-      nextFormats[c] = fromBriefing.length ? fromBriefing : [...PLAN_FORMATS];
+      const target = available > 0 ? available : quota;
+      const briefingBucket = (volumetry.formatQuota?.[c] ?? {}) as Partial<
+        Record<ContentFormat, number>
+      >;
+      const briefingTotal = sumChannelBreakdown(briefingBucket);
+      if (briefingTotal > 0 && target > 0) {
+        // Reescala o breakdown do briefing para o volume disponível no mês.
+        const bucket: Partial<Record<ContentFormat, number>> = {};
+        const entries = CONTENT_FORMATS.filter((f) => (briefingBucket[f] ?? 0) > 0);
+        let left = target;
+        entries.forEach((f, idx) => {
+          const share =
+            idx === entries.length - 1
+              ? left
+              : Math.min(left, Math.round((briefingBucket[f]! / briefingTotal) * target));
+          if (share > 0) bucket[f] = share;
+          left -= share;
+        });
+        nextFmt[c] = bucket;
+      } else {
+        nextFmt[c] = breakdownFromTotal(c, target, volumetry.formatsByChannel[c] ?? []);
+      }
     }
     setEnabled(nextEnabled);
-    setQty(nextQty);
-    setFormats(nextFormats);
+    setFmtQty(nextFmt);
     setStep(0);
   }, [open, volumetry, channels]);
 
-  const activeChannels = channels.filter((c) => enabled[c] && (qty[c] ?? 0) > 0);
-  const total = activeChannels.reduce((s, c) => s + (qty[c] ?? 0), 0);
+  const qtyOf = (c: string) => sumChannelBreakdown(fmtQty[c]);
+  const activeChannels = channels.filter((c) => enabled[c] && qtyOf(c) > 0);
+  const total = activeChannels.reduce((s, c) => s + qtyOf(c), 0);
   const allowanceFor = (c: PlanChannel) =>
     Math.max(
       0,
@@ -113,16 +144,19 @@ export function GeneratePlanWizard({
   const overageItems: OverageItem[] = activeChannels
     .map((c) => {
       const allowance = allowanceFor(c);
-      const requested = qty[c] ?? 0;
+      const requested = qtyOf(c);
       return { channel: c, quota: allowance, requested, overage: requested - allowance };
     })
     .filter((it) => it.overage > 0);
-  const missingFormats = activeChannels.filter((c) => (formats[c] ?? []).length === 0);
+  const missingFormats = channels.filter((c) => enabled[c] && qtyOf(c) === 0);
 
-  const toggleFormat = (c: string, f: string) =>
-    setFormats((prev) => {
-      const cur = prev[c] ?? [];
-      return { ...prev, [c]: cur.includes(f) ? cur.filter((x) => x !== f) : [...cur, f] };
+  const setFormatQty = (c: string, f: ContentFormat, n: number) =>
+    setFmtQty((prev) => {
+      const bucket = { ...(prev[c] ?? {}) };
+      const qty = Math.max(0, Math.min(60, Math.round(n || 0)));
+      if (qty > 0) bucket[f] = qty;
+      else delete bucket[f];
+      return { ...prev, [c]: bucket };
     });
 
   const submit = () =>
@@ -131,8 +165,9 @@ export function GeneratePlanWizard({
       briefingId: briefingId === "__none" ? null : briefingId,
       selection: activeChannels.map((c) => ({
         channel: c,
-        quantity: qty[c] ?? 0,
-        formats: formats[c] ?? [],
+        quantity: qtyOf(c),
+        formats: CONTENT_FORMATS.filter((f) => (fmtQty[c]?.[f] ?? 0) > 0),
+        formatQuotas: fmtQty[c] ?? {},
       })),
     });
 
@@ -229,14 +264,9 @@ export function GeneratePlanWizard({
                           cota {quota}/mês · {generated} gerados · {available} disponíveis
                         </div>
                       </div>
-                      <Stepper
-                        value={qty[c] ?? 0}
-                        min={0}
-                        max={60}
-                        label={`quantidade ${PLAN_CHANNEL_LABEL[c]}`}
-                        onChange={(n) => setQty((p) => ({ ...p, [c]: n }))}
-                        className={enabled[c] ? "" : "pointer-events-none opacity-40"}
-                      />
+                      <span className="text-xs font-semibold tabular-nums text-foreground/80">
+                        {qtyOf(c)} peças
+                      </span>
                     </div>
                   );
                 })}
@@ -259,37 +289,37 @@ export function GeneratePlanWizard({
             {step === 2 ? (
               <div className="space-y-3 py-2">
                 <p className="text-xs text-muted-foreground">
-                  Selecione os formatos permitidos para cada canal.
+                  Defina quantas peças por formato a IA deve gerar em cada canal.
                 </p>
-                {activeChannels.map((c) => (
-                  <div key={c} className="rounded-lg border border-border/60 bg-muted/20 p-3">
-                    <div className="mb-2 flex items-center justify-between">
-                      <span className="text-sm font-medium">{PLAN_CHANNEL_LABEL[c]}</span>
-                      <span className="text-[11px] text-muted-foreground tabular-nums">
-                        {qty[c]} peças
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {PLAN_FORMATS.map((f) => {
-                        const on = (formats[c] ?? []).includes(f);
-                        return (
-                          <button
+                {channels
+                  .filter((c) => enabled[c])
+                  .map((c) => (
+                    <div key={c} className="rounded-lg border border-border/60 bg-muted/20 p-3">
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="text-sm font-medium">{PLAN_CHANNEL_LABEL[c]}</span>
+                        <span className="text-[11px] text-muted-foreground tabular-nums">
+                          {qtyOf(c)} peças
+                        </span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {formatsForChannel(c).map((f) => (
+                          <div
                             key={f}
-                            type="button"
-                            onClick={() => toggleFormat(c, f)}
-                            className={`rounded-full border px-2.5 py-1 text-[11px] transition ${
-                              on
-                                ? "border-primary/40 bg-primary/10 text-primary"
-                                : "border-border text-muted-foreground hover:bg-muted"
-                            }`}
+                            className="flex items-center justify-between gap-3 rounded-md border border-border/40 bg-background/40 px-2.5 py-1.5"
                           >
-                            {f}
-                          </button>
-                        );
-                      })}
+                            <span className="text-xs">{CONTENT_FORMAT_LABEL[f]}</span>
+                            <Stepper
+                              value={fmtQty[c]?.[f] ?? 0}
+                              min={0}
+                              max={60}
+                              label={`${CONTENT_FORMAT_LABEL[f]} em ${PLAN_CHANNEL_LABEL[c]}`}
+                              onChange={(n) => setFormatQty(c, f, n)}
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
                 {missingFormats.length ? (
                   <p className="text-[11px] text-amber-400">
                     Selecione ao menos um formato para:{" "}

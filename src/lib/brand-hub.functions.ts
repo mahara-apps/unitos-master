@@ -35,6 +35,12 @@ export type BrandHubData = {
   };
   /** Base do volume informado: por semana (padrão) ou por mês. */
   volumetry_basis?: "weekly" | "monthly";
+  /**
+   * Volumetria por canal + FORMATO (fonte de verdade operacional).
+   * Chaves de formato canônicas: feed | stories | reels | carrossel.
+   * `volumetry[canal]` é mantido em sincronia como a SOMA deste breakdown.
+   */
+  volumetry_breakdown?: Record<string, Record<string, number>>;
   formats?: {
     instagram?: string[];
     tiktok?: string[];
@@ -151,6 +157,10 @@ const HubPatch = Scope.extend({
         })
         .optional(),
       volumetry_basis: z.enum(["weekly", "monthly"]).optional(),
+      /** canal → formato canônico → quantidade. */
+      volumetry_breakdown: z
+        .record(z.string().max(24), z.record(z.string().max(24), z.number().int().min(0).max(200)))
+        .optional(),
       formats: z
         .object({
           instagram: z.array(z.string().max(24)).max(8).optional(),
@@ -195,6 +205,19 @@ export const updateBrandHub = createServerFn({ method: "POST" })
       .maybeSingle();
     const prev = ((current as { brand_hub?: BrandHubData } | null)?.brand_hub ?? {}) as BrandHubData;
     const next = { ...prev, ...data.patch } as BrandHubData;
+    // Sincroniza volumetry (total por canal) com o breakdown por formato:
+    // o total deixa de ser editável isoladamente quando há breakdown.
+    if (data.patch.volumetry_breakdown) {
+      const { normalizeVolumetryBreakdown, deriveVolumetryTotals } = await import(
+        "@/lib/content-formats"
+      );
+      const breakdown = normalizeVolumetryBreakdown(data.patch.volumetry_breakdown);
+      next.volumetry_breakdown = breakdown as Record<string, Record<string, number>>;
+      next.volumetry = deriveVolumetryTotals(
+        breakdown,
+        (next.volumetry ?? {}) as Record<string, number | undefined>,
+      ) as BrandHubData["volumetry"];
+    }
     const { error } = await context.supabase
       .from("clients")
       .update({ brand_hub: next } as never)

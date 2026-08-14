@@ -7,12 +7,23 @@ import {
   type PlanChannel,
   type VolumetryBasis,
 } from "@/lib/monthly-plan-fields";
+import {
+  CONTENT_FORMATS,
+  CONTENT_FORMAT_LABEL,
+  breakdownFromTotal,
+  normalizeVolumetryBreakdown,
+  sumChannelBreakdown,
+  type ContentFormat,
+  type VolumetryBreakdown,
+} from "@/lib/content-formats";
 
 /**
  * Contexto de briefing consolidado do cliente (sempre usado pela IA na Pauta).
  * Monta o texto a partir de `clients` + `clients.brand_hub` + resumos de
  * `client_documents.ai_summary`, no mesmo espírito do pipeline de Estratégia IA.
  */
+
+export type FormatQuota = Partial<Record<ContentFormat, number>>;
 
 export type BriefingContext = {
   text: string;
@@ -25,7 +36,18 @@ export type BriefingContext = {
   totalTarget: number;
   /** Formatos preferidos por canal, conforme briefing (pode vir vazio). */
   formatsByChannel: Record<PlanChannel, string[]>;
+  /**
+   * Distribuição canal → formato → quantidade MENSAL (fonte operacional).
+   * Quando `clients.brand_hub.volumetry_breakdown` existe, vem dele;
+   * senão é derivada do total + formatos preferidos (compatibilidade).
+   */
+  formatQuota: Record<PlanChannel, FormatQuota>;
+  /** Distribuição na base informada (semanal ou mensal), sem conversão. */
+  formatBreakdownRaw: VolumetryBreakdown;
+  /** Canais que já possuem breakdown explícito salvo pelo gestor. */
+  channelsWithBreakdown: PlanChannel[];
 };
+
 
 function pushLine(lines: string[], label: string, value: unknown) {
   if (value == null) return;
@@ -120,15 +142,46 @@ export async function loadBriefingContext(
   pushLine(lines, "Do", doDont.do);
   pushLine(lines, "Don't", doDont.dont);
 
-  // Metas & volumetria
+  // Metas & volumetria (canal → formato → quantidade)
   const vol = (hub.volumetry ?? {}) as Record<string, number | undefined>;
   const volumetryBasis = normalizeVolumetryBasis(hub.volumetry_basis);
+  const formats = (hub.formats ?? {}) as Record<string, string[] | undefined>;
+  const breakdownRaw = normalizeVolumetryBreakdown(hub.volumetry_breakdown);
+  const channelsWithBreakdown = PLAN_CHANNELS.filter(
+    (c) => sumChannelBreakdown(breakdownRaw[c]) > 0,
+  );
+
   const weekly = {} as Record<PlanChannel, number>;
   const monthlyQuota = {} as Record<PlanChannel, number>;
+  const formatQuota = {} as Record<PlanChannel, FormatQuota>;
   for (const c of PLAN_CHANNELS) {
-    const q = resolveQuota(Number(vol[c] ?? 0) || 0, volumetryBasis, weeksPerMonth);
+    const bucketRaw = breakdownRaw[c];
+    const hasBreakdown = sumChannelBreakdown(bucketRaw) > 0;
+    // Total do canal: soma do breakdown quando existir; senão o total legado.
+    const rawTotal = hasBreakdown ? sumChannelBreakdown(bucketRaw) : Number(vol[c] ?? 0) || 0;
+    const q = resolveQuota(rawTotal, volumetryBasis, weeksPerMonth);
     weekly[c] = q.perWeek;
     monthlyQuota[c] = q.perMonth;
+
+    // Quotas por formato já convertidas para o mês.
+    const monthlyBucket: FormatQuota = {};
+    if (hasBreakdown) {
+      for (const f of CONTENT_FORMATS) {
+        const v = bucketRaw?.[f] ?? 0;
+        if (v > 0) monthlyBucket[f] = resolveQuota(v, volumetryBasis, weeksPerMonth).perMonth;
+      }
+      // Garante que a soma por formato feche com o total mensal do canal.
+      const sum = sumChannelBreakdown(monthlyBucket);
+      const diff = monthlyQuota[c] - sum;
+      if (diff !== 0) {
+        const first = CONTENT_FORMATS.find((f) => (monthlyBucket[f] ?? 0) > 0);
+        if (first) monthlyBucket[first] = Math.max(0, (monthlyBucket[first] ?? 0) + diff);
+      }
+    } else if (monthlyQuota[c] > 0) {
+      // Compatibilidade: cliente sem breakdown → deriva do total + preferidos.
+      Object.assign(monthlyBucket, breakdownFromTotal(c, monthlyQuota[c], formats[c] ?? []));
+    }
+    formatQuota[c] = monthlyBucket;
   }
   const totalTarget = PLAN_CHANNELS.reduce((s, c) => s + monthlyQuota[c], 0);
 
@@ -143,7 +196,18 @@ export async function loadBriefingContext(
       )
       .join(", "),
   );
-  const formats = (hub.formats ?? {}) as Record<string, string[] | undefined>;
+  pushLine(
+    lines,
+    "Volumetria por formato (mês)",
+    PLAN_CHANNELS.filter((c) => sumChannelBreakdown(formatQuota[c]) > 0)
+      .map(
+        (c) =>
+          `${c}: ${CONTENT_FORMATS.filter((f) => (formatQuota[c]![f] ?? 0) > 0)
+            .map((f) => `${CONTENT_FORMAT_LABEL[f]} ${formatQuota[c]![f]}`)
+            .join(", ")}`,
+      )
+      .join("; "),
+  );
   pushLine(
     lines,
     "Formatos por rede",
@@ -152,6 +216,7 @@ export async function loadBriefingContext(
       .map(([k, v]) => `${k}: ${(v as string[]).join("/")}`)
       .join("; "),
   );
+
   pushLine(lines, "Metas", hub.goals);
 
   const socials = (row.socials ?? {}) as Record<string, string | null>;
@@ -198,5 +263,8 @@ export async function loadBriefingContext(
     volumetryBasis,
     totalTarget,
     formatsByChannel,
+    formatQuota,
+    formatBreakdownRaw: breakdownRaw,
+    channelsWithBreakdown,
   };
 }

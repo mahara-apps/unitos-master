@@ -59,8 +59,8 @@ import { ContextSourcesRow } from "@/components/monthly-plan/context-sources-row
 import {
   PLAN_CHANNELS,
   PLAN_CHANNEL_LABEL as CHANNEL_LABEL,
-  PLAN_FORMATS,
 } from "@/lib/monthly-plan-fields";
+import { CONTENT_FORMATS, CONTENT_FORMAT_LABEL, normalizeContentFormat } from "@/lib/content-formats";
 import {
   approveMonthlyPlanFn,
   createTopicFn,
@@ -1143,7 +1143,7 @@ function TopicCard({
           </SelectContent>
         </Select>
         <Select
-          value={topic.content_format ?? ""}
+          value={normalizeContentFormat(topic.content_format) ?? ""}
           onValueChange={(v) => onPatch({ content_format: v })}
         >
           <SelectTrigger
@@ -1154,9 +1154,9 @@ function TopicCard({
             <SelectValue placeholder="Formato *" />
           </SelectTrigger>
           <SelectContent>
-            {PLAN_FORMATS.map((f) => (
+            {CONTENT_FORMATS.map((f) => (
               <SelectItem key={f} value={f}>
-                {f}
+                {CONTENT_FORMAT_LABEL[f]}
               </SelectItem>
             ))}
           </SelectContent>
