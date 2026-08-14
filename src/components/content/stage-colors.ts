@@ -105,4 +105,3 @@ export const CHANNEL_STYLES: Record<string, string> = {
     "border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300",
 };
 
-export const FORMATS = ["Feed", "Reels", "Story", "Carrossel"] as const;
