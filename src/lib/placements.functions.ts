@@ -44,23 +44,8 @@ export type Placement = {
   external_ref: string | null;
 };
 
-const CopyOverrideSchema = z.object({
-  hook: z.string().optional(),
-  headline: z.string().optional(),
-  copy: z.string().optional(),
-  cta: z.string().optional(),
-  hashtags: z.string().optional(),
-});
 
-const PlacementInput = z.object({
-  format: z.enum(PLACEMENT_FORMATS),
-  scheduled_at: z.string().nullable().optional(),
-  copy_override: CopyOverrideSchema.nullable().optional(),
-  media: z
-    .array(z.object({ path: z.string(), type: z.string().optional(), name: z.string().optional() }))
-    .optional(),
-  is_primary: z.boolean().optional(),
-});
+
 
 export const listPlacementsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
