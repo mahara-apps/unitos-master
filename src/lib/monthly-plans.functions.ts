@@ -22,6 +22,11 @@ import {
   type ChannelFormatQuota,
 } from "@/lib/monthly-plan-distribution";
 import { currentPeriodMonth, loadApprovedOverage } from "@/lib/plan-overage.server";
+import {
+  acquirePlanGenerationLock,
+  releasePlanGenerationLock,
+} from "@/lib/monthly-plan-lock.server";
+
 
 /* ---------- Types ---------- */
 
@@ -40,13 +45,18 @@ export type GenerateMonthlyPlanResult =
   | { ok: true; data: MonthlyPlanWithTopics }
   | {
       ok: false;
-      code: "ai_provider_not_configured" | "ai_provider_key_missing" | "ai_model_unavailable";
+      code:
+        | "ai_provider_not_configured"
+        | "ai_provider_key_missing"
+        | "ai_model_unavailable"
+        | "generation_in_progress";
     }
   | {
       ok: false;
       code: "overage_not_authorized";
       overage: Array<{ channel: PlanChannel; quota: number; requested: number; overage: number }>;
     };
+
 
 
 export type MonthlyPlan = {
