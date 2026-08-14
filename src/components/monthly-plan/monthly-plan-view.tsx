@@ -303,14 +303,18 @@ export function MonthlyPlanView({
       planId={planId}
       brandId={brandId}
       clientId={clientId}
-      onBack={() => setPlanId(null)}
+      onBack={() => {
+        setWizardOpen(false);
+        setPlanId(null);
+      }}
       onDiscarded={() => {
-
+        setWizardOpen(false);
         setPlanId(null);
         setTheme("");
         setBriefingId("__none");
         qc.invalidateQueries({ queryKey: ["monthly-plans", "list", brandId, clientId] });
       }}
+
     />
   );
 }
