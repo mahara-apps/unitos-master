@@ -298,11 +298,15 @@ export function NewCustomerWizard({ brandId, open, onOpenChange }: NewCustomerWi
       });
       return client as { id: string; name: string };
     },
-    onSuccess: async (client) => {
-      await qc.invalidateQueries({ queryKey: ["clients", brandId] });
-      setCreated({ id: client.id, name: client.name });
+    onSuccess: (client) => {
+      // Mostra a tela de sucesso IMEDIATAMENTE, antes de qualquer refetch,
+      // para evitar um estado vazio/congelado entre o submit e a transição.
+      const c = client as { id: string; name: string };
+      setCreated({ id: c.id, name: c.name });
       setStep(3);
       toast.success("Cliente criado com sucesso.");
+      // Invalida a lista em background (não bloqueia a UI).
+      void qc.invalidateQueries({ queryKey: ["clients", brandId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
