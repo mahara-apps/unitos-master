@@ -36,12 +36,14 @@ function MetricCard({
   quota,
   generated,
   emphasis,
+  breakdown,
 }: {
   label: string;
   sub?: string;
   quota: number;
   generated: number;
   emphasis?: boolean;
+  breakdown?: Partial<Record<ContentFormat, number>>;
 }) {
   const available = Math.max(0, quota - generated);
   const pct = quota > 0 ? Math.min(100, Math.round((generated / quota) * 100)) : 0;
