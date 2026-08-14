@@ -95,6 +95,9 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
           clientId,
           patch: {
             name: form.name.trim() || undefined,
+            legal_name: form.legal_name.trim() || null,
+            cnpj: form.cnpj.trim() || null,
+            description: form.description.trim() || null,
             niche: form.niche.trim() || null,
             website: form.website.trim() || null,
             address: form.address.trim() || null,
