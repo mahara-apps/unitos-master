@@ -82,6 +82,9 @@ const GetInput = z.object({
 /** Meta rate-limit error codes (Graph API + Business Manager). */
 const META_RATE_LIMIT_CODES = new Set([4, 17, 32, 613]);
 const RATE_LIMIT_PREFIX = "RATE_LIMIT:";
+/** Prefix used so the UI can restart OAuth instead of showing a dead end. */
+export const SESSION_INVALID_PREFIX = "META_SESSION_INVALID:";
+
 function isMetaRateLimit(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
   const e = err as { status?: number; graph?: { code?: number } };
