@@ -100,15 +100,89 @@ function instantiateModel(
 
 type ModelV2 = Extract<LanguageModel, { doGenerate: unknown }>;
 
+type UsageLike = {
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  promptTokens?: number | null;
+  completionTokens?: number | null;
+} | null | undefined;
+
+function readUsage(usage: UsageLike): { inTok: number; outTok: number } {
+  return {
+    inTok: Number(usage?.inputTokens ?? usage?.promptTokens ?? 0) || 0,
+    outTok: Number(usage?.outputTokens ?? usage?.completionTokens ?? 0) || 0,
+  };
+}
+
 /**
- * Envolve o modelo: se o provedor rejeitar por modelo descontinuado /
- * indisponível, tenta o próximo da cadeia de fallback do papel, promove o
- * modelo no catálogo e refaz a chamada — em vez de derrubar o job.
+ * Envolve o modelo com duas responsabilidades:
+ * 1. fallback: se o provedor rejeitar por modelo descontinuado/indisponível,
+ *    tenta o próximo da cadeia do papel e promove o modelo no catálogo;
+ * 2. medição: grava tokens, custo e sucesso/erro em `brand_ai_usage` para
+ *    toda chamada — inclusive streaming — sem tocar nos pontos de chamada.
  */
-function withModelFallback(
+function withModelInstrumentation(
   base: ModelV2,
-  ctx: { provider: ProviderName; role: ProviderRole; apiKey: string },
+  ctx: {
+    provider: ProviderName;
+    role: ProviderRole;
+    apiKey: string;
+    brandId: string;
+    usage?: AiUsageContext;
+  },
 ): ModelV2 {
+  const log = (
+    modelId: string,
+    inTok: number,
+    outTok: number,
+    success: boolean,
+    errorMessage?: string | null,
+  ) => {
+    void recordAiUsage({
+      brandId: ctx.brandId,
+      model: modelId,
+      inputTokens: inTok,
+      outputTokens: outTok,
+      success,
+      ...(errorMessage ? { errorMessage } : {}),
+      agent: ctx.usage?.agent ?? `${ctx.role}.${ctx.provider}`,
+      clientId: ctx.usage?.clientId ?? null,
+      userId: ctx.usage?.userId ?? null,
+    });
+  };
+
+  /** Conta tokens ao final do stream sem consumir/alterar o conteúdo. */
+  const instrumentStream = (
+    result: Awaited<ReturnType<ModelV2["doStream"]>>,
+    modelId: string,
+  ): Awaited<ReturnType<ModelV2["doStream"]>> => {
+    let inTok = 0;
+    let outTok = 0;
+    let streamError: string | null = null;
+    const meter = new TransformStream<unknown, unknown>({
+      transform(chunk, controller) {
+        const part = chunk as { type?: string; usage?: UsageLike; error?: unknown };
+        if (part?.type === "finish" && part.usage) {
+          const u = readUsage(part.usage);
+          inTok = u.inTok || inTok;
+          outTok = u.outTok || outTok;
+        }
+        if (part?.type === "error") {
+          streamError =
+            part.error instanceof Error ? part.error.message : String(part.error ?? "stream error");
+        }
+        controller.enqueue(chunk);
+      },
+      flush() {
+        log(modelId, inTok, outTok, !streamError, streamError);
+      },
+    });
+    return {
+      ...result,
+      stream: (result.stream as ReadableStream<unknown>).pipeThrough(meter),
+    } as Awaited<ReturnType<ModelV2["doStream"]>>;
+  };
+
   const attempt = async <T,>(
     op: "doGenerate" | "doStream",
     options: Parameters<ModelV2["doGenerate"]>[0],
@@ -116,25 +190,41 @@ function withModelFallback(
     const tried: string[] = [base.modelId];
     let current: ModelV2 = base;
     for (;;) {
+      const modelId = tried[tried.length - 1] ?? base.modelId;
       try {
-        return (await (current[op] as (o: unknown) => Promise<unknown>)(options)) as T;
+        const out = (await (current[op] as (o: unknown) => Promise<unknown>)(options)) as T;
+        if (op === "doStream") {
+          return instrumentStream(
+            out as Awaited<ReturnType<ModelV2["doStream"]>>,
+            modelId,
+          ) as T;
+        }
+        const { inTok, outTok } = readUsage(
+          (out as { usage?: UsageLike }).usage,
+        );
+        log(modelId, inTok, outTok, true);
+        return out;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        if (!isModelUnavailableError(msg)) throw err;
+        if (!isModelUnavailableError(msg)) {
+          log(modelId, 0, 0, false, msg);
+          throw err;
+        }
         const next = nextFallbackModel(ctx.provider, ctx.role, tried);
         if (!next) {
+          log(modelId, 0, 0, false, msg);
           throw new Error(
-            `ai_model_unavailable:${ctx.provider}:${ctx.role}: o modelo ${tried[tried.length - 1]} foi descontinuado pelo provedor e não há substituto configurado. Detalhe: ${msg}`,
+            `ai_model_unavailable:${ctx.provider}:${ctx.role}: o modelo ${modelId} foi descontinuado pelo provedor e não há substituto configurado. Detalhe: ${msg}`,
           );
         }
         console.warn(
-          `[ai-provider] ${ctx.provider}/${ctx.role}: ${tried[tried.length - 1]} indisponível — tentando ${next}`,
+          `[ai-provider] ${ctx.provider}/${ctx.role}: ${modelId} indisponível — tentando ${next}`,
         );
         await saveCatalogOverride({
           provider: ctx.provider,
           role: ctx.role,
           modelId: next,
-          replacedModelId: tried[tried.length - 1] ?? null,
+          replacedModelId: modelId,
           reason: msg,
         });
         tried.push(next);
@@ -153,8 +243,37 @@ function withModelFallback(
       attempt<Awaited<ReturnType<ModelV2["doGenerate"]>>>("doGenerate", options),
     doStream: (options: Parameters<ModelV2["doStream"]>[0]) =>
       attempt<Awaited<ReturnType<ModelV2["doStream"]>>>("doStream", options),
-
   } as ModelV2;
+}
+
+/**
+ * Teto mensal: bloqueia a chamada quando a marca/cliente estourou o orçamento.
+ * Best-effort — falha de RPC não impede a geração.
+ */
+async function assertBudget(
+  supabase: SupabaseClient,
+  brandId: string,
+  usage?: AiUsageContext,
+): Promise<void> {
+  try {
+    const { data } = await supabase.rpc("check_ai_usage_budget", {
+      _brand_id: brandId,
+      _client_id: usage?.clientId ?? null,
+      _user_id: usage?.userId ?? null,
+    });
+    const b = data as
+      | { allowed?: boolean; blocked_by?: string; limit_usd?: number; spent_usd?: number }
+      | null;
+    if (b && b.allowed === false) {
+      throw new Error(
+        `ai_budget_exceeded:${b.blocked_by ?? "brand"}:${b.spent_usd ?? 0}:${b.limit_usd ?? 0}`,
+      );
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.startsWith("ai_budget_exceeded")) throw err;
+    console.warn("[ai-provider] check_ai_usage_budget falhou", msg);
+  }
 }
 
 /**
@@ -166,6 +285,7 @@ export async function getBrandAiModel(
   brandId: string,
   kind: ProviderKind = "text",
   role: ProviderRole = "operational",
+  usage?: AiUsageContext,
 ): Promise<BrandAiModel> {
   const { provider, apiKey } = await getBrandProviderKey(supabase, brandId, kind);
   const modelId = await resolveModel(provider, role);
@@ -175,11 +295,20 @@ export async function getBrandAiModel(
     );
   }
 
+  await assertBudget(supabase, brandId, usage);
+
   const base = instantiateModel(provider, apiKey, modelId) as ModelV2;
-  const model = withModelFallback(base, { provider, role, apiKey });
+  const model = withModelInstrumentation(base, {
+    provider,
+    role,
+    apiKey,
+    brandId,
+    ...(usage ? { usage } : {}),
+  });
 
   return { provider, modelId, model };
 }
+
 
 
 /* ------------------------------------------------------------------ */
