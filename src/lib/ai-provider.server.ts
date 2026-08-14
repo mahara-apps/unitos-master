@@ -6,9 +6,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptCredential } from "./credentials-crypto.server";
 import {
   resolveModel,
+  nextFallbackModel,
+  saveCatalogOverride,
+  isModelUnavailableError,
   type ProviderName,
   type ProviderRole,
 } from "./ai-models-catalog.server";
+
 import { IMAGE_PROVIDERS, supportsKind } from "./ai-capabilities";
 
 export type { ProviderName, ProviderRole };
