@@ -1,10 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { waitUntil } from "@/lib/wait-until.server";
 import { createClient } from "@supabase/supabase-js";
-import { streamText } from "ai";
+import { generateText } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import { getBrandAiModelAdmin } from "@/lib/ai-provider.server";
+import {
+  classifyAiError,
+  unwrapAiError,
+  FAILURE_MESSAGE_PT,
+  SPACING_MS,
+  BACKOFF_MS,
+  sleep,
+  type FailureKind,
+} from "@/lib/ai-failures.server";
+
 
 // Two-phase pipeline — Phase 1 (Strategy).
 // Executa briefing → voz → personas → cohorts → SWOT, mas UMA etapa por
