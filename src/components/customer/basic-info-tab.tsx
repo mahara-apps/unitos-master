@@ -2,14 +2,21 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Lock } from "lucide-react";
+import { AtSign, Building2, Lock, Share2, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  ProfileField,
+  ProfileFieldGrid,
+  ProfilePageHeader,
+  ProfileSection,
+  ProfileSaveBar,
+  ProfileSectionsSkeleton,
+} from "@/components/customer/ui/profile-ui";
 import { listClients, listMyBrands, updateClient } from "@/lib/workspace.functions";
 import { canEditBasicInfo, resolveAccessRole } from "@/lib/permissions";
+
 
 /**
  * Aba "Cadastro" — fonte única do registro do cliente
