@@ -57,6 +57,18 @@ function MetricCard({
           <span className="text-lg font-semibold tabular-nums">{quota}</span>
         </div>
         {sub ? <p className="text-[11px] text-muted-foreground">{sub}</p> : null}
+        {breakdown && CONTENT_FORMATS.some((f) => (breakdown[f] ?? 0) > 0) ? (
+          <div className="flex flex-wrap gap-1">
+            {CONTENT_FORMATS.filter((f) => (breakdown[f] ?? 0) > 0).map((f) => (
+              <span
+                key={f}
+                className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] tabular-nums text-muted-foreground"
+              >
+                {CONTENT_FORMAT_LABEL[f]} {breakdown[f]}
+              </span>
+            ))}
+          </div>
+        ) : null}
         <div className="space-y-1.5">
           <Progress
             value={pct}
