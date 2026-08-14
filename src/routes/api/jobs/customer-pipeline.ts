@@ -726,6 +726,21 @@ async function runStep(params: {
     const state = (jobRow.input ?? {}) as unknown as JobState;
     if (!state.brandId || !state.clientId) throw new Error("Estado do job inválido");
 
+    const done = new Set<Step>(Array.isArray(state.done) ? state.done : []);
+
+    // Retomada idempotente: etapa já concluída não é regerada nem duplicada.
+    if (done.has(step)) {
+      console.info(`[customer-pipeline] etapa ${step} já concluída — pulando (retomada)`);
+      const skipNext = nextStep(step);
+      clearInterval(beat);
+      if (skipNext) {
+        await scheduleStep({ baseUrl, token, jobId, step: skipNext, userId });
+        return;
+      }
+      await finishJob(supabase, patch, state, userId);
+      return;
+    }
+
     const meta = STEP_META[step];
     await patch({
       status: "running",
@@ -734,8 +749,25 @@ async function runStep(params: {
       step_label: meta.label,
     });
 
+    // Espaçamento entre agentes (mesmo conceito da Copy): evita rajada de
+    // chamadas seguidas ao provedor, que é o que dispara o 429.
+    if (step !== "briefing") await sleep(SPACING_MS);
+
     const briefingJson = () => JSON.stringify(state.briefing ?? {}, null, 2);
     const models = { ...(state.models ?? {}) };
+    const onAttempt = (info: {
+      attempt: number;
+      ok: boolean;
+      kind?: FailureKind;
+      retryable?: boolean;
+      message?: string;
+    }) =>
+      logStrategyAttempt(state, {
+        agent: step === "briefing" ? "customer.pipeline" : "customer.pipeline.strategic",
+        step,
+        ...info,
+      });
+
 
     if (step === "briefing") {
       const { value, provider, modelId } = await runJson({
