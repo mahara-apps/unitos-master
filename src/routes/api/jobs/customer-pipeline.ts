@@ -1004,18 +1004,23 @@ async function scheduleStep(opts: {
       baseUrl: opts.baseUrl,
     });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+    const { kind, retryable } = classifyAiError(err);
+    const detail = unwrapAiError(err).text.slice(0, 500) || lastErr;
+    const m = FAILURE_MESSAGE_PT[kind];
+    console.error(`[customer-pipeline] etapa inline ${opts.step} falhou motivo=${kind}: ${detail}`);
     const supabase = buildUserClient(opts.token);
     await supabase
       .from("ai_jobs")
       .update({
         status: "failed",
-        error: `Não foi possível continuar na etapa "${STEP_META[opts.step].label}". Detalhe: ${detail || lastErr}`,
+        error: `${m.title} — etapa "${STEP_META[opts.step].label}". ${m.body}`,
         finished_at: new Date().toISOString(),
         step_label: null,
+        result: { failure_kind: kind, retryable, failed_step: opts.step, detail } as never,
       })
       .eq("id", opts.jobId);
   }
+
 }
 
 
