@@ -43,21 +43,33 @@ export type MonthlyPlanStatus =
 export type MonthlyPlanTopicStatus = "pending" | "approved" | "rejected";
 export type TopicClientStatus = "pending" | "approved" | "rejected" | "changes";
 
+/** Códigos de falha "esperada" da geração — sempre com mensagem em pt-BR. */
+export type GenerateFailureCode =
+  | "ai_provider_not_configured"
+  | "ai_provider_key_missing"
+  | "ai_model_unavailable"
+  | "ai_provider_quota"
+  | "ai_provider_rate_limit"
+  | "ai_provider_unavailable"
+  | "ai_invalid_output"
+  | "ai_generation_failed"
+  | "incomplete_generation"
+  | "generation_in_progress";
+
 export type GenerateMonthlyPlanResult =
-  | { ok: true; data: MonthlyPlanWithTopics }
+  | { ok: true; data: MonthlyPlanWithTopics; resumed?: boolean }
   | {
       ok: false;
-      code:
-        | "ai_provider_not_configured"
-        | "ai_provider_key_missing"
-        | "ai_model_unavailable"
-        | "generation_in_progress";
+      code: GenerateFailureCode;
+      /** Falha transitória: a mesma geração pode ser retomada depois. */
+      retryable?: boolean;
     }
   | {
       ok: false;
       code: "overage_not_authorized";
       overage: Array<{ channel: PlanChannel; quota: number; requested: number; overage: number }>;
     };
+
 
 
 
