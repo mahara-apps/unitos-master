@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { readApiError } from "@/lib/errors";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -162,7 +163,7 @@ export function QuickOnboardingWizard({
           pautasPeriodo: "próximos 15 dias",
         }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readApiError(res, "Falha ao iniciar a estratégia."));
       toast.success("Inteligência rodando em segundo plano — acompanhe pelo indicador de IA.");
       qc.invalidateQueries({ queryKey: ["ai-jobs", "active"] });
       onOpenChange(false);

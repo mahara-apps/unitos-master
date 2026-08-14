@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { readApiError } from "@/lib/errors";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -307,7 +308,7 @@ export function BriefingWorkspace({
           pautasPeriodo: "próximos 15 dias",
         }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) throw new Error(await readApiError(res, "Falha ao iniciar a estratégia."));
       toast.success("Estratégia rodando em segundo plano — acompanhe pelo indicador de IA no topo.");
       qc.invalidateQueries({ queryKey: ["ai-jobs", "active"] });
       qc.invalidateQueries({ queryKey: ["brand-hub", brandId, clientId] });
