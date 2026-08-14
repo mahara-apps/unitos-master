@@ -512,7 +512,26 @@ export function MetaPortfolioDialog({
           </div>
         ) : (
           <Tabs defaultValue={channel ?? "facebook"} className="w-full">
+            {(data?.scanWarnings?.length ?? 0) > 0 && (
+              <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] text-amber-700 dark:text-amber-400">
+                <p className="mb-1 font-medium">
+                  A varredura foi parcial — algumas contas podem não aparecer.
+                </p>
+                <ul className="list-inside list-disc space-y-0.5">
+                  {(data?.scanWarnings ?? []).slice(0, 4).map((w) => (
+                    <li key={w}>{w}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {(data?.businessCount ?? 0) > 0 && (
+              <p className="mb-2 text-[11px] text-muted-foreground">
+                {data?.businessCount} portfólio(s) empresarial(is) verificado(s) ·{" "}
+                {data?.pagesCount ?? 0} Páginas · {igPages.length} contas do Instagram
+              </p>
+            )}
             {!channel && (
+
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="facebook" className="gap-2 text-xs">
                 <Facebook className="h-3.5 w-3.5" />
