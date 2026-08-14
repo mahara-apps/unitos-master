@@ -495,9 +495,11 @@ export async function getBrandAiModelAdmin(
   brandId: string,
   kind: ProviderKind = "text",
   role: ProviderRole = "operational",
+  usage?: AiUsageContext,
 ): Promise<BrandAiModel> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return getBrandAiModel(supabaseAdmin, brandId, kind, role);
+  return getBrandAiModel(supabaseAdmin, brandId, kind, role, usage);
+
 }
 
 /** Embedding com a chave da marca usando o client admin. */
