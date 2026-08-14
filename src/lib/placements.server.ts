@@ -56,14 +56,17 @@ export async function syncPostPlacements(
   } = input;
 
   // Placements JÁ PUBLICADOS são histórico: nunca apagados nem reescritos.
+  // A identidade do histórico é o DESTINO REAL: connection_id + format.
   const { data: publishedRows, error: pubErr } = await supabase
     .from("post_placements")
-    .select("format")
+    .select("format, connection_id")
     .eq("post_id", postId)
     .eq("status", "published");
   if (pubErr) throw new Error(pubErr.message);
-  const publishedFormats = new Set(
-    ((publishedRows ?? []) as Array<{ format: string }>).map((r) => r.format),
+  const publishedKeys = new Set(
+    (
+      (publishedRows ?? []) as Array<{ format: string; connection_id: string | null }>
+    ).map((r) => `${r.connection_id ?? "none"}::${r.format}`),
   );
 
   const { error: delErr } = await supabase
@@ -76,12 +79,19 @@ export async function syncPostPlacements(
   if (!destinations.length) return;
 
   const mediaJson = mediaPaths.map((p) => ({ storagePath: p }));
-  // UNIQUE(post_id, format) — deduplica mantendo o último por format.
-  const byFormat = new Map<PlacementFormatEnum, PlacementDestination>();
+  // UNIQUE(post_id, connection_id, format) — deduplicação determinística:
+  // a PRIMEIRA ocorrência de cada destino vence; repetições são ignoradas.
+  const byDestination = new Map<string, PlacementDestination>();
   for (const d of destinations) {
-    if (publishedFormats.has(d.format)) continue;
-    byFormat.set(d.format, d);
+    const key = `${d.connectionId}::${d.format}`;
+    if (publishedKeys.has(key)) continue;
+    if (byDestination.has(key)) continue;
+    byDestination.set(key, d);
   }
+
+
+  const rows = Array.from(byDestination.values()).map((d, i) => ({
+
 
 
   const rows = Array.from(byFormat.values()).map((d, i) => ({
