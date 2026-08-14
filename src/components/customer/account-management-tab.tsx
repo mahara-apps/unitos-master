@@ -552,12 +552,12 @@ function JourneyHistory({
           ? "Sem movimentações registradas"
           : `${timeline.length} evento(s) registrados`
       }
-      icon={<History className="h-4 w-4" />}
+      icon={<HistoryIcon className="h-4 w-4" />}
       bodyClassName={timeline.length === 0 ? undefined : "px-0 py-0"}
     >
       {timeline.length === 0 ? (
         <ProfileEmpty
-          icon={<History className="h-4 w-4" />}
+          icon={<HistoryIcon className="h-4 w-4" />}
           title="Nenhuma movimentação ainda"
           hint="Quando você mover o cliente entre etapas, os eventos aparecerão aqui."
         />
@@ -582,7 +582,7 @@ function JourneyHistory({
                         <ChevronRight className="h-3 w-3 text-muted-foreground" />
                       </>
                     )}
-                    <Badge tone="sky" className="text-[10px]">
+                    <Badge tone="blue" className="text-[10px]">
                       {to}
                     </Badge>
                     {ev.project_name && (
