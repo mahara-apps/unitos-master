@@ -3,26 +3,30 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
-import { Link2, Loader2, Plus, Settings2, Trash2 } from "lucide-react";
+import { Link2, Loader2, Plus, RefreshCw, Settings2, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAccessRole } from "@/hooks/use-access-role";
+import { cn } from "@/lib/utils";
 import {
-  CHANNEL_FORMATS,
   channelDef,
   normalizeStatus,
-  StatusDot,
+  type StatusKey,
 } from "@/components/connections/channel-meta";
+import {
+  ProfileEmpty,
+  ProfilePageHeader,
+  ProfileSection,
+} from "@/components/customer/ui/profile-ui";
 import {
   listClientLinkedChannelsFn,
   listWorkspaceChannelsFn,
@@ -38,6 +42,66 @@ import {
  * (`client_social_accounts`). Nunca lista canais de outros clientes nem
  * inicia OAuth — a conexão de contas acontece em /connections (workspace).
  */
+
+/* ------------------------------ status badge ------------------------------ */
+
+const STATUS_META: Record<StatusKey, { label: string; dot: string; text: string; ring: string }> = {
+  active: {
+    label: "Conectado",
+    dot: "bg-emerald-500",
+    text: "text-emerald-600 dark:text-emerald-400",
+    ring: "border-emerald-500/30 bg-emerald-500/10",
+  },
+  attention: {
+    label: "Atenção",
+    dot: "bg-amber-500",
+    text: "text-amber-600 dark:text-amber-400",
+    ring: "border-amber-500/30 bg-amber-500/10",
+  },
+  disconnected: {
+    label: "Desconectado",
+    dot: "bg-destructive",
+    text: "text-destructive",
+    ring: "border-destructive/30 bg-destructive/10",
+  },
+  soon: {
+    label: "Em breve",
+    dot: "bg-muted-foreground/50",
+    text: "text-muted-foreground",
+    ring: "border-border/60 bg-muted/40",
+  },
+};
+
+function ChannelStatusBadge({ status }: { status: StatusKey }) {
+  const m = STATUS_META[status];
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide",
+        m.ring,
+        m.text,
+      )}
+    >
+      <span className={cn("h-1.5 w-1.5 rounded-full", m.dot)} />
+      {m.label}
+    </span>
+  );
+}
+
+const PROVIDER_LABEL: Record<string, string> = { meta: "Meta" };
+
+function providerLabel(provider: string) {
+  return PROVIDER_LABEL[provider] ?? provider;
+}
+
+function accountType(row: LinkedChannel) {
+  if (row.channel === "instagram") return "Instagram Business";
+  if (row.channel === "facebook") return "Página do Facebook";
+  return channelDef(row.channel).label;
+}
+
+/* --------------------------------- screen --------------------------------- */
+
 export function ChannelsTab({
   brandId,
   clientId,
@@ -51,6 +115,7 @@ export function ChannelsTab({
   const canManage = role === "admin";
   const listLinkedFn = useServerFn(listClientLinkedChannelsFn);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [unlinkTarget, setUnlinkTarget] = useState<LinkedChannel | null>(null);
 
   const linkedKey = ["client-linked-channels", brandId, clientId] as const;
   const linkedQ = useQuery({
@@ -70,62 +135,122 @@ export function ChannelsTab({
   const rows = linkedQ.data ?? [];
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-medium">Canais vinculados</h3>
-          <p className="text-xs text-muted-foreground">
-            Contas que este cliente pode usar para publicar.
-          </p>
-        </div>
-        {canManage && rows.length > 0 ? (
-          <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setPickerOpen(true)}>
-            <Plus className="h-3.5 w-3.5" />
-            Vincular canal
-          </Button>
-        ) : null}
-      </div>
+    <div className="space-y-4">
+      <ProfilePageHeader
+        title="Canais"
+        description="Contas sociais vinculadas a este cliente. As conexões são gerenciadas em Integrações."
+        actions={
+          canManage ? (
+            <>
+              <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
+                <Link to="/connections">
+                  <Settings2 className="h-3.5 w-3.5" />
+                  Gerenciar integrações
+                </Link>
+              </Button>
+              <Button
+                size="sm"
+                className="h-8 gap-1.5 text-xs"
+                onClick={() => setPickerOpen(true)}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Vincular canal
+              </Button>
+            </>
+          ) : null
+        }
+      />
 
-      {linkedQ.isLoading ? (
-        <div className="grid gap-2.5 md:grid-cols-2">
-          {[0, 1].map((i) => (
-            <Skeleton key={i} className="h-[112px] w-full rounded-xl" />
-          ))}
-        </div>
-      ) : rows.length === 0 ? (
-        <Card className="flex flex-col items-start gap-2 border-dashed p-5">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <Link2 className="h-4 w-4 text-muted-foreground" />
-            Nenhum canal vinculado
+      <ProfileSection
+        title="Canais conectados"
+        subtitle="Contas vinculadas a este cliente"
+        icon={<Link2 className="h-4 w-4" />}
+        bodyClassName="px-0 py-0"
+        action={
+          rows.length ? (
+            <span className="text-[11px] text-muted-foreground">
+              {rows.length} {rows.length === 1 ? "canal" : "canais"}
+            </span>
+          ) : null
+        }
+      >
+        {linkedQ.isLoading ? (
+          <div className="divide-y divide-border/40">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="flex items-center gap-3 px-5 py-4">
+                <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <Skeleton className="h-3.5 w-40" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+                <Skeleton className="h-6 w-24 rounded-full" />
+              </div>
+            ))}
           </div>
-          <p className="text-xs text-muted-foreground">
-            Este cliente ainda não possui canais sociais vinculados.
-          </p>
-          {canManage ? (
-            <Button size="sm" className="mt-1 h-8 gap-1.5 text-xs" onClick={() => setPickerOpen(true)}>
-              <Plus className="h-3.5 w-3.5" />
-              Vincular canal
-            </Button>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              Solicite a um administrador o vínculo de um canal.
-            </p>
-          )}
-        </Card>
-      ) : (
-        <div className="grid gap-2.5 md:grid-cols-2">
-          {rows.map((row) => (
-            <LinkedChannelCard
-              key={row.connectionId}
-              row={row}
-              brandId={brandId}
-              clientId={clientId}
-              canManage={canManage}
-              onChanged={invalidate}
+        ) : linkedQ.isError ? (
+          <div className="px-5 py-4">
+            <ProfileEmpty
+              icon={<RefreshCw className="h-4 w-4" />}
+              title="Não foi possível carregar os canais."
+              hint="Verifique sua conexão e tente novamente."
+              action={
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 text-xs"
+                  onClick={() => linkedQ.refetch()}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Tentar novamente
+                </Button>
+              }
             />
-          ))}
-        </div>
-      )}
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="px-5 py-4">
+            <ProfileEmpty
+              icon={<Link2 className="h-4 w-4" />}
+              title="Nenhum canal conectado"
+              hint={
+                canManage
+                  ? "Este cliente ainda não possui contas sociais vinculadas. Vincule uma conta já conectada ao workspace."
+                  : "Este cliente ainda não possui contas sociais vinculadas. Um administrador ou gestor da conta pode realizar essa configuração."
+              }
+              action={
+                canManage ? (
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <Button asChild size="sm" variant="outline" className="h-8 gap-1.5 text-xs">
+                      <Link to="/connections">
+                        <Settings2 className="h-3.5 w-3.5" />
+                        Gerenciar integrações
+                      </Link>
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-8 gap-1.5 text-xs"
+                      onClick={() => setPickerOpen(true)}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Vincular canal
+                    </Button>
+                  </div>
+                ) : null
+              }
+            />
+          </div>
+        ) : (
+          <ul className="divide-y divide-border/40">
+            {rows.map((row) => (
+              <ChannelRow
+                key={row.connectionId}
+                row={row}
+                canManage={canManage}
+                onUnlink={() => setUnlinkTarget(row)}
+              />
+            ))}
+          </ul>
+        )}
+      </ProfileSection>
 
       <LinkChannelDialog
         open={pickerOpen}
@@ -134,38 +259,98 @@ export function ChannelsTab({
         clientId={clientId}
         onChanged={invalidate}
       />
+
+      <UnlinkDialog
+        row={unlinkTarget}
+        brandId={brandId}
+        clientId={clientId}
+        onOpenChange={(v) => !v && setUnlinkTarget(null)}
+        onChanged={invalidate}
+      />
     </div>
   );
 }
 
 /* -------------------------------------------------------------------------- */
 
-function LinkedChannelCard({
+function ChannelRow({
   row,
-  brandId,
-  clientId,
   canManage,
-  onChanged,
+  onUnlink,
 }: {
   row: LinkedChannel;
-  brandId: string;
-  clientId: string;
   canManage: boolean;
-  onChanged: () => void;
+  onUnlink: () => void;
 }) {
-  const toggleFn = useServerFn(toggleClientChannelFn);
   const def = channelDef(row.channel);
   const Icon = def.icon;
   const status = normalizeStatus(row.status);
-  const formats = CHANNEL_FORMATS[row.channel] ?? [];
+  const handle = row.handle ? `@${row.handle.replace(/^@/, "")}` : row.accountLabel;
+
+  return (
+    <li className="flex flex-col gap-3 px-5 py-4 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center sm:gap-4">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <Avatar className="h-10 w-10 shrink-0">
+          <AvatarImage src={row.avatarUrl ?? undefined} alt={row.accountLabel} />
+          <AvatarFallback className="text-[10px] uppercase">
+            {row.channel.slice(0, 2)}
+          </AvatarFallback>
+        </Avatar>
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="flex items-center gap-1.5 text-sm font-semibold">
+              <Icon className={cn("h-3.5 w-3.5 shrink-0", def.tone)} />
+              {def.label}
+            </span>
+            <span className="truncate text-sm text-muted-foreground">{handle}</span>
+          </div>
+          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+            {providerLabel(row.provider)} · {accountType(row)}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
+        <ChannelStatusBadge status={status} />
+        {canManage ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 gap-1.5 px-2 text-xs text-muted-foreground hover:text-destructive"
+            onClick={onUnlink}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+            Desvincular
+          </Button>
+        ) : null}
+      </div>
+    </li>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+
+function UnlinkDialog({
+  row,
+  brandId,
+  clientId,
+  onOpenChange,
+  onChanged,
+}: {
+  row: LinkedChannel | null;
+  brandId: string;
+  clientId: string;
+  onOpenChange: (v: boolean) => void;
+  onChanged: () => void;
+}) {
+  const toggleFn = useServerFn(toggleClientChannelFn);
 
   const unlinkMut = useMutation({
-    mutationFn: () =>
-      toggleFn({
-        data: { brandId, clientId, connectionId: row.connectionId, assigned: false },
-      }),
+    mutationFn: (connectionId: string) =>
+      toggleFn({ data: { brandId, clientId, connectionId, assigned: false } }),
     onSuccess: () => {
       toast.success("Vínculo removido");
+      onOpenChange(false);
       onChanged();
     },
     onError: (e) =>
@@ -173,54 +358,31 @@ function LinkedChannelCard({
   });
 
   return (
-    <Card className="flex flex-col gap-2.5 p-3.5">
-      <div className="flex items-start gap-2.5">
-        <Avatar className="h-9 w-9 shrink-0">
-          <AvatarImage src={row.avatarUrl ?? undefined} alt={row.accountLabel} />
-          <AvatarFallback className="text-[10px] uppercase">
-            {row.channel.slice(0, 2)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1.5">
-            <Icon className={`h-3.5 w-3.5 shrink-0 ${def.tone}`} />
-            <span className="truncate text-sm font-medium">{def.label}</span>
-          </div>
-          <p className="truncate text-xs text-muted-foreground">
-            {row.handle ? `@${row.handle.replace(/^@/, "")}` : row.accountLabel}
-          </p>
-        </div>
-        <StatusDot
-          status={status}
-          label={status === "active" ? "Ativo" : undefined}
-          className="shrink-0"
-        />
-      </div>
-
-      {formats.length ? (
-        <div className="flex flex-wrap gap-1">
-          {formats.map((f) => (
-            <Badge key={f} variant="secondary" className="text-[10px] font-normal">
-              {f}
-            </Badge>
-          ))}
-        </div>
-      ) : null}
-
-      <div className="flex items-center justify-between gap-2 border-t pt-2.5">
-        <Button asChild size="sm" variant="ghost" className="h-7 gap-1.5 px-2 text-xs">
-          <Link to="/connections">
-            <Settings2 className="h-3.5 w-3.5" />
-            Gerenciar
-          </Link>
-        </Button>
-        {canManage ? (
+    <Dialog open={!!row} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-base">Desvincular este canal?</DialogTitle>
+          <DialogDescription className="text-xs">
+            Este canal continuará conectado ao workspace, mas deixará de estar
+            disponível para este cliente.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter className="gap-2 sm:gap-2">
           <Button
             size="sm"
             variant="ghost"
-            className="h-7 gap-1.5 px-2 text-xs text-muted-foreground hover:text-destructive"
+            className="h-8 text-xs"
+            onClick={() => onOpenChange(false)}
             disabled={unlinkMut.isPending}
-            onClick={() => unlinkMut.mutate()}
+          >
+            Cancelar
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            className="h-8 gap-1.5 text-xs"
+            disabled={unlinkMut.isPending || !row}
+            onClick={() => row && unlinkMut.mutate(row.connectionId)}
           >
             {unlinkMut.isPending ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -229,9 +391,9 @@ function LinkedChannelCard({
             )}
             Desvincular
           </Button>
-        ) : null}
-      </div>
-    </Card>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -253,7 +415,7 @@ function LinkChannelDialog({
   const listFn = useServerFn(listWorkspaceChannelsFn);
   const toggleFn = useServerFn(toggleClientChannelFn);
 
-  const { data = [], isLoading } = useQuery({
+  const { data = [], isLoading, isError, refetch } = useQuery({
     queryKey: ["workspace-channels", brandId],
     queryFn: () => listFn({ data: { brandId } }),
     enabled: open,
@@ -272,18 +434,21 @@ function LinkChannelDialog({
       toast.error(e instanceof Error ? e.message : "Falha ao vincular canal"),
   });
 
+  // Somente contas do workspace ainda NÃO vinculadas a este cliente.
   const candidates = data.filter(
-    (c) => normalizeStatus(c.status) !== "disconnected",
+    (c) =>
+      normalizeStatus(c.status) !== "disconnected" &&
+      !c.clients.some((cl) => cl.id === clientId),
   );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-base">Selecionar canal</DialogTitle>
+          <DialogTitle className="text-base">Vincular canal</DialogTitle>
           <DialogDescription className="text-xs">
-            Somente contas já conectadas ao workspace. Para conectar uma nova
-            conta, use a tela de Integrações.
+            Contas conectadas ao workspace. Para conectar uma nova conta, use a
+            tela de Integrações.
           </DialogDescription>
         </DialogHeader>
 
@@ -293,11 +458,25 @@ function LinkChannelDialog({
               <Skeleton key={i} className="h-14 w-full rounded-lg" />
             ))}
           </div>
+        ) : isError ? (
+          <div className="space-y-2 rounded-lg border border-dashed p-4">
+            <p className="text-sm font-medium">Não foi possível carregar os canais.</p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5 text-xs"
+              onClick={() => refetch()}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Tentar novamente
+            </Button>
+          </div>
         ) : candidates.length === 0 ? (
           <div className="space-y-2 rounded-lg border border-dashed p-4">
-            <p className="text-sm font-medium">Nenhuma conta conectada</p>
+            <p className="text-sm font-medium">Nenhuma conta disponível</p>
             <p className="text-xs text-muted-foreground">
-              Conecte uma conta no workspace antes de vincular a este cliente.
+              Todas as contas conectadas já estão vinculadas a este cliente — ou
+              ainda não há contas conectadas ao workspace.
             </p>
             <Button asChild size="sm" variant="outline" className="h-8 text-xs">
               <Link to="/connections">Abrir Integrações</Link>
@@ -309,7 +488,6 @@ function LinkChannelDialog({
               <CandidateRow
                 key={c.connectionId}
                 row={c}
-                clientId={clientId}
                 pending={linkMut.isPending && linkMut.variables === c.connectionId}
                 onSelect={() => linkMut.mutate(c.connectionId)}
               />
@@ -323,22 +501,18 @@ function LinkChannelDialog({
 
 function CandidateRow({
   row,
-  clientId,
   pending,
   onSelect,
 }: {
   row: WorkspaceChannel;
-  clientId: string;
   pending: boolean;
   onSelect: () => void;
 }) {
   const def = channelDef(row.channel);
   const Icon = def.icon;
-  const alreadyHere = row.clients.some((c) => c.id === clientId);
-  const otherClients = row.clients.filter((c) => c.id !== clientId);
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border p-3">
+    <div className="flex items-center gap-3 rounded-lg border border-border/50 p-3">
       <Avatar className="h-8 w-8 shrink-0">
         <AvatarImage src={row.avatarUrl ?? undefined} alt={row.accountLabel} />
         <AvatarFallback className="text-[10px] uppercase">
@@ -347,36 +521,22 @@ function CandidateRow({
       </Avatar>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <Icon className={`h-3.5 w-3.5 shrink-0 ${def.tone}`} />
+          <Icon className={cn("h-3.5 w-3.5 shrink-0", def.tone)} />
           <span className="truncate text-sm font-medium">{def.label}</span>
         </div>
         <p className="truncate text-xs text-muted-foreground">
           {row.handle ? `@${row.handle.replace(/^@/, "")}` : row.accountLabel}
         </p>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2">
-          <StatusDot status={normalizeStatus(row.status)} />
-          {otherClients.length ? (
-            <span className="text-[11px] text-muted-foreground">
-              Vinculado a outro cliente
-            </span>
-          ) : null}
-        </div>
       </div>
-      {alreadyHere ? (
-        <Badge variant="secondary" className="shrink-0 text-[10px]">
-          Vinculado
-        </Badge>
-      ) : (
-        <Button
-          size="sm"
-          variant="outline"
-          className="h-7 shrink-0 px-2.5 text-xs"
-          disabled={pending}
-          onClick={onSelect}
-        >
-          {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Selecionar"}
-        </Button>
-      )}
+      <Button
+        size="sm"
+        variant="outline"
+        className="h-7 shrink-0 px-2.5 text-xs"
+        disabled={pending}
+        onClick={onSelect}
+      >
+        {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Selecionar"}
+      </Button>
     </div>
   );
 }
