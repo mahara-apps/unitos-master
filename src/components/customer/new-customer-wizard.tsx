@@ -57,6 +57,25 @@ const OTHER = "__other";
 const ACCEPTED = ["image/png", "image/jpeg", "image/jpg", "image/svg+xml", "image/webp"];
 const MAX_BYTES = 5 * 1024 * 1024;
 
+/** Formata CNPJ no padrão 00.000.000/0000-00 (apenas dígitos). */
+function maskCnpj(value: string): string {
+  const d = value.replace(/\D/g, "").slice(0, 14);
+  return d
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/(\d{2})\.(\d{3})\.(\d{3})(\d)/, "$1.$2.$3/$4")
+    .replace(/(\d{2})\.(\d{3})\.(\d{3})\/(\d{4})(\d)/, "$1.$2.$3/$4-$5");
+}
+
+/** Formata telefone/WhatsApp no padrão (00) 00000-0000 (apenas dígitos). */
+function maskPhone(value: string): string {
+  const d = value.replace(/\D/g, "").slice(0, 11);
+  if (d.length <= 2) return d;
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
 const Step1Schema = z.object({
   name: z.string().trim().min(2, "Informe o nome da empresa").max(120),
   legal_name: z.string().trim().max(200).optional(),
@@ -359,7 +378,8 @@ export function NewCustomerWizard({ brandId, open, onOpenChange }: NewCustomerWi
                 <Input
                   className="mt-1"
                   value={cnpj}
-                  onChange={(e) => setCnpj(e.target.value)}
+                  onChange={(e) => setCnpj(maskCnpj(e.target.value))}
+                  inputMode="numeric"
                   placeholder="00.000.000/0000-00"
                 />
               </div>
@@ -530,8 +550,9 @@ export function NewCustomerWizard({ brandId, open, onOpenChange }: NewCustomerWi
                 <Input
                   className="mt-1"
                   value={contactPhone}
-                  onChange={(e) => setContactPhone(e.target.value)}
-                  placeholder="+55 11 90000-0000"
+                  onChange={(e) => setContactPhone(maskPhone(e.target.value))}
+                  inputMode="numeric"
+                  placeholder="(11) 90000-0000"
                 />
               </div>
               <div>
