@@ -318,44 +318,85 @@ function parseJsonLoose(raw: string): unknown {
   }
 }
 
+/** Falha de etapa já classificada — evita reclassificar mais adiante. */
+class StepFailure extends Error {
+  kind: FailureKind;
+  retryable: boolean;
+  detail: string;
+  constructor(kind: FailureKind, retryable: boolean, detail: string) {
+    super(`ai_strategy_step_failed:${kind}`);
+    this.name = "StepFailure";
+    this.kind = kind;
+    this.retryable = retryable;
+    this.detail = detail;
+  }
+}
+
 /**
- * Chamada em streaming consumida no servidor: mantém bytes fluindo (evita
- * corte por inatividade) e devolve o JSON já parseado, sem exigir suporte a
- * structured output do provedor.
+ * Executa um agente com o MESMO padrão de resiliência da Copy
+ * (`post-agents.server.ts`): 3 tentativas, backoff 15s/45s, retry do SDK
+ * desligado (`maxRetries: 0`) e classificação de falha compartilhada.
+ *
+ * Usa `generateText` (buffered) em vez de streaming: nada é renderizado
+ * progressivamente aqui e o streaming era justamente o que fazia o pacote `ai`
+ * mascarar 429/503 como "No output generated".
  */
 async function runJson(opts: {
   system: string;
   prompt: string;
   strategic: boolean;
   brandId: string;
+  step: Step;
+  onAttempt?: (info: { attempt: number; ok: boolean; kind?: FailureKind; retryable?: boolean; message?: string }) => Promise<void>;
 }): Promise<{ value: unknown; provider: string; modelId: string }> {
-  const { provider, modelId, model } = await getBrandAiModelAdmin(
-    opts.brandId,
-    "text",
-    opts.strategic ? "strategic" : "operational",
-    { agent: opts.strategic ? "customer.pipeline.strategic" : "customer.pipeline" },
-  );
+  const maxAttempts = BACKOFF_MS.length + 1;
+  const role = opts.strategic ? "strategic" : "operational";
+  let lastErr: unknown = null;
+  let lastKind: FailureKind = "unknown";
+  let lastRetryable = false;
 
-  const run = async () => {
-    const result = streamText({
-      model,
-      system: opts.system,
-      prompt: opts.prompt,
-    });
-    return await result.text;
-  };
-
-  let text: string;
-  try {
-    text = await withTimeout(run(), LLM_TIMEOUT_MS, opts.strategic ? "strategic" : "operational");
-  } catch (err) {
-    // Uma nova tentativa cobre instabilidade momentânea do provedor.
-    console.warn("[customer-pipeline] retry após falha:", err instanceof Error ? err.message : err);
-    text = await withTimeout(run(), LLM_TIMEOUT_MS, opts.strategic ? "strategic (retry)" : "operational (retry)");
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const { provider, modelId, model } = await getBrandAiModelAdmin(
+        opts.brandId,
+        "text",
+        role,
+        { agent: opts.strategic ? "customer.pipeline.strategic" : "customer.pipeline" },
+      );
+      const res = await withTimeout(
+        generateText({
+          model,
+          system: opts.system,
+          prompt: opts.prompt,
+          // Retry é controlado aqui (backoff próprio) para respeitar a quota.
+          maxRetries: 0,
+        }),
+        LLM_TIMEOUT_MS,
+        `${role} (tentativa ${attempt})`,
+      );
+      const text = (res.text ?? "").trim();
+      if (!text) throw new Error("ai_invalid_output: o provedor não retornou conteúdo.");
+      const value = parseJsonLoose(text);
+      await opts.onAttempt?.({ attempt, ok: true });
+      return { value, provider, modelId };
+    } catch (err) {
+      lastErr = err;
+      const { kind, retryable } = classifyAiError(err);
+      lastKind = kind;
+      lastRetryable = retryable;
+      const detail = unwrapAiError(err).text.slice(0, 800);
+      console.error(
+        `[customer-pipeline] etapa=${opts.step} tentativa=${attempt} motivo=${kind} retryable=${retryable}: ${detail}`,
+      );
+      await opts.onAttempt?.({ attempt, ok: false, kind, retryable, message: detail });
+      if (!retryable || attempt === maxAttempts) break;
+      await sleep(BACKOFF_MS[attempt - 1]!);
+    }
   }
 
-  return { value: parseJsonLoose(text), provider, modelId };
+  throw new StepFailure(lastKind, lastRetryable, unwrapAiError(lastErr).text.slice(0, 800));
 }
+
 
 const P = {
   briefing:
