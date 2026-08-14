@@ -172,25 +172,6 @@ const GenerateInput = z.object({
   weeksPerMonth: z.number().int().min(1).max(6).optional(),
 });
 
-const AiPlanSchema = z.object({
-  title: z.string(),
-  description: z.string(),
-  objectives: z.string(),
-  topics: z
-    .array(
-      z.object({
-        topic_title: z.string(),
-        content_format: z.string(),
-        angle: z.string(),
-        channel: z.string().optional().nullable(),
-        target_audience: z.string().optional().nullable(),
-        rationale: z.string().optional().nullable(),
-      }),
-    )
-    .min(4)
-    .max(60),
-});
-
 export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => GenerateInput.parse(i))
