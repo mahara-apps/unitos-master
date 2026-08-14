@@ -28,6 +28,8 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   getMetaPortfolio,
+  SESSION_INVALID_PREFIX,
+
   linkMetaAccount,
   unlinkMetaAccount,
   type PortfolioPage,
@@ -111,9 +113,13 @@ export function MetaPortfolioDialog({
       }, 120_000);
     }
     try {
-      const { authorizeUrl } = await startFn({ data: { brandId, channel } });
+      const { authorizeUrl, redirectUri } = await startFn({
+        data: { brandId, channel },
+      });
+      console.log("[MetaPortfolio] oauth redirect_uri", redirectUri);
       if (popup) popup.location.href = authorizeUrl;
       else window.location.href = authorizeUrl;
+
     } catch (err) {
       if (timeoutId) window.clearTimeout(timeoutId);
       window.removeEventListener("message", onOAuthMessage);
@@ -160,12 +166,22 @@ export function MetaPortfolioDialog({
               ? err
               : "Falha ao carregar contas da Meta";
         const isRateLimit = msg.startsWith("RATE_LIMIT:");
-        toast.error(
-          isRateLimit
-            ? "Limite de requisições da Meta atingido. Por favor, aguarde alguns minutos antes de tentar novamente."
-            : msg,
-          { duration: 9000 },
-        );
+        const isSessionDead = msg.startsWith(SESSION_INVALID_PREFIX);
+        if (isSessionDead) {
+          toast.info("Sua sessão da Meta expirou. Abrindo login novamente…", {
+            duration: 6000,
+          });
+          void reauthorize(
+            channel === "ads" || !channel ? "facebook" : channel,
+          );
+        } else {
+          toast.error(
+            isRateLimit
+              ? "Limite de requisições da Meta atingido. Por favor, aguarde alguns minutos antes de tentar novamente."
+              : msg,
+            { duration: 9000 },
+          );
+        }
         refreshNextRef.current = false;
         throw err instanceof Error ? err : new Error(msg);
       }
@@ -183,11 +199,14 @@ export function MetaPortfolioDialog({
 
   const isRateLimited =
     !!error && (error as Error).message.startsWith("RATE_LIMIT:");
+  const isSessionInvalid =
+    !!error && (error as Error).message.startsWith(SESSION_INVALID_PREFIX);
 
   const handleResync = () => {
     refreshNextRef.current = true;
     void refetch();
   };
+
 
   const [pending, setPending] = useState<Set<string>>(new Set());
 
@@ -426,34 +445,54 @@ export function MetaPortfolioDialog({
                 <p className="font-medium">
                   {isRateLimited
                     ? "Limite de requisições da Meta atingido."
-                    : "Não foi possível carregar as contas da Meta."}
+                    : isSessionInvalid
+                      ? "Sessão da Meta expirada."
+                      : "Não foi possível carregar as contas da Meta."}
                 </p>
                 <p className="text-destructive/80">
                   {isRateLimited
                     ? "Por favor, aguarde alguns minutos antes de tentar novamente. O portfólio salvo será mantido."
-                    : (error as Error).message ||
-                      "Tente novamente ou reconecte sua conta Meta."}
+                    : isSessionInvalid
+                      ? "Faça login na Meta novamente para recarregar suas contas."
+                      : (error as Error).message ||
+                        "Tente novamente ou reconecte sua conta Meta."}
                 </p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleResync}
-                disabled={isFetching || isRateLimited}
-              >
-                {isFetching ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                ) : (
+              {isSessionInvalid ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    void reauthorize(
+                      channel === "ads" || !channel ? "facebook" : channel,
+                    )
+                  }
+                >
                   <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                )}
-                Tentar novamente
-              </Button>
+                  Entrar novamente na Meta
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleResync}
+                  disabled={isFetching || isRateLimited}
+                >
+                  {isFetching ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  Tentar novamente
+                </Button>
+              )}
               <Button size="sm" variant="ghost" onClick={() => onOpenChange(false)}>
                 Fechar
               </Button>
             </div>
+
           </div>
         ) : (
           <Tabs defaultValue={channel ?? "facebook"} className="w-full">

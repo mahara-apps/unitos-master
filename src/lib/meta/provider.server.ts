@@ -111,6 +111,35 @@ function requireEnv(name: string): string {
   return v;
 }
 
+export const META_CALLBACK_PATH = "/api/public/meta/callback";
+
+/**
+ * Resolves the OAuth redirect URI for the current request origin.
+ *
+ * The URI must match EXACTLY one of the entries registered in the Meta App
+ * Dashboard. We accept the request's own origin when it is a trusted host
+ * (the project's Lovable domains or the host configured in
+ * `META_REDIRECT_URI`), so connecting from preview returns to preview and
+ * connecting from production returns to production. Anything else falls back
+ * to `META_REDIRECT_URI`.
+ */
+export function resolveMetaRedirectUri(origin?: string | null): string {
+  const configured = requireEnv("META_REDIRECT_URI");
+  if (!origin) return configured;
+  try {
+    const candidate = new URL(origin);
+    const configuredHost = new URL(configured).host;
+    const trusted =
+      candidate.host === configuredHost ||
+      candidate.host.endsWith(".lovable.app") ||
+      candidate.host.endsWith(".lovableproject.com");
+    if (candidate.protocol !== "https:" || !trusted) return configured;
+    return `${candidate.origin}${META_CALLBACK_PATH}`;
+  } catch {
+    return configured;
+  }
+}
+
 export class MetaProvider {
   private appId: string;
   private appSecret: string;
@@ -120,14 +149,19 @@ export class MetaProvider {
    */
   redirectUri: string;
 
-  constructor(opts?: { appId?: string; appSecret?: string; redirectUri?: string }) {
+  constructor(opts?: {
+    appId?: string;
+    appSecret?: string;
+    redirectUri?: string;
+    /** Request origin used to derive the redirect URI when not given. */
+    origin?: string | null;
+  }) {
     this.appId = opts?.appId ?? requireEnv("META_APP_ID");
     this.appSecret = opts?.appSecret ?? requireEnv("META_APP_SECRET");
     this.redirectUri =
-      opts?.redirectUri ??
-      process.env.META_REDIRECT_URI ??
-      "https://unitos.sejaumpartner.com/api/public/meta/callback";
+      opts?.redirectUri ?? resolveMetaRedirectUri(opts?.origin ?? null);
   }
+
 
   // --------------------------------------------------------------- OAuth ---
   buildAuthorizeUrl(params: {

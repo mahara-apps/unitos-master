@@ -87,7 +87,14 @@ export const startMetaOAuth = createServerFn({ method: "POST" })
     const { MetaProvider, getMetaScopesForChannel, signOAuthState } = await import(
       "./provider.server"
     );
-    const provider = new MetaProvider();
+    const { getRequest } = await import("@tanstack/react-start/server");
+    let origin: string | null = null;
+    try {
+      origin = new URL(getRequest().url).origin;
+    } catch {
+      origin = null;
+    }
+    const provider = new MetaProvider({ origin });
     const state = await signOAuthState({
       brandId: data.brandId,
       userId: context.userId,
@@ -106,6 +113,7 @@ export const startMetaOAuth = createServerFn({ method: "POST" })
     };
   });
 
+
 /**
  * Reuses the most recent unexpired Meta user-token session for the current
  * user on this brand and hands back its id, so the account-selector dialog
@@ -120,29 +128,52 @@ export const getActiveMetaSession = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => BrandInput.parse(input))
   .handler(async ({ data, context }) => {
     const nowIso = new Date().toISOString();
-    const { data: row, error } = await context.supabase
+    const { data: rows, error } = await context.supabase
       .from("meta_oauth_sessions")
-      .select("id, user_token_expires_at, expires_at")
+      .select("id, user_token_ciphertext, user_token_expires_at, expires_at")
       .eq("brand_id", data.brandId)
       .eq("user_id", context.userId)
       .or(`user_token_expires_at.is.null,user_token_expires_at.gt.${nowIso}`)
       .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(5);
     if (error) throw error;
-    if (!row) return { sessionId: null as string | null };
+    if (!rows?.length) return { sessionId: null as string | null };
 
-    // Bump the session's short-lived expiry so the dialog can consume it.
+    const { decryptCredential } = await import("@/lib/credentials-crypto.server");
     const { supabaseAdmin } = await import(
       "@/integrations/supabase/client.server"
     );
-    const nextExpiry = new Date(Date.now() + 30 * 60_000).toISOString();
-    await supabaseAdmin
-      .from("meta_oauth_sessions")
-      .update({ expires_at: nextExpiry, consumed_at: null })
-      .eq("id", row.id);
-    return { sessionId: row.id };
+
+    // A session whose token cannot be decrypted anymore (e.g. it was stored
+    // under a previous encryption key) is useless — expire it and keep looking
+    // instead of handing the dialog a dead session.
+    for (const row of rows) {
+      let usable = false;
+      try {
+        usable = !!(row.user_token_ciphertext
+          ? await decryptCredential(row.user_token_ciphertext)
+          : null);
+      } catch {
+        usable = false;
+      }
+      if (!usable) {
+        await supabaseAdmin
+          .from("meta_oauth_sessions")
+          .update({ expires_at: nowIso, user_token_expires_at: nowIso })
+          .eq("id", row.id);
+        continue;
+      }
+      // Bump the session's short-lived expiry so the dialog can consume it.
+      const nextExpiry = new Date(Date.now() + 30 * 60_000).toISOString();
+      await supabaseAdmin
+        .from("meta_oauth_sessions")
+        .update({ expires_at: nextExpiry, consumed_at: null })
+        .eq("id", row.id);
+      return { sessionId: row.id };
+    }
+    return { sessionId: null as string | null };
   });
+
 
 const ConnIdInput = z.object({
   connectionId: z.string().uuid(),
