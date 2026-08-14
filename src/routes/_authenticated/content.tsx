@@ -245,11 +245,11 @@ function ContentReady({
                   <span className="text-[11px] text-muted-foreground">Criar uma tarefa em branco</span>
                 </div>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setAiPlanOpen(true)}>
+              <DropdownMenuItem onClick={() => void navigate({ to: "/monthly-plan" })}>
                 <Sparkles className="mr-2 h-4 w-4 text-fuchsia-500" />
                 <div className="flex flex-col">
                   <span>Gerar com IA</span>
-                  <span className="text-[11px] text-muted-foreground">Plano estratégico e distribuição</span>
+                  <span className="text-[11px] text-muted-foreground">Gerar pauta mensal (canal + formato)</span>
                 </div>
               </DropdownMenuItem>
             </DropdownMenuContent>
