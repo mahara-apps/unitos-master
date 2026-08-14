@@ -59,8 +59,8 @@ import { ContextSourcesRow } from "@/components/monthly-plan/context-sources-row
 import {
   PLAN_CHANNELS,
   PLAN_CHANNEL_LABEL as CHANNEL_LABEL,
-  PLAN_FORMATS,
 } from "@/lib/monthly-plan-fields";
+import { CONTENT_FORMATS, CONTENT_FORMAT_LABEL, normalizeFormat } from "@/lib/content-formats";
 import {
   approveMonthlyPlanFn,
   createTopicFn,
