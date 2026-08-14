@@ -42,14 +42,15 @@ const AiPlanSchema = z.object({
     .array(
       z.object({
         topic_title: z.string(),
-        content_format: z.string(),
+        // Formato canônico obrigatório — sem vocabulário legado na escrita.
+        content_format: z.enum(["feed", "stories", "reels", "carrossel"]),
         angle: z.string(),
         channel: z.string().optional().nullable(),
         target_audience: z.string().optional().nullable(),
         rationale: z.string().optional().nullable(),
       }),
     )
-    .min(4)
+    .min(1)
     .max(60),
 });
 
@@ -67,13 +68,37 @@ export type GeneratePlanInput = {
   }>;
 };
 
+/** Traduz a classificação de falha da IA no código devolvido à UI. */
+function codeForFailure(kind: FailureKind): GenerateFailureCode {
+  switch (kind) {
+    case "provider_quota":
+      return "ai_provider_quota";
+    case "provider_rate_limit":
+      return "ai_provider_rate_limit";
+    case "provider_unavailable":
+      return "ai_provider_unavailable";
+    case "invalid_output":
+      return "ai_invalid_output";
+    case "config":
+      return "ai_provider_not_configured";
+    default:
+      return "ai_generation_failed";
+  }
+}
+
 export async function runPlanGeneration(args: {
   supabase: SupabaseClient;
   userId: string;
   input: GeneratePlanInput;
   period: string;
+  /** Job da trava — usado para progresso, etapa e checkpoint de retomada. */
+  jobId?: string | null;
 }): Promise<GenerateMonthlyPlanResult> {
   const { supabase, userId, input, period } = args;
+  const jobId = args.jobId ?? null;
+  const scope = { brandId: input.brandId, clientId: input.clientId, userId };
+
+  await setPlanJobStep(supabase, jobId, "contexto");
   const [{ data: brand }, briefingCtx] = await Promise.all([
     supabase.from("brands").select("name").eq("id", input.brandId).maybeSingle(),
     loadBriefingContext(supabase, input.clientId, {
@@ -81,6 +106,7 @@ export async function runPlanGeneration(args: {
       weeksPerMonth: input.weeksPerMonth,
     }),
   ]);
+
 
   // Volumetria é obrigatória — sem ela não há como definir quantas peças gerar.
   if (briefingCtx.totalTarget <= 0) throw new Error("volumetry_required");
