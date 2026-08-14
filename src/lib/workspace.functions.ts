@@ -77,12 +77,17 @@ export const listClients = createServerFn({ method: "GET" })
 const CreateClientInput = z.object({
   brandId: z.string().uuid(),
   name: z.string().trim().min(2).max(120),
+  legal_name: z.string().max(200).optional(),
+  cnpj: z.string().max(24).optional(),
+  description: z.string().max(2000).optional(),
   niche: z.string().max(120).optional(),
   color: z.string().optional(),
   logo_url: z.string().url().max(500).optional().or(z.literal("")),
+  website: z.string().max(300).optional().or(z.literal("")),
   tone_of_voice: z.string().max(120).optional(),
   contact_name: z.string().max(120).optional(),
   contact_email: z.string().email().max(200).optional().or(z.literal("")),
+  contact_phone: z.string().max(40).optional(),
   is_active: z.boolean().optional(),
   owner_user_id: z.string().uuid().nullable().optional(),
   socials: z
@@ -106,16 +111,22 @@ export const createClient = createServerFn({ method: "POST" })
       .insert({
         brand_id: data.brandId,
         name: data.name,
+        legal_name: data.legal_name?.trim() || null,
+        cnpj: data.cnpj?.trim() || null,
+        description: data.description?.trim() || null,
         niche: data.niche ?? null,
         color: data.color ?? "#6366f1",
         logo_url: data.logo_url ? data.logo_url : null,
+        website: data.website ? data.website : null,
         tone_of_voice: data.tone_of_voice ?? null,
         contact_name: data.contact_name ?? null,
         contact_email: data.contact_email ? data.contact_email : null,
+        contact_phone: data.contact_phone?.trim() || null,
         is_active: data.is_active ?? true,
         owner_user_id: data.owner_user_id ?? null,
         socials: (data.socials ?? null) as never,
       })
+
       .select()
       .single();
     if (error) throw error;
