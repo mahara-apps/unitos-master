@@ -244,6 +244,10 @@ export function MetaPortfolioDialog({
             sessionId: sessionId!,
             targetId: input.targetId,
             channel: input.channel,
+            // Página e Instagram vinculado vêm juntos em uma única ação.
+            ...(input.channel === "facebook" || input.channel === "instagram"
+              ? { linkPair: true }
+              : {}),
           },
         });
       }
@@ -313,10 +317,22 @@ export function MetaPortfolioDialog({
   }
 
   const fbPages = data?.pages ?? [];
-  const igPages = useMemo(
-    () => (data?.pages ?? []).filter((p) => p.instagramBusinessId),
-    [data],
-  );
+  // Instagram list = contas vindas de Páginas + contas atribuídas direto a um
+  // portfólio empresarial (sem Página administrável), normalizadas na mesma forma.
+  const igPages = useMemo(() => {
+    const fromPages = (data?.pages ?? []).filter((p) => p.instagramBusinessId);
+    const standalone = (data?.standaloneInstagram ?? []).map((i) => ({
+      pageId: i.instagramId,
+      pageName: i.name ?? i.username ?? i.instagramId,
+      category: i.businessName,
+      pagePictureUrl: null,
+      instagramBusinessId: i.instagramId,
+      instagramUsername: i.username,
+      instagramPictureUrl: i.pictureUrl,
+      standalone: true as const,
+    }));
+    return [...fromPages, ...standalone];
+  }, [data]);
   const threadsAccounts: PortfolioThreadsAccount[] = data?.threadsAccounts ?? [];
   const adAccounts: PortfolioAdAccount[] = data?.adAccounts ?? [];
   const missingScopes = data?.missingScopes ?? [];
@@ -637,7 +653,9 @@ export function MetaPortfolioDialog({
                               )}
                             </div>
                             <p className="truncate text-[11px] text-muted-foreground">
-                              via Página {p.pageName}
+                              {"standalone" in p && p.standalone
+                                ? `Portfólio${p.category ? ` ${p.category}` : ""} · sem Página vinculada`
+                                : `via Página ${p.pageName}`}
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
