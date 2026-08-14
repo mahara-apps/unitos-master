@@ -39,7 +39,18 @@ export type PlanAgentResult<T> = {
   output: T;
   modelId: string;
   brandBlueprintUsed: boolean;
+  attempts: number;
 };
+
+export type PlanAgentAttemptInfo = {
+  attempt: number;
+  ok: boolean;
+  kind?: FailureKind;
+  retryable?: boolean;
+  message?: string;
+};
+
+const MAX_ATTEMPTS = 3;
 
 export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
   agent: "pauta.suggest" | "content.generate";
@@ -52,6 +63,8 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
   schema: T;
   /** Contexto extra já montado (estratégia IA, métricas, brain, briefing). */
   extraContext?: string;
+  /** Observabilidade por tentativa — mesmo contrato do pipeline de Copy. */
+  onAttempt?: (info: PlanAgentAttemptInfo) => Promise<void> | void;
 }): Promise<PlanAgentResult<z.infer<T>>> {
   // Autorização — membro da marca.
   const { data: member, error: memberErr } = await opts.supabase
@@ -98,29 +111,63 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
     { agent: opts.agent, clientId: opts.clientId, userId: opts.userId },
   );
 
-  let output: unknown = null;
+  let lastErr: unknown = null;
+  let lastKind: FailureKind = "unknown";
 
-  try {
-    const res = await generateText({
-      model,
-      ...(system ? { system } : {}),
-      prompt: opts.prompt,
-      output: Output.object({ schema: opts.schema }),
-    });
-    output = res.output;
-  } catch (error) {
-    if (NoObjectGeneratedError.isInstance(error)) {
-      const safe = opts.schema.safeParse(tryParseFallback(error.text));
-      if (safe.success) {
-        output = safe.data;
-      } else {
-        throw new Error("Parsing falhou na geração da pauta");
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    // Espaçamento único entre chamadas — evita rajadas no provedor.
+    await sleep(SPACING_MS);
+    try {
+      let output: unknown = null;
+      try {
+        const res = await generateText({
+          model,
+          ...(system ? { system } : {}),
+          prompt: opts.prompt,
+          output: Output.object({ schema: opts.schema }),
+        });
+        output = res.output;
+      } catch (error) {
+        if (NoObjectGeneratedError.isInstance(error)) {
+          const safe = opts.schema.safeParse(tryParseFallback(error.text));
+          if (!safe.success) throw error;
+          output = safe.data;
+        } else {
+          throw error;
+        }
       }
-    } else {
-      throw new Error(error instanceof Error ? error.message : String(error));
+      await opts.onAttempt?.({ attempt, ok: true });
+      return {
+        output: output as z.infer<T>,
+        modelId,
+        brandBlueprintUsed: !!brandBlueprint,
+        attempts: attempt,
+      };
+    } catch (error) {
+      lastErr = error;
+      const { kind, retryable } = classifyAiError(error);
+      lastKind = kind;
+      const { text } = unwrapAiError(error);
+      await opts.onAttempt?.({
+        attempt,
+        ok: false,
+        kind,
+        retryable,
+        message: text.slice(0, 500),
+      });
+      if (!retryable || attempt === MAX_ATTEMPTS) break;
+      await sleep(BACKOFF_MS[attempt - 1]!);
     }
   }
 
-  return { output: output as z.infer<T>, modelId, brandBlueprintUsed: !!brandBlueprint };
+  // Erro tipado: o chamador decide o código devolvido à UI.
+  const err = new Error(`ai_failure:${lastKind} — ${describeFailure(lastKind)}`) as Error & {
+    failureKind: FailureKind;
+    cause?: unknown;
+  };
+  err.failureKind = lastKind;
+  err.cause = lastErr;
+  throw err;
 }
+
 
