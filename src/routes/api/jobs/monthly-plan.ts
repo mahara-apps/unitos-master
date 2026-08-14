@@ -90,7 +90,7 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
     opts.brandId,
     "text",
     opts.strategic ? "strategic" : "operational",
-    { agent: opts.agent ?? "monthly-plan.job", clientId: opts.clientId ?? null },
+    { agent: opts.strategic ? "monthly-plan.strategic" : "monthly-plan.job" },
   );
   try {
     const res = await generateText({

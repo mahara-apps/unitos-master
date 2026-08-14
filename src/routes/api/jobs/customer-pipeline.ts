@@ -323,7 +323,7 @@ async function runJson(opts: {
     opts.brandId,
     "text",
     opts.strategic ? "strategic" : "operational",
-    { agent: opts.agent ?? "customer.pipeline", clientId: opts.clientId ?? null },
+    { agent: opts.strategic ? "customer.pipeline.strategic" : "customer.pipeline" },
   );
 
   const run = async () => {
