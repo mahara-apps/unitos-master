@@ -18,15 +18,8 @@ import { buildBrandContextBlueprint } from "@/lib/ai-agents.functions";
  * `monthly-plans.functions.ts` sem arrastar código de servidor pro bundle.
  */
 
-const PRICE_PER_MTOK: Record<string, { input: number; output: number }> = {
-  "google/gemini-2.5-pro": { input: 1.25, output: 5.0 },
-  "google/gemini-2.5-flash": { input: 0.25, output: 2.0 },
-};
 
-function estimateCost(model: string, inTok: number, outTok: number) {
-  const p = PRICE_PER_MTOK[model] ?? { input: 0, output: 0 };
-  return (inTok * p.input + outTok * p.output) / 1_000_000;
-}
+
 
 function tryParseFallback(text: string | undefined) {
   if (!text) return null;
