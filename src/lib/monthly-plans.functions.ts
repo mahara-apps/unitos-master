@@ -26,6 +26,8 @@ import {
   acquirePlanGenerationLock,
   releasePlanGenerationLock,
 } from "@/lib/monthly-plan-lock.server";
+import { runPlanGeneration } from "@/lib/monthly-plan-generate.server";
+import { countGeneratedThisMonth } from "@/lib/monthly-plan-generated-count.server";
 
 
 /* ---------- Types ---------- */
@@ -193,283 +195,34 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => GenerateInput.parse(i))
   .handler(async ({ data, context }): Promise<GenerateMonthlyPlanResult> => {
-    const [{ data: brand }, briefingCtx] = await Promise.all([
-      context.supabase.from("brands").select("name").eq("id", data.brandId).maybeSingle(),
-      loadBriefingContext(context.supabase, data.clientId, {
-        briefingId: data.briefingId ?? null,
-        weeksPerMonth: data.weeksPerMonth,
-      }),
-    ]);
-
-    // Volumetria é obrigatória — sem ela não há como definir quantas peças gerar.
-    if (briefingCtx.totalTarget <= 0) throw new Error("volumetry_required");
-
-    // Cotas efetivas por canal + FORMATO.
-    // Seleção do wizard quando houver; senão a volumetria do briefing.
-    const formatQuota: ChannelFormatQuota = {};
-    if (data.selection?.length) {
-      for (const s of data.selection) {
-        const allowed = formatsForChannel(s.channel);
-        const bucket: Partial<Record<ContentFormat, number>> = {};
-        for (const [rawF, qty] of Object.entries(s.formatQuotas ?? {})) {
-          const f = normalizeContentFormat(rawF);
-          if (!f || !allowed.includes(f)) continue;
-          const n = Math.max(0, Math.round(Number(qty) || 0));
-          if (n > 0) bucket[f] = (bucket[f] ?? 0) + n;
-        }
-        // Sem cota por formato: cai na cota por formato do briefing (ou total).
-        if (!Object.keys(bucket).length) {
-          const fromBriefing = briefingCtx.formatQuota[s.channel] ?? {};
-          const briefingSum = CONTENT_FORMATS.reduce((t, f) => t + (fromBriefing[f] ?? 0), 0);
-          if (briefingSum > 0) {
-            // Reescala proporcionalmente para a quantidade escolhida no wizard.
-            let left = s.quantity;
-            const entries = CONTENT_FORMATS.filter((f) => (fromBriefing[f] ?? 0) > 0);
-            entries.forEach((f, idx) => {
-              const share =
-                idx === entries.length - 1
-                  ? left
-                  : Math.min(left, Math.round((fromBriefing[f]! / briefingSum) * s.quantity));
-              if (share > 0) bucket[f] = share;
-              left -= share;
-            });
-          } else {
-            bucket[allowed[0] ?? "feed"] = s.quantity;
-          }
-        }
-        const existing = formatQuota[s.channel] ?? {};
-        for (const f of CONTENT_FORMATS) {
-          if (bucket[f]) existing[f] = (existing[f] ?? 0) + bucket[f]!;
-        }
-        formatQuota[s.channel] = existing;
-      }
-    } else {
-      for (const c of PLAN_CHANNELS) {
-        const bucket = briefingCtx.formatQuota[c] ?? {};
-        if (CONTENT_FORMATS.some((f) => (bucket[f] ?? 0) > 0)) formatQuota[c] = { ...bucket };
-      }
-    }
-
-    const quota = channelTotals(formatQuota);
-    const activeChannels = PLAN_CHANNELS.filter((c) => (quota[c] ?? 0) > 0);
-    const totalTarget = totalSlots(formatQuota);
-    if (totalTarget <= 0) throw new Error("volumetry_required");
-
-    // Respeita a volumetria do briefing: excedentes exigem autorização do gestor.
     const period = currentPeriodMonth();
-    const approvedOverage = await loadApprovedOverage(context.supabase, {
+    // Trava server-side: uma geração por marca + cliente + período.
+    const lock = await acquirePlanGenerationLock(context.supabase, {
       brandId: data.brandId,
       clientId: data.clientId,
-      periodMonth: period,
+      userId: context.userId,
+      period,
     });
-    const generated = await countGeneratedThisMonth(context.supabase, data.clientId, period);
-    const overageItems: Array<{
-      channel: PlanChannel;
-      quota: number;
-      requested: number;
-      overage: number;
-    }> = [];
-    for (const c of activeChannels) {
-      const allowance =
-        (briefingCtx.monthlyQuota[c] ?? 0) + (approvedOverage[c] ?? 0) - (generated[c] ?? 0);
-      const requested = quota[c] ?? 0;
-      if (requested > Math.max(0, allowance)) {
-        overageItems.push({
-          channel: c,
-          quota: Math.max(0, allowance),
-          requested,
-          overage: requested - Math.max(0, allowance),
-        });
-      }
-    }
-    if (overageItems.length) {
-      return { ok: false, code: "overage_not_authorized", overage: overageItems };
-    }
-
-    // Estratégia IA ativa + desempenho real das contas conectadas (por canal).
-    const [strategy, performance] = await Promise.all([
-      loadStrategyContext(context.supabase, data.brandId, data.clientId).catch((err) => {
-        console.warn("[monthly-plan] strategy context failed", err);
-        return null;
-      }),
-      loadPerformanceContext(context.supabase, {
-        brandId: data.brandId,
-        clientId: data.clientId,
-        channels: activeChannels,
-        cacheScopeToken: context.userId,
-      }).catch((err) => {
-        console.warn("[monthly-plan] performance context failed", err);
-        return null;
-      }),
-    ]);
-
-    // Brain: enrich prompt with consolidated knowledge for this brand/client.
-    let brainMarkdown = "";
+    if ("conflict" in lock) return { ok: false, code: "generation_in_progress" };
     try {
-      const brainCtx: BrainContext = {
+      const result = await runPlanGeneration({
         supabase: context.supabase,
         userId: context.userId,
-        brandId: data.brandId,
-        clientId: data.clientId,
-        module: "monthly-plan",
-      };
-      const pack = await brain.getContext(brainCtx, {
-        topic: `planejamento mensal ${data.theme ?? ""}`.trim(),
-        nicheHint: briefingCtx.niche,
+        input: data,
+        period,
       });
-      brainMarkdown = pack.markdown ?? "";
+      await releasePlanGenerationLock(context.supabase, lock.jobId, {
+        ok: result.ok,
+        ...(result.ok ? { planId: result.data.plan.id } : { error: result.code }),
+      });
+      return result;
     } catch (err) {
-      console.warn("[monthly-plan] brain.getContext failed:", err);
-    }
-
-    // Distribuição canal → formato → quantidade (cotas exatas para a IA).
-    const distributionText = describeDistribution(
-      activeChannels.map((c) => ({
-        channel: c,
-        formats: formatQuota[c] ?? {},
-        total: quota[c] ?? 0,
-      })),
-    );
-
-    const audienceOptions = [
-      ...(strategy?.personaNames ?? []),
-      ...(strategy?.cohortNames ?? []),
-    ].filter(Boolean);
-
-    const extraContext = [
-      strategy?.markdown,
-      performance?.markdown,
-      brainMarkdown
-        ? `## Contexto do Brain (memórias, insights e métricas desta marca)\n${brainMarkdown}\n\nUse esse contexto para evitar repetir erros passados e reforçar o que já funcionou.`
-        : "",
-      `## Briefing consolidado do cliente (contexto obrigatório)\n${briefingCtx.text.slice(0, 12000)}`,
-    ]
-      .filter((s): s is string => !!s && s.trim().length > 0)
-      .join("\n\n");
-
-    const prompt = [
-      `Você é um estrategista de conteúdo sênior.`,
-      `Crie uma pauta mensal de conteúdo para redes sociais em português (Brasil).`,
-      `Cruze OBRIGATORIAMENTE: (1) Estratégia IA ativa (voice, personas, cohorts, SWOT),`,
-      `(2) desempenho real das contas conectadas por canal e (3) o briefing consolidado.`,
-      `Não invente dados: quando um canal estiver sem métricas, baseie-se em briefing e estratégia.`,
-      ``,
-      `Marca: ${brand?.name ?? "—"}`,
-      data.theme
-        ? `Tema do mês (input do usuário): ${data.theme}`
-        : `Sem tema definido pelo usuário — derive o tema estratégico do mês do briefing e da estratégia ativa.`,
-      ``,
-      `Regras:`,
-      `- title: uma headline curta (máx 90 chars) que resume a estratégia do mês.`,
-      `- description: 2-3 frases explicando o contexto do mês.`,
-      `- objectives: 2-4 objetivos claros, separados por quebras de linha.`,
-      `- topics: EXATAMENTE ${totalTarget} ideias de posts, distribuídas por CANAL e FORMATO conforme a volumetria contratada (não altere as quantidades):\n${distributionText}\n  Cada ideia deve ter:`,
-      `  * topic_title: título curto e criativo do post`,
-      `  * content_format: OBRIGATÓRIO — um de ${CONTENT_FORMATS.map((f) => `"${f}"`).join(", ")} (equivalências: ${CONTENT_FORMATS.map((f) => `${f} = ${CONTENT_FORMAT_LABEL[f]}`).join("; ")})`,
-      `  * channel: OBRIGATÓRIO — um de ${PLAN_CHANNELS.map((c) => `"${c}"`).join(", ")} (respeitar cotas acima)`,
-      `  * angle: gancho estratégico / direcionamento para produção (1-2 frases)`,
-      audienceOptions.length
-        ? `  * target_audience: OBRIGATÓRIO — persona ou cohort da estratégia ativa (${audienceOptions.slice(0, 8).join(", ")})`
-        : `  * target_audience: público-alvo principal da ideia, derivado do briefing`,
-      `  * rationale: 1 frase citando a evidência usada (métrica do canal, insight do briefing ou item da estratégia)`,
-      `- A quantidade por canal + formato é contratual: cumpra exatamente, sem trocar formatos.`,
-      `- Dentro de cada cota, priorize os temas que performaram melhor no canal.`,
-      `- Sem markdown, sem prefixos numéricos.`,
-      `- Retorne EXATAMENTE um objeto JSON no schema.`,
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    let agentResult: Awaited<ReturnType<typeof runPlanAgent>>;
-    try {
-      agentResult = await runPlanAgent({
-        agent: "pauta.suggest",
-        supabase: context.supabase,
-        brandId: data.brandId,
-        clientId: data.clientId,
-        userId: context.userId,
-        prompt,
-        extraContext,
-        schema: AiPlanSchema,
+      await releasePlanGenerationLock(context.supabase, lock.jobId, {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
       });
-    } catch (error) {
-      const message = error instanceof Error ? error.message.toLowerCase() : "";
-      if (message.includes("ai_provider_not_configured")) {
-        return { ok: false, code: "ai_provider_not_configured" };
-      }
-      if (message.includes("ai_provider_key_missing")) {
-        return { ok: false, code: "ai_provider_key_missing" };
-      }
-      if (message.includes("ai_model_unavailable")) {
-        return { ok: false, code: "ai_model_unavailable" };
-      }
-      throw error;
+      throw err;
     }
-    const { output, modelId } = agentResult;
-    const parsed = output as z.infer<typeof AiPlanSchema>;
-
-    const contextSources = {
-      model: modelId,
-      briefing_id: data.briefingId ?? null,
-      strategy_blocks: strategy?.blocks ?? [],
-      strategy_generated_at: strategy?.generatedAt ?? null,
-      metrics_channels: performance?.channelsWithMetrics ?? [],
-      channels_without_account: performance?.channelsWithoutAccount ?? [],
-      brain_context: !!brainMarkdown,
-      agent: "pauta.suggest",
-      generated_at: new Date().toISOString(),
-    };
-
-    const { data: planRow, error: planErr } = await context.supabase
-      .from("monthly_plans" as never)
-      .insert({
-        brand_id: data.brandId,
-        client_id: data.clientId,
-        input_theme: data.theme || null,
-        input_briefing_id: data.briefingId ?? null,
-        title: parsed.title.slice(0, 200),
-        description: parsed.description.slice(0, 4000),
-        objectives: parsed.objectives.slice(0, 4000),
-        status: "draft",
-        created_by: context.userId,
-        context_sources: contextSources,
-      } as never)
-      .select("*")
-      .single();
-    if (planErr) throw planErr;
-    const plan = planRow as unknown as MonthlyPlan;
-
-    // Aloca canal + formato por vaga real da volumetria (determinístico).
-    const allocator = createSlotAllocator(formatQuota);
-    const topicRows = parsed.topics.slice(0, totalTarget).map((t, i) => {
-      const { channel, format } = allocator.allocate(t.channel, t.content_format);
-      return {
-        monthly_plan_id: plan.id,
-        topic_title: t.topic_title.slice(0, 240),
-        content_format: format,
-        angle: t.angle.slice(0, 1000),
-        channel,
-        target_audience: (t.target_audience ?? "").toString().trim().slice(0, 240) || null,
-        rationale: (t.rationale ?? "").toString().trim().slice(0, 600) || null,
-        status: "pending" as const,
-        position: i * 1024,
-      };
-    });
-    const { data: inserted, error: topErr } = await context.supabase
-      .from("monthly_plan_topics" as never)
-      .insert(topicRows as never)
-      .select("*");
-    if (topErr) throw topErr;
-
-    return {
-      ok: true,
-      data: {
-        plan,
-        topics: (inserted as unknown as MonthlyPlanTopic[]).sort(
-          (a, b) => a.position - b.position,
-        ),
-      },
-    };
   });
 
 /* ---------- Volumetria (pré-geração) ---------- */
@@ -512,37 +265,6 @@ export const getPlanVolumetryFn = createServerFn({ method: "POST" })
       approvedOverage,
     };
   });
-
-/** Conta peças já geradas no mês corrente, por canal. */
-async function countGeneratedThisMonth(
-  supabase: Parameters<typeof loadApprovedOverage>[0],
-  clientId: string,
-  monthStartOrPeriod: string,
-): Promise<Record<string, number>> {
-  const monthStart = monthStartOrPeriod.length === 10
-    ? new Date(`${monthStartOrPeriod}T00:00:00.000Z`).toISOString()
-    : monthStartOrPeriod;
-  const out = PLAN_CHANNELS.reduce<Record<string, number>>((acc, c) => {
-    acc[c] = 0;
-    return acc;
-  }, {});
-  const { data: planRows } = await supabase
-    .from("monthly_plans" as never)
-    .select("id")
-    .eq("client_id", clientId)
-    .gte("created_at", monthStart);
-  const planIds = ((planRows ?? []) as Array<{ id: string }>).map((p) => p.id);
-  if (!planIds.length) return out;
-  const { data: topicRows } = await supabase
-    .from("monthly_plan_topics" as never)
-    .select("channel")
-    .in("monthly_plan_id", planIds);
-  for (const t of (topicRows ?? []) as Array<{ channel: string | null }>) {
-    const c = (t.channel ?? "").toLowerCase();
-    if (c in out) out[c] = (out[c] ?? 0) + 1;
-  }
-  return out;
-}
 
 /* ---------- CRUD ---------- */
 
