@@ -22,11 +22,20 @@ import {
 } from "@/lib/monthly-plan-distribution";
 import { loadApprovedOverage } from "@/lib/plan-overage.server";
 import { countGeneratedThisMonth } from "@/lib/monthly-plan-generated-count.server";
+import {
+  logPlanEvent,
+  setPlanJobCheckpoint,
+  setPlanJobStep,
+} from "@/lib/monthly-plan-observability.server";
+import { findResumableGeneration } from "@/lib/monthly-plan-resume.server";
+import type { FailureKind } from "@/lib/ai-failures.server";
 import type {
+  GenerateFailureCode,
   GenerateMonthlyPlanResult,
   MonthlyPlan,
   MonthlyPlanTopic,
 } from "@/lib/monthly-plans.functions";
+
 
 /**
  * Núcleo ÚNICO de geração de pauta (canal + formato + quantidade).
