@@ -7,9 +7,12 @@ import {
   ChevronRight,
   CircleCheck,
   Clock,
+  FileText,
   FolderPlus,
+  History as HistoryIcon,
   Info,
   Lock,
+  Route,
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -48,6 +51,16 @@ import {
 import { listBrandTeam } from "@/lib/team.functions";
 import { listTemplatesFn } from "@/lib/project-templates.functions";
 import { PortalLinkCard } from "@/components/customer/portal-link-card";
+import {
+  ProfileEmpty,
+  ProfileField,
+  ProfileFieldGrid,
+  ProfilePageHeader,
+  ProfileSaveBar,
+  ProfileSection,
+  ProfileSectionsSkeleton,
+  ProfileStat,
+} from "@/components/customer/ui/profile-ui";
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const DATE_FMT = new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" });
@@ -117,13 +130,7 @@ export function AccountManagementTab({
   });
 
   if (accountQ.isLoading || !accountQ.data) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-48 w-full rounded-xl" />
-        <Skeleton className="h-32 w-full rounded-xl" />
-        <Skeleton className="h-64 w-full rounded-xl" />
-      </div>
-    );
+    return <ProfileSectionsSkeleton sections={3} />;
   }
 
   const { account, timeline, stageMappings } = accountQ.data;
@@ -140,10 +147,24 @@ export function AccountManagementTab({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 pb-2">
+      <ProfilePageHeader
+        title="Gestão da conta"
+        description="Controle as informações operacionais e administrativas deste cliente."
+        badge={
+          canEdit ? (
+            <Badge tone="emerald">Edição liberada</Badge>
+          ) : (
+            <Badge tone="amber" className="gap-1">
+              <Lock className="h-3 w-3" /> Somente leitura
+            </Badge>
+          )
+        }
+      />
+
       {!canEdit && (
-        <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-          <Lock className="h-3.5 w-3.5" />
+        <div className="flex items-start gap-2 rounded-xl border border-amber-500/25 bg-amber-500/5 px-4 py-3 text-[12px] text-amber-600 dark:text-amber-300">
+          <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           Você tem acesso somente leitura à gestão desta conta.
         </div>
       )}
@@ -156,8 +177,6 @@ export function AccountManagementTab({
         isSaving={updateMut.isPending}
       />
 
-      <PortalLinkCard clientId={clientId} clientName={account.name ?? null} />
-
       <JourneyPipeline
         currentIdx={currentIdx}
         mappingByStage={mappingByStage}
@@ -165,7 +184,11 @@ export function AccountManagementTab({
         canEdit={canEdit}
       />
 
-      <JourneyHistory timeline={timeline} />
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <PortalLinkCard clientId={clientId} clientName={account.name ?? null} />
+        <JourneyHistory timeline={timeline} />
+      </div>
+
 
       <MoveDialog
         open={moveDialog.open}
@@ -262,140 +285,174 @@ function AccountInfoCard({
     });
   };
 
+  const statusTone: Record<string, "emerald" | "amber" | "red" | "slate"> = {
+    ativo: "emerald",
+    pausado: "amber",
+    inadimplente: "red",
+    encerrado: "slate",
+    cancelado: "slate",
+  };
+  const tone = statusTone[form.contract_status] ?? "slate";
+
   return (
-    <div className="rounded-xl border border-border/60 bg-card">
-      <div className="border-b border-border/60 px-4 py-3">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-          Gestão da conta
-        </div>
-        <div className="mt-0.5 text-sm font-medium">Informações comerciais</div>
-      </div>
-      <div className="grid grid-cols-3 divide-x divide-border/60 border-b border-border/60 text-center">
-        <KpiCell label="MRR do cliente" value={BRL.format(mrr)} />
-        <KpiCell
-          label="Tempo de casa"
-          value={tenureMonths == null ? "—" : `${tenureMonths} ${tenureMonths === 1 ? "mês" : "meses"}`}
-        />
-        <KpiCell
-          label="Renovação"
-          value={
-            daysToRenewal == null
-              ? "—"
-              : daysToRenewal < 0
-                ? `Vencida há ${Math.abs(daysToRenewal)}d`
-                : `${daysToRenewal} dias`
+    <>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+        <ProfileSection
+          title="Status da conta"
+          subtitle="Situação contratual e indicadores comerciais"
+          icon={<CircleCheck className="h-4 w-4" />}
+          action={
+            <Badge tone={tone} className="capitalize">
+              {CONTRACT_STATUS_LABEL[form.contract_status as keyof typeof CONTRACT_STATUS_LABEL] ??
+                form.contract_status}
+            </Badge>
           }
-          tone={daysToRenewal != null && daysToRenewal < 30 ? "warn" : "default"}
-        />
-      </div>
-      <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2">
-        <Field label="Valor mensal do contrato">
-          <Input
-            inputMode="decimal"
-            placeholder="0,00"
-            disabled={!canEdit}
-            value={form.monthly_contract_value}
-            onChange={(e) =>
-              setForm((s) => ({ ...s, monthly_contract_value: e.target.value }))
-            }
-          />
-        </Field>
-        <Field label="Margem (%)">
-          <Input
-            inputMode="decimal"
-            placeholder="0,00"
-            disabled={!canEdit}
-            value={form.margin_percent}
-            onChange={(e) => setForm((s) => ({ ...s, margin_percent: e.target.value }))}
-          />
-        </Field>
-        <Field label="Data de início">
-          <Input
-            type="date"
-            disabled={!canEdit}
-            value={form.contract_start_date}
-            onChange={(e) =>
-              setForm((s) => ({ ...s, contract_start_date: e.target.value }))
-            }
-          />
-        </Field>
-        <Field label="Renovação prevista">
-          <Input
-            type="date"
-            disabled={!canEdit}
-            value={form.contract_renewal_date}
-            onChange={(e) =>
-              setForm((s) => ({ ...s, contract_renewal_date: e.target.value }))
-            }
-          />
-        </Field>
-        <Field label="Status contratual">
-          <Select
-            value={form.contract_status}
-            onValueChange={(v) => setForm((s) => ({ ...s, contract_status: v }))}
-            disabled={!canEdit}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(CONTRACT_STATUS_LABEL).map(([k, v]) => (
-                <SelectItem key={k} value={k}>
-                  {v}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-        <Field label="Responsável pela conta">
-          <Select
-            value={form.owner_user_id || "__none"}
-            onValueChange={(v) =>
-              setForm((s) => ({ ...s, owner_user_id: v === "__none" ? "" : v }))
-            }
-            disabled={!canEdit}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Selecionar" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none">Sem responsável</SelectItem>
-              {team.map((m) => (
-                <SelectItem key={m.user_id} value={m.user_id}>
-                  {m.full_name || m.user_id.slice(0, 8)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-        <div className="md:col-span-2">
-          <Field label="Notas internas">
-            <Textarea
-              rows={4}
-              disabled={!canEdit}
-              value={form.internal_notes}
-              onChange={(e) => setForm((s) => ({ ...s, internal_notes: e.target.value }))}
-              placeholder="Contexto do contrato, particularidades, histórico comercial…"
+        >
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <ProfileStat label="MRR do cliente" value={BRL.format(mrr)} tone="emerald" />
+            <ProfileStat
+              label="Tempo de casa"
+              value={
+                tenureMonths == null
+                  ? "—"
+                  : `${tenureMonths} ${tenureMonths === 1 ? "mês" : "meses"}`
+              }
             />
-          </Field>
-        </div>
+            <ProfileStat
+              label="Renovação"
+              value={
+                daysToRenewal == null
+                  ? "—"
+                  : daysToRenewal < 0
+                    ? `Vencida há ${Math.abs(daysToRenewal)}d`
+                    : `${daysToRenewal} dias`
+              }
+              tone={
+                daysToRenewal == null
+                  ? "default"
+                  : daysToRenewal < 0
+                    ? "destructive"
+                    : daysToRenewal < 30
+                      ? "amber"
+                      : "emerald"
+              }
+            />
+          </div>
+          <div className="mt-4">
+            <ProfileFieldGrid>
+              <ProfileField label="Status contratual">
+                <Select
+                  value={form.contract_status}
+                  onValueChange={(v) => setForm((s) => ({ ...s, contract_status: v }))}
+                  disabled={!canEdit}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(CONTRACT_STATUS_LABEL).map(([k, v]) => (
+                      <SelectItem key={k} value={k}>
+                        {v}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </ProfileField>
+              <ProfileField label="Responsável pela conta">
+                <Select
+                  value={form.owner_user_id || "__none"}
+                  onValueChange={(v) =>
+                    setForm((s) => ({ ...s, owner_user_id: v === "__none" ? "" : v }))
+                  }
+                  disabled={!canEdit}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecionar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none">Sem responsável</SelectItem>
+                    {team.map((m) => (
+                      <SelectItem key={m.user_id} value={m.user_id}>
+                        {m.full_name || m.user_id.slice(0, 8)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </ProfileField>
+            </ProfileFieldGrid>
+          </div>
+        </ProfileSection>
+
+        <ProfileSection
+          title="Contrato"
+          subtitle="Valores, vigência e observações internas"
+          icon={<FileText className="h-4 w-4" />}
+        >
+          <ProfileFieldGrid>
+            <ProfileField label="Valor mensal do contrato" hint="Somente números, em reais.">
+              <Input
+                inputMode="decimal"
+                placeholder="0,00"
+                disabled={!canEdit}
+                value={form.monthly_contract_value}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, monthly_contract_value: e.target.value }))
+                }
+              />
+            </ProfileField>
+            <ProfileField label="Margem (%)">
+              <Input
+                inputMode="decimal"
+                placeholder="0,00"
+                disabled={!canEdit}
+                value={form.margin_percent}
+                onChange={(e) => setForm((s) => ({ ...s, margin_percent: e.target.value }))}
+              />
+            </ProfileField>
+            <ProfileField label="Data de início">
+              <Input
+                type="date"
+                disabled={!canEdit}
+                value={form.contract_start_date}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, contract_start_date: e.target.value }))
+                }
+              />
+            </ProfileField>
+            <ProfileField label="Renovação prevista">
+              <Input
+                type="date"
+                disabled={!canEdit}
+                value={form.contract_renewal_date}
+                onChange={(e) =>
+                  setForm((s) => ({ ...s, contract_renewal_date: e.target.value }))
+                }
+              />
+            </ProfileField>
+            <ProfileField label="Notas internas" full>
+              <Textarea
+                rows={4}
+                disabled={!canEdit}
+                value={form.internal_notes}
+                onChange={(e) => setForm((s) => ({ ...s, internal_notes: e.target.value }))}
+                placeholder="Contexto do contrato, particularidades, histórico comercial…"
+                className="resize-y"
+              />
+            </ProfileField>
+          </ProfileFieldGrid>
+        </ProfileSection>
       </div>
+
       {canEdit && (
-        <div className="flex justify-end gap-2 border-t border-border/60 px-4 py-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            disabled={!dirty || isSaving}
-            onClick={() => setForm(toForm(account))}
-          >
-            Descartar
-          </Button>
-          <Button size="sm" disabled={!dirty || isSaving} onClick={submit}>
-            {isSaving ? "Salvando…" : "Salvar alterações"}
-          </Button>
-        </div>
+        <ProfileSaveBar
+          dirty={dirty}
+          saving={isSaving}
+          onSave={submit}
+          onDiscard={() => setForm(toForm(account))}
+          hint="Nenhuma alteração pendente"
+        />
       )}
-    </div>
+    </>
   );
 }
 
@@ -421,31 +478,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function KpiCell({
-  label,
-  value,
-  tone = "default",
-}: {
-  label: string;
-  value: string;
-  tone?: "default" | "warn";
-}) {
-  return (
-    <div className="px-4 py-3">
-      <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-        {label}
-      </div>
-      <div
-        className={cn(
-          "mt-1 font-mono text-xl font-semibold tabular-nums",
-          tone === "warn" && "text-amber-500",
-        )}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
 
 /* -------------------------------------------------------------------------- */
 /*  Pipeline                                                                  */
@@ -463,18 +495,20 @@ function JourneyPipeline({
   canEdit: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-card p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            Jornada do cliente
-          </div>
-          <div className="mt-0.5 text-sm font-medium">
-            {JOURNEY_STAGE_LABEL[JOURNEY_STAGES[currentIdx] ?? "onboarding"]}
-          </div>
-        </div>
-      </div>
-      <div className="flex flex-wrap items-stretch gap-2 md:flex-nowrap">
+    <ProfileSection
+      title="Jornada do cliente"
+      subtitle={`Etapa atual: ${JOURNEY_STAGE_LABEL[JOURNEY_STAGES[currentIdx] ?? "onboarding"]}`}
+      icon={<Route className="h-4 w-4" />}
+      footer={
+        <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+          <Info className="mt-0.5 h-3 w-3 shrink-0" />
+          {canEdit
+            ? "Clique em uma etapa para mover o cliente. Etapas com template criam um projeto automaticamente."
+            : "Somente admins podem mover o cliente entre etapas."}
+        </p>
+      }
+    >
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:flex xl:flex-nowrap xl:items-stretch">
         {JOURNEY_STAGES.map((stage, i) => {
           const done = i < currentIdx;
           const active = i === currentIdx;
@@ -486,29 +520,37 @@ function JourneyPipeline({
               onClick={() => onSelect(stage)}
               disabled={!canEdit}
               className={cn(
-                "group flex-1 min-w-[8.5rem] rounded-lg border px-3 py-2.5 text-left transition",
+                "group min-w-0 flex-1 rounded-xl border px-3 py-2.5 text-left transition",
                 active
-                  ? "border-primary/60 bg-primary/10"
+                  ? "border-primary/50 bg-primary/10 ring-1 ring-primary/20"
                   : done
-                    ? "border-emerald-500/40 bg-emerald-500/5"
-                    : "border-border/60 bg-background hover:border-border",
+                    ? "border-emerald-500/30 bg-emerald-500/[0.07]"
+                    : "border-border/50 bg-background/40 hover:border-border hover:bg-accent/40",
                 !canEdit && "cursor-not-allowed opacity-70",
               )}
             >
-              <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
                 {done ? (
-                  <Check className="h-3 w-3 text-emerald-500" />
+                  <Check className="h-3 w-3 shrink-0 text-emerald-500" />
                 ) : active ? (
-                  <Sparkles className="h-3 w-3 text-primary" />
+                  <Sparkles className="h-3 w-3 shrink-0 text-primary" />
                 ) : (
-                  <span className="inline-block h-3 w-3 rounded-full border border-border/60" />
+                  <span className="inline-block h-3 w-3 shrink-0 rounded-full border border-border/60" />
                 )}
                 Etapa {i + 1}
               </div>
-              <div className="mt-1 text-sm font-medium">{JOURNEY_STAGE_LABEL[stage]}</div>
+              <div
+                className={cn(
+                  "mt-1 truncate text-[13px] font-semibold",
+                  active && "text-primary",
+                  done && "text-emerald-600 dark:text-emerald-400",
+                )}
+              >
+                {JOURNEY_STAGE_LABEL[stage]}
+              </div>
               {map?.project_template_name && (
                 <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <FolderPlus className="h-3 w-3" />
+                  <FolderPlus className="h-3 w-3 shrink-0" />
                   <span className="truncate">{map.project_template_name}</span>
                 </div>
               )}
@@ -516,14 +558,9 @@ function JourneyPipeline({
           );
         })}
       </div>
-      <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-        <Info className="h-3 w-3" />
-        {canEdit
-          ? "Clique em uma etapa para mover o cliente. Etapas com template criam um projeto automaticamente."
-          : "Somente admins podem mover o cliente entre etapas."}
-      </div>
-    </div>
+    </ProfileSection>
   );
+
 }
 
 /* -------------------------------------------------------------------------- */
@@ -545,22 +582,24 @@ function JourneyHistory({
   }>;
 }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-card">
-      <div className="border-b border-border/60 px-4 py-3">
-        <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-          Histórico da jornada
-        </div>
-        <div className="mt-0.5 text-sm font-medium">
-          {timeline.length === 0 ? "Sem movimentações registradas" : `${timeline.length} evento(s)`}
-        </div>
-      </div>
+    <ProfileSection
+      title="Histórico da jornada"
+      subtitle={
+        timeline.length === 0
+          ? "Sem movimentações registradas"
+          : `${timeline.length} evento(s) registrados`
+      }
+      icon={<HistoryIcon className="h-4 w-4" />}
+      bodyClassName={timeline.length === 0 ? undefined : "px-0 py-0"}
+    >
       {timeline.length === 0 ? (
-        <div className="p-6 text-center text-xs text-muted-foreground">
-          Nenhuma movimentação ainda. Quando você mover o cliente entre etapas, os eventos
-          aparecerão aqui.
-        </div>
+        <ProfileEmpty
+          icon={<HistoryIcon className="h-4 w-4" />}
+          title="Nenhuma movimentação ainda"
+          hint="Quando você mover o cliente entre etapas, os eventos aparecerão aqui."
+        />
       ) : (
-        <ol className="divide-y divide-border/60">
+        <ol className="divide-y divide-border/40">
           {timeline.map((ev) => {
             const from = ev.from_stage
               ? JOURNEY_STAGE_LABEL[ev.from_stage as JourneyStage] ?? ev.from_stage
@@ -568,19 +607,19 @@ function JourneyHistory({
             const to =
               JOURNEY_STAGE_LABEL[ev.to_stage as JourneyStage] ?? ev.to_stage;
             return (
-              <li key={ev.id} className="flex items-start gap-3 px-4 py-3 text-sm">
+              <li key={ev.id} className="flex items-start gap-3 px-5 py-3 text-sm">
                 <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
                     {from && (
                       <>
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge variant="outline" className="text-[10px] font-medium">
                           {from}
                         </Badge>
                         <ChevronRight className="h-3 w-3 text-muted-foreground" />
                       </>
                     )}
-                    <Badge className="bg-primary/15 text-primary text-[10px] hover:bg-primary/15">
+                    <Badge tone="blue" className="text-[10px]">
                       {to}
                     </Badge>
                     {ev.project_name && (
@@ -604,8 +643,9 @@ function JourneyHistory({
           })}
         </ol>
       )}
-    </div>
+    </ProfileSection>
   );
+
 }
 
 /* -------------------------------------------------------------------------- */
