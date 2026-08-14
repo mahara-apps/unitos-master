@@ -70,14 +70,22 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
     // Cache-first by default. Opening the dialog must never trigger a Meta
     // Graph scan; the scan only happens when the user explicitly clicks
     // "Sincronizar" and sends refresh=true.
-    let cachedPages =
-      (session.pages as unknown as Array<PortfolioPage & { pageAccessToken?: string }>) ?? [];
+    // The `pages` column holds either a bare array (legacy sessions) or the
+    // richer payload `{ pages, standaloneInstagram, warnings, businessCount }`.
+    const pagesPayload = readPagesPayload(session.pages);
+    let cachedPages = pagesPayload.pages as Array<
+      PortfolioPage & { pageAccessToken?: string }
+    >;
+    let cachedStandaloneIg = pagesPayload.standaloneInstagram;
+    let scanWarnings = pagesPayload.warnings;
+    let businessCount = pagesPayload.businessCount;
     let cachedThreads =
       (session.threads_accounts as unknown as Array<
         PortfolioThreadsAccount & { accessToken?: string }
       >) ?? [];
     let cachedAds =
       (session.ad_accounts as unknown as PortfolioAdAccount[]) ?? [];
+
 
     const ch = data.channel ?? null;
     const needPages =
