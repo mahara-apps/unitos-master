@@ -141,7 +141,7 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
               .eq("id", post.id);
             // Reflete a publicação na peça editorial (posts/post_placements),
             // que é o que Calendário, Projeto e Conteúdo leem.
-            await syncEditorialPublished(supabaseAdmin, post.id, post.placement);
+            await syncEditorialPublished(supabaseAdmin, post.id, post.placement, post.connection_id);
             results.push({ id: post.id, ok: true });
 
           } catch (err) {
