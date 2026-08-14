@@ -5921,6 +5921,10 @@ export type Database = {
         Args: { _entry_id: string; _reason?: string }
         Returns: number
       }
+      sync_post_publication_state: {
+        Args: { p_post_id: string }
+        Returns: undefined
+      }
       upsert_brain_relationship: {
         Args: {
           _bidirectional?: boolean
