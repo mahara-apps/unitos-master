@@ -550,8 +550,9 @@ export function NewCustomerWizard({ brandId, open, onOpenChange }: NewCustomerWi
                 <Input
                   className="mt-1"
                   value={contactPhone}
-                  onChange={(e) => setContactPhone(e.target.value)}
-                  placeholder="+55 11 90000-0000"
+                  onChange={(e) => setContactPhone(maskPhone(e.target.value))}
+                  inputMode="numeric"
+                  placeholder="(11) 90000-0000"
                 />
               </div>
               <div>
