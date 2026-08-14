@@ -166,10 +166,70 @@ export async function runPlanGeneration(args: {
     }
   }
 
+  await setPlanJobStep(supabase, jobId, "volumetria");
   const quota = channelTotals(formatQuota);
   const activeChannels = PLAN_CHANNELS.filter((c) => (quota[c] ?? 0) > 0);
   const totalTarget = totalSlots(formatQuota);
   if (totalTarget <= 0) throw new Error("volumetry_required");
+
+  // ---- Retomada idempotente -------------------------------------------------
+  // Execução anterior que morreu depois de criar a pauta: reaproveita o
+  // rascunho e gera SOMENTE as vagas que faltam.
+  const resume = await findResumableGeneration(supabase, {
+    brandId: input.brandId,
+    clientId: input.clientId,
+    period,
+  });
+  let existingTopics: MonthlyPlanTopic[] = [];
+  if (resume) {
+    const { data: rows } = await supabase
+      .from("monthly_plan_topics" as never)
+      .select("*")
+      .eq("monthly_plan_id", resume.planId);
+    existingTopics = (rows ?? []) as unknown as MonthlyPlanTopic[];
+    await logPlanEvent(
+      supabase,
+      { ...scope, planId: resume.planId },
+      {
+        step: "retomada",
+        ok: true,
+        detail: { topics_saved: resume.topicsSaved, total_target: totalTarget },
+      },
+    );
+    // Geração já concluída: devolve o que existe, sem gastar tokens de novo.
+    if (resume.topicsSaved >= totalTarget) {
+      const { data: planRow } = await supabase
+        .from("monthly_plans" as never)
+        .select("*")
+        .eq("id", resume.planId)
+        .maybeSingle();
+      if (planRow) {
+        await setPlanJobCheckpoint(supabase, jobId, {
+          monthly_plan_id: resume.planId,
+          topics_saved: resume.topicsSaved,
+          period,
+        });
+        return {
+          ok: true,
+          resumed: true,
+          data: {
+            plan: planRow as unknown as MonthlyPlan,
+            topics: existingTopics.sort((a, b) => a.position - b.position),
+          },
+        };
+      }
+    }
+    // Desconta as vagas já preenchidas das cotas restantes.
+    for (const t of existingTopics) {
+      const ch = (t.channel ?? "").toString();
+      const f = normalizeContentFormat(t.content_format);
+      const bucket = formatQuota[ch];
+      if (!f || !bucket || !(bucket[f] ?? 0)) continue;
+      bucket[f] = (bucket[f] ?? 0) - 1;
+      if ((bucket[f] ?? 0) <= 0) delete bucket[f];
+    }
+  }
+  const remainingTarget = totalSlots(formatQuota);
 
   // Respeita a volumetria do briefing: excedentes exigem autorização do gestor.
   const approvedOverage = await loadApprovedOverage(supabase, {
@@ -185,8 +245,12 @@ export async function runPlanGeneration(args: {
     overage: number;
   }> = [];
   for (const c of activeChannels) {
+    // Tópicos da pauta retomada já entram em `generated`: não contam duas vezes.
+    const alreadyMine = resume?.channelCounts[c] ?? 0;
     const allowance =
-      (briefingCtx.monthlyQuota[c] ?? 0) + (approvedOverage[c] ?? 0) - (generated[c] ?? 0);
+      (briefingCtx.monthlyQuota[c] ?? 0) +
+      (approvedOverage[c] ?? 0) -
+      Math.max(0, (generated[c] ?? 0) - alreadyMine);
     const requested = quota[c] ?? 0;
     if (requested > Math.max(0, allowance)) {
       overageItems.push({
@@ -200,6 +264,7 @@ export async function runPlanGeneration(args: {
   if (overageItems.length) {
     return { ok: false, code: "overage_not_authorized", overage: overageItems };
   }
+
 
   // Estratégia IA ativa + desempenho real das contas conectadas (por canal).
   const [strategy, performance] = await Promise.all([
