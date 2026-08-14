@@ -28,6 +28,8 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   getMetaPortfolio,
+  SESSION_INVALID_PREFIX,
+
   linkMetaAccount,
   unlinkMetaAccount,
   type PortfolioPage,
