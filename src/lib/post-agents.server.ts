@@ -58,63 +58,14 @@ function isVideoFormat(format: string | null, channels: string[] | null): boolea
   return /reel|tiktok|short|v[ií]deo|video|youtube/.test(s);
 }
 
-/** Classificação de falha do provedor: quota/rate limit é sempre retryable. */
-export type FailureKind =
-  | "provider_quota"
-  | "provider_rate_limit"
-  | "provider_unavailable"
-  | "invalid_output"
-  | "config"
-  | "unknown";
+/**
+ * Classificação de falha, espaçamento e backoff vivem em `ai-failures.server.ts`
+ * (fonte única compartilhada com o pipeline de Estratégia). Reexportados aqui
+ * para preservar os pontos de importação existentes desta Copy.
+ */
+export type { FailureKind } from "@/lib/ai-failures.server";
+export { classifyAiError } from "@/lib/ai-failures.server";
 
-export function classifyAiError(err: unknown): { kind: FailureKind; retryable: boolean } {
-  const raw = err instanceof Error ? `${err.name} ${err.message}` : String(err);
-  const msg = raw.toLowerCase();
-  const status =
-    typeof (err as { statusCode?: number })?.statusCode === "number"
-      ? (err as { statusCode: number }).statusCode
-      : typeof (err as { status?: number })?.status === "number"
-        ? (err as { status: number }).status
-        : undefined;
-
-  if (
-    status === 402 ||
-    msg.includes("quota") ||
-    msg.includes("free_tier") ||
-    msg.includes("insufficient_quota") ||
-    msg.includes("billing") ||
-    msg.includes("credit")
-  ) {
-    return { kind: "provider_quota", retryable: true };
-  }
-  if (status === 429 || msg.includes("rate limit") || msg.includes("too many requests")) {
-    return { kind: "provider_rate_limit", retryable: true };
-  }
-  if (
-    (status != null && status >= 500) ||
-    msg.includes("overloaded") ||
-    msg.includes("unavailable") ||
-    msg.includes("timeout") ||
-    msg.includes("etimedout") ||
-    msg.includes("fetch failed") ||
-    msg.includes("network")
-  ) {
-    return { kind: "provider_unavailable", retryable: true };
-  }
-  if (msg.includes("ai_invalid_output") || msg.includes("empty_caption")) {
-    return { kind: "invalid_output", retryable: true };
-  }
-  if (msg.includes("prompt_missing") || msg.includes("api_key") || msg.includes("credential")) {
-    return { kind: "config", retryable: false };
-  }
-  return { kind: "unknown", retryable: false };
-}
-
-/** Espaçamento único entre chamadas/peças — centralizado aqui. */
-const SPACING_MS = 4000;
-/** Backoff progressivo entre tentativas do MESMO agente. */
-const BACKOFF_MS = [15_000, 45_000];
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function runStructured<T extends z.ZodTypeAny>(opts: {
   brandId: string;
