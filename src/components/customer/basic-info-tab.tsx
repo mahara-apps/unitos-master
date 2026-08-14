@@ -63,10 +63,14 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
     youtube: "",
     facebook: "",
   });
+  // Espelho do último estado salvo — usado apenas para feedback visual
+  // (dirty / descartar). Não altera a lógica de salvamento.
+  const [base, setBase] = useState<typeof form | null>(null);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (!client) return;
-    setForm({
+    const next = {
       name: client.name ?? "",
       legal_name: (clientAny.legal_name as string) ?? "",
       cnpj: (clientAny.cnpj as string) ?? "",
@@ -82,7 +86,9 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
       linkedin: socials.linkedin ?? "",
       youtube: socials.youtube ?? "",
       facebook: socials.facebook ?? "",
-    });
+    };
+    setForm(next);
+    setBase(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client?.id, client?.updated_at]);
 
@@ -119,6 +125,8 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
     },
     onSuccess: () => {
       toast.success("Cadastro atualizado");
+      setBase(form);
+      setSaved(true);
       qc.invalidateQueries({ queryKey: ["clients", brandId] });
       qc.invalidateQueries({ queryKey: ["customer-dashboard"] });
       qc.invalidateQueries({ queryKey: ["customer-core", brandId, clientId] });
@@ -127,10 +135,14 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
     onError: (e) => toast.error((e as Error).message ?? "Falha ao salvar cadastro"),
   });
 
-  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setSaved(false);
     setForm((f) => ({ ...f, [key]: e.target.value }));
+  };
 
   const disabled = !canEdit || mut.isPending;
+  const dirty = !!base && JSON.stringify(base) !== JSON.stringify(form);
+
 
   if (clientsQ.isLoading && !client) return <ProfileSectionsSkeleton sections={3} />;
 
