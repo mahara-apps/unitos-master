@@ -149,8 +149,11 @@ function withModelFallback(
     provider: base.provider,
     modelId: base.modelId,
     supportedUrls: base.supportedUrls,
-    doGenerate: (options) => attempt("doGenerate", options),
-    doStream: (options) => attempt("doStream", options),
+    doGenerate: (options: Parameters<ModelV2["doGenerate"]>[0]) =>
+      attempt<Awaited<ReturnType<ModelV2["doGenerate"]>>>("doGenerate", options),
+    doStream: (options: Parameters<ModelV2["doStream"]>[0]) =>
+      attempt<Awaited<ReturnType<ModelV2["doStream"]>>>("doStream", options),
+
   } as ModelV2;
 }
 
