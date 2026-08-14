@@ -161,14 +161,16 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
 });
 
 /**
- * Propaga a publicação do `social_posts` para a peça editorial:
- * `post_placements.status/published_at` e `posts.stage/published_at`.
- * Idempotente e silenciosa (falha aqui não deve reverter a publicação real).
+ * Fallback idempotente. O caminho canônico é o trigger
+ * `trg_social_posts_sync_publication` -> `sync_post_publication_state`.
+ * Aqui só reforçamos o estado por DESTINO REAL (post + canal + formato),
+ * nunca por formato solto (isso marcaria o canal de outro destino).
  */
 async function syncEditorialPublished(
   supabaseAdmin: any,
   socialPostId: string,
   placement: string,
+  connectionId?: string | null,
 ): Promise<void> {
   try {
     const { data: sp } = await supabaseAdmin
@@ -180,11 +182,18 @@ async function syncEditorialPublished(
     if (!postId) return;
     const nowIso = new Date().toISOString();
     const format = placement === "story" ? "stories" : "feed";
-    await supabaseAdmin
+    let q = supabaseAdmin
       .from("post_placements")
       .update({ status: "published", published_at: nowIso })
       .eq("post_id", postId)
-      .eq("format", format);
+      .eq("format", format)
+      .neq("status", "published");
+    // Sem connection_id não há como identificar o destino: não escreve nada
+    // (o trigger no banco já cuidou da sincronização).
+    if (!connectionId) return;
+    q = q.eq("connection_id", connectionId);
+    await q;
+
     const { data: pending } = await supabaseAdmin
       .from("post_placements")
       .select("id")
