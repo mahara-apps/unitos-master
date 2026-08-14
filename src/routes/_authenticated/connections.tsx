@@ -414,6 +414,8 @@ function ConnectionsPage() {
   const totalCalls = data?.usage.totalCalls ?? 0;
   const successCalls = data?.usage.successCalls ?? 0;
   const successRate = totalCalls > 0 ? Math.round((successCalls / totalCalls) * 100) : 0;
+  const noUsage = !isLoading && totalCalls === 0;
+  const byProvider = data?.usage.byProvider ?? {};
 
   const channelsMap = (data?.channels ?? {}) as Record<
     string,
@@ -484,21 +486,21 @@ function ConnectionsPage() {
             label="Consumo do mês"
             value={isLoading ? "—" : `$${used.toFixed(2)}`}
             sub={noUsage ? "Sem chamadas registradas neste mês" : `de $${active.toFixed(0)} · ${pct}%`}
-            tone={noUsage ? "slate" : pct >= 80 ? "amber" : "emerald"}
+            tone={noUsage ? "neutral" : pct >= 80 ? "amber" : "emerald"}
           />
           <KpiCard
             icon={<Coins className="h-4 w-4" />}
             label="Tokens do mês"
             value={isLoading ? "—" : (data?.usage.monthTokens ?? 0).toLocaleString("pt-BR")}
             sub={noUsage ? "Nenhum token consumido ainda" : "Entrada + saída somados"}
-            tone={noUsage ? "slate" : "violet"}
+            tone={noUsage ? "neutral" : "violet"}
           />
           <KpiCard
             icon={<Activity className="h-4 w-4" />}
             label="Chamadas de IA"
             value={isLoading ? "—" : totalCalls.toLocaleString("pt-BR")}
             sub={noUsage ? "Aguardando a primeira geração" : `${successCalls} com sucesso`}
-            tone={noUsage ? "slate" : "sky"}
+            tone={noUsage ? "neutral" : "sky"}
           />
           <KpiCard
             icon={<CheckCircle2 className="h-4 w-4" />}
@@ -512,7 +514,7 @@ function ConnectionsPage() {
                   : "Operando dentro do teto"
             }
             tone={
-              noUsage ? "slate" : successRate >= 95 ? "emerald" : successRate >= 80 ? "amber" : "rose"
+              noUsage ? "neutral" : successRate >= 95 ? "emerald" : successRate >= 80 ? "amber" : "rose"
             }
           />
         </div>
