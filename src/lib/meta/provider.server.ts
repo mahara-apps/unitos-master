@@ -58,6 +58,36 @@ export type MetaPageAsset = {
   instagramPictureUrl?: string;
 };
 
+/** Instagram Business account assigned to a portfolio with no manageable Page. */
+export type MetaInstagramAsset = {
+  instagramId: string;
+  username: string | null;
+  name: string | null;
+  pictureUrl: string | null;
+  businessId: string | null;
+  businessName: string | null;
+};
+
+export type MetaPortfolioScan = {
+  pages: MetaPageAsset[];
+  standaloneInstagram: MetaInstagramAsset[];
+  /** Non-fatal problems (e.g. a portfolio edge we could not read). */
+  warnings: string[];
+  businessCount: number;
+};
+
+/**
+ * Rate limits and expired tokens must abort the whole scan; permission errors
+ * on a single portfolio edge are recorded as warnings instead.
+ */
+export function isFatalScanError(err: unknown): boolean {
+  if (!(err instanceof MetaGraphError)) return true;
+  if (err.status === 429) return true;
+  const code = err.graph?.code;
+  return code === 4 || code === 17 || code === 32 || code === 613 || code === 190;
+}
+
+
 export type MetaUser = { id: string; name?: string; email?: string };
 
 export type MetaThreadsAccount = {
