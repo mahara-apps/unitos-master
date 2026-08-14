@@ -41,18 +41,8 @@ const AGENT_MODEL: Record<AgentName, { model: string; structuredOutputs: boolean
   "competitor.extract": { model: OPERATIONAL_MODEL, structuredOutputs: true },
 };
 
-// Preço aproximado (USD por 1M tokens). Ajustar depois com números reais.
-const PRICE_PER_MTOK: Record<string, { input: number; output: number }> = {
-  [STRATEGIC_MODEL]: { input: 1.25, output: 5.0 },
-  [OPERATIONAL_MODEL]: { input: 0.25, output: 2.0 },
-};
-
 // ---------- Helpers ----------
 
-function estimateCost(model: string, inTok: number, outTok: number) {
-  const p = PRICE_PER_MTOK[model] ?? { input: 0, output: 0 };
-  return (inTok * p.input + outTok * p.output) / 1_000_000;
-}
 
 /**
  * BRAND CONTEXT BLUEPRINT — unified corporate strategic memory
