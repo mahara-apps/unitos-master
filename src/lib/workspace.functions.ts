@@ -223,6 +223,7 @@ export const updateClient = createServerFn({ method: "POST" })
     const patch = { ...data.patch } as Record<string, unknown>;
     if (patch.contact_email === "") patch.contact_email = null;
     if (patch.website === "") patch.website = null;
+    if (patch.logo_url === "") patch.logo_url = null;
     const { error } = await context.supabase
       .from("clients")
       .update(patch as never)
