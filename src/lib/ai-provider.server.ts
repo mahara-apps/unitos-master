@@ -14,6 +14,10 @@ import {
 } from "./ai-models-catalog.server";
 
 import { IMAGE_PROVIDERS, supportsKind } from "./ai-capabilities";
+import { recordAiUsage, type AiUsageContext } from "./ai-usage.server";
+
+export type { AiUsageContext };
+
 
 export type { ProviderName, ProviderRole };
 export type ProviderKind = "text" | "image";
