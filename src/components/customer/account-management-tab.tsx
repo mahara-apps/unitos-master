@@ -463,18 +463,20 @@ function JourneyPipeline({
   canEdit: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-border/60 bg-card p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-            Jornada do cliente
-          </div>
-          <div className="mt-0.5 text-sm font-medium">
-            {JOURNEY_STAGE_LABEL[JOURNEY_STAGES[currentIdx] ?? "onboarding"]}
-          </div>
-        </div>
-      </div>
-      <div className="flex flex-wrap items-stretch gap-2 md:flex-nowrap">
+    <ProfileSection
+      title="Jornada do cliente"
+      subtitle={`Etapa atual: ${JOURNEY_STAGE_LABEL[JOURNEY_STAGES[currentIdx] ?? "onboarding"]}`}
+      icon={<Route className="h-4 w-4" />}
+      footer={
+        <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+          <Info className="mt-0.5 h-3 w-3 shrink-0" />
+          {canEdit
+            ? "Clique em uma etapa para mover o cliente. Etapas com template criam um projeto automaticamente."
+            : "Somente admins podem mover o cliente entre etapas."}
+        </p>
+      }
+    >
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:flex xl:flex-nowrap xl:items-stretch">
         {JOURNEY_STAGES.map((stage, i) => {
           const done = i < currentIdx;
           const active = i === currentIdx;
@@ -486,29 +488,37 @@ function JourneyPipeline({
               onClick={() => onSelect(stage)}
               disabled={!canEdit}
               className={cn(
-                "group flex-1 min-w-[8.5rem] rounded-lg border px-3 py-2.5 text-left transition",
+                "group min-w-0 flex-1 rounded-xl border px-3 py-2.5 text-left transition",
                 active
-                  ? "border-primary/60 bg-primary/10"
+                  ? "border-primary/50 bg-primary/10 ring-1 ring-primary/20"
                   : done
-                    ? "border-emerald-500/40 bg-emerald-500/5"
-                    : "border-border/60 bg-background hover:border-border",
+                    ? "border-emerald-500/30 bg-emerald-500/[0.07]"
+                    : "border-border/50 bg-background/40 hover:border-border hover:bg-accent/40",
                 !canEdit && "cursor-not-allowed opacity-70",
               )}
             >
-              <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-muted-foreground">
                 {done ? (
-                  <Check className="h-3 w-3 text-emerald-500" />
+                  <Check className="h-3 w-3 shrink-0 text-emerald-500" />
                 ) : active ? (
-                  <Sparkles className="h-3 w-3 text-primary" />
+                  <Sparkles className="h-3 w-3 shrink-0 text-primary" />
                 ) : (
-                  <span className="inline-block h-3 w-3 rounded-full border border-border/60" />
+                  <span className="inline-block h-3 w-3 shrink-0 rounded-full border border-border/60" />
                 )}
                 Etapa {i + 1}
               </div>
-              <div className="mt-1 text-sm font-medium">{JOURNEY_STAGE_LABEL[stage]}</div>
+              <div
+                className={cn(
+                  "mt-1 truncate text-[13px] font-semibold",
+                  active && "text-primary",
+                  done && "text-emerald-600 dark:text-emerald-400",
+                )}
+              >
+                {JOURNEY_STAGE_LABEL[stage]}
+              </div>
               {map?.project_template_name && (
                 <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <FolderPlus className="h-3 w-3" />
+                  <FolderPlus className="h-3 w-3 shrink-0" />
                   <span className="truncate">{map.project_template_name}</span>
                 </div>
               )}
@@ -516,14 +526,9 @@ function JourneyPipeline({
           );
         })}
       </div>
-      <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-        <Info className="h-3 w-3" />
-        {canEdit
-          ? "Clique em uma etapa para mover o cliente. Etapas com template criam um projeto automaticamente."
-          : "Somente admins podem mover o cliente entre etapas."}
-      </div>
-    </div>
+    </ProfileSection>
   );
+
 }
 
 /* -------------------------------------------------------------------------- */
