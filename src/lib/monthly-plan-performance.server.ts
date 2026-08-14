@@ -78,19 +78,29 @@ export async function loadPerformanceContext(
     return { markdown: "", channels: [], channelsWithMetrics: [], channelsWithoutAccount: [] };
   }
 
-  // Conexões ativas do cliente (por canal).
+  // Conexões ativas VINCULADAS ao cliente (client_social_accounts é a fonte de
+  // verdade; o campo legado social_connections.client_id não é consultado).
   let connectionByChannel = new Map<string, string>();
   try {
-    const { data } = await supabase
-      .from("social_connections")
-      .select("id, channel, status")
+    const { data: links } = await supabase
+      .from("client_social_accounts")
+      .select("connection_id")
       .eq("brand_id", args.brandId)
-      .eq("client_id", args.clientId)
-      .in("status", ["active", "attention"]);
+      .eq("client_id", args.clientId);
+    const linkedIds = (links ?? []).map((l: any) => l.connection_id as string);
+    const { data } = linkedIds.length
+      ? await supabase
+          .from("social_connections")
+          .select("id, channel, status")
+          .eq("brand_id", args.brandId)
+          .in("id", linkedIds)
+          .in("status", ["active", "attention"])
+      : { data: [] as Array<{ id: string; channel: string | null; status?: string }> };
     for (const row of data ?? []) {
       const ch = (row.channel as string | null) ?? "";
       if (ch && !connectionByChannel.has(ch)) connectionByChannel.set(ch, row.id as string);
     }
+
   } catch (err) {
     console.warn("[monthly-plan performance] connections lookup failed", err);
     connectionByChannel = new Map();
