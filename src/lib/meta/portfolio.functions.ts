@@ -106,10 +106,16 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
       .eq("brand_id", data.brandId)
       .maybeSingle();
     if (error) throw error;
-    if (!session) throw new Error("Sessão da Meta não encontrada ou expirada.");
+    if (!session)
+      throw new Error(
+        `${SESSION_INVALID_PREFIX} Sessão da Meta não encontrada. Faça login novamente.`,
+      );
     if (new Date(session.expires_at).getTime() < Date.now()) {
-      throw new Error("Sessão da Meta expirou. Refaça o login.");
+      throw new Error(
+        `${SESSION_INVALID_PREFIX} Sessão da Meta expirou. Faça login novamente.`,
+      );
     }
+
 
     const sessionState = session as typeof session & {
       portfolio_loaded_at?: string | null;
