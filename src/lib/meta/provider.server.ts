@@ -22,6 +22,9 @@ export const META_DEFAULT_SCOPES = [
   // "threads_content_publish",
   // Meta Ads
   "ads_read",
+  // Portfólios empresariais: sem isto só enxergamos as Páginas em que o usuário
+  // é admin direto, o que esconde a maior parte dos ativos de uma agência.
+  "business_management",
 ];
 
 export const META_BUSINESS_PORTFOLIO_SCOPE = "business_management";
@@ -35,10 +38,16 @@ export function getMetaScopesForChannel(channel?: MetaChannel | null): string[] 
       "instagram_basic",
       "instagram_manage_insights",
       "instagram_content_publish",
+      META_BUSINESS_PORTFOLIO_SCOPE,
     ];
   }
   if (channel === "facebook") {
-    return ["pages_show_list", "pages_read_engagement", "pages_manage_posts"];
+    return [
+      "pages_show_list",
+      "pages_read_engagement",
+      "pages_manage_posts",
+      META_BUSINESS_PORTFOLIO_SCOPE,
+    ];
   }
   if (channel === "ads") {
     return ["ads_read", META_BUSINESS_PORTFOLIO_SCOPE];
@@ -57,6 +66,36 @@ export type MetaPageAsset = {
   pagePictureUrl?: string;
   instagramPictureUrl?: string;
 };
+
+/** Instagram Business account assigned to a portfolio with no manageable Page. */
+export type MetaInstagramAsset = {
+  instagramId: string;
+  username: string | null;
+  name: string | null;
+  pictureUrl: string | null;
+  businessId: string | null;
+  businessName: string | null;
+};
+
+export type MetaPortfolioScan = {
+  pages: MetaPageAsset[];
+  standaloneInstagram: MetaInstagramAsset[];
+  /** Non-fatal problems (e.g. a portfolio edge we could not read). */
+  warnings: string[];
+  businessCount: number;
+};
+
+/**
+ * Rate limits and expired tokens must abort the whole scan; permission errors
+ * on a single portfolio edge are recorded as warnings instead.
+ */
+export function isFatalScanError(err: unknown): boolean {
+  if (!(err instanceof MetaGraphError)) return true;
+  if (err.status === 429) return true;
+  const code = err.graph?.code;
+  return code === 4 || code === 17 || code === 32 || code === 613 || code === 190;
+}
+
 
 export type MetaUser = { id: string; name?: string; email?: string };
 
@@ -254,12 +293,22 @@ export class MetaProvider {
    * Lists the Facebook Pages the user manages together with each page's
    * page-scoped access token (which is what we persist for future API calls)
    * and the connected Instagram Business account, when present.
+   *
+   * Sources (deduped by id):
+   *  1. `/me/accounts` — Pages the user administers directly.
+   *  2. `/me/businesses` → `owned_pages` + `client_pages` — Pages that belong
+   *     to a Business Portfolio the user administers (requires
+   *     `business_management`). Without this, agencies only ever see a
+   *     fraction of their assets.
+   *  3. `/me/businesses` → `owned_instagram_accounts` +
+   *     `client_instagram_accounts` — IG Business accounts assigned straight to
+   *     the portfolio, with no Page the user can administer.
    */
-  async listPagesWithInstagram(userAccessToken: string): Promise<MetaPageAsset[]> {
+  async scanPortfolio(userAccessToken: string): Promise<MetaPortfolioScan> {
     type PageRow = {
       id: string;
       name: string;
-      access_token: string;
+      access_token?: string;
       category?: string;
       tasks?: string[];
       instagram_business_account?: {
@@ -267,58 +316,188 @@ export class MetaProvider {
         username?: string;
         profile_picture_url?: string;
       };
+      connected_instagram_account?: {
+        id: string;
+        username?: string;
+        profile_picture_url?: string;
+      };
       picture?: { data?: { url?: string } };
     };
+    type IgRow = {
+      id: string;
+      username?: string;
+      name?: string;
+      profile_picture_url?: string;
+    };
+    type BusinessRow = { id: string; name?: string };
     type Paged<T> = { data: T[]; paging?: { next?: string } };
 
-    const out: MetaPageAsset[] = [];
-    const seen = new Set<string>();
-    const PAGE_FIELDS =
-      "id,name,access_token,category,tasks,picture.type(large){url},instagram_business_account{id,username,profile_picture_url}";
+    const pages: MetaPageAsset[] = [];
+    const seenPages = new Set<string>();
+    const standaloneInstagram: MetaInstagramAsset[] = [];
+    const seenIg = new Set<string>();
+    const warnings: string[] = [];
 
-    const ingest = async (rows: PageRow[]) => {
+    const PAGE_FIELDS =
+      "id,name,access_token,category,tasks,picture.type(large){url}," +
+      "instagram_business_account{id,username,profile_picture_url}," +
+      "connected_instagram_account{id,username,profile_picture_url}";
+    const IG_FIELDS = "id,username,name,profile_picture_url";
+
+    const ingestPages = (rows: PageRow[]) => {
       for (const p of rows) {
-        if (seen.has(p.id)) continue;
-        seen.add(p.id);
-        const asset: MetaPageAsset = {
+        const ig = p.instagram_business_account ?? p.connected_instagram_account;
+        if (ig?.id) seenIg.add(ig.id);
+        if (seenPages.has(p.id)) continue;
+        seenPages.add(p.id);
+        pages.push({
           pageId: p.id,
           pageName: p.name,
-          pageAccessToken: p.access_token,
+          pageAccessToken: p.access_token ?? "",
           category: p.category,
           tasks: p.tasks,
-          instagramBusinessId: p.instagram_business_account?.id,
-          instagramUsername: p.instagram_business_account?.username,
+          instagramBusinessId: ig?.id,
+          instagramUsername: ig?.username,
           pagePictureUrl: p.picture?.data?.url,
-          instagramPictureUrl: p.instagram_business_account?.profile_picture_url,
-        };
-        out.push(asset);
+          instagramPictureUrl: ig?.profile_picture_url,
+        });
       }
     };
 
-    const pageLoop = async (
+    /** Follows every `paging.next` page for a Graph edge. */
+    const loop = async <T>(
       startPath: string,
       query: Record<string, string>,
+      onRows: (rows: T[]) => void,
     ) => {
       let nextUrl: string | null = null;
       let first = true;
       while (first || nextUrl) {
-        const res: Paged<PageRow> = first
-          ? await this.graph<Paged<PageRow>>(startPath, {
+        const res: Paged<T> = first
+          ? await this.graph<Paged<T>>(startPath, {
               accessToken: userAccessToken,
               query,
             })
-          : await this.graphAbsolute<Paged<PageRow>>(nextUrl!, userAccessToken);
-        await ingest(res.data ?? []);
+          : await this.graphAbsolute<Paged<T>>(nextUrl!, userAccessToken);
+        onRows(res.data ?? []);
         nextUrl = res.paging?.next ?? null;
         first = false;
       }
     };
 
-    // 1) Páginas admin'd diretamente pelo perfil do usuário.
-    await pageLoop("/me/accounts", { fields: PAGE_FIELDS, limit: "100" });
+    // 1) Pages administered directly by the user profile. This edge is the
+    //    only one that reliably returns page access tokens, so it runs first.
+    await loop<PageRow>("/me/accounts", { fields: PAGE_FIELDS, limit: "100" }, ingestPages);
 
-    return out;
+    // 2 + 3) Business Portfolios. Failures here are non-fatal: we still want
+    //        to show whatever /me/accounts returned, with a visible warning.
+    const businesses: BusinessRow[] = [];
+    try {
+      await loop<BusinessRow>("/me/businesses", { fields: "id,name", limit: "100" }, (rows) => {
+        businesses.push(...rows);
+      });
+    } catch (err) {
+      warnings.push(
+        `Não foi possível listar seus portfólios empresariais${
+          err instanceof MetaGraphError ? `: ${err.message}` : ""
+        }. Reautorize concedendo a permissão "business_management" para ver todas as contas.`,
+      );
+    }
+
+    for (const biz of businesses) {
+      const label = biz.name ?? biz.id;
+      for (const edge of ["owned_pages", "client_pages"] as const) {
+        try {
+          await loop<PageRow>(
+            `/${biz.id}/${edge}`,
+            { fields: PAGE_FIELDS, limit: "100" },
+            ingestPages,
+          );
+        } catch (err) {
+          if (isFatalScanError(err)) throw err;
+          warnings.push(
+            `Portfólio "${label}": falha ao ler ${edge}${
+              err instanceof MetaGraphError ? ` (${err.message})` : ""
+            }.`,
+          );
+        }
+      }
+      for (const edge of ["owned_instagram_accounts", "client_instagram_accounts"] as const) {
+        try {
+          await loop<IgRow>(`/${biz.id}/${edge}`, { fields: IG_FIELDS, limit: "100" }, (rows) => {
+            for (const ig of rows) {
+              if (seenIg.has(ig.id)) continue;
+              seenIg.add(ig.id);
+              standaloneInstagram.push({
+                instagramId: ig.id,
+                username: ig.username ?? null,
+                name: ig.name ?? null,
+                pictureUrl: ig.profile_picture_url ?? null,
+                businessId: biz.id,
+                businessName: biz.name ?? null,
+              });
+            }
+          });
+        } catch (err) {
+          if (isFatalScanError(err)) throw err;
+          warnings.push(
+            `Portfólio "${label}": falha ao ler ${edge}${
+              err instanceof MetaGraphError ? ` (${err.message})` : ""
+            }.`,
+          );
+        }
+      }
+    }
+
+    return {
+      pages,
+      standaloneInstagram,
+      warnings,
+      businessCount: businesses.length,
+    };
   }
+
+  /**
+   * Fetches a Page access token on demand. Pages discovered through a Business
+   * Portfolio edge do not always include `access_token`, and we only need the
+   * token at link time — not for all ~50 accounts during the scan.
+   */
+  async getPageAccessToken(userAccessToken: string, pageId: string): Promise<string> {
+    const res = await this.graph<{ id: string; access_token?: string }>(`/${pageId}`, {
+      accessToken: userAccessToken,
+      query: { fields: "access_token" },
+    });
+    if (!res.access_token) {
+      throw new MetaGraphError(
+        "Não foi possível obter o token desta Página. Confirme que você tem permissão de administrador nela.",
+        400,
+      );
+    }
+    return res.access_token;
+  }
+
+  /** Resolves the Page that owns an Instagram Business account, when any. */
+  async getInstagramAccount(
+    userAccessToken: string,
+    instagramId: string,
+  ): Promise<{ id: string; username: string | null; name: string | null; pictureUrl: string | null }> {
+    const res = await this.graph<{
+      id: string;
+      username?: string;
+      name?: string;
+      profile_picture_url?: string;
+    }>(`/${instagramId}`, {
+      accessToken: userAccessToken,
+      query: { fields: "id,username,name,profile_picture_url" },
+    });
+    return {
+      id: res.id,
+      username: res.username ?? null,
+      name: res.name ?? null,
+      pictureUrl: res.profile_picture_url ?? null,
+    };
+  }
+
 
   /**
    * Lists Meta Ads accounts the user has access to. Requires `ads_read`.

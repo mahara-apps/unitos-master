@@ -49,6 +49,10 @@ export type PortfolioResponse = {
   pagesCount: number;
   pagesWithIgCount: number;
   pagesWithoutIgCount: number;
+  standaloneInstagram: PortfolioStandaloneInstagram[];
+  standaloneInstagramCount: number;
+  scanWarnings: string[];
+  businessCount: number;
   threadsAccounts: PortfolioThreadsAccount[];
   adAccounts: PortfolioAdAccount[];
   connected: {
@@ -73,6 +77,11 @@ export const LinkInput = z.object({
   channel: z.enum(["facebook", "instagram", "threads", "ads"]),
   targetId: z.string().min(1),
   clientId: z.string().uuid().optional(),
+  /**
+   * When the target is a Page that has an Instagram Business account attached,
+   * link both channels in one action (Página + Instagram vêm juntos).
+   */
+  linkPair: z.boolean().optional(),
 });
 
 export const UnlinkInput = z.object({
@@ -96,4 +105,47 @@ export function isMetaRateLimit(err: unknown): boolean {
 
 export function nowIso(): string {
   return new Date().toISOString();
+}
+
+/** Instagram Business account with no Page the user can administer. */
+export type PortfolioStandaloneInstagram = {
+  instagramId: string;
+  username: string | null;
+  name: string | null;
+  pictureUrl: string | null;
+  businessName: string | null;
+};
+
+export type CachedPagesPayload = {
+  pages: Array<PortfolioPage & { pageAccessToken?: string }>;
+  standaloneInstagram: PortfolioStandaloneInstagram[];
+  warnings: string[];
+  businessCount: number;
+};
+
+/**
+ * `meta_oauth_sessions.pages` holds either a bare array (sessions created
+ * before the portfolio-wide scan) or the full payload object. Normalizes both.
+ */
+export function readPagesPayload(raw: unknown): CachedPagesPayload {
+  const empty: CachedPagesPayload = {
+    pages: [],
+    standaloneInstagram: [],
+    warnings: [],
+    businessCount: 0,
+  };
+  if (!raw) return empty;
+  if (Array.isArray(raw)) {
+    return { ...empty, pages: raw as CachedPagesPayload["pages"] };
+  }
+  if (typeof raw === "object") {
+    const o = raw as Partial<CachedPagesPayload>;
+    return {
+      pages: Array.isArray(o.pages) ? o.pages : [],
+      standaloneInstagram: Array.isArray(o.standaloneInstagram) ? o.standaloneInstagram : [],
+      warnings: Array.isArray(o.warnings) ? o.warnings : [],
+      businessCount: typeof o.businessCount === "number" ? o.businessCount : 0,
+    };
+  }
+  return empty;
 }

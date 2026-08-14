@@ -244,6 +244,10 @@ export function MetaPortfolioDialog({
             sessionId: sessionId!,
             targetId: input.targetId,
             channel: input.channel,
+            // Página e Instagram vinculado vêm juntos em uma única ação.
+            ...(input.channel === "facebook" || input.channel === "instagram"
+              ? { linkPair: true }
+              : {}),
           },
         });
       }
@@ -313,10 +317,22 @@ export function MetaPortfolioDialog({
   }
 
   const fbPages = data?.pages ?? [];
-  const igPages = useMemo(
-    () => (data?.pages ?? []).filter((p) => p.instagramBusinessId),
-    [data],
-  );
+  // Instagram list = contas vindas de Páginas + contas atribuídas direto a um
+  // portfólio empresarial (sem Página administrável), normalizadas na mesma forma.
+  const igPages = useMemo(() => {
+    const fromPages = (data?.pages ?? []).filter((p) => p.instagramBusinessId);
+    const standalone = (data?.standaloneInstagram ?? []).map((i) => ({
+      pageId: i.instagramId,
+      pageName: i.name ?? i.username ?? i.instagramId,
+      category: i.businessName,
+      pagePictureUrl: null,
+      instagramBusinessId: i.instagramId,
+      instagramUsername: i.username,
+      instagramPictureUrl: i.pictureUrl,
+      standalone: true as const,
+    }));
+    return [...fromPages, ...standalone];
+  }, [data]);
   const threadsAccounts: PortfolioThreadsAccount[] = data?.threadsAccounts ?? [];
   const adAccounts: PortfolioAdAccount[] = data?.adAccounts ?? [];
   const missingScopes = data?.missingScopes ?? [];
@@ -496,7 +512,26 @@ export function MetaPortfolioDialog({
           </div>
         ) : (
           <Tabs defaultValue={channel ?? "facebook"} className="w-full">
+            {(data?.scanWarnings?.length ?? 0) > 0 && (
+              <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] text-amber-700 dark:text-amber-400">
+                <p className="mb-1 font-medium">
+                  A varredura foi parcial — algumas contas podem não aparecer.
+                </p>
+                <ul className="list-inside list-disc space-y-0.5">
+                  {(data?.scanWarnings ?? []).slice(0, 4).map((w) => (
+                    <li key={w}>{w}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {(data?.businessCount ?? 0) > 0 && (
+              <p className="mb-2 text-[11px] text-muted-foreground">
+                {data?.businessCount} portfólio(s) empresarial(is) verificado(s) ·{" "}
+                {data?.pagesCount ?? 0} Páginas · {igPages.length} contas do Instagram
+              </p>
+            )}
             {!channel && (
+
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="facebook" className="gap-2 text-xs">
                 <Facebook className="h-3.5 w-3.5" />
@@ -637,7 +672,9 @@ export function MetaPortfolioDialog({
                               )}
                             </div>
                             <p className="truncate text-[11px] text-muted-foreground">
-                              via Página {p.pageName}
+                              {"standalone" in p && p.standalone
+                                ? `Portfólio${p.category ? ` ${p.category}` : ""} · sem Página vinculada`
+                                : `via Página ${p.pageName}`}
                             </p>
                           </div>
                           <div className="flex items-center gap-2">
