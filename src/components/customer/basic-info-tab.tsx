@@ -158,12 +158,30 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
         </header>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
-            <Label className="text-xs">Nome legal / Nome da conta</Label>
+            <Label className="text-xs">Nome da empresa</Label>
             <Input placeholder="Ex.: Café Aurora" value={form.name} onChange={set("name")} disabled={disabled} />
           </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Razão social</Label>
+            <Input placeholder="Café Aurora Ltda." value={form.legal_name} onChange={set("legal_name")} disabled={disabled} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">CNPJ</Label>
+            <Input placeholder="00.000.000/0000-00" value={form.cnpj} onChange={set("cnpj")} disabled={disabled} />
+          </div>
           <div className="space-y-1.5 sm:col-span-2">
-            <Label className="text-xs">Subtítulo / Nicho</Label>
+            <Label className="text-xs">Segmento / Nicho</Label>
             <Input placeholder="Ex.: Cafeteria especial · Curitiba" value={form.niche} onChange={set("niche")} disabled={disabled} />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label className="text-xs">Descrição da empresa</Label>
+            <Textarea
+              placeholder="O que a empresa faz, em poucas linhas."
+              value={form.description}
+              onChange={set("description")}
+              disabled={disabled}
+              className="min-h-[80px]"
+            />
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Site</Label>
