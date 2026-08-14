@@ -7,9 +7,12 @@ import {
   ChevronRight,
   CircleCheck,
   Clock,
+  FileText,
   FolderPlus,
+  History as HistoryIcon,
   Info,
   Lock,
+  Route,
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -48,6 +51,16 @@ import {
 import { listBrandTeam } from "@/lib/team.functions";
 import { listTemplatesFn } from "@/lib/project-templates.functions";
 import { PortalLinkCard } from "@/components/customer/portal-link-card";
+import {
+  ProfileEmpty,
+  ProfileField,
+  ProfileFieldGrid,
+  ProfilePageHeader,
+  ProfileSaveBar,
+  ProfileSection,
+  ProfileSectionsSkeleton,
+  ProfileStat,
+} from "@/components/customer/ui/profile-ui";
 
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const DATE_FMT = new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" });
@@ -117,13 +130,7 @@ export function AccountManagementTab({
   });
 
   if (accountQ.isLoading || !accountQ.data) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-48 w-full rounded-xl" />
-        <Skeleton className="h-32 w-full rounded-xl" />
-        <Skeleton className="h-64 w-full rounded-xl" />
-      </div>
-    );
+    return <ProfileSectionsSkeleton sections={3} />;
   }
 
   const { account, timeline, stageMappings } = accountQ.data;
