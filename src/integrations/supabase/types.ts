@@ -3327,6 +3327,7 @@ export type Database = {
           archived_at: string | null
           brand_hub: Json
           brand_id: string
+          cnpj: string | null
           color: string | null
           contact_email: string | null
           contact_name: string | null
@@ -3335,11 +3336,13 @@ export type Database = {
           contract_start_date: string | null
           contract_status: string
           created_at: string
+          description: string | null
           favicon_url: string | null
           id: string
           internal_notes: string | null
           is_active: boolean
           journey_stage: string
+          legal_name: string | null
           logo_secondary_url: string | null
           logo_url: string | null
           margin_percent: number | null
@@ -3359,6 +3362,7 @@ export type Database = {
           archived_at?: string | null
           brand_hub?: Json
           brand_id: string
+          cnpj?: string | null
           color?: string | null
           contact_email?: string | null
           contact_name?: string | null
@@ -3367,11 +3371,13 @@ export type Database = {
           contract_start_date?: string | null
           contract_status?: string
           created_at?: string
+          description?: string | null
           favicon_url?: string | null
           id?: string
           internal_notes?: string | null
           is_active?: boolean
           journey_stage?: string
+          legal_name?: string | null
           logo_secondary_url?: string | null
           logo_url?: string | null
           margin_percent?: number | null
@@ -3391,6 +3397,7 @@ export type Database = {
           archived_at?: string | null
           brand_hub?: Json
           brand_id?: string
+          cnpj?: string | null
           color?: string | null
           contact_email?: string | null
           contact_name?: string | null
@@ -3399,11 +3406,13 @@ export type Database = {
           contract_start_date?: string | null
           contract_status?: string
           created_at?: string
+          description?: string | null
           favicon_url?: string | null
           id?: string
           internal_notes?: string | null
           is_active?: boolean
           journey_stage?: string
+          legal_name?: string | null
           logo_secondary_url?: string | null
           logo_url?: string | null
           margin_percent?: number | null
