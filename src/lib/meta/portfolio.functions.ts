@@ -407,134 +407,218 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const now = new Date().toISOString();
-    let externalId: string;
-    let externalName: string;
-    let accountUsername: string | null = null;
-    let tokenToStore: string;
-    let metadata: Record<string, unknown>;
 
-    const pages = (session.pages as unknown as Array<
-      PortfolioPage & { pageAccessToken: string }
-    >) ?? [];
+    /** One social_connections row to create/update. */
+    type LinkSpec = {
+      channel: "facebook" | "instagram" | "threads" | "ads";
+      externalId: string;
+      externalName: string;
+      accountUsername: string | null;
+      /** Plain token to encrypt, or null to reuse the encrypted user token. */
+      tokenToStore: string | null;
+      metadata: Record<string, unknown>;
+    };
+    const specs: LinkSpec[] = [];
+
+    const pages = readPagesPayload(session.pages).pages as Array<
+      PortfolioPage & { pageAccessToken?: string }
+    >;
+    const standaloneIg = readPagesPayload(session.pages).standaloneInstagram;
+
+    /**
+     * Pages discovered through a Business Portfolio edge may come without a
+     * page access token, so fetch it on demand at link time.
+     */
+    const resolvePageToken = async (page: PortfolioPage & { pageAccessToken?: string }) => {
+      if (page.pageAccessToken) return page.pageAccessToken;
+      if (!session.user_token_ciphertext) {
+        throw new Error("Sessão da Meta sem token. Faça login novamente.");
+      }
+      const { decryptCredential } = await import("@/lib/credentials-crypto.server");
+      const { MetaProvider } = await import("./provider.server");
+      const userToken = await decryptCredential(session.user_token_ciphertext);
+      return new MetaProvider().getPageAccessToken(userToken, page.pageId);
+    };
 
     if (data.channel === "facebook" || data.channel === "instagram") {
-      const page = pages.find((p) => p.pageId === data.targetId);
-      if (!page) throw new Error("Página não encontrada no portfólio.");
-      if (data.channel === "instagram" && !page.instagramBusinessId) {
-        throw new Error("Esta Página não possui Instagram Business vinculado.");
+      const page =
+        pages.find((p) => p.pageId === data.targetId) ??
+        pages.find((p) => p.instagramBusinessId === data.targetId);
+
+      if (!page) {
+        // Instagram Business account assigned straight to a portfolio.
+        const ig = standaloneIg.find((i) => i.instagramId === data.targetId);
+        if (!ig || data.channel !== "instagram") {
+          throw new Error("Conta não encontrada no portfólio. Sincronize novamente.");
+        }
+        specs.push({
+          channel: "instagram",
+          externalId: ig.instagramId,
+          externalName: ig.username ?? ig.name ?? ig.instagramId,
+          accountUsername: ig.username,
+          tokenToStore: null,
+          metadata: {
+            instagram_business_id: ig.instagramId,
+            instagram_username: ig.username,
+            instagram_picture_url: ig.pictureUrl,
+            business_name: ig.businessName,
+            standalone_instagram: true,
+          },
+        });
+      } else {
+        const pageMeta = {
+          category: page.category ?? null,
+          page_id: page.pageId,
+          page_name: page.pageName,
+          instagram_business_id: page.instagramBusinessId ?? null,
+          instagram_username: page.instagramUsername ?? null,
+          page_picture_url: page.pagePictureUrl ?? null,
+          instagram_picture_url: page.instagramPictureUrl ?? null,
+        };
+        const pageToken = await resolvePageToken(page);
+
+        const wantFacebook = data.channel === "facebook" || data.linkPair === true;
+        const wantInstagram =
+          (data.channel === "instagram" || data.linkPair === true) &&
+          !!page.instagramBusinessId;
+
+        if (data.channel === "instagram" && !page.instagramBusinessId) {
+          throw new Error("Esta Página não possui Instagram Business vinculado.");
+        }
+
+        if (wantFacebook) {
+          specs.push({
+            channel: "facebook",
+            externalId: page.pageId,
+            externalName: page.pageName,
+            accountUsername: null,
+            tokenToStore: pageToken,
+            metadata: pageMeta,
+          });
+        }
+        if (wantInstagram) {
+          specs.push({
+            channel: "instagram",
+            externalId: page.instagramBusinessId as string,
+            externalName: page.instagramUsername ?? page.pageName,
+            accountUsername: page.instagramUsername ?? null,
+            tokenToStore: pageToken,
+            metadata: pageMeta,
+          });
+        }
       }
-      externalId =
-        data.channel === "facebook" ? page.pageId : (page.instagramBusinessId as string);
-      externalName =
-        data.channel === "facebook" ? page.pageName : (page.instagramUsername ?? page.pageName);
-      accountUsername = data.channel === "instagram" ? page.instagramUsername ?? null : null;
-      tokenToStore = page.pageAccessToken;
-      metadata = {
-        category: page.category ?? null,
-        page_id: page.pageId,
-        page_name: page.pageName,
-        instagram_business_id: page.instagramBusinessId ?? null,
-        instagram_username: page.instagramUsername ?? null,
-        page_picture_url: page.pagePictureUrl ?? null,
-        instagram_picture_url: page.instagramPictureUrl ?? null,
-      };
     } else if (data.channel === "threads") {
-      const threads = (session.threads_accounts as unknown as Array<
-        PortfolioThreadsAccount & { accessToken: string }
-      >) ?? [];
+      const threads =
+        (session.threads_accounts as unknown as Array<
+          PortfolioThreadsAccount & { accessToken: string }
+        >) ?? [];
       const t = threads.find((x) => x.threadsUserId === data.targetId);
       if (!t) throw new Error("Conta do Threads não encontrada no portfólio.");
-      externalId = t.threadsUserId;
-      externalName = t.name ?? t.username ?? t.threadsUserId;
-      accountUsername = t.username;
-      tokenToStore = t.accessToken;
-      metadata = {
-        threads_username: t.username,
-        threads_name: t.name,
-        threads_picture_url: t.pictureUrl,
-        linked_via_page_id: t.linkedViaPageId ?? null,
-      };
+      specs.push({
+        channel: "threads",
+        externalId: t.threadsUserId,
+        externalName: t.name ?? t.username ?? t.threadsUserId,
+        accountUsername: t.username,
+        tokenToStore: t.accessToken,
+        metadata: {
+          threads_username: t.username,
+          threads_name: t.name,
+          threads_picture_url: t.pictureUrl,
+          linked_via_page_id: t.linkedViaPageId ?? null,
+        },
+      });
     } else {
-      // ads — no long-lived per-account token; reuse user token for Graph calls.
+      // ads — queried with the long-lived user token, so no per-account token.
       const ads = (session.ad_accounts as unknown as PortfolioAdAccount[]) ?? [];
       const a = ads.find((x) => x.adAccountId === data.targetId);
       if (!a) throw new Error("Conta de anúncios não encontrada no portfólio.");
-      externalId = a.adAccountId;
-      externalName = a.name ?? a.adAccountId;
-      // Ad accounts are queried with the user token (long-lived).
-      // We keep it here so future insights calls don't need to re-fetch it.
-      tokenToStore = session.user_token_ciphertext
-        ? "" // token is already encrypted in user_token_ciphertext; we mirror below
-        : "";
-      metadata = {
-        ad_account_id: a.adAccountId,
-        ad_account_name: a.name,
-        currency: a.currency,
-        timezone: a.timezone,
-        account_status: a.accountStatus,
-        business_name: a.businessName,
-      };
+      specs.push({
+        channel: "ads",
+        externalId: a.adAccountId,
+        externalName: a.name ?? a.adAccountId,
+        accountUsername: null,
+        tokenToStore: null,
+        metadata: {
+          ad_account_id: a.adAccountId,
+          ad_account_name: a.name,
+          currency: a.currency,
+          timezone: a.timezone,
+          account_status: a.accountStatus,
+          business_name: a.businessName,
+        },
+      });
     }
 
-    // For ads, we don't have a fresh page token — reuse the encrypted user token.
-    const ciphertext =
-      data.channel === "ads"
-        ? session.user_token_ciphertext!
-        : await encryptCredential(tokenToStore);
+    const connectionIds: string[] = [];
 
-    metadata = {
-      ...metadata,
-      linked_at: now,
-      user_email: session.meta_user_email ?? null,
-      user_access_token_ciphertext: session.user_token_ciphertext,
-      user_token_expires_at: session.user_token_expires_at ?? null,
-    };
+    for (const spec of specs) {
+      if (spec.tokenToStore === null && !session.user_token_ciphertext) {
+        throw new Error("Sessão da Meta sem token. Faça login novamente.");
+      }
+      const ciphertext =
+        spec.tokenToStore === null
+          ? session.user_token_ciphertext!
+          : await encryptCredential(spec.tokenToStore);
 
-    const { data: upserted, error: upErr } = await supabaseAdmin
-      .from("social_connections")
-      .upsert(
-        {
-          brand_id: data.brandId,
-          channel: data.channel,
-          provider: "meta",
-          external_id: externalId,
-          external_name: externalName,
-          account_id: externalId,
-          account_username: accountUsername,
-          owner_external_id: session.meta_user_id,
-          owner_name: session.meta_user_name ?? null,
-          access_token_ciphertext: ciphertext,
-          scopes: session.scopes ?? [],
-          status: "active",
-          last_error: null,
-          last_synced_at: now,
-          token_expires_at: session.user_token_expires_at ?? null,
-          metadata: metadata as unknown as import("@/integrations/supabase/types").Json,
-          created_by: context.userId,
-        },
-        { onConflict: "brand_id,provider,external_id" },
-      )
-      .select("id")
-      .single();
-    if (upErr) throw upErr;
-
-    if (data.clientId) {
-      const { error: assignErr } = await supabaseAdmin
-        .from("client_social_accounts")
+      const { data: upserted, error: upErr } = await supabaseAdmin
+        .from("social_connections")
         .upsert(
           {
             brand_id: data.brandId,
-            client_id: data.clientId,
-            connection_id: upserted.id,
+            channel: spec.channel,
+            provider: "meta",
+            external_id: spec.externalId,
+            external_name: spec.externalName,
+            account_id: spec.externalId,
+            account_username: spec.accountUsername,
+            owner_external_id: session.meta_user_id,
+            owner_name: session.meta_user_name ?? null,
+            access_token_ciphertext: ciphertext,
+            scopes: session.scopes ?? [],
+            status: "active",
+            last_error: null,
+            last_synced_at: now,
+            token_expires_at: session.user_token_expires_at ?? null,
+            metadata: {
+              ...spec.metadata,
+              linked_at: now,
+              user_email: session.meta_user_email ?? null,
+              user_access_token_ciphertext: session.user_token_ciphertext,
+              user_token_expires_at: session.user_token_expires_at ?? null,
+            } as unknown as import("@/integrations/supabase/types").Json,
             created_by: context.userId,
           },
-          { onConflict: "client_id,connection_id" },
-        );
-      if (assignErr) throw assignErr;
+          { onConflict: "brand_id,provider,external_id" },
+        )
+        .select("id")
+        .single();
+      if (upErr) throw upErr;
+      connectionIds.push(upserted.id);
+
+      if (data.clientId) {
+        const { error: assignErr } = await supabaseAdmin
+          .from("client_social_accounts")
+          .upsert(
+            {
+              brand_id: data.brandId,
+              client_id: data.clientId,
+              connection_id: upserted.id,
+              created_by: context.userId,
+            },
+            { onConflict: "client_id,connection_id" },
+          );
+        if (assignErr) throw assignErr;
+      }
     }
 
-    return { ok: true, connectionId: upserted.id };
+    return {
+      ok: true,
+      connectionId: connectionIds[0]!,
+      connectionIds,
+      linkedChannels: specs.map((s) => s.channel),
+    };
   });
+
 
 
 
