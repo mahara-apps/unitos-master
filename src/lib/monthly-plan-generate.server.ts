@@ -267,9 +267,16 @@ export async function runPlanGeneration(args: {
 
 
   // Estratégia IA ativa + desempenho real das contas conectadas (por canal).
+  await setPlanJobStep(supabase, jobId, "estrategia");
   const [strategy, performance] = await Promise.all([
-    loadStrategyContext(supabase, input.brandId, input.clientId).catch((err) => {
+    loadStrategyContext(supabase, input.brandId, input.clientId).catch(async (err) => {
       console.warn("[monthly-plan] strategy context failed", err);
+      await logPlanEvent(supabase, scope, {
+        step: "estrategia",
+        ok: false,
+        retryable: true,
+        message: `strategy_context_failed: ${err instanceof Error ? err.message : String(err)}`,
+      });
       return null;
     }),
     loadPerformanceContext(supabase, {
@@ -277,8 +284,14 @@ export async function runPlanGeneration(args: {
       clientId: input.clientId,
       channels: activeChannels,
       cacheScopeToken: userId,
-    }).catch((err) => {
+    }).catch(async (err) => {
       console.warn("[monthly-plan] performance context failed", err);
+      await logPlanEvent(supabase, scope, {
+        step: "estrategia",
+        ok: false,
+        retryable: true,
+        message: `performance_context_failed: ${err instanceof Error ? err.message : String(err)}`,
+      });
       return null;
     }),
   ]);
@@ -302,15 +315,7 @@ export async function runPlanGeneration(args: {
     console.warn("[monthly-plan] brain.getContext failed:", err);
   }
 
-  // Distribuição canal → formato → quantidade (cotas exatas para a IA).
-  const distributionText = describeDistribution(
-    activeChannels.map((c) => ({
-      channel: c,
-      formats: formatQuota[c] ?? {},
-      total: quota[c] ?? 0,
-    })),
-  );
-
+  await setPlanJobStep(supabase, jobId, "prompt");
   const audienceOptions = [
     ...(strategy?.personaNames ?? []),
     ...(strategy?.cohortNames ?? []),
@@ -327,42 +332,61 @@ export async function runPlanGeneration(args: {
     .filter((s): s is string => !!s && s.trim().length > 0)
     .join("\n\n");
 
-  const prompt = [
-    `Você é um estrategista de conteúdo sênior.`,
-    `Crie uma pauta mensal de conteúdo para redes sociais em português (Brasil).`,
-    `Cruze OBRIGATORIAMENTE: (1) Estratégia IA ativa (voice, personas, cohorts, SWOT),`,
-    `(2) desempenho real das contas conectadas por canal e (3) o briefing consolidado.`,
-    `Não invente dados: quando um canal estiver sem métricas, baseie-se em briefing e estratégia.`,
-    ``,
-    `Marca: ${brand?.name ?? "—"}`,
-    input.theme
-      ? `Tema do mês (input do usuário): ${input.theme}`
-      : `Sem tema definido pelo usuário — derive o tema estratégico do mês do briefing e da estratégia ativa.`,
-    ``,
-    `Regras:`,
-    `- title: uma headline curta (máx 90 chars) que resume a estratégia do mês.`,
-    `- description: 2-3 frases explicando o contexto do mês.`,
-    `- objectives: 2-4 objetivos claros, separados por quebras de linha.`,
-    `- topics: EXATAMENTE ${totalTarget} ideias de posts, distribuídas por CANAL e FORMATO conforme a volumetria contratada (não altere as quantidades):\n${distributionText}\n  Cada ideia deve ter:`,
-    `  * topic_title: título curto e criativo do post`,
-    `  * content_format: OBRIGATÓRIO — um de ${CONTENT_FORMATS.map((f) => `"${f}"`).join(", ")} (equivalências: ${CONTENT_FORMATS.map((f) => `${f} = ${CONTENT_FORMAT_LABEL[f]}`).join("; ")})`,
-    `  * channel: OBRIGATÓRIO — um de ${PLAN_CHANNELS.map((c) => `"${c}"`).join(", ")} (respeitar cotas acima)`,
-    `  * angle: gancho estratégico / direcionamento para produção (1-2 frases)`,
-    audienceOptions.length
-      ? `  * target_audience: OBRIGATÓRIO — persona ou cohort da estratégia ativa (${audienceOptions.slice(0, 8).join(", ")})`
-      : `  * target_audience: público-alvo principal da ideia, derivado do briefing`,
-    `  * rationale: 1 frase citando a evidência usada (métrica do canal, insight do briefing ou item da estratégia)`,
-    `- A quantidade por canal + formato é contratual: cumpra exatamente, sem trocar formatos.`,
-    `- Dentro de cada cota, priorize os temas que performaram melhor no canal.`,
-    `- Sem markdown, sem prefixos numéricos.`,
-    `- Retorne EXATAMENTE um objeto JSON no schema.`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  /**
+   * Monta o prompt para um conjunto de vagas restantes. Usado tanto na primeira
+   * chamada quanto no complemento das vagas que a IA não preencheu.
+   */
+  const buildPrompt = (pending: ChannelFormatQuota, count: number, avoid: string[]) => {
+    const pendingTotals = channelTotals(pending);
+    const distributionText = describeDistribution(
+      Object.keys(pending).map((c) => ({
+        channel: c,
+        formats: pending[c] ?? {},
+        total: pendingTotals[c] ?? 0,
+      })),
+    );
+    return [
+      `Você é um estrategista de conteúdo sênior.`,
+      `Crie uma pauta mensal de conteúdo para redes sociais em português (Brasil).`,
+      `Cruze OBRIGATORIAMENTE: (1) Estratégia IA ativa (voice, personas, cohorts, SWOT),`,
+      `(2) desempenho real das contas conectadas por canal e (3) o briefing consolidado.`,
+      `Não invente dados: quando um canal estiver sem métricas, baseie-se em briefing e estratégia.`,
+      ``,
+      `Marca: ${brand?.name ?? "—"}`,
+      input.theme
+        ? `Tema do mês (input do usuário): ${input.theme}`
+        : `Sem tema definido pelo usuário — derive o tema estratégico do mês do briefing e da estratégia ativa.`,
+      ``,
+      `Regras:`,
+      `- title: uma headline curta (máx 90 chars) que resume a estratégia do mês.`,
+      `- description: 2-3 frases explicando o contexto do mês.`,
+      `- objectives: 2-4 objetivos claros, separados por quebras de linha.`,
+      `- topics: EXATAMENTE ${count} ideias de posts, distribuídas por CANAL e FORMATO conforme a volumetria contratada (não altere as quantidades):\n${distributionText}\n  Cada ideia deve ter:`,
+      `  * topic_title: título curto e criativo do post`,
+      `  * content_format: OBRIGATÓRIO — um de ${CONTENT_FORMATS.map((f) => `"${f}"`).join(", ")} (equivalências: ${CONTENT_FORMATS.map((f) => `${f} = ${CONTENT_FORMAT_LABEL[f]}`).join("; ")})`,
+      `  * channel: OBRIGATÓRIO — um de ${PLAN_CHANNELS.map((c) => `"${c}"`).join(", ")} (respeitar cotas acima)`,
+      `  * angle: gancho estratégico / direcionamento para produção (1-2 frases)`,
+      audienceOptions.length
+        ? `  * target_audience: OBRIGATÓRIO — persona ou cohort da estratégia ativa (${audienceOptions.slice(0, 8).join(", ")})`
+        : `  * target_audience: público-alvo principal da ideia, derivado do briefing`,
+      `  * rationale: 1 frase citando a evidência usada (métrica do canal, insight do briefing ou item da estratégia)`,
+      `- A quantidade por canal + formato é contratual: cumpra exatamente, sem trocar formatos.`,
+      `- Dentro de cada cota, priorize os temas que performaram melhor no canal.`,
+      avoid.length
+        ? `- NÃO repita nem reescreva estas ideias já existentes nesta pauta: ${avoid.slice(0, 40).join(" | ")}`
+        : "",
+      `- Sem markdown, sem prefixos numéricos.`,
+      `- Retorne EXATAMENTE um objeto JSON no schema.`,
+    ]
+      .filter(Boolean)
+      .join("\n");
+  };
 
-  let agentResult: Awaited<ReturnType<typeof runPlanAgent>>;
-  try {
-    agentResult = await runPlanAgent({
+  type AiPlan = z.infer<typeof AiPlanSchema>;
+
+  /** Chamada única ao agente, com observabilidade por tentativa. */
+  const callAgent = async (prompt: string) =>
+    runPlanAgent({
       agent: "pauta.suggest",
       supabase: supabase,
       brandId: input.brandId,
@@ -371,7 +395,27 @@ export async function runPlanGeneration(args: {
       prompt,
       extraContext,
       schema: AiPlanSchema,
+      onAttempt: (info) =>
+        logPlanEvent(
+          supabase,
+          { ...scope, planId: resume?.planId ?? null },
+          {
+            step: "ia",
+            ok: info.ok,
+            ...(info.attempt != null ? { attempt: info.attempt } : {}),
+            ...(info.kind ? { kind: info.kind } : {}),
+            ...(info.retryable != null ? { retryable: info.retryable } : {}),
+            ...(info.message ? { message: info.message } : {}),
+          },
+        ),
     });
+
+  await setPlanJobStep(supabase, jobId, "ia");
+  let agentResult: Awaited<ReturnType<typeof callAgent>>;
+  try {
+    agentResult = await callAgent(
+      buildPrompt(formatQuota, remainingTarget, resume?.existingTitles ?? []),
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message.toLowerCase() : "";
     if (message.includes("ai_provider_not_configured")) {
@@ -383,10 +427,93 @@ export async function runPlanGeneration(args: {
     if (message.includes("ai_model_unavailable")) {
       return { ok: false, code: "ai_model_unavailable" };
     }
+    const kind = (error as { failureKind?: FailureKind }).failureKind;
+    if (kind) {
+      return {
+        ok: false,
+        code: codeForFailure(kind),
+        retryable: kind !== "config",
+      };
+    }
     throw error;
   }
   const { output, modelId } = agentResult;
-  const parsed = output as z.infer<typeof AiPlanSchema>;
+  const parsed = output as AiPlan;
+
+  await setPlanJobStep(supabase, jobId, "normalizacao");
+  // Aloca canal + formato por vaga real da volumetria (determinístico).
+  const allocator = createSlotAllocator(formatQuota);
+  const allocated: Array<{
+    topic_title: string;
+    content_format: ContentFormat;
+    angle: string;
+    channel: string;
+    target_audience: string | null;
+    rationale: string | null;
+  }> = [];
+
+  const consume = (topics: AiPlan["topics"]) => {
+    for (const t of topics) {
+      if (allocator.left() <= 0) break;
+      const wanted = normalizeContentFormat(t.content_format);
+      const { channel, format } = allocator.allocate(t.channel, t.content_format);
+      if (!wanted || wanted !== format) {
+        // Correção determinística registrada — a vaga contratada sempre vence.
+        void logPlanEvent(supabase, scope, {
+          step: "normalizacao",
+          ok: false,
+          kind: "invalid_output",
+          retryable: false,
+          message: `formato_corrigido: "${String(t.content_format)}" → "${format}" (${channel})`,
+        });
+      }
+      allocated.push({
+        topic_title: t.topic_title.slice(0, 240),
+        content_format: format,
+        angle: t.angle.slice(0, 1000),
+        channel,
+        target_audience: (t.target_audience ?? "").toString().trim().slice(0, 240) || null,
+        rationale: (t.rationale ?? "").toString().trim().slice(0, 600) || null,
+      });
+    }
+  };
+  consume(parsed.topics);
+
+  // Insuficiência: a IA devolveu menos ideias que as vagas contratadas.
+  // Faz UMA rodada de complemento apenas para as vagas que sobraram.
+  if (allocator.left() > 0) {
+    const missing = allocator.left();
+    await logPlanEvent(supabase, scope, {
+      step: "ia",
+      ok: false,
+      kind: "invalid_output",
+      retryable: true,
+      message: `insuficiencia: faltaram ${missing} de ${remainingTarget} vagas`,
+    });
+    try {
+      const fill = await callAgent(
+        buildPrompt({ ...allocator.remaining }, missing, [
+          ...(resume?.existingTitles ?? []),
+          ...allocated.map((a) => a.topic_title),
+        ]),
+      );
+      consume((fill.output as AiPlan).topics);
+    } catch (err) {
+      console.warn("[monthly-plan] complemento falhou", err);
+    }
+  }
+
+  if (allocator.left() > 0) {
+    // Nada incompleto é persistido: a geração fica retomável.
+    await logPlanEvent(supabase, scope, {
+      step: "conclusao",
+      ok: false,
+      kind: "invalid_output",
+      retryable: true,
+      message: `incomplete_generation: ${allocator.left()} vagas sem ideia`,
+    });
+    return { ok: false, code: "incomplete_generation", retryable: true };
+  }
 
   const contextSources = {
     model: modelId,
@@ -398,56 +525,80 @@ export async function runPlanGeneration(args: {
     brain_context: !!brainMarkdown,
     agent: "pauta.suggest",
     generated_at: new Date().toISOString(),
+    resumed: !!resume,
   };
 
-  const { data: planRow, error: planErr } = await supabase
-    .from("monthly_plans" as never)
-    .insert({
-      brand_id: input.brandId,
-      client_id: input.clientId,
-      input_theme: input.theme || null,
-      input_briefing_id: input.briefingId ?? null,
-      title: parsed.title.slice(0, 200),
-      description: parsed.description.slice(0, 4000),
-      objectives: parsed.objectives.slice(0, 4000),
-      status: "draft",
-      created_by: userId,
-      context_sources: contextSources,
-    } as never)
-    .select("*")
-    .single();
-  if (planErr) throw planErr;
-  const plan = planRow as unknown as MonthlyPlan;
+  await setPlanJobStep(supabase, jobId, "persistencia");
+  let plan: MonthlyPlan;
+  if (resume) {
+    const { data: planRow, error: upErr } = await supabase
+      .from("monthly_plans" as never)
+      .update({ context_sources: contextSources } as never)
+      .eq("id", resume.planId)
+      .select("*")
+      .single();
+    if (upErr) throw upErr;
+    plan = planRow as unknown as MonthlyPlan;
+  } else {
+    const { data: planRow, error: planErr } = await supabase
+      .from("monthly_plans" as never)
+      .insert({
+        brand_id: input.brandId,
+        client_id: input.clientId,
+        input_theme: input.theme || null,
+        input_briefing_id: input.briefingId ?? null,
+        title: parsed.title.slice(0, 200),
+        description: parsed.description.slice(0, 4000),
+        objectives: parsed.objectives.slice(0, 4000),
+        status: "draft",
+        created_by: userId,
+        context_sources: contextSources,
+      } as never)
+      .select("*")
+      .single();
+    if (planErr) throw planErr;
+    plan = planRow as unknown as MonthlyPlan;
+  }
 
-  // Aloca canal + formato por vaga real da volumetria (determinístico).
-  const allocator = createSlotAllocator(formatQuota);
-  const topicRows = parsed.topics.slice(0, totalTarget).map((t, i) => {
-    const { channel, format } = allocator.allocate(t.channel, t.content_format);
-    return {
-      monthly_plan_id: plan.id,
-      topic_title: t.topic_title.slice(0, 240),
-      content_format: format,
-      angle: t.angle.slice(0, 1000),
-      channel,
-      target_audience: (t.target_audience ?? "").toString().trim().slice(0, 240) || null,
-      rationale: (t.rationale ?? "").toString().trim().slice(0, 600) || null,
-      status: "pending" as const,
-      position: i * 1024,
-    };
+  // Checkpoint antes de inserir: se cair aqui, a próxima execução retoma.
+  await setPlanJobCheckpoint(supabase, jobId, {
+    monthly_plan_id: plan.id,
+    topics_saved: existingTopics.length,
+    period,
   });
+
+  const basePosition = (resume?.maxPosition ?? -1) + 1;
+  const topicRows = allocated.map((t, i) => ({
+    monthly_plan_id: plan.id,
+    ...t,
+    status: "pending" as const,
+    position: basePosition + i * 1024,
+  }));
   const { data: inserted, error: topErr } = await supabase
     .from("monthly_plan_topics" as never)
     .insert(topicRows as never)
     .select("*");
   if (topErr) throw topErr;
 
-  return {
-    ok: true,
-    data: {
-      plan,
-      topics: (inserted as unknown as MonthlyPlanTopic[]).sort(
-        (a, b) => a.position - b.position,
-      ),
+  const topics = [...existingTopics, ...((inserted ?? []) as unknown as MonthlyPlanTopic[])].sort(
+    (a, b) => a.position - b.position,
+  );
+
+  await setPlanJobCheckpoint(supabase, jobId, {
+    monthly_plan_id: plan.id,
+    topics_saved: topics.length,
+    period,
+  });
+  await logPlanEvent(
+    supabase,
+    { ...scope, planId: plan.id },
+    {
+      step: "conclusao",
+      ok: true,
+      detail: { topics: topics.length, model: modelId, resumed: !!resume },
     },
-  };
+  );
+
+  return { ok: true, ...(resume ? { resumed: true } : {}), data: { plan, topics } };
 }
+
