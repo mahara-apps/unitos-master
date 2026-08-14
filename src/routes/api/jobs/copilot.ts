@@ -65,7 +65,10 @@ async function runCopilotJob(params: {
 
     await patch({ progress: 35, step_label: "Drafting copy with AI" });
 
-    const { model } = await getBrandAiModelAdmin(input.brandId, "text", "operational");
+    const { model } = await getBrandAiModelAdmin(input.brandId, "text", "operational", {
+      agent: "copilot.job",
+      clientId: input.clientId ?? null,
+    });
 
     const system = [
       "You are an elite social-media copywriter and brand strategist.",

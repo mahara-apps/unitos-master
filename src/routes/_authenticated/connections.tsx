@@ -414,6 +414,8 @@ function ConnectionsPage() {
   const totalCalls = data?.usage.totalCalls ?? 0;
   const successCalls = data?.usage.successCalls ?? 0;
   const successRate = totalCalls > 0 ? Math.round((successCalls / totalCalls) * 100) : 0;
+  const noUsage = !isLoading && totalCalls === 0;
+  const byProvider = data?.usage.byProvider ?? {};
 
   const channelsMap = (data?.channels ?? {}) as Record<
     string,
@@ -483,31 +485,40 @@ function ConnectionsPage() {
             icon={<DollarSign className="h-4 w-4" />}
             label="Consumo do mês"
             value={isLoading ? "—" : `$${used.toFixed(2)}`}
-            sub={`de $${active.toFixed(0)} · ${pct}%`}
-            tone={pct >= 80 ? "amber" : "emerald"}
+            sub={noUsage ? "Sem chamadas registradas neste mês" : `de $${active.toFixed(0)} · ${pct}%`}
+            tone={noUsage ? "neutral" : pct >= 80 ? "amber" : "emerald"}
           />
           <KpiCard
             icon={<Coins className="h-4 w-4" />}
             label="Tokens do mês"
-            value={(data?.usage.monthTokens ?? 0).toLocaleString("pt-BR")}
-            sub="Entrada + saída somados"
-            tone="violet"
+            value={isLoading ? "—" : (data?.usage.monthTokens ?? 0).toLocaleString("pt-BR")}
+            sub={noUsage ? "Nenhum token consumido ainda" : "Entrada + saída somados"}
+            tone={noUsage ? "neutral" : "violet"}
           />
           <KpiCard
             icon={<Activity className="h-4 w-4" />}
             label="Chamadas de IA"
-            value={totalCalls.toLocaleString("pt-BR")}
-            sub={`${successCalls} com sucesso`}
-            tone="sky"
+            value={isLoading ? "—" : totalCalls.toLocaleString("pt-BR")}
+            sub={noUsage ? "Aguardando a primeira geração" : `${successCalls} com sucesso`}
+            tone={noUsage ? "neutral" : "sky"}
           />
           <KpiCard
             icon={<CheckCircle2 className="h-4 w-4" />}
             label="Taxa de sucesso"
-            value={`${successRate}%`}
-            sub={pct >= 80 ? "Teto próximo do limite" : "Operando dentro do teto"}
-            tone={successRate >= 95 ? "emerald" : successRate >= 80 ? "amber" : "rose"}
+            value={noUsage ? "—" : `${successRate}%`}
+            sub={
+              noUsage
+                ? "Sem histórico no mês"
+                : pct >= 80
+                  ? "Teto próximo do limite"
+                  : "Operando dentro do teto"
+            }
+            tone={
+              noUsage ? "neutral" : successRate >= 95 ? "emerald" : successRate >= 80 ? "amber" : "rose"
+            }
           />
         </div>
+
 
         <SectionHeader
           icon={<Sparkles className="h-3.5 w-3.5" />}
@@ -549,9 +560,7 @@ function ConnectionsPage() {
               config={data?.providers?.[p.id]}
               brandId={brandId}
               onChanged={invalidate}
-              totalMonthUsd={used}
-              totalMonthTokens={data?.usage.monthTokens ?? 0}
-              totalCalls={totalCalls}
+              usage={byProvider[p.id] ?? { usd: 0, tokens: 0, calls: 0 }}
             />
           ))}
         </div>
@@ -1000,9 +1009,7 @@ function ProviderCard({
   config,
   brandId,
   onChanged,
-  totalMonthUsd,
-  totalMonthTokens,
-  totalCalls,
+  usage,
 }: {
   provider: ProviderDef;
   config?: {
@@ -1015,9 +1022,7 @@ function ProviderCard({
   };
   brandId: string;
   onChanged: () => void;
-  totalMonthUsd: number;
-  totalMonthTokens: number;
-  totalCalls: number;
+  usage: { usd: number; tokens: number; calls: number };
 }) {
   const [open, setOpen] = useState(false);
   const [apiKey, setApiKey] = useState("");
@@ -1072,11 +1077,9 @@ function ProviderCard({
 
   const connected = !!config?.connected;
   const Icon = provider.icon;
-  // TODO: persist per-provider model + expose usage breakdown by provider
-  // from the server. Until then the card mirrors aggregate telemetry.
-  const share = connected && totalCalls > 0 ? 1 / PROVIDERS.filter(() => true).length : 0;
-  const estCostUsd = connected ? totalMonthUsd * share : 0;
-  const estTokens = connected ? Math.round(totalMonthTokens * share) : 0;
+  // Consumo real do mês atribuído a este provedor (derivado do modelo usado).
+  const estCostUsd = usage.usd;
+  const estTokens = usage.tokens;
 
   return (
     <DashboardPanelSurface className="p-4">

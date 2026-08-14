@@ -207,6 +207,7 @@ export const runAgentPlaygroundFn = createServerFn({ method: "POST" })
       data.brandId,
       "text",
       "operational",
+      { agent: "agent.run", userId: context.userId },
     );
 
     const started = Date.now();

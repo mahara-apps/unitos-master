@@ -100,7 +100,10 @@ async function runAnalysis(params: { token: string; input: z.infer<typeof BodySc
     const mediaType = doc.mime_type ?? "application/octet-stream";
     const base64 = uint8ToBase64(bytes);
 
-    const { model } = await getBrandAiModelAdmin(input.brandId, "text", "operational");
+    const { model } = await getBrandAiModelAdmin(input.brandId, "text", "operational", {
+      agent: "document.analyze",
+      clientId: input.clientId ?? null,
+    });
 
     const system = `Você é um analista sênior de marca. Interprete o documento e devolva um JSON estrito em pt-BR, mapeando cada informação para os campos de briefing. Use null quando o campo não estiver claramente descrito. Nunca invente dados. Todos os textos devem ser objetivos e prontos para uso no briefing (sem introduções como "o documento diz").`;
 

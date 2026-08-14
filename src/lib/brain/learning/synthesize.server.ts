@@ -93,7 +93,9 @@ export async function runBrainSynthesis(): Promise<SynthesisReport> {
 
       let model;
       try {
-        ({ model } = await getBrandAiModel(supabaseAdmin, brandId, "text"));
+        ({ model } = await getBrandAiModel(supabaseAdmin, brandId, "text", "operational", {
+          agent: "brain.synthesize",
+        }));
       } catch {
         report.brands_skipped_no_model += 1;
         continue;

@@ -53,7 +53,9 @@ export const brainConsolidateFn = createServerFn({ method: "POST" })
 
       let model;
       try {
-        ({ model } = await getBrandAiModel(supabaseAdmin, brandId, "text", "operational"));
+        ({ model } = await getBrandAiModel(supabaseAdmin, brandId, "text", "operational", {
+          agent: "brain.consolidate",
+        }));
       } catch {
         continue; // marca sem chave de IA configurada
       }

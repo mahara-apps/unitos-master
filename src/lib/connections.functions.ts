@@ -33,8 +33,21 @@ export type ConnectionsSettings = {
     monthTokens: number;
     totalCalls: number;
     successCalls: number;
+    /** Consumo do mês por provedor (openai | anthropic | gemini). */
+    byProvider: Record<string, { usd: number; tokens: number; calls: number }>;
   };
 };
+
+/** Deriva o provedor a partir do id do modelo registrado. */
+function providerFromModel(model: string | null): string {
+  const m = (model ?? "").toLowerCase();
+  if (m.includes("claude")) return "anthropic";
+  if (m.includes("gemini") || m.includes("imagen")) return "gemini";
+  if (m.includes("gpt") || m.includes("o1") || m.includes("o3") || m.includes("dall"))
+    return "openai";
+  return "outros";
+}
+
 
 function maskKey(key: string): string {
   if (!key) return "";
@@ -59,17 +72,27 @@ export const getConnections = createServerFn({ method: "GET" })
     monthStart.setUTCHours(0, 0, 0, 0);
     const { data: usage } = await supabase
       .from("brand_ai_usage")
-      .select("cost_usd, input_tokens, output_tokens, success")
+      .select("cost_usd, input_tokens, output_tokens, success, model")
       .eq("brand_id", data.brandId)
       .gte("created_at", monthStart.toISOString());
 
-    const monthUsd = (usage ?? []).reduce((a, u) => a + Number(u.cost_usd ?? 0), 0);
-    const monthTokens = (usage ?? []).reduce(
+    const rows = usage ?? [];
+    const monthUsd = rows.reduce((a, u) => a + Number(u.cost_usd ?? 0), 0);
+    const monthTokens = rows.reduce(
       (a, u) => a + Number(u.input_tokens ?? 0) + Number(u.output_tokens ?? 0),
       0,
     );
-    const totalCalls = usage?.length ?? 0;
-    const successCalls = (usage ?? []).filter((u) => u.success).length;
+    const totalCalls = rows.length;
+    const successCalls = rows.filter((u) => u.success).length;
+    const byProvider: Record<string, { usd: number; tokens: number; calls: number }> = {};
+    for (const u of rows) {
+      const key = providerFromModel(u.model as string | null);
+      const acc = byProvider[key] ?? { usd: 0, tokens: 0, calls: 0 };
+      acc.usd += Number(u.cost_usd ?? 0);
+      acc.tokens += Number(u.input_tokens ?? 0) + Number(u.output_tokens ?? 0);
+      acc.calls += 1;
+      byProvider[key] = acc;
+    }
 
     return {
       brandId: data.brandId,
@@ -79,9 +102,10 @@ export const getConnections = createServerFn({ method: "GET" })
         row?.image_provider === "openai" ? "openai" : "gemini",
       providers: (row?.providers as Record<string, ProviderConfig>) ?? {},
       channels: (row?.channels as Record<string, ChannelConfig>) ?? {},
-      usage: { monthUsd, monthTokens, totalCalls, successCalls },
+      usage: { monthUsd, monthTokens, totalCalls, successCalls, byProvider },
     };
   });
+
 
 const UpsertInput = z.object({
   brandId: z.string().uuid(),

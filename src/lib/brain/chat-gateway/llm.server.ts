@@ -95,6 +95,7 @@ export async function callLlm(args: {
     args.brandId,
     "text",
     "operational",
+    { agent: "brain.chat.simple" },
   );
 
   const instructions = buildInstructions(args.brain, args.user);
@@ -149,6 +150,7 @@ export async function streamAnswer(args: StreamAnswerArgs): Promise<{
     args.brainCtx.brandId,
     "text",
     "operational",
+    { agent: "brain.chat", clientId: args.brainCtx.clientId ?? null },
   );
 
   const messages = await buildMessages(args.supabase, args.history, args.question, args.attachments);

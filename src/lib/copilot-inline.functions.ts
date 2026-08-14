@@ -89,6 +89,7 @@ export const aiInlineGenerateFn = createServerFn({ method: "POST" })
       post.brand_id,
       "text",
       "operational",
+      { agent: `copilot.inline.${data.field}`, clientId: post.client_id ?? null, userId: context.userId },
     );
     const { text } = await generateText({
       model,
