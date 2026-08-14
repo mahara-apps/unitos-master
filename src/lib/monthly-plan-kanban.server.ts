@@ -1,3 +1,4 @@
+import { normalizeContentFormat, defaultFormatForChannel } from "@/lib/content-formats";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
@@ -177,7 +178,10 @@ export async function materializePlanToKanban(
       stage_id: stage.id,
       stage: "idea",
       title: t.topic_title,
-      format: t.content_format,
+      // Fronteira de escrita: posts.format SEMPRE em chave canônica.
+      format:
+        normalizeContentFormat(t.content_format) ??
+        defaultFormatForChannel(normalizeChannel(t.channel)[0] ?? "instagram"),
       channels: normalizeChannel(t.channel),
       internal_briefing: [
         t.angle,
