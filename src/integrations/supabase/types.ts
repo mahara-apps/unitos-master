@@ -5725,6 +5725,7 @@ export type Database = {
         Args: { _brand_id: string; _user_id: string }
         Returns: boolean
       }
+      canonical_content_format: { Args: { _raw: string }; Returns: string }
       check_ai_usage_budget: {
         Args: { _brand_id: string; _client_id: string; _user_id: string }
         Returns: Json
