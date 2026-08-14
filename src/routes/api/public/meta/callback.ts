@@ -50,7 +50,7 @@ export const Route = createFileRoute("/api/public/meta/callback")({
         }
 
         try {
-          const provider = new MetaProvider();
+          const provider = new MetaProvider({ origin: url.origin });
           const { getMetaScopesForChannel } = await import("@/lib/meta/provider.server");
           const requestedScopes = getMetaScopesForChannel(state.channel ?? null);
 
