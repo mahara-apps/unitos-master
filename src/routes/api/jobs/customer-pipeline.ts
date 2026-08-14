@@ -715,8 +715,9 @@ async function runStep(params: {
       : raw.startsWith("ai_provider_key_missing")
         ? "A chave do provedor de IA não foi encontrada. Reconfigure em Conexões."
         : raw.startsWith("ai_model_unavailable")
-          ? "O provedor selecionado não oferece um modelo para esta etapa. Troque o provedor em Conexões."
+          ? `Modelo indisponível no provedor selecionado para a etapa "${STEP_META[step].label}". Verifique a chave/provedor em Conexões. Detalhe: ${raw}`
           : `Falha na etapa "${STEP_META[step].label}": ${raw}`;
+
     await patch({
       status: "failed",
       error: message,
