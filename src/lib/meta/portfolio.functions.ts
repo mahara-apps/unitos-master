@@ -164,18 +164,30 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
       const { MetaProvider, MetaGraphError } = await import("./provider.server");
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const provider = new MetaProvider();
+      const invalidateSession = async () => {
+        const nowIso = new Date().toISOString();
+        await supabaseAdmin
+          .from("meta_oauth_sessions")
+          .update({ expires_at: nowIso, user_token_expires_at: nowIso })
+          .eq("id", session.id);
+      };
       if (!session.user_token_ciphertext) {
-        throw new Error("Token do usuário Meta ausente. Refaça o login.");
+        await invalidateSession();
+        throw new Error(
+          `${SESSION_INVALID_PREFIX} Token do usuário Meta ausente. Faça login novamente.`,
+        );
       }
       let userToken: string;
       try {
         userToken = await decryptCredential(session.user_token_ciphertext);
       } catch (err) {
         console.error("[getMetaPortfolio] decrypt failed", err);
+        await invalidateSession();
         throw new Error(
-          "Falha ao descriptografar o token da Meta. Reconecte sua conta.",
+          `${SESSION_INVALID_PREFIX} Sua sessão da Meta não é mais válida. Faça login novamente.`,
         );
       }
+
 
       console.log("[getMetaPortfolio] scanning", {
         sessionId: session.id,
