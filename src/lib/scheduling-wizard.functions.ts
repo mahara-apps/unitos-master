@@ -552,7 +552,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       const publishLinkedIds = new Set(
         ((pubLinks ?? []) as Array<{ connection_id: string }>).map((l) => l.connection_id),
       );
-      const results: Array<{ channel: string; format: string; ok: boolean; error?: string; permalink?: string | null }> = [];
+      const results: Array<{ channel: string; format: string; ok: boolean; error?: string; permalink?: string | null; connectionId?: string }> = [];
       for (const d of data.destinations) {
         // Publicação direta: Feed IG/FB e Stories no IG (multi-frame automático).
         const supported =
@@ -677,41 +677,43 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
               throw new Error(msg);
             }
           }
-          results.push({ channel: d.channel, format: d.format, ok: true, permalink: lastPermalink });
+          results.push({ channel: d.channel, format: d.format, ok: true, permalink: lastPermalink, connectionId: d.connectionId });
         } catch (err) {
-          results.push({ channel: d.channel, format: d.format, ok: false, error: (err as Error).message });
+          results.push({ channel: d.channel, format: d.format, ok: false, error: (err as Error).message, connectionId: d.connectionId });
         }
       }
       const okCount = results.filter((r) => r.ok).length;
       if (okCount > 0) {
         const nowIso = new Date().toISOString();
-        // `stage_id` não é tocado aqui de propósito: os pipelines não têm coluna
-        // "published" e o trigger `posts_sync_legacy_stage` só reage a stage_id.
+        // Fallback idempotente. O caminho canônico é o trigger
+        // `trg_social_posts_sync_publication` → `sync_post_publication_state`,
+        // que marca placement (por connection_id + família de formato), a peça
+        // e o `stage_id` da coluna "Publicado". Este bloco garante o estado
+        // quando parte dos destinos falhou (a peça não fica presa em Agendado).
         await supabase
           .from("posts")
           .update({ stage: "published", published_at: nowIso } as any)
           .eq("id", postId)
           .eq("brand_id", data.brandId);
 
-        // Placements dos destinos publicados com sucesso viram histórico
-        // (o calendário lê status/published_at do placement).
-        const okFormats = results.filter((r) => r.ok).map((r) => r.format);
-        if (okFormats.length) {
-          await supabase
+        // Placements viram histórico por DESTINO REAL (post + canal + formato).
+        for (const r of results) {
+          if (!r.connectionId) continue;
+          const q = supabase
             .from("post_placements")
-            .update({ status: "published", published_at: nowIso } as never)
+            .update(
+              (r.ok
+                ? { status: "published", published_at: nowIso }
+                : { status: "failed" }) as never,
+            )
             .eq("post_id", postId)
-            .in("format", okFormats);
-        }
-        const failFormats = results.filter((r) => !r.ok).map((r) => r.format);
-        if (failFormats.length) {
-          await supabase
-            .from("post_placements")
-            .update({ status: "failed" } as never)
-            .eq("post_id", postId)
-            .in("format", failFormats);
+            .eq("connection_id", r.connectionId)
+            .eq("format", r.format);
+          if (r.ok) await q.neq("status", "published");
+          else await q.neq("status", "published");
         }
       }
+
 
       return { ok: okCount > 0, postId, published: okCount, results };
     }

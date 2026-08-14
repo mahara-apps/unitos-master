@@ -8,14 +8,23 @@ import { createFileRoute } from "@tanstack/react-router";
  * publicação quando duas execuções do cron rodam em paralelo.
  *
  * Isolamento: a RPC revalida que `social_connections.brand_id` bate com o
- * post e que `client_id` do post é compatível com o `client_id` da conexão.
- * Nunca escolher "a primeira conexão da marca" — a conexão vem do próprio
- * `social_posts.connection_id` reservado.
+ * post e que existe vínculo em `client_social_accounts` (connection_id +
+ * client_id + brand_id) — o campo legado `social_connections.client_id` não é
+ * mais consultado. Nunca escolher "a primeira conexão da marca": a conexão vem
+ * do próprio `social_posts.connection_id` reservado.
  *
  * Retry: sucesso -> `mark_social_post_published`; erro -> `mark_social_post_failed`
  * (incrementa `publish_attempts`, muda para `failed` após 5 tentativas).
  *
+ * Sincronização (Fase 4/C1): ao virar `published`, o trigger
+ * `trg_social_posts_sync_publication` chama `sync_post_publication_state`, que
+ * marca o `post_placements` do destino real (connection_id + família de formato)
+ * e, quando não resta destino pendente, marca a peça (`posts.stage`,
+ * `published_at`) e move o `stage_id` para a coluna "Publicado" do Kanban.
+ * Idempotente: nunca reescreve histórico já publicado.
+ *
  * Auth: bypass no edge via /api/public/*; exige `apikey` = anon publishable key.
+
  */
 export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
   server: {
@@ -132,7 +141,7 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
               .eq("id", post.id);
             // Reflete a publicação na peça editorial (posts/post_placements),
             // que é o que Calendário, Projeto e Conteúdo leem.
-            await syncEditorialPublished(supabaseAdmin, post.id, post.placement);
+            await syncEditorialPublished(supabaseAdmin, post.id, post.placement, post.connection_id);
             results.push({ id: post.id, ok: true });
 
           } catch (err) {
@@ -152,14 +161,16 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
 });
 
 /**
- * Propaga a publicação do `social_posts` para a peça editorial:
- * `post_placements.status/published_at` e `posts.stage/published_at`.
- * Idempotente e silenciosa (falha aqui não deve reverter a publicação real).
+ * Fallback idempotente. O caminho canônico é o trigger
+ * `trg_social_posts_sync_publication` -> `sync_post_publication_state`.
+ * Aqui só reforçamos o estado por DESTINO REAL (post + canal + formato),
+ * nunca por formato solto (isso marcaria o canal de outro destino).
  */
 async function syncEditorialPublished(
   supabaseAdmin: any,
   socialPostId: string,
   placement: string,
+  connectionId?: string | null,
 ): Promise<void> {
   try {
     const { data: sp } = await supabaseAdmin
@@ -171,11 +182,18 @@ async function syncEditorialPublished(
     if (!postId) return;
     const nowIso = new Date().toISOString();
     const format = placement === "story" ? "stories" : "feed";
-    await supabaseAdmin
+    let q = supabaseAdmin
       .from("post_placements")
       .update({ status: "published", published_at: nowIso })
       .eq("post_id", postId)
-      .eq("format", format);
+      .eq("format", format)
+      .neq("status", "published");
+    // Sem connection_id não há como identificar o destino: não escreve nada
+    // (o trigger no banco já cuidou da sincronização).
+    if (!connectionId) return;
+    q = q.eq("connection_id", connectionId);
+    await q;
+
     const { data: pending } = await supabaseAdmin
       .from("post_placements")
       .select("id")

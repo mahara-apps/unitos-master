@@ -2,13 +2,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * Shared helper — reconciliação de `post_placements` a partir de destinos
- * (conta + formato). Usado pelo wizard de agendamento e pelo Kanban editorial
- * para manter os placements como fonte única de verdade sobre destinos reais.
+ * (conta + formato). Único caminho oficial de escrita de placements: usado pelo
+ * wizard de agendamento e pelo Kanban editorial.
  *
- * Estratégia: apaga todos os placements do post e reinsere (baixa cardinalidade).
- * A UNIQUE em (post_id, format) implica "1 formato por card" — quando o mesmo
- * formato aparece em múltiplos destinos, apenas o último vence.
+ * Estratégia: apaga os placements não publicados do post e reinsere.
+ * Unicidade real (Fase 4): `(post_id, connection_id, format)` — a mesma peça
+ * pode ter IG Feed + FB Feed. Destinos idênticos (mesmo canal + mesmo formato)
+ * são deduplicados de forma DETERMINÍSTICA: vence a PRIMEIRA ocorrência.
  */
+
 
 export type PlacementFormatEnum = "feed" | "stories" | "reels" | "carrossel";
 
@@ -54,14 +56,17 @@ export async function syncPostPlacements(
   } = input;
 
   // Placements JÁ PUBLICADOS são histórico: nunca apagados nem reescritos.
+  // A identidade do histórico é o DESTINO REAL: connection_id + format.
   const { data: publishedRows, error: pubErr } = await supabase
     .from("post_placements")
-    .select("format")
+    .select("format, connection_id")
     .eq("post_id", postId)
     .eq("status", "published");
   if (pubErr) throw new Error(pubErr.message);
-  const publishedFormats = new Set(
-    ((publishedRows ?? []) as Array<{ format: string }>).map((r) => r.format),
+  const publishedKeys = new Set(
+    (
+      (publishedRows ?? []) as Array<{ format: string; connection_id: string | null }>
+    ).map((r) => `${r.connection_id ?? "none"}::${r.format}`),
   );
 
   const { error: delErr } = await supabase
@@ -74,15 +79,19 @@ export async function syncPostPlacements(
   if (!destinations.length) return;
 
   const mediaJson = mediaPaths.map((p) => ({ storagePath: p }));
-  // UNIQUE(post_id, format) — deduplica mantendo o último por format.
-  const byFormat = new Map<PlacementFormatEnum, PlacementDestination>();
+  // UNIQUE(post_id, connection_id, format) — deduplicação determinística:
+  // a PRIMEIRA ocorrência de cada destino vence; repetições são ignoradas.
+  const byDestination = new Map<string, PlacementDestination>();
   for (const d of destinations) {
-    if (publishedFormats.has(d.format)) continue;
-    byFormat.set(d.format, d);
+    const key = `${d.connectionId}::${d.format}`;
+    if (publishedKeys.has(key)) continue;
+    if (byDestination.has(key)) continue;
+    byDestination.set(key, d);
   }
 
 
-  const rows = Array.from(byFormat.values()).map((d, i) => ({
+  const rows = Array.from(byDestination.values()).map((d, i) => ({
+
     post_id: postId,
     brand_id: brandId,
     client_id: clientId,
