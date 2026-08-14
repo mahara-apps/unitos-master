@@ -1114,11 +1114,65 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
           );
         }
 
+        // --- Proteção contra dupla execução ---
+        // Reutiliza `ai_jobs` (nenhuma tabela nova): um job queued/running com
+        // heartbeat recente significa que já existe geração em andamento.
+        const staleCutoff = new Date(Date.now() - 5 * 60_000).toISOString();
+        const { data: activeJob } = await supabase
+          .from("ai_jobs")
+          .select("id, updated_at, status")
+          .eq("client_id", input.clientId)
+          .eq("kind", "customer_strategy")
+          .in("status", ["queued", "running"])
+          .gt("updated_at", staleCutoff)
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (activeJob) {
+          return new Response(
+            JSON.stringify({
+              error: "strategy_already_running",
+              jobId: activeJob.id,
+              message: "Já existe uma geração de estratégia em andamento.",
+            }),
+            { status: 409, headers: { "Content-Type": "application/json" } },
+          );
+        }
+
+        // --- Retomada idempotente ---
+        // Se a última execução falhou no meio, preserva as etapas concluídas e
+        // continua da primeira pendente, sem regerar nem duplicar nada.
+        const { data: lastJob } = await supabase
+          .from("ai_jobs")
+          .select("input, status")
+          .eq("client_id", input.clientId)
+          .eq("kind", "customer_strategy")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const lastState = (lastJob?.input ?? null) as unknown as JobState | null;
+        const resumeDone: Step[] =
+          lastJob?.status === "failed" && Array.isArray(lastState?.done)
+            ? STEPS.filter((s) => lastState!.done!.includes(s))
+            : [];
+        const startStep: Step = STEPS.find((s) => !resumeDone.includes(s)) ?? "briefing";
+
         const state: JobState = {
           brandId: input.brandId,
           clientId: input.clientId,
           texto: composed,
           sources,
+          ...(resumeDone.length > 0
+            ? {
+                done: resumeDone,
+                ...(lastState?.briefing ? { briefing: lastState.briefing } : {}),
+                ...(lastState?.voice ? { voice: lastState.voice } : {}),
+                ...(lastState?.personas ? { personas: lastState.personas } : {}),
+                ...(lastState?.cohorts ? { cohorts: lastState.cohorts } : {}),
+                ...(lastState?.swot ? { swot: lastState.swot } : {}),
+                ...(lastState?.models ? { models: lastState.models } : {}),
+              }
+            : {}),
         };
 
         const { data: job, error: jobErr } = await supabase
@@ -1131,7 +1185,7 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
             title: "Estratégia do cliente",
             subtitle: "Briefing · Voz · Personas · Cohorts · SWOT",
             status: "queued",
-            progress: 0,
+            progress: resumeDone.length > 0 ? STEP_META[startStep].progress : 0,
             input: state as unknown as Database["public"]["Tables"]["ai_jobs"]["Insert"]["input"],
           })
           .select("id")
@@ -1141,8 +1195,9 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
         }
 
         waitUntil(
-          runStep({ jobId: job.id, step: "briefing", token, userId, baseUrl }),
+          runStep({ jobId: job.id, step: startStep, token, userId, baseUrl }),
         );
+
 
         return new Response(JSON.stringify({ jobId: job.id }), {
           status: 202,
