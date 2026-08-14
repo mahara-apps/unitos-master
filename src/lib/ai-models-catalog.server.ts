@@ -141,3 +141,65 @@ export async function resolveModel(
   const hit = overrides.find((o) => o.provider === provider && o.role === role);
   return hit?.modelId ?? fallback;
 }
+
+/**
+ * Próximo modelo da cadeia de fallback do papel, ignorando os já tentados.
+ */
+export function nextFallbackModel(
+  provider: ProviderName,
+  role: ProviderRole,
+  tried: string[],
+): string | null {
+  const chain = MODEL_FALLBACKS[provider][role] ?? [];
+  const lower = tried.map((t) => t.toLowerCase());
+  return chain.find((id) => !lower.includes(id.toLowerCase())) ?? null;
+}
+
+/** Grava (upsert) o modelo promovido em runtime e limpa o cache. */
+export async function saveCatalogOverride(args: {
+  provider: ProviderName;
+  role: ProviderRole;
+  modelId: string;
+  replacedModelId: string | null;
+  reason: string | null;
+  source?: string;
+}): Promise<void> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.from("ai_model_catalog_overrides").upsert(
+      {
+        provider: args.provider,
+        role: args.role,
+        model_id: args.modelId,
+        replaced_model_id: args.replacedModelId,
+        reason: args.reason?.slice(0, 500) ?? null,
+        source: args.source ?? "runtime",
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "provider,role" },
+    );
+    invalidateCatalogCache();
+  } catch (err) {
+    console.error("[ai-models-catalog] falha ao gravar override", err);
+  }
+}
+
+/** Erro do provedor indicando modelo descontinuado / indisponível. */
+export function isModelUnavailableError(message: string): boolean {
+  const m = message.toLowerCase();
+  if (m.includes("rate limit") || m.includes("quota") || m.includes("billing")) return false;
+  if (m.includes("api key") || m.includes("unauthorized") || m.includes("401")) return false;
+  return [
+    "model_not_found",
+    "does not exist",
+    "not found",
+    "is not supported",
+    "deprecated",
+    "retired",
+    "no longer available",
+    "unsupported model",
+    "invalid model",
+    "404",
+  ].some((p) => m.includes(p));
+}
+
