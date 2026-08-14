@@ -152,9 +152,15 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
 
       try {
         if (needPages) {
-          const scanned = await provider.listPagesWithInstagram(userToken);
-          console.log("[getMetaPortfolio] pages fetched", scanned.length);
-          cachedPages = scanned.map((p) => ({
+          const scan = await provider.scanPortfolio(userToken);
+          console.log("[getMetaPortfolio] scan result", {
+            pages: scan.pages.length,
+            withIg: scan.pages.filter((p) => !!p.instagramBusinessId).length,
+            standaloneIg: scan.standaloneInstagram.length,
+            businesses: scan.businessCount,
+            warnings: scan.warnings.length,
+          });
+          cachedPages = scan.pages.map((p) => ({
             pageId: p.pageId,
             pageName: p.pageName,
             category: p.category ?? null,
@@ -164,7 +170,17 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
             instagramPictureUrl: p.instagramPictureUrl ?? null,
             pageAccessToken: p.pageAccessToken,
           }));
+          cachedStandaloneIg = scan.standaloneInstagram.map((i) => ({
+            instagramId: i.instagramId,
+            username: i.username,
+            name: i.name,
+            pictureUrl: i.pictureUrl,
+            businessName: i.businessName,
+          }));
+          scanWarnings = scan.warnings;
+          businessCount = scan.businessCount;
         }
+
         if (needThreads) {
           const pagesForThreads = cachedPages.map((p) => ({
             pageId: p.pageId,
