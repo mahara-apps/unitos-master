@@ -662,11 +662,16 @@ function ManageSheet({
     const forceReauth = !!opts?.forceReauth;
     const metaChannel = metaChannelFromId(channel.id);
 
+    // O popup precisa ser criado sincronamente no clique, senão o navegador
+    // bloqueia a janela depois de qualquer `await`.
+    const popup = window.open("", "meta-oauth", metaPopupFeatures());
+
     // Fast-path: reuse an existing session and skip the popup entirely.
     if (!forceReauth) {
       try {
         const { sessionId } = await getActiveSessionFn({ data: { brandId } });
         if (sessionId) {
+          popup?.close();
           window.postMessage(
             {
               source: "meta-oauth",
@@ -683,7 +688,7 @@ function ManageSheet({
       }
     }
 
-    const popup = window.open("", "meta-oauth", metaPopupFeatures());
+
     let completed = false;
     let timeoutId: number | undefined;
     function onOAuthMessage(ev: MessageEvent) {
