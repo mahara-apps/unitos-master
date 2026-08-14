@@ -679,9 +679,10 @@ async function runStep(params: {
     if (next) {
       await patch({ progress: STEP_META[next].progress, step_label: STEP_META[next].label });
       clearInterval(beat);
-      await scheduleStep({ baseUrl, token, jobId, step: next });
+      await scheduleStep({ baseUrl, token, jobId, step: next, userId });
       return;
     }
+
 
     // Última etapa concluída — avisa o usuário para revisar.
     const reviewRoute = `/customers/${state.clientId}/briefing`;
