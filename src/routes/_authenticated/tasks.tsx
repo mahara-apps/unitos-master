@@ -251,56 +251,59 @@ function TasksPage() {
 
   return (
     <DashboardPageShell>
-      {/* Resumo operacional — indicadores compactos que também filtram */}
-      <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+      {/* Resumo operacional — indicadores no padrão único de KPI, que também filtram */}
+      <PageKpiGrid columns={6}>
         {(
           [
-            { key: "open", label: "Abertas", value: kpis.open, icon: Circle },
-            { key: "in_progress", label: "Em andamento", value: kpis.inProgress, icon: Clock },
-            { key: "overdue", label: "Atrasadas", value: kpis.overdue, icon: AlertTriangle },
-            { key: "mine", label: "Minhas", value: kpis.mine, icon: UserIcon },
-            { key: "today", label: "Hoje", value: kpis.dueToday, icon: CalendarClock },
-            { key: "done", label: "Concluídas", value: kpis.done, icon: CheckCircle2 },
-          ] as Array<{ key: Quick; label: string; value: number; icon: typeof Circle }>
-        ).map((s) => {
-          const isActive = activeQuick === s.key;
-          return (
-            <button
-              key={s.key}
-              type="button"
-              onClick={() => applyQuick(s.key)}
-              aria-pressed={isActive}
-              className={cn(
-                "flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition",
-                isActive
-                  ? "border-primary bg-primary/5"
-                  : "border-border/60 bg-card hover:border-foreground/20",
-              )}
-            >
-              <s.icon
-                className={cn(
-                  "h-3.5 w-3.5 shrink-0",
-                  s.key === "overdue"
-                    ? "text-rose-500"
-                    : s.key === "done"
-                      ? "text-emerald-500"
-                      : s.key === "today"
-                        ? "text-amber-500"
-                        : "text-muted-foreground",
-                )}
-              />
-              <span className="min-w-0">
-                <span className="block text-base font-semibold leading-none tabular-nums">
-                  {s.value}
-                </span>
-                <span className="block truncate text-[10px] uppercase tracking-wide text-muted-foreground">
-                  {s.label}
-                </span>
-              </span>
-            </button>
-          );
-        })}
-      </div>
+            { key: "open", label: "Abertas", value: kpis.open, icon: Circle, status: "neutral" },
+            {
+              key: "in_progress",
+              label: "Em andamento",
+              value: kpis.inProgress,
+              icon: Clock,
+              status: "info",
+            },
+            {
+              key: "overdue",
+              label: "Atrasadas",
+              value: kpis.overdue,
+              icon: AlertTriangle,
+              status: "danger",
+            },
+            { key: "mine", label: "Minhas", value: kpis.mine, icon: UserIcon, status: "neutral" },
+            {
+              key: "today",
+              label: "Hoje",
+              value: kpis.dueToday,
+              icon: CalendarClock,
+              status: "warning",
+            },
+            {
+              key: "done",
+              label: "Concluídas",
+              value: kpis.done,
+              icon: CheckCircle2,
+              status: "success",
+            },
+          ] as Array<{
+            key: Quick;
+            label: string;
+            value: number;
+            icon: typeof Circle;
+            status: KpiStatus;
+          }>
+        ).map((s) => (
+          <PageKpi
+            key={s.key}
+            label={s.label}
+            value={s.value}
+            icon={<s.icon />}
+            status={s.status === "neutral" || s.value > 0 ? s.status : "neutral"}
+            onClick={() => applyQuick(s.key)}
+            active={activeQuick === s.key}
+          />
+        ))}
+      </PageKpiGrid>
 
       {/* Views */}
       <Tabs value={view} onValueChange={(v) => setSearch({ view: v as View })}>
