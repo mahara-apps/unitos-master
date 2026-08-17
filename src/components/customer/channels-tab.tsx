@@ -352,6 +352,12 @@ function ChannelRow({
           </div>
           <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
             {providerLabel(row.provider)} · {accountType(row)}
+            {/* ID explícito do destino: elimina ambiguidade na escolha da conta. */}
+            {row.instagramBusinessId
+              ? ` · Instagram Business ID ${row.instagramBusinessId}`
+              : row.pageId
+                ? ` · Page ID ${row.pageId}`
+                : ""}
           </p>
           {capLabel && !readiness?.publishReady && !checking ? (
             <p className="mt-0.5 text-[11px] text-destructive">{readiness?.message}</p>
