@@ -712,6 +712,12 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
           ? session.user_token_ciphertext!
           : await encryptCredential(spec.tokenToStore);
 
+      // Identidade e vínculos operacionais SEMPRE nas colunas de topo
+      // (page_id / instagram_business_id), não só em metadata.
+      const md = spec.metadata as Record<string, unknown>;
+      const pageIdCol = (md['page_id'] as string | null | undefined) ?? null;
+      const igIdCol = (md['instagram_business_id'] as string | null | undefined) ?? null;
+
       const { data: upserted, error: upErr } = await context.supabase
         .from("social_connections")
         .upsert(
@@ -722,6 +728,10 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
             external_id: spec.externalId,
             external_name: spec.externalName,
             account_id: spec.externalId,
+            account_username: spec.accountUsername,
+            page_id: pageIdCol,
+            instagram_business_id: igIdCol,
+
             account_username: spec.accountUsername,
             owner_external_id: session.meta_user_id,
             owner_name: session.meta_user_name ?? null,
