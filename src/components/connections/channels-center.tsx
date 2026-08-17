@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -67,6 +67,12 @@ import {
   inspectMetaConnectionFn,
   type InspectResult,
 } from "@/lib/meta/reconnect.functions";
+import {
+  listDiscoveredMetaAccountsFn,
+  reconcileMetaConnectionFn,
+  type DiscoveredAccountsResult,
+} from "@/lib/meta/discovery.functions";
+import { linkMetaAccount } from "@/lib/meta/portfolio.functions";
 import {
   listChannelHistoryFn,
   recordChannelEventFn,
@@ -190,6 +196,11 @@ export function ChannelsCenter({
   const [manage, setManage] = useState<WorkspaceChannel | null>(null);
   const [linkTarget, setLinkTarget] = useState<WorkspaceChannel | null>(null);
   const [reconnectTarget, setReconnectTarget] = useState<WorkspaceChannel | null>(null);
+  const [linkDiscovered, setLinkDiscovered] = useState<
+    DiscoveredAccountsResult["accounts"][number] | null
+  >(null);
+  const reauthRef = useRef(false);
+  const discoverFn = useServerFn(listDiscoveredMetaAccountsFn);
 
   const { data: channels = [], isLoading } = useQuery({
     queryKey: ["workspace-channels", brandId],
@@ -205,6 +216,18 @@ export function ChannelsCenter({
     staleTime: 60_000,
   });
 
+  const {
+    data: discovery,
+    isLoading: loadingDiscovery,
+    isFetching: fetchingDiscovery,
+    refetch: refetchDiscovery,
+  } = useQuery({
+    queryKey: ["meta-discovered-accounts", brandId],
+    queryFn: () => discoverFn({ data: { brandId: brandId! } }),
+    enabled: !!brandId,
+    staleTime: 120_000,
+  });
+
   const { data: clients = [] } = useQuery({
     queryKey: ["clients", brandId],
     queryFn: () => clientsFn({ data: { brandId: brandId! } }),
@@ -217,6 +240,7 @@ export function ChannelsCenter({
     qc.invalidateQueries({ queryKey: ["channel-history", brandId] });
     qc.invalidateQueries({ queryKey: ["meta-connections", brandId] });
     qc.invalidateQueries({ queryKey: ["connections", brandId] });
+    qc.invalidateQueries({ queryKey: ["meta-discovered-accounts", brandId] });
   };
 
   useEffect(() => {
@@ -240,6 +264,7 @@ export function ChannelsCenter({
         return;
       }
       setConnecting(null);
+      if (d.ok && d.sessionId && reauthRef.current) return;
       if (d.ok && d.sessionId) {
         toast.success("Autorização concluída. Selecione as contas para conectar.");
         setConnectOpen(false);
@@ -294,7 +319,12 @@ export function ChannelsCenter({
     () => channels.filter((c) => c.status === "active" || c.status === "attention"),
     [channels],
   );
-  const available = useMemo(
+  /**
+   * "Contas disponíveis" = contas realmente devolvidas pela Meta na autorização
+   * atual e ainda não salvas neste workspace. Nunca derivado do histórico.
+   */
+  const available = useMemo(() => discovery?.accounts ?? [], [discovery]);
+  const unlinkedSaved = useMemo(
     () => connected.filter((c) => c.clients.length === 0),
     [connected],
   );
