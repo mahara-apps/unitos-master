@@ -337,6 +337,15 @@ export class MetaProvider {
     const standaloneInstagram: MetaInstagramAsset[] = [];
     const seenIg = new Set<string>();
     const warnings: string[] = [];
+    // Prazo total do scan. Portfólios grandes têm centenas de arestas; sem um
+    // limite o request nunca retorna e o diálogo fica em loading infinito.
+    const deadline = Date.now() + 45_000;
+    let timedOut = false;
+    const outOfTime = () => {
+      if (Date.now() < deadline) return false;
+      timedOut = true;
+      return true;
+    };
 
     const PAGE_FIELDS =
       "id,name,access_token,category,tasks,picture.type(large){url}," +
@@ -377,7 +386,7 @@ export class MetaProvider {
     ) => {
       let nextUrl: string | null = null;
       let first = true;
-      while (first || nextUrl) {
+      while ((first || nextUrl) && !outOfTime()) {
         const res: Paged<T> = first
           ? await this.graph<Paged<T>>(startPath, {
               accessToken: userAccessToken,
@@ -441,7 +450,8 @@ export class MetaProvider {
 
     // Portfólios filhos: percorre em largura, limitado para não estourar o
     // rate limit da Graph API em portfólios muito grandes.
-    for (let i = 0; i < businesses.length && i < 50; i += 1) {
+    for (let i = 0; i < businesses.length && i < 25; i += 1) {
+      if (outOfTime()) break;
       const parent = businesses[i]!;
       for (const edge of ["owned_businesses", "client_businesses"] as const) {
         try {
@@ -459,6 +469,7 @@ export class MetaProvider {
 
 
     for (const biz of businesses) {
+      if (outOfTime()) break;
       const label = biz.name ?? biz.id;
       for (const edge of ["owned_pages", "client_pages"] as const) {
         try {
@@ -501,6 +512,12 @@ export class MetaProvider {
           );
         }
       }
+    }
+
+    if (timedOut) {
+      warnings.push(
+        "A varredura foi interrompida por tempo limite: mostramos as contas encontradas até aqui. Clique em \"Sincronizar novamente\" para continuar a busca.",
+      );
     }
 
     return {
@@ -709,7 +726,24 @@ export class MetaProvider {
       init.headers = { "Content-Type": "application/json" };
       init.body = JSON.stringify(body);
     }
-    const res = await fetch(url, init);
+    // Sem timeout, uma única chamada travada da Graph API deixa o seletor de
+    // contas girando para sempre. 15s por requisição é folgado para /me/accounts.
+    init.signal = AbortSignal.timeout(15_000);
+    let res: Response;
+    try {
+      res = await fetch(url, init);
+    } catch (err) {
+      const aborted =
+        err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+      throw new MetaGraphError(
+        aborted
+          ? "A Meta demorou demais para responder. Tente sincronizar novamente."
+          : err instanceof Error
+            ? err.message
+            : "Falha de rede ao chamar a Graph API",
+        aborted ? 504 : 0,
+      );
+    }
     const text = await res.text();
     let parsed: unknown = null;
     try {
