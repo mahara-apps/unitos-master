@@ -5,10 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   Sparkles,
-  Brain,
-  Cpu,
   KeyRound,
-  DollarSign,
   Radio,
   CheckCircle2,
   Mail,
@@ -22,10 +19,7 @@ import {
   Twitter,
   AtSign,
   Trash2,
-  Activity,
-  Coins,
   RefreshCw,
-  Zap,
 } from "lucide-react";
 import { AlertTriangle, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -57,8 +51,6 @@ import {
 } from "@/components/connections/social-channel-card";
 import { MetaPortfolioDialog } from "@/components/connections/meta-portfolio-dialog";
 import { listMetaConnections } from "@/lib/meta/meta.functions";
-import { supportsKind, type ProviderName as AiProviderName } from "@/lib/ai-capabilities";
-import { getAiModelStatus, runAiModelHealthNow } from "@/lib/ai-models.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { ConnectedChannelsSection } from "@/components/connections/connected-channels-section";
@@ -66,9 +58,6 @@ import { useAccessRole } from "@/hooks/use-access-role";
 import {
   getConnections,
   updateConnectionsSettings,
-  saveProviderKey,
-  testProviderKey,
-  removeProviderKey,
   upsertChannel,
   saveToolCredential,
   removeToolCredential,
@@ -81,6 +70,7 @@ import {
   DashboardPanelSurface,
 } from "@/components/ui/dashboard-primitives";
 import { KpiCard } from "@/components/ui/kpi-card";
+import { AiCenter, type AiSettingsUpdate } from "@/components/connections/ai-center";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -111,69 +101,6 @@ type ChannelId =
   | "whatsapp_cloud"
   | "resend";
 
-type ProviderDef = {
-  id: ProviderId;
-  name: string;
-  hint: string;
-  tone: string;
-  docs: string;
-  icon: ComponentType<{ className?: string }>;
-  models: Array<{ id: string; label: string; kind: "text" | "image" }>;
-};
-
-const PROVIDERS: ProviderDef[] = [
-  {
-    id: "openai",
-    name: "OpenAI",
-    hint: "GPT-5, o1, GPT-Image",
-    tone: "text-emerald-500",
-    docs: "platform.openai.com",
-    icon: Sparkles,
-    models: [
-      { id: "gpt-5", label: "GPT-5", kind: "text" },
-      { id: "gpt-5-mini", label: "GPT-5 mini", kind: "text" },
-      { id: "gpt-image-1", label: "GPT Image 1", kind: "image" },
-    ],
-  },
-  {
-    id: "anthropic",
-    name: "Anthropic",
-    hint: "Claude Sonnet & Opus",
-    tone: "text-amber-500",
-    docs: "console.anthropic.com",
-    icon: Brain,
-    models: [
-      { id: "claude-sonnet-4.5", label: "Claude Sonnet 4.5", kind: "text" },
-      { id: "claude-opus-4.1", label: "Claude Opus 4.1", kind: "text" },
-    ],
-  },
-  {
-    id: "gemini",
-    name: "Google Gemini",
-    hint: "Gemini 2.5 · Imagen 4",
-    tone: "text-sky-500",
-    docs: "aistudio.google.com",
-    icon: Cpu,
-    models: [
-      { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", kind: "text" },
-      { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", kind: "text" },
-      { id: "imagen-4", label: "Imagen 4", kind: "image" },
-    ],
-  },
-  {
-    id: "groq",
-    name: "Groq",
-    hint: "Llama 3.3 · GPT-OSS (baixa latência)",
-    tone: "text-orange-500",
-    docs: "console.groq.com",
-    icon: Zap,
-    models: [
-      { id: "openai/gpt-oss-120b", label: "GPT-OSS 120B", kind: "text" },
-      { id: "llama-3.3-70b-versatile", label: "Llama 3.3 70B", kind: "text" },
-      { id: "llama-3.1-8b-instant", label: "Llama 3.1 8B Instant", kind: "text" },
-    ],
-  },
-];
 
 type ChannelDef = {
   id: ChannelId;
@@ -494,99 +421,23 @@ function ConnectionsPage() {
         </TabsList>
 
         {/* Tab: IA */}
-        <TabsContent value="ai" className="space-y-3">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <KpiCard
-            icon={<DollarSign className="h-4 w-4" />}
-            label="Consumo do mês"
-            value={isLoading ? "—" : `$${used.toFixed(2)}`}
-            sub={noUsage ? "Sem chamadas registradas neste mês" : `de $${active.toFixed(0)} · ${pct}%`}
-            tone={noUsage ? "neutral" : pct >= 80 ? "amber" : "emerald"}
-          />
-          <KpiCard
-            icon={<Coins className="h-4 w-4" />}
-            label="Tokens do mês"
-            value={isLoading ? "—" : (data?.usage.monthTokens ?? 0).toLocaleString("pt-BR")}
-            sub={noUsage ? "Nenhum token consumido ainda" : "Entrada + saída somados"}
-            tone={noUsage ? "neutral" : "violet"}
-          />
-          <KpiCard
-            icon={<Activity className="h-4 w-4" />}
-            label="Chamadas de IA"
-            value={isLoading ? "—" : totalCalls.toLocaleString("pt-BR")}
-            sub={noUsage ? "Aguardando a primeira geração" : `${successCalls} com sucesso`}
-            tone={noUsage ? "neutral" : "sky"}
-          />
-          <KpiCard
-            icon={<CheckCircle2 className="h-4 w-4" />}
-            label="Taxa de sucesso"
-            value={noUsage ? "—" : `${successRate}%`}
-            sub={
-              noUsage
-                ? "Sem histórico no mês"
-                : pct >= 80
-                  ? "Teto próximo do limite"
-                  : "Operando dentro do teto"
-            }
-            tone={
-              noUsage ? "neutral" : successRate >= 95 ? "emerald" : successRate >= 80 ? "amber" : "rose"
-            }
-          />
-        </div>
-
-
-        <SectionHeader
-          icon={<Sparkles className="h-3.5 w-3.5" />}
-          title="inteligências artificiais"
-          hint="Provedores, modelos ativos e consumo"
-        />
-
-        <DashboardPanelSurface className="p-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <LeaderPicker
-              label="Modelo de texto ativo"
-              icon={<Sparkles className="h-3.5 w-3.5" />}
-              value={data?.textProvider ?? "openai"}
-              onChange={(v) => updateMut.mutate({ brandId, textProvider: v })}
-            />
-            <LeaderPicker
-              label="Modelo de imagem ativo"
-              icon={<Brain className="h-3.5 w-3.5" />}
-              value={data?.imageProvider ?? "gemini"}
-              onChange={(v) => updateMut.mutate({ brandId, imageProvider: v })}
-              kind="image"
-            />
-            <FallbackPicker
-              value={data?.textFallbackProvider ?? "none"}
-              primary={data?.textProvider ?? "openai"}
-              onChange={(v) =>
-                updateMut.mutate({ brandId, textFallbackProvider: v })
-              }
-            />
-            <BudgetInput
-              active={active}
-              onSave={(v) => updateMut.mutate({ brandId, monthlyBudgetUsd: v })}
-            />
+        <TabsContent value="ai" className="space-y-4">
+          <div>
+            <h2 className="text-base font-semibold">Inteligência Artificial</h2>
+            <p className="text-xs text-muted-foreground">
+              Configure provedores, modelos e consumo de IA utilizados pelo workspace.
+            </p>
           </div>
-        </DashboardPanelSurface>
-
-        <ModelHealthPanel brandId={brandId} />
-
-
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {PROVIDERS.map((p) => (
-            <ProviderCard
-              key={p.id}
-              provider={p}
-              config={data?.providers?.[p.id]}
-              brandId={brandId}
-              onChanged={invalidate}
-              usage={byProvider[p.id] ?? { usd: 0, tokens: 0, calls: 0 }}
-            />
-          ))}
-        </div>
+          <AiCenter
+            brandId={brandId}
+            data={data as unknown as never}
+            isLoading={isLoading}
+            onChanged={invalidate}
+            isSaving={updateMut.isPending}
+            onUpdateSettings={(input: AiSettingsUpdate) => updateMut.mutate({ brandId, ...input })}
+          />
         </TabsContent>
+
 
         {/* Tab: Canais */}
         <TabsContent value="channels" className="space-y-3">
@@ -858,473 +709,6 @@ function ChannelsKpiCards({ data }: { data: ChannelsKpis | undefined }) {
         tone={total > 0 && missing === 0 ? "emerald" : "violet"}
       />
     </>
-  );
-}
-
-function BudgetInput({
-  active,
-  onSave,
-}: {
-  active: number;
-  onSave: (v: number) => void;
-}) {
-  const [budget, setBudget] = useState<string>("");
-  const value = budget === "" ? String(active) : budget;
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex items-center gap-2 text-xs font-medium">
-        <DollarSign className="h-3.5 w-3.5" />
-        Teto mensal (USD)
-      </div>
-      <div className="flex items-center gap-2">
-        <Input
-          type="number"
-          min={0}
-          value={value}
-          onChange={(e) => setBudget(e.target.value)}
-          className="h-9 w-[110px] font-mono tabular-nums"
-        />
-        <Button
-          size="sm"
-          onClick={() => {
-            const n = Number(value);
-            if (!Number.isFinite(n) || n < 0) return;
-            onSave(n);
-            setBudget("");
-          }}
-        >
-          Salvar
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function LeaderPicker({
-  label,
-  icon,
-  value,
-  onChange,
-  kind = "text",
-}: {
-  label: string;
-  icon: React.ReactNode;
-  value: ProviderId;
-  onChange: (v: ProviderId) => void;
-  kind?: "text" | "image";
-}) {
-  const options = PROVIDERS.filter((p) =>
-    supportsKind(p.id as AiProviderName, kind),
-  );
-  const safeValue = options.some((p) => p.id === value)
-    ? value
-    : (options[0]?.id as ProviderId);
-
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex items-center gap-2 text-xs font-medium">
-        {icon}
-        {label}
-      </div>
-      <Select value={safeValue} onValueChange={(v) => onChange(v as ProviderId)}>
-        <SelectTrigger className="h-9 w-[170px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {options.map((p) => (
-            <SelectItem key={p.id} value={p.id}>
-              {p.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}
-
-/**
- * Provedor secundário: usado apenas quando o principal falha por erro
- * transitório (503, 429, quota, timeout). "Nenhum" mantém o comportamento
- * atual — marcas com um único provedor não mudam nada.
- */
-function FallbackPicker({
-  value,
-  primary,
-  onChange,
-}: {
-  value: ProviderId | "none";
-  primary: ProviderId;
-  onChange: (v: ProviderId | "none") => void;
-}) {
-  const options = PROVIDERS.filter(
-    (p) => supportsKind(p.id as AiProviderName, "text") && p.id !== primary,
-  );
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex items-center gap-2 text-xs font-medium">
-        <Zap className="h-3.5 w-3.5" />
-        Fallback de texto
-      </div>
-      <Select value={value} onValueChange={(v) => onChange(v as ProviderId | "none")}>
-        <SelectTrigger className="h-9 w-[170px]">
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="none">Nenhum</SelectItem>
-          {options.map((p) => (
-            <SelectItem key={p.id} value={p.id}>
-              {p.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
-}
-
-function ModelHealthPanel({ brandId }: { brandId: string }) {
-  const statusFn = useServerFn(getAiModelStatus);
-  const runFn = useServerFn(runAiModelHealthNow);
-  const qc = useQueryClient();
-
-  const { data } = useQuery({
-    queryKey: ["ai-model-status", brandId],
-    queryFn: () => statusFn(),
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const runMut = useMutation({
-    mutationFn: () => runFn(),
-    onSuccess: (res) => {
-      qc.invalidateQueries({ queryKey: ["ai-model-status", brandId] });
-      toast.success(
-        res.replacements > 0
-          ? `${res.replacements} modelo(s) atualizado(s) automaticamente`
-          : res.problems > 0
-            ? `${res.problems} verificação(ões) com problema — veja as notificações`
-            : "Todos os modelos estão ativos",
-      );
-    },
-    onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : "Falha ao verificar modelos"),
-  });
-
-  const roleLabel: Record<string, string> = {
-    strategic: "Estratégico",
-    operational: "Operacional",
-    image: "Imagem",
-  };
-
-  return (
-    <DashboardPanelSurface className="p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <div className="text-sm font-semibold">Modelos em uso</div>
-          <div className="font-mono text-[10px] text-muted-foreground">
-            {data?.lastCheckedAt
-              ? `Última verificação: ${new Date(data.lastCheckedAt).toLocaleString("pt-BR")}`
-              : "Nunca verificado"}
-          </div>
-        </div>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => runMut.mutate()}
-          disabled={runMut.isPending}
-        >
-          <RefreshCw
-            className={cn("mr-2 h-4 w-4", runMut.isPending && "animate-spin")}
-          />
-          Verificar modelos agora
-        </Button>
-      </div>
-
-      <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3">
-        {(data?.models ?? []).map((m) => (
-          <div
-            key={`${m.provider}-${m.role}`}
-            className="rounded-lg border border-border/60 bg-background/60 p-2.5"
-          >
-            <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-              <span>{m.provider}</span>
-              <span>{roleLabel[m.role] ?? m.role}</span>
-            </div>
-            <div className="mt-1 truncate font-mono text-[11px] text-foreground/90">
-              {m.modelId}
-            </div>
-            {m.replacedModelId && (
-              <div className="mt-1 flex items-center gap-1 text-[10px] text-amber-600">
-                <AlertTriangle className="h-3 w-3" />
-                substituiu {m.replacedModelId}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </DashboardPanelSurface>
-  );
-}
-
-
-function ProviderCard({
-  provider,
-  config,
-  brandId,
-  onChanged,
-  usage,
-}: {
-  provider: ProviderDef;
-  config?: {
-    connected: boolean;
-    masked?: string;
-    updatedAt?: string;
-    verified?: "valid" | "invalid" | "unverified";
-    verifiedAt?: string;
-    verifyMessage?: string;
-  };
-  brandId: string;
-  onChanged: () => void;
-  usage: { usd: number; tokens: number; calls: number };
-}) {
-  const [open, setOpen] = useState(false);
-  const [apiKey, setApiKey] = useState("");
-  const [model, setModel] = useState<string>(provider.models[0]?.id ?? "");
-
-  const [saveError, setSaveError] = useState<string | null>(null);
-
-  const saveFn = useServerFn(saveProviderKey);
-  const removeFn = useServerFn(removeProviderKey);
-  const testFn = useServerFn(testProviderKey);
-
-  const saveMut = useMutation({
-    mutationFn: () =>
-      saveFn({ data: { brandId, provider: provider.id, apiKey: apiKey.trim() } }),
-    onSuccess: (res) => {
-      if (res.verified === "valid") {
-        toast.success(`${provider.name} conectado — chave válida`);
-      } else {
-        toast.warning(res.message);
-      }
-      setApiKey("");
-      setSaveError(null);
-      setOpen(false);
-      onChanged();
-    },
-    onError: (e: unknown) => {
-      const msg = e instanceof Error ? e.message : "Falha ao conectar";
-      setSaveError(msg);
-      toast.error(msg);
-    },
-  });
-
-  const testMut = useMutation({
-    mutationFn: () => testFn({ data: { brandId, provider: provider.id } }),
-    onSuccess: (res) => {
-      if (res.status === "valid") toast.success(res.message);
-      else if (res.status === "invalid") toast.error(res.message);
-      else toast.warning(res.message);
-      onChanged();
-    },
-    onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : "Falha ao testar a chave"),
-  });
-
-  const removeMut = useMutation({
-    mutationFn: () => removeFn({ data: { brandId, provider: provider.id } }),
-    onSuccess: () => {
-      toast.success(`${provider.name} desconectado`);
-      onChanged();
-    },
-  });
-
-  const connected = !!config?.connected;
-  const Icon = provider.icon;
-  // Consumo real do mês atribuído a este provedor (derivado do modelo usado).
-  const estCostUsd = usage.usd;
-  const estTokens = usage.tokens;
-
-  return (
-    <DashboardPanelSurface className="p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <span
-            className={cn(
-              "grid h-10 w-10 place-items-center rounded-lg border border-border/60 bg-background/60",
-              provider.tone,
-            )}
-          >
-            <Icon className="h-5 w-5" />
-          </span>
-          <div>
-            <div className="text-sm font-semibold">{provider.name}</div>
-            <div className="font-mono text-[10px] text-muted-foreground">{provider.hint}</div>
-          </div>
-        </div>
-        <div className="flex flex-col items-end gap-1">
-          <StatusBadge connected={connected} />
-          {!supportsKind(provider.id as AiProviderName, "image") && (
-            <Badge variant="outline" className="font-mono text-[9px] uppercase">
-              Somente texto
-            </Badge>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-4 space-y-2">
-        <Label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          Modelo padrão
-        </Label>
-        <Select value={model} onValueChange={setModel} disabled={!connected}>
-          <SelectTrigger className="h-9">
-            <SelectValue placeholder="Selecionar modelo" />
-          </SelectTrigger>
-          <SelectContent>
-            {provider.models.map((m) => (
-              <SelectItem key={m.id} value={m.id}>
-                {m.label}
-                <span className="ml-2 font-mono text-[10px] uppercase text-muted-foreground">
-                  {m.kind}
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="mt-3 rounded-lg border border-border/60 bg-background/60 p-3">
-        <div className="flex items-center justify-between font-mono text-[11px]">
-          <span className="flex items-center gap-1.5 text-muted-foreground">
-            <KeyRound className="h-3 w-3" />
-            API Key
-          </span>
-          <span className="tabular-nums text-foreground/80">{config?.masked ?? "—"}</span>
-        </div>
-        <div className="mt-1 text-[10px] text-muted-foreground">Obtenha em {provider.docs}</div>
-        {connected && (
-          <div className="mt-2 border-t border-border/60 pt-2">
-            <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest">
-              {config?.verified === "valid" ? (
-                <span className="flex items-center gap-1 text-emerald-600">
-                  <CheckCircle2 className="h-3 w-3" /> Chave válida
-                </span>
-              ) : config?.verified === "invalid" ? (
-                <span className="flex items-center gap-1 text-destructive">
-                  <AlertTriangle className="h-3 w-3" /> Chave inválida
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-amber-600">
-                  <AlertTriangle className="h-3 w-3" /> Não verificada
-                </span>
-              )}
-              {config?.verifiedAt && (
-                <span className="text-muted-foreground">
-                  · {new Date(config.verifiedAt).toLocaleString("pt-BR")}
-                </span>
-              )}
-            </div>
-            {config?.verifyMessage && (
-              <div className="mt-1 text-[10px] leading-snug text-muted-foreground">
-                {config.verifyMessage}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="mt-3 grid grid-cols-2 gap-2">
-        <MicroStat
-          label="Tokens (mês)"
-          value={estTokens.toLocaleString("pt-BR")}
-          hint={connected ? "estimativa" : "sem conexão"}
-        />
-        <MicroStat
-          label="Custo estimado"
-          value={`$${estCostUsd.toFixed(2)}`}
-          hint={connected ? "rateio ativo" : "—"}
-        />
-      </div>
-
-      <div className="mt-3 flex gap-2">
-        <Button
-          size="sm"
-          variant={connected ? "outline" : "default"}
-          className="flex-1"
-          onClick={() => setOpen(true)}
-        >
-          {connected ? "Rotacionar chave" : "Conectar"}
-        </Button>
-        {connected && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => testMut.mutate()}
-            disabled={testMut.isPending}
-          >
-            <RefreshCw className={cn("mr-2 h-3.5 w-3.5", testMut.isPending && "animate-spin")} />
-            Testar
-          </Button>
-        )}
-        {connected && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-destructive hover:text-destructive"
-            onClick={() => removeMut.mutate()}
-            disabled={removeMut.isPending}
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Conectar {provider.name}</DialogTitle>
-            <DialogDescription>
-              A chave é testada contra a {provider.name} antes de ser salva e cifrada com
-              AES-256-GCM. Apenas os últimos 4 caracteres ficam visíveis.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor={`key-${provider.id}`}>API Key</Label>
-            <Input
-              id={`key-${provider.id}`}
-              type="password"
-              autoComplete="off"
-              placeholder="sk-..."
-              value={apiKey}
-              onChange={(e) => {
-                setApiKey(e.target.value);
-                setSaveError(null);
-              }}
-            />
-            {saveError && (
-              <p className="flex items-start gap-1.5 text-xs text-destructive">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                {saveError}
-              </p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              onClick={() => saveMut.mutate()}
-              disabled={saveMut.isPending || apiKey.trim().length < 8}
-            >
-              {saveMut.isPending ? (
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <CheckCircle2 className="mr-2 h-4 w-4" />
-              )}
-              {saveMut.isPending ? "Testando chave…" : "Testar e salvar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </DashboardPanelSurface>
   );
 }
 
@@ -1622,26 +1006,3 @@ function ToolCredentialCard({
   );
 }
 
-function MicroStat({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: React.ReactNode;
-  hint?: string;
-}) {
-  return (
-    <div className="rounded-lg border border-border/60 bg-background/60 px-3 py-2">
-      <div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-0.5 font-mono text-sm font-semibold tabular-nums">{value}</div>
-      {hint ? (
-        <div className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground/70">
-          {hint}
-        </div>
-      ) : null}
-    </div>
-  );
-}
