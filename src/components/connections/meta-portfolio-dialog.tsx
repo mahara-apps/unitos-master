@@ -77,9 +77,15 @@ export function MetaPortfolioDialog({
   const unlinkFn = useServerFn(unlinkMetaAccount);
   const startFn = useServerFn(startMetaOAuth);
 
-  // Only the explicit "Sincronizar" action flips this ref. Opening the modal
-  // reads cache only and never starts a Graph API scan.
+  // A primeira abertura de uma sessão recém-autorizada faz varredura nova na
+  // Graph API, para que TODAS as contas aprovadas no consentimento apareçam.
+  // Depois disso a lista é cache-first e só o botão "Sincronizar" re-varre.
   const refreshNextRef = useRef(false);
+  if (sessionId && !scannedSessions.has(sessionId)) {
+    scannedSessions.add(sessionId);
+    refreshNextRef.current = true;
+  }
+
   const queryKey = [
     "meta-portfolio",
     brandId,
