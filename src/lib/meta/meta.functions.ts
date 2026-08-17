@@ -140,9 +140,6 @@ export const getActiveMetaSession = createServerFn({ method: "POST" })
     if (!rows?.length) return { sessionId: null as string | null };
 
     const { decryptCredential } = await import("@/lib/credentials-crypto.server");
-    const { supabaseAdmin } = await import(
-      "@/integrations/supabase/client.server"
-    );
 
     // A session whose token cannot be decrypted anymore (e.g. it was stored
     // under a previous encryption key) is useless — expire it and keep looking
@@ -157,7 +154,7 @@ export const getActiveMetaSession = createServerFn({ method: "POST" })
         usable = false;
       }
       if (!usable) {
-        await supabaseAdmin
+        await context.supabase
           .from("meta_oauth_sessions")
           .update({ expires_at: nowIso, user_token_expires_at: nowIso })
           .eq("id", row.id);
@@ -165,7 +162,7 @@ export const getActiveMetaSession = createServerFn({ method: "POST" })
       }
       // Bump the session's short-lived expiry so the dialog can consume it.
       const nextExpiry = new Date(Date.now() + 30 * 60_000).toISOString();
-      await supabaseAdmin
+      await context.supabase
         .from("meta_oauth_sessions")
         .update({ expires_at: nextExpiry, consumed_at: null })
         .eq("id", row.id);

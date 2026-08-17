@@ -187,11 +187,10 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
 
       const { decryptCredential } = await import("@/lib/credentials-crypto.server");
       const { MetaProvider, MetaGraphError } = await import("./provider.server");
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const provider = new MetaProvider();
       const invalidateSession = async () => {
         const nowIso = new Date().toISOString();
-        await supabaseAdmin
+        await context.supabase
           .from("meta_oauth_sessions")
           .update({ expires_at: nowIso, user_token_expires_at: nowIso })
           .eq("id", session.id);
@@ -300,7 +299,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
 
         const loadedAt = nowIso();
         const nextStatus = loadedCount > 0 ? "loaded" : "empty";
-        const { error: upErr } = await supabaseAdmin
+        const { error: upErr } = await context.supabase
           .from("meta_oauth_sessions")
           .update({
             pages: {
@@ -329,7 +328,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
           message: string,
           until: string | null = null,
         ) => {
-          const { error: statusErr } = await supabaseAdmin
+          const { error: statusErr } = await context.supabase
             .from("meta_oauth_sessions")
             .update({
               portfolio_load_status: status,
@@ -364,7 +363,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
           scanWarnings = Array.from(new Set([warning, ...scanWarnings])).slice(0, 8);
           portfolioStatus = "loaded";
           portfolioError = detail;
-          await supabaseAdmin
+          await context.supabase
             .from("meta_oauth_sessions")
             .update({
               portfolio_load_status: "loaded",
@@ -515,7 +514,6 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
     }
 
     const { encryptCredential } = await import("@/lib/credentials-crypto.server");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const now = new Date().toISOString();
 
@@ -671,7 +669,7 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
           ? session.user_token_ciphertext!
           : await encryptCredential(spec.tokenToStore);
 
-      const { data: upserted, error: upErr } = await supabaseAdmin
+      const { data: upserted, error: upErr } = await context.supabase
         .from("social_connections")
         .upsert(
           {
@@ -707,7 +705,7 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
       connectionIds.push(upserted.id);
 
       if (data.clientId) {
-        const { error: assignErr } = await supabaseAdmin
+        const { error: assignErr } = await context.supabase
           .from("client_social_accounts")
           .upsert(
             {
