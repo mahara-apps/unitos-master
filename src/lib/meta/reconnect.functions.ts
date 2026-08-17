@@ -188,6 +188,19 @@ export const applyMetaReconnectFn = createServerFn({ method: "POST" })
       };
     }
 
+    // Token antigo NUNCA reativa uma conta revogada/expirada: reativação só
+    // acontece via nova autorização + descoberta (reconcileMetaConnectionFn).
+    if (row.status !== "active" && row.status !== "attention") {
+      return {
+        ok: false,
+        message: {
+          title: "Nova autorização necessária",
+          description:
+            "Esta conta não está mais autorizada. Use “Nova autorização na Meta” para reconectar — não reutilizamos a credencial anterior.",
+        },
+      };
+    }
+
     try {
       const { decryptCredential } = await import("@/lib/credentials-crypto.server");
       const { MetaProvider } = await import("./provider.server");
@@ -216,6 +229,7 @@ export const applyMetaReconnectFn = createServerFn({ method: "POST" })
         last_error: null,
         last_synced_at: nowIso,
       };
+
 
       const igChanged =
         (row.instagram_business_id ?? row.account_id ?? "") !==
