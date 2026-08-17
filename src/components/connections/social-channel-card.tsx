@@ -692,7 +692,7 @@ function ManageSheet({
         data: {
           brandId,
           ...(metaChannel ? { channel: metaChannel } : {}),
-          forceReauth,
+          forceReauth: true,
         },
       });
       if (popup) popup.location.href = authorizeUrl;
