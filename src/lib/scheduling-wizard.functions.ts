@@ -276,7 +276,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       const connIds = Array.from(new Set(data.destinations.map((d) => d.connectionId)));
       const { data: conns, error: connsErr } = await supabase
         .from("social_connections")
-        .select("id, brand_id, provider, status, access_token_ciphertext")
+        .select("id, brand_id, channel, provider, status, access_token_ciphertext")
         .eq("brand_id", data.brandId)
         .in("id", connIds);
       if (connsErr) throw new Error(connsErr.message);
@@ -309,7 +309,9 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         }
         const conn = connMap.get(d.connectionId);
         if (!conn) {
-          throw new Error(`Conexão ${d.channel} não encontrada nesta marca.`);
+          throw new Error(
+            `CONNECTION_SCOPE_MISMATCH: conexão ${d.channel} não pertence a esta marca.`,
+          );
         }
         if (!conn.access_token_ciphertext) {
           throw new Error(
@@ -318,7 +320,14 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         }
         if (!linkedIds.has(d.connectionId)) {
           throw new Error(
-            `Canal ${d.channel} não está vinculado a este cliente. Vincule em Perfil do cliente > Canais.`,
+            `CONNECTION_SCOPE_MISMATCH: canal ${d.channel} não está vinculado a este cliente. Vincule em Perfil do cliente > Canais.`,
+          );
+        }
+        // Plataforma da conexão precisa bater com o canal do destino — nunca
+        // publicar um destino Instagram numa conexão Facebook (ou vice-versa).
+        if ((conn as { channel?: string | null }).channel !== d.channel) {
+          throw new Error(
+            `CONNECTION_SCOPE_MISMATCH: conexão selecionada é de ${(conn as { channel?: string | null }).channel ?? "canal desconhecido"}, mas o destino é ${d.channel}.`,
           );
         }
         if (conn.status !== "active") {
@@ -578,16 +587,32 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           const { data: conn, error: connErr } = await supabase
             .from("social_connections")
             .select(
-              "id, brand_id, provider, external_id, account_id, access_token_ciphertext, status",
+              "id, brand_id, channel, provider, external_id, account_id, access_token_ciphertext, status",
             )
             .eq("id", d.connectionId)
             .eq("brand_id", data.brandId)
             .maybeSingle();
           if (connErr) throw new Error(connErr.message);
-          if (!conn) throw new Error("Conexão não encontrada");
+          if (!conn) {
+            throw new Error("CONNECTION_SCOPE_MISMATCH: conexão não pertence a esta marca");
+          }
           if (!conn.access_token_ciphertext) throw new Error("Conexão sem token — reconecte a página");
           if (!publishLinkedIds.has(d.connectionId)) {
-            throw new Error("Canal não vinculado a este cliente");
+            throw new Error("CONNECTION_SCOPE_MISMATCH: canal não vinculado a este cliente");
+          }
+          if ((conn as { channel?: string | null }).channel !== d.channel) {
+            throw new Error(
+              `CONNECTION_SCOPE_MISMATCH: conexão é de ${(conn as { channel?: string | null }).channel ?? "canal desconhecido"}, destino é ${d.channel}`,
+            );
+          }
+          if (conn.status !== "active") {
+            throw new Error("Conexão não está ativa — reconecte antes de publicar");
+          }
+          if (isStory && (conn as { channel?: string | null }).channel !== "instagram") {
+            throw new Error("Stories só é suportado no Instagram");
+          }
+          if (!(conn as { account_id?: string | null }).account_id && d.channel === "instagram") {
+            throw new Error("Conexão sem conta Instagram Business vinculada");
           }
 
 
