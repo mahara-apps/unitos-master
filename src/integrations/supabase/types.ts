@@ -5788,6 +5788,13 @@ export type Database = {
         }[]
       }
       accept_brand_invite: { Args: { _token: string }; Returns: string }
+      block_unusable_scheduled_social_posts: {
+        Args: never
+        Returns: {
+          id: string
+          reason: string
+        }[]
+      }
       brain_archive_and_prune_events: { Args: never; Returns: Json }
       brain_cleanup_ttl: { Args: never; Returns: Json }
       brain_confidence: {

@@ -59,6 +59,22 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
           "@/lib/meta/publishing.server"
         );
 
+        // Sweep fail-closed (1ª barreira): itens vencidos cujo destino já não é
+        // utilizável (conexão removida/inativa, sem token, ou conta desvinculada
+        // do cliente) NUNCA são reclamados pelo claim — sem este sweep ficariam
+        // "scheduled" para sempre. Aqui viram `blocked`/`connection_required`,
+        // sem chamar a Meta e sem consumir tentativa.
+        const { data: swept } = await (supabaseAdmin as any).rpc(
+          "block_unusable_scheduled_social_posts",
+        );
+        for (const s of (swept ?? []) as Array<{ id: string; reason: string }>) {
+          // Observabilidade sem credenciais: nunca logar token.
+          console.warn("[publish-scheduled] connection_required", {
+            social_post_id: s.id,
+            reason: s.reason,
+          });
+        }
+
         // Claim atômico via RPC (FOR UPDATE SKIP LOCKED + lock de 10min).
         const { data: claimed, error: claimErr } = await (supabaseAdmin as any).rpc(
           "claim_scheduled_social_posts",
@@ -172,6 +188,14 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
             //  - determinístico (autorização/vínculo) → `blocked`, sem retry;
             //  - transitório (timeout/5xx/rate limit) → política de retry atual.
             if (err instanceof DeterministicBlock) {
+              // Observabilidade: diagnóstico completo do bloqueio, sem token.
+              console.warn("[publish-scheduled] deterministic block", {
+                social_post_id: post.id,
+                client_id: post.client_id,
+                connection_id: post.connection_id,
+                placement: post.placement,
+                reason: err.code,
+              });
               await (supabaseAdmin as any).rpc("mark_social_post_blocked", {
                 p_post_id: post.id,
                 p_error: err.message,
