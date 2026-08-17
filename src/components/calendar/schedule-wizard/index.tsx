@@ -755,7 +755,13 @@ export function ScheduleWizard({
       >
         {/* ---------------- Coluna 1 — edição ---------------- */}
         <div className="min-h-0 space-y-5 overflow-y-auto border-b border-border/60 px-5 py-4 lg:border-b-0 lg:border-r">
+          {/* Estado real de publicação por destino + republicação de falhas */}
+          {postId ? (
+            <PublicationStatusPanel postId={postId} brandId={brandId} />
+          ) : null}
+
           {/* Destinos */}
+
           <section className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-xs">Destinos</Label>
