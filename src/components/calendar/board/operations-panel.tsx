@@ -20,6 +20,7 @@ import {
   formatLabel,
   relativeLabel,
   timeLabel,
+  NETWORK_COLOR,
 } from "@/lib/publication-status-tokens";
 import { SOCIAL_NETWORKS, classifySocialNetwork } from "@/lib/calendar-tokens";
 import type { PublicationItem } from "@/lib/calendar-board.functions";
@@ -32,12 +33,14 @@ import type { PendingSchedulePost } from "@/lib/scheduling-wizard.functions";
 
 function Block({
   icon,
+  tone,
   title,
   count,
   children,
   action,
 }: {
   icon: React.ReactNode;
+  tone?: string;
   title: string;
   count?: React.ReactNode;
   children: React.ReactNode;
@@ -47,7 +50,7 @@ function Block({
     <DashboardPanelSurface>
       <div className="flex items-center justify-between gap-2 border-b border-border/60 px-3.5 py-2.5">
         <div className="flex min-w-0 items-center gap-2.5">
-          <DashboardIconFrame>{icon}</DashboardIconFrame>
+          <DashboardIconFrame className={tone}>{icon}</DashboardIconFrame>
           <div className="min-w-0">
             <div className="truncate text-xs font-semibold tracking-tight">{title}</div>
             {count !== undefined ? (
@@ -100,7 +103,7 @@ function Channels({ item }: { item: PublicationItem }) {
     <span className="inline-flex items-center gap-1">
       {nets.slice(0, 4).map((k) => {
         const Icon = SOCIAL_NETWORKS[k].Icon;
-        return <Icon key={k} className="h-3 w-3" strokeWidth={2} />;
+        return <Icon key={k} className={cn("h-3 w-3", NETWORK_COLOR[k])} strokeWidth={2} />;
       })}
     </span>
   );
@@ -128,6 +131,7 @@ export function OperationsPanel({
   return (
     <div className="flex flex-col gap-3">
       <Block
+        tone="border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300"
         icon={<CalendarClock className="h-4 w-4" />}
         title="Próximas publicações"
         count={`${upcoming.length} na fila`}
@@ -181,6 +185,7 @@ export function OperationsPanel({
       </Block>
 
       <Block
+        tone="border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300"
         icon={<AlertTriangle className="h-4 w-4" />}
         title="Precisam de atenção"
         count={
@@ -240,6 +245,7 @@ export function OperationsPanel({
       </Block>
 
       <Block
+        tone="border-destructive/30 bg-destructive/10 text-destructive"
         icon={<XCircle className="h-4 w-4" />}
         title="Falhas recentes"
         count={
@@ -294,6 +300,7 @@ export function OperationsPanel({
       </Block>
 
       <Block
+        tone="border-border/60 bg-muted/50 text-muted-foreground"
         icon={<FileText className="h-4 w-4" />}
         title="Rascunhos"
         count={
@@ -341,7 +348,7 @@ export function OperationsPanel({
                             .slice(0, 3)
                             .map((k) => {
                               const Icon = SOCIAL_NETWORKS[k].Icon;
-                              return <Icon key={k} className="h-3 w-3" strokeWidth={2} />;
+                              return <Icon key={k} className={cn("h-3 w-3", NETWORK_COLOR[k])} strokeWidth={2} />;
                             })}
                         </span>
                       ) : null}
