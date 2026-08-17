@@ -281,6 +281,23 @@ export function ScheduleWizard({
     };
   }, [open, seed?.postId, brandId, clientId, loadPostState, seed?.title]);
 
+  // Destino restaurado cujo canal não está mais vinculado ao cliente é
+  // removido do composer (o banco rejeita o save com esse destino).
+  useEffect(() => {
+    if (!open || hydrating) return;
+    const conns = connectionsQ.data;
+    if (!conns || conns.length === 0) return;
+    const valid = new Set(conns.map((c) => c.connectionId));
+    setPairs((prev) => {
+      const kept = prev.filter((p) => valid.has(p.connectionId));
+      if (kept.length === prev.length) return prev;
+      toast.warning(
+        "Um destino foi removido: a conta não está mais vinculada a este cliente.",
+      );
+      return kept;
+    });
+  }, [open, hydrating, connectionsQ.data]);
+
   // Pré-preenche destinos a partir das conexões escolhidas na tela de Conteúdo
   // (Kanban → target_connection_ids), quando o wizard abre com um seed.
   useEffect(() => {
