@@ -276,7 +276,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       const connIds = Array.from(new Set(data.destinations.map((d) => d.connectionId)));
       const { data: conns, error: connsErr } = await supabase
         .from("social_connections")
-        .select("id, brand_id, provider, status, access_token_ciphertext")
+        .select("id, brand_id, channel, provider, status, access_token_ciphertext")
         .eq("brand_id", data.brandId)
         .in("id", connIds);
       if (connsErr) throw new Error(connsErr.message);
