@@ -49,6 +49,9 @@ import {
   type DiscoveredAccountStatus,
   type PublishAuthorizationInfo,
 } from "@/lib/meta/portfolio-shared";
+import { humanizeMetaError } from "@/lib/meta/error-messages";
+import { DiscoveryProgress } from "./discovery-progress";
+
 
 /**
  * Status canônico por conta descoberta: 🟢 Pronto · 🟠 Autorização necessária
