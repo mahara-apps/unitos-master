@@ -10,9 +10,9 @@ import {
   nowIso,
   readPagesPayload,
   beginDiscovery,
-  mergeDiscoveredPages,
-  stripPageTokens,
 } from "./portfolio-shared";
+
+
 import type { PublishAuthorizationInfo } from "./portfolio-shared";
 
 
@@ -95,32 +95,11 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
     let cachedAds =
       (session.ad_accounts as unknown as PortfolioAdAccount[]) ?? [];
 
-    // A brand-new OAuth session starts with `pages: []`. Instead of showing an
-    // empty selector (or forcing a Graph scan while the app is rate limited),
-    // seed it with the discovery METADATA already known for the same Meta user
-    // on the same brand. Tokens are stripped — they stay bound to the session
-    // that minted them; link time re-fetches the Page token with the current
-    // session's user token.
-    let seededFromCache = false;
-    if (cachedPages.length === 0 && cachedStandaloneIg.length === 0) {
-      const { data: prior } = await context.supabase
-        .from("meta_oauth_sessions")
-        .select("id, pages, created_at")
-        .eq("brand_id", data.brandId)
-        .eq("meta_user_id", session.meta_user_id)
-        .neq("id", session.id)
-        .order("created_at", { ascending: false })
-        .limit(5);
-      for (const row of prior ?? []) {
-        const payload = readPagesPayload(row.pages);
-        if (payload.pages.length === 0 && payload.standaloneInstagram.length === 0) continue;
-        cachedPages = stripPageTokens(payload.pages);
-        cachedStandaloneIg = payload.standaloneInstagram;
-        businessCount = payload.businessCount;
-        seededFromCache = true;
-        break;
-      }
-    }
+    // FAIL-CLOSED: uma sessão recém-autorizada NUNCA é preenchida com contas
+    // de sessões anteriores. Só o que a Meta devolver para o token atual pode
+    // aparecer na tela de descoberta (reconexão => nova descoberta real).
+    const seededFromCache = false;
+
 
     const ch = data.channel ?? null;
     const needPages =
@@ -258,21 +237,67 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
             instagramPictureUrl: p.instagramPictureUrl ?? null,
             pageAccessToken: p.pageAccessToken,
           }));
-          // Never lose assets that a previous scan already proved to exist.
-          cachedPages = mergeDiscoveredPages(fresh, knownPages) as typeof cachedPages;
-          const freshIg = scan.standaloneInstagram.map((i) => ({
+          // A varredura é a fonte de verdade: contas que a Meta não devolve
+          // mais para este token deixam de existir na descoberta (nada de
+          // manter contas antigas como válidas). Tokens já capturados são
+          // reaproveitados apenas para Páginas que continuam autorizadas.
+          const tokenById = new Map(
+            knownPages.map((p) => [p.pageId, p.pageAccessToken]),
+          );
+          cachedPages = fresh.map((p) => ({
+            ...p,
+            pageAccessToken: p.pageAccessToken || tokenById.get(p.pageId) || undefined,
+          })) as typeof cachedPages;
+          cachedStandaloneIg = scan.standaloneInstagram.map((i) => ({
             instagramId: i.instagramId,
             username: i.username,
             name: i.name,
             pictureUrl: i.pictureUrl,
             businessName: i.businessName,
           }));
-          const igById = new Map(knownIg.map((i) => [i.instagramId, i]));
-          for (const i of freshIg) igById.set(i.instagramId, i);
-          cachedStandaloneIg = Array.from(igById.values());
+
           scanWarnings = scan.warnings;
           businessCount = scan.businessCount || businessCount;
+
+          // RECONEXÃO FAIL-CLOSED: conexões salvas deste mesmo usuário Meta que
+          // não aparecem mais na nova descoberta perdem o status "active" — não
+          // podem continuar sendo tratadas como prontas sem nova comprovação.
+          const discoveredIds = new Set<string>([
+            ...cachedPages.map((p) => p.pageId),
+            ...(cachedPages
+              .map((p) => p.instagramBusinessId)
+              .filter(Boolean) as string[]),
+            ...cachedStandaloneIg.map((i) => i.instagramId),
+          ]);
+          if (discoveredIds.size > 0) {
+            const { data: existing } = await context.supabase
+              .from("social_connections")
+              .select("id, external_id, channel, status")
+              .eq("brand_id", data.brandId)
+              .eq("provider", "meta")
+              .eq("owner_external_id", session.meta_user_id)
+              .in("channel", ["facebook", "instagram"]);
+            const stale = (existing ?? []).filter(
+              (c) => c.status === "active" && !discoveredIds.has(c.external_id),
+            );
+            for (const c of stale) {
+              await context.supabase
+                .from("social_connections")
+                .update({
+                  status: "revoked",
+                  last_error:
+                    "Conta não apareceu na última autorização da Meta. Reconecte e selecione esta conta durante o consentimento.",
+                })
+                .eq("id", c.id);
+            }
+            if (stale.length > 0) {
+              console.log(
+                `[getMetaPortfolio] revoked ${stale.length} stale meta connection(s) after re-discovery`,
+              );
+            }
+          }
         }
+
 
 
         if (needThreads) {

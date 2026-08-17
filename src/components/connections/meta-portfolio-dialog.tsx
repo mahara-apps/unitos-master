@@ -49,6 +49,9 @@ import {
   type DiscoveredAccountStatus,
   type PublishAuthorizationInfo,
 } from "@/lib/meta/portfolio-shared";
+import { humanizeMetaError } from "@/lib/meta/error-messages";
+import { DiscoveryProgress } from "./discovery-progress";
+
 
 /**
  * Status canônico por conta descoberta: 🟢 Pronto · 🟠 Autorização necessária
@@ -234,12 +237,14 @@ export function MetaPortfolioDialog({
             channel === "ads" || !channel ? "facebook" : channel,
           );
         } else {
+          const friendly = humanizeMetaError(msg);
           toast.error(
             isRateLimit
               ? "Limite de requisições da Meta atingido. Por favor, aguarde alguns minutos antes de tentar novamente."
-              : msg,
+              : `${friendly.title} ${friendly.description}`,
             { duration: 9000 },
           );
+
         }
         refreshNextRef.current = false;
         throw err instanceof Error ? err : new Error(msg);
@@ -344,7 +349,11 @@ export function MetaPortfolioDialog({
       );
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message ?? "Falha na operação"),
+    onError: (e: Error) => {
+      const friendly = humanizeMetaError(e);
+      toast.error(`${friendly.title} ${friendly.description}`, { duration: 9000 });
+    },
+
   });
 
   async function handleToggle(
@@ -539,9 +548,8 @@ export function MetaPortfolioDialog({
         )}
 
         {isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-          </div>
+          <DiscoveryProgress active={isLoading} />
+
         ) : showNotLoadedState ? (
           <PortfolioActionState
             title="Portfólio ainda não carregado"
@@ -575,16 +583,16 @@ export function MetaPortfolioDialog({
                     ? "Limite de requisições da Meta atingido."
                     : isSessionInvalid
                       ? "Sessão da Meta expirada."
-                      : "Não foi possível carregar as contas da Meta."}
+                      : humanizeMetaError(error).title}
                 </p>
                 <p className="text-destructive/80">
                   {isRateLimited
                     ? "Por favor, aguarde alguns minutos antes de tentar novamente. O portfólio salvo será mantido."
                     : isSessionInvalid
                       ? "Faça login na Meta novamente para recarregar suas contas."
-                      : (error as Error).message ||
-                        "Tente novamente ou reconecte sua conta Meta."}
+                      : humanizeMetaError(error).description}
                 </p>
+
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
