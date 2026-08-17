@@ -275,7 +275,10 @@ export class MetaProvider {
   async getMe(userAccessToken: string): Promise<MetaUser> {
     return this.graph<MetaUser>("/me", {
       accessToken: userAccessToken,
-      query: { fields: "id,name,email" },
+      // `email` não faz parte dos escopos operacionais do produto e alguns
+      // tipos de conta Meta fazem a consulta inteira falhar quando esse campo
+      // é solicitado sem `email`. Nome e ID são suficientes para a sessão.
+      query: { fields: "id,name" },
     });
   }
 

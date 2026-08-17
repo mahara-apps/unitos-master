@@ -269,7 +269,10 @@ export function ChannelsCenter({
     );
     try {
       const { authorizeUrl, redirectUri } = await startMetaFn({
-        data: { brandId, channel, forceReauth: true },
+        // Fluxo normal: reutiliza a sessão Meta e solicita novamente apenas
+        // permissões recusadas. Reautenticação forçada fica restrita à ação
+        // explícita de trocar/reconectar uma conta.
+        data: { brandId, channel },
       });
       console.info("[meta-oauth] redirect_uri em uso:", redirectUri);
       if (popup) popup.location.href = authorizeUrl;
