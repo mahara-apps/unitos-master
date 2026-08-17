@@ -22,6 +22,7 @@ import {
   DashboardPanelSurface,
 } from "@/components/ui/dashboard-primitives";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
+import { PageKpi, PageKpiGrid, type KpiStatus } from "@/components/ui/page-kpi";
 import { listTasksFn, listProjectsFn } from "@/lib/tasks.functions";
 import { listBrandAssigneesFn } from "@/lib/content.functions";
 import { listClients } from "@/lib/workspace.functions";
