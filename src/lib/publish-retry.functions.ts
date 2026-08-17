@@ -30,6 +30,23 @@ export type PublicationDestinationState = {
   error: string | null;
   attempts: number;
   canRetry: boolean;
+  /**
+   * true quando a conexão do placement não existe mais / não está ativa / não
+   * está mais vinculada ao cliente. Nesse caso o destino é HISTÓRICO: não pode
+   * ser publicado nem tratado como destino atual (fail-closed).
+   */
+  historical: boolean;
+  /** Destino histórico recuperável: falhou e precisa de conta atual. */
+  needsRebind: boolean;
+};
+
+/** Conta atualmente vinculada ao cliente (única fonte de destinos atuais). */
+export type AvailableTarget = {
+  connectionId: string;
+  channel: string;
+  accountLabel: string;
+  handle: string | null;
+  externalId: string | null;
 };
 
 export type PublicationState = {
@@ -38,9 +55,12 @@ export type PublicationState = {
   overall: "none" | "pending" | "partial" | "published";
   postStage: string | null;
   destinations: PublicationDestinationState[];
+  /** workspace → cliente → client_social_accounts → social_connections */
+  availableTargets: AvailableTarget[];
 };
 
 const familyOf = (format: string) => (format === "stories" ? "story" : "feed");
+
 
 // ============================================================
 // listPostPublicationStateFn
