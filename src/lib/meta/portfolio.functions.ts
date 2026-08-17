@@ -237,18 +237,25 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
             instagramPictureUrl: p.instagramPictureUrl ?? null,
             pageAccessToken: p.pageAccessToken,
           }));
-          // Never lose assets that a previous scan already proved to exist.
-          cachedPages = mergeDiscoveredPages(fresh, knownPages) as typeof cachedPages;
-          const freshIg = scan.standaloneInstagram.map((i) => ({
+          // A varredura é a fonte de verdade: contas que a Meta não devolve
+          // mais para este token deixam de existir na descoberta (nada de
+          // manter contas antigas como válidas). Tokens já capturados são
+          // reaproveitados apenas para Páginas que continuam autorizadas.
+          const tokenById = new Map(
+            knownPages.map((p) => [p.pageId, p.pageAccessToken]),
+          );
+          cachedPages = fresh.map((p) => ({
+            ...p,
+            pageAccessToken: p.pageAccessToken || tokenById.get(p.pageId) || undefined,
+          })) as typeof cachedPages;
+          cachedStandaloneIg = scan.standaloneInstagram.map((i) => ({
             instagramId: i.instagramId,
             username: i.username,
             name: i.name,
             pictureUrl: i.pictureUrl,
             businessName: i.businessName,
           }));
-          const igById = new Map(knownIg.map((i) => [i.instagramId, i]));
-          for (const i of freshIg) igById.set(i.instagramId, i);
-          cachedStandaloneIg = Array.from(igById.values());
+
           scanWarnings = scan.warnings;
           businessCount = scan.businessCount || businessCount;
         }
