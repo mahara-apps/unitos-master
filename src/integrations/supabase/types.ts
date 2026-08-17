@@ -1119,6 +1119,7 @@ export type Database = {
           id: string
           key: string
           last_accessed_at: string | null
+          last_observed_at: string | null
           memory_type: string
           metadata: Json
           origin: string
@@ -1153,6 +1154,7 @@ export type Database = {
           id?: string
           key: string
           last_accessed_at?: string | null
+          last_observed_at?: string | null
           memory_type: string
           metadata?: Json
           origin?: string
@@ -1187,6 +1189,7 @@ export type Database = {
           id?: string
           key?: string
           last_accessed_at?: string | null
+          last_observed_at?: string | null
           memory_type?: string
           metadata?: Json
           origin?: string
@@ -5787,6 +5790,15 @@ export type Database = {
       accept_brand_invite: { Args: { _token: string }; Returns: string }
       brain_archive_and_prune_events: { Args: never; Returns: Json }
       brain_cleanup_ttl: { Args: never; Returns: Json }
+      brain_confidence: {
+        Args: {
+          _consistency: number
+          _last_observed: string
+          _relevance?: number
+          _sample: number
+        }
+        Returns: number
+      }
       brain_ensure_event_partitions: {
         Args: { _months_back?: number; _months_forward?: number }
         Returns: number
@@ -5812,11 +5824,13 @@ export type Database = {
         Returns: string
       }
       brain_memory_touch: { Args: { _ids: string[] }; Returns: number }
+      brain_mine_patterns: { Args: { _brand_id?: string }; Returns: Json }
       brain_render_memory_desc: {
         Args: { _category: string; _content: Json }
         Returns: string
       }
       brain_retention_run: { Args: never; Returns: Json }
+      brain_run_mining_safe: { Args: never; Returns: Json }
       can_access_client: {
         Args: { _client_id: string; _user_id: string }
         Returns: boolean
