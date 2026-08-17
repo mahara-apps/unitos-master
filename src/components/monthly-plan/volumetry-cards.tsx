@@ -1,7 +1,6 @@
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Facebook, Instagram, Layers, Linkedin, Music2, Youtube } from "lucide-react";
 
-import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { PageKpi, PageKpiGrid, type KpiStatus } from "@/components/ui/page-kpi";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   PLAN_CHANNELS,
@@ -14,6 +13,7 @@ import {
   CONTENT_FORMAT_LABEL,
   type ContentFormat,
 } from "@/lib/content-formats";
+
 
 export type PlanVolumetry = {
   weekly: Record<string, number>;
@@ -30,6 +30,14 @@ export type PlanVolumetry = {
   approvedOverage?: Record<string, number>;
 };
 
+const CHANNEL_ICON: Partial<Record<PlanChannel, typeof Instagram>> = {
+  instagram: Instagram,
+  facebook: Facebook,
+  linkedin: Linkedin,
+  tiktok: Music2,
+  youtube: Youtube,
+};
+
 function MetricCard({
   label,
   sub,
@@ -37,6 +45,7 @@ function MetricCard({
   generated,
   emphasis,
   breakdown,
+  icon,
 }: {
   label: string;
   sub?: string;
@@ -44,47 +53,68 @@ function MetricCard({
   generated: number;
   emphasis?: boolean;
   breakdown?: Partial<Record<ContentFormat, number>>;
+  icon?: React.ReactNode;
 }) {
   const available = Math.max(0, quota - generated);
   const pct = quota > 0 ? Math.min(100, Math.round((generated / quota) * 100)) : 0;
+  const status: KpiStatus = emphasis
+    ? "success"
+    : available === 0 && quota > 0
+      ? "warning"
+      : generated > 0
+        ? "info"
+        : "neutral";
+  const formats = breakdown
+    ? CONTENT_FORMATS.filter((f) => (breakdown[f] ?? 0) > 0)
+    : [];
+
   return (
-    <Card className={emphasis ? "border-health-good/30 bg-health-good/5" : undefined}>
-      <CardContent className="space-y-3 p-4">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {label}
+    <PageKpi
+      label={label}
+      value={quota}
+      status={status}
+      icon={icon}
+      trailing={`${pct}%`}
+      className={emphasis ? "bg-health-good/5" : undefined}
+      description={
+        <span className="block w-full space-y-2">
+          {sub ? <span className="block truncate text-[11px]">{sub}</span> : null}
+          {formats.length > 0 ? (
+            <span className="flex flex-wrap gap-1">
+              {formats.map((f) => (
+                <span
+                  key={f}
+                  className="rounded-full border border-border/60 bg-muted/40 px-1.5 py-0.5 text-[10px] tabular-nums leading-none text-muted-foreground"
+                >
+                  {CONTENT_FORMAT_LABEL[f]} {breakdown?.[f]}
+                </span>
+              ))}
+            </span>
+          ) : null}
+          <span className="block h-1 w-full overflow-hidden rounded-full bg-muted">
+            <span
+              className={`block h-full rounded-full ${
+                status === "warning"
+                  ? "bg-severity-warning"
+                  : status === "success"
+                    ? "bg-health-good"
+                    : "bg-severity-info"
+              }`}
+              style={{ width: `${pct}%` }}
+            />
           </span>
-          <span className="text-lg font-semibold tabular-nums">{quota}</span>
-        </div>
-        {sub ? <p className="text-[11px] text-muted-foreground">{sub}</p> : null}
-        {breakdown && CONTENT_FORMATS.some((f) => (breakdown[f] ?? 0) > 0) ? (
-          <div className="flex flex-wrap gap-1">
-            {CONTENT_FORMATS.filter((f) => (breakdown[f] ?? 0) > 0).map((f) => (
-              <span
-                key={f}
-                className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] tabular-nums text-muted-foreground"
-              >
-                {CONTENT_FORMAT_LABEL[f]} {breakdown[f]}
-              </span>
-            ))}
-          </div>
-        ) : null}
-        <div className="space-y-1.5">
-          <Progress
-            value={pct}
-            className={`h-1.5${emphasis ? " bg-health-good/20 [&>div]:bg-health-good" : ""}`}
-          />
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+          <span className="flex items-center justify-between text-[11px]">
             <span className="tabular-nums">{generated} gerados</span>
             <span className="font-medium tabular-nums text-foreground">
               {available} disponíveis
             </span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+          </span>
+        </span>
+      }
+    />
   );
 }
+
 
 export function VolumetryCards({
   volumetry,
@@ -95,11 +125,11 @@ export function VolumetryCards({
 }) {
   if (loading) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        {[0, 1, 2, 3, 4, 5].map((i) => (
-          <Skeleton key={i} className="h-28 w-full rounded-xl" />
+      <PageKpiGrid columns={4}>
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-[104px] w-full rounded-xl" />
         ))}
-      </div>
+      </PageKpiGrid>
     );
   }
 
@@ -107,11 +137,11 @@ export function VolumetryCards({
 
   if (!volumetry || channels.length === 0) {
     return (
-      <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-400">
+      <div className="flex items-start gap-2 rounded-xl border border-severity-warning/30 bg-severity-warning/5 p-4 text-xs text-severity-warning">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
         <div>
           <p className="font-medium">Volumetria não definida.</p>
-          <p className="mt-0.5">
+          <p className="mt-0.5 text-muted-foreground">
             Defina quantas peças por semana (ou por mês) em cada canal no briefing do cliente (aba Briefing →
             Metas de publicação) para gerar a pauta.
           </p>
@@ -120,10 +150,13 @@ export function VolumetryCards({
     );
   }
 
+  const columns = Math.min(4, channels.length + 1) as 2 | 3 | 4;
+
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <PageKpiGrid columns={columns}>
       <MetricCard
         emphasis
+        icon={<Layers />}
         label="Total do cliente"
         sub="Soma das cotas mensais"
         quota={
@@ -132,24 +165,29 @@ export function VolumetryCards({
         }
         generated={volumetry.generatedTotal}
       />
-      {channels.map((c: PlanChannel) => (
-        <MetricCard
-          key={c}
-          label={PLAN_CHANNEL_LABEL[c]}
-          sub={`${
-            volumetry.volumetryBasis === "monthly"
-              ? `${volumetry.monthlyQuota[c] ?? 0}/mês (base mensal)`
-              : `${volumetry.weekly[c] ?? 0}/semana · ${volumetry.monthlyQuota[c] ?? 0}/mês`
-          }${
-            (volumetry.approvedOverage?.[c] ?? 0) > 0
-              ? ` · +${volumetry.approvedOverage?.[c]} extra`
-              : ""
-          }`}
-          quota={(volumetry.monthlyQuota[c] ?? 0) + (volumetry.approvedOverage?.[c] ?? 0)}
-          generated={volumetry.generatedThisMonth[c] ?? 0}
-          breakdown={volumetry.formatQuota?.[c]}
-        />
-      ))}
-    </div>
+      {channels.map((c: PlanChannel) => {
+        const Icon = CHANNEL_ICON[c];
+        return (
+          <MetricCard
+            key={c}
+            icon={Icon ? <Icon /> : undefined}
+            label={PLAN_CHANNEL_LABEL[c]}
+            sub={`${
+              volumetry.volumetryBasis === "monthly"
+                ? `${volumetry.monthlyQuota[c] ?? 0}/mês (base mensal)`
+                : `${volumetry.weekly[c] ?? 0}/semana · ${volumetry.monthlyQuota[c] ?? 0}/mês`
+            }${
+              (volumetry.approvedOverage?.[c] ?? 0) > 0
+                ? ` · +${volumetry.approvedOverage?.[c]} extra`
+                : ""
+            }`}
+            quota={(volumetry.monthlyQuota[c] ?? 0) + (volumetry.approvedOverage?.[c] ?? 0)}
+            generated={volumetry.generatedThisMonth[c] ?? 0}
+            breakdown={volumetry.formatQuota?.[c]}
+          />
+        );
+      })}
+    </PageKpiGrid>
   );
 }
+
