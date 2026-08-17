@@ -450,6 +450,11 @@ export function ScheduleWizard({
       toast.error("Defina data e horário para agendar.");
       return;
     }
+    if (submitting) return;
+    if (hydrating) {
+      toast.error("Aguarde o carregamento da peça.");
+      return;
+    }
     setSubmitting(action);
     try {
       const scheduledIso =
@@ -458,12 +463,15 @@ export function ScheduleWizard({
           : null;
       const res: any = await saveFn({
         data: {
-          postId: seed?.postId ?? null,
+          // Sempre a peça em edição (local), nunca só o seed — evita duplicar
+          // a peça quando o usuário salva o rascunho mais de uma vez.
+          postId: postId ?? seed?.postId ?? null,
           brandId,
           clientId,
           title: title.trim() || "Publicação sem título",
           copy,
           mediaPaths: selectedMedia.map((m) => m.storagePath),
+          mediaAssetIds: selectedMedia.map((m) => m.id),
           hashtags,
           firstComment: firstComment.trim() || null,
           linkUrl: linkUrl.trim() || null,
@@ -478,6 +486,7 @@ export function ScheduleWizard({
           action,
         },
       });
+      if (res?.postId) setPostId(res.postId as string);
       if (action === "publish") {
         const okCount = res?.published ?? 0;
         const failed = (res?.results ?? []).filter((r: any) => !r.ok);
@@ -499,6 +508,7 @@ export function ScheduleWizard({
       qc.invalidateQueries({ queryKey: ["wizard-drafts"] });
       onSaved?.();
       if (action !== "publish" || (res?.published ?? 0) > 0) onOpenChange(false);
+
     } catch (e) {
       toast.error(describeError(e));
     } finally {
