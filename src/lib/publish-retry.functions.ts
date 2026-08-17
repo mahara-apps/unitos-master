@@ -247,10 +247,14 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
     ) {
       throw new Error("Já existe uma republicação em andamento para este destino.");
     }
-    const failedRow = mine.find((r) => r.status === "failed");
-    if (!failedRow && (pl.status as string) !== "failed") {
+    const failedRow =
+      mine.find((r) => r.status === "failed") ??
+      mine.find((r) => r.status === "blocked");
+    const retryableStatuses = ["failed", "connection_required", "authorization_required"];
+    if (!failedRow && !retryableStatuses.includes(pl.status as string)) {
       throw new Error("Este destino não está em falha.");
     }
+
 
     // 3) Conexão ativa, do canal certo e vinculada ao cliente
     const { data: conn, error: cErr } = await supabase
