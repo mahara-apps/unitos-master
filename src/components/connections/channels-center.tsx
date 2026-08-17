@@ -220,7 +220,6 @@ export function ChannelsCenter({
     data: discovery,
     isLoading: loadingDiscovery,
     isFetching: fetchingDiscovery,
-    refetch: refetchDiscovery,
   } = useQuery({
     queryKey: ["meta-discovered-accounts", brandId],
     queryFn: () => discoverFn({ data: { brandId: brandId! } }),
@@ -324,10 +323,6 @@ export function ChannelsCenter({
    * atual e ainda não salvas neste workspace. Nunca derivado do histórico.
    */
   const available = useMemo(() => discovery?.accounts ?? [], [discovery]);
-  const unlinkedSaved = useMemo(
-    () => connected.filter((c) => c.clients.length === 0),
-    [connected],
-  );
   const attention = useMemo(
     () => channels.filter((c) => channelState(c) !== "ready"),
     [channels],
@@ -790,9 +785,19 @@ export function ChannelsCenter({
         onChanged={invalidate}
       />
 
+      <LinkDiscoveredDialog
+        account={linkDiscovered}
+        brandId={brandId}
+        sessionId={discovery?.sessionId ?? null}
+        clients={clients.map((c) => ({ id: c.id as string, name: c.name as string }))}
+        onOpenChange={(v) => !v && setLinkDiscovered(null)}
+        onChanged={invalidate}
+      />
+
       <ReconnectDialog
         row={reconnectTarget}
         brandId={brandId}
+        reauthRef={reauthRef}
         onOpenChange={(v) => !v && setReconnectTarget(null)}
         onChanged={invalidate}
       />
