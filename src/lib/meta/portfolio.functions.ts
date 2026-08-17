@@ -380,7 +380,11 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
           throw new Error("Falha ao consultar a Graph API da Meta.");
         }
       }
+      } finally {
+        discoveryLock.done();
+      }
     }
+
 
     const pages = cachedPages.map((p) => ({
       pageId: p.pageId,
