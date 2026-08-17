@@ -142,19 +142,14 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
               },
               };
             });
-          if (toInsert.length > 0) {
-            // ignoreDuplicates: o índice único parcial (user, kind, dedupe_key)
-            // WHERE read_at IS NULL blinda contra execuções concorrentes.
-            const { error: insErr, count } = await supabaseAdmin
-              .from("notifications")
-              .upsert(toInsert as never, { ignoreDuplicates: true, count: "exact" });
-            if (insErr) throw insErr;
-            notifiedAssignees = count ?? toInsert.length;
-          }
+          notifiedAssignees = await insertNotificationsDeduped(
+            supabaseAdmin as never,
+            toInsert as never,
+          );
         }
 
 
-        // 4. Notify managers per brand (aggregated: one per manager per brand per day)
+        // 4. Notify managers per brand (aggregated: one per manager per brand)
         const brandIds = Array.from(new Set(overdue.map((o) => o.brand_id)));
         const { data: managers } = await supabaseAdmin
           .from("brand_members")
@@ -162,14 +157,17 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
           .in("brand_id", brandIds)
           .in("role", ["owner", "manager"]);
 
-        // dedupe managers per brand for today
+        // Dedupe: enquanto houver resumo pendente do workspace, não cria outro;
+        // depois de lido, no máximo um por 24h.
         const { data: mgrRecent } = await supabaseAdmin
           .from("notifications")
-          .select("user_id, brand_id")
+          .select("user_id, dedupe_key, read_at, created_at")
           .eq("kind", "sla_overdue_manager")
-          .gte("created_at", since24h);
+          .or(`read_at.is.null,created_at.gte.${since24h}`);
         const mgrSeen = new Set(
-          (mgrRecent ?? []).map((r) => `${r.user_id}:${r.brand_id}`),
+          (mgrRecent ?? [])
+            .map((r) => (typeof r.dedupe_key === "string" ? `${r.user_id}:${r.dedupe_key}` : null))
+            .filter(Boolean) as string[],
         );
 
         const overdueByBrand = new Map<string, typeof overdue>();
@@ -185,11 +183,12 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
           title: string;
           body: string;
           href: string;
+          dedupe_key: string;
           payload: Record<string, unknown>;
         }> = [];
         for (const m of managers ?? []) {
-          const key = `${m.user_id}:${m.brand_id}`;
-          if (mgrSeen.has(key)) continue;
+          const dedupeKey = `sla_overdue_manager:${m.brand_id as string}`;
+          if (mgrSeen.has(`${m.user_id}:${dedupeKey}`)) continue;
           const list = overdueByBrand.get(m.brand_id as string) ?? [];
           if (list.length === 0) continue;
           mgrInserts.push({
@@ -199,6 +198,7 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
             title: `${list.length} tarefa(s) atrasada(s) no workspace`,
             body: `${list.slice(0, 3).map((l) => l.title).join(", ")}${list.length > 3 ? "…" : ""}`,
             href: `/content`,
+            dedupe_key: dedupeKey,
             payload: {
               count: list.length,
               post_ids: list.map((l) => l.post_id).slice(0, 20),
@@ -206,12 +206,11 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
           });
         }
 
-        let notifiedManagers = 0;
-        if (mgrInserts.length > 0) {
-          const { error: mErr } = await supabaseAdmin.from("notifications").insert(mgrInserts as never);
-          if (mErr) throw mErr;
-          notifiedManagers = mgrInserts.length;
-        }
+        const notifiedManagers = await insertNotificationsDeduped(
+          supabaseAdmin as never,
+          mgrInserts as never,
+        );
+
 
         return Response.json({
           ok: true,
