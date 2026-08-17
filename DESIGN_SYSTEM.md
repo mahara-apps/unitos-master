@@ -76,9 +76,29 @@ Observações:
 
 ## 3. Componentes canônicos
 
-### 3.1 `StatCard` — cartão de KPI
+### 3.0 REGRA OBRIGATÓRIA — KPI único (`PageKpi` / `PageKpiGrid`)
 
-**Arquivo:** `src/components/ui/stat-card.tsx` (alias de `KpiCard`).
+**Arquivo canônico:** `src/components/ui/page-kpi.tsx`.
+
+Todo KPI/resumo numérico do Unitos DEVE usar `PageKpi` dentro de
+`PageKpiGrid`. É proibido criar novos componentes locais de KPI/Stat/Metric
+(`MetricCard`, `QueueKpi`, `HeroStat`, `KpiBar`, etc.). Componentes legados
+existentes (`KpiCard`, `StatCard`, `SettingsStatCard`, `ProfileStat`,
+`HeroStat`, `QueueKpi`, `MetricCell`) são apenas **adaptadores finos** que
+delegam a `PageKpi` — nunca reimplementam layout.
+
+Consequências práticas: mesma altura (`min-h-[104px]`), mesmo raio
+(`rounded-xl`), mesmo padding (`p-4`), mesmo tamanho de número
+(`text-2xl`), tratamento único de ícone, cor apenas semântica
+(`neutral | info | success | warning | danger`), sem gradientes, sem sombras
+decorativas e sem sparkline/gráfico dentro do card. KPI só é clicável quando
+representa um filtro/navegação real, sempre com estado `active` consistente;
+KPI informativo nunca deve parecer botão. Grades usam `PageKpiGrid`
+(`columns` 2–6), que quebra em linhas e nunca gera scroll horizontal.
+
+### 3.1 `StatCard` — cartão de KPI (adaptador legado)
+
+**Arquivo:** `src/components/ui/stat-card.tsx` (alias de `KpiCard`, que delega a `PageKpi`).
 
 Usar sempre que houver: rótulo curto + valor numérico grande + subtítulo
 opcional + sparkline/trend opcional. Substitui qualquer card artesanal

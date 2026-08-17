@@ -10,6 +10,7 @@ import {
   type MediaPlanPublicItem,
   type MediaPlanPublicResolve,
 } from "@/lib/media-plan-public.functions";
+import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import { cn } from "@/lib/utils";
 
 const searchSchema = z.object({ token: z.string().min(8) });
@@ -176,11 +177,11 @@ function Presentation({
           {plan.period_start ? ` · ${formatDate(plan.period_start)}` : ""}
           {plan.period_end ? ` — ${formatDate(plan.period_end)}` : ""}
         </p>
-        <div className="mt-8 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <PageKpiGrid columns={3} className="mt-8">
           <HeroStat label="Investimento mensal" value={CURRENCY(plan.monthly_budget)} />
           <HeroStat label="Alocado" value={CURRENCY(totalAmount)} sub={PCT(totalPct)} />
           <HeroStat label="Iniciativas" value={String(items.length)} />
-        </div>
+        </PageKpiGrid>
       </section>
 
       {/* Funnel */}
@@ -337,16 +338,9 @@ function Presentation({
   );
 }
 
+/** Adaptador do padrão canônico `PageKpi` (mantém a API local desta página). */
 function HeroStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="rounded-2xl border border-border/60 bg-card p-4">
-      <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-1 text-2xl font-semibold tracking-tight">{value}</div>
-      {sub && <div className="mt-1 text-xs text-muted-foreground">{sub}</div>}
-    </div>
-  );
+  return <PageKpi label={label} value={value} description={sub} />;
 }
 
 function SectionTitle({ kicker, title }: { kicker: string; title: string }) {

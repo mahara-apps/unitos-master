@@ -21,8 +21,8 @@ import {
 import { usePageHeader } from "@/hooks/use-page-header";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageKpi, PageKpiGrid, type KpiStatus } from "@/components/ui/page-kpi";
 import {
   brainDiagnosticsFn,
   type BrainDiagnostics,
@@ -151,10 +151,11 @@ function BrainDiagnosticsRoute() {
       ) : null}
 
       {/* Queue */}
-      <section className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+      <PageKpiGrid columns={4}>
         <QueueKpi
           loading={loading}
-          icon={<Waves className="h-4 w-4 text-amber-500" />}
+          icon={<Waves className="h-4 w-4" />}
+          status="warning"
           label="Fila pendente"
           value={d?.queue.pending}
           hint={
@@ -165,14 +166,15 @@ function BrainDiagnosticsRoute() {
         />
         <QueueKpi
           loading={loading}
-          icon={<Loader2 className="h-4 w-4 text-primary" />}
+          icon={<Loader2 className="h-4 w-4" />}
+          status="info"
           label="Em processamento"
           value={d?.queue.running}
           hint="workers ativos agora"
         />
         <QueueKpi
           loading={loading}
-          icon={<Clock className="h-4 w-4" style={{ color: "var(--chart-4)" }} />}
+          icon={<Clock className="h-4 w-4" />}
           label="Tempo médio"
           value={d?.queue.avgProcessingMs ?? undefined}
           suffix=" ms"
@@ -184,13 +186,13 @@ function BrainDiagnosticsRoute() {
         />
         <QueueKpi
           loading={loading}
-          icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
+          icon={<AlertTriangle className="h-4 w-4" />}
           label="Falhas"
           value={d?.queue.failed}
           hint={`${d?.queue.processedLastHour ?? 0} processadas na última hora`}
           tone={d && d.queue.failed > 0 ? "warn" : undefined}
         />
-      </section>
+      </PageKpiGrid>
 
       {/* Pipeline windows table */}
       <section className="rounded-xl border border-border/60 bg-card">
@@ -318,6 +320,7 @@ function BrainDiagnosticsRoute() {
   );
 }
 
+/** Adaptador do padrão canônico `PageKpi` para os KPIs de fila desta página. */
 function QueueKpi({
   icon,
   label,
@@ -326,6 +329,7 @@ function QueueKpi({
   hint,
   loading,
   tone,
+  status,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -334,29 +338,27 @@ function QueueKpi({
   hint?: string;
   loading?: boolean;
   tone?: "warn";
+  status?: KpiStatus;
 }) {
   return (
-    <Card className={tone === "warn" ? "border-destructive/40" : undefined}>
-      <CardContent className="p-4">
-        <div className="mb-1 flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
-          {icon}
-          {label}
-        </div>
-        <div className="text-2xl font-semibold tabular-nums">
-          {loading || value === undefined ? (
-            <Skeleton className="h-7 w-16" />
-          ) : (
-            <>
-              {value.toLocaleString("pt-BR")}
-              {suffix ? (
-                <span className="ml-0.5 text-base text-muted-foreground">{suffix}</span>
-              ) : null}
-            </>
-          )}
-        </div>
-        {hint ? <div className="mt-1 text-[11px] text-muted-foreground">{hint}</div> : null}
-      </CardContent>
-    </Card>
+    <PageKpi
+      icon={icon}
+      label={label}
+      status={tone === "warn" ? "danger" : (status ?? "neutral")}
+      value={
+        loading || value === undefined ? (
+          <Skeleton className="h-7 w-16" />
+        ) : (
+          <>
+            {value.toLocaleString("pt-BR")}
+            {suffix ? (
+              <span className="ml-0.5 text-base font-normal text-muted-foreground">{suffix}</span>
+            ) : null}
+          </>
+        )
+      }
+      description={hint}
+    />
   );
 }
 
