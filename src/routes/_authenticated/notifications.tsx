@@ -1,7 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { Inbox, Search, Settings2, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,13 +7,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SettingsStatCard } from "@/components/settings/settings-stat-card";
 import { usePageHeader } from "@/hooks/use-page-header";
+import { type NotificationRow } from "@/lib/notifications.functions";
 import {
-  markAllNotificationsReadFn,
-  markNotificationReadFn,
-  type NotificationRow,
-} from "@/lib/notifications.functions";
-import {
-  NOTIFICATIONS_QUERY_KEY,
+  useNotificationReads,
   useNotifications,
 } from "@/components/notifications/notifications-drawer";
 import {
@@ -27,6 +21,7 @@ import {
   relativeTimePtBr,
   type NotificationBucket,
 } from "@/lib/notifications-format";
+
 
 export const Route = createFileRoute("/_authenticated/notifications")({
   component: NotificationsPage,
