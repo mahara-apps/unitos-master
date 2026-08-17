@@ -176,6 +176,9 @@ export function ScheduleWizard({
       setSubmitting(null);
       setPreviewKey("instagram::feed");
       setPostId(seed?.postId ?? null);
+      setDestPickerOpen(false);
+      setLibraryOpen(false);
+      setShowExtras(false);
       if (uploadRef.current) uploadRef.current.value = "";
       const base = defaultDate ? new Date(defaultDate) : new Date(Date.now() + 60 * 60 * 1000);
       base.setSeconds(0, 0);
@@ -1212,54 +1215,6 @@ export function ScheduleWizard({
 // ============================================================
 // Sub-components
 // ============================================================
-
-function SectionTitle({
-  index,
-  title,
-  compact,
-}: {
-  index: number;
-  title: string;
-  compact?: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <span
-        className={cn(
-          "grid place-items-center rounded-full bg-primary/10 text-[10px] font-bold tabular-nums text-primary",
-          compact ? "h-5 w-5" : "h-6 w-6",
-        )}
-      >
-        {index}
-      </span>
-      <h3 className={cn("font-semibold tracking-tight", compact ? "text-xs" : "text-sm")}>
-        {title}
-      </h3>
-    </div>
-  );
-}
-
-function FooterTool({
-  icon: Icon,
-  label,
-  onClick,
-}: {
-  icon: typeof LayoutGrid;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-    >
-      <Icon className="h-3.5 w-3.5" />
-    </button>
-  );
-}
 
 function PostPreview({
   channel,
