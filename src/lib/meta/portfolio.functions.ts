@@ -13,6 +13,7 @@ import {
   mergeDiscoveredPages,
   stripPageTokens,
 } from "./portfolio-shared";
+import type { PublishAuthorizationInfo } from "./portfolio-shared";
 
 
 export type {
@@ -86,6 +87,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
     let cachedStandaloneIg = pagesPayload.standaloneInstagram;
     let scanWarnings = pagesPayload.warnings;
     let businessCount = pagesPayload.businessCount;
+    let publishAuthorization = pagesPayload.publishAuthorization ?? null;
     let cachedThreads =
       (session.threads_accounts as unknown as Array<
         PortfolioThreadsAccount & { accessToken?: string }
@@ -169,6 +171,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
           cachedStandaloneIg = payload.standaloneInstagram;
           scanWarnings = payload.warnings;
           businessCount = payload.businessCount;
+          publishAuthorization = payload.publishAuthorization ?? publishAuthorization;
         }
         portfolioStatus =
           (fresh.data?.portfolio_load_status as typeof portfolioStatus) ?? portfolioStatus;
@@ -220,6 +223,18 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
         needThreads,
         needAds,
       });
+
+      // Autorização granular do token (target_ids). Uma requisição, sem
+      // efeito colateral: é o que separa "usuário autorizado" de
+      // "conta autorizada".
+      try {
+        const { getPublishAuthorization } = await import("./granular-scopes.server");
+        publishAuthorization = (await getPublishAuthorization(
+          userToken,
+        )) as PublishAuthorizationInfo;
+      } catch {
+        publishAuthorization = publishAuthorization ?? null;
+      }
 
       try {
         if (needPages) {
@@ -307,6 +322,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
               standaloneInstagram: cachedStandaloneIg,
               warnings: scanWarnings,
               businessCount,
+              publishAuthorization,
             } as unknown as import("@/integrations/supabase/types").Json,
             threads_accounts: cachedThreads as unknown as import("@/integrations/supabase/types").Json,
             ad_accounts: cachedAds as unknown as import("@/integrations/supabase/types").Json,
@@ -373,6 +389,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
                 standaloneInstagram: cachedStandaloneIg,
                 warnings: scanWarnings,
                 businessCount,
+                publishAuthorization,
               } as unknown as import("@/integrations/supabase/types").Json,
             })
             .eq("id", session.id);
@@ -476,6 +493,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
       standaloneInstagramCount: cachedStandaloneIg.length,
       scanWarnings,
       businessCount,
+      publishAuthorization,
       threadsAccounts,
       adAccounts,
       connected,
