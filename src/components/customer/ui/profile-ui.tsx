@@ -114,14 +114,18 @@ export function ProfileField({
 }
 
 const STAT_TONE = {
-  default: "text-foreground",
-  emerald: "text-emerald-500",
-  amber: "text-amber-500",
-  sky: "text-sky-500",
-  violet: "text-violet-500",
-  destructive: "text-destructive",
-} as const;
+  default: "neutral",
+  emerald: "success",
+  amber: "warning",
+  sky: "info",
+  violet: "info",
+  destructive: "danger",
+} as const satisfies Record<string, KpiStatus>;
 
+/**
+ * ProfileStat — mantém a API histórica das abas do perfil do cliente e delega
+ * a apresentação ao padrão único `PageKpi`.
+ */
 export function ProfileStat({
   label,
   value,
@@ -133,17 +137,7 @@ export function ProfileStat({
   hint?: string;
   tone?: keyof typeof STAT_TONE;
 }) {
-  return (
-    <div className="min-w-0 rounded-xl border border-border/40 bg-background/40 px-4 py-3">
-      <div className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div className={cn("mt-1 truncate text-xl font-semibold tabular-nums", STAT_TONE[tone])}>
-        {value}
-      </div>
-      {hint ? <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{hint}</div> : null}
-    </div>
-  );
+  return <PageKpi label={label} value={value} description={hint} status={STAT_TONE[tone]} />;
 }
 
 export function ProfileEmpty({
