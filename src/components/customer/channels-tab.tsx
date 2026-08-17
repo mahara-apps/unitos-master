@@ -134,6 +134,28 @@ export function ChannelsTab({
 
   const rows = linkedQ.data ?? [];
 
+  // Capacidade REAL de publicação (não apenas `status = active`): valida
+  // vínculo, token e escopo granular da Meta para cada conta do cliente.
+  const checkReadiness = useServerFn(checkDestinationsReadinessFn);
+  const connIds = useMemo(
+    () => rows.map((r) => r.connectionId).sort(),
+    [rows],
+  );
+  const readinessQ = useQuery({
+    enabled: connIds.length > 0,
+    queryKey: ["client-channels-readiness", brandId, clientId, connIds],
+    queryFn: () =>
+      checkReadiness({ data: { brandId, clientId, connectionIds: connIds } }),
+    staleTime: 60_000,
+  });
+  const readinessByConn = useMemo(() => {
+    const map = new Map<string, DestinationReadiness>();
+    (readinessQ.data ?? []).forEach((r) => map.set(r.connectionId, r));
+    return map;
+  }, [readinessQ.data]);
+
+
+
   return (
     <div className="space-y-4">
       <ProfilePageHeader
