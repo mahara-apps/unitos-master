@@ -64,7 +64,7 @@ async function loadConnection(
   const res = await supabase
     .from("social_connections")
     .select(
-      "id, channel, external_id, external_name, account_id, account_username, page_id, instagram_business_id, access_token_ciphertext",
+      "id, channel, status, external_id, external_name, account_id, account_username, page_id, instagram_business_id, access_token_ciphertext",
     )
     .eq("id", connectionId)
     .eq("brand_id", brandId)
@@ -74,6 +74,7 @@ async function loadConnection(
   return res.data as {
     id: string;
     channel: string;
+    status: string;
     external_id: string;
     external_name: string | null;
     account_id: string | null;
@@ -82,6 +83,7 @@ async function loadConnection(
     instagram_business_id: string | null;
     access_token_ciphertext: string;
   } | null;
+
 }
 
 export const inspectMetaConnectionFn = createServerFn({ method: "POST" })
@@ -186,6 +188,19 @@ export const applyMetaReconnectFn = createServerFn({ method: "POST" })
       };
     }
 
+    // Token antigo NUNCA reativa uma conta revogada/expirada: reativação só
+    // acontece via nova autorização + descoberta (reconcileMetaConnectionFn).
+    if (row.status !== "active" && row.status !== "attention") {
+      return {
+        ok: false,
+        message: {
+          title: "Nova autorização necessária",
+          description:
+            "Esta conta não está mais autorizada. Use “Nova autorização na Meta” para reconectar — não reutilizamos a credencial anterior.",
+        },
+      };
+    }
+
     try {
       const { decryptCredential } = await import("@/lib/credentials-crypto.server");
       const { MetaProvider } = await import("./provider.server");
@@ -214,6 +229,7 @@ export const applyMetaReconnectFn = createServerFn({ method: "POST" })
         last_error: null,
         last_synced_at: nowIso,
       };
+
 
       const igChanged =
         (row.instagram_business_id ?? row.account_id ?? "") !==
