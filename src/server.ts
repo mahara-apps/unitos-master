@@ -1,4 +1,6 @@
 import "./lib/error-capture";
+// Registra todas as server functions no grafo do servidor (ver arquivo).
+import "./lib/server-fn-registry.server";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
