@@ -306,19 +306,22 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
       throw new Error("Instagram exige mídia (imagem ou vídeo).");
     }
 
-    // 5) Pré-validação de permissão no provider (não consome tentativa do worker)
+    // 5) Pré-flight completo de capacidade (cadeia + granular scope do target).
+    //    Bloqueia ANTES de reenfileirar, sem consumir tentativa do worker.
     if (conn.provider === "meta") {
-      const { verifyMetaPublishReadiness } = await import(
-        "@/lib/meta/publish-readiness.server"
+      const { resolvePublishTarget } = await import(
+        "@/lib/meta/publish-capability.server"
       );
-      const check = await verifyMetaPublishReadiness({
+      const { capability } = await resolvePublishTarget(supabase, {
+        brandId: data.brandId,
+        clientId: clientId ?? null,
+        connectionId: pl.connection_id as string,
         channel: conn.channel as string,
-        pageId: conn.external_id as string,
-        igUserId: (conn.account_id as string | null) ?? null,
-        tokenCiphertext: conn.access_token_ciphertext as string,
+        force: true,
       });
-      if (!check.ok) throw new Error(check.error);
+      if (!capability.publishReady) throw new Error(capability.message);
     }
+
 
     // 6) Caption/hashtags: reaproveita a tentativa anterior; senão deriva do post
     let caption: string | null = (failedRow?.caption as string | null) ?? null;
