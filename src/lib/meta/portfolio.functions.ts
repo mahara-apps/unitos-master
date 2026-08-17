@@ -93,29 +93,97 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
     let cachedAds =
       (session.ad_accounts as unknown as PortfolioAdAccount[]) ?? [];
 
+    // A brand-new OAuth session starts with `pages: []`. Instead of showing an
+    // empty selector (or forcing a Graph scan while the app is rate limited),
+    // seed it with the discovery METADATA already known for the same Meta user
+    // on the same brand. Tokens are stripped — they stay bound to the session
+    // that minted them; link time re-fetches the Page token with the current
+    // session's user token.
+    let seededFromCache = false;
+    if (cachedPages.length === 0 && cachedStandaloneIg.length === 0) {
+      const { data: prior } = await context.supabase
+        .from("meta_oauth_sessions")
+        .select("id, pages, created_at")
+        .eq("brand_id", data.brandId)
+        .eq("meta_user_id", session.meta_user_id)
+        .neq("id", session.id)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      for (const row of prior ?? []) {
+        const payload = readPagesPayload(row.pages);
+        if (payload.pages.length === 0 && payload.standaloneInstagram.length === 0) continue;
+        cachedPages = stripPageTokens(payload.pages);
+        cachedStandaloneIg = payload.standaloneInstagram;
+        businessCount = payload.businessCount;
+        seededFromCache = true;
+        break;
+      }
+    }
 
     const ch = data.channel ?? null;
     const needPages =
       (ch === null || ch === "facebook" || ch === "instagram" || ch === "threads") &&
-      data.refresh;
-    const needThreads =
-      (ch === null || ch === "threads") &&
-      data.refresh;
-    const needAds =
-      (ch === null || ch === "ads") &&
-      data.refresh;
+      !!data.refresh;
+    // Threads is a disabled product: never queried automatically. Only an
+    // explicit refresh of the Threads channel itself may probe it.
+    const needThreads = ch === "threads" && !!data.refresh;
+    const needAds = (ch === null || ch === "ads") && !!data.refresh;
 
-    if (needPages || needThreads || needAds) {
-      if (
-        sessionState.portfolio_rate_limited_until &&
-        new Date(sessionState.portfolio_rate_limited_until).getTime() > Date.now()
-      ) {
+    const rateLimitedUntil = sessionState.portfolio_rate_limited_until;
+    const inCooldown =
+      !!rateLimitedUntil && new Date(rateLimitedUntil).getTime() > Date.now();
+
+    if ((needPages || needThreads || needAds) && inCooldown) {
+      // Cooldown must never be converted into "no accounts": keep the known
+      // assets and report the rate-limited state instead of scanning.
+      const knownCount = cachedPages.length + cachedStandaloneIg.length;
+      console.log(
+        `Meta discovery: requests=0 cache=${knownCount > 0 ? "hit" : "miss"} status=rate_limited cached_accounts=${knownCount}`,
+      );
+      if (knownCount === 0) {
         throw new Error(
           `${RATE_LIMIT_PREFIX} Limite de requisições da Meta atingido. Tente novamente após ${new Date(
-            sessionState.portfolio_rate_limited_until,
+            rateLimitedUntil!,
           ).toLocaleString("pt-BR")}.`,
         );
       }
+      portfolioStatus = "rate_limited";
+      portfolioRateLimitedUntil = rateLimitedUntil ?? null;
+    }
+
+    if ((needPages || needThreads || needAds) && !inCooldown) {
+      const lockKey = `${session.id}:${ch ?? "all"}`;
+      const lock = beginDiscovery(lockKey);
+      if (lock.wait) {
+        // Another in-flight discovery for the same session/channel: wait for it
+        // and serve the cache it wrote instead of firing a duplicate scan.
+        await lock.wait;
+        const fresh = await context.supabase
+          .from("meta_oauth_sessions")
+          .select("pages, portfolio_load_status, portfolio_loaded_at, portfolio_error")
+          .eq("id", session.id)
+          .maybeSingle();
+        const payload = readPagesPayload(fresh.data?.pages);
+        cachedPages = payload.pages;
+        cachedStandaloneIg = payload.standaloneInstagram;
+        scanWarnings = payload.warnings;
+        businessCount = payload.businessCount;
+        portfolioStatus =
+          (fresh.data?.portfolio_load_status as typeof portfolioStatus) ?? portfolioStatus;
+        portfolioLoadedAt = fresh.data?.portfolio_loaded_at ?? portfolioLoadedAt;
+        portfolioError = fresh.data?.portfolio_error ?? null;
+        console.log("Meta discovery: requests=0 cache=hit status=deduped");
+        return await buildResponse();
+      }
+      try {
+        await runDiscovery();
+      } finally {
+        lock.done();
+      }
+    }
+
+    async function runDiscovery() {
+
 
       const { decryptCredential } = await import("@/lib/credentials-crypto.server");
       const { MetaProvider, MetaGraphError } = await import("./provider.server");
