@@ -87,7 +87,7 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
 
     const { data: placements, error: plErr } = await supabase
       .from("post_placements")
-      .select("id, format, status, connection_id, published_at")
+      .select("id, format, status, connection_id, published_at, client_id, copy_override")
       .eq("post_id", data.postId)
       .eq("brand_id", data.brandId);
     if (plErr) throw new Error(plErr.message);
@@ -102,6 +102,46 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
     if (qErr) throw new Error(qErr.message);
     const rows = queue ?? [];
 
+    // ---- Destinos ATUAIS: workspace → cliente → client_social_accounts ----
+    const clientId =
+      ((placements ?? []).find((p) => p.client_id)?.client_id as string | null) ?? null;
+    const availableTargets: AvailableTarget[] = [];
+    const currentByConnection = new Map<string, AvailableTarget>();
+    if (clientId) {
+      const { data: links, error: lErr } = await supabase
+        .from("client_social_accounts")
+        .select("connection_id")
+        .eq("brand_id", data.brandId)
+        .eq("client_id", clientId);
+      if (lErr) throw new Error(lErr.message);
+      const linkedIds = (links ?? []).map((l) => l.connection_id as string);
+      if (linkedIds.length) {
+        const { data: conns, error: cErr } = await supabase
+          .from("social_connections")
+          .select("id, channel, external_name, account_username, external_id, account_id")
+          .eq("brand_id", data.brandId)
+          .in("id", linkedIds)
+          .eq("status", "active");
+        if (cErr) throw new Error(cErr.message);
+        for (const c of conns ?? []) {
+          const t: AvailableTarget = {
+            connectionId: c.id as string,
+            channel: (c.channel as string) ?? "",
+            accountLabel:
+              (c.account_username as string | null) ??
+              (c.external_name as string | null) ??
+              "Conta",
+            handle: (c.account_username as string | null) ?? null,
+            externalId:
+              ((c.account_id as string | null) ?? (c.external_id as string | null)) ?? null,
+          };
+          availableTargets.push(t);
+          currentByConnection.set(t.connectionId, t);
+        }
+      }
+    }
+
+    // Rótulo histórico (conexão pode não existir mais) — só apresentação.
     const connIds = Array.from(
       new Set(
         (placements ?? [])
@@ -135,6 +175,9 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
       (pl) => {
         const connectionId = (pl.connection_id as string | null) ?? null;
         const conn = connectionId ? connMap.get(connectionId) : undefined;
+        const co = (pl.copy_override ?? {}) as Record<string, unknown>;
+        const historicChannel =
+          typeof co.channel === "string" ? (co.channel as string) : "";
         const family = familyOf(pl.format as string);
         const mine = rows.filter(
           (r) =>
@@ -162,10 +205,14 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
               : failed
                 ? "failed"
                 : plStatus;
+        // HISTÓRICO: conexão inexistente, inativa ou sem vínculo atual com o
+        // cliente. Nunca tratado como destino publicável (fail-closed).
+        const historical =
+          !connectionId || !currentByConnection.has(connectionId);
         return {
           placementId: pl.id as string,
           connectionId,
-          channel: conn?.channel ?? "",
+          channel: conn?.channel || historicChannel,
           accountLabel: conn?.label ?? "Conta removida",
           format: pl.format as string,
           status,
@@ -182,10 +229,13 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
           canRetry:
             !published &&
             !inFlight &&
+            !historical &&
             (status === "failed" ||
               status === "connection_required" ||
               status === "authorization_required") &&
             !!connectionId,
+          historical,
+          needsRebind: !published && !inFlight && historical,
         };
 
       },
@@ -207,8 +257,142 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
       overall,
       postStage: (post.stage as string | null) ?? null,
       destinations,
+      availableTargets,
     };
   });
+
+// ============================================================
+// rebindPlacementConnectionFn — reconecta destino HISTÓRICO a uma conta ATUAL
+// ============================================================
+
+/**
+ * Recuperação operacional de um destino histórico: aponta o placement para uma
+ * conexão ATUALMENTE vinculada ao cliente, escolhida explicitamente pelo
+ * usuário (nunca por username/nome). O histórico publicado nunca é tocado e a
+ * ação fica registrada em `activity_events`.
+ */
+export const rebindPlacementConnectionFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        postId: z.string().uuid(),
+        brandId: z.string().uuid(),
+        placementId: z.string().uuid(),
+        connectionId: z.string().uuid(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase;
+
+    const { data: pl, error: plErr } = await supabase
+      .from("post_placements")
+      .select("id, client_id, format, status, connection_id, copy_override")
+      .eq("id", data.placementId)
+      .eq("post_id", data.postId)
+      .eq("brand_id", data.brandId)
+      .maybeSingle();
+    if (plErr) throw new Error(plErr.message);
+    if (!pl) throw new Error("Destino não encontrado nesta peça.");
+    if ((pl.status as string) === "published") {
+      throw new Error("Este destino já foi publicado — nada a recuperar.");
+    }
+
+    const clientId = pl.client_id as string | null;
+    if (!clientId) {
+      throw new Error("Peça sem cliente definido — reabra a peça e selecione o cliente.");
+    }
+
+    // Vínculo atual é a ÚNICA fonte de destino permitida.
+    const { data: link, error: lErr } = await supabase
+      .from("client_social_accounts")
+      .select("id")
+      .eq("brand_id", data.brandId)
+      .eq("client_id", clientId)
+      .eq("connection_id", data.connectionId)
+      .maybeSingle();
+    if (lErr) throw new Error(lErr.message);
+    if (!link) {
+      throw new Error(
+        "Esta conta não está vinculada ao cliente. Vincule em Perfil do cliente > Canais.",
+      );
+    }
+
+    const { data: conn, error: cErr } = await supabase
+      .from("social_connections")
+      .select("id, channel, status, account_id, external_id, account_username, external_name")
+      .eq("id", data.connectionId)
+      .eq("brand_id", data.brandId)
+      .maybeSingle();
+    if (cErr) throw new Error(cErr.message);
+    if (!conn) throw new Error("Conexão não pertence a esta marca.");
+    if (conn.status !== "active") {
+      throw new Error("Conexão não está ativa — reconecte a conta em Conexões.");
+    }
+
+    const co = (pl.copy_override ?? {}) as Record<string, unknown>;
+    const historicChannel =
+      typeof co.channel === "string" ? (co.channel as string) : null;
+    if (historicChannel && historicChannel !== conn.channel) {
+      throw new Error(
+        `Este destino é do canal ${historicChannel}. Selecione uma conta do mesmo canal.`,
+      );
+    }
+    if ((pl.format as string) === "stories" && conn.channel !== "instagram") {
+      throw new Error("Stories só é suportado em conexões Instagram.");
+    }
+
+    const oldConnectionId =
+      (pl.connection_id as string | null) ??
+      (typeof co.connection_id === "string" ? (co.connection_id as string) : null);
+
+    const { error: uErr } = await supabase
+      .from("post_placements")
+      .update({
+        connection_id: data.connectionId,
+        copy_override: {
+          ...co,
+          channel: conn.channel,
+          connection_id: data.connectionId,
+        },
+      })
+      .eq("id", data.placementId)
+      .neq("status", "published");
+    if (uErr) throw new Error(uErr.message);
+
+    await supabase.from("activity_events").insert({
+      brand_id: data.brandId,
+      client_id: clientId,
+      actor_id: context.userId,
+      entity_type: "post_placement",
+      entity_id: data.placementId,
+      verb: "destination_rebound",
+      payload: {
+        post_id: data.postId,
+        placement_id: data.placementId,
+        previous_connection_id: oldConnectionId,
+        new_connection_id: data.connectionId,
+        channel: conn.channel,
+        target_account_id:
+          (conn.account_id as string | null) ?? (conn.external_id as string | null) ?? null,
+        target_label:
+          (conn.account_username as string | null) ??
+          (conn.external_name as string | null) ??
+          null,
+      },
+    });
+
+    return {
+      ok: true,
+      channel: conn.channel as string,
+      accountLabel:
+        (conn.account_username as string | null) ??
+        (conn.external_name as string | null) ??
+        "Conta",
+    };
+  });
+
 
 // ============================================================
 // retryFailedPlacementFn — reenfileira SOMENTE o destino com falha
