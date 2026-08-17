@@ -607,6 +607,32 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       }
     }
 
+    // ---- Guarda de escopo: destino precisa estar vinculado ao cliente ----
+    // Sem isso, o trigger validate_placement_connection derruba o save com um
+    // erro cru de banco (tela branca). Acontece quando a peça foi restaurada
+    // com um canal que depois foi desvinculado do cliente.
+    if (data.destinations.length > 0) {
+      const { data: scopeLinks, error: scopeErr } = await supabase
+        .from("client_social_accounts")
+        .select("connection_id")
+        .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId);
+      if (scopeErr) throw new Error(scopeErr.message);
+      const scopedIds = new Set(
+        ((scopeLinks ?? []) as Array<{ connection_id: string }>).map(
+          (l) => l.connection_id,
+        ),
+      );
+      const orphan = data.destinations.filter(
+        (d) => !scopedIds.has(d.connectionId),
+      );
+      if (orphan.length > 0) {
+        const labels = Array.from(new Set(orphan.map((d) => d.channel))).join(", ");
+        throw new Error(
+          `Destino inválido: o canal ${labels} não está mais vinculado a este cliente. Remova o destino ou vincule a conta em Perfil do cliente > Canais.`,
+        );
+      }
+    }
 
     // ---- Sync placements por (channel, format) via helper compartilhado ----
     await syncPostPlacements(supabase, {
