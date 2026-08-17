@@ -1,7 +1,6 @@
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Facebook, Instagram, Layers, Linkedin, Music2, Youtube } from "lucide-react";
 
-import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { PageKpi, PageKpiGrid, type KpiStatus } from "@/components/ui/page-kpi";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   PLAN_CHANNELS,
@@ -14,6 +13,7 @@ import {
   CONTENT_FORMAT_LABEL,
   type ContentFormat,
 } from "@/lib/content-formats";
+
 
 export type PlanVolumetry = {
   weekly: Record<string, number>;
