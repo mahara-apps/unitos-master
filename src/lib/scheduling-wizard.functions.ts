@@ -182,7 +182,9 @@ export const listDraftsFn = createServerFn({ method: "GET" })
   .handler(async ({ data, context }): Promise<PendingSchedulePost[]> => {
     let q = context.supabase
       .from("posts")
-      .select("id, title, copy, cover_url, channels, updated_at, target_connection_ids")
+      .select(
+        "id, title, copy, cover_url, reference_media, channels, updated_at, target_connection_ids",
+      )
       .eq("brand_id", data.brandId)
       .eq("stage", "idea")
       .is("scheduled_at", null)
@@ -192,17 +194,179 @@ export const listDraftsFn = createServerFn({ method: "GET" })
     if (data.clientId) q = q.eq("client_id", data.clientId);
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
-    return (rows ?? []).map((p) => ({
-      postId: p.id as string,
-      title: (p.title as string) ?? "Sem título",
-      copy: (p.copy as string) ?? "",
-      coverUrl: (p.cover_url as string | null) ?? null,
-      channels: (p.channels as string[] | null) ?? [],
-      targetConnectionIds: (p.target_connection_ids as string[] | null) ?? [],
-      approvedAt: (p.updated_at as string | null) ?? null,
-      placements: [],
-    }));
+    const out: PendingSchedulePost[] = [];
+    for (const p of rows ?? []) {
+      // Thumb do rascunho: cover_url quando existir; senão assina a 1ª mídia
+      // persistida em reference_media (bucket privado brand-media).
+      let cover = (p.cover_url as string | null) ?? null;
+      if (!cover) {
+        const first = (Array.isArray(p.reference_media) ? p.reference_media : [])
+          .map((r) => r as Record<string, unknown>)
+          .find((r) => typeof r?.path === "string");
+        if (first) {
+          const bucket =
+            typeof first.bucket === "string" ? (first.bucket as string) : "brand-media";
+          const { data: signed } = await context.supabase.storage
+            .from(bucket)
+            .createSignedUrl(first.path as string, 3600);
+          cover = signed?.signedUrl ?? null;
+        }
+      }
+      out.push({
+        postId: p.id as string,
+        title: (p.title as string) ?? "Sem título",
+        copy: (p.copy as string) ?? "",
+        coverUrl: cover,
+        channels: (p.channels as string[] | null) ?? [],
+        targetConnectionIds: (p.target_connection_ids as string[] | null) ?? [],
+        approvedAt: (p.updated_at as string | null) ?? null,
+        placements: [],
+      });
+    }
+    return out;
   });
+
+// ============================================================
+// loadPostStateFn — restaura o estado COMPLETO de uma peça no wizard
+// (destinos reais, mídia selecionada, hashtags, link, local, agendamento).
+// ============================================================
+
+export type WizardPostState = {
+  postId: string;
+  title: string;
+  copy: string;
+  hashtags: string[];
+  firstComment: string | null;
+  linkUrl: string | null;
+  locationName: string | null;
+  locationId: string | null;
+  scheduledAt: string | null;
+  stage: string;
+  destinations: Array<{ connectionId: string; channel: string; format: string }>;
+  media: Array<{
+    id: string;
+    storagePath: string;
+    name: string;
+    mimeType: string;
+    kind: "image" | "video" | "other";
+    publicUrl: string | null;
+  }>;
+};
+
+export const loadPostStateFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({ postId: z.string().uuid(), brandId: z.string().uuid() })
+      .parse(i),
+  )
+  .handler(async ({ data, context }): Promise<WizardPostState> => {
+    const { data: post, error: pErr } = await context.supabase
+      .from("posts")
+      .select("id, title, copy, stage, scheduled_at, reference_media, tags")
+      .eq("id", data.postId)
+      .eq("brand_id", data.brandId)
+      .maybeSingle();
+    if (pErr) throw new Error(pErr.message);
+    if (!post) throw new Error("Peça não encontrada.");
+
+    const { data: pls, error: plErr } = await context.supabase
+      .from("post_placements")
+      .select("format, connection_id, copy_override, media, scheduled_at, status")
+      .eq("post_id", data.postId);
+    if (plErr) throw new Error(plErr.message);
+
+    const destinations: WizardPostState["destinations"] = [];
+    let hashtags: string[] = [];
+    let firstComment: string | null = null;
+    let linkUrl: string | null = null;
+    let locationName: string | null = null;
+    let locationId: string | null = null;
+    const placementPaths: string[] = [];
+
+    for (const pl of pls ?? []) {
+      const co = (pl.copy_override ?? {}) as Record<string, unknown>;
+      const connectionId =
+        (pl.connection_id as string | null) ??
+        (typeof co.connection_id === "string" ? (co.connection_id as string) : null);
+      const channel = typeof co.channel === "string" ? (co.channel as string) : "";
+      if (connectionId && channel) {
+        destinations.push({ connectionId, channel, format: pl.format as string });
+      }
+      if (Array.isArray(co.hashtags) && !hashtags.length) {
+        hashtags = (co.hashtags as unknown[]).filter(
+          (h): h is string => typeof h === "string",
+        );
+      }
+      if (typeof co.first_comment === "string" && !firstComment)
+        firstComment = co.first_comment as string;
+      if (typeof co.link === "string" && !linkUrl) linkUrl = co.link as string;
+      if (typeof co.location_name === "string" && !locationName)
+        locationName = co.location_name as string;
+      if (typeof co.location_id === "string" && !locationId)
+        locationId = co.location_id as string;
+      for (const m of Array.isArray(pl.media) ? pl.media : []) {
+        const rec = m as Record<string, unknown>;
+        if (typeof rec?.storagePath === "string") placementPaths.push(rec.storagePath);
+      }
+    }
+
+    // Fonte de verdade da mídia da peça: posts.reference_media (persistido no
+    // save) com fallback nos placements (peças antigas).
+    const refPaths = (Array.isArray(post.reference_media) ? post.reference_media : [])
+      .map((r) => (r as Record<string, unknown>)?.path)
+      .filter((p): p is string => typeof p === "string");
+    const paths = Array.from(new Set([...refPaths, ...placementPaths]));
+
+    let media: WizardPostState["media"] = [];
+    if (paths.length) {
+      const { data: assets, error: aErr } = await context.supabase
+        .from("brand_media_assets")
+        .select("id, storage_path, name, mime_type, kind")
+        .eq("brand_id", data.brandId)
+        .in("storage_path", paths);
+      if (aErr) throw new Error(aErr.message);
+      const byPath = new Map(
+        (assets ?? []).map((a) => [a.storage_path as string, a]),
+      );
+      media = await Promise.all(
+        paths.map(async (path) => {
+          const a = byPath.get(path);
+          const { data: signed } = await context.supabase.storage
+            .from("brand-media")
+            .createSignedUrl(path, 3600);
+          const mime = (a?.mime_type as string | undefined) ?? "";
+          const kind =
+            (a?.kind as "image" | "video" | "other" | undefined) ??
+            (/\.(mp4|mov|m4v|webm|3gp)$/i.test(path) ? "video" : "image");
+          return {
+            id: (a?.id as string | undefined) ?? path,
+            storagePath: path,
+            name: (a?.name as string | undefined) ?? path.split("/").pop() ?? path,
+            mimeType: mime,
+            kind,
+            publicUrl: signed?.signedUrl ?? null,
+          };
+        }),
+      );
+    }
+
+    return {
+      postId: post.id as string,
+      title: (post.title as string) ?? "",
+      copy: (post.copy as string) ?? "",
+      hashtags,
+      firstComment,
+      linkUrl,
+      locationName,
+      locationId,
+      scheduledAt: (post.scheduled_at as string | null) ?? null,
+      stage: (post.stage as string) ?? "idea",
+      destinations,
+      media,
+    };
+  });
+
 
 const DestinationSchema = z.object({
   connectionId: z.string().uuid(),
@@ -226,6 +390,9 @@ const SaveInput = z.object({
   title: z.string().min(1).max(160),
   copy: z.string().default(""),
   mediaPaths: z.array(z.string()).default([]),
+  // IDs de brand_media_assets na MESMA ordem de mediaPaths (opcional).
+  mediaAssetIds: z.array(z.string()).default([]),
+
   hashtags: z.array(z.string()).default([]),
   firstComment: z.string().max(2200).nullable().optional(),
   linkUrl: z.string().url().nullable().optional(),
@@ -367,6 +534,13 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
     // ---- Upsert post ----
     let postId = data.postId ?? null;
     const targetConnIds = deriveTargetConnectionIds(data.destinations);
+    // Mídia da peça persistida na própria peça (fonte de verdade para reabrir
+    // o rascunho): reference_media = [{ path, bucket, assetId }].
+    const referenceMedia = data.mediaPaths.map((path, i) => ({
+      path,
+      bucket: "brand-media",
+      ...(data.mediaAssetIds[i] ? { assetId: data.mediaAssetIds[i] } : {}),
+    }));
     if (!postId) {
       const { data: inserted, error } = await supabase
         .from("posts")
@@ -377,6 +551,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           copy: data.copy,
           channels,
           target_connection_ids: targetConnIds,
+          reference_media: referenceMedia as never,
           stage,
           scheduled_at: scheduledIso,
           created_by: context.userId,
@@ -395,6 +570,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           copy: data.copy,
           channels,
           target_connection_ids: targetConnIds,
+          reference_media: referenceMedia as never,
           stage,
           scheduled_at: scheduledIso,
         })
@@ -402,6 +578,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         .eq("brand_id", data.brandId);
       if (error) throw new Error(error.message);
     }
+
 
     // ---- Estágio operacional (stage_id) acompanha a ação ----
     // O wizard historicamente escrevia só o campo legado `posts.stage`, o que
