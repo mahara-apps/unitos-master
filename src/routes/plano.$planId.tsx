@@ -338,16 +338,9 @@ function Presentation({
   );
 }
 
+/** Adaptador do padrão canônico `PageKpi` (mantém a API local desta página). */
 function HeroStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="rounded-2xl border border-border/60 bg-card p-4">
-      <div className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-        {label}
-      </div>
-      <div className="mt-1 text-2xl font-semibold tracking-tight">{value}</div>
-      {sub && <div className="mt-1 text-xs text-muted-foreground">{sub}</div>}
-    </div>
-  );
+  return <PageKpi label={label} value={value} description={sub} />;
 }
 
 function SectionTitle({ kicker, title }: { kicker: string; title: string }) {
