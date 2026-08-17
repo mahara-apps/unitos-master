@@ -895,17 +895,18 @@ function ListView({
           <Loader2 className="h-4 w-4 animate-spin" /> Carregando publicações…
         </div>
       ) : items.length === 0 && drafts.length === 0 ? (
-        <PanelEmptyState
-          icon={<CalendarDays className="h-5 w-5" />}
-          text="Nenhuma publicação neste período. Crie um conteúdo ou altere o período selecionado."
-          action={
-            onNew ? (
-              <Button size="sm" onClick={onNew}>
-                <Plus className="mr-1.5 h-3.5 w-3.5" /> Nova publicação
-              </Button>
-            ) : undefined
-          }
-        />
+        <div className="flex flex-col items-center gap-3 py-2">
+          <PanelEmptyState
+            icon={<CalendarDays className="h-5 w-5" />}
+            text="Nenhuma publicação neste período. Crie um conteúdo ou altere o período selecionado."
+          />
+          {onNew ? (
+            <Button size="sm" onClick={onNew} className="mb-6">
+              <Plus className="mr-1.5 h-3.5 w-3.5" /> Nova publicação
+            </Button>
+          ) : null}
+        </div>
+
       ) : (
         <div>
           {drafts.length ? (
