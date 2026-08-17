@@ -543,7 +543,7 @@ function AttentionPanel({ items }: { items: ClientAttentionItem[] }) {
               </div>
               {a.action && (
                 <Button asChild size="sm" variant="ghost" className="h-7 shrink-0 gap-1 px-2 text-xs">
-                  <Link to={a.action.to}>
+                  <Link to={a.action.to as never}>
                     {a.action.label}
                     <ArrowUpRight className="h-3 w-3" />
                   </Link>
@@ -598,8 +598,8 @@ function UpcomingPanel({ items }: { items: ClientUpcomingItem[] }) {
             return (
               <li key={item.id}>
                 <Link
-                  to="/content"
-                  search={{ post: item.id }}
+                  to={"/content" as never}
+                  search={{ post: item.id } as never}
                   className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/50"
                 >
                   <div className="w-[62px] shrink-0">
