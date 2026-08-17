@@ -1,7 +1,7 @@
 // Centro de comando do cliente — conteúdo da aba "Visão geral".
 // Grid rígido de 2 cards por linha (50/50 no desktop, 1 coluna no mobile).
 // Consome apenas server functions já existentes; nenhum dado mockado.
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -12,6 +12,8 @@ import { getBrandHub } from "@/lib/brand-hub.functions";
 import { computeBriefingCompletion } from "@/lib/briefing-progress";
 import { listTasksFn } from "@/lib/tasks.functions";
 import { listScheduledPostsFn } from "@/lib/calendar.functions";
+import { listCalendarEventsFn } from "@/lib/calendar-events.functions";
+import { EventDialog } from "@/components/calendar/event-dialog";
 import { OverviewSummary } from "./overview-summary";
 import { OverviewAttention } from "./overview-attention";
 import { OverviewPipeline } from "./overview-pipeline";
@@ -33,6 +35,8 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
   const fetchHub = useServerFn(getBrandHub);
   const listTasks = useServerFn(listTasksFn);
   const listScheduled = useServerFn(listScheduledPostsFn);
+  const listEvents = useServerFn(listCalendarEventsFn);
+  const [newAppointment, setNewAppointment] = useState(false);
   const scopeValid = isValidScope({ brandId, clientId });
 
   const q = useQuery({
@@ -74,6 +78,13 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
     enabled: scopeValid,
   });
 
+  const eventsQ = useQuery({
+    queryKey: ["overview-upcoming-events", brandId, clientId, range.from.slice(0, 10)],
+    queryFn: () => listEvents({ data: { brandId, clientId, from: range.from, to: range.to } }),
+    staleTime: 60_000,
+    enabled: scopeValid,
+  });
+
   useEffect(() => {
     if (q.error) {
       const msg = (q.error as Error).message ?? "Falha ao carregar dados da conta";
@@ -107,6 +118,13 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
       when: p.scheduled_at,
       kind: "post" as const,
     })),
+    ...(eventsQ.data ?? []).map((e) => ({
+      id: e.id,
+      title: e.title,
+      when: e.starts_at,
+      kind: e.type === "seasonal" ? ("seasonal" as const) : ("appointment" as const),
+      allDay: e.all_day,
+    })),
   ].sort((a, b) => new Date(a.when).getTime() - new Date(b.when).getTime());
 
   return (
@@ -137,7 +155,7 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
         total={data.pipeline.total}
         pipelineName={data.pipeline.pipelineName}
       />
-      <OverviewUpcoming items={upcoming} />
+      <OverviewUpcoming items={upcoming} onNewAppointment={() => setNewAppointment(true)} />
 
       {/* Linha 3 — como está a operação */}
       <OverviewPerformance
@@ -162,6 +180,22 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
         socials={(client?.socials ?? {}) as Record<string, string | undefined>}
         onOpenCadastro={() => (onOpenTab ? onOpenTab("cadastro") : onOpenBriefing?.())}
       />
+
+      {newAppointment ? (
+        <EventDialog
+          open={newAppointment}
+          onOpenChange={setNewAppointment}
+          brandId={brandId}
+          clientId={clientId}
+          defaultType="appointment"
+          invalidateKey={[
+            "overview-upcoming-events",
+            brandId,
+            clientId,
+            range.from.slice(0, 10),
+          ]}
+        />
+      ) : null}
     </div>
   );
 }
