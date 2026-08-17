@@ -245,10 +245,13 @@ export function ChannelsTab({
                 key={row.connectionId}
                 row={row}
                 canManage={canManage}
+                readiness={readinessByConn.get(row.connectionId) ?? null}
+                checking={readinessQ.isLoading}
                 onUnlink={() => setUnlinkTarget(row)}
               />
             ))}
           </ul>
+
         )}
       </ProfileSection>
 
