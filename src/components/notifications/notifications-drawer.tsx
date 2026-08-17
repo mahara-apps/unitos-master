@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Bell, Inbox } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,64 +11,101 @@ import {
   listMyNotificationsFn,
   markAllNotificationsReadFn,
   markNotificationReadFn,
-  type NotificationRow,
+  type NotificationsFeed,
 } from "@/lib/notifications.functions";
+import type { NotificationScope } from "@/lib/notifications-window";
 import { colorFor, iconFor, relativeTimePtBr } from "@/lib/notifications-format";
 
-export const NOTIFICATIONS_QUERY_KEY = ["notifications", "me"] as const;
+/** Prefixo usado para invalidar todos os escopos (popup + inbox) de uma vez. */
+export const NOTIFICATIONS_QUERY_ROOT = ["notifications", "me"] as const;
+export const notificationsQueryKey = (scope: NotificationScope): QueryKey => [
+  ...NOTIFICATIONS_QUERY_ROOT,
+  scope,
+];
+/** @deprecated use notificationsQueryKey(scope) */
+export const NOTIFICATIONS_QUERY_KEY = notificationsQueryKey("popup");
 
-export function useNotifications() {
+const EMPTY_FEED: NotificationsFeed = { items: [], unreadTotal: 0 };
+
+export function useNotifications(scope: NotificationScope = "popup") {
   const listFn = useServerFn(listMyNotificationsFn);
-  return useQuery({
-    queryKey: NOTIFICATIONS_QUERY_KEY,
-    queryFn: () => listFn(),
+  return useQuery<NotificationsFeed>({
+    queryKey: notificationsQueryKey(scope),
+    queryFn: () => listFn({ data: { scope } }),
     staleTime: 30_000,
   });
 }
 
-export function NotificationsBell() {
-  const [open, setOpen] = useState(false);
+/**
+ * Leitura persistida (servidor) + atualização otimista do cache.
+ * Nunca apenas estado local de React.
+ */
+export function useNotificationReads(scope: NotificationScope = "popup") {
   const qc = useQueryClient();
-  const notifQ = useNotifications();
-  const items = notifQ.data ?? [];
-  const unread = items.filter((n) => !n.read_at).length;
-
+  const key = notificationsQueryKey(scope);
   const markOneFn = useServerFn(markNotificationReadFn);
   const markAllFn = useServerFn(markAllNotificationsReadFn);
+
+  const patch = (updater: (feed: NotificationsFeed) => NotificationsFeed) =>
+    qc.setQueryData<NotificationsFeed>(key, (old) => updater(old ?? EMPTY_FEED));
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_ROOT });
 
   const markOne = useMutation({
     mutationFn: (id: string) => markOneFn({ data: { id } }),
     onMutate: async (id) => {
-      await qc.cancelQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
-      const prev = qc.getQueryData<NotificationRow[]>(NOTIFICATIONS_QUERY_KEY);
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<NotificationsFeed>(key);
       const now = new Date().toISOString();
-      qc.setQueryData<NotificationRow[]>(NOTIFICATIONS_QUERY_KEY, (old) =>
-        (old ?? []).map((n) => (n.id === id ? { ...n, read_at: now } : n)),
-      );
+      patch((feed) => {
+        const wasUnread = feed.items.some((n) => n.id === id && !n.read_at);
+        return {
+          items: feed.items.map((n) => (n.id === id ? { ...n, read_at: n.read_at ?? now } : n)),
+          unreadTotal: Math.max(0, feed.unreadTotal - (wasUnread ? 1 : 0)),
+        };
+      });
       return { prev };
     },
     onError: (_e, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(NOTIFICATIONS_QUERY_KEY, ctx.prev);
+      if (ctx?.prev) qc.setQueryData(key, ctx.prev);
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY }),
+    onSuccess: (res) => {
+      if (res && typeof res.unreadTotal === "number") {
+        patch((feed) => ({ ...feed, unreadTotal: res.unreadTotal }));
+      }
+    },
+    onSettled: invalidate,
   });
 
   const markAll = useMutation({
     mutationFn: () => markAllFn(),
     onMutate: async () => {
-      await qc.cancelQueries({ queryKey: NOTIFICATIONS_QUERY_KEY });
-      const prev = qc.getQueryData<NotificationRow[]>(NOTIFICATIONS_QUERY_KEY);
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<NotificationsFeed>(key);
       const now = new Date().toISOString();
-      qc.setQueryData<NotificationRow[]>(NOTIFICATIONS_QUERY_KEY, (old) =>
-        (old ?? []).map((n) => (n.read_at ? n : { ...n, read_at: now })),
-      );
+      patch((feed) => ({
+        items: feed.items.map((n) => (n.read_at ? n : { ...n, read_at: now })),
+        unreadTotal: 0,
+      }));
       return { prev };
     },
     onError: (_e, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(NOTIFICATIONS_QUERY_KEY, ctx.prev);
+      if (ctx?.prev) qc.setQueryData(key, ctx.prev);
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY }),
+    onSettled: invalidate,
   });
+
+  return { markOne, markAll };
+}
+
+export function NotificationsBell() {
+  const [open, setOpen] = useState(false);
+  const qc = useQueryClient();
+  const notifQ = useNotifications("popup");
+  const feed = notifQ.data ?? EMPTY_FEED;
+  const items = feed.items;
+  const unread = feed.unreadTotal;
+  const { markOne, markAll } = useNotificationReads("popup");
 
   // Realtime: invalidate on any insert/update to my notifications.
   // Register `.on()` handlers BEFORE `.subscribe()` — Supabase Realtime rejects
@@ -80,9 +117,6 @@ export function NotificationsBell() {
       const userId = data.user?.id ?? null;
       if (!userId || cancelled) return;
       const topic = `notif:${userId}`;
-      // StrictMode / re-mount can leave an already-subscribed channel in
-      // Supabase's client cache. Tear it down before rebuilding so `.on()`
-      // is never called on a subscribed channel.
       for (const existing of supabase.getChannels()) {
         if (existing.topic === `realtime:${topic}` || existing.topic === topic) {
           supabase.removeChannel(existing);
@@ -92,7 +126,7 @@ export function NotificationsBell() {
       ch.on(
         "postgres_changes",
         { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${userId}` },
-        () => qc.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY }),
+        () => qc.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_ROOT }),
       );
       ch.subscribe();
       channel = ch;
@@ -157,17 +191,24 @@ export function NotificationsBell() {
                 const Icon = iconFor(n.kind);
                 const unreadRow = !n.read_at;
                 const content = (
-                  <div className="flex items-start gap-3 px-4 py-3">
+                  <div
+                    className={`flex items-start gap-3 px-4 py-3 ${unreadRow ? "" : "opacity-60"}`}
+                  >
                     <div className={`mt-0.5 shrink-0 ${colorFor(n.kind)}`}>
                       <Icon className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start gap-2">
-                        <span className="line-clamp-2 flex-1 text-[13px] font-medium text-foreground">
+                        <span
+                          className={`line-clamp-2 flex-1 text-[13px] text-foreground ${unreadRow ? "font-medium" : "font-normal"}`}
+                        >
                           {n.title}
                         </span>
                         {unreadRow ? (
-                          <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
+                          <span
+                            aria-label="Não lida"
+                            className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500"
+                          />
                         ) : null}
                       </div>
                       {n.body ? (
@@ -225,7 +266,7 @@ function ListSkeleton() {
           <div className="mt-0.5 h-4 w-4 rounded bg-muted" />
           <div className="flex-1 space-y-2">
             <div className="h-3 w-3/4 rounded bg-muted" />
-            <div className="h-2 w-1/2 rounded bg-muted/70" />
+            <div className="h-2 w-1/3 rounded bg-muted/70" />
           </div>
         </li>
       ))}
@@ -235,14 +276,10 @@ function ListSkeleton() {
 
 function EmptyState() {
   return (
-    <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-2 px-8 py-16 text-center">
-      <div className="rounded-full border border-border/60 bg-muted/40 p-3">
-        <Inbox className="h-5 w-5 text-muted-foreground" />
-      </div>
-      <p className="text-sm font-medium">Tudo em dia!</p>
-      <p className="text-[11px] text-muted-foreground">
-        Menções, aprovações e prazos aparecem aqui em tempo real.
-      </p>
+    <div className="flex flex-col items-center justify-center gap-1 px-6 py-14 text-center">
+      <Inbox className="mb-1 h-6 w-6 text-muted-foreground/60" />
+      <p className="text-[13px] font-medium text-foreground">Você está em dia</p>
+      <p className="text-[11px] text-muted-foreground">Nenhuma nova notificação.</p>
     </div>
   );
 }
