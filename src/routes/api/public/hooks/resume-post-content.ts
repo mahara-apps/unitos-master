@@ -10,8 +10,11 @@ const BodySchema = z.object({
   brandId: z.string().uuid().nullable().optional(),
   clientId: z.string().uuid().nullable().optional(),
   projectId: z.string().uuid().nullable().optional(),
+  /** Peças específicas — usado em operação para destravar/gerar itens pontuais. */
+  postIds: z.array(z.string().uuid()).min(1).max(10).optional(),
   limit: z.number().int().min(1).max(25).optional(),
 });
+
 
 export const Route = createFileRoute("/api/public/hooks/resume-post-content")({
   server: {
