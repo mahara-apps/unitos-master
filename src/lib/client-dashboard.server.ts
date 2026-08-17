@@ -56,7 +56,7 @@ export async function buildClientDashboard(
       supabase
         .from("posts")
         .select(
-          "id,title,stage,stage_id,pipeline_id,format,channels,scheduled_at,published_at,review_status,created_at",
+          "id,title,stage,stage_id,pipeline_id,format,channels,scheduled_at,published_at,review_status,created_at,updated_at",
         )
         .eq("brand_id", brandId)
         .eq("client_id", clientId)
