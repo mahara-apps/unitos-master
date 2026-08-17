@@ -10,6 +10,7 @@ import {
   type MediaPlanPublicItem,
   type MediaPlanPublicResolve,
 } from "@/lib/media-plan-public.functions";
+import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import { cn } from "@/lib/utils";
 
 const searchSchema = z.object({ token: z.string().min(8) });
