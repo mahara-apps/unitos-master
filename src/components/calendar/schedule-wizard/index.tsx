@@ -613,8 +613,35 @@ export function ScheduleWizard({
             ) : null}
             {postId ? (
               <Badge variant="outline" className="text-[10px]">
-                Rascunho salvo
+                {scheduledAtIso ? "Agendada" : "Rascunho salvo"}
               </Badge>
+            ) : null}
+            {scheduledAtIso ? (
+              <>
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <CalendarClock className="h-3 w-3" />
+                  Agendado para{" "}
+                  {new Date(scheduledAtIso).toLocaleString("pt-BR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[11px]"
+                  disabled={cancelling}
+                  onClick={() => setCancelOpen(true)}
+                >
+                  {cancelling ? (
+                    <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                  ) : null}
+                  Cancelar agendamento
+                </Button>
+              </>
             ) : null}
           </>
         }
