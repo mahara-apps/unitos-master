@@ -345,6 +345,54 @@ export function ScheduleWizard({
     return map;
   }, [connectionsQ.data]);
 
+  // ---- Prontidão de publicação por destino (blindagem Meta, fail closed) ----
+  // "Ativo" não basta: só liberamos o agendamento quando a Meta autoriza a
+  // publicação para AQUELA conta (granular scope) e o vínculo com o cliente
+  // continua válido.
+  const checkReadiness = useServerFn(checkDestinationsReadinessFn);
+  const revalidateCapability = useServerFn(revalidateConnectionCapabilityFn);
+  const selectedConnectionIds = useMemo(
+    () => Array.from(new Set(pairs.map((p) => p.connectionId))).sort(),
+    [pairs],
+  );
+  const readinessQ = useQuery({
+    enabled: open && !hydrating && selectedConnectionIds.length > 0,
+    queryKey: ["publish-readiness", brandId, clientId, selectedConnectionIds],
+    queryFn: () =>
+      checkReadiness({
+        data: { brandId, clientId, connectionIds: selectedConnectionIds },
+      }),
+    staleTime: 60_000,
+  });
+  const readinessByConn = useMemo(() => {
+    const map = new Map<string, DestinationReadiness>();
+    (readinessQ.data ?? []).forEach((r) => map.set(r.connectionId, r));
+    return map;
+  }, [readinessQ.data]);
+  const blockedDestinations = useMemo(
+    () =>
+      pairs.filter((p) => readinessByConn.get(p.connectionId)?.publishReady === false),
+    [pairs, readinessByConn],
+  );
+
+  const handleRevalidate = useCallback(
+    async (connectionId: string) => {
+      try {
+        const r = await revalidateCapability({
+          data: { brandId, clientId, connectionId },
+        });
+        await readinessQ.refetch();
+        if (r.publishReady) toast.success("Destino pronto para publicar.");
+        else toast.error(r.message);
+      } catch (e) {
+        toast.error(describeError(e));
+      }
+    },
+    [brandId, clientId, revalidateCapability, readinessQ],
+  );
+
+
+
   const mediaKind: MediaKind = useMemo(() => inferMediaKind(selectedMedia), [selectedMedia]);
 
   useEffect(() => {
