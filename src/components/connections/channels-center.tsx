@@ -49,6 +49,8 @@ import {
 } from "@/components/ui/table";
 import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import { MetaPortfolioDialog } from "@/components/connections/meta-portfolio-dialog";
+import { AvailableAccountsTable } from "@/components/connections/available-accounts-table";
+
 import {
   CONNECTABLE_CHANNELS,
   UPCOMING_CHANNELS,
@@ -241,6 +243,31 @@ export function ChannelsCenter({
     qc.invalidateQueries({ queryKey: ["connections", brandId] });
     qc.invalidateQueries({ queryKey: ["meta-discovered-accounts", brandId] });
   };
+
+  /** Nova varredura na Meta (mesma operação de antes, agora reutilizável). */
+  function refreshDiscovery() {
+    void qc
+      .fetchQuery({
+        queryKey: ["meta-discovered-accounts", brandId, "refresh"],
+        queryFn: () => discoverFn({ data: { brandId: brandId!, refresh: true } }),
+      })
+      .then((r) => {
+        qc.setQueryData(["meta-discovered-accounts", brandId], r);
+        if (r.error)
+          toast.error("A Meta recusou a consulta.", {
+            description: r.error,
+            duration: 12000,
+          });
+        else toast.success(`${r.accounts.length} conta(s) disponível(is).`);
+      })
+      .catch((e) =>
+        toast.error("Não foi possível consultar a Meta.", {
+          description: e instanceof Error ? e.message : undefined,
+          duration: 12000,
+        }),
+      );
+  }
+
 
   useEffect(() => {
     function onMessage(ev: MessageEvent) {
@@ -492,65 +519,28 @@ export function ChannelsCenter({
 
         {/* ---------------------------- contas disponíveis --------------------------- */}
         <TabsContent value="accounts" className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs text-muted-foreground">
-              Contas que a Meta devolveu na autorização atual e que ainda não
-              existem neste workspace. Cada conta atende apenas um cliente.
-              {discovery?.discoveredAt ? (
-                <span className="ml-1">
-                  Verificado {formatRelative(discovery.discoveredAt)}.
-                </span>
-              ) : null}
-            </p>
-            {canManage ? (
-              <div className="flex items-center gap-1.5">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 gap-1.5 text-xs"
-                  disabled={fetchingDiscovery || !!discovery?.needsAuthorization}
-                  onClick={() => {
-                    void qc
-                      .fetchQuery({
-                        queryKey: ["meta-discovered-accounts", brandId, "refresh"],
-                        queryFn: () =>
-                          discoverFn({ data: { brandId: brandId!, refresh: true } }),
-                      })
-                      .then((r) => {
-                        qc.setQueryData(["meta-discovered-accounts", brandId], r);
-                        if (r.error) toast.error("A Meta recusou a consulta.", { description: r.error, duration: 12000 });
-                        else toast.success(`${r.accounts.length} conta(s) disponível(is).`);
-                      })
-                      .catch((e) =>
-                        toast.error("Não foi possível consultar a Meta.", {
-                          description: e instanceof Error ? e.message : undefined,
-                          duration: 12000,
-                        }),
-                      );
-                  }}
-                >
-                  {fetchingDiscovery ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-3.5 w-3.5" />
-                  )}
-                  Sincronizar com a Meta
-                </Button>
-                <Button
-                  size="sm"
-                  className="h-8 gap-1.5 text-xs"
-                  onClick={() => setConnectOpen(true)}
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Autorizar na Meta
-                </Button>
-              </div>
+          <p className="text-xs text-muted-foreground">
+            Contas que a Meta devolveu na autorização atual e que ainda não
+            existem neste workspace. Cada conta atende apenas um cliente.
+            {discovery?.discoveredAt ? (
+              <span className="ml-1">
+                Verificado {formatRelative(discovery.discoveredAt)}.
+              </span>
             ) : null}
-          </div>
+          </p>
 
           {discovery?.error ? (
-            <Card className="border-severity-critical/30 bg-severity-critical/10 p-3 text-xs text-severity-critical">
-              {discovery.error}
+            <Card className="flex flex-wrap items-center justify-between gap-2 border-severity-critical/30 bg-severity-critical/10 p-3 text-xs text-severity-critical">
+              <span className="min-w-0">{discovery.error}</span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1.5 text-xs"
+                onClick={() => refreshDiscovery()}
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Tentar novamente
+              </Button>
             </Card>
           ) : null}
           {discovery?.warnings?.length ? (
@@ -579,76 +569,44 @@ export function ChannelsCenter({
                 </Button>
               ) : null}
             </Card>
-          ) : available.length === 0 ? (
-            <Card className="border-dashed p-5 text-xs text-muted-foreground">
-              A Meta devolveu {discovery?.alreadyLinked ?? 0} conta(s) e todas já
-              existem neste workspace (conectadas ou no histórico). Use
-              “Sincronizar com a Meta” após alterar permissões.
-            </Card>
           ) : (
-            <Card className="overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs">Conta</TableHead>
-                    <TableHead className="text-xs">Canal</TableHead>
-                    <TableHead className="text-xs">ID Meta</TableHead>
-                    <TableHead className="text-xs">Autorização</TableHead>
-                    <TableHead className="w-[150px]" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {available.map((c) => {
-                    const def = channelDef(c.channel);
-                    const Icon = def.icon;
-                    return (
-                      <TableRow key={`${c.channel}:${c.externalId}`}>
-                        <TableCell className="text-xs font-medium">
-                          {c.label}
-                          {c.handle ? (
-                            <span className="ml-1 text-muted-foreground">
-                              @{c.handle.replace(/^@/, "")}
-                            </span>
-                          ) : null}
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          <span className="inline-flex items-center gap-1.5">
-                            <Icon className={cn("h-3.5 w-3.5", def.tone)} />
-                            {def.label}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <CopyableId
-                            label={c.channel === "instagram" ? "IG" : "Page"}
-                            value={c.externalId}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge
-                            state={c.status === "ready" ? "ready" : "auth"}
-                          />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {canManage ? (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 gap-1.5 text-xs"
-                              onClick={() => setLinkDiscovered(c)}
-                            >
-                              <Link2 className="h-3.5 w-3.5" />
-                              Conectar e vincular
-                            </Button>
-                          ) : null}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </Card>
+            <AvailableAccountsTable
+              accounts={available}
+              canManage={canManage}
+              onLink={(a) => setLinkDiscovered(a)}
+              emptyDescription={`A Meta devolveu ${discovery?.alreadyLinked ?? 0} conta(s) e todas já existem neste workspace (conectadas ou no histórico). Use “Sincronizar com a Meta” após alterar permissões.`}
+              actions={
+                canManage ? (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-9 gap-1.5 text-xs"
+                      disabled={fetchingDiscovery || !!discovery?.needsAuthorization}
+                      onClick={() => refreshDiscovery()}
+                    >
+                      {fetchingDiscovery ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      )}
+                      Sincronizar com a Meta
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="h-9 gap-1.5 text-xs"
+                      onClick={() => setConnectOpen(true)}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Autorizar na Meta
+                    </Button>
+                  </>
+                ) : null
+              }
+            />
           )}
         </TabsContent>
+
 
         {/* -------------------------------- histórico ------------------------------- */}
         <TabsContent value="history" className="space-y-3">
