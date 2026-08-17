@@ -13,6 +13,7 @@ import {
   mergeDiscoveredPages,
   stripPageTokens,
 } from "./portfolio-shared";
+import type { PublishAuthorizationInfo } from "./portfolio-shared";
 
 
 export type {
@@ -86,6 +87,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
     let cachedStandaloneIg = pagesPayload.standaloneInstagram;
     let scanWarnings = pagesPayload.warnings;
     let businessCount = pagesPayload.businessCount;
+    let publishAuthorization = pagesPayload.publishAuthorization ?? null;
     let cachedThreads =
       (session.threads_accounts as unknown as Array<
         PortfolioThreadsAccount & { accessToken?: string }
@@ -169,6 +171,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
           cachedStandaloneIg = payload.standaloneInstagram;
           scanWarnings = payload.warnings;
           businessCount = payload.businessCount;
+          publishAuthorization = payload.publishAuthorization ?? publishAuthorization;
         }
         portfolioStatus =
           (fresh.data?.portfolio_load_status as typeof portfolioStatus) ?? portfolioStatus;
@@ -187,11 +190,10 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
 
       const { decryptCredential } = await import("@/lib/credentials-crypto.server");
       const { MetaProvider, MetaGraphError } = await import("./provider.server");
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const provider = new MetaProvider();
       const invalidateSession = async () => {
         const nowIso = new Date().toISOString();
-        await supabaseAdmin
+        await context.supabase
           .from("meta_oauth_sessions")
           .update({ expires_at: nowIso, user_token_expires_at: nowIso })
           .eq("id", session.id);
@@ -221,6 +223,18 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
         needThreads,
         needAds,
       });
+
+      // Autorização granular do token (target_ids). Uma requisição, sem
+      // efeito colateral: é o que separa "usuário autorizado" de
+      // "conta autorizada".
+      try {
+        const { getPublishAuthorization } = await import("./granular-scopes.server");
+        publishAuthorization = (await getPublishAuthorization(
+          userToken,
+        )) as PublishAuthorizationInfo;
+      } catch {
+        publishAuthorization = publishAuthorization ?? null;
+      }
 
       try {
         if (needPages) {
@@ -300,7 +314,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
 
         const loadedAt = nowIso();
         const nextStatus = loadedCount > 0 ? "loaded" : "empty";
-        const { error: upErr } = await supabaseAdmin
+        const { error: upErr } = await context.supabase
           .from("meta_oauth_sessions")
           .update({
             pages: {
@@ -308,6 +322,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
               standaloneInstagram: cachedStandaloneIg,
               warnings: scanWarnings,
               businessCount,
+              publishAuthorization,
             } as unknown as import("@/integrations/supabase/types").Json,
             threads_accounts: cachedThreads as unknown as import("@/integrations/supabase/types").Json,
             ad_accounts: cachedAds as unknown as import("@/integrations/supabase/types").Json,
@@ -329,7 +344,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
           message: string,
           until: string | null = null,
         ) => {
-          const { error: statusErr } = await supabaseAdmin
+          const { error: statusErr } = await context.supabase
             .from("meta_oauth_sessions")
             .update({
               portfolio_load_status: status,
@@ -364,7 +379,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
           scanWarnings = Array.from(new Set([warning, ...scanWarnings])).slice(0, 8);
           portfolioStatus = "loaded";
           portfolioError = detail;
-          await supabaseAdmin
+          await context.supabase
             .from("meta_oauth_sessions")
             .update({
               portfolio_load_status: "loaded",
@@ -374,6 +389,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
                 standaloneInstagram: cachedStandaloneIg,
                 warnings: scanWarnings,
                 businessCount,
+                publishAuthorization,
               } as unknown as import("@/integrations/supabase/types").Json,
             })
             .eq("id", session.id);
@@ -477,6 +493,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
       standaloneInstagramCount: cachedStandaloneIg.length,
       scanWarnings,
       businessCount,
+      publishAuthorization,
       threadsAccounts,
       adAccounts,
       connected,
@@ -515,7 +532,6 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
     }
 
     const { encryptCredential } = await import("@/lib/credentials-crypto.server");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const now = new Date().toISOString();
 
@@ -671,7 +687,7 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
           ? session.user_token_ciphertext!
           : await encryptCredential(spec.tokenToStore);
 
-      const { data: upserted, error: upErr } = await supabaseAdmin
+      const { data: upserted, error: upErr } = await context.supabase
         .from("social_connections")
         .upsert(
           {
@@ -707,7 +723,7 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
       connectionIds.push(upserted.id);
 
       if (data.clientId) {
-        const { error: assignErr } = await supabaseAdmin
+        const { error: assignErr } = await context.supabase
           .from("client_social_accounts")
           .upsert(
             {
