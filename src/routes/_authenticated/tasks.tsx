@@ -129,11 +129,14 @@ function TasksPage() {
     };
   }, []);
 
-  const invalidateKey = ["tasks", brandId, clientId] as const;
+  const invalidateKey = ["tasks", brandId, clientId, filters.archive] as const;
 
   const tasksQ = useQuery({
     queryKey: invalidateKey,
-    queryFn: () => listTasks({ data: { brandId: brandId!, clientId: clientId ?? null } }),
+    queryFn: () =>
+      listTasks({
+        data: { brandId: brandId!, clientId: clientId ?? null, archive: filters.archive },
+      }),
     enabled: !!brandId,
   });
 
@@ -152,7 +155,7 @@ function TasksPage() {
     staleTime: 60_000,
   });
   const projectsQ = useQuery({
-    queryKey: ["projects", brandId],
+    queryKey: ["task-projects", brandId],
     queryFn: () => listProjects({ data: { brandId: brandId! } }),
     enabled: !!brandId,
     staleTime: 60_000,
