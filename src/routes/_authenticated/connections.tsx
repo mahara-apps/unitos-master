@@ -53,7 +53,7 @@ import { MetaPortfolioDialog } from "@/components/connections/meta-portfolio-dia
 import { listMetaConnections } from "@/lib/meta/meta.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveContext } from "@/hooks/use-active-context";
-import { ConnectedChannelsSection } from "@/components/connections/connected-channels-section";
+import { ChannelsCenter } from "@/components/connections/channels-center";
 import { useAccessRole } from "@/hooks/use-access-role";
 import {
   getConnections,
@@ -63,7 +63,6 @@ import {
   removeToolCredential,
 } from "@/lib/connections.functions";
 import { getMessagingKpis } from "@/lib/messaging-kpis.functions";
-import { getChannelsKpis, type ChannelsKpis } from "@/lib/channels-kpis.functions";
 import { usePageHeader } from "@/hooks/use-page-header";
 import {
   DashboardPageShell,
@@ -293,14 +292,6 @@ function ConnectionsPage() {
     staleTime: 60_000,
   });
 
-  const getChKpisFn = useServerFn(getChannelsKpis);
-  const { data: chKpis } = useQuery({
-    queryKey: ["channels-kpis", brandId],
-    queryFn: () => getChKpisFn({ data: { brandId: brandId! } }),
-    enabled: !!brandId,
-    staleTime: 60_000,
-  });
-
   const listMetaFn = useServerFn(listMetaConnections);
   const { data: metaConnections = [] } = useQuery({
     queryKey: ["meta-connections", brandId],
@@ -441,17 +432,7 @@ function ConnectionsPage() {
 
         {/* Tab: Canais */}
         <TabsContent value="channels" className="space-y-3">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <ChannelsKpiCards data={chKpis} />
-        </div>
-
-        <SectionHeader
-          icon={<Radio className="h-3.5 w-3.5" />}
-          title="canais conectados"
-          hint="Conexão pertence ao workspace · vínculo com clientes no perfil do cliente"
-        />
-        <ConnectedChannelsSection brandId={brandId} canManage={role === "admin"} />
-
+          <ChannelsCenter brandId={brandId} canManage={role === "admin"} />
         </TabsContent>
 
         {/* Tab: Mensageria */}
@@ -612,75 +593,6 @@ function MessagingKpiCards({
           sent === 0
             ? "Sem dados no período"
             : `${(data?.delivered30d ?? 0).toLocaleString("pt-BR")} entregues de ${sent.toLocaleString("pt-BR")} enviadas`
-        }
-        tone={rateTone}
-      />
-      <KpiCard
-        icon={<AlertTriangle className="h-4 w-4" />}
-        label="Falhas (7d)"
-        value={failed.toLocaleString("pt-BR")}
-        sub={
-          failed === 0
-            ? "Nenhuma falha registrada"
-            : data?.topFailedChannel ?? "—"
-        }
-        tone={failed === 0 ? "emerald" : "amber"}
-      />
-      <KpiCard
-        icon={<Briefcase className="h-4 w-4" />}
-        label="Cobertura por marca"
-        value={`${covered}/${total}`}
-        sub={
-          total === 0
-            ? "Nenhuma marca no workspace"
-            : missing === 0
-              ? "Cobertura completa"
-              : `${missing} marca${missing > 1 ? "s" : ""} sem canal ativo`
-        }
-        tone={total > 0 && missing === 0 ? "emerald" : "violet"}
-      />
-    </>
-  );
-}
-
-function ChannelsKpiCards({ data }: { data: ChannelsKpis | undefined }) {
-  const published = data?.published30d ?? 0;
-  const trend = data?.trendPct ?? null;
-  const attempted = data?.attempted30d ?? 0;
-  const rate = data?.successRate;
-  const ratePct = rate == null ? null : Math.round(rate * 100);
-  const successCount =
-    rate == null ? 0 : Math.round(rate * attempted);
-  const rateTone: "emerald" | "amber" | "rose" | "neutral" =
-    ratePct == null ? "neutral" : ratePct > 95 ? "emerald" : ratePct >= 80 ? "amber" : "rose";
-  const failed = data?.failed7d ?? 0;
-  const covered = data?.brandsCovered ?? 0;
-  const total = data?.brandsTotal ?? 0;
-  const missing = Math.max(0, total - covered);
-
-  return (
-    <>
-      <KpiCard
-        icon={<Radio className="h-4 w-4" />}
-        label="Publicados (30d)"
-        value={published.toLocaleString("pt-BR")}
-        sub={
-          published === 0
-            ? "Nenhuma publicação registrada"
-            : trend == null
-              ? "Sem comparação anterior"
-              : `${trend >= 0 ? "+" : ""}${trend}% vs período anterior`
-        }
-        tone="rose"
-      />
-      <KpiCard
-        icon={<CheckCircle2 className="h-4 w-4" />}
-        label="Taxa de sucesso"
-        value={ratePct == null ? "—" : `${ratePct}%`}
-        sub={
-          attempted === 0
-            ? "Sem dados no período"
-            : `${successCount.toLocaleString("pt-BR")} publicados de ${attempted.toLocaleString("pt-BR")} tentados`
         }
         tone={rateTone}
       />
