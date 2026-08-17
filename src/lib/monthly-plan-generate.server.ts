@@ -317,6 +317,13 @@ export async function runPlanGeneration(args: {
     console.warn("[monthly-plan] brain.getContext failed:", err);
   }
 
+  // Aprendizado consolidado (padrões minerados), com orçamento próprio.
+  const brainLearnings = await loadBrainAgentContext(supabase, {
+    brandId: input.brandId,
+    clientId: input.clientId,
+    agent: "pauta",
+  });
+
   await setPlanJobStep(supabase, jobId, "prompt");
   const audienceOptions = [
     ...(strategy?.personaNames ?? []),
@@ -326,6 +333,7 @@ export async function runPlanGeneration(args: {
   const extraContext = [
     strategy?.markdown,
     performance?.markdown,
+    brainLearnings.markdown,
     brainMarkdown
       ? `## Contexto do Brain (memórias, insights e métricas desta marca)\n${brainMarkdown}\n\nUse esse contexto para evitar repetir erros passados e reforçar o que já funcionou.`
       : "",
