@@ -1,7 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { Inbox, Search, Settings2, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,13 +7,9 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SettingsStatCard } from "@/components/settings/settings-stat-card";
 import { usePageHeader } from "@/hooks/use-page-header";
+import { type NotificationRow } from "@/lib/notifications.functions";
 import {
-  markAllNotificationsReadFn,
-  markNotificationReadFn,
-  type NotificationRow,
-} from "@/lib/notifications.functions";
-import {
-  NOTIFICATIONS_QUERY_KEY,
+  useNotificationReads,
   useNotifications,
 } from "@/components/notifications/notifications-drawer";
 import {
@@ -28,6 +22,7 @@ import {
   type NotificationBucket,
 } from "@/lib/notifications-format";
 
+
 export const Route = createFileRoute("/_authenticated/notifications")({
   component: NotificationsPage,
 });
@@ -37,58 +32,32 @@ type FilterTab = "all" | "unread" | "mention" | "approvals" | "system";
 const BUCKET_ORDER: NotificationBucket[] = ["today", "yesterday", "week", "older"];
 
 function NotificationsPage() {
-  const qc = useQueryClient();
-  const notifQ = useNotifications();
-  const items = notifQ.data ?? [];
+  const notifQ = useNotifications("inbox");
+  const items: NotificationRow[] = notifQ.data?.items ?? [];
+  const unreadTotal = notifQ.data?.unreadTotal ?? 0;
   const [tab, setTab] = useState<FilterTab>("all");
   const [search, setSearch] = useState("");
 
-  const markOneFn = useServerFn(markNotificationReadFn);
-  const markAllFn = useServerFn(markAllNotificationsReadFn);
-
-  const optimisticAll = () => {
-    const now = new Date().toISOString();
-    qc.setQueryData<NotificationRow[]>(NOTIFICATIONS_QUERY_KEY, (old) =>
-      (old ?? []).map((n) => (n.read_at ? n : { ...n, read_at: now })),
-    );
-  };
-  const optimisticOne = (id: string) => {
-    const now = new Date().toISOString();
-    qc.setQueryData<NotificationRow[]>(NOTIFICATIONS_QUERY_KEY, (old) =>
-      (old ?? []).map((n) => (n.id === id ? { ...n, read_at: now } : n)),
-    );
-  };
-
-  const markOne = useMutation({
-    mutationFn: (id: string) => markOneFn({ data: { id } }),
-    onMutate: (id) => optimisticOne(id),
-    onSettled: () => qc.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY }),
-  });
-  const markAll = useMutation({
-    mutationFn: () => markAllFn(),
-    onMutate: () => optimisticAll(),
-    onSettled: () => qc.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_KEY }),
-  });
+  const { markOne, markAll } = useNotificationReads("inbox");
 
   const counts = useMemo(() => {
     const startToday = (() => {
       const d = new Date();
       return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
     })();
-    let unread = 0;
     let mentions = 0;
     let approvals = 0;
     let deadlines = 0;
     let today = 0;
     for (const n of items) {
-      if (!n.read_at) unread++;
       if (n.kind === "mention") mentions++;
       if (n.kind === "approval_requested" && !n.read_at) approvals++;
       if (n.kind === "deadline") deadlines++;
       if (new Date(n.created_at).getTime() >= startToday) today++;
     }
-    return { unread, mentions, approvals, deadlines, today };
-  }, [items]);
+    return { unread: unreadTotal, mentions, approvals, deadlines, today };
+  }, [items, unreadTotal]);
+
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
