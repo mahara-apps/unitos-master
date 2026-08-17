@@ -125,11 +125,11 @@ export function VolumetryCards({
 }) {
   if (loading) {
     return (
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        {[0, 1, 2, 3, 4, 5].map((i) => (
-          <Skeleton key={i} className="h-28 w-full rounded-xl" />
+      <PageKpiGrid columns={4}>
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-[104px] w-full rounded-xl" />
         ))}
-      </div>
+      </PageKpiGrid>
     );
   }
 
@@ -137,11 +137,11 @@ export function VolumetryCards({
 
   if (!volumetry || channels.length === 0) {
     return (
-      <div className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-400">
+      <div className="flex items-start gap-2 rounded-xl border border-severity-warning/30 bg-severity-warning/5 p-4 text-xs text-severity-warning">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
         <div>
           <p className="font-medium">Volumetria não definida.</p>
-          <p className="mt-0.5">
+          <p className="mt-0.5 text-muted-foreground">
             Defina quantas peças por semana (ou por mês) em cada canal no briefing do cliente (aba Briefing →
             Metas de publicação) para gerar a pauta.
           </p>
@@ -150,10 +150,13 @@ export function VolumetryCards({
     );
   }
 
+  const columns = Math.min(4, channels.length + 1) as 2 | 3 | 4;
+
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <PageKpiGrid columns={columns}>
       <MetricCard
         emphasis
+        icon={<Layers />}
         label="Total do cliente"
         sub="Soma das cotas mensais"
         quota={
@@ -162,24 +165,29 @@ export function VolumetryCards({
         }
         generated={volumetry.generatedTotal}
       />
-      {channels.map((c: PlanChannel) => (
-        <MetricCard
-          key={c}
-          label={PLAN_CHANNEL_LABEL[c]}
-          sub={`${
-            volumetry.volumetryBasis === "monthly"
-              ? `${volumetry.monthlyQuota[c] ?? 0}/mês (base mensal)`
-              : `${volumetry.weekly[c] ?? 0}/semana · ${volumetry.monthlyQuota[c] ?? 0}/mês`
-          }${
-            (volumetry.approvedOverage?.[c] ?? 0) > 0
-              ? ` · +${volumetry.approvedOverage?.[c]} extra`
-              : ""
-          }`}
-          quota={(volumetry.monthlyQuota[c] ?? 0) + (volumetry.approvedOverage?.[c] ?? 0)}
-          generated={volumetry.generatedThisMonth[c] ?? 0}
-          breakdown={volumetry.formatQuota?.[c]}
-        />
-      ))}
-    </div>
+      {channels.map((c: PlanChannel) => {
+        const Icon = CHANNEL_ICON[c];
+        return (
+          <MetricCard
+            key={c}
+            icon={Icon ? <Icon /> : undefined}
+            label={PLAN_CHANNEL_LABEL[c]}
+            sub={`${
+              volumetry.volumetryBasis === "monthly"
+                ? `${volumetry.monthlyQuota[c] ?? 0}/mês (base mensal)`
+                : `${volumetry.weekly[c] ?? 0}/semana · ${volumetry.monthlyQuota[c] ?? 0}/mês`
+            }${
+              (volumetry.approvedOverage?.[c] ?? 0) > 0
+                ? ` · +${volumetry.approvedOverage?.[c]} extra`
+                : ""
+            }`}
+            quota={(volumetry.monthlyQuota[c] ?? 0) + (volumetry.approvedOverage?.[c] ?? 0)}
+            generated={volumetry.generatedThisMonth[c] ?? 0}
+            breakdown={volumetry.formatQuota?.[c]}
+          />
+        );
+      })}
+    </PageKpiGrid>
   );
 }
+
