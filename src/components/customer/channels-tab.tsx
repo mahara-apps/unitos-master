@@ -353,11 +353,30 @@ function ChannelRow({
           <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
             {providerLabel(row.provider)} · {accountType(row)}
           </p>
+          {capLabel && !readiness?.publishReady && !checking ? (
+            <p className="mt-0.5 text-[11px] text-destructive">{readiness?.message}</p>
+          ) : null}
         </div>
       </div>
 
       <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
+        {capLabel ? (
+          <span
+            className={cn(
+              "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium",
+              checking
+                ? "border-border/60 bg-muted/40 text-muted-foreground"
+                : readiness?.publishReady
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  : "border-destructive/30 bg-destructive/10 text-destructive",
+            )}
+            title={readiness?.message ?? undefined}
+          >
+            {capLabel}
+          </span>
+        ) : null}
         <ChannelStatusBadge status={status} />
+
         {canManage ? (
           <Button
             size="sm"
