@@ -371,7 +371,7 @@ function ProjectsIndexPage() {
   }
 
   const kpis = useMemo(() => {
-    const all = projectsQ.data?.projects ?? [];
+    const all = (projectsQ.data?.projects ?? []).filter((p) => p.status !== "archived");
     const stats = projectsQ.data?.stats ?? {};
     let total = 0;
     let published = 0;
