@@ -434,11 +434,13 @@ function LinkChannelDialog({
       toast.error(e instanceof Error ? e.message : "Falha ao vincular canal"),
   });
 
-  // Somente contas do workspace ainda NÃO vinculadas a este cliente.
-  const candidates = data.filter(
-    (c) =>
-      normalizeStatus(c.status) !== "disconnected" &&
-      !c.clients.some((cl) => cl.id === clientId),
+  // Exclusividade: uma conta social pertence a no máximo um cliente.
+  const connected = data.filter(
+    (c) => normalizeStatus(c.status) !== "disconnected",
+  );
+  const candidates = connected.filter((c) => c.clients.length === 0);
+  const takenByOthers = connected.filter(
+    (c) => c.clients.length > 0 && !c.clients.some((cl) => cl.id === clientId),
   );
 
   return (
@@ -447,8 +449,8 @@ function LinkChannelDialog({
         <DialogHeader>
           <DialogTitle className="text-base">Vincular canal</DialogTitle>
           <DialogDescription className="text-xs">
-            Contas conectadas ao workspace. Para conectar uma nova conta, use a
-            tela de Integrações.
+            Contas conectadas ao workspace e ainda sem cliente. Para conectar uma
+            nova conta, use a tela de Integrações.
           </DialogDescription>
         </DialogHeader>
 
@@ -471,29 +473,47 @@ function LinkChannelDialog({
               Tentar novamente
             </Button>
           </div>
-        ) : candidates.length === 0 ? (
-          <div className="space-y-2 rounded-lg border border-dashed p-4">
-            <p className="text-sm font-medium">Nenhuma conta disponível</p>
-            <p className="text-xs text-muted-foreground">
-              Todas as contas conectadas já estão vinculadas a este cliente — ou
-              ainda não há contas conectadas ao workspace.
-            </p>
-            <Button asChild size="sm" variant="outline" className="h-8 text-xs">
-              <Link to="/connections">Abrir Integrações</Link>
-            </Button>
-          </div>
         ) : (
-          <div className="space-y-1.5">
-            {candidates.map((c) => (
-              <CandidateRow
-                key={c.connectionId}
-                row={c}
-                pending={linkMut.isPending && linkMut.variables === c.connectionId}
-                onSelect={() => linkMut.mutate(c.connectionId)}
-              />
-            ))}
+          <div className="space-y-3">
+            {candidates.length === 0 ? (
+              <div className="space-y-2 rounded-lg border border-dashed p-4">
+                <p className="text-sm font-medium">Nenhuma conta disponível</p>
+                <p className="text-xs text-muted-foreground">
+                  Todas as contas conectadas já estão atribuídas a algum cliente —
+                  ou ainda não há contas conectadas ao workspace. Cada conta pode
+                  pertencer a apenas um cliente: desvincule-a do cliente atual
+                  antes de atribuí-la aqui.
+                </p>
+                <Button asChild size="sm" variant="outline" className="h-8 text-xs">
+                  <Link to="/connections">Abrir Integrações</Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {candidates.map((c) => (
+                  <CandidateRow
+                    key={c.connectionId}
+                    row={c}
+                    pending={linkMut.isPending && linkMut.variables === c.connectionId}
+                    onSelect={() => linkMut.mutate(c.connectionId)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {takenByOthers.length > 0 ? (
+              <div className="space-y-1.5">
+                <p className="px-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Já vinculadas a outro cliente
+                </p>
+                {takenByOthers.map((c) => (
+                  <CandidateRow key={c.connectionId} row={c} pending={false} />
+                ))}
+              </div>
+            ) : null}
           </div>
         )}
+
       </DialogContent>
     </Dialog>
   );
@@ -506,13 +526,20 @@ function CandidateRow({
 }: {
   row: WorkspaceChannel;
   pending: boolean;
-  onSelect: () => void;
+  onSelect?: () => void;
 }) {
   const def = channelDef(row.channel);
   const Icon = def.icon;
+  const taken = !onSelect;
+  const ownerName = row.clients[0]?.name ?? null;
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border/50 p-3">
+    <div
+      className={cn(
+        "flex items-center gap-3 rounded-lg border border-border/50 p-3",
+        taken && "opacity-60",
+      )}
+    >
       <Avatar className="h-8 w-8 shrink-0">
         <AvatarImage src={row.avatarUrl ?? undefined} alt={row.accountLabel} />
         <AvatarFallback className="text-[10px] uppercase">
@@ -526,17 +553,25 @@ function CandidateRow({
         </div>
         <p className="truncate text-xs text-muted-foreground">
           {row.handle ? `@${row.handle.replace(/^@/, "")}` : row.accountLabel}
+          {taken && ownerName ? ` · ${ownerName}` : ""}
         </p>
       </div>
       <Button
         size="sm"
         variant="outline"
         className="h-7 shrink-0 px-2.5 text-xs"
-        disabled={pending}
+        disabled={pending || taken}
         onClick={onSelect}
       >
-        {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Selecionar"}
+        {taken ? (
+          "Indisponível"
+        ) : pending ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          "Selecionar"
+        )}
       </Button>
     </div>
+
   );
 }

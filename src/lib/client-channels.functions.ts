@@ -100,6 +100,23 @@ export const toggleClientChannelFn = createServerFn({ method: "POST" })
     if (!conn) throw new Error("Conta social não pertence a esta marca.");
 
     if (data.assigned) {
+      // Exclusividade: a conta não pode estar vinculada a outro cliente.
+      const { data: existing, error: exErr } = await context.supabase
+        .from("client_social_accounts")
+        .select("client_id, clients:client_id(name)")
+        .eq("connection_id", data.connectionId)
+        .neq("client_id", data.clientId);
+      if (exErr) throw new Error(exErr.message);
+      if (existing?.length) {
+        const owner =
+          (existing[0] as { clients?: { name: string } | null }).clients?.name ??
+          "outro cliente";
+        throw new Error(
+          `Esta conta já está vinculada ao cliente ${owner}. Desvincule-a antes de atribuir a outro cliente.`,
+        );
+      }
+
+
       const { error } = await context.supabase
         .from("client_social_accounts")
         .upsert(
