@@ -11,7 +11,7 @@ import {
 } from "@dnd-kit/core";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { CalendarIcon, Folder, MessageSquare } from "lucide-react";
+import { CalendarIcon, Folder, ListChecks, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
