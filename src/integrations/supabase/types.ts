@@ -5963,6 +5963,10 @@ export type Database = {
         }
         Returns: Json
       }
+      mark_social_post_blocked: {
+        Args: { p_error: string; p_post_id: string; p_reason?: string }
+        Returns: undefined
+      }
       mark_social_post_failed: {
         Args: { p_error: string; p_post_id: string }
         Returns: undefined
