@@ -56,7 +56,7 @@ export async function buildClientDashboard(
       supabase
         .from("posts")
         .select(
-          "id,title,stage,stage_id,pipeline_id,format,channels,scheduled_at,published_at,review_status,created_at",
+          "id,title,stage,stage_id,pipeline_id,format,channels,scheduled_at,published_at,review_status,created_at,updated_at",
         )
         .eq("brand_id", brandId)
         .eq("client_id", clientId)
@@ -161,7 +161,8 @@ export async function buildClientDashboard(
   // Só comparamos quando existe base anterior real.
   const publishedPreviousRange = prevPublished > 0 ? prevPublished : null;
 
-  const dayKeys: string[] = Array.from({ length: Math.min(rangeDays, 90) }, (_, i) => {
+  const buckets = Math.min(rangeDays, 90);
+  const dayKeys: string[] = Array.from({ length: buckets }, (_, i) => {
     const d = new Date(safeFrom + i * DAY);
     d.setUTCHours(0, 0, 0, 0);
     return d.toISOString().slice(0, 10);
@@ -171,12 +172,29 @@ export async function buildClientDashboard(
     const key = String(p.published_at).slice(0, 10);
     if (trendMap.has(key)) trendMap.set(key, (trendMap.get(key) ?? 0) + 1);
   }
-  const publishTrend = Array.from(trendMap, ([day, count]) => ({ day, count }));
+  // Série alinhada do período anterior (mesmo número de dias, deslocado).
+  const prevKeys = Array.from({ length: buckets }, (_, i) => {
+    const d = new Date(safeFrom - rangeDays * DAY + i * DAY);
+    d.setUTCHours(0, 0, 0, 0);
+    return d.toISOString().slice(0, 10);
+  });
+  const prevMap = new Map<string, number>(prevKeys.map((d) => [d, 0]));
+  for (const p of scopedPosts) {
+    if (!p.published_at) continue;
+    const key = String(p.published_at).slice(0, 10);
+    if (prevMap.has(key)) prevMap.set(key, (prevMap.get(key) ?? 0) + 1);
+  }
+  const publishTrend = dayKeys.map((day, i) => ({
+    day,
+    count: trendMap.get(day) ?? 0,
+    previous: prevPublished > 0 ? (prevMap.get(prevKeys[i]!) ?? 0) : null,
+  }));
   const avgPerWeek = publishedInRange > 0 ? publishedInRange / (rangeDays / 7) : null;
   const bestDay = publishTrend.reduce<{ day: string; count: number } | null>(
-    (acc, d) => (d.count > 0 && (!acc || d.count > acc.count) ? d : acc),
+    (acc, d) => (d.count > 0 && (!acc || d.count > acc.count) ? { day: d.day, count: d.count } : acc),
     null,
   );
+
 
   // ── Canais (providers realmente publicados no período) ────
   const channelMap = new Map<string, number>();
@@ -253,6 +271,44 @@ export async function buildClientDashboard(
     });
   }
 
+  // ── Conteúdo parado (sem movimentação) ────────────────────
+  const STALL_DAYS = 7;
+  const stallLimit = new Date(nowMs - STALL_DAYS * DAY).toISOString();
+  const stalledPosts = scopedPosts.filter((p) => {
+    if (p.published_at || p.scheduled_at) return false;
+    const stageKey = String(
+      (p.stage_id && stageById.get(p.stage_id)?.key) || p.stage || "",
+    ).toLowerCase();
+    if (/publicad|published|arquiv/.test(stageKey)) return false;
+    return String(p.updated_at ?? p.created_at ?? "") < stallLimit;
+  });
+  const stalledStageCount = new Map<string, number>();
+  for (const p of stalledPosts) {
+    const label =
+      (p.stage_id && stageById.get(p.stage_id)?.label) ||
+      stageByKey.get(String(p.stage ?? "").toLowerCase())?.label ||
+      null;
+    if (label) stalledStageCount.set(label, (stalledStageCount.get(label) ?? 0) + 1);
+  }
+  const topStalledStage =
+    Array.from(stalledStageCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  const stalled = stalledPosts.length
+    ? { count: stalledPosts.length, days: STALL_DAYS, stageLabel: topStalledStage }
+    : null;
+  if (stalled) {
+    attention.push({
+      id: "stalled",
+      severity: "warning",
+      title: "Conteúdo parado",
+      description:
+        stalled.count === 1
+          ? `1 conteúdo sem movimentação há mais de ${STALL_DAYS} dias`
+          : `${stalled.count} conteúdos sem movimentação há mais de ${STALL_DAYS} dias`,
+      detail: stalled.stageLabel ? `Concentrado em ${stalled.stageLabel}` : null,
+      action: { label: "Ver conteúdos", to: "/content" },
+    });
+  }
+
   // ── Próximas publicações (7 dias) ─────────────────────────
   const horizon = new Date(nowMs + 7 * DAY).toISOString();
   const nowIso = new Date(nowMs).toISOString();
@@ -260,7 +316,11 @@ export async function buildClientDashboard(
   const pendingPostIds = new Set(
     approvals.filter((a) => a.status === "pending").map((a) => a.post_id),
   );
+  const futureScheduled = scopedPosts.filter(
+    (p) => p.scheduled_at && p.scheduled_at >= nowIso && !p.published_at,
+  );
   const upcoming: ClientUpcomingItem[] = scopedPosts
+
     .filter((p) => p.scheduled_at && p.scheduled_at >= nowIso && p.scheduled_at <= horizon)
     .sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)))
     .slice(0, 8)
@@ -301,8 +361,11 @@ export async function buildClientDashboard(
     bestDay,
     channelBreakdown,
     scheduledCount: scheduledSocial.length,
+    upcomingTotal: futureScheduled.length,
     failedCount: failedSocial.length,
     connectionsNeedingAttention: brokenConnections.length,
+    stalled,
+
     upcoming,
     attention,
     activity,
@@ -351,7 +414,10 @@ function describeEvent(
         };
       case "ai_generated":
       case "ai_agent_succeeded":
-        return { title: label, description: "Conteúdo gerado com apoio de IA", tone: "positive" };
+        return { title: label, description: "Conteúdo gerado pela IA", tone: "positive" };
+      case "ai_generation_failed":
+        return { title: label, description: "Falha ao gerar conteúdo com IA", tone: "attention" };
+
       case "portal_approved":
         return { title: label, description: "Aprovado pelo cliente", tone: "positive" };
       case "portal_adjust":
@@ -382,6 +448,14 @@ function describeEvent(
 
   if (entity === "client_strategy" && verb === "ai_agent_succeeded")
     return { title: "Estratégia da conta", description: "Estratégia atualizada", tone: "positive" };
+
+  if (entity === "client_strategy" && verb === "ai_generation_failed")
+    return {
+      title: "Estratégia da conta",
+      description: "Falha ao gerar estratégia com IA",
+      tone: "attention",
+    };
+
 
   return null;
 }
