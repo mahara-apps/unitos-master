@@ -95,6 +95,7 @@ import {
   type TaskPriority,
   type TaskRow,
   type TaskStatus,
+  setTaskArchivedFn,
 } from "@/lib/tasks.functions";
 import { createProject } from "@/lib/projects.functions";
 import { listBrandAssigneesFn } from "@/lib/content.functions";
@@ -676,6 +677,7 @@ export function TaskDrawer({
   const deleteComment = useServerFn(deleteTaskCommentFn);
   const update = useServerFn(updateTaskFn);
   const del = useServerFn(deleteTaskFn);
+  const setArchived = useServerFn(setTaskArchivedFn);
   const listAssignees = useServerFn(listBrandAssigneesFn);
 
   const task = allTasks.find((t) => t.id === taskId) ?? null;
@@ -725,6 +727,16 @@ export function TaskDrawer({
   const removeComment = useMutation({
     mutationFn: (commentId: string) => deleteComment({ data: { commentId } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["task-comments", taskId] }),
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: (archived: boolean) => setArchived({ data: { taskId, archived } }),
+    onSuccess: (_r, archived) => {
+      toast.success(archived ? "Tarefa arquivada" : "Tarefa restaurada");
+      onChanged();
+      if (archived) onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const removeTask = useMutation({
@@ -835,6 +847,12 @@ export function TaskDrawer({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => archiveMutation.mutate(!task.archived_at)}
+                  >
+                    <Archive className="mr-2 h-4 w-4" />
+                    {task.archived_at ? "Restaurar tarefa" : "Arquivar tarefa"}
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     className="text-destructive focus:text-destructive"
                     onClick={() => {
