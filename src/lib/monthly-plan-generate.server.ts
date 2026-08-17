@@ -534,6 +534,7 @@ export async function runPlanGeneration(args: {
     metrics_channels: performance?.channelsWithMetrics ?? [],
     channels_without_account: performance?.channelsWithoutAccount ?? [],
     brain_context: !!brainMarkdown,
+    brain_learnings: brainLearnings.used,
     agent: "pauta.suggest",
     generated_at: new Date().toISOString(),
     resumed: !!resume,
