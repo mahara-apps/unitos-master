@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { brain, type BrainContext } from "@/lib/brain/api";
+import { loadBrainAgentContext } from "@/lib/brain/agent-context.server";
 import { loadBriefingContext } from "@/lib/monthly-plan-context.server";
 import { loadStrategyContext } from "@/lib/monthly-plan-strategy.server";
 import { loadPerformanceContext } from "@/lib/monthly-plan-performance.server";
@@ -317,6 +318,13 @@ export async function runPlanGeneration(args: {
     console.warn("[monthly-plan] brain.getContext failed:", err);
   }
 
+  // Aprendizado consolidado (padrões minerados), com orçamento próprio.
+  const brainLearnings = await loadBrainAgentContext(supabase, {
+    brandId: input.brandId,
+    clientId: input.clientId,
+    agent: "pauta",
+  });
+
   await setPlanJobStep(supabase, jobId, "prompt");
   const audienceOptions = [
     ...(strategy?.personaNames ?? []),
@@ -326,6 +334,7 @@ export async function runPlanGeneration(args: {
   const extraContext = [
     strategy?.markdown,
     performance?.markdown,
+    brainLearnings.markdown,
     brainMarkdown
       ? `## Contexto do Brain (memórias, insights e métricas desta marca)\n${brainMarkdown}\n\nUse esse contexto para evitar repetir erros passados e reforçar o que já funcionou.`
       : "",
@@ -525,6 +534,7 @@ export async function runPlanGeneration(args: {
     metrics_channels: performance?.channelsWithMetrics ?? [],
     channels_without_account: performance?.channelsWithoutAccount ?? [],
     brain_context: !!brainMarkdown,
+    brain_learnings: brainLearnings.used,
     agent: "pauta.suggest",
     generated_at: new Date().toISOString(),
     resumed: !!resume,

@@ -5,6 +5,7 @@ import { getBrandAiModelAdmin, describeProviderAttempts } from "@/lib/ai-provide
 import { loadAgentPrompts, fillTemplate } from "@/lib/agent-prompts.server";
 import { buildBrandContextBlueprint } from "@/lib/ai-agents.functions";
 import { loadBriefingContext } from "@/lib/monthly-plan-context.server";
+import { loadBrainAgentContext } from "@/lib/brain/agent-context.server";
 import { loadStrategyContext } from "@/lib/monthly-plan-strategy.server";
 
 /** Tempo após o qual uma geração marcada como em andamento é considerada presa. */
@@ -346,13 +347,19 @@ export async function generatePostContent(
     return null;
   };
 
-  const [blueprintRes, briefingRes, strategyRes] = await Promise.all([
+  const [blueprintRes, briefingRes, strategyRes, brainRes] = await Promise.all([
     buildBrandContextBlueprint(admin, post.brand_id, post.client_id).catch(noteDegraded("blueprint")),
     loadBriefingContext(admin, post.client_id, { briefingId: planBriefingId }).catch(
       noteDegraded("briefing"),
     ),
     // Estratégia IA já validada (voz, personas, cohorts, SWOT) — mesma fonte da Pauta.
     loadStrategyContext(admin, post.brand_id, post.client_id).catch(noteDegraded("strategy")),
+    // Aprendizado consolidado do Brain, selecionado para o copywriter.
+    loadBrainAgentContext(admin, {
+      brandId: post.brand_id,
+      clientId: post.client_id,
+      agent: "copywriter_senior",
+    }).catch(noteDegraded("brain")),
   ]);
   if (strategyRes && strategyRes.blocks.length === 0) {
     degraded.push("strategy:sem blocos ativos de Estratégia IA para este cliente");
@@ -387,6 +394,7 @@ export async function generatePostContent(
     blueprintRes?.blueprint ?? "",
     briefingRes?.text ? `## Briefing da marca\n${briefingRes.text}` : "",
     strategyRes?.markdown ? `## Estratégia IA da marca\n${strategyRes.markdown}` : "",
+    brainRes?.markdown ?? "",
     `## Briefing desta peça\n${pieceContext}`,
   ]
     .filter(Boolean)
@@ -397,6 +405,7 @@ export async function generatePostContent(
     blueprintRes?.blueprint ? "brand_blueprint" : "",
     briefingRes?.text ? "briefing" : "",
     strategyRes?.markdown ? `strategy(${strategyRes.blocks.join("+")})` : "",
+    brainRes?.used ? `brain(${brainRes.used}/${brainRes.candidates}:${brainRes.scopes.join("+")})` : "",
     topic ? "plan_topic" : "",
     pieceBriefing ? "piece_briefing" : "",
   ].filter(Boolean);
