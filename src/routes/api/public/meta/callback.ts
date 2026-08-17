@@ -110,6 +110,7 @@ export const Route = createFileRoute("/api/public/meta/callback")({
             missingScopes,
           });
         } catch (err) {
+          console.error("[meta/callback] falha ao concluir OAuth", err);
           const msg =
             err instanceof MetaGraphError
               ? `Meta: ${err.message}`

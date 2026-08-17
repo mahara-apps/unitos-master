@@ -247,7 +247,11 @@ export function ChannelsCenter({
         setPortfolioChannel(d.channel ?? null);
         setPortfolioOpen(true);
       } else if (d.error) {
-        toast.error("Não foi possível concluir a autorização. Tente novamente.");
+        console.warn("[meta-oauth] falha na autorização:", d.error);
+        toast.error("Não foi possível concluir a autorização.", {
+          description: d.error,
+          duration: 12000,
+        });
       }
     }
     window.addEventListener("message", onMessage);
@@ -264,15 +268,20 @@ export function ChannelsCenter({
       "width=760,height=820,resizable=yes,scrollbars=yes",
     );
     try {
-      const { authorizeUrl } = await startMetaFn({
+      const { authorizeUrl, redirectUri } = await startMetaFn({
         data: { brandId, channel, forceReauth: true },
       });
+      console.info("[meta-oauth] redirect_uri em uso:", redirectUri);
       if (popup) popup.location.href = authorizeUrl;
       else window.location.href = authorizeUrl;
-    } catch {
+    } catch (err) {
       setConnecting(null);
       popup?.close();
-      toast.error("Não foi possível abrir a autorização da Meta. Tente novamente.");
+      console.warn("[meta-oauth] falha ao iniciar autorização:", err);
+      toast.error("Não foi possível abrir a autorização da Meta.", {
+        description: err instanceof Error ? err.message : undefined,
+        duration: 10000,
+      });
     }
   }
 
