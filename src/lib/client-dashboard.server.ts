@@ -449,6 +449,14 @@ function describeEvent(
   if (entity === "client_strategy" && verb === "ai_agent_succeeded")
     return { title: "Estratégia da conta", description: "Estratégia atualizada", tone: "positive" };
 
+  if (entity === "client_strategy" && verb === "ai_generation_failed")
+    return {
+      title: "Estratégia da conta",
+      description: "Falha ao gerar estratégia com IA",
+      tone: "attention",
+    };
+
+
   return null;
 }
 
