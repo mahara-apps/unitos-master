@@ -278,7 +278,10 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
         if (cachedAssetCount > 0) {
           const detail = err instanceof Error ? err.message : "Falha temporária da Meta.";
           const warning = `Não foi possível atualizar agora: ${detail} As contas da última sincronização continuam disponíveis.`;
-          scanWarnings = Array.from(new Set([...scanWarnings, warning]));
+          // Keep only the latest refresh diagnostic plus a small snapshot of
+          // prior scan warnings. Provider messages can contain dynamic trace
+          // IDs, so an unbounded Set still grew after every failed refresh.
+          scanWarnings = Array.from(new Set([warning, ...scanWarnings])).slice(0, 8);
           portfolioStatus = "loaded";
           portfolioError = detail;
           await supabaseAdmin
