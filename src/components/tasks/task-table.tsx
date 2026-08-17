@@ -501,6 +501,17 @@ function TaskTableRow({
           >
             {task.title}
           </span>
+          {task.subtasks_total ? (
+            <Badge variant="secondary" className="shrink-0 gap-1 text-[9px]" title="Subtarefas concluídas">
+              <ListChecks className="h-3 w-3" />
+              {task.subtasks_done ?? 0}/{task.subtasks_total}
+            </Badge>
+          ) : null}
+          {task.archived_at ? (
+            <Badge variant="outline" className="shrink-0 text-[9px]">
+              Arquivada
+            </Badge>
+          ) : null}
           {overdue && (
             <Badge
               variant="outline"

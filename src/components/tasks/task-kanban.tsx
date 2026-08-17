@@ -82,6 +82,11 @@ function KanbanCard({ task, onOpen }: { task: TaskRow; onOpen: () => void }) {
               <MessageSquare className="h-3 w-3" /> {task.comments_count}
             </span>
           ) : null}
+          {task.subtasks_total ? (
+            <span className="inline-flex items-center gap-1" title="Subtarefas concluídas">
+              <ListChecks className="h-3 w-3" /> {task.subtasks_done ?? 0}/{task.subtasks_total}
+            </span>
+          ) : null}
         </div>
         {task.assignee_id ? (
           <TaskAssignee name={task.assignee_name} avatarUrl={task.assignee_avatar} size={22} />
