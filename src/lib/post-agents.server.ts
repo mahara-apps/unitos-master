@@ -5,6 +5,7 @@ import { getBrandAiModelAdmin, describeProviderAttempts } from "@/lib/ai-provide
 import { loadAgentPrompts, fillTemplate } from "@/lib/agent-prompts.server";
 import { buildBrandContextBlueprint } from "@/lib/ai-agents.functions";
 import { loadBriefingContext } from "@/lib/monthly-plan-context.server";
+import { loadBrainAgentContext } from "@/lib/brain/agent-context.server";
 import { loadStrategyContext } from "@/lib/monthly-plan-strategy.server";
 
 /** Tempo após o qual uma geração marcada como em andamento é considerada presa. */
