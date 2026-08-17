@@ -129,6 +129,14 @@ function CalendarPage() {
 
   async function handleOpenPost(p: CalendarPost) {
     if (openingPost) return;
+    // Peça agendada (ainda não publicada) abre o composer completo, com todos
+    // os dados salvos, para editar ou cancelar o agendamento.
+    if (p.status === "scheduled" && !p.published_at) {
+      setWizardDate(null);
+      setWizardSeed({ postId: p.post_id });
+      setWizardOpen(true);
+      return;
+    }
     // Legacy posts may not have a pipeline_id — ensure one on the fly.
     if (!p.pipeline_id) {
       try {
