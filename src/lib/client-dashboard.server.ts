@@ -414,7 +414,10 @@ function describeEvent(
         };
       case "ai_generated":
       case "ai_agent_succeeded":
-        return { title: label, description: "Conteúdo gerado com apoio de IA", tone: "positive" };
+        return { title: label, description: "Conteúdo gerado pela IA", tone: "positive" };
+      case "ai_generation_failed":
+        return { title: label, description: "Falha ao gerar conteúdo com IA", tone: "attention" };
+
       case "portal_approved":
         return { title: label, description: "Aprovado pelo cliente", tone: "positive" };
       case "portal_adjust":
