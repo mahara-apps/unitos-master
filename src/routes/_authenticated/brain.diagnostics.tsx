@@ -152,7 +152,7 @@ function BrainDiagnosticsRoute() {
       ) : null}
 
       {/* Queue */}
-      <section className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+      <PageKpiGrid columns={4}>
         <QueueKpi
           loading={loading}
           icon={<Waves className="h-4 w-4 text-amber-500" />}
@@ -191,7 +191,7 @@ function BrainDiagnosticsRoute() {
           hint={`${d?.queue.processedLastHour ?? 0} processadas na última hora`}
           tone={d && d.queue.failed > 0 ? "warn" : undefined}
         />
-      </section>
+      </PageKpiGrid>
 
       {/* Pipeline windows table */}
       <section className="rounded-xl border border-border/60 bg-card">
