@@ -627,6 +627,16 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
     // ---- Agendar: cria linhas em social_posts para o worker pg_cron drenar ----
     // Sem isso, o horário passa e nada é publicado (Kanban fica "Agendado" para sempre).
     if (data.action === "schedule" && scheduledIso) {
+      // Reagendamento de peça já agendada: limpa a fila pendente antes de
+      // re-enfileirar (evita duplicidade e conflito de índice único).
+      await supabase
+        .from("social_posts")
+        .update({ status: "cancelled" })
+        .eq("post_id", postId)
+        .eq("brand_id", data.brandId)
+        .in("status", ["scheduled", "failed"])
+        .is("publish_locked_at", null);
+
       // Formatos ainda não agendáveis viram avisos (mesmo padrão da branch publish).
       const enqueueResults: Array<{
         channel: string;
@@ -1014,4 +1024,110 @@ export const deleteApprovedPostFn = createServerFn({ method: "POST" })
       .eq("brand_id", data.brandId);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+// ============================================================
+// cancelPostScheduleFn — cancela o agendamento SEM apagar conteúdo
+// ============================================================
+// Regras:
+//  - Não deleta post, placements, mídia nem social_posts (apenas muda status).
+//  - Proteção contra corrida: se o worker já reivindicou (publish_locked_at)
+//    ou está em `publishing`/`published`, o cancelamento é recusado.
+//  - Devolve a peça para um estado editável (stage/scheduled_at coerentes).
+
+export const cancelPostScheduleFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({ postId: z.string().uuid(), brandId: z.string().uuid() })
+      .parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const supabase = context.supabase;
+    const { data: post, error: pErr } = await supabase
+      .from("posts")
+      .select("id, stage, pipeline_id, stage_id")
+      .eq("id", data.postId)
+      .eq("brand_id", data.brandId)
+      .maybeSingle();
+    if (pErr) throw new Error(pErr.message);
+    if (!post) throw new Error("Peça não encontrada.");
+
+    const { data: spRows, error: spErr } = await supabase
+      .from("social_posts")
+      .select("id, status, publish_locked_at, scheduled_at")
+      .eq("post_id", data.postId)
+      .eq("brand_id", data.brandId);
+    if (spErr) throw new Error(spErr.message);
+    const rows = spRows ?? [];
+
+    if (rows.some((r) => r.status === "published")) {
+      throw new Error(
+        "Esta peça já foi publicada — não é possível cancelar o agendamento.",
+      );
+    }
+    const inFlight = rows.filter(
+      (r) => r.status === "publishing" || !!r.publish_locked_at,
+    );
+    if (inFlight.length > 0) {
+      throw new Error(
+        "A publicação já está em processamento pelo worker. Aguarde a conclusão antes de cancelar.",
+      );
+    }
+
+    // 1) Fila: scheduled/failed → cancelled (só se ainda não reivindicado).
+    const cancellable = rows.filter(
+      (r) => r.status === "scheduled" || r.status === "failed",
+    );
+    let cancelledCount = 0;
+    if (cancellable.length > 0) {
+      const { data: updated, error: uErr } = await supabase
+        .from("social_posts")
+        .update({ status: "cancelled" })
+        .in(
+          "id",
+          cancellable.map((r) => r.id as string),
+        )
+        .is("publish_locked_at", null)
+        .in("status", ["scheduled", "failed"])
+        .select("id");
+      if (uErr) throw new Error(uErr.message);
+      cancelledCount = (updated ?? []).length;
+      if (cancelledCount < cancellable.length) {
+        throw new Error(
+          "A publicação foi reivindicada pelo worker durante o cancelamento. Recarregue e tente novamente.",
+        );
+      }
+    }
+
+    // 2) Placements voltam para rascunho (nunca mexe nos já publicados).
+    const { error: plErr } = await supabase
+      .from("post_placements")
+      .update({ status: "draft", scheduled_at: null })
+      .eq("post_id", data.postId)
+      .neq("status", "published");
+    if (plErr) throw new Error(plErr.message);
+
+    // 3) Peça volta a um estado editável, preservando copy/mídia/briefings.
+    const { error: postErr } = await supabase
+      .from("posts")
+      .update({ stage: "approved", scheduled_at: null })
+      .eq("id", data.postId)
+      .eq("brand_id", data.brandId);
+    if (postErr) throw new Error(postErr.message);
+
+    const stageId = await resolveStageIdByKey(
+      supabase,
+      (post.pipeline_id as string | null) ?? null,
+      ["approved"],
+    );
+    if (stageId && stageId !== (post.stage_id as string | null)) {
+      await supabase
+        .from("posts")
+        .update({ stage_id: stageId } as never)
+        .eq("id", data.postId)
+        .eq("brand_id", data.brandId);
+    }
+
+    return { ok: true, cancelledQueueItems: cancelledCount };
   });

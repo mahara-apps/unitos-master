@@ -64,8 +64,20 @@ import {
   listClientSocialConnectionsFn,
   loadPostStateFn,
   saveScheduledPostFn,
+  cancelPostScheduleFn,
   type WizardConnection,
 } from "@/lib/scheduling-wizard.functions";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 
 import {
   listBrandMediaFn,
@@ -126,6 +138,7 @@ export function ScheduleWizard({
   const saveFn = useServerFn(saveScheduledPostFn);
   const registerMedia = useServerFn(registerBrandMediaFn);
   const loadPostState = useServerFn(loadPostStateFn);
+  const cancelSchedule = useServerFn(cancelPostScheduleFn);
 
   const [title, setTitle] = useState("");
   const [copy, setCopy] = useState("");
@@ -149,6 +162,10 @@ export function ScheduleWizard({
   // primeiro save — impede que "Salvar rascunho" duas vezes crie duas peças.
   const [postId, setPostId] = useState<string | null>(null);
   const [hydrating, setHydrating] = useState(false);
+  // Agendamento vigente da peça (quando ela é reaberta já agendada).
+  const [scheduledAtIso, setScheduledAtIso] = useState<string | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   // UI local do composer (não persiste nada).
   const [destPickerOpen, setDestPickerOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -176,6 +193,9 @@ export function ScheduleWizard({
       setSubmitting(null);
       setPreviewKey("instagram::feed");
       setPostId(seed?.postId ?? null);
+      setScheduledAtIso(null);
+      setCancelOpen(false);
+      setCancelling(false);
       setDestPickerOpen(false);
       setLibraryOpen(false);
       setShowExtras(false);
@@ -246,6 +266,11 @@ export function ScheduleWizard({
           setScheduleDate(fmtDate(d));
           setScheduleTime(fmtTime(d));
         }
+        // Peça agendada continua editável — só sinalizamos o estado para
+        // liberar a ação "Cancelar agendamento".
+        setScheduledAtIso(
+          st.stage === "scheduled" ? (st.scheduledAt ?? null) : null,
+        );
       })
       .catch((e) => toast.error(describeError(e)))
       .finally(() => {
@@ -541,7 +566,25 @@ export function ScheduleWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, submitting]);
 
-  const busy = !!submitting || hydrating;
+  const busy = !!submitting || hydrating || cancelling;
+
+  async function handleCancelSchedule() {
+    if (!postId) return;
+    setCancelling(true);
+    try {
+      await cancelSchedule({ data: { postId, brandId } });
+      setScheduledAtIso(null);
+      setCancelOpen(false);
+      toast.success("Agendamento cancelado. A peça continua editável.");
+      qc.invalidateQueries({ queryKey: ["calendar"] });
+      qc.invalidateQueries({ queryKey: ["post-detail", postId] });
+      qc.invalidateQueries({ queryKey: ["board"] });
+    } catch (e) {
+      toast.error(describeError(e));
+    } finally {
+      setCancelling(false);
+    }
+  }
   const selectedIds = selectedMedia.map((m) => m.id);
   const availableConnections = connectionsQ.data ?? [];
 
@@ -570,8 +613,35 @@ export function ScheduleWizard({
             ) : null}
             {postId ? (
               <Badge variant="outline" className="text-[10px]">
-                Rascunho salvo
+                {scheduledAtIso ? "Agendada" : "Rascunho salvo"}
               </Badge>
+            ) : null}
+            {scheduledAtIso ? (
+              <>
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <CalendarClock className="h-3 w-3" />
+                  Agendado para{" "}
+                  {new Date(scheduledAtIso).toLocaleString("pt-BR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[11px]"
+                  disabled={cancelling}
+                  onClick={() => setCancelOpen(true)}
+                >
+                  {cancelling ? (
+                    <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                  ) : null}
+                  Cancelar agendamento
+                </Button>
+              </>
             ) : null}
           </>
         }
@@ -1208,6 +1278,34 @@ export function ScheduleWizard({
           onConfirm={(assets) => setSelectedMedia(assets)}
         />
       ) : null}
+
+      <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancelar agendamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A publicação sai da fila e não será enviada às redes. A peça
+              continua salva com legenda, mídias e destinos — você pode reagendar
+              quando quiser.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelling}>Voltar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={cancelling}
+              onClick={(e) => {
+                e.preventDefault();
+                void handleCancelSchedule();
+              }}
+            >
+              {cancelling ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : null}
+              Cancelar agendamento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
