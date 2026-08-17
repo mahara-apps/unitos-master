@@ -44,15 +44,24 @@ export async function registerEvent(
 // ----------------------------------------------------------------------------
 // 2. learn — enfileira um job de aprendizado assíncrono.
 // ----------------------------------------------------------------------------
+// Aprender NÃO é uma fila paralela: todo evento registrado por `registerEvent`
+// já entra na fila de aprendizado pelo trigger do banco. Portanto `learn` apenas
+// registra a evidência como evento (com `learning: true` no payload) — nunca
+// insere um segundo item na fila para o mesmo fato.
 export async function learn(
   ctx: BrainContext,
   args: { job_type: string; payload?: Record<string, unknown> },
 ): Promise<void> {
-  await learning.enqueue(ctx, {
-    job_type: args.job_type,
-    payload: args.payload ?? {},
+  await registerEvent(ctx, {
+    source_module: "brain.learning",
+    event_type: args.job_type,
+    payload: { ...(args.payload ?? {}), learning: true },
   });
 }
+
+/** Reprocessa um evento específico já registrado. */
+export const requeueLearningEvent = learning.requeueEvent;
+export const learningFailed = learning.failed;
 
 // ----------------------------------------------------------------------------
 // 3. remember — persiste uma memória consolidada no Memory Store.
