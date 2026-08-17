@@ -779,7 +779,15 @@ export function ScheduleWizard({
                 <Button
                   size="sm"
                   className="rounded-r-none"
-                  disabled={!canSubmit || busy || uploading}
+                  disabled={!canPublish || busy || uploading}
+                  title={
+                    canPublish
+                      ? undefined
+                      : (blockedDestinations
+                          .map((p) => readinessByConn.get(p.connectionId)?.message)
+                          .filter(Boolean)[0] as string | undefined) ??
+                        "Verificando autorização dos destinos…"
+                  }
                   onClick={() => persist("schedule")}
                 >
                   {submitting === "schedule" ? (
@@ -794,20 +802,27 @@ export function ScheduleWizard({
                     <Button
                       size="sm"
                       className="rounded-l-none border-l border-primary-foreground/20 px-2"
-                      disabled={!canSubmit || busy || uploading}
+                      disabled={!canPublish || busy || uploading}
                     >
                       <ChevronDown className="h-3.5 w-3.5" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem onClick={() => persist("publish")} disabled={busy}>
+                    <DropdownMenuItem
+                      onClick={() => persist("publish")}
+                      disabled={busy || !canPublish}
+                    >
                       <Send className="mr-2 h-3.5 w-3.5" /> Publicar agora
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => persist("schedule")} disabled={busy}>
+                    <DropdownMenuItem
+                      onClick={() => persist("schedule")}
+                      disabled={busy || !canPublish}
+                    >
                       <CalendarClock className="mr-2 h-3.5 w-3.5" /> Agendar para depois
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+
               </div>
             </div>
           </>
