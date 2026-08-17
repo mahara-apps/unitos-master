@@ -124,16 +124,24 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
         );
         const published = mine.find((r) => r.status === "published");
         const failed = mine.find((r) => r.status === "failed");
+        const blocked = mine.find((r) => r.status === "blocked");
         const inFlight = mine.find(
           (r) => r.status === "scheduled" || r.status === "publishing",
         );
+        const plStatus = (pl.status as string) ?? "draft";
         const status = published
           ? "published"
           : inFlight
             ? (inFlight.status as string)
-            : failed
-              ? "failed"
-              : ((pl.status as string) ?? "draft");
+            : blocked ||
+                plStatus === "connection_required" ||
+                plStatus === "authorization_required"
+              ? (plStatus === "authorization_required"
+                  ? "authorization_required"
+                  : "connection_required")
+              : failed
+                ? "failed"
+                : plStatus;
         return {
           placementId: pl.id as string,
           connectionId,
@@ -145,11 +153,21 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
             (published?.published_at as string | null) ??
             ((pl.published_at as string | null) ?? null),
           permalink: (published?.external_permalink as string | null) ?? null,
-          error: published ? null : ((failed?.last_error as string | null) ?? null),
+          error: published
+            ? null
+            : ((blocked?.last_error as string | null) ??
+              (failed?.last_error as string | null) ??
+              null),
           attempts: Number(failed?.publish_attempts ?? 0),
           canRetry:
-            !published && !inFlight && (status === "failed") && !!connectionId,
+            !published &&
+            !inFlight &&
+            (status === "failed" ||
+              status === "connection_required" ||
+              status === "authorization_required") &&
+            !!connectionId,
         };
+
       },
     );
 
