@@ -321,7 +321,17 @@ function withModelInstrumentation(
             raw.response?.body?.usage,
         );
 
+        if (inTok === 0 && outTok === 0) {
+          // Diagnóstico: aponta onde o provedor escondeu os tokens.
+          console.warn(
+            `[ai-provider] uso sem tokens ${provider}/${modelId} — chaves: ` +
+              `raiz=${Object.keys((raw ?? {}) as object).join(",")} ` +
+              `usage=${JSON.stringify(raw.usage ?? null)} ` +
+              `providerMetadata=${JSON.stringify(raw.providerMetadata ?? null).slice(0, 400)}`,
+          );
+        }
         log(modelId, inTok, outTok, true);
+
         ctx.attempts.push({ provider, model: modelId, attempt: call, result: "success" });
         return out;
       } catch (err) {
