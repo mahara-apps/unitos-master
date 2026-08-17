@@ -139,6 +139,7 @@ export function ScheduleWizard({
   const listMedia = useServerFn(listBrandMediaFn);
   const saveFn = useServerFn(saveScheduledPostFn);
   const registerMedia = useServerFn(registerBrandMediaFn);
+  const loadPostState = useServerFn(loadPostStateFn);
 
   const [title, setTitle] = useState("");
   const [copy, setCopy] = useState("");
@@ -156,6 +157,10 @@ export function ScheduleWizard({
   const [submitting, setSubmitting] = useState<null | "draft" | "publish" | "schedule" | "save_draft">(null);
   const [previewKey, setPreviewKey] = useState<string>("instagram::feed");
   const [locationId, setLocationId] = useState<string | null>(null);
+  // ID da peça em edição. Começa no seed e passa a existir localmente depois do
+  // primeiro save — impede que "Salvar rascunho" duas vezes crie duas peças.
+  const [postId, setPostId] = useState<string | null>(null);
+  const [hydrating, setHydrating] = useState(false);
 
   const uploadRef = useRef<HTMLInputElement>(null);
   const wasOpenRef = useRef(false);
@@ -178,6 +183,7 @@ export function ScheduleWizard({
       setUploading(false);
       setSubmitting(null);
       setPreviewKey("instagram::feed");
+      setPostId(seed?.postId ?? null);
       if (uploadRef.current) uploadRef.current.value = "";
       const base = defaultDate
         ? new Date(defaultDate)
@@ -195,10 +201,72 @@ export function ScheduleWizard({
     queryFn: () => listConnections({ data: { brandId, clientId } }),
   });
 
+  // Reabrir peça existente = restaurar o estado COMPLETO (mídia, destinos,
+  // hashtags, link, local, agendamento). Sem isso o rascunho voltava vazio.
+  const hydratedForRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!open) {
+      hydratedForRef.current = null;
+      return;
+    }
+    const id = seed?.postId;
+    if (!id || hydratedForRef.current === id) return;
+    hydratedForRef.current = id;
+    let cancelled = false;
+    setHydrating(true);
+    loadPostState({ data: { postId: id, brandId } })
+      .then((st) => {
+        if (cancelled) return;
+        setTitle(st.title || seed?.title || "");
+        setCopy(st.copy ?? "");
+        setHashtags(st.hashtags ?? []);
+        setFirstComment(st.firstComment ?? "");
+        setLinkUrl(st.linkUrl ?? "");
+        setLocationName(st.locationName ?? "");
+        setLocationId(st.locationId ?? null);
+        setPairs(
+          (st.destinations ?? []).map((d) => ({
+            channel: d.channel as SocialChannel,
+            format: d.format as PlacementFormat,
+            connectionId: d.connectionId,
+          })),
+        );
+        setSelectedMedia(
+          (st.media ?? []).map((m) => ({
+            id: m.id,
+            brandId,
+            clientId,
+            storagePath: m.storagePath,
+            name: m.name,
+            mimeType: m.mimeType,
+            sizeBytes: 0,
+            kind: m.kind,
+            width: null,
+            height: null,
+            tags: [],
+            createdAt: new Date().toISOString(),
+            publicUrl: m.publicUrl,
+          })),
+        );
+        if (st.scheduledAt) {
+          const d = new Date(st.scheduledAt);
+          setScheduleDate(fmtDate(d));
+          setScheduleTime(fmtTime(d));
+        }
+      })
+      .catch((e) => toast.error(describeError(e)))
+      .finally(() => {
+        if (!cancelled) setHydrating(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, seed?.postId, brandId, clientId, loadPostState, seed?.title]);
+
   // Pré-preenche destinos a partir das conexões escolhidas na tela de Conteúdo
   // (Kanban → target_connection_ids), quando o wizard abre com um seed.
   useEffect(() => {
-    if (!open) return;
+    if (!open || hydrating) return;
     const ids = seed?.targetConnectionIds ?? [];
     if (ids.length === 0) return;
     const conns = connectionsQ.data ?? [];
@@ -217,7 +285,7 @@ export function ScheduleWizard({
       }
       return next;
     });
-  }, [open, seed?.targetConnectionIds, connectionsQ.data]);
+  }, [open, hydrating, seed?.targetConnectionIds, connectionsQ.data]);
 
   const mediaQ = useQuery({
     enabled: open,
@@ -238,8 +306,10 @@ export function ScheduleWizard({
   const mediaKind: MediaKind = useMemo(() => inferMediaKind(selectedMedia), [selectedMedia]);
 
   useEffect(() => {
+    if (hydrating) return;
     setPairs((prev) => prev.filter((p) => isFormatCompatibleWithMedia(p.format, mediaKind)));
-  }, [mediaKind]);
+  }, [mediaKind, hydrating]);
+
 
   // Ensure preview channel is one we have selected — else fall back to first pair
   useEffect(() => {
