@@ -77,11 +77,11 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
   {
     label: "Operação",
     items: [
+      { title: "Projetos", url: "/projects", icon: FolderKanban },
       { title: "Pauta", url: "/monthly-plan", icon: ScrollText },
       { title: "Conteúdo", url: "/content", icon: KanbanSquare, featureKey: "blog_post" },
       { title: "Calendário", url: "/calendar", icon: CalendarDays },
       { title: "Tarefas", url: "/tasks", icon: ListChecks, badge: "tasks-pending" },
-      { title: "Projetos", url: "/projects", icon: FolderKanban },
       { title: "Mídia paga", url: "/media-plans", icon: Target, featureKey: "midia_paga" },
     ],
   },
