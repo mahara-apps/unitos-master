@@ -37,6 +37,12 @@ export const Route = createFileRoute("/api/public/hooks/resume-post-content")({
           return Response.json({ error: "invalid_body" }, { status: 400 });
         }
 
+        if (parsed.data.postIds?.length) {
+          const { generatePostsContentSequential } = await import("@/lib/post-agents.server");
+          const result = await generatePostsContentSequential(parsed.data.postIds, { userId: null });
+          return Response.json({ candidates: parsed.data.postIds.length, ...result });
+        }
+
         const { resumePendingPostContent } = await import("@/lib/post-agents.server");
         const result = await resumePendingPostContent({
           brandId: parsed.data.brandId ?? null,
@@ -46,6 +52,7 @@ export const Route = createFileRoute("/api/public/hooks/resume-post-content")({
           userId: null,
         });
         return Response.json(result);
+
       },
     },
   },
