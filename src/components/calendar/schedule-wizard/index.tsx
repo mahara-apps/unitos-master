@@ -936,38 +936,108 @@ export function ScheduleWizard({
                 Nenhum destino selecionado — clique para escolher canais e formatos.
               </button>
             ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {pairs.map((p) => {
-                  const Icon = FORMAT_ICON[p.format];
-                  const conn = connByChannel.get(p.channel);
-                  return (
-                    <span
-                      key={`${p.channel}::${p.format}`}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card px-2 py-1 text-[10.5px]"
-                    >
-                      <Avatar className="h-4 w-4">
-                        <AvatarImage src={conn?.avatarUrl ?? undefined} />
-                        <AvatarFallback className="text-[7px] uppercase">
-                          {p.channel.slice(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <Icon className="h-3 w-3 text-muted-foreground" />
-                      <span className="capitalize">
-                        {p.channel} · {FORMAT_LABEL[p.format]}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => togglePair(p.channel, p.format)}
-                        className="text-muted-foreground hover:text-destructive"
-                        title="Remover destino"
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap gap-1.5">
+                  {pairs.map((p) => {
+                    const Icon = FORMAT_ICON[p.format];
+                    const conn = connByChannel.get(p.channel);
+                    const r = readinessByConn.get(p.connectionId);
+                    const state = readinessQ.isLoading
+                      ? "checking"
+                      : !r
+                        ? "checking"
+                        : r.publishReady
+                          ? "ready"
+                          : r.action === "relink"
+                            ? "disconnected"
+                            : "auth";
+                    return (
+                      <span
+                        key={`${p.channel}::${p.format}`}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[10.5px]",
+                          state === "ready"
+                            ? "border-emerald-500/40 bg-emerald-500/10"
+                            : state === "checking"
+                              ? "border-border/60 bg-card"
+                              : "border-destructive/50 bg-destructive/10",
+                        )}
                       >
-                        <X className="h-2.5 w-2.5" />
-                      </button>
-                    </span>
+                        <Avatar className="h-4 w-4">
+                          <AvatarImage src={conn?.avatarUrl ?? undefined} />
+                          <AvatarFallback className="text-[7px] uppercase">
+                            {p.channel.slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <Icon className="h-3 w-3 text-muted-foreground" />
+                        <span className="capitalize">
+                          {p.channel} · {FORMAT_LABEL[p.format]}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "h-4 border-none px-1 text-[9px] font-semibold",
+                            state === "ready"
+                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                              : state === "checking"
+                                ? "bg-muted text-muted-foreground"
+                                : "bg-destructive/15 text-destructive",
+                          )}
+                          title={r?.message ?? "Verificando autorização…"}
+                        >
+                          {state === "ready"
+                            ? "Pronto"
+                            : state === "checking"
+                              ? "Verificando…"
+                              : state === "disconnected"
+                                ? "Desconectado"
+                                : "Autorização necessária"}
+                        </Badge>
+                        <button
+                          type="button"
+                          onClick={() => togglePair(p.channel, p.format)}
+                          className="text-muted-foreground hover:text-destructive"
+                          title="Remover destino"
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+                {blockedDestinations.map((p) => {
+                  const r = readinessByConn.get(p.connectionId);
+                  if (!r) return null;
+                  return (
+                    <div
+                      key={`blk-${p.connectionId}-${p.format}`}
+                      className="flex items-start justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-2 py-1.5 text-[10.5px] text-destructive"
+                    >
+                      <span className="min-w-0">{r.message}</span>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-1.5 text-[10px]"
+                          onClick={() => handleRevalidate(p.connectionId)}
+                        >
+                          Revalidar
+                        </Button>
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-1.5 text-[10px]"
+                        >
+                          <Link to="/connections">Conexões</Link>
+                        </Button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
             )}
+
           </section>
 
           <Separator />
