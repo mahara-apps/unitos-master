@@ -318,6 +318,7 @@ function BrainDiagnosticsRoute() {
   );
 }
 
+/** Adaptador do padrão canônico `PageKpi` para os KPIs de fila desta página. */
 function QueueKpi({
   icon,
   label,
@@ -336,27 +337,24 @@ function QueueKpi({
   tone?: "warn";
 }) {
   return (
-    <Card className={tone === "warn" ? "border-destructive/40" : undefined}>
-      <CardContent className="p-4">
-        <div className="mb-1 flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
-          {icon}
-          {label}
-        </div>
-        <div className="text-2xl font-semibold tabular-nums">
-          {loading || value === undefined ? (
-            <Skeleton className="h-7 w-16" />
-          ) : (
-            <>
-              {value.toLocaleString("pt-BR")}
-              {suffix ? (
-                <span className="ml-0.5 text-base text-muted-foreground">{suffix}</span>
-              ) : null}
-            </>
-          )}
-        </div>
-        {hint ? <div className="mt-1 text-[11px] text-muted-foreground">{hint}</div> : null}
-      </CardContent>
-    </Card>
+    <PageKpi
+      icon={icon}
+      label={label}
+      status={tone === "warn" ? "danger" : "neutral"}
+      value={
+        loading || value === undefined ? (
+          <Skeleton className="h-7 w-16" />
+        ) : (
+          <>
+            {value.toLocaleString("pt-BR")}
+            {suffix ? (
+              <span className="ml-0.5 text-base font-normal text-muted-foreground">{suffix}</span>
+            ) : null}
+          </>
+        )
+      }
+      description={hint}
+    />
   );
 }
 
