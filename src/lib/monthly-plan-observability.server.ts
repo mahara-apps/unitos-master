@@ -81,7 +81,13 @@ export async function logPlanEvent(
   },
 ): Promise<void> {
   try {
-    await supabase.from("activity_events").insert({
+    // Telemetria é infraestrutura: `activity_events` não tem policy de INSERT
+    // para `authenticated`, então o registro usa o client admin (mesmo padrão
+    // dos pipelines de Estratégia IA e Copy). Sem isso as tentativas da Pauta
+    // ficavam invisíveis.
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const writer = (supabaseAdmin ?? supabase) as SupabaseClient;
+    const { error } = await writer.from("activity_events").insert({
       brand_id: scope.brandId,
       client_id: scope.clientId,
       actor_id: scope.userId,
@@ -94,7 +100,14 @@ export async function logPlanEvent(
         at: new Date().toISOString(),
       },
     } as never);
+    if (error) console.warn("[monthly-plan] log falhou", error.message);
+    if (!payload.ok) {
+      console.warn(
+        `[monthly-plan] etapa ${payload.step} falhou (${payload.kind ?? "?"}): ${payload.message ?? ""}`,
+      );
+    }
   } catch {
     // auditoria não crítica
   }
 }
+
