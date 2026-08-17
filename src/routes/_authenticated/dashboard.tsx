@@ -981,105 +981,29 @@ function ApprovalsByClientCard({
 // ============================================================================
 
 function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }) {
-  const statsFn = useServerFn(getDashboardStats);
   const customerFn = useServerFn(loadCustomerDashboardFn);
   const [range, setRange] = useDefaultRange();
   const days = dateRangeToDays(range);
 
-  const stats = useQuery({
-    queryKey: ["dashboard-client", brandId, clientId, days],
-    queryFn: () =>
-      statsFn({
-        data: {
-          brandId,
-          clientId,
-          range:
-            range?.from && range?.to
-              ? { from: range.from.toISOString(), to: range.to.toISOString() }
-              : undefined,
-        },
-      }),
-    staleTime: 30_000,
-  });
   const customer = useQuery({
-    queryKey: ["customer-dashboard", brandId, clientId, days],
-    queryFn: () =>
-      customerFn({
-        data: {
-          brandId,
-          clientId,
-          range:
-            range?.from && range?.to
-              ? { from: range.from.toISOString(), to: range.to.toISOString() }
-              : undefined,
-        },
-      }),
-    staleTime: 30_000,
+    queryKey: ["customer-dashboard-header", brandId, clientId, days],
+    queryFn: () => customerFn({ data: { brandId, clientId } }),
+    staleTime: 5 * 60_000,
   });
-
   const client = customer.data?.client;
 
   usePageHeader(
     {
       title: client?.name ?? "Cliente",
-      subtitle: client?.niche ?? "Painel do cliente selecionado",
+      subtitle: client?.niche ?? "Acompanhamento da operação desta conta",
       actions: <DateRangePicker value={range} onChange={setRange} />,
     },
     [client?.name, client?.niche, range?.from?.getTime(), range?.to?.getTime()],
   );
 
-  return (
-    <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard
-          icon={<TrendingUp className="h-4 w-4" />}
-          label="Publicações aprovadas"
-          value={stats.data?.counts.posts_approved_30d ?? 0}
-          sub={`${stats.data?.counts.posts_total ?? 0} peças no pipeline`}
-          tone="emerald"
-          spark={stats.data?.publishTrend14d}
-        />
-        <KpiCard
-          icon={<CalendarClock className="h-4 w-4" />}
-          label="Próximas agendadas"
-          value={stats.data?.upcomingPosts.length ?? 0}
-          sub={stats.data?.upcomingPosts[0]?.title ?? "Sem agendas"}
-          tone="violet"
-        />
-        <KpiCard
-          icon={<BadgeCheck className="h-4 w-4" />}
-          label="Aprovações pendentes"
-          value={customer.data?.metrics.pendingApprovals ?? 0}
-          sub={`${customer.data?.metrics.decidedApprovals ?? 0} já decididas`}
-          tone="amber"
-        />
-        <KpiCard
-          icon={<AlertTriangle className="h-4 w-4" />}
-          label="Tarefas atrasadas"
-          value={stats.data?.counts.tasks_overdue ?? 0}
-          sub={`${stats.data?.counts.tasks_open ?? 0} abertas · ${stats.data?.counts.tasks_done_7d ?? 0} feitas no período`}
-          tone="rose"
-        />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-        <FunnelCard
-          stages={stats.data?.pipelineStages ?? []}
-          postsByStage={stats.data?.postsByStage ?? {}}
-          avgLead={stats.data?.avgLeadTimeDays ?? null}
-        />
-        <PublishTrendCard
-          trend={stats.data?.publishTrend14d ?? []}
-          channels={Object.entries(stats.data?.channelCounts ?? {}).map(([channel, count]) => ({ channel, count }))}
-        />
-      </div>
-
-      <UpcomingClientCard posts={stats.data?.upcomingPosts ?? []} loading={stats.isLoading} />
-
-      <RecentActivityCard activity={stats.data?.recentActivity ?? []} loading={stats.isLoading} />
-    </div>
-  );
+  return <ClientAccountDashboard brandId={brandId} clientId={clientId} range={range} />;
 }
+
 
 
 function UpcomingClientCard({
