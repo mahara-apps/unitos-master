@@ -5845,6 +5845,10 @@ export type Database = {
         Args: { _client_id: string; _user_id: string }
         Returns: boolean
       }
+      can_access_task: {
+        Args: { _task_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_manage_brand_ai_limits: {
         Args: { _brand_id: string; _user_id: string }
         Returns: boolean
