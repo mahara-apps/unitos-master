@@ -89,6 +89,14 @@ async function listProviderModels(
         created: m.created_at ? Date.parse(m.created_at) / 1000 : undefined,
       }));
     }
+    if (provider === "groq") {
+      const res = await fetch("https://api.groq.com/openai/v1/models", {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (!res.ok) return [];
+      const json = (await res.json()) as { data?: Array<{ id: string; created?: number }> };
+      return (json.data ?? []).map((m) => ({ id: m.id, created: m.created }));
+    }
     const res = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",
       { headers: { "x-goog-api-key": apiKey } },
@@ -177,12 +185,8 @@ async function pingTextModel(
   apiKey: string,
   modelId: string,
 ): Promise<void> {
-  const model =
-    provider === "openai"
-      ? createOpenAI({ apiKey })(modelId)
-      : provider === "anthropic"
-        ? createAnthropic({ apiKey })(modelId)
-        : createGoogleGenerativeAI({ apiKey })(modelId);
+  const { instantiateProviderModel } = await import("./ai-provider.server");
+  const model = instantiateProviderModel(provider, apiKey, modelId);
   await generateText({ model, prompt: "ping" });
 }
 
