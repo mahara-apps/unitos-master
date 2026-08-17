@@ -3,6 +3,7 @@
 // por brand_id + client_id). Nada é mockado; sem dados usamos empty states.
 import * as React from "react";
 import { Link } from "@tanstack/react-router";
+import { PageKpi, PageKpiGrid, type KpiStatus } from "@/components/ui/page-kpi";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { format, parseISO } from "date-fns";
@@ -104,7 +105,7 @@ export function ClientAccountDashboard({
         {attentionCount > 0 && (
           <>
             <span className="text-border">•</span>
-            <span className="inline-flex items-center gap-1.5 font-medium text-amber-600 dark:text-amber-400">
+            <span className="inline-flex items-center gap-1.5 font-medium text-severity-warning">
               <AlertTriangle className="h-3.5 w-3.5" />
               {attentionCount === 1
                 ? "1 item precisa da sua atenção"
@@ -153,7 +154,7 @@ export function ClientAccountDashboard({
           tone={d.approvalsPending > 0 ? "warning" : "neutral"}
           hint={
             d.approvalsPending > 0 ? (
-              <span className="text-amber-600 dark:text-amber-400">aguardando decisão</span>
+              <span className="text-severity-warning">aguardando decisão</span>
             ) : (
               <span className="text-muted-foreground/70">
                 {d.approvalsDecided > 0 ? `${d.approvalsDecided} já decididas` : "sem pendências"}
@@ -178,7 +179,7 @@ export function ClientAccountDashboard({
           }
           hint={
             attentionCount === 0 ? (
-              <span className="text-emerald-600 dark:text-emerald-400">tudo em dia</span>
+              <span className="text-health-good">tudo em dia</span>
             ) : (
               <span className="text-muted-foreground/80">
                 {[
@@ -514,7 +515,7 @@ function AttentionPanel({ items }: { items: ClientAttentionItem[] }) {
       </header>
       {items.length === 0 ? (
         <div className="flex items-center gap-3 px-4 py-7">
-          <span className="grid h-9 w-9 place-items-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+          <span className="grid h-9 w-9 place-items-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-health-good">
             <CheckCircle2 className="h-4 w-4" />
           </span>
           <div>
@@ -561,14 +562,14 @@ const UPCOMING_STATUS: Record<
   ClientUpcomingItem["status"],
   { label: string; dot: string; text: string }
 > = {
-  scheduled: { label: "Agendado", dot: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
+  scheduled: { label: "Agendado", dot: "bg-emerald-500", text: "text-health-good" },
   awaiting_approval: {
     label: "Aguardando aprovação",
     dot: "bg-amber-500",
-    text: "text-amber-600 dark:text-amber-400",
+    text: "text-severity-warning",
   },
   failed: { label: "Falha", dot: "bg-destructive", text: "text-destructive" },
-  published: { label: "Publicado", dot: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
+  published: { label: "Publicado", dot: "bg-emerald-500", text: "text-health-good" },
 };
 
 function UpcomingPanel({ items }: { items: ClientUpcomingItem[] }) {
@@ -797,7 +798,7 @@ function DeltaHint({ current, previous }: { current: number; previous: number })
     <span
       className={cn(
         "inline-flex items-center gap-1",
-        up ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400",
+        up ? "text-health-good" : "text-severity-warning",
       )}
     >
       {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
