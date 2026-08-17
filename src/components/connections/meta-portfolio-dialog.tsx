@@ -420,6 +420,61 @@ export function MetaPortfolioDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {data && !isLoading ? (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Badge variant="secondary" className="gap-1 text-[10px]">
+                <Facebook className="h-3 w-3" /> {fbPages.length} Páginas
+              </Badge>
+              <Badge variant="secondary" className="gap-1 text-[10px]">
+                <Instagram className="h-3 w-3" /> {igPages.length} Instagram
+              </Badge>
+              <Badge variant="secondary" className="gap-1 text-[10px]">
+                <AtSign className="h-3 w-3" /> {threadsAccounts.length} Threads
+              </Badge>
+              <Badge variant="secondary" className="gap-1 text-[10px]">
+                <BarChart3 className="h-3 w-3" /> {adAccounts.length} Ads
+              </Badge>
+              {data.businessCount ? (
+                <span>
+                  em {data.businessCount}{" "}
+                  {data.businessCount === 1 ? "portfólio" : "portfólios"}
+                </span>
+              ) : null}
+            </div>
+            {data.scanWarnings?.length ? (
+              <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <div className="space-y-1">
+                  <p className="font-medium">
+                    A lista pode estar incompleta — a Meta não retornou parte das contas.
+                  </p>
+                  <ul className="list-disc space-y-0.5 pl-4 text-amber-700/80 dark:text-amber-300/80">
+                    {data.scanWarnings.map((w) => (
+                      <li key={w}>{w}</li>
+                    ))}
+                  </ul>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="mt-1 h-7 gap-1.5 text-[11px]"
+                    onClick={handleResync}
+                    disabled={isFetching}
+                  >
+                    {isFetching ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3 w-3" />
+                    )}
+                    Sincronizar novamente
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+
         {missingScopes.length > 0 && (
           <div className="flex gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
             <AlertTriangle className="h-4 w-4 shrink-0" />
