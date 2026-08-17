@@ -151,9 +151,9 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
       portfolioRateLimitedUntil = rateLimitedUntil ?? null;
     }
 
+    let discoveryLock: { done: () => void } | null = null;
     if ((needPages || needThreads || needAds) && !inCooldown) {
-      const lockKey = `${session.id}:${ch ?? "all"}`;
-      const lock = beginDiscovery(lockKey);
+      const lock = beginDiscovery(`${session.id}:${ch ?? "all"}`);
       if (lock.wait) {
         // Another in-flight discovery for the same session/channel: wait for it
         // and serve the cache it wrote instead of firing a duplicate scan.
@@ -164,25 +164,25 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
           .eq("id", session.id)
           .maybeSingle();
         const payload = readPagesPayload(fresh.data?.pages);
-        cachedPages = payload.pages;
-        cachedStandaloneIg = payload.standaloneInstagram;
-        scanWarnings = payload.warnings;
-        businessCount = payload.businessCount;
+        if (payload.pages.length > 0 || payload.standaloneInstagram.length > 0) {
+          cachedPages = payload.pages;
+          cachedStandaloneIg = payload.standaloneInstagram;
+          scanWarnings = payload.warnings;
+          businessCount = payload.businessCount;
+        }
         portfolioStatus =
           (fresh.data?.portfolio_load_status as typeof portfolioStatus) ?? portfolioStatus;
         portfolioLoadedAt = fresh.data?.portfolio_loaded_at ?? portfolioLoadedAt;
         portfolioError = fresh.data?.portfolio_error ?? null;
         console.log("Meta discovery: requests=0 cache=hit status=deduped");
-        return await buildResponse();
-      }
-      try {
-        await runDiscovery();
-      } finally {
-        lock.done();
+      } else {
+        discoveryLock = lock;
       }
     }
 
-    async function runDiscovery() {
+    if (discoveryLock) {
+      try {
+
 
 
       const { decryptCredential } = await import("@/lib/credentials-crypto.server");
