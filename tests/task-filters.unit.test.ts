@@ -97,7 +97,13 @@ describe("5. Filtros de tarefas (applyFilters real)", () => {
     const withAll = { ...DEFAULT_FILTERS, archive: "all" } as unknown as TaskFilters;
     expect(["active", "archived", "all"]).toContain(withAll.archive);
     // A visão "all" precisa existir no contrato de filtros da UI:
-    const allowed: Array<TaskFilters["archive"]> = ["active", "archived"];
+    // Exaustivo pelo tipo: qualquer opção do contrato precisa estar mapeada aqui.
+    const labels: Record<TaskFilters["archive"], string> = {
+      active: "Ativas",
+      archived: "Arquivadas",
+      all: "Todas",
+    };
+    const allowed = Object.keys(labels) as Array<TaskFilters["archive"]>;
     expect(
       allowed as unknown as string[],
       "UI não oferece a visão 'Todas' (ativas + arquivadas) no filtro de arquivamento",
