@@ -77,9 +77,37 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
     if (data.clientId) dq = dq.eq("client_id", data.clientId);
     const { data: datedPosts, error: dErr } = await dq;
     if (dErr) throw dErr;
+
+    // Placements sem data própria (ex.: destino que falhou numa publicação
+    // imediata) herdam a data da peça: buscamos por post_id para que a falha
+    // fique visível no dia da tentativa.
+    const datedPostIds = (datedPosts ?? []).map((p) => p.id as string);
+    const extraByPost = new Map<string, string>();
+    if (datedPostIds.length) {
+      const { data: extra, error: exErr } = await context.supabase
+        .from("post_placements")
+        .select("id,post_id,brand_id,client_id,format,scheduled_at,status,published_at")
+        .in("post_id", datedPostIds)
+        .in("status", ["scheduled", "published", "failed"]);
+      if (exErr) throw exErr;
+      const seen = new Set((placements ?? []).map((p) => p.id as string));
+      for (const pl of extra ?? []) {
+        if (seen.has(pl.id as string)) continue;
+        seen.add(pl.id as string);
+        (placements ?? []).push(pl as never);
+        const post = (datedPosts ?? []).find((p) => p.id === pl.post_id);
+        const when =
+          (post?.scheduled_at as string | null) ??
+          (post?.published_at as string | null);
+        if (when) extraByPost.set(pl.id as string, when);
+        placementPostIds.push(pl.post_id as string);
+      }
+    }
+
     const orphanPosts = (datedPosts ?? []).filter(
       (p) => !placementPostIds.includes(p.id as string),
     );
+
 
     const postIds = Array.from(
       new Set([...placementPostIds, ...orphanPosts.map((p) => p.id as string)]),
