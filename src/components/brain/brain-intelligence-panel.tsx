@@ -4,12 +4,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Link } from "@tanstack/react-router";
 import {
   Activity,
   ChevronRight,
   Lightbulb,
-  Network,
   Target,
 } from "lucide-react";
 import {
