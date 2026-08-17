@@ -531,6 +531,13 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
     // ---- Upsert post ----
     let postId = data.postId ?? null;
     const targetConnIds = deriveTargetConnectionIds(data.destinations);
+    // Mídia da peça persistida na própria peça (fonte de verdade para reabrir
+    // o rascunho): reference_media = [{ path, bucket, assetId }].
+    const referenceMedia = data.mediaPaths.map((path, i) => ({
+      path,
+      bucket: "brand-media",
+      ...(data.mediaAssetIds[i] ? { assetId: data.mediaAssetIds[i] } : {}),
+    }));
     if (!postId) {
       const { data: inserted, error } = await supabase
         .from("posts")
@@ -541,6 +548,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           copy: data.copy,
           channels,
           target_connection_ids: targetConnIds,
+          reference_media: referenceMedia as never,
           stage,
           scheduled_at: scheduledIso,
           created_by: context.userId,
@@ -559,6 +567,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           copy: data.copy,
           channels,
           target_connection_ids: targetConnIds,
+          reference_media: referenceMedia as never,
           stage,
           scheduled_at: scheduledIso,
         })
@@ -566,6 +575,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         .eq("brand_id", data.brandId);
       if (error) throw new Error(error.message);
     }
+
 
     // ---- Estágio operacional (stage_id) acompanha a ação ----
     // O wizard historicamente escrevia só o campo legado `posts.stage`, o que
