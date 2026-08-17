@@ -4567,6 +4567,7 @@ export type Database = {
       posts: {
         Row: {
           ai_phase: string
+          ai_phase_at: string | null
           approved_at: string | null
           approved_by: string | null
           assignee_id: string | null
@@ -4609,6 +4610,7 @@ export type Database = {
         }
         Insert: {
           ai_phase?: string
+          ai_phase_at?: string | null
           approved_at?: string | null
           approved_by?: string | null
           assignee_id?: string | null
@@ -4651,6 +4653,7 @@ export type Database = {
         }
         Update: {
           ai_phase?: string
+          ai_phase_at?: string | null
           approved_at?: string | null
           approved_by?: string | null
           assignee_id?: string | null

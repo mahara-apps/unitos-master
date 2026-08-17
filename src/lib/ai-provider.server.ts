@@ -170,19 +170,50 @@ export async function getBrandFallbackProviderKey(
 
 type ModelV2 = Extract<LanguageModel, { doGenerate: unknown }>;
 
-type UsageLike = {
-  inputTokens?: number | null;
-  outputTokens?: number | null;
-  promptTokens?: number | null;
-  completionTokens?: number | null;
-} | null | undefined;
+/**
+ * Formatos de uso vistos na prática: AI SDK v5 (`inputTokens`), AI SDK v4
+ * (`promptTokens`) e o payload cru OpenAI/Groq (`prompt_tokens`,
+ * `input_tokens`), que chega em `providerMetadata`/`rawResponse` de Groq.
+ */
+type UsageLike =
+  | ({
+      inputTokens?: number | null;
+      outputTokens?: number | null;
+      promptTokens?: number | null;
+      completionTokens?: number | null;
+      prompt_tokens?: number | null;
+      completion_tokens?: number | null;
+      input_tokens?: number | null;
+      output_tokens?: number | null;
+      totalTokens?: number | null;
+      total_tokens?: number | null;
+    } & Record<string, unknown>)
+  | null
+  | undefined;
 
 function readUsage(usage: UsageLike): { inTok: number; outTok: number } {
-  return {
-    inTok: Number(usage?.inputTokens ?? usage?.promptTokens ?? 0) || 0,
-    outTok: Number(usage?.outputTokens ?? usage?.completionTokens ?? 0) || 0,
+  const num = (...vals: unknown[]) => {
+    for (const v of vals) {
+      const n = Number(v);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+    return 0;
   };
+  const inTok = num(usage?.inputTokens, usage?.promptTokens, usage?.prompt_tokens, usage?.input_tokens);
+  const outTok = num(
+    usage?.outputTokens,
+    usage?.completionTokens,
+    usage?.completion_tokens,
+    usage?.output_tokens,
+  );
+  // Groq às vezes reporta só o total: preserva o volume no campo de entrada.
+  if (inTok === 0 && outTok === 0) {
+    const total = num(usage?.totalTokens, usage?.total_tokens);
+    if (total > 0) return { inTok: total, outTok: 0 };
+  }
+  return { inTok, outTok };
 }
+
 
 /**
  * Envolve o modelo com duas responsabilidades:
@@ -277,9 +308,19 @@ function withModelInstrumentation(
             modelId,
           ) as T;
         }
+        const raw = out as {
+          usage?: UsageLike;
+          providerMetadata?: Record<string, { usage?: UsageLike } | undefined>;
+          response?: { body?: { usage?: UsageLike } | null } | null;
+        };
+        // Groq/OpenAI-compatible às vezes só expõe os tokens no payload cru.
         const { inTok, outTok } = readUsage(
-          (out as { usage?: UsageLike }).usage,
+          raw.usage ??
+            raw.providerMetadata?.[provider]?.usage ??
+            raw.providerMetadata?.["openai"]?.usage ??
+            raw.response?.body?.usage,
         );
+
         log(modelId, inTok, outTok, true);
         ctx.attempts.push({ provider, model: modelId, attempt: call, result: "success" });
         return out;

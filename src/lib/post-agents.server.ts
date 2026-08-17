@@ -1,10 +1,14 @@
 import { contentFormatLabel } from "@/lib/content-formats";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
-import { getBrandAiModelAdmin } from "@/lib/ai-provider.server";
+import { getBrandAiModelAdmin, describeProviderAttempts } from "@/lib/ai-provider.server";
 import { loadAgentPrompts, fillTemplate } from "@/lib/agent-prompts.server";
 import { buildBrandContextBlueprint } from "@/lib/ai-agents.functions";
 import { loadBriefingContext } from "@/lib/monthly-plan-context.server";
+import { loadStrategyContext } from "@/lib/monthly-plan-strategy.server";
+
+/** Tempo após o qual uma geração marcada como em andamento é considerada presa. */
+const STALE_LOCK_MS = 10 * 60 * 1000;
 
 /**
  * ORQUESTRADOR DA PEÇA — cérebro único do fluxo operacional.
@@ -77,53 +81,100 @@ export type { FailureKind };
 
 
 
+type RunTrace = {
+  provider: string | null;
+  model: string | null;
+  fallbackProvider: string | null;
+  /** Resumo `provedor/modelo#tentativa:resultado → …` da chamada real. */
+  providerTrace: string | null;
+};
+
+/**
+ * Extrai o primeiro objeto JSON de uma resposta em texto, tolerando cercas de
+ * código e comentários antes/depois. Devolve `null` se não houver JSON válido.
+ */
+function extractJsonObject(text: string): unknown {
+  const cleaned = (text ?? "")
+    .replace(/```(?:json)?/gi, "")
+    .replace(/```/g, "")
+    .trim();
+  if (!cleaned) return null;
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start === -1 || end <= start) return null;
+  const candidate = cleaned.slice(start, end + 1);
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Chamada estruturada agnóstica de provedor: pede JSON no prompt e valida o
+ * texto com o schema. Não usa structured output nativo — o provedor
+ * OpenAI-compatible (Groq) devolve saída vazia nesse modo, o que travava a
+ * cadeia de copy inteira.
+ */
 async function runStructured<T extends z.ZodTypeAny>(opts: {
   brandId: string;
   system: string;
   prompt: string;
   schema: T;
-  onAttempt?: (attempt: number, kind: FailureKind, message: string) => Promise<void> | void;
-}): Promise<{ output: z.infer<T>; attempts: number }> {
+  onAttempt?: (attempt: number, kind: FailureKind, message: string, trace: RunTrace) => Promise<void> | void;
+}): Promise<{ output: z.infer<T>; attempts: number; trace: RunTrace }> {
   const maxAttempts = BACKOFF_MS.length + 1;
   let lastErr: unknown = null;
+  let trace: RunTrace = { provider: null, model: null, fallbackProvider: null, providerTrace: null };
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let handle: Awaited<ReturnType<typeof getBrandAiModelAdmin>> | null = null;
     try {
-      const { model } = await getBrandAiModelAdmin(opts.brandId, "text", "operational", { agent: "post.agent" });
+      handle = await getBrandAiModelAdmin(opts.brandId, "text", "operational", { agent: "post.agent" });
+      trace = {
+        provider: handle.provider,
+        model: handle.modelId,
+        fallbackProvider: handle.fallbackProvider,
+        providerTrace: null,
+      };
       const res = await generateText({
-        model,
+        model: handle.model,
         system: opts.system,
         prompt: opts.prompt,
         // Retry é controlado aqui (backoff próprio) para respeitar a quota do provedor.
         maxRetries: 0,
-        output: Output.object({ schema: opts.schema }),
       });
-      return { output: res.output as z.infer<T>, attempts: attempt };
+      trace.providerTrace = describeProviderAttempts(handle.providerAttempts) || null;
+
+      const raw = extractJsonObject(res.text ?? "");
+      if (raw === null) throw new Error("ai_invalid_output");
+      const parsed = opts.schema.safeParse(raw);
+      if (!parsed.success) throw new Error("ai_invalid_output");
+      return { output: parsed.data as z.infer<T>, attempts: attempt, trace };
     } catch (err) {
-      // Saída malformada: tenta recuperar o JSON bruto antes de contar falha.
+      if (handle) trace.providerTrace = describeProviderAttempts(handle.providerAttempts) || null;
+      // Saída malformada emitida como erro do SDK: tenta recuperar o JSON bruto.
       if (NoObjectGeneratedError.isInstance(err)) {
-        const raw = (err.text ?? "")
-          .replace(/^```(?:json)?\s*/i, "")
-          .replace(/```\s*$/i, "")
-          .trim();
-        try {
-          return { output: JSON.parse(raw) as z.infer<T>, attempts: attempt };
-        } catch {
-          lastErr = new Error("ai_invalid_output");
+        const recovered = extractJsonObject(err.text ?? "");
+        const parsed = recovered === null ? null : opts.schema.safeParse(recovered);
+        if (parsed?.success) {
+          return { output: parsed.data as z.infer<T>, attempts: attempt, trace };
         }
+        lastErr = new Error("ai_invalid_output");
       } else {
         lastErr = err;
       }
 
       const { retryable, kind } = classifyAiError(lastErr);
       const message = lastErr instanceof Error ? lastErr.message : String(lastErr);
-      await opts.onAttempt?.(attempt, kind, message);
+      await opts.onAttempt?.(attempt, kind, message, trace);
       if (!retryable || attempt === maxAttempts) break;
       await sleep(BACKOFF_MS[attempt - 1]!);
     }
   }
   throw lastErr ?? new Error("ai_unknown_error");
 }
+
 
 async function logAttempt(
   admin: import("@supabase/supabase-js").SupabaseClient,
@@ -138,11 +189,19 @@ async function logAttempt(
     kind?: FailureKind;
     retryable?: boolean;
     message?: string;
+    /** Identificador da execução da peça (todas as etapas compartilham). */
+    jobId?: string;
+    trace?: RunTrace | null;
+    /** Contexto/etapas concluídas até aqui. */
+    completedSteps?: string[];
+    contextParts?: string[];
+    degraded?: string[];
   },
 ) {
   if (!info.ok) {
     console.error(
       `[post-agents] falha agente=${info.agent} etapa=${info.step} tentativa=${info.attempt} ` +
+        `provider=${info.trace?.provider ?? "?"}/${info.trace?.model ?? "?"} ` +
         `motivo=${info.kind} retryable=${info.retryable} post=${post.id}: ${info.message}`,
     );
   }
@@ -155,12 +214,20 @@ async function logAttempt(
       verb: info.ok ? "ai_agent_succeeded" : "ai_generation_failed",
       payload: {
         post_id: post.id,
+        job_id: info.jobId ?? null,
         agent: info.agent,
         step: info.step,
         channel: info.channel,
         format: info.format,
         attempt: info.attempt,
         ok: info.ok,
+        provider: info.trace?.provider ?? null,
+        model: info.trace?.model ?? null,
+        fallback_provider: info.trace?.fallbackProvider ?? null,
+        provider_trace: info.trace?.providerTrace ?? null,
+        completed_steps: info.completedSteps ?? null,
+        context_parts: info.contextParts ?? null,
+        degraded: info.degraded?.length ? info.degraded : null,
         failure_kind: info.kind ?? null,
         retryable: info.retryable ?? null,
         error: info.message ? info.message.slice(0, 800) : null,
@@ -171,6 +238,7 @@ async function logAttempt(
     // auditoria não crítica
   }
 }
+
 
 
 export type GeneratePostResult =
@@ -226,7 +294,24 @@ export async function generatePostContent(
     return { status: "skipped", reason: "copy_already_present" };
   }
 
-  await admin.from("posts").update({ ai_phase: "copy_running" } as never).eq("id", post.id);
+  // ---- Trava de execução: claim atômico da peça -------------------------
+  // Só assume a geração quem conseguir marcar `copy_running`. Uma execução
+  // presa (worker morto/timeout) é reclamada após STALE_LOCK_MS.
+  const staleBefore = new Date(Date.now() - STALE_LOCK_MS).toISOString();
+  const { data: claimed } = await admin
+    .from("posts")
+    .update({ ai_phase: AI_PHASE.running, ai_phase_at: new Date().toISOString() } as never)
+    .eq("id", post.id)
+    .or(`ai_phase.neq.${AI_PHASE.running},ai_phase_at.lt.${staleBefore},ai_phase_at.is.null`)
+    .select("id");
+  if (!claimed || (claimed as unknown as { id: string }[]).length === 0) {
+    return { status: "skipped", reason: "already_running" };
+  }
+
+  /** Identificador da execução — une todas as etapas na telemetria. */
+  const jobId = crypto.randomUUID();
+  /** Contexto opcional que falhou — nunca silenciado. */
+  const degraded: string[] = [];
 
   // ---- Contexto: tópico da pauta + pauta + briefing + blueprint da marca ----
   let topic: TopicRow | null = null;
@@ -250,15 +335,29 @@ export async function generatePostContent(
       planTitle = p?.title ?? null;
       planBriefingId = p?.input_briefing_id ?? null;
     }
+  } else {
+    degraded.push("topic:missing (peça sem tópico de pauta vinculado)");
   }
 
-  const [blueprintRes, briefingRes] = await Promise.all([
-    buildBrandContextBlueprint(admin, post.brand_id, post.client_id).catch(() => ({
-      blueprint: "",
-      counts: {},
-    })),
-    loadBriefingContext(admin, post.client_id, { briefingId: planBriefingId }).catch(() => null),
+  const noteDegraded = (part: string) => (err: unknown) => {
+    const msg = err instanceof Error ? err.message : String(err);
+    degraded.push(`${part}:${msg.slice(0, 200)}`);
+    console.warn(`[post-agents] contexto degradado (${part}) post=${post.id}: ${msg}`);
+    return null;
+  };
+
+  const [blueprintRes, briefingRes, strategyRes] = await Promise.all([
+    buildBrandContextBlueprint(admin, post.brand_id, post.client_id).catch(noteDegraded("blueprint")),
+    loadBriefingContext(admin, post.client_id, { briefingId: planBriefingId }).catch(
+      noteDegraded("briefing"),
+    ),
+    // Estratégia IA já validada (voz, personas, cohorts, SWOT) — mesma fonte da Pauta.
+    loadStrategyContext(admin, post.brand_id, post.client_id).catch(noteDegraded("strategy")),
   ]);
+  if (strategyRes && strategyRes.blocks.length === 0) {
+    degraded.push("strategy:sem blocos ativos de Estratégia IA para este cliente");
+  }
+
 
   const channel = (post.channels ?? [])[0] ?? topic?.channel ?? "instagram";
   // Prompt recebe o LABEL derivado da chave canônica (nunca rótulo legado).
@@ -285,12 +384,23 @@ export async function generatePostContent(
     .join("\n");
 
   const contextBlock = [
-    blueprintRes.blueprint,
+    blueprintRes?.blueprint ?? "",
     briefingRes?.text ? `## Briefing da marca\n${briefingRes.text}` : "",
+    strategyRes?.markdown ? `## Estratégia IA da marca\n${strategyRes.markdown}` : "",
     `## Briefing desta peça\n${pieceContext}`,
   ]
     .filter(Boolean)
     .join("\n\n---\n\n");
+
+  /** Partes de contexto realmente entregues aos agentes (telemetria). */
+  const contextParts = [
+    blueprintRes?.blueprint ? "brand_blueprint" : "",
+    briefingRes?.text ? "briefing" : "",
+    strategyRes?.markdown ? `strategy(${strategyRes.blocks.join("+")})` : "",
+    topic ? "plan_topic" : "",
+    pieceBriefing ? "piece_briefing" : "",
+  ].filter(Boolean);
+
 
   const needsScript = isVideoFormat(format, post.channels);
   const needsVisual = !needsScript && !(post.design_brief ?? "").trim();
@@ -333,14 +443,20 @@ export async function generatePostContent(
     FORMATO: String(format),
     PLATAFORMA: String(channel),
     OBJETIVO: topic?.angle ?? "",
-    PERSONAS: briefingRes?.clientName ?? "",
+    // Personas reais da Estratégia IA; público do tópico como segunda fonte.
+    PERSONAS:
+      strategyRes?.personaNames?.length
+        ? strategyRes.personaNames.join(", ")
+        : (topic?.target_audience ?? ""),
+    COHORTS: strategyRes?.cohortNames?.length ? strategyRes.cohortNames.join(", ") : "",
+    MARCA: briefingRes?.clientName ?? "",
   });
 
   const used: string[] = [];
   const patch: Record<string, unknown> = {};
   const onAttempt =
     (agent: string, step: string) =>
-    async (attempt: number, kind: FailureKind, message: string) => {
+    async (attempt: number, kind: FailureKind, message: string, trace: RunTrace) => {
       await logAttempt(admin, post, {
         agent,
         step,
@@ -351,14 +467,20 @@ export async function generatePostContent(
         kind,
         retryable: classifyAiError(new Error(message)).retryable,
         message,
+        jobId,
+        trace,
+        completedSteps: [...used],
+        contextParts,
+        degraded,
       });
     };
+
 
   // 1) Roteirista (somente vídeo) — o roteiro alimenta a legenda depois.
   let scriptText = "";
   if (needsScript && prompts.get("roteirista_social")) {
     try {
-      const { output, attempts } = await runStructured({
+      const { output, attempts, trace } = await runStructured({
         brandId: post.brand_id,
         system: fillTemplate(prompts.get("roteirista_social")!, vars()),
         prompt:
@@ -378,6 +500,11 @@ export async function generatePostContent(
           format: String(format),
           attempt: attempts,
           ok: true,
+          jobId,
+          trace,
+          completedSteps: [...used],
+          contextParts,
+          degraded,
         });
       }
     } catch (err) {
@@ -385,7 +512,10 @@ export async function generatePostContent(
       const { kind, retryable } = classifyAiError(err);
       await admin
         .from("posts")
-        .update({ ai_phase: retryable ? AI_PHASE.retryable : AI_PHASE.permanent } as never)
+        .update({
+          ai_phase: retryable ? AI_PHASE.retryable : AI_PHASE.permanent,
+          ai_phase_at: new Date().toISOString(),
+        } as never)
         .eq("id", post.id);
       return { status: "failed", agent: "roteirista_social", error: msg, kind, retryable };
     }
@@ -395,7 +525,7 @@ export async function generatePostContent(
   if (needsVisual && prompts.get("art_director_social")) {
     try {
       await sleep(SPACING_MS);
-      const { output, attempts } = await runStructured({
+      const { output, attempts, trace } = await runStructured({
         brandId: post.brand_id,
         system: fillTemplate(prompts.get("art_director_social")!, vars()),
         prompt:
@@ -415,12 +545,20 @@ export async function generatePostContent(
           format: String(format),
           attempt: attempts,
           ok: true,
+          jobId,
+          trace,
+          completedSteps: [...used],
+          contextParts,
+          degraded,
         });
       }
-    } catch {
-      // Direção visual é complementar: já registrada em activity_events, segue para a copy.
+    } catch (err) {
+      // Direção visual é complementar: registra a degradação e segue para a copy.
+      const msg = err instanceof Error ? err.message : String(err);
+      degraded.push(`art_director_social:${msg.slice(0, 200)}`);
     }
   }
+
 
   // 3) Copywriter — LEGENDA final, campo único e pronto para publicação.
   const copyPrompt = prompts.get("copywriter_senior");
@@ -435,8 +573,15 @@ export async function generatePostContent(
       kind: "config",
       retryable: false,
       message: "prompt_missing",
+      jobId,
+      completedSteps: [...used],
+      contextParts,
+      degraded,
     });
-    await admin.from("posts").update({ ai_phase: AI_PHASE.permanent } as never).eq("id", post.id);
+    await admin
+      .from("posts")
+      .update({ ai_phase: AI_PHASE.permanent, ai_phase_at: new Date().toISOString() } as never)
+      .eq("id", post.id);
     return {
       status: "failed",
       agent: "copywriter_senior",
@@ -446,9 +591,11 @@ export async function generatePostContent(
     };
   }
 
+  /** Provedor/modelo que efetivamente escreveu a legenda. */
+  let copyTrace: RunTrace | null = null;
   try {
     if (used.length > 0) await sleep(SPACING_MS);
-    const { output, attempts } = await runStructured({
+    const { output, attempts, trace } = await runStructured({
       brandId: post.brand_id,
       system: fillTemplate(copyPrompt, vars()),
       prompt:
@@ -468,6 +615,7 @@ export async function generatePostContent(
     if (!caption) throw new Error("empty_caption");
     patch.copy = caption;
     used.push("copywriter_senior");
+    copyTrace = trace;
     await logAttempt(admin, post, {
       agent: "copywriter_senior",
       step: "caption",
@@ -475,6 +623,11 @@ export async function generatePostContent(
       format: String(format),
       attempt: attempts,
       ok: true,
+      jobId,
+      trace,
+      completedSteps: [...used],
+      contextParts,
+      degraded,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -486,12 +639,16 @@ export async function generatePostContent(
     }
     await admin
       .from("posts")
-      .update({ ai_phase: retryable ? AI_PHASE.retryable : AI_PHASE.permanent } as never)
+      .update({
+        ai_phase: retryable ? AI_PHASE.retryable : AI_PHASE.permanent,
+        ai_phase_at: new Date().toISOString(),
+      } as never)
       .eq("id", post.id);
     return { status: "failed", agent: "copywriter_senior", error: msg, kind, retryable };
   }
 
   patch.ai_phase = AI_PHASE.ready;
+  patch.ai_phase_at = new Date().toISOString();
   const { error: updErr } = await admin.from("posts").update(patch as never).eq("id", post.id);
   if (updErr) {
     await logAttempt(admin, post, {
@@ -504,6 +661,10 @@ export async function generatePostContent(
       kind: "unknown",
       retryable: true,
       message: updErr.message,
+      jobId,
+      completedSteps: [...used],
+      contextParts,
+      degraded,
     });
     return {
       status: "failed",
@@ -522,11 +683,25 @@ export async function generatePostContent(
       entity_type: "post",
       entity_id: post.id,
       verb: "ai_generated",
-      payload: { post_id: post.id, agents: used, channel, format, ok: true, at: new Date().toISOString() },
+      payload: {
+        post_id: post.id,
+        job_id: jobId,
+        agents: used,
+        channel,
+        format,
+        provider: copyTrace?.provider ?? null,
+        model: copyTrace?.model ?? null,
+        provider_trace: copyTrace?.providerTrace ?? null,
+        context_parts: contextParts,
+        degraded: degraded.length ? degraded : null,
+        ok: true,
+        at: new Date().toISOString(),
+      },
     } as never);
   } catch {
     // auditoria não crítica
   }
+
 
   return { status: "generated", agents: used };
 }
@@ -582,6 +757,22 @@ export async function resumePendingPostContent(args: {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const admin = supabaseAdmin as unknown as import("@supabase/supabase-js").SupabaseClient;
 
+  // Travas órfãs: peças marcadas como em andamento há mais de STALE_LOCK_MS
+  // (worker morto/timeout) voltam a ser retomáveis antes da varredura.
+  const staleBefore = new Date(Date.now() - STALE_LOCK_MS).toISOString();
+  let stale = admin
+    .from("posts")
+    .update({ ai_phase: AI_PHASE.retryable } as never)
+    .eq("ai_phase", AI_PHASE.running)
+    .is("deleted_at", null)
+    .or("copy.is.null,copy.eq.")
+    .or(`ai_phase_at.lt.${staleBefore},ai_phase_at.is.null`);
+  if (args.brandId) stale = stale.eq("brand_id", args.brandId);
+  if (args.clientId) stale = stale.eq("client_id", args.clientId);
+  if (args.projectId) stale = stale.eq("project_id", args.projectId);
+  const { error: staleErr } = await stale;
+  if (staleErr) console.warn("[post-agents] falha ao liberar travas órfãs", staleErr.message);
+
   let q = admin
     .from("posts")
     .select("id, monthly_plan_topic_id")
@@ -597,6 +788,7 @@ export async function resumePendingPostContent(args: {
   const { data, error } = await q;
   if (error) throw error;
   const ids = ((data ?? []) as { id: string }[]).map((p) => p.id);
+
   const res = await generatePostsContentSequential(ids, { userId: args.userId ?? null });
   return { candidates: ids.length, ...res };
 }
