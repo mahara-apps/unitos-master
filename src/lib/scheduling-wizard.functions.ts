@@ -502,6 +502,21 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             `Conexão ${d.channel} não está ativa — reconecte antes de agendar.`,
           );
         }
+        // PRÉ-FLIGHT de autorização granular da Meta: só agenda se a Meta
+        // autorizou a publicação PARA ESTA conta (target_id). Fail closed.
+        const { resolvePublishTarget } = await import(
+          "@/lib/meta/publish-capability.server"
+        );
+        const { capability } = await resolvePublishTarget(supabase, {
+          brandId: data.brandId,
+          clientId: data.clientId,
+          connectionId: d.connectionId,
+          channel: d.channel,
+          format: d.format,
+        });
+        if (!capability.publishReady) {
+          throw new Error(capability.message);
+        }
         validatedScheduleTargets.push({
           destination: d,
           connection: {
@@ -509,6 +524,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             provider: conn.provider as string,
           },
         });
+
       }
       if (validatedScheduleTargets.length === 0) {
         throw new Error(
