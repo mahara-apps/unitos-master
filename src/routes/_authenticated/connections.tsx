@@ -53,7 +53,7 @@ import { MetaPortfolioDialog } from "@/components/connections/meta-portfolio-dia
 import { listMetaConnections } from "@/lib/meta/meta.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { useActiveContext } from "@/hooks/use-active-context";
-import { ConnectedChannelsSection } from "@/components/connections/connected-channels-section";
+import { ChannelsCenter } from "@/components/connections/channels-center";
 import { useAccessRole } from "@/hooks/use-access-role";
 import {
   getConnections,
@@ -441,17 +441,7 @@ function ConnectionsPage() {
 
         {/* Tab: Canais */}
         <TabsContent value="channels" className="space-y-3">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <ChannelsKpiCards data={chKpis} />
-        </div>
-
-        <SectionHeader
-          icon={<Radio className="h-3.5 w-3.5" />}
-          title="canais conectados"
-          hint="Conexão pertence ao workspace · vínculo com clientes no perfil do cliente"
-        />
-        <ConnectedChannelsSection brandId={brandId} canManage={role === "admin"} />
-
+          <ChannelsCenter brandId={brandId} canManage={role === "admin"} />
         </TabsContent>
 
         {/* Tab: Mensageria */}
