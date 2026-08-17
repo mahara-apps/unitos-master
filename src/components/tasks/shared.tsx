@@ -370,15 +370,89 @@ export function ProjectPicker({
   onChange: (id: string | null) => void;
   compact?: boolean;
 }) {
+  const qc = useQueryClient();
   const list = useServerFn(listProjectsFn);
+  const createProj = useServerFn(createProject);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+
   const { data } = useQuery({
-    queryKey: ["projects", brandId],
+    queryKey: ["task-projects", brandId],
     queryFn: () => list({ data: { brandId } }),
     staleTime: 60_000,
   });
-  const items = (data ?? []).filter((p) => !clientId || p.client_id === clientId || p.client_id === null);
+
+  // Hierarquia: um projeto só aparece se for do mesmo cliente (ou interno, sem cliente).
+  const items = (data ?? []).filter(
+    (p) => !clientId || p.client_id === clientId || p.client_id === null,
+  );
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      createProj({
+        data: {
+          brandId,
+          values: { name: newName.trim(), client_id: clientId ?? null, status: "active" },
+        } as never,
+      }),
+    onSuccess: async (res: { id: string }) => {
+      setCreating(false);
+      setNewName("");
+      await qc.invalidateQueries({ queryKey: ["task-projects", brandId] });
+      onChange(res.id);
+      toast.success("Projeto criado");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (!clientId) {
+    return (
+      <p className={cn("text-muted-foreground", compact ? "text-xs" : "text-sm")}>
+        Selecione uma conta primeiro
+      </p>
+    );
+  }
+
+  if (creating) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <Input
+          autoFocus
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && newName.trim()) createMutation.mutate();
+            if (e.key === "Escape") setCreating(false);
+          }}
+          placeholder="Nome do projeto"
+          className={compact ? "h-7 text-xs" : "h-8"}
+        />
+        <Button
+          size="sm"
+          className="h-7"
+          disabled={!newName.trim() || createMutation.isPending}
+          onClick={() => createMutation.mutate()}
+        >
+          {createMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Criar"}
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7" onClick={() => setCreating(false)}>
+          Cancelar
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <Select value={value ?? "__none__"} onValueChange={(v) => onChange(v === "__none__" ? null : v)}>
+    <Select
+      value={value ?? "__none__"}
+      onValueChange={(v) => {
+        if (v === "__new__") {
+          setCreating(true);
+          return;
+        }
+        onChange(v === "__none__" ? null : v);
+      }}
+    >
       <SelectTrigger className={compact ? "h-7 text-xs" : undefined}>
         <SelectValue placeholder="Nenhum projeto" />
       </SelectTrigger>
@@ -389,10 +463,12 @@ export function ProjectPicker({
             {p.name}
           </SelectItem>
         ))}
+        <SelectItem value="__new__">+ Novo projeto</SelectItem>
       </SelectContent>
     </Select>
   );
 }
+
 
 // ---------- Create Dialog ----------
 
