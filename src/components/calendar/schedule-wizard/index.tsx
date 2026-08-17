@@ -72,9 +72,11 @@ import {
 import { SOCIAL_CHANNELS, type SocialChannel } from "@/lib/social-core/capabilities";
 import {
   listClientSocialConnectionsFn,
+  loadPostStateFn,
   saveScheduledPostFn,
   type WizardConnection,
 } from "@/lib/scheduling-wizard.functions";
+
 import {
   listBrandMediaFn,
   registerBrandMediaFn,
