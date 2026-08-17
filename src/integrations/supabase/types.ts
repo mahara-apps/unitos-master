@@ -5578,6 +5578,7 @@ export type Database = {
       }
       tasks: {
         Row: {
+          archived_at: string | null
           assignee_id: string | null
           brand_id: string
           client_id: string | null
@@ -5600,6 +5601,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
           assignee_id?: string | null
           brand_id: string
           client_id?: string | null
@@ -5622,6 +5624,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
           assignee_id?: string | null
           brand_id?: string
           client_id?: string | null
