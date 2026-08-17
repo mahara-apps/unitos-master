@@ -434,11 +434,13 @@ function LinkChannelDialog({
       toast.error(e instanceof Error ? e.message : "Falha ao vincular canal"),
   });
 
-  // Somente contas do workspace ainda NÃO vinculadas a este cliente.
-  const candidates = data.filter(
-    (c) =>
-      normalizeStatus(c.status) !== "disconnected" &&
-      !c.clients.some((cl) => cl.id === clientId),
+  // Exclusividade: uma conta social pertence a no máximo um cliente.
+  const connected = data.filter(
+    (c) => normalizeStatus(c.status) !== "disconnected",
+  );
+  const candidates = connected.filter((c) => c.clients.length === 0);
+  const takenByOthers = connected.filter(
+    (c) => c.clients.length > 0 && !c.clients.some((cl) => cl.id === clientId),
   );
 
   return (
@@ -447,8 +449,8 @@ function LinkChannelDialog({
         <DialogHeader>
           <DialogTitle className="text-base">Vincular canal</DialogTitle>
           <DialogDescription className="text-xs">
-            Contas conectadas ao workspace. Para conectar uma nova conta, use a
-            tela de Integrações.
+            Contas conectadas ao workspace e ainda sem cliente. Para conectar uma
+            nova conta, use a tela de Integrações.
           </DialogDescription>
         </DialogHeader>
 
@@ -471,29 +473,47 @@ function LinkChannelDialog({
               Tentar novamente
             </Button>
           </div>
-        ) : candidates.length === 0 ? (
-          <div className="space-y-2 rounded-lg border border-dashed p-4">
-            <p className="text-sm font-medium">Nenhuma conta disponível</p>
-            <p className="text-xs text-muted-foreground">
-              Todas as contas conectadas já estão vinculadas a este cliente — ou
-              ainda não há contas conectadas ao workspace.
-            </p>
-            <Button asChild size="sm" variant="outline" className="h-8 text-xs">
-              <Link to="/connections">Abrir Integrações</Link>
-            </Button>
-          </div>
         ) : (
-          <div className="space-y-1.5">
-            {candidates.map((c) => (
-              <CandidateRow
-                key={c.connectionId}
-                row={c}
-                pending={linkMut.isPending && linkMut.variables === c.connectionId}
-                onSelect={() => linkMut.mutate(c.connectionId)}
-              />
-            ))}
+          <div className="space-y-3">
+            {candidates.length === 0 ? (
+              <div className="space-y-2 rounded-lg border border-dashed p-4">
+                <p className="text-sm font-medium">Nenhuma conta disponível</p>
+                <p className="text-xs text-muted-foreground">
+                  Todas as contas conectadas já estão atribuídas a algum cliente —
+                  ou ainda não há contas conectadas ao workspace. Cada conta pode
+                  pertencer a apenas um cliente: desvincule-a do cliente atual
+                  antes de atribuí-la aqui.
+                </p>
+                <Button asChild size="sm" variant="outline" className="h-8 text-xs">
+                  <Link to="/connections">Abrir Integrações</Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                {candidates.map((c) => (
+                  <CandidateRow
+                    key={c.connectionId}
+                    row={c}
+                    pending={linkMut.isPending && linkMut.variables === c.connectionId}
+                    onSelect={() => linkMut.mutate(c.connectionId)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {takenByOthers.length > 0 ? (
+              <div className="space-y-1.5">
+                <p className="px-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Já vinculadas a outro cliente
+                </p>
+                {takenByOthers.map((c) => (
+                  <CandidateRow key={c.connectionId} row={c} pending={false} />
+                ))}
+              </div>
+            ) : null}
           </div>
         )}
+
       </DialogContent>
     </Dialog>
   );
