@@ -416,13 +416,21 @@ export class MetaProvider {
       );
     }
 
-    // 2 + 3) Business Portfolios. Failures here are non-fatal: we still want
-    //        to show whatever /me/accounts returned, with a visible warning.
+    // 2 + 3) Business Portfolios (incluindo portfólios filhos, para não perder
+    //        contas atribuídas a um portfólio vinculado ao principal).
+    //        Failures here are non-fatal: we still want to show whatever
+    //        /me/accounts returned, with a visible warning.
     const businesses: BusinessRow[] = [];
+    const seenBusinesses = new Set<string>();
+    const pushBusiness = (rows: BusinessRow[]) => {
+      for (const b of rows) {
+        if (seenBusinesses.has(b.id)) continue;
+        seenBusinesses.add(b.id);
+        businesses.push(b);
+      }
+    };
     try {
-      await loop<BusinessRow>("/me/businesses", { fields: "id,name", limit: "100" }, (rows) => {
-        businesses.push(...rows);
-      });
+      await loop<BusinessRow>("/me/businesses", { fields: "id,name", limit: "100" }, pushBusiness);
     } catch (err) {
       warnings.push(
         `Não foi possível listar seus portfólios empresariais${
@@ -430,6 +438,25 @@ export class MetaProvider {
         }. Reautorize concedendo a permissão "business_management" para ver todas as contas.`,
       );
     }
+
+    // Portfólios filhos: percorre em largura, limitado para não estourar o
+    // rate limit da Graph API em portfólios muito grandes.
+    for (let i = 0; i < businesses.length && i < 50; i += 1) {
+      const parent = businesses[i]!;
+      for (const edge of ["owned_businesses", "client_businesses"] as const) {
+        try {
+          await loop<BusinessRow>(
+            `/${parent.id}/${edge}`,
+            { fields: "id,name", limit: "100" },
+            pushBusiness,
+          );
+        } catch (err) {
+          if (isFatalScanError(err)) throw err;
+          // Portfólios sem acesso a esta aresta são comuns; só registramos.
+        }
+      }
+    }
+
 
     for (const biz of businesses) {
       const label = biz.name ?? biz.id;
