@@ -333,6 +333,7 @@ export function TaskToolbar({
                   <SelectContent>
                     <SelectItem value="active">Ativas</SelectItem>
                     <SelectItem value="archived">Arquivadas</SelectItem>
+                    <SelectItem value="all">Todas</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
