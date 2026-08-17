@@ -414,7 +414,7 @@ function ConnectButton({
     try {
       const metaChannel = metaChannelFromId(channel.id);
       const { authorizeUrl } = await startFn({
-        data: { brandId, ...(metaChannel ? { channel: metaChannel } : {}) },
+        data: { brandId, ...(metaChannel ? { channel: metaChannel } : {}), forceReauth: true },
       });
       if (popup) popup.location.href = authorizeUrl;
       else window.location.href = authorizeUrl;
