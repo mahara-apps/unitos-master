@@ -192,6 +192,9 @@ export function ScheduleWizard({
       setSubmitting(null);
       setPreviewKey("instagram::feed");
       setPostId(seed?.postId ?? null);
+      setScheduledAtIso(null);
+      setCancelOpen(false);
+      setCancelling(false);
       setDestPickerOpen(false);
       setLibraryOpen(false);
       setShowExtras(false);
