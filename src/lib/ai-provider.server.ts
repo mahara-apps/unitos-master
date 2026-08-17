@@ -171,48 +171,75 @@ export async function getBrandFallbackProviderKey(
 type ModelV2 = Extract<LanguageModel, { doGenerate: unknown }>;
 
 /**
- * Formatos de uso vistos na prática: AI SDK v5 (`inputTokens`), AI SDK v4
- * (`promptTokens`) e o payload cru OpenAI/Groq (`prompt_tokens`,
- * `input_tokens`), que chega em `providerMetadata`/`rawResponse` de Groq.
+ * Formatos de uso vistos na prática:
+ * - AI SDK v5: `inputTokens` / `outputTokens` — número OU objeto `{ total }`
+ *   (é o caso do provedor OpenAI-compatible usado pelo Groq);
+ * - AI SDK v4: `promptTokens` / `completionTokens`;
+ * - payload cru OpenAI/Groq (em `usage.raw` ou `providerMetadata`):
+ *   `prompt_tokens` / `completion_tokens` / `input_tokens` / `output_tokens`.
  */
+type TokenCount = number | { total?: number | null } | null | undefined;
+
 type UsageLike =
   | ({
-      inputTokens?: number | null;
-      outputTokens?: number | null;
-      promptTokens?: number | null;
-      completionTokens?: number | null;
-      prompt_tokens?: number | null;
-      completion_tokens?: number | null;
-      input_tokens?: number | null;
-      output_tokens?: number | null;
-      totalTokens?: number | null;
-      total_tokens?: number | null;
+      inputTokens?: TokenCount;
+      outputTokens?: TokenCount;
+      promptTokens?: TokenCount;
+      completionTokens?: TokenCount;
+      prompt_tokens?: TokenCount;
+      completion_tokens?: TokenCount;
+      input_tokens?: TokenCount;
+      output_tokens?: TokenCount;
+      totalTokens?: TokenCount;
+      total_tokens?: TokenCount;
+      raw?: Record<string, unknown> | null;
     } & Record<string, unknown>)
   | null
   | undefined;
 
+/** Lê um contador que pode vir como número ou como `{ total }`. */
+function tokenValue(v: unknown): number {
+  if (v && typeof v === "object" && "total" in (v as object)) {
+    const n = Number((v as { total?: unknown }).total);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
 function readUsage(usage: UsageLike): { inTok: number; outTok: number } {
-  const num = (...vals: unknown[]) => {
+  const pick = (...vals: unknown[]) => {
     for (const v of vals) {
-      const n = Number(v);
-      if (Number.isFinite(n) && n > 0) return n;
+      const n = tokenValue(v);
+      if (n > 0) return n;
     }
     return 0;
   };
-  const inTok = num(usage?.inputTokens, usage?.promptTokens, usage?.prompt_tokens, usage?.input_tokens);
-  const outTok = num(
+  const raw = (usage?.raw ?? {}) as Record<string, unknown>;
+  const inTok = pick(
+    usage?.inputTokens,
+    usage?.promptTokens,
+    usage?.prompt_tokens,
+    usage?.input_tokens,
+    raw["prompt_tokens"],
+    raw["input_tokens"],
+  );
+  const outTok = pick(
     usage?.outputTokens,
     usage?.completionTokens,
     usage?.completion_tokens,
     usage?.output_tokens,
+    raw["completion_tokens"],
+    raw["output_tokens"],
   );
-  // Groq às vezes reporta só o total: preserva o volume no campo de entrada.
+  // Alguns provedores reportam só o total: preserva o volume na entrada.
   if (inTok === 0 && outTok === 0) {
-    const total = num(usage?.totalTokens, usage?.total_tokens);
+    const total = pick(usage?.totalTokens, usage?.total_tokens, raw["total_tokens"]);
     if (total > 0) return { inTok: total, outTok: 0 };
   }
   return { inTok, outTok };
 }
+
 
 
 /**
