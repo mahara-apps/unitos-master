@@ -49,6 +49,8 @@ import {
 } from "@/components/ui/table";
 import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import { MetaPortfolioDialog } from "@/components/connections/meta-portfolio-dialog";
+import { AvailableAccountsTable } from "@/components/connections/available-accounts-table";
+
 import {
   CONNECTABLE_CHANNELS,
   UPCOMING_CHANNELS,
