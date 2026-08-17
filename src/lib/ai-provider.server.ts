@@ -170,19 +170,77 @@ export async function getBrandFallbackProviderKey(
 
 type ModelV2 = Extract<LanguageModel, { doGenerate: unknown }>;
 
-type UsageLike = {
-  inputTokens?: number | null;
-  outputTokens?: number | null;
-  promptTokens?: number | null;
-  completionTokens?: number | null;
-} | null | undefined;
+/**
+ * Formatos de uso vistos na prática:
+ * - AI SDK v5: `inputTokens` / `outputTokens` — número OU objeto `{ total }`
+ *   (é o caso do provedor OpenAI-compatible usado pelo Groq);
+ * - AI SDK v4: `promptTokens` / `completionTokens`;
+ * - payload cru OpenAI/Groq (em `usage.raw` ou `providerMetadata`):
+ *   `prompt_tokens` / `completion_tokens` / `input_tokens` / `output_tokens`.
+ */
+type TokenCount = number | { total?: number | null } | null | undefined;
+
+type UsageLike =
+  | ({
+      inputTokens?: TokenCount;
+      outputTokens?: TokenCount;
+      promptTokens?: TokenCount;
+      completionTokens?: TokenCount;
+      prompt_tokens?: TokenCount;
+      completion_tokens?: TokenCount;
+      input_tokens?: TokenCount;
+      output_tokens?: TokenCount;
+      totalTokens?: TokenCount;
+      total_tokens?: TokenCount;
+      raw?: Record<string, unknown> | null;
+    } & Record<string, unknown>)
+  | null
+  | undefined;
+
+/** Lê um contador que pode vir como número ou como `{ total }`. */
+function tokenValue(v: unknown): number {
+  if (v && typeof v === "object" && "total" in (v as object)) {
+    const n = Number((v as { total?: unknown }).total);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
 
 function readUsage(usage: UsageLike): { inTok: number; outTok: number } {
-  return {
-    inTok: Number(usage?.inputTokens ?? usage?.promptTokens ?? 0) || 0,
-    outTok: Number(usage?.outputTokens ?? usage?.completionTokens ?? 0) || 0,
+  const pick = (...vals: unknown[]) => {
+    for (const v of vals) {
+      const n = tokenValue(v);
+      if (n > 0) return n;
+    }
+    return 0;
   };
+  const raw = (usage?.raw ?? {}) as Record<string, unknown>;
+  const inTok = pick(
+    usage?.inputTokens,
+    usage?.promptTokens,
+    usage?.prompt_tokens,
+    usage?.input_tokens,
+    raw["prompt_tokens"],
+    raw["input_tokens"],
+  );
+  const outTok = pick(
+    usage?.outputTokens,
+    usage?.completionTokens,
+    usage?.completion_tokens,
+    usage?.output_tokens,
+    raw["completion_tokens"],
+    raw["output_tokens"],
+  );
+  // Alguns provedores reportam só o total: preserva o volume na entrada.
+  if (inTok === 0 && outTok === 0) {
+    const total = pick(usage?.totalTokens, usage?.total_tokens, raw["total_tokens"]);
+    if (total > 0) return { inTok: total, outTok: 0 };
+  }
+  return { inTok, outTok };
 }
+
+
 
 /**
  * Envolve o modelo com duas responsabilidades:
@@ -277,10 +335,30 @@ function withModelInstrumentation(
             modelId,
           ) as T;
         }
+        const raw = out as {
+          usage?: UsageLike;
+          providerMetadata?: Record<string, { usage?: UsageLike } | undefined>;
+          response?: { body?: { usage?: UsageLike } | null } | null;
+        };
+        // Groq/OpenAI-compatible às vezes só expõe os tokens no payload cru.
         const { inTok, outTok } = readUsage(
-          (out as { usage?: UsageLike }).usage,
+          raw.usage ??
+            raw.providerMetadata?.[provider]?.usage ??
+            raw.providerMetadata?.["openai"]?.usage ??
+            raw.response?.body?.usage,
         );
+
+        if (inTok === 0 && outTok === 0) {
+          // Diagnóstico: aponta onde o provedor escondeu os tokens.
+          console.warn(
+            `[ai-provider] uso sem tokens ${provider}/${modelId} — chaves: ` +
+              `raiz=${Object.keys((raw ?? {}) as object).join(",")} ` +
+              `usage=${JSON.stringify(raw.usage ?? null)} ` +
+              `providerMetadata=${JSON.stringify(raw.providerMetadata ?? null).slice(0, 400)}`,
+          );
+        }
         log(modelId, inTok, outTok, true);
+
         ctx.attempts.push({ provider, model: modelId, attempt: call, result: "success" });
         return out;
       } catch (err) {

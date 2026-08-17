@@ -79,6 +79,7 @@ import { Route as ApiPublicMetaDataDeletionRouteImport } from './routes/api/publ
 import { Route as ApiPublicMetaCallbackRouteImport } from './routes/api/public/meta/callback'
 import { Route as ApiPublicMediaPruneRouteImport } from './routes/api/public/media/prune'
 import { Route as ApiPublicHooksSocialMetricsSyncRouteImport } from './routes/api/public/hooks/social-metrics-sync'
+import { Route as ApiPublicHooksResumePostContentRouteImport } from './routes/api/public/hooks/resume-post-content'
 import { Route as ApiPublicHooksBrainSynthesisRouteImport } from './routes/api/public/hooks/brain-synthesis'
 import { Route as ApiPublicHooksBrainConsolidateRouteImport } from './routes/api/public/hooks/brain-consolidate'
 import { Route as ApiPublicHooksAiModelsHealthRouteImport } from './routes/api/public/hooks/ai-models-health'
@@ -468,6 +469,12 @@ const ApiPublicHooksSocialMetricsSyncRoute =
     path: '/api/public/hooks/social-metrics-sync',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksResumePostContentRoute =
+  ApiPublicHooksResumePostContentRouteImport.update({
+    id: '/api/public/hooks/resume-post-content',
+    path: '/api/public/hooks/resume-post-content',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksBrainSynthesisRoute =
   ApiPublicHooksBrainSynthesisRouteImport.update({
     id: '/api/public/hooks/brain-synthesis',
@@ -595,6 +602,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/ai-models-health': typeof ApiPublicHooksAiModelsHealthRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
   '/api/public/hooks/brain-synthesis': typeof ApiPublicHooksBrainSynthesisRoute
+  '/api/public/hooks/resume-post-content': typeof ApiPublicHooksResumePostContentRoute
   '/api/public/hooks/social-metrics-sync': typeof ApiPublicHooksSocialMetricsSyncRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
@@ -669,6 +677,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/ai-models-health': typeof ApiPublicHooksAiModelsHealthRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
   '/api/public/hooks/brain-synthesis': typeof ApiPublicHooksBrainSynthesisRoute
+  '/api/public/hooks/resume-post-content': typeof ApiPublicHooksResumePostContentRoute
   '/api/public/hooks/social-metrics-sync': typeof ApiPublicHooksSocialMetricsSyncRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
@@ -752,6 +761,7 @@ export interface FileRoutesById {
   '/api/public/hooks/ai-models-health': typeof ApiPublicHooksAiModelsHealthRoute
   '/api/public/hooks/brain-consolidate': typeof ApiPublicHooksBrainConsolidateRoute
   '/api/public/hooks/brain-synthesis': typeof ApiPublicHooksBrainSynthesisRoute
+  '/api/public/hooks/resume-post-content': typeof ApiPublicHooksResumePostContentRoute
   '/api/public/hooks/social-metrics-sync': typeof ApiPublicHooksSocialMetricsSyncRoute
   '/api/public/media/prune': typeof ApiPublicMediaPruneRoute
   '/api/public/meta/callback': typeof ApiPublicMetaCallbackRoute
@@ -834,6 +844,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/ai-models-health'
     | '/api/public/hooks/brain-consolidate'
     | '/api/public/hooks/brain-synthesis'
+    | '/api/public/hooks/resume-post-content'
     | '/api/public/hooks/social-metrics-sync'
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
@@ -908,6 +919,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/ai-models-health'
     | '/api/public/hooks/brain-consolidate'
     | '/api/public/hooks/brain-synthesis'
+    | '/api/public/hooks/resume-post-content'
     | '/api/public/hooks/social-metrics-sync'
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
@@ -990,6 +1002,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/ai-models-health'
     | '/api/public/hooks/brain-consolidate'
     | '/api/public/hooks/brain-synthesis'
+    | '/api/public/hooks/resume-post-content'
     | '/api/public/hooks/social-metrics-sync'
     | '/api/public/media/prune'
     | '/api/public/meta/callback'
@@ -1026,6 +1039,7 @@ export interface RootRouteChildren {
   ApiPublicHooksAiModelsHealthRoute: typeof ApiPublicHooksAiModelsHealthRoute
   ApiPublicHooksBrainConsolidateRoute: typeof ApiPublicHooksBrainConsolidateRoute
   ApiPublicHooksBrainSynthesisRoute: typeof ApiPublicHooksBrainSynthesisRoute
+  ApiPublicHooksResumePostContentRoute: typeof ApiPublicHooksResumePostContentRoute
   ApiPublicHooksSocialMetricsSyncRoute: typeof ApiPublicHooksSocialMetricsSyncRoute
   ApiPublicMediaPruneRoute: typeof ApiPublicMediaPruneRoute
   ApiPublicMetaCallbackRoute: typeof ApiPublicMetaCallbackRoute
@@ -1531,6 +1545,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksSocialMetricsSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/resume-post-content': {
+      id: '/api/public/hooks/resume-post-content'
+      path: '/api/public/hooks/resume-post-content'
+      fullPath: '/api/public/hooks/resume-post-content'
+      preLoaderRoute: typeof ApiPublicHooksResumePostContentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/brain-synthesis': {
       id: '/api/public/hooks/brain-synthesis'
       path: '/api/public/hooks/brain-synthesis'
@@ -1832,6 +1853,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksAiModelsHealthRoute: ApiPublicHooksAiModelsHealthRoute,
   ApiPublicHooksBrainConsolidateRoute: ApiPublicHooksBrainConsolidateRoute,
   ApiPublicHooksBrainSynthesisRoute: ApiPublicHooksBrainSynthesisRoute,
+  ApiPublicHooksResumePostContentRoute: ApiPublicHooksResumePostContentRoute,
   ApiPublicHooksSocialMetricsSyncRoute: ApiPublicHooksSocialMetricsSyncRoute,
   ApiPublicMediaPruneRoute: ApiPublicMediaPruneRoute,
   ApiPublicMetaCallbackRoute: ApiPublicMetaCallbackRoute,
