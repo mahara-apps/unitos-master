@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { describeError } from "@/lib/errors";
 import {
   CalendarClock,
-  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -15,14 +14,11 @@ import {
   Play,
   Layers,
   CircleDot,
-  Type,
-  Maximize2,
   Image as ImageIcon,
   Loader2,
   Send,
   Sparkles,
   UploadCloud,
-  Video as VideoIcon,
   X,
   Hash,
   MessageCircle,
@@ -36,19 +32,14 @@ import {
   MoreHorizontal,
   Trash2,
 } from "lucide-react";
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+import { ExpandedModal } from "@/components/ui/expanded-modal";
+import { MediaLibraryDialog } from "@/components/calendar/schedule-wizard/media-library-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
@@ -56,7 +47,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import { cn } from "@/lib/utils";
 import {
   FORMATS_BY_CHANNEL,
@@ -85,11 +75,7 @@ import {
 import { searchInstagramLocationsFn } from "@/lib/meta/locations.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "@tanstack/react-router";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 function slugifyMediaName(name: string) {
   return name
@@ -154,13 +140,19 @@ export function ScheduleWizard({
   const [locationName, setLocationName] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const [submitting, setSubmitting] = useState<null | "draft" | "publish" | "schedule" | "save_draft">(null);
+  const [submitting, setSubmitting] = useState<
+    null | "draft" | "publish" | "schedule" | "save_draft"
+  >(null);
   const [previewKey, setPreviewKey] = useState<string>("instagram::feed");
   const [locationId, setLocationId] = useState<string | null>(null);
   // ID da peça em edição. Começa no seed e passa a existir localmente depois do
   // primeiro save — impede que "Salvar rascunho" duas vezes crie duas peças.
   const [postId, setPostId] = useState<string | null>(null);
   const [hydrating, setHydrating] = useState(false);
+  // UI local do composer (não persiste nada).
+  const [destPickerOpen, setDestPickerOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [showExtras, setShowExtras] = useState(false);
 
   const uploadRef = useRef<HTMLInputElement>(null);
   const wasOpenRef = useRef(false);
@@ -184,10 +176,11 @@ export function ScheduleWizard({
       setSubmitting(null);
       setPreviewKey("instagram::feed");
       setPostId(seed?.postId ?? null);
+      setDestPickerOpen(false);
+      setLibraryOpen(false);
+      setShowExtras(false);
       if (uploadRef.current) uploadRef.current.value = "";
-      const base = defaultDate
-        ? new Date(defaultDate)
-        : new Date(Date.now() + 60 * 60 * 1000);
+      const base = defaultDate ? new Date(defaultDate) : new Date(Date.now() + 60 * 60 * 1000);
       base.setSeconds(0, 0);
       setScheduleDate(fmtDate(base));
       setScheduleTime(fmtTime(base));
@@ -310,7 +303,6 @@ export function ScheduleWizard({
     setPairs((prev) => prev.filter((p) => isFormatCompatibleWithMedia(p.format, mediaKind)));
   }, [mediaKind, hydrating]);
 
-
   // Ensure preview channel is one we have selected — else fall back to first pair
   useEffect(() => {
     if (!pairs.length) return;
@@ -337,10 +329,7 @@ export function ScheduleWizard({
     [pairs, previewKey],
   );
 
-  const captionLimit = useMemo(
-    () => tightestCaptionLimit(pairs.map((p) => p.channel)),
-    [pairs],
-  );
+  const captionLimit = useMemo(() => tightestCaptionLimit(pairs.map((p) => p.channel)), [pairs]);
 
   const overLimit = copy.length > captionLimit;
   const canSubmit = pairs.length > 0 && !overLimit && !!title.trim();
@@ -508,7 +497,6 @@ export function ScheduleWizard({
       qc.invalidateQueries({ queryKey: ["wizard-drafts"] });
       onSaved?.();
       if (action !== "publish" || (res?.published ?? 0) > 0) onOpenChange(false);
-
     } catch (e) {
       toast.error(describeError(e));
     } finally {
@@ -517,8 +505,7 @@ export function ScheduleWizard({
   }
 
   const primaryConn =
-    (previewPair ? connByChannel.get(previewPair.channel) : null) ??
-    connectionsQ.data?.[0];
+    (previewPair ? connByChannel.get(previewPair.channel) : null) ?? connectionsQ.data?.[0];
   const previewMedia = selectedMedia[0];
 
   // Política de link por rede/formato — feed do IG/Reels/TikTok não
@@ -554,825 +541,680 @@ export function ScheduleWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, submitting]);
 
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="flex h-full w-full flex-col gap-0 !p-0 sm:max-w-none"
-      >
-        <VisuallyHidden>
-          <SheetTitle>Novo agendamento</SheetTitle>
-          <SheetDescription>Componha e agende sua publicação</SheetDescription>
-        </VisuallyHidden>
+  const busy = !!submitting || hydrating;
+  const selectedIds = selectedMedia.map((m) => m.id);
+  const availableConnections = connectionsQ.data ?? [];
 
-        {/* Header */}
-        <header className="flex shrink-0 items-center justify-between border-b border-border/60 bg-background/95 px-6 py-3 backdrop-blur">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
-              <CalendarClock className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="truncate text-sm font-semibold tracking-tight">
-                Novo agendamento
-              </h2>
-              <p className="truncate text-[11px] text-muted-foreground">
-                {pairs.length
-                  ? `${pairs.length} destino(s) · limite ${captionLimit} caracteres`
-                  : "Selecione canais, escreva a legenda e agende"}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 pr-8">
-            {pairs.length ? (
-              <Badge variant="secondary" className="text-[10px]">
-                {pairs.length} destino(s)
+  return (
+    <>
+      <ExpandedModal
+        open={open}
+        onOpenChange={(v) => {
+          if (!v && submitting) return;
+          onOpenChange(v);
+        }}
+        size="composer"
+        className="sm:h-[min(780px,calc(100dvh-4rem))]"
+        title={postId ? "Editar publicação" : "Nova publicação"}
+        description={
+          pairs.length
+            ? `${pairs.length} destino(s) · ${selectedMedia.length} mídia(s) · limite ${captionLimit} caracteres`
+            : "Escolha os destinos, escreva a legenda e agende"
+        }
+        headerExtra={
+          <>
+            {hydrating ? (
+              <span className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" /> Restaurando…
+              </span>
+            ) : null}
+            {postId ? (
+              <Badge variant="outline" className="text-[10px]">
+                Rascunho salvo
               </Badge>
             ) : null}
-          </div>
-        </header>
-
-        {/* Body — 3 columns */}
-        <div className="min-h-0 flex-1 overflow-hidden">
-          <div className="grid h-full grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1.35fr)_minmax(0,0.9fr)]">
-            {/* Column 1 — Context & Copy */}
-            <ScrollArea className="h-full border-b border-border/60 lg:border-b-0 lg:border-r">
-              <div className="space-y-4 px-4 py-4 lg:px-5">
-                <SectionTitle index={1} title="Contexto & Copy" />
-
-                {/* Channels */}
-                <div className="space-y-2">
-                  <Label className="text-xs">Canais de publicação</Label>
-                  {connectionsQ.isLoading ? (
-                    <div className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Carregando conexões…
-                    </div>
-                  ) : (connectionsQ.data ?? []).length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-border/60 p-4 text-center">
-                      <p className="text-xs font-medium">Nenhuma rede conectada.</p>
-                      <Button asChild size="sm" variant="outline" className="mt-3 h-7 text-[11px]">
-                        <Link to="/connections">Ir para Conexões</Link>
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {SOCIAL_CHANNELS.map((channel) => {
-                        const conn = connByChannel.get(channel);
-                        const formats = FORMATS_BY_CHANNEL[channel] ?? [];
-                        if (!conn) return null;
-                        return (
-                          <div
-                            key={channel}
-                            className="rounded-lg border border-border/60 bg-card/30 p-3"
-                          >
-                            <div className="mb-2 flex min-w-0 items-center gap-2">
-                              <Avatar className="h-6 w-6 shrink-0">
-                                <AvatarImage src={conn.avatarUrl ?? undefined} />
-                                <AvatarFallback className="text-[9px] uppercase">
-                                  {channel.slice(0, 2)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="min-w-0 flex-1">
-                                <div className="truncate text-xs font-semibold capitalize">
-                                  {channel}
-                                </div>
-                                <div className="truncate text-[10px] text-muted-foreground">
-                                  {conn.handle ? `@${conn.handle}` : conn.accountLabel}
-                                </div>
-                              </div>
-                            </div>
-                            <div
-                              role="group"
-                              aria-label={`Posicionamentos ${channel}`}
-                              className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border/60 bg-muted/40 p-0.5"
-                            >
-                              {formats.map((f) => {
-                                const selected = pairs.some(
-                                  (p) => p.channel === channel && p.format === f,
-                                );
-                                const compatible = isFormatCompatibleWithMedia(f, mediaKind);
-                                const reason = formatIncompatibilityReason(f, mediaKind);
-                                const Icon = FORMAT_ICON[f];
-                                return (
-                                  <button
-                                    key={f}
-                                    type="button"
-                                    disabled={!compatible}
-                                    aria-pressed={selected}
-                                    title={reason ?? `${FORMAT_LABEL[f]} disponível`}
-                                    onClick={() => togglePair(channel, f)}
-                                    className={cn(
-                                      "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
-                                      selected
-                                        ? "bg-foreground text-background shadow-sm"
-                                        : "text-muted-foreground hover:bg-background hover:text-foreground",
-                                      !compatible &&
-                                        "cursor-not-allowed opacity-40 hover:bg-transparent hover:text-muted-foreground",
-                                    )}
-                                  >
-                                    <Icon className="h-3 w-3" />
-                                    {FORMAT_LABEL[f]}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {(connectionsQ.data ?? []).length > 0 && mediaKind !== "none" ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-full text-[11px]"
-                          onClick={autoSuggestPairs}
-                        >
-                          <Sparkles className="mr-1.5 h-3 w-3" /> Sugerir formatos automaticamente
-                        </Button>
-                      ) : null}
-                    </div>
-                  )}
-                </div>
-
-                <Separator />
-
-                {/* Title */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="wiz-title" className="text-xs">
-                    Título interno
-                  </Label>
-                  <Input
-                    id="wiz-title"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Ex.: Lançamento de coleção — reels"
-                  />
-                </div>
-
-                {/* Copy */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="wiz-copy" className="text-xs">
-                      Legenda
-                    </Label>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={cn(
-                          "text-[10.5px] tabular-nums",
-                          overLimit ? "text-destructive" : "text-muted-foreground",
-                        )}
-                      >
-                        {copy.length}/{captionLimit}
-                      </span>
-                      <button
-                        type="button"
-                        className="inline-flex items-center gap-1 rounded-md border border-border/60 px-2 py-0.5 text-[10.5px] text-muted-foreground transition-colors hover:bg-muted"
-                        title="Criar legenda com IA (em breve)"
-                        onClick={() => toast.info("Criar legenda com IA — em breve.")}
-                      >
-                        <Sparkles className="h-3 w-3" /> IA
-                      </button>
-                    </div>
-                  </div>
-                  <Textarea
-                    id="wiz-copy"
-                    value={copy}
-                    onChange={(e) => setCopy(e.target.value)}
-                    rows={8}
-                    placeholder="Escreva a legenda. O contador respeita a rede mais restritiva selecionada."
-                    className={cn(overLimit && "border-destructive focus-visible:ring-destructive")}
-                  />
-                </div>
-
-                {/* Hashtags */}
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5 text-xs">
-                    <Hash className="h-3 w-3" /> Hashtags
-                  </Label>
-                  <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-border/60 p-2">
-                    {hashtags.map((t) => (
-                      <span
-                        key={t}
-                        className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10.5px] text-primary"
-                      >
-                        #{t}
-                        <button
-                          type="button"
-                          onClick={() => setHashtags(hashtags.filter((x) => x !== t))}
-                          className="text-primary/70 hover:text-primary"
-                        >
-                          <X className="h-2.5 w-2.5" />
-                        </button>
-                      </span>
-                    ))}
-                    <input
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === ",") {
-                          e.preventDefault();
-                          commitTag();
-                        } else if (e.key === "Backspace" && !tagInput && hashtags.length) {
-                          setHashtags(hashtags.slice(0, -1));
-                        }
-                      }}
-                      onBlur={commitTag}
-                      placeholder={hashtags.length ? "" : "marketing, unitos, launch…"}
-                      className="min-w-[120px] flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
-                    />
-                  </div>
-                </div>
-
-                {/* Extras */}
-                <div className="grid gap-3">
-                  <div className="space-y-1.5">
-                    <Label
-                      htmlFor="wiz-first-comment"
-                      className="flex items-center gap-1.5 text-xs"
-                    >
-                      <MessageCircle className="h-3 w-3" /> Primeiro comentário
-                      <span className="text-[10px] font-normal text-muted-foreground">Instagram</span>
-                    </Label>
-                    <Textarea
-                      id="wiz-first-comment"
-                      rows={2}
-                      value={firstComment}
-                      onChange={(e) => setFirstComment(e.target.value)}
-                      placeholder="Ex.: pool de hashtags fixado."
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="wiz-link" className="flex items-center gap-1.5 text-xs">
-                        <Link2 className="h-3 w-3" /> Link
-                      </Label>
-                      <Input
-                        id="wiz-link"
-                        type="url"
-                        value={linkUrl}
-                        onChange={(e) => setLinkUrl(e.target.value)}
-                        placeholder="https://…"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="wiz-location" className="flex items-center gap-1.5 text-xs">
-                        <MapPin className="h-3 w-3" /> Local
-                      </Label>
-                      <LocationCombobox
-                        brandId={brandId}
-                        instagramConnectionId={instagramConn?.connectionId ?? null}
-                        value={locationName}
-                        onChange={(name, id) => {
-                          setLocationName(name);
-                          setLocationId(id);
-                        }}
-                      />
-                      {linkUrl && linkPolicy !== "clickable" && linkPolicy !== "none" ? (
-                        <p className="text-[10.5px] text-amber-600 dark:text-amber-400">
-                          {linkPolicy === "not-clickable"
-                            ? "Instagram/TikTok/Reels não tornam links clicáveis na legenda — use link na bio."
-                            : linkPolicy === "sticker"
-                              ? "Em Stories o link vira sticker (link vertical) — a URL não aparece no texto."
-                              : "Seleções mistas: o link só é clicável em algumas redes (Facebook/LinkedIn/X)."}
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </ScrollArea>
-
-            {/* Column 2 — Media & Schedule */}
-            <ScrollArea className="h-full border-b border-border/60 lg:border-b-0 lg:border-r">
-              <div className="space-y-4 px-4 py-4 lg:px-5">
-                <SectionTitle index={2} title="Mídia & Agendamento" />
-
-                {/* Drag & drop */}
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragActive(true);
-                  }}
-                  onDragLeave={() => setDragActive(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setDragActive(false);
-                    handleUpload(e.dataTransfer.files);
-                  }}
-                  className={cn(
-                    "flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed px-4 py-4 text-center transition-colors",
-                    dragActive
-                      ? "border-primary bg-primary/5"
-                      : "border-border/70 bg-muted/20 hover:bg-muted/40",
-                  )}
+          </>
+        }
+        bodyClassName="grid min-h-0 grid-cols-1 overflow-hidden p-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]"
+        footerClassName="justify-between"
+        footer={
+          <>
+            <div className="flex min-w-0 items-center gap-2 text-[11px] text-muted-foreground">
+              {submitting ? (
+                <span className="flex items-center gap-2 text-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  {submitting === "publish"
+                    ? "Publicando…"
+                    : submitting === "schedule"
+                      ? "Agendando…"
+                      : submitting === "save_draft"
+                        ? "Salvando rascunho…"
+                        : "Enviando para aprovação…"}
+                </span>
+              ) : pairs.length ? (
+                <span className={cn("tabular-nums", overLimit && "text-destructive")}>
+                  {copy.length}/{captionLimit} caracteres
+                </span>
+              ) : (
+                <span>Selecione ao menos um destino.</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={!!submitting}
+                onClick={() => onOpenChange(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={busy || uploading}
+                onClick={() => persist("save_draft")}
+                title="Salvar como rascunho para continuar depois"
+              >
+                {submitting === "save_draft" ? (
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                ) : null}
+                {postId ? "Salvar alterações" : "Salvar rascunho"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!canSubmit || busy || uploading}
+                onClick={() => persist("draft")}
+              >
+                Enviar para aprovação
+              </Button>
+              <div className="inline-flex overflow-hidden rounded-md">
+                <Button
+                  size="sm"
+                  className="rounded-r-none"
+                  disabled={!canSubmit || busy || uploading}
+                  onClick={() => persist("schedule")}
                 >
-                  <div className="grid h-10 w-10 place-items-center rounded-full bg-background shadow-sm">
-                    {uploading ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <UploadCloud className="h-5 w-5 text-muted-foreground" />
-                    )}
-                  </div>
-                  <div className="text-xs font-medium">
-                    {uploading ? "Enviando…" : "Arraste e solte arquivos aqui"}
-                  </div>
-                  <div className="text-[10.5px] text-muted-foreground">
-                    Imagens ou vídeos até 100MB
-                  </div>
-                  <input
-                    ref={uploadRef}
-                    type="file"
-                    multiple
-                    accept="image/*,video/*"
-                    className="hidden"
-                    onChange={(e) => handleUpload(e.target.files)}
-                  />
+                  {submitting === "schedule" ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <CalendarClock className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  Agendar
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="sm"
+                      className="rounded-l-none border-l border-primary-foreground/20 px-2"
+                      disabled={!canSubmit || busy || uploading}
+                    >
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem onClick={() => persist("publish")} disabled={busy}>
+                      <Send className="mr-2 h-3.5 w-3.5" /> Publicar agora
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => persist("schedule")} disabled={busy}>
+                      <CalendarClock className="mr-2 h-3.5 w-3.5" /> Agendar para depois
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+          </>
+        }
+      >
+        {/* ---------------- Coluna 1 — edição ---------------- */}
+        <div className="min-h-0 space-y-5 overflow-y-auto border-b border-border/60 px-5 py-4 lg:border-b-0 lg:border-r">
+          {/* Destinos */}
+          <section className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Destinos</Label>
+              <div className="flex items-center gap-1">
+                {mediaKind !== "none" && availableConnections.length ? (
                   <Button
-                    type="button"
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    className="mt-1 h-7 text-[11px]"
-                    disabled={uploading}
-                    onClick={() => uploadRef.current?.click()}
+                    className="h-7 text-[11px]"
+                    onClick={autoSuggestPairs}
                   >
-                    Selecionar do computador
+                    <Sparkles className="mr-1 h-3 w-3" /> Sugerir
                   </Button>
-                </div>
-
-                {mediaKind === "mixed" ? (
-                  <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-[11px] text-destructive">
-                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5" />
-                    <span>
-                      Remova imagens OU vídeos — apenas um tipo é permitido por publicação.
-                    </span>
-                  </div>
                 ) : null}
-
-                {hydrating ? (
-                  <div className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Restaurando mídia e destinos desta peça…
-                  </div>
-                ) : null}
-
-                {/* Selected media strip */}
-                {selectedMedia.length ? (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs">
-                        Mídia da publicação ({selectedMedia.length})
-                      </Label>
-
-                      <button
-                        type="button"
-                        onClick={() => setSelectedMedia([])}
-                        className="text-[10.5px] text-muted-foreground hover:text-destructive"
-                      >
-                        Limpar
-                      </button>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedMedia.map((m) => (
-                        <div
-                          key={m.id}
-                          className="relative h-16 w-16 overflow-hidden rounded-md border border-border/60"
+                <Popover open={destPickerOpen} onOpenChange={setDestPickerOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-7 text-[11px]">
+                      Gerenciar destinos
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-[340px] p-2">
+                    {connectionsQ.isLoading ? (
+                      <div className="flex items-center gap-2 p-2 text-xs text-muted-foreground">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Carregando conexões…
+                      </div>
+                    ) : availableConnections.length === 0 ? (
+                      <div className="p-3 text-center">
+                        <p className="text-xs font-medium">
+                          Nenhuma rede vinculada a este cliente.
+                        </p>
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="outline"
+                          className="mt-2 h-7 text-[11px]"
                         >
-                          {m.kind === "video" && m.publicUrl ? (
-                            <video
-                              src={m.publicUrl}
-                              className="h-full w-full object-cover"
-                              muted
-                              playsInline
-                              preload="metadata"
-                            />
-                          ) : m.publicUrl ? (
-                            <img
-                              src={m.publicUrl}
-                              alt={m.name}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : null}
-                          <button
-                            type="button"
-                            onClick={() => toggleMedia(m)}
-                            className="absolute right-0.5 top-0.5 grid h-4 w-4 place-items-center rounded-full bg-black/60 text-white hover:bg-destructive"
-                            title="Remover"
-                          >
-                            <Trash2 className="h-2.5 w-2.5" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                {/* Library */}
-                <div className="space-y-2">
-                  <Label className="text-xs">Biblioteca do cliente</Label>
-                  {mediaQ.isLoading ? (
-                    <div className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Carregando mídias…
-                    </div>
-                  ) : (mediaQ.data ?? []).length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-border/60 p-4 text-center text-[11px] text-muted-foreground">
-                      <ImageIcon className="mx-auto mb-1.5 h-4 w-4" />
-                      Biblioteca vazia — envie seu primeiro arquivo acima.
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-5 gap-1.5">
-                      {(mediaQ.data ?? []).map((m) => {
-                        const selected = selectedMedia.some((x) => x.id === m.id);
-                        const isVideo = m.kind === "video";
-                        return (
-                          <button
-                            key={m.id}
-                            type="button"
-                            onClick={() => toggleMedia(m)}
-                            className={cn(
-                              "relative aspect-square overflow-hidden rounded-md border-2 bg-muted transition-all",
-                              selected
-                                ? "border-primary"
-                                : "border-transparent hover:border-border",
-                            )}
-                          >
-                            {isVideo && m.publicUrl ? (
-                              <video
-                                src={m.publicUrl}
-                                className="h-full w-full object-cover"
-                                muted
-                                playsInline
-                                preload="metadata"
-                              />
-                            ) : m.publicUrl ? (
-                              <img
-                                src={m.publicUrl}
-                                alt={m.name}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground">
-                                {m.kind}
+                          <Link to="/connections">Ir para Conexões</Link>
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="max-h-[340px] space-y-2 overflow-y-auto">
+                        {SOCIAL_CHANNELS.map((channel) => {
+                          const conn = connByChannel.get(channel);
+                          if (!conn) return null;
+                          const formats = FORMATS_BY_CHANNEL[channel] ?? [];
+                          return (
+                            <div
+                              key={channel}
+                              className="rounded-lg border border-border/60 bg-card/40 p-2"
+                            >
+                              <div className="mb-1.5 flex min-w-0 items-center gap-2">
+                                <Avatar className="h-6 w-6 shrink-0">
+                                  <AvatarImage src={conn.avatarUrl ?? undefined} />
+                                  <AvatarFallback className="text-[9px] uppercase">
+                                    {channel.slice(0, 2)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="min-w-0">
+                                  <div className="truncate text-[11px] font-semibold capitalize">
+                                    {channel}
+                                  </div>
+                                  <div className="truncate text-[10px] text-muted-foreground">
+                                    {conn.handle ? `@${conn.handle}` : conn.accountLabel}
+                                  </div>
+                                </div>
                               </div>
-                            )}
-                            {isVideo ? (
-                              <span className="absolute bottom-0.5 left-0.5 inline-flex items-center gap-0.5 rounded bg-black/60 px-1 py-0.5 text-[9px] font-semibold text-white">
-                                <VideoIcon className="h-2.5 w-2.5" />
-                              </span>
-                            ) : null}
-                            {selected ? (
-                              <span className="absolute right-0.5 top-0.5 grid h-4 w-4 place-items-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
-                                <Check className="h-2.5 w-2.5" />
-                              </span>
-                            ) : null}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                <Separator />
-
-                {/* Schedule */}
-                <div className="space-y-2">
-                  <Label className="text-xs">Data & horário</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="relative">
-                      <Input
-                        type="date"
-                        value={scheduleDate}
-                        min={fmtDate(new Date())}
-                        onChange={(e) => setScheduleDate(e.target.value)}
-                        className="pr-8 [&::-webkit-calendar-picker-indicator]:opacity-0"
-                      />
-                      <CalendarIcon className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                    </div>
-                    <div className="relative">
-                      <Input
-                        type="time"
-                        value={scheduleTime}
-                        onChange={(e) => setScheduleTime(e.target.value)}
-                        className="pr-8 [&::-webkit-calendar-picker-indicator]:opacity-0"
-                      />
-                      <ClockIcon className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                    </div>
-                  </div>
-                  <p className="text-[10.5px] text-muted-foreground">
-                    Fuso: {tzLabel()} · use “Publicar agora” no menu ao lado de “Agendar” para envio imediato.
-                  </p>
-                </div>
+                              <div className="flex flex-wrap gap-1">
+                                {formats.map((f) => {
+                                  const selected = pairs.some(
+                                    (p) => p.channel === channel && p.format === f,
+                                  );
+                                  const compatible = isFormatCompatibleWithMedia(f, mediaKind);
+                                  const reason = formatIncompatibilityReason(f, mediaKind);
+                                  const Icon = FORMAT_ICON[f];
+                                  return (
+                                    <button
+                                      key={f}
+                                      type="button"
+                                      disabled={!compatible}
+                                      aria-pressed={selected}
+                                      title={reason ?? `${FORMAT_LABEL[f]} disponível`}
+                                      onClick={() => togglePair(channel, f)}
+                                      className={cn(
+                                        "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10.5px] font-medium transition-colors",
+                                        selected
+                                          ? "border-foreground bg-foreground text-background"
+                                          : "border-border/60 text-muted-foreground hover:text-foreground",
+                                        !compatible && "cursor-not-allowed opacity-40",
+                                      )}
+                                    >
+                                      <Icon className="h-3 w-3" />
+                                      {FORMAT_LABEL[f]}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </PopoverContent>
+                </Popover>
               </div>
-            </ScrollArea>
-
-            {/* Column 3 — Live Preview */}
-            <div className="flex h-full min-h-0 flex-col bg-muted/30">
-              <div className="flex shrink-0 items-center gap-3 border-b border-border/60 bg-background px-4 pt-2">
-                <SectionTitle index={3} title="Preview" compact />
-                <div className="flex min-w-0 flex-1 items-end gap-0.5 overflow-x-auto">
-                  {pairs.length === 0 ? (
-                    <span className="pb-2 text-[10.5px] text-muted-foreground">
-                      Selecione um posicionamento para pré-visualizar.
+            </div>
+            {pairs.length === 0 ? (
+              <button
+                type="button"
+                onClick={() => setDestPickerOpen(true)}
+                className="w-full rounded-lg border border-dashed border-border/70 px-3 py-3 text-center text-[11px] text-muted-foreground transition-colors hover:bg-muted/40"
+              >
+                Nenhum destino selecionado — clique para escolher canais e formatos.
+              </button>
+            ) : (
+              <div className="flex flex-wrap gap-1.5">
+                {pairs.map((p) => {
+                  const Icon = FORMAT_ICON[p.format];
+                  const conn = connByChannel.get(p.channel);
+                  return (
+                    <span
+                      key={`${p.channel}::${p.format}`}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card px-2 py-1 text-[10.5px]"
+                    >
+                      <Avatar className="h-4 w-4">
+                        <AvatarImage src={conn?.avatarUrl ?? undefined} />
+                        <AvatarFallback className="text-[7px] uppercase">
+                          {p.channel.slice(0, 2)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <Icon className="h-3 w-3 text-muted-foreground" />
+                      <span className="capitalize">
+                        {p.channel} · {FORMAT_LABEL[p.format]}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => togglePair(p.channel, p.format)}
+                        className="text-muted-foreground hover:text-destructive"
+                        title="Remover destino"
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
                     </span>
-                  ) : (
-                    pairs.map((p) => {
-                      const k = `${p.channel}::${p.format}`;
-                      const active = previewKey === k;
-                      const Icon = FORMAT_ICON[p.format];
-                      return (
-                        <button
-                          key={k}
-                          type="button"
-                          onClick={() => setPreviewKey(k)}
-                          className={cn(
-                            "relative inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 pb-2 pt-1 text-[11px] font-medium capitalize transition-colors",
-                            active
-                              ? "border-foreground text-foreground"
-                              : "border-transparent text-muted-foreground hover:text-foreground",
-                          )}
-                        >
-                          <Icon className="h-3 w-3" />
-                          {p.channel} · {FORMAT_LABEL[p.format]}
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
+                  );
+                })}
               </div>
-              <ScrollArea className="min-h-0 flex-1">
-                <div className="relative flex items-start justify-center px-4 py-5">
-                  {pairs.length > 1 ? (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => cyclePreview(-1)}
-                        aria-label="Posicionamento anterior"
-                        className="absolute left-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full border border-border/60 bg-background/95 text-muted-foreground shadow-sm transition-colors hover:text-foreground"
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => cyclePreview(1)}
-                        aria-label="Próximo posicionamento"
-                        className="absolute right-2 top-1/2 z-10 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full border border-border/60 bg-background/95 text-muted-foreground shadow-sm transition-colors hover:text-foreground"
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </button>
-                    </>
-                  ) : null}
-                  <PostPreview
-                    channel={previewPair?.channel ?? "instagram"}
-                    format={previewPair?.format ?? "feed"}
-                    handle={primaryConn?.handle ?? primaryConn?.accountLabel ?? "sua_marca"}
-                    avatarUrl={primaryConn?.avatarUrl ?? null}
-                    copy={copy}
-                    hashtags={hashtags}
-                    media={previewMedia}
-                    mediaCount={selectedMedia.length}
-                    location={locationName}
-                  />
-                </div>
-                {pairs.length > 1 ? (
-                  <div className="flex items-center justify-center gap-1.5 pb-4">
-                    {pairs.map((p) => {
-                      const k = `${p.channel}::${p.format}`;
-                      const active = previewKey === k;
-                      return (
-                        <button
-                          key={k}
-                          type="button"
-                          aria-label={`Ir para ${p.channel} ${FORMAT_LABEL[p.format]}`}
-                          onClick={() => setPreviewKey(k)}
-                          className={cn(
-                            "h-1.5 rounded-full transition-all",
-                            active ? "w-5 bg-foreground" : "w-1.5 bg-border hover:bg-muted-foreground/60",
-                          )}
-                        />
-                      );
-                    })}
-                  </div>
-                ) : null}
-              </ScrollArea>
-            </div>
-          </div>
-        </div>
+            )}
+          </section>
 
-        {/* Sticky bottom action bar */}
-        <footer className="relative grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-t border-border/60 bg-background/95 px-6 py-3 backdrop-blur">
-          {submitting ? (
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-0.5 overflow-hidden bg-primary/10">
-              <div className="h-full w-1/3 animate-[wizard-progress_1.2s_ease-in-out_infinite] bg-primary" />
+          <Separator />
+
+          {/* Conteúdo */}
+          <section className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="wiz-title" className="text-xs">
+                Título interno
+              </Label>
+              <Input
+                id="wiz-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Ex.: Lançamento de coleção — reels"
+              />
             </div>
-          ) : null}
-          <div className="flex min-w-0 items-center gap-2 text-[11px] text-muted-foreground">
-            {submitting ? (
-              <span className="flex items-center gap-2 text-foreground">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                {submitting === "publish"
-                  ? `Publicando em ${pairs.length} canal(is)…`
-                  : submitting === "schedule"
-                    ? "Agendando publicação…"
-                    : submitting === "save_draft"
-                      ? "Salvando rascunho…"
-                      : "Enviando para aprovação…"}
-              </span>
-            ) : pairs.length ? (
-              <>
-                <span className="tabular-nums">{pairs.length} destino(s)</span>
-                <span>·</span>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="wiz-copy" className="text-xs">
+                  Legenda
+                </Label>
                 <span
                   className={cn(
-                    "tabular-nums",
-                    overLimit ? "text-destructive" : undefined,
+                    "text-[10.5px] tabular-nums",
+                    overLimit ? "text-destructive" : "text-muted-foreground",
                   )}
                 >
                   {copy.length}/{captionLimit}
                 </span>
-                {selectedMedia.length ? (
-                  <>
-                    <span>·</span>
-                    <span>{selectedMedia.length} mídia(s)</span>
-                  </>
-                ) : null}
-              </>
-            ) : (
-              <span>Selecione ao menos um canal para habilitar as ações.</span>
-            )}
-            <span className="ml-2 hidden items-center gap-1 text-[10px] text-muted-foreground/70 md:inline-flex">
-              <kbd className="rounded border border-border/60 bg-muted px-1 py-[1px] font-mono text-[9.5px]">Esc</kbd>
-              fechar
-              <span className="mx-1">·</span>
-              <kbd className="rounded border border-border/60 bg-muted px-1 py-[1px] font-mono text-[9.5px]">⌘S</kbd>
-              salvar rascunho
-            </span>
-          </div>
-
-          {/* Center — floating quick tools */}
-          <div className="hidden justify-center md:flex">
-            <div className="inline-flex items-center gap-0.5 rounded-full border border-border/60 bg-background/80 p-0.5 shadow-sm">
-              <FooterTool
-                icon={Maximize2}
-                label="Expandir preview"
-                onClick={() => toast.info("Expandir preview — em breve.")}
-              />
-              <FooterTool
-                icon={Type}
-                label="Formatar texto"
-                onClick={() => toast.info("Formatação de texto — em breve.")}
-              />
-              <FooterTool
-                icon={Link2}
-                label="Inserir link"
-                onClick={() => {
-                  const el = document.getElementById("wiz-link") as HTMLInputElement | null;
-                  el?.focus();
-                }}
-              />
-              <FooterTool
-                icon={MessageCircle}
-                label="Primeiro comentário"
-                onClick={() => {
-                  const el = document.getElementById("wiz-first-comment") as HTMLTextAreaElement | null;
-                  el?.focus();
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-2">
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={!!submitting}
-              onClick={() => onOpenChange(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={!!submitting}
-              onClick={() => persist("save_draft")}
-              title="Salvar como rascunho para continuar depois"
-            >
-              {submitting === "save_draft" ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              ) : null}
-              Salvar rascunho
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={!canSubmit || !!submitting}
-              onClick={() => persist("draft")}
-            >
-              {submitting === "draft" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : null}
-              Enviar para aprovação
-            </Button>
-
-            <div className="inline-flex overflow-hidden rounded-md">
-              <Button
-                size="sm"
-                className="rounded-r-none"
-                disabled={!canSubmit || !!submitting}
-                onClick={() => persist("schedule")}
-              >
-                {submitting === "schedule" ? (
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <CalendarClock className="mr-1.5 h-3.5 w-3.5" />
+              </div>
+              <Textarea
+                id="wiz-copy"
+                value={copy}
+                onChange={(e) => setCopy(e.target.value)}
+                rows={7}
+                placeholder="Escreva a legenda. Quebras de linha e parágrafos são preservados exatamente como digitados."
+                className={cn(
+                  "whitespace-pre-wrap font-normal",
+                  overLimit && "border-destructive focus-visible:ring-destructive",
                 )}
-                Agendar
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    size="sm"
-                    className="rounded-l-none border-l border-primary-foreground/20 px-2"
-                    disabled={!canSubmit || !!submitting}
-                  >
-                    <ChevronDown className="h-3.5 w-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem
-                    onClick={() => persist("publish")}
-                    disabled={!!submitting}
-                  >
-                    <Send className="mr-2 h-3.5 w-3.5" /> Publicar agora
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => persist("schedule")}
-                    disabled={!!submitting}
-                  >
-                    <CalendarClock className="mr-2 h-3.5 w-3.5" /> Agendar para depois
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              />
             </div>
-          </div>
-        </footer>
-      </SheetContent>
-    </Sheet>
+
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5 text-xs">
+                <Hash className="h-3 w-3" /> Hashtags
+              </Label>
+              <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-border/60 p-2">
+                {hashtags.map((t) => (
+                  <span
+                    key={t}
+                    className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10.5px] text-primary"
+                  >
+                    #{t}
+                    <button
+                      type="button"
+                      onClick={() => setHashtags(hashtags.filter((x) => x !== t))}
+                      className="text-primary/70 hover:text-primary"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </span>
+                ))}
+                <input
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === ",") {
+                      e.preventDefault();
+                      commitTag();
+                    } else if (e.key === "Backspace" && !tagInput && hashtags.length) {
+                      setHashtags(hashtags.slice(0, -1));
+                    }
+                  }}
+                  onBlur={commitTag}
+                  placeholder={hashtags.length ? "" : "marketing, unitos, launch…"}
+                  className="min-w-[120px] flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
+                />
+              </div>
+            </div>
+          </section>
+
+          <Separator />
+
+          {/* Mídia — experiência unificada */}
+          <section className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">
+                Mídia da publicação{selectedMedia.length ? ` (${selectedMedia.length})` : ""}
+              </Label>
+              <div className="flex items-center gap-1">
+                <input
+                  ref={uploadRef}
+                  type="file"
+                  multiple
+                  accept="image/*,video/*"
+                  className="hidden"
+                  onChange={(e) => handleUpload(e.target.files)}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[11px]"
+                  disabled={uploading}
+                  onClick={() => uploadRef.current?.click()}
+                >
+                  {uploading ? (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                  ) : (
+                    <UploadCloud className="mr-1 h-3 w-3" />
+                  )}
+                  Enviar arquivo
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[11px]"
+                  onClick={() => setLibraryOpen(true)}
+                >
+                  <ImageIcon className="mr-1 h-3 w-3" /> Biblioteca
+                </Button>
+              </div>
+            </div>
+
+            {mediaKind === "mixed" ? (
+              <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-[11px] text-destructive">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5" />
+                <span>Remova imagens OU vídeos — apenas um tipo é permitido por publicação.</span>
+              </div>
+            ) : null}
+
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragActive(true);
+              }}
+              onDragLeave={() => setDragActive(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragActive(false);
+                handleUpload(e.dataTransfer.files);
+              }}
+              className={cn(
+                "rounded-xl border-2 border-dashed p-3 transition-colors",
+                dragActive ? "border-primary bg-primary/5" : "border-border/70 bg-muted/20",
+              )}
+            >
+              {selectedMedia.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {selectedMedia.map((m, i) => (
+                    <div
+                      key={m.id}
+                      className="relative h-20 w-20 overflow-hidden rounded-md border border-border/60 bg-muted"
+                    >
+                      {m.kind === "video" && m.publicUrl ? (
+                        <video
+                          src={m.publicUrl}
+                          className="h-full w-full object-cover"
+                          muted
+                          playsInline
+                          preload="metadata"
+                        />
+                      ) : m.publicUrl ? (
+                        <img
+                          src={m.publicUrl}
+                          alt={m.name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : null}
+                      <span className="absolute bottom-0.5 left-0.5 rounded bg-black/60 px-1 text-[9px] font-semibold text-white">
+                        {i + 1}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => toggleMedia(m)}
+                        className="absolute right-0.5 top-0.5 grid h-4 w-4 place-items-center rounded-full bg-black/60 text-white hover:bg-destructive"
+                        title="Remover"
+                      >
+                        <Trash2 className="h-2.5 w-2.5" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setLibraryOpen(true)}
+                    className="grid h-20 w-20 place-items-center rounded-md border border-dashed border-border/70 text-muted-foreground transition-colors hover:bg-muted/40"
+                    title="Adicionar mídia"
+                  >
+                    <span className="text-lg leading-none">+</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-1 py-3 text-center">
+                  <UploadCloud className="h-5 w-5 text-muted-foreground" />
+                  <p className="text-[11px] font-medium">
+                    Arraste arquivos aqui, envie do computador ou escolha na biblioteca
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    Imagens ou vídeos até 100MB · a mídia fica salva na peça
+                  </p>
+                </div>
+              )}
+            </div>
+          </section>
+
+          <Separator />
+
+          {/* Configurações adicionais */}
+          <section className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setShowExtras((v) => !v)}
+              className="flex w-full items-center justify-between rounded-md px-1 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <span>Configurações adicionais (link, local, primeiro comentário)</span>
+              <ChevronDown
+                className={cn("h-3.5 w-3.5 transition-transform", showExtras && "rotate-180")}
+              />
+            </button>
+            {showExtras ? (
+              <div className="space-y-3 rounded-lg border border-border/60 p-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="wiz-first-comment" className="flex items-center gap-1.5 text-xs">
+                    <MessageCircle className="h-3 w-3" /> Primeiro comentário
+                    <span className="text-[10px] font-normal text-muted-foreground">Instagram</span>
+                  </Label>
+                  <Textarea
+                    id="wiz-first-comment"
+                    rows={2}
+                    value={firstComment}
+                    onChange={(e) => setFirstComment(e.target.value)}
+                    placeholder="Ex.: pool de hashtags fixado."
+                  />
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="wiz-link" className="flex items-center gap-1.5 text-xs">
+                      <Link2 className="h-3 w-3" /> Link
+                    </Label>
+                    <Input
+                      id="wiz-link"
+                      type="url"
+                      value={linkUrl}
+                      onChange={(e) => setLinkUrl(e.target.value)}
+                      placeholder="https://…"
+                    />
+                    {linkUrl && linkPolicy !== "clickable" && linkPolicy !== "none" ? (
+                      <p className="text-[10.5px] text-amber-600 dark:text-amber-400">
+                        {linkPolicy === "not-clickable"
+                          ? "Instagram/TikTok/Reels não tornam links clicáveis na legenda — use link na bio."
+                          : linkPolicy === "sticker"
+                            ? "Em Stories o link vira sticker — a URL não aparece no texto."
+                            : "Seleções mistas: o link só é clicável em algumas redes."}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="wiz-location" className="flex items-center gap-1.5 text-xs">
+                      <MapPin className="h-3 w-3" /> Local
+                    </Label>
+                    <LocationCombobox
+                      brandId={brandId}
+                      instagramConnectionId={instagramConn?.connectionId ?? null}
+                      value={locationName}
+                      onChange={(name, id) => {
+                        setLocationName(name);
+                        setLocationId(id);
+                      }}
+                    />
+                    {locationName && !locationId ? (
+                      <p className="text-[10.5px] text-muted-foreground">
+                        Local salvo como texto — selecione uma sugestão para marcar no Instagram.
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </section>
+        </div>
+
+        {/* ---------------- Coluna 2 — agenda + preview ---------------- */}
+        <div className="min-h-0 space-y-4 overflow-y-auto bg-muted/20 px-4 py-4">
+          <section className="space-y-2 rounded-xl border border-border/60 bg-background p-3">
+            <Label className="text-xs">Data & horário</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="relative">
+                <Input
+                  type="date"
+                  value={scheduleDate}
+                  min={fmtDate(new Date())}
+                  onChange={(e) => setScheduleDate(e.target.value)}
+                  className="pr-8 [&::-webkit-calendar-picker-indicator]:opacity-0"
+                />
+                <CalendarIcon className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              </div>
+              <div className="relative">
+                <Input
+                  type="time"
+                  value={scheduleTime}
+                  onChange={(e) => setScheduleTime(e.target.value)}
+                  className="pr-8 [&::-webkit-calendar-picker-indicator]:opacity-0"
+                />
+                <ClockIcon className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              </div>
+            </div>
+            <p className="text-[10.5px] text-muted-foreground">
+              Fuso: {tzLabel()} · use “Publicar agora” no menu ao lado de “Agendar”.
+            </p>
+          </section>
+
+          <section className="space-y-2 rounded-xl border border-border/60 bg-background p-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Preview</Label>
+              {pairs.length > 1 ? (
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => cyclePreview(-1)}
+                    aria-label="Destino anterior"
+                    className="grid h-6 w-6 place-items-center rounded-full border border-border/60 text-muted-foreground hover:text-foreground"
+                  >
+                    <ChevronLeft className="h-3 w-3" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => cyclePreview(1)}
+                    aria-label="Próximo destino"
+                    className="grid h-6 w-6 place-items-center rounded-full border border-border/60 text-muted-foreground hover:text-foreground"
+                  >
+                    <ChevronRight className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : null}
+            </div>
+            {pairs.length ? (
+              <div className="flex flex-wrap gap-1">
+                {pairs.map((p) => {
+                  const k = `${p.channel}::${p.format}`;
+                  const active = previewKey === k;
+                  const Icon = FORMAT_ICON[p.format];
+                  return (
+                    <button
+                      key={k}
+                      type="button"
+                      onClick={() => setPreviewKey(k)}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10.5px] font-medium capitalize transition-colors",
+                        active
+                          ? "bg-foreground text-background"
+                          : "text-muted-foreground hover:bg-muted",
+                      )}
+                    >
+                      <Icon className="h-3 w-3" />
+                      {p.channel}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-[10.5px] text-muted-foreground">
+                Selecione um destino para pré-visualizar.
+              </p>
+            )}
+            <div className="flex justify-center pt-1">
+              <PostPreview
+                channel={previewPair?.channel ?? "instagram"}
+                format={previewPair?.format ?? "feed"}
+                handle={primaryConn?.handle ?? primaryConn?.accountLabel ?? "sua_marca"}
+                avatarUrl={primaryConn?.avatarUrl ?? null}
+                copy={copy}
+                hashtags={hashtags}
+                media={previewMedia}
+                mediaCount={selectedMedia.length}
+                location={locationName}
+              />
+            </div>
+          </section>
+        </div>
+      </ExpandedModal>
+
+      {open ? (
+        <MediaLibraryDialog
+          open={libraryOpen}
+          onOpenChange={setLibraryOpen}
+          brandId={brandId}
+          clientId={clientId}
+          selectedIds={selectedIds}
+          onConfirm={(assets) => setSelectedMedia(assets)}
+        />
+      ) : null}
+    </>
   );
 }
 
 // ============================================================
 // Sub-components
 // ============================================================
-
-function SectionTitle({
-  index,
-  title,
-  compact,
-}: {
-  index: number;
-  title: string;
-  compact?: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <span
-        className={cn(
-          "grid place-items-center rounded-full bg-primary/10 text-[10px] font-bold tabular-nums text-primary",
-          compact ? "h-5 w-5" : "h-6 w-6",
-        )}
-      >
-        {index}
-      </span>
-      <h3
-        className={cn(
-          "font-semibold tracking-tight",
-          compact ? "text-xs" : "text-sm",
-        )}
-      >
-        {title}
-      </h3>
-    </div>
-  );
-}
-
-function FooterTool({
-  icon: Icon,
-  label,
-  onClick,
-}: {
-  icon: typeof LayoutGrid;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={label}
-      aria-label={label}
-      className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-    >
-      <Icon className="h-3.5 w-3.5" />
-    </button>
-  );
-}
 
 function PostPreview({
   channel,
@@ -1400,10 +1242,7 @@ function PostPreview({
     .join("\n\n");
   const initials = (handle || "?").slice(0, 2).toUpperCase();
   const vertical =
-    format === "reels" ||
-    format === "stories" ||
-    channel === "tiktok" ||
-    channel === "youtube";
+    format === "reels" || format === "stories" || channel === "tiktok" || channel === "youtube";
   const wideMedia = channel === "linkedin" || channel === "x";
   const isStories = format === "stories";
   const isReels = format === "reels" || channel === "tiktok" || channel === "youtube";
@@ -1412,12 +1251,26 @@ function PostPreview({
   if (vertical) {
     // Reels/TikTok/Shorts/Stories — full-bleed 9:16 com overlay.
     return (
-      <div className="relative w-full max-w-[300px] overflow-hidden rounded-2xl border border-border/60 bg-black shadow-lg" style={{ aspectRatio: "9 / 16" }}>
+      <div
+        className="relative w-full max-w-[300px] overflow-hidden rounded-2xl border border-border/60 bg-black shadow-lg"
+        style={{ aspectRatio: "9 / 16" }}
+      >
         {media?.publicUrl ? (
           media.kind === "video" ? (
-            <video src={media.publicUrl} className="absolute inset-0 h-full w-full object-cover" muted playsInline loop autoPlay />
+            <video
+              src={media.publicUrl}
+              className="absolute inset-0 h-full w-full object-cover"
+              muted
+              playsInline
+              loop
+              autoPlay
+            />
           ) : (
-            <img src={media.publicUrl} alt="preview" className="absolute inset-0 h-full w-full object-cover" />
+            <img
+              src={media.publicUrl}
+              alt="preview"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
           )
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-white/60">
@@ -1469,7 +1322,12 @@ function PostPreview({
 
   // Feed padrão (IG/FB/LinkedIn/X)
   return (
-    <div className={cn("w-full max-w-[380px] overflow-hidden rounded-2xl border shadow-sm", chromeStyle.card)}>
+    <div
+      className={cn(
+        "w-full max-w-[380px] overflow-hidden rounded-2xl border shadow-sm",
+        chromeStyle.card,
+      )}
+    >
       {/* Header (X mostra @handle · texto acima da mídia) */}
       <div className="flex items-center justify-between px-3 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
@@ -1497,10 +1355,20 @@ function PostPreview({
       ) : null}
 
       {/* Media */}
-      <div className="relative w-full bg-muted" style={{ aspectRatio: wideMedia ? "1.91 / 1" : "1 / 1" }}>
+      <div
+        className="relative w-full bg-muted"
+        style={{ aspectRatio: wideMedia ? "1.91 / 1" : "1 / 1" }}
+      >
         {media?.publicUrl ? (
           media.kind === "video" ? (
-            <video src={media.publicUrl} className="h-full w-full object-cover" muted playsInline loop autoPlay />
+            <video
+              src={media.publicUrl}
+              className="h-full w-full object-cover"
+              muted
+              playsInline
+              loop
+              autoPlay
+            />
           ) : (
             <img src={media.publicUrl} alt="preview" className="h-full w-full object-cover" />
           )
@@ -1516,10 +1384,7 @@ function PostPreview({
             {Array.from({ length: Math.min(mediaCount, 10) }).map((_, i) => (
               <span
                 key={i}
-                className={cn(
-                  "h-1.5 w-1.5 rounded-full",
-                  i === 0 ? "bg-white" : "bg-white/50",
-                )}
+                className={cn("h-1.5 w-1.5 rounded-full", i === 0 ? "bg-white" : "bg-white/50")}
               />
             ))}
           </div>
@@ -1527,7 +1392,7 @@ function PostPreview({
       </div>
 
       {/* Actions bar — Instagram/Facebook only */}
-      {(channel === "instagram" || channel === "facebook") ? (
+      {channel === "instagram" || channel === "facebook" ? (
         <div className="flex items-center justify-between px-3 pt-2.5">
           <div className="flex items-center gap-3 text-foreground">
             <Heart className="h-5 w-5" />
@@ -1539,14 +1404,12 @@ function PostPreview({
       ) : null}
 
       {/* Copy abaixo — IG/FB */}
-      {(channel === "instagram" || channel === "facebook") ? (
+      {channel === "instagram" || channel === "facebook" ? (
         <div className="px-3 pb-3 pt-2">
           <div className="text-[11.5px] leading-snug">
             <span className="font-semibold">{handle}</span>{" "}
             <span className="whitespace-pre-wrap text-foreground/90">
-              {fullCopy || (
-                <span className="text-muted-foreground">Sua legenda aparece aqui…</span>
-              )}
+              {fullCopy || <span className="text-muted-foreground">Sua legenda aparece aqui…</span>}
             </span>
           </div>
         </div>
@@ -1584,17 +1447,9 @@ function channelChromeStyle(channel: SocialChannel) {
 // Link policy — sinaliza se o link será clicável na rede escolhida.
 // ============================================================
 
-export type LinkPolicy =
-  | "none"
-  | "clickable"
-  | "sticker"
-  | "not-clickable"
-  | "mixed";
+export type LinkPolicy = "none" | "clickable" | "sticker" | "not-clickable" | "mixed";
 
-function classifyLinkPolicy(
-  channel: SocialChannel,
-  format: PlacementFormat,
-): LinkPolicy {
+function classifyLinkPolicy(channel: SocialChannel, format: PlacementFormat): LinkPolicy {
   // Stories: Instagram/Facebook viram sticker de link.
   if (format === "stories") return "sticker";
   // Instagram feed/reels/carrossel: link não é clicável na legenda.
@@ -1659,9 +1514,7 @@ function LocationCombobox({
           }}
           onFocus={() => setOpen(true)}
           placeholder={
-            instagramConnectionId
-              ? "Digite para buscar no Instagram…"
-              : "Ex.: São Paulo, SP"
+            instagramConnectionId ? "Digite para buscar no Instagram…" : "Ex.: São Paulo, SP"
           }
         />
       </PopoverTrigger>
@@ -1705,9 +1558,7 @@ function LocationCombobox({
                 >
                   <span className="font-medium">{r.name}</span>
                   {r.subtitle ? (
-                    <span className="text-[10px] text-muted-foreground">
-                      {r.subtitle}
-                    </span>
+                    <span className="text-[10px] text-muted-foreground">{r.subtitle}</span>
                   ) : null}
                 </button>
               </li>

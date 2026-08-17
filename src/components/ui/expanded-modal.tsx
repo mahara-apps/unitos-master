@@ -42,6 +42,13 @@ export const EXPANDED_MODAL_SIZES = {
   "xl-agent": "sm:max-w-[800px]",
   /** Quase tela cheia — ScheduleWizard. */
   full: "sm:max-w-[1400px] sm:w-[calc(100vw-4rem)]",
+  /**
+   * 1080px — Composer de publicação (ScheduleWizard).
+   * Workspace compacto de 2 colunas (edição + preview/agenda). Aprovado
+   * caso a caso para substituir a tela cheia anterior, que ocupava toda a
+   * área disponível e exibia informação demais ao mesmo tempo.
+   */
+  composer: "sm:max-w-[1080px]",
 } as const;
 
 export type ExpandedModalSize = keyof typeof EXPANDED_MODAL_SIZES;
