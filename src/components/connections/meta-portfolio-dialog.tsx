@@ -577,16 +577,16 @@ export function MetaPortfolioDialog({
                     ? "Limite de requisições da Meta atingido."
                     : isSessionInvalid
                       ? "Sessão da Meta expirada."
-                      : "Não foi possível carregar as contas da Meta."}
+                      : humanizeMetaError(error).title}
                 </p>
                 <p className="text-destructive/80">
                   {isRateLimited
                     ? "Por favor, aguarde alguns minutos antes de tentar novamente. O portfólio salvo será mantido."
                     : isSessionInvalid
                       ? "Faça login na Meta novamente para recarregar suas contas."
-                      : (error as Error).message ||
-                        "Tente novamente ou reconecte sua conta Meta."}
+                      : humanizeMetaError(error).description}
                 </p>
+
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
