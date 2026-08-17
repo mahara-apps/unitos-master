@@ -95,32 +95,11 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
     let cachedAds =
       (session.ad_accounts as unknown as PortfolioAdAccount[]) ?? [];
 
-    // A brand-new OAuth session starts with `pages: []`. Instead of showing an
-    // empty selector (or forcing a Graph scan while the app is rate limited),
-    // seed it with the discovery METADATA already known for the same Meta user
-    // on the same brand. Tokens are stripped — they stay bound to the session
-    // that minted them; link time re-fetches the Page token with the current
-    // session's user token.
-    let seededFromCache = false;
-    if (cachedPages.length === 0 && cachedStandaloneIg.length === 0) {
-      const { data: prior } = await context.supabase
-        .from("meta_oauth_sessions")
-        .select("id, pages, created_at")
-        .eq("brand_id", data.brandId)
-        .eq("meta_user_id", session.meta_user_id)
-        .neq("id", session.id)
-        .order("created_at", { ascending: false })
-        .limit(5);
-      for (const row of prior ?? []) {
-        const payload = readPagesPayload(row.pages);
-        if (payload.pages.length === 0 && payload.standaloneInstagram.length === 0) continue;
-        cachedPages = stripPageTokens(payload.pages);
-        cachedStandaloneIg = payload.standaloneInstagram;
-        businessCount = payload.businessCount;
-        seededFromCache = true;
-        break;
-      }
-    }
+    // FAIL-CLOSED: uma sessão recém-autorizada NUNCA é preenchida com contas
+    // de sessões anteriores. Só o que a Meta devolver para o token atual pode
+    // aparecer na tela de descoberta (reconexão => nova descoberta real).
+    const seededFromCache = false;
+
 
     const ch = data.channel ?? null;
     const needPages =
