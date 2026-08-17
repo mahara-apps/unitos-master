@@ -906,11 +906,21 @@ export function ScheduleWizard({
                   </div>
                 ) : null}
 
+                {hydrating ? (
+                  <div className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Restaurando mídia e destinos desta peça…
+                  </div>
+                ) : null}
+
                 {/* Selected media strip */}
                 {selectedMedia.length ? (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <Label className="text-xs">Selecionadas ({selectedMedia.length})</Label>
+                      <Label className="text-xs">
+                        Mídia da publicação ({selectedMedia.length})
+                      </Label>
+
                       <button
                         type="button"
                         onClick={() => setSelectedMedia([])}
