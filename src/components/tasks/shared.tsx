@@ -1212,6 +1212,8 @@ export function SubtasksSection({ taskId }: { taskId: string }) {
   const patch = useServerFn(updateSubtaskFn);
   const remove = useServerFn(deleteSubtaskFn);
   const [title, setTitle] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
 
   const q = useQuery({
     queryKey: ["task-subtasks", taskId],
@@ -1221,7 +1223,21 @@ export function SubtasksSection({ taskId }: { taskId: string }) {
   const doneCount = items.filter((s) => s.done).length;
   const pct = items.length ? Math.round((doneCount / items.length) * 100) : 0;
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["task-subtasks", taskId] });
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ["task-subtasks", taskId] });
+    // O progresso das subtarefas aparece na lista/kanban, então recarrega as tarefas também.
+    void qc.invalidateQueries({ queryKey: ["tasks"] });
+  };
+
+  const rename = useMutation({
+    mutationFn: (v: { subtaskId: string; title: string }) =>
+      patch({ data: { subtaskId: v.subtaskId, patch: { title: v.title } } as never }),
+    onSuccess: () => {
+      setEditingId(null);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const create = useMutation({
     mutationFn: (t: string) => add({ data: { taskId, title: t } }),
@@ -1275,14 +1291,38 @@ export function SubtasksSection({ taskId }: { taskId: string }) {
                 onCheckedChange={(v) => toggle.mutate({ subtaskId: s.id, done: v === true })}
                 aria-label={s.done ? "Marcar como pendente" : "Marcar como concluída"}
               />
-              <span
-                className={cn(
-                  "flex-1 text-sm",
-                  s.done && "text-muted-foreground line-through",
-                )}
-              >
-                {s.title}
-              </span>
+              {editingId === s.id ? (
+                <Input
+                  autoFocus
+                  value={editingTitle}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  onBlur={() => {
+                    const t = editingTitle.trim();
+                    if (t && t !== s.title) rename.mutate({ subtaskId: s.id, title: t });
+                    else setEditingId(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur();
+                    if (e.key === "Escape") setEditingId(null);
+                  }}
+                  className="h-7 flex-1 text-sm"
+                />
+              ) : (
+                <button
+                  type="button"
+                  className={cn(
+                    "flex-1 truncate text-left text-sm",
+                    s.done && "text-muted-foreground line-through",
+                  )}
+                  onClick={() => {
+                    setEditingId(s.id);
+                    setEditingTitle(s.title);
+                  }}
+                  title="Clique para editar"
+                >
+                  {s.title}
+                </button>
+              )}
               <button
                 className="text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
                 onClick={() => del.mutate(s.id)}
