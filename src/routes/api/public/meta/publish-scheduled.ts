@@ -73,13 +73,17 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
             const { data: conn, error: connErr } = await supabaseAdmin
               .from("social_connections")
               .select(
-                "id, brand_id, provider, channel, external_id, account_id, access_token_ciphertext",
+                "id, brand_id, provider, channel, status, external_id, account_id, access_token_ciphertext",
               )
               .eq("id", post.connection_id)
               .eq("brand_id", post.brand_id)
               .maybeSingle();
             if (connErr) throw new Error(connErr.message);
-            if (!conn) throw new Error("Conexão removida");
+            if (!conn) {
+              throw new Error(
+                "CONNECTION_SCOPE_MISMATCH: conexão removida ou de outra marca",
+              );
+            }
             // Defesa em profundidade: o canal precisa estar vinculado ao
             // cliente do post em client_social_accounts (fonte de verdade).
             if (post.client_id) {
@@ -92,8 +96,24 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
                 .maybeSingle();
               if (linkErr) throw new Error(linkErr.message);
               if (!link) {
-                throw new Error("Canal não está vinculado ao cliente do post agendado");
+                throw new Error(
+                  "CONNECTION_SCOPE_MISMATCH: canal não está vinculado ao cliente do post agendado",
+                );
               }
+            }
+            if ((conn as any).status && (conn as any).status !== "active") {
+              throw new Error("Conexão não está ativa — reconecte a página");
+            }
+            if (!(conn as any).access_token_ciphertext) {
+              throw new Error("Conexão sem token — reconecte a página");
+            }
+            if (post.placement === "story" && (conn as any).channel !== "instagram") {
+              throw new Error(
+                "CONNECTION_SCOPE_MISMATCH: Stories só é suportado em conexões Instagram",
+              );
+            }
+            if ((conn as any).channel === "instagram" && !(conn as any).account_id) {
+              throw new Error("Conexão sem conta Instagram Business vinculada");
             }
 
 
