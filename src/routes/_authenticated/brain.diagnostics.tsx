@@ -91,6 +91,65 @@ function BrainDiagnosticsRoute() {
         </div>
       </div>
 
+      {/* Worker health — se o worker parar, o Brain para de aprender em silêncio. */}
+      {d?.worker ? (
+        <section
+          className={`rounded-xl border p-4 ${
+            d.worker.healthy
+              ? "border-emerald-500/30 bg-emerald-500/5"
+              : "border-destructive/40 bg-destructive/5"
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              {d.worker.healthy ? (
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+              ) : (
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
+              )}
+              <div className="space-y-1">
+                <p className="text-sm font-semibold">
+                  {d.worker.healthy
+                    ? "Worker de aprendizado ativo"
+                    : "Worker de aprendizado parado — o Brain não está aprendendo"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {d.worker.lastRunAt
+                    ? `Última execução ${
+                        d.worker.minutesSinceLastRun != null
+                          ? `há ${d.worker.minutesSinceLastRun} min`
+                          : "—"
+                      } · status ${d.worker.lastStatus ?? "—"}${
+                        d.worker.lastDurationMs != null
+                          ? ` · ${d.worker.lastDurationMs} ms`
+                          : ""
+                      }`
+                    : "Nenhuma execução registrada."}
+                </p>
+                {d.worker.lastError ? (
+                  <p className="text-xs font-medium text-destructive">
+                    Erro: {d.worker.lastError}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <Badge variant="secondary">{d.worker.runs24h} execuções / 24h</Badge>
+              <Badge variant="secondary">{d.worker.processed24h} eventos</Badge>
+              <Badge variant="secondary">
+                {d.worker.discarded24h} descartados (evidência)
+              </Badge>
+              <Badge variant="secondary">
+                {d.worker.memoriesTouched24h} memórias sintetizadas
+              </Badge>
+              {d.worker.failures24h > 0 ? (
+                <Badge variant="destructive">{d.worker.failures24h} falhas</Badge>
+              ) : null}
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       {/* Queue */}
       <section className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         <QueueKpi

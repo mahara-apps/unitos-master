@@ -1,5 +1,8 @@
 // ⚠️ Brain Recommendation Engine — leitura de recomendações ativas.
+// Isolamento: com cliente ativo → marca + aquele cliente; sem cliente ativo →
+// apenas recomendações não atribuídas a um cliente (evita misturar clientes).
 import type { BrainContext } from "../core";
+import { brainFail } from "../observability";
 
 export interface BrainRecommendationRow {
   recommendation_type: string;
@@ -27,8 +30,11 @@ export async function list(
     .limit(opts.limit ?? 15);
   if (ctx.brandId) q = q.eq("brand_id", ctx.brandId);
   // Restringe por cliente ativo (ou recomendações genéricas sem client_id).
-  if (ctx.clientId) q = q.or(`client_id.eq.${ctx.clientId},client_id.is.null`);
-  const { data } = await q;
+  q = ctx.clientId
+    ? q.or(`client_id.eq.${ctx.clientId},client_id.is.null`)
+    : q.is("client_id", null);
+  const { data, error } = await q;
+  if (error) brainFail("recommendations.list", error, ctx);
   return ((data ?? []) as Array<BrainRecommendationRow>).map((r) => ({
     recommendation_type: r.recommendation_type,
     title: r.title,

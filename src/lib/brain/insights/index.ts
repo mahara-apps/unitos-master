@@ -1,5 +1,15 @@
-// ⚠️ Brain Insight Engine — leitura de insights ativos.
+// ⚠️ Brain Insight Engine — leitura/escrita de insights ativos.
+//
+// Isolamento por COLUNA (client_id + scope), não por metadata: o filtro antigo
+// (`metadata->>client_id`) dependia de um campo opcional, então um insight
+// gerado sem esse metadata aparecia para QUALQUER cliente da marca.
+// Regra: com cliente ativo → global + marca + aquele cliente;
+//        sem cliente ativo → global + marca (nunca insights client-scoped).
 import type { BrainContext, BrainInsightRow } from "../core";
+import { brainFail } from "../observability";
+
+const SELECT =
+  "id, insight_type, description, confidence, expires_at, scope, brand_id, client_id, created_at";
 
 export interface CreateInsightInput {
   insight_type: string;
@@ -9,27 +19,36 @@ export interface CreateInsightInput {
   metadata?: Record<string, unknown>;
 }
 
+function scoped<T>(q: T, ctx: BrainContext): T {
+  const query = q as unknown as {
+    or: (f: string) => unknown;
+    is: (c: string, v: null) => unknown;
+  };
+  let out: unknown = ctx.brandId
+    ? query.or(`brand_id.eq.${ctx.brandId},brand_id.is.null`)
+    : query.is("brand_id", null);
+  const next = out as { or: (f: string) => unknown; is: (c: string, v: null) => unknown };
+  out = ctx.clientId
+    ? next.or(`client_id.eq.${ctx.clientId},client_id.is.null`)
+    : next.is("client_id", null);
+  return out as T;
+}
+
 export async function list(
   ctx: BrainContext,
   opts: { limit?: number } = {},
 ): Promise<BrainInsightRow[]> {
-  let q = ctx.supabase
+  const limit = opts.limit ?? 15;
+  const q = ctx.supabase
     .from("brain_insights")
-    .select("insight_type, description, confidence, expires_at, brand_id, metadata")
+    .select(SELECT)
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
+    .order("confidence", { ascending: false })
     .order("created_at", { ascending: false })
-    .limit(opts.limit ?? 15);
-  q = ctx.brandId
-    ? q.or(`brand_id.eq.${ctx.brandId},brand_id.is.null`)
-    : q.is("brand_id", null);
-  // brain_insights não tem coluna client_id — restringe por metadata->>client_id
-  // quando há cliente ativo para não vazar insights de outros clientes.
-  if (ctx.clientId) {
-    q = q.or(`metadata->>client_id.eq.${ctx.clientId},metadata->>client_id.is.null`);
-  }
-  const { data } = await q;
-  return ((data ?? []) as Array<BrainInsightRow>)
-    .filter((r) => !r.expires_at || new Date(r.expires_at) > new Date())
-    .slice(0, opts.limit ?? 8);
+    .limit(limit);
+  const { data, error } = await scoped(q, ctx);
+  if (error) brainFail("insights.list", error, ctx);
+  return (data ?? []) as BrainInsightRow[];
 }
 
 export async function create(
@@ -40,6 +59,8 @@ export async function create(
     .from("brain_insights")
     .insert({
       brand_id: ctx.brandId ?? null,
+      // O trigger brain_scope_guard resolve `scope` a partir de brand/client.
+      client_id: ctx.clientId ?? null,
       insight_type: input.insight_type,
       description: input.description,
       confidence: input.confidence ?? 0.5,
@@ -61,12 +82,12 @@ export async function patterns(
 ): Promise<BrainInsightRow[]> {
   const q = ctx.supabase
     .from("brain_insights")
-    .select("insight_type, description, confidence, expires_at, brand_id")
+    .select(SELECT)
     .ilike("insight_type", "%pattern%")
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .order("confidence", { ascending: false })
     .limit(opts.limit ?? 10);
-  const { data } = ctx.brandId
-    ? await q.or(`brand_id.eq.${ctx.brandId},brand_id.is.null`)
-    : await q.is("brand_id", null);
-  return (data ?? []) as Array<BrainInsightRow>;
+  const { data, error } = await scoped(q, ctx);
+  if (error) brainFail("insights.patterns", error, ctx);
+  return (data ?? []) as BrainInsightRow[];
 }

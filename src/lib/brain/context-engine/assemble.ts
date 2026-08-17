@@ -6,6 +6,7 @@
 //
 // Escopo aplicado a TODA query: brand_id, client_id (se presente),
 // project_id (se presente), period (se presente).
+import { bucket } from "../observability";
 import type { BrainContext, BrainStats } from "../core";
 import * as memory from "../memory";
 import * as insights from "../insights";
@@ -46,6 +47,12 @@ export interface ContextPack {
   markdown: string;
   /** Contagem de itens candidatos ANTES do corte por relevância. */
   candidateCount: number;
+  /**
+   * Buckets que FALHARAM ao carregar. Um pacote degradado não é um pacote
+   * vazio: a falha aparece no markdown enviado ao LLM e no diagnóstico, para
+   * o Brain nunca "parecer sem memória" quando na verdade houve erro.
+   */
+  failures: string[];
 }
 
 export async function build(
@@ -74,19 +81,37 @@ async function buildUncached(
     (["posts", "tasks", "projects", "general"] as IntentTopic[]).includes(t),
   );
 
-  const [memRows, activeInsights, activeRecs, semantic, stats] = await Promise.all([
-    memory.list(ctx, { limit: 20 }),
-    intent.topics.includes("insights") || intent.topics.includes("general")
-      ? insights.list(ctx, { limit: 15 })
-      : Promise.resolve([]),
-    intent.topics.includes("recommendations") || intent.topics.includes("general")
-      ? recommendations.list(ctx, { limit: 10 })
-      : Promise.resolve([]),
-    args.question
-      ? query.semantic(ctx, { query: args.question, matchCount: 6 })
-      : Promise.resolve([]),
-    wantsStats ? query.stats(ctx) : Promise.resolve({} as BrainStats),
+  const [memB, insB, recB, semB, statsB] = await Promise.all([
+    bucket("memory.list", [] as Awaited<ReturnType<typeof memory.list>>, () =>
+      memory.list(ctx, { limit: 20 }),
+    ),
+    bucket("insights.list", [] as Awaited<ReturnType<typeof insights.list>>, () =>
+      intent.topics.includes("insights") || intent.topics.includes("general")
+        ? insights.list(ctx, { limit: 15 })
+        : Promise.resolve([]),
+    ),
+    bucket("recommendations.list", [] as Awaited<ReturnType<typeof recommendations.list>>, () =>
+      intent.topics.includes("recommendations") || intent.topics.includes("general")
+        ? recommendations.list(ctx, { limit: 10 })
+        : Promise.resolve([]),
+    ),
+    bucket("query.semantic", [] as Awaited<ReturnType<typeof query.semantic>>, () =>
+      args.question
+        ? query.semantic(ctx, { query: args.question, matchCount: 6 })
+        : Promise.resolve([]),
+    ),
+    bucket("query.stats", {} as BrainStats, () =>
+      wantsStats ? query.stats(ctx) : Promise.resolve({} as BrainStats),
+    ),
   ]);
+
+  const memRows = memB.data;
+  const activeInsights = insB.data;
+  const activeRecs = recB.data;
+  const semantic = semB.data;
+  const stats = statsB.data;
+  const failures = [memB.failure, insB.failure, recB.failure, semB.failure, statsB.failure]
+    .filter((f): f is string => !!f);
 
   const items: ContextItem[] = [];
   let candidateCount = 0;
@@ -94,13 +119,13 @@ async function buildUncached(
   for (const m of memRows) {
     candidateCount++;
     const score = relevanceScore(
-      { text: `${m.topic} ${m.summary}`, confidence: m.confidence },
+      { text: `${m.title} ${m.description} ${m.category}`, confidence: m.confidence },
       intent.keywords,
     );
     items.push({
       kind: "memory",
-      label: m.topic,
-      detail: m.summary,
+      label: m.title,
+      detail: m.description,
       score,
       confidence: m.confidence,
     });
@@ -171,13 +196,28 @@ async function buildUncached(
     scope,
     items: pruned,
     stats,
-    markdown: renderMarkdown(pruned, stats, scope),
+    markdown: renderMarkdown(pruned, stats, scope, failures),
     candidateCount,
+    failures,
   };
 }
 
-function renderMarkdown(items: ContextItem[], stats: BrainStats, scope: ContextScope): string {
+function renderMarkdown(
+  items: ContextItem[],
+  stats: BrainStats,
+  scope: ContextScope,
+  failures: string[] = [],
+): string {
   const parts: string[] = [];
+  if (failures.length) {
+    // O LLM precisa saber que o contexto está INCOMPLETO por falha técnica —
+    // e não concluir que "não há histórico".
+    parts.push(
+      `### ⚠️ Contexto incompleto (falha técnica)\nAlgumas fontes do Brain não puderam ser lidas nesta consulta. NÃO afirme que não existe histórico ou memória; sinalize a indisponibilidade.\n${failures
+        .map((f) => `- ${f}`)
+        .join("\n")}`,
+    );
+  }
   const scopeLine = [
     scope.brandId ? `workspace:${scope.brandId.slice(0, 8)}` : "workspace:agência",
     scope.clientId ? `cliente:${scope.clientId.slice(0, 8)}` : null,

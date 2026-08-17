@@ -1002,32 +1002,38 @@ export type Database = {
         Row: {
           based_on_events: number | null
           brand_id: string | null
+          client_id: string | null
           confidence: number | null
           created_at: string
           description: string
           expires_at: string | null
           id: string
           insight_type: string
+          scope: string
         }
         Insert: {
           based_on_events?: number | null
           brand_id?: string | null
+          client_id?: string | null
           confidence?: number | null
           created_at?: string
           description: string
           expires_at?: string | null
           id?: string
           insight_type: string
+          scope?: string
         }
         Update: {
           based_on_events?: number | null
           brand_id?: string | null
+          client_id?: string | null
           confidence?: number | null
           created_at?: string
           description?: string
           expires_at?: string | null
           id?: string
           insight_type?: string
+          scope?: string
         }
         Relationships: [
           {
@@ -1042,6 +1048,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brain_insights_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -1093,6 +1106,7 @@ export type Database = {
           access_count: number
           brand_id: string | null
           category: string | null
+          client_id: string | null
           confidence: number
           content: Json
           contradiction_count: number
@@ -1126,6 +1140,7 @@ export type Database = {
           access_count?: number
           brand_id?: string | null
           category?: string | null
+          client_id?: string | null
           confidence?: number
           content?: Json
           contradiction_count?: number
@@ -1159,6 +1174,7 @@ export type Database = {
           access_count?: number
           brand_id?: string | null
           category?: string | null
+          client_id?: string | null
           confidence?: number
           content?: Json
           contradiction_count?: number
@@ -1201,6 +1217,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brain_memory_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -1470,6 +1493,7 @@ export type Database = {
         Row: {
           bidirectional: boolean
           brand_id: string | null
+          client_id: string | null
           confidence: number
           created_at: string
           from_id: string
@@ -1487,6 +1511,7 @@ export type Database = {
         Insert: {
           bidirectional?: boolean
           brand_id?: string | null
+          client_id?: string | null
           confidence?: number
           created_at?: string
           from_id: string
@@ -1504,6 +1529,7 @@ export type Database = {
         Update: {
           bidirectional?: boolean
           brand_id?: string | null
+          client_id?: string | null
           confidence?: number
           created_at?: string
           from_id?: string
@@ -1533,6 +1559,13 @@ export type Database = {
             referencedRelation: "brands"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "brain_relationships_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
         ]
       }
       brain_retention_config: {
@@ -1553,6 +1586,63 @@ export type Database = {
           key?: string
           updated_at?: string
           value_days?: number
+        }
+        Relationships: []
+      }
+      brain_worker_runs: {
+        Row: {
+          created_at: string
+          discarded: number
+          duration_ms: number | null
+          edges_created: number
+          error: string | null
+          failed: number
+          finished_at: string | null
+          id: string
+          insights_created: number
+          job_name: string
+          memories_created: number
+          memories_updated: number
+          picked: number
+          processed: number
+          started_at: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          discarded?: number
+          duration_ms?: number | null
+          edges_created?: number
+          error?: string | null
+          failed?: number
+          finished_at?: string | null
+          id?: string
+          insights_created?: number
+          job_name?: string
+          memories_created?: number
+          memories_updated?: number
+          picked?: number
+          processed?: number
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          discarded?: number
+          duration_ms?: number | null
+          edges_created?: number
+          error?: string | null
+          failed?: number
+          finished_at?: string | null
+          id?: string
+          insights_created?: number
+          job_name?: string
+          memories_created?: number
+          memories_updated?: number
+          picked?: number
+          processed?: number
+          started_at?: string
+          status?: string
         }
         Relationships: []
       }
@@ -5722,6 +5812,10 @@ export type Database = {
         Returns: string
       }
       brain_memory_touch: { Args: { _ids: string[] }; Returns: number }
+      brain_render_memory_desc: {
+        Args: { _category: string; _content: Json }
+        Returns: string
+      }
       brain_retention_run: { Args: never; Returns: Json }
       can_access_client: {
         Args: { _client_id: string; _user_id: string }

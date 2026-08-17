@@ -149,7 +149,7 @@ export const Route = createFileRoute("/api/chat/stream")({
             .map((i) => ({ insight_type: i.label, description: i.detail, confidence: i.confidence ?? null })),
           memoryRows: contextPack.items
             .filter((i) => i.kind === "memory")
-            .map((i) => ({ topic: i.label, summary: i.detail, confidence: i.confidence ?? null })),
+            .map((i) => ({ title: i.label, description: i.detail, confidence: i.confidence ?? null })),
           stats: contextPack.stats,
           markdown: reasoning?.llmContextMarkdown
             ? `${contextPack.markdown}\n\n${reasoning.llmContextMarkdown}`

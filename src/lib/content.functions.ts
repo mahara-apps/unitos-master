@@ -1142,10 +1142,6 @@ export const reworkPostFn = createServerFn({ method: "POST" })
         event_type: "post.rework",
         payload: feedbackPayload,
       });
-      await brain.learn(brainCtx, {
-        job_type: "post.rework.feedback",
-        payload: feedbackPayload,
-      });
     } catch (err) {
       console.warn("[content.rework] brain feedback failed:", err);
     }
