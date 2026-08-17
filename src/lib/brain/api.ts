@@ -42,6 +42,8 @@ import type { BrainConsolidated, ChatAttachmentMeta } from "./chat-gateway";
 // e `brainRetrieveFn` permanecem acessíveis apenas via server routes.
 export { brainGraphFn, type BrainGraph, type GraphNode } from "./legacy/brain-graph.functions";
 export { brainIntelligenceFn, type BrainIntelligence } from "./legacy/brain-intelligence.functions";
+export { brainOverviewFn, brainLearningDetailFn } from "./overview.functions";
+export type * from "./overview.types";
 export { loadBrainWidget } from "./legacy/brain-widget.functions";
 export type { BrainWidgetItem, BrainWidgetPayload } from "./legacy/brain-widget.functions";
 
