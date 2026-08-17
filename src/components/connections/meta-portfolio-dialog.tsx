@@ -44,6 +44,50 @@ import {
   type PortfolioAdAccount,
 } from "@/lib/meta/portfolio.functions";
 import { startMetaOAuth } from "@/lib/meta/meta.functions";
+import {
+  accountDiscoveryStatus,
+  type DiscoveredAccountStatus,
+  type PublishAuthorizationInfo,
+} from "@/lib/meta/portfolio-shared";
+
+/**
+ * Status canônico por conta descoberta: 🟢 Pronto · 🟠 Autorização necessária
+ * · 🔴 Não disponível. Derivado do target_id real (granular scopes da Meta).
+ */
+function AccountStatusBadge({ status }: { status: DiscoveredAccountStatus }) {
+  if (status === "ready") {
+    return (
+      <Badge
+        variant="outline"
+        className="h-5 gap-1 border-emerald-500/30 bg-emerald-500/10 px-1.5 text-[10px] text-emerald-600 dark:text-emerald-400"
+      >
+        <CheckCircle2 className="h-3 w-3" />
+        Pronto para publicar
+      </Badge>
+    );
+  }
+  if (status === "authorization_required") {
+    return (
+      <Badge
+        variant="outline"
+        className="h-5 gap-1 border-amber-500/40 bg-amber-500/10 px-1.5 text-[10px] text-amber-700 dark:text-amber-400"
+        title="A Meta não autorizou esta conta específica para publicação. Reconecte e selecione esta conta na tela da Meta."
+      >
+        <AlertTriangle className="h-3 w-3" />
+        Autorização necessária
+      </Badge>
+    );
+  }
+  return (
+    <Badge
+      variant="outline"
+      className="h-5 gap-1 border-destructive/40 bg-destructive/10 px-1.5 text-[10px] text-destructive"
+    >
+      <AlertTriangle className="h-3 w-3" />
+      Não disponível
+    </Badge>
+  );
+}
 
 function metaPopupFeatures(): string {
   const width = 760;
@@ -348,6 +392,8 @@ export function MetaPortfolioDialog({
     }));
     return [...fromPages, ...standalone];
   }, [data]);
+  const publishAuth: PublishAuthorizationInfo | null =
+    data?.publishAuthorization ?? null;
   const threadsAccounts: PortfolioThreadsAccount[] = data?.threadsAccounts ?? [];
   const adAccounts: PortfolioAdAccount[] = data?.adAccounts ?? [];
   const missingScopes = data?.missingScopes ?? [];
@@ -653,8 +699,17 @@ export function MetaPortfolioDialog({
                               )}
                             </div>
                             <p className="truncate text-[11px] text-muted-foreground">
-                              {p.category ?? "Página"} · ID {p.pageId}
+                              {p.category ?? "Página"} · Page ID {p.pageId}
                             </p>
+                            <div className="mt-1">
+                              <AccountStatusBadge
+                                status={accountDiscoveryStatus(
+                                  publishAuth,
+                                  "facebook",
+                                  p.pageId,
+                                )}
+                              />
+                            </div>
                           </div>
                           <div className="flex items-center gap-2">
                             {isPending && (
@@ -728,8 +783,20 @@ export function MetaPortfolioDialog({
                             <p className="truncate text-[11px] text-muted-foreground">
                               {"standalone" in p && p.standalone
                                 ? `Portfólio${p.category ? ` ${p.category}` : ""} · sem Página vinculada`
-                                : `via Página ${p.pageName}`}
+                                : `Página: ${p.pageName}`}
+                              {p.instagramBusinessId
+                                ? ` · Instagram Business ID ${p.instagramBusinessId}`
+                                : ""}
                             </p>
+                            <div className="mt-1">
+                              <AccountStatusBadge
+                                status={accountDiscoveryStatus(
+                                  publishAuth,
+                                  "instagram",
+                                  p.instagramBusinessId,
+                                )}
+                              />
+                            </div>
                           </div>
                           <div className="flex items-center gap-2">
                             {isPending && (
