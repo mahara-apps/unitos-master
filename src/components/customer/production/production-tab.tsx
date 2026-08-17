@@ -2,33 +2,12 @@
 // do que foi produzido e a fila de solicitações extras / excedentes.
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { CalendarClock, Layers, PlusCircle, Radio } from "lucide-react";
 
-import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
+import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import { getPlanVolumetryFn } from "@/lib/monthly-plans.functions";
 import { ProductionReport } from "./production-report";
 import { ProductionOverages } from "./production-overages";
-
-function StatCard({
-  label,
-  value,
-  hint,
-  tone,
-}: {
-  label: string;
-  value: string | number;
-  hint?: string;
-  tone?: "default" | "amber" | "emerald";
-}) {
-  const toneClass =
-    tone === "amber" ? "text-amber-500" : tone === "emerald" ? "text-emerald-500" : "text-foreground";
-  return (
-    <DashboardPanelSurface className="p-4">
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-2xl font-semibold tabular-nums ${toneClass}`}>{value}</p>
-      {hint ? <p className="mt-0.5 text-[11px] text-muted-foreground">{hint}</p> : null}
-    </DashboardPanelSurface>
-  );
-}
 
 export function ProductionTab({ brandId, clientId }: { brandId: string; clientId: string }) {
   const loadVolumetry = useServerFn(getPlanVolumetryFn);
@@ -47,29 +26,34 @@ export function ProductionTab({ brandId, clientId }: { brandId: string; clientId
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatCard
+      <PageKpiGrid columns={4}>
+        <PageKpi
+          icon={<CalendarClock />}
           label="Previstas no mês"
           value={vol ? vol.totalTarget : "—"}
-          hint="Volumetria do briefing"
+          description="Volumetria do briefing"
         />
-        <StatCard
+        <PageKpi
+          icon={<Layers />}
           label="Geradas na pauta"
           value={vol ? vol.generatedTotal : "—"}
-          hint="Mês corrente"
+          status="info"
+          description="Mês corrente"
         />
-        <StatCard
+        <PageKpi
+          icon={<PlusCircle />}
           label="Excedentes autorizados"
           value={vol ? overageTotal : "—"}
-          hint="Liberados pelo gestor"
-          tone={overageTotal > 0 ? "amber" : "default"}
+          description="Liberados pelo gestor"
+          status={overageTotal > 0 ? "warning" : "neutral"}
         />
-        <StatCard
+        <PageKpi
+          icon={<Radio />}
           label="Cotas por canal"
           value={Object.keys(quotaByChannel).length}
-          hint="Canais com volumetria definida"
+          description="Canais com volumetria definida"
         />
-      </div>
+      </PageKpiGrid>
 
       <ProductionReport brandId={brandId} clientId={clientId} quotaByChannel={quotaByChannel} />
       <ProductionOverages brandId={brandId} clientId={clientId} />

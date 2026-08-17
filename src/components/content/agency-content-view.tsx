@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/table";
 import { PanelCard } from "@/components/ui/panel-card";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
+import { PageKpi, PageKpiGrid, type KpiStatus } from "@/components/ui/page-kpi";
 import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
@@ -226,37 +227,24 @@ export function AgencyContentView({ brandId }: { brandId: string }) {
 }
 
 function KpiBar({ snapshot }: { snapshot: AgencyContentSnapshot }) {
-  const items = [
-    { label: "Em produção", value: snapshot.kpis.inProduction, tone: "muted" },
-    { label: "Aguard. aprovação", value: snapshot.kpis.awaitingApproval, tone: "amber" },
-    { label: "Atrasadas", value: snapshot.kpis.overdue, tone: "rose" },
-    { label: "Próx. vencer", value: snapshot.kpis.atRisk, tone: "amber" },
-    { label: "Clientes parados", value: snapshot.kpis.stalledClients, tone: "rose" },
+  const items: Array<{ label: string; value: number; status: KpiStatus }> = [
+    { label: "Em produção", value: snapshot.kpis.inProduction, status: "info" },
+    { label: "Aguard. aprovação", value: snapshot.kpis.awaitingApproval, status: "warning" },
+    { label: "Atrasadas", value: snapshot.kpis.overdue, status: "danger" },
+    { label: "Próx. vencer", value: snapshot.kpis.atRisk, status: "warning" },
+    { label: "Clientes parados", value: snapshot.kpis.stalledClients, status: "danger" },
   ];
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+    <PageKpiGrid columns={5}>
       {items.map((k) => (
-        <div
+        <PageKpi
           key={k.label}
-          className="rounded-lg border border-border/60 bg-background/60 px-3 py-2"
-        >
-          <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            {k.label}
-          </div>
-          <div
-            className={`mt-0.5 text-xl font-semibold tabular-nums ${
-              k.tone === "rose" && k.value > 0
-                ? "text-rose-600 dark:text-rose-400"
-                : k.tone === "amber" && k.value > 0
-                  ? "text-amber-600 dark:text-amber-400"
-                  : "text-foreground"
-            }`}
-          >
-            {k.value}
-          </div>
-        </div>
+          label={k.label}
+          value={k.value}
+          status={k.value > 0 ? k.status : "neutral"}
+        />
       ))}
-    </div>
+    </PageKpiGrid>
   );
 }
 
