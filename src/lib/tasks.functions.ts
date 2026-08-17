@@ -489,10 +489,49 @@ export type TaskSubtask = {
   created_at: string;
 };
 
+// Subtasks inherit the parent task scope: brand membership + client access.
+async function assertTaskScope(
+  supabase: { from: (t: string) => any },
+  userId: string,
+  taskId: string,
+): Promise<{ brand_id: string; client_id: string | null }> {
+  const { data: task, error } = await supabase
+    .from("tasks")
+    .select("id, brand_id, client_id")
+    .eq("id", taskId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!task) throw new Error("Tarefa não encontrada ou sem acesso.");
+  const { data: allowed, error: rpcErr } = await (supabase as any).rpc("can_access_task", {
+    _task_id: taskId,
+    _user_id: userId,
+  });
+  if (rpcErr) throw rpcErr;
+  if (allowed !== true) throw new Error("Sem acesso a esta tarefa.");
+  return { brand_id: task.brand_id as string, client_id: (task.client_id ?? null) as string | null };
+}
+
+async function assertSubtaskScope(
+  supabase: { from: (t: string) => any },
+  userId: string,
+  subtaskId: string,
+): Promise<string> {
+  const { data: st, error } = await supabase
+    .from("task_subtasks")
+    .select("id, task_id")
+    .eq("id", subtaskId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!st) throw new Error("Subtarefa não encontrada ou sem acesso.");
+  await assertTaskScope(supabase, userId, st.task_id as string);
+  return st.task_id as string;
+}
+
 export const listSubtasksFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ taskId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }): Promise<TaskSubtask[]> => {
+    await assertTaskScope(context.supabase as never, context.userId, data.taskId);
     const { data: rows, error } = await context.supabase
       .from("task_subtasks")
       .select("id, task_id, title, done, position, created_at")
@@ -514,12 +553,7 @@ export const addSubtaskFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
-    const { data: task, error: tErr } = await context.supabase
-      .from("tasks")
-      .select("brand_id")
-      .eq("id", data.taskId)
-      .single();
-    if (tErr) throw tErr;
+    const task = await assertTaskScope(context.supabase as never, context.userId, data.taskId);
     const { data: last } = await context.supabase
       .from("task_subtasks")
       .select("position")
@@ -529,7 +563,7 @@ export const addSubtaskFn = createServerFn({ method: "POST" })
     const nextPos = ((last?.[0]?.position as number | undefined) ?? -1) + 1;
     const { error } = await context.supabase.from("task_subtasks").insert({
       task_id: data.taskId,
-      brand_id: task!.brand_id as string,
+      brand_id: task.brand_id,
       title: data.title,
       position: nextPos,
       created_by: context.userId,
@@ -552,6 +586,7 @@ export const updateSubtaskFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
+    await assertSubtaskScope(context.supabase as never, context.userId, data.subtaskId);
     const { error } = await context.supabase
       .from("task_subtasks")
       .update(data.patch)
@@ -564,6 +599,7 @@ export const deleteSubtaskFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ subtaskId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
+    await assertSubtaskScope(context.supabase as never, context.userId, data.subtaskId);
     const { error } = await context.supabase
       .from("task_subtasks")
       .delete()
