@@ -152,12 +152,28 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
             results.push({ id: post.id, ok: true });
 
           } catch (err) {
+            // Classificação de erro:
+            //  - determinístico (autorização/vínculo) → `blocked`, sem retry;
+            //  - transitório (timeout/5xx/rate limit) → política de retry atual.
+            if (err instanceof DeterministicBlock) {
+              await (supabaseAdmin as any).rpc("mark_social_post_blocked", {
+                p_post_id: post.id,
+                p_error: err.message,
+                p_reason:
+                  err.code === "not_linked_to_client" || err.code === "wrong_brand"
+                    ? "connection_required"
+                    : "authorization_required",
+              });
+              results.push({ id: post.id, ok: false, error: err.message });
+              continue;
+            }
             const msg = formatPublishError(err);
             await (supabaseAdmin as any).rpc("mark_social_post_failed", {
               p_post_id: post.id,
               p_error: msg,
             });
             results.push({ id: post.id, ok: false, error: msg });
+
           }
         }
 
