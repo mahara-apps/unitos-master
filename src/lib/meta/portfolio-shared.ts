@@ -149,3 +149,58 @@ export function readPagesPayload(raw: unknown): CachedPagesPayload {
   }
   return empty;
 }
+
+/**
+ * Guard against concurrent discovery for the same session/channel. A double
+ * click on "Sincronizar" (or a client+server duplicate call) must result in ONE
+ * Graph discovery, not two. Server workers are stateless per request, so this
+ * only de-dupes within an instance — which is exactly where the duplicates
+ * happen.
+ */
+const inflightDiscovery = new Map<string, Promise<void>>();
+
+export function beginDiscovery(key: string): { wait: Promise<void> | null; done: () => void } {
+  const existing = inflightDiscovery.get(key);
+  if (existing) return { wait: existing, done: () => {} };
+  let release: () => void = () => {};
+  const p = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  inflightDiscovery.set(key, p);
+  return {
+    wait: null,
+    done: () => {
+      inflightDiscovery.delete(key);
+      release();
+    },
+  };
+}
+
+/**
+ * Merges freshly discovered Pages with previously known ones (cache), keeping
+ * the fresh row when both exist. Never drops known assets.
+ */
+export function mergeDiscoveredPages(
+  fresh: CachedPagesPayload["pages"],
+  known: CachedPagesPayload["pages"],
+): CachedPagesPayload["pages"] {
+  const byId = new Map<string, CachedPagesPayload["pages"][number]>();
+  for (const p of known) byId.set(p.pageId, p);
+  for (const p of fresh) {
+    const prev = byId.get(p.pageId);
+    byId.set(p.pageId, {
+      ...prev,
+      ...p,
+      // Keep a previously captured token if the fresh row came without one.
+      pageAccessToken: p.pageAccessToken || prev?.pageAccessToken || undefined,
+    });
+  }
+  return Array.from(byId.values());
+}
+
+/** Strips tokens from cached discovery metadata (safe to reuse across sessions). */
+export function stripPageTokens(
+  pages: CachedPagesPayload["pages"],
+): CachedPagesPayload["pages"] {
+  return pages.map(({ pageAccessToken: _drop, ...rest }) => rest);
+}
