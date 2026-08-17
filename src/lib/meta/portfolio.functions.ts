@@ -9,7 +9,11 @@ import {
   isMetaRateLimit,
   nowIso,
   readPagesPayload,
+  beginDiscovery,
+  mergeDiscoveredPages,
+  stripPageTokens,
 } from "./portfolio-shared";
+
 
 export type {
   PortfolioPage,
