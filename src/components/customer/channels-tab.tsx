@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import {
   checkDestinationsReadinessFn,
-  revalidateConnectionCapabilityFn,
   type DestinationReadiness,
 } from "@/lib/publish-capability.functions";
+
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
