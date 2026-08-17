@@ -258,7 +258,46 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
 
           scanWarnings = scan.warnings;
           businessCount = scan.businessCount || businessCount;
+
+          // RECONEXÃO FAIL-CLOSED: conexões salvas deste mesmo usuário Meta que
+          // não aparecem mais na nova descoberta perdem o status "active" — não
+          // podem continuar sendo tratadas como prontas sem nova comprovação.
+          const discoveredIds = new Set<string>([
+            ...cachedPages.map((p) => p.pageId),
+            ...(cachedPages
+              .map((p) => p.instagramBusinessId)
+              .filter(Boolean) as string[]),
+            ...cachedStandaloneIg.map((i) => i.instagramId),
+          ]);
+          if (discoveredIds.size > 0) {
+            const { data: existing } = await context.supabase
+              .from("social_connections")
+              .select("id, external_id, channel, status")
+              .eq("brand_id", data.brandId)
+              .eq("provider", "meta")
+              .eq("owner_external_id", session.meta_user_id)
+              .in("channel", ["facebook", "instagram"]);
+            const stale = (existing ?? []).filter(
+              (c) => c.status === "active" && !discoveredIds.has(c.external_id),
+            );
+            for (const c of stale) {
+              await context.supabase
+                .from("social_connections")
+                .update({
+                  status: "revoked",
+                  last_error:
+                    "Conta não apareceu na última autorização da Meta. Reconecte e selecione esta conta durante o consentimento.",
+                })
+                .eq("id", c.id);
+            }
+            if (stale.length > 0) {
+              console.log(
+                `[getMetaPortfolio] revoked ${stale.length} stale meta connection(s) after re-discovery`,
+              );
+            }
+          }
         }
+
 
 
         if (needThreads) {
