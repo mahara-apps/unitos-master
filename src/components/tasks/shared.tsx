@@ -37,6 +37,7 @@ import {
   ListChecks,
   Plus,
   FileText,
+  Archive,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -95,7 +96,9 @@ import {
   type TaskPriority,
   type TaskRow,
   type TaskStatus,
+  setTaskArchivedFn,
 } from "@/lib/tasks.functions";
+import { createProject } from "@/lib/projects.functions";
 import { listBrandAssigneesFn } from "@/lib/content.functions";
 import { listClients } from "@/lib/workspace.functions";
 
@@ -370,15 +373,89 @@ export function ProjectPicker({
   onChange: (id: string | null) => void;
   compact?: boolean;
 }) {
+  const qc = useQueryClient();
   const list = useServerFn(listProjectsFn);
+  const createProj = useServerFn(createProject);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+
   const { data } = useQuery({
-    queryKey: ["projects", brandId],
+    queryKey: ["task-projects", brandId],
     queryFn: () => list({ data: { brandId } }),
     staleTime: 60_000,
   });
-  const items = (data ?? []).filter((p) => !clientId || p.client_id === clientId || p.client_id === null);
+
+  // Hierarquia: um projeto só aparece se for do mesmo cliente (ou interno, sem cliente).
+  const items = (data ?? []).filter(
+    (p) => !clientId || p.client_id === clientId || p.client_id === null,
+  );
+
+  const createMutation = useMutation({
+    mutationFn: () =>
+      createProj({
+        data: {
+          brandId,
+          values: { name: newName.trim(), client_id: clientId ?? null, status: "active" },
+        } as never,
+      }),
+    onSuccess: async (res: { id: string }) => {
+      setCreating(false);
+      setNewName("");
+      await qc.invalidateQueries({ queryKey: ["task-projects", brandId] });
+      onChange(res.id);
+      toast.success("Projeto criado");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  if (!clientId) {
+    return (
+      <p className={cn("text-muted-foreground", compact ? "text-xs" : "text-sm")}>
+        Selecione uma conta primeiro
+      </p>
+    );
+  }
+
+  if (creating) {
+    return (
+      <div className="flex items-center gap-1.5">
+        <Input
+          autoFocus
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && newName.trim()) createMutation.mutate();
+            if (e.key === "Escape") setCreating(false);
+          }}
+          placeholder="Nome do projeto"
+          className={compact ? "h-7 text-xs" : "h-8"}
+        />
+        <Button
+          size="sm"
+          className="h-7"
+          disabled={!newName.trim() || createMutation.isPending}
+          onClick={() => createMutation.mutate()}
+        >
+          {createMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Criar"}
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7" onClick={() => setCreating(false)}>
+          Cancelar
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <Select value={value ?? "__none__"} onValueChange={(v) => onChange(v === "__none__" ? null : v)}>
+    <Select
+      value={value ?? "__none__"}
+      onValueChange={(v) => {
+        if (v === "__new__") {
+          setCreating(true);
+          return;
+        }
+        onChange(v === "__none__" ? null : v);
+      }}
+    >
       <SelectTrigger className={compact ? "h-7 text-xs" : undefined}>
         <SelectValue placeholder="Nenhum projeto" />
       </SelectTrigger>
@@ -389,10 +466,12 @@ export function ProjectPicker({
             {p.name}
           </SelectItem>
         ))}
+        <SelectItem value="__new__">+ Novo projeto</SelectItem>
       </SelectContent>
     </Select>
   );
 }
+
 
 // ---------- Create Dialog ----------
 
@@ -599,6 +678,7 @@ export function TaskDrawer({
   const deleteComment = useServerFn(deleteTaskCommentFn);
   const update = useServerFn(updateTaskFn);
   const del = useServerFn(deleteTaskFn);
+  const setArchived = useServerFn(setTaskArchivedFn);
   const listAssignees = useServerFn(listBrandAssigneesFn);
 
   const task = allTasks.find((t) => t.id === taskId) ?? null;
@@ -648,6 +728,16 @@ export function TaskDrawer({
   const removeComment = useMutation({
     mutationFn: (commentId: string) => deleteComment({ data: { commentId } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["task-comments", taskId] }),
+  });
+
+  const archiveMutation = useMutation({
+    mutationFn: (archived: boolean) => setArchived({ data: { taskId, archived } }),
+    onSuccess: (_r, archived) => {
+      toast.success(archived ? "Tarefa arquivada" : "Tarefa restaurada");
+      onChanged();
+      if (archived) onClose();
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const removeTask = useMutation({
@@ -758,6 +848,12 @@ export function TaskDrawer({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => archiveMutation.mutate(!task.archived_at)}
+                  >
+                    <Archive className="mr-2 h-4 w-4" />
+                    {task.archived_at ? "Restaurar tarefa" : "Arquivar tarefa"}
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     className="text-destructive focus:text-destructive"
                     onClick={() => {
@@ -1135,6 +1231,8 @@ export function SubtasksSection({ taskId }: { taskId: string }) {
   const patch = useServerFn(updateSubtaskFn);
   const remove = useServerFn(deleteSubtaskFn);
   const [title, setTitle] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
 
   const q = useQuery({
     queryKey: ["task-subtasks", taskId],
@@ -1144,7 +1242,21 @@ export function SubtasksSection({ taskId }: { taskId: string }) {
   const doneCount = items.filter((s) => s.done).length;
   const pct = items.length ? Math.round((doneCount / items.length) * 100) : 0;
 
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["task-subtasks", taskId] });
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ["task-subtasks", taskId] });
+    // O progresso das subtarefas aparece na lista/kanban, então recarrega as tarefas também.
+    void qc.invalidateQueries({ queryKey: ["tasks"] });
+  };
+
+  const rename = useMutation({
+    mutationFn: (v: { subtaskId: string; title: string }) =>
+      patch({ data: { subtaskId: v.subtaskId, patch: { title: v.title } } as never }),
+    onSuccess: () => {
+      setEditingId(null);
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const create = useMutation({
     mutationFn: (t: string) => add({ data: { taskId, title: t } }),
@@ -1198,14 +1310,38 @@ export function SubtasksSection({ taskId }: { taskId: string }) {
                 onCheckedChange={(v) => toggle.mutate({ subtaskId: s.id, done: v === true })}
                 aria-label={s.done ? "Marcar como pendente" : "Marcar como concluída"}
               />
-              <span
-                className={cn(
-                  "flex-1 text-sm",
-                  s.done && "text-muted-foreground line-through",
-                )}
-              >
-                {s.title}
-              </span>
+              {editingId === s.id ? (
+                <Input
+                  autoFocus
+                  value={editingTitle}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  onBlur={() => {
+                    const t = editingTitle.trim();
+                    if (t && t !== s.title) rename.mutate({ subtaskId: s.id, title: t });
+                    else setEditingId(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.currentTarget.blur();
+                    if (e.key === "Escape") setEditingId(null);
+                  }}
+                  className="h-7 flex-1 text-sm"
+                />
+              ) : (
+                <button
+                  type="button"
+                  className={cn(
+                    "flex-1 truncate text-left text-sm",
+                    s.done && "text-muted-foreground line-through",
+                  )}
+                  onClick={() => {
+                    setEditingId(s.id);
+                    setEditingTitle(s.title);
+                  }}
+                  title="Clique para editar"
+                >
+                  {s.title}
+                </button>
+              )}
               <button
                 className="text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
                 onClick={() => del.mutate(s.id)}

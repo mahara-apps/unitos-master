@@ -11,7 +11,7 @@ import {
 } from "@dnd-kit/core";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { CalendarIcon, Folder, MessageSquare } from "lucide-react";
+import { CalendarIcon, Folder, ListChecks, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +80,11 @@ function KanbanCard({ task, onOpen }: { task: TaskRow; onOpen: () => void }) {
           {task.comments_count && task.comments_count > 0 ? (
             <span className="inline-flex items-center gap-1">
               <MessageSquare className="h-3 w-3" /> {task.comments_count}
+            </span>
+          ) : null}
+          {task.subtasks_total ? (
+            <span className="inline-flex items-center gap-1" title="Subtarefas concluídas">
+              <ListChecks className="h-3 w-3" /> {task.subtasks_done ?? 0}/{task.subtasks_total}
             </span>
           ) : null}
         </div>

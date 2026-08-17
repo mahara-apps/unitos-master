@@ -21,6 +21,7 @@ export type TaskRow = {
   due_at: string | null;
   done: boolean;
   done_at: string | null;
+  archived_at: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -31,6 +32,8 @@ export type TaskRow = {
   project_name?: string | null;
   comments_count?: number;
   time_spent_seconds?: number;
+  subtasks_total?: number;
+  subtasks_done?: number;
 
 };
 
@@ -52,19 +55,24 @@ export const listTasksFn = createServerFn({ method: "GET" })
       .object({
         brandId: z.string().uuid(),
         clientId: z.string().uuid().nullable().optional(),
+        // Arquivadas ficam fora da lista ativa por padrão (nunca são excluídas).
+        archive: z.enum(["active", "archived", "all"]).optional(),
       })
       .parse(i),
   )
   .handler(async ({ data, context }): Promise<TaskRow[]> => {
+    const archive = data.archive ?? "active";
     let q = context.supabase
       .from("tasks")
       .select(
-        "id, brand_id, client_id, project_id, post_id, title, description, status, priority, assignee_id, due_at, done, done_at, created_by, created_at, updated_at",
+        "id, brand_id, client_id, project_id, post_id, title, description, status, priority, assignee_id, due_at, done, done_at, archived_at, created_by, created_at, updated_at",
       )
       .eq("brand_id", data.brandId)
       .order("created_at", { ascending: false })
       .limit(500);
     if (data.clientId) q = q.eq("client_id", data.clientId);
+    if (archive === "active") q = q.is("archived_at", null);
+    else if (archive === "archived") q = q.not("archived_at", "is", null);
     const { data: rows, error } = await q;
     if (error) throw error;
     const tasks = rows ?? [];
@@ -80,7 +88,7 @@ export const listTasksFn = createServerFn({ method: "GET" })
       new Set(tasks.map((t) => t.project_id).filter(Boolean) as string[]),
     );
 
-    const [profilesRes, clientsRes, projectsRes, commentsRes, timeRes] = await Promise.all([
+    const [profilesRes, clientsRes, projectsRes, commentsRes, timeRes, subtasksRes] = await Promise.all([
       userIds.length
         ? context.supabase
             .from("user_profiles")
@@ -113,6 +121,13 @@ export const listTasksFn = createServerFn({ method: "GET" })
           "task_id",
           tasks.map((t) => t.id),
         ),
+      context.supabase
+        .from("task_subtasks")
+        .select("task_id, done")
+        .in(
+          "task_id",
+          tasks.map((t) => t.id),
+        ),
     ]);
 
 
@@ -141,6 +156,13 @@ export const listTasksFn = createServerFn({ method: "GET" })
       timeSeconds.set(e.task_id, (timeSeconds.get(e.task_id) ?? 0) + secs);
     }
 
+    const subTotal = new Map<string, number>();
+    const subDone = new Map<string, number>();
+    for (const st of (subtasksRes.data ?? []) as Array<{ task_id: string; done: boolean }>) {
+      subTotal.set(st.task_id, (subTotal.get(st.task_id) ?? 0) + 1);
+      if (st.done) subDone.set(st.task_id, (subDone.get(st.task_id) ?? 0) + 1);
+    }
+
     return tasks.map((t) => {
       const p = t.assignee_id ? profMap.get(t.assignee_id) : null;
       return {
@@ -153,22 +175,41 @@ export const listTasksFn = createServerFn({ method: "GET" })
         project_name: t.project_id ? projectMap.get(t.project_id) ?? null : null,
         comments_count: commentCounts.get(t.id) ?? 0,
         time_spent_seconds: timeSeconds.get(t.id) ?? 0,
+        subtasks_total: subTotal.get(t.id) ?? 0,
+        subtasks_done: subDone.get(t.id) ?? 0,
 
       } as TaskRow;
     });
   });
 
+export type TaskProjectOption = {
+  id: string;
+  name: string;
+  client_id: string | null;
+  status: string;
+};
+
+/** Projetos selecionáveis por uma tarefa: mesma workspace, sem arquivados/concluídos. */
 export const listProjectsFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => z.object({ brandId: z.string().uuid() }).parse(i))
-  .handler(async ({ data, context }) => {
-    const { data: rows, error } = await context.supabase
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        includeInactive: z.boolean().optional(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }): Promise<TaskProjectOption[]> => {
+    let q = context.supabase
       .from("projects")
-      .select("id, name, client_id")
+      .select("id, name, client_id, status")
       .eq("brand_id", data.brandId)
       .order("name");
+    if (!data.includeInactive) q = q.not("status", "in", "(archived,done)");
+    const { data: rows, error } = await q;
     if (error) throw error;
-    return (rows ?? []) as Array<{ id: string; name: string; client_id: string | null }>;
+    return (rows ?? []) as TaskProjectOption[];
   });
 
 export const countMyPendingTasksFn = createServerFn({ method: "GET" })
@@ -195,6 +236,31 @@ export const countMyPendingTasksFn = createServerFn({ method: "GET" })
     return { count: count ?? 0 };
   });
 
+
+/**
+ * Garante a hierarquia Projeto → Tarefa: o projeto precisa ser da mesma workspace
+ * e do mesmo cliente da tarefa. Complementa o trigger no banco com mensagem clara.
+ */
+async function assertProjectScope(
+  supabase: { from: (t: string) => any },
+  args: { brandId: string; clientId: string | null; projectId: string | null },
+): Promise<void> {
+  if (!args.projectId) return;
+  const { data: project, error } = await supabase
+    .from("projects")
+    .select("id, brand_id, client_id, status")
+    .eq("id", args.projectId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!project) throw new Error("Projeto não encontrado.");
+  if (project.brand_id !== args.brandId) {
+    throw new Error("Este projeto pertence a outra workspace.");
+  }
+  if (project.client_id && project.client_id !== args.clientId) {
+    throw new Error("Este projeto pertence a outro cliente. Selecione o cliente correto.");
+  }
+}
+
 const CreateTaskInput = z.object({
   brandId: z.string().uuid(),
   title: z.string().trim().min(1).max(200),
@@ -211,6 +277,11 @@ export const createTaskFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => CreateTaskInput.parse(i))
   .handler(async ({ data, context }) => {
+    await assertProjectScope(context.supabase as never, {
+      brandId: data.brandId,
+      clientId: data.client_id ?? null,
+      projectId: data.project_id ?? null,
+    });
     const { data: row, error } = await context.supabase
       .from("tasks")
       .insert({
@@ -262,6 +333,34 @@ export const updateTaskFn = createServerFn({ method: "POST" })
       done?: boolean;
       done_at?: string | null;
     };
+    if (patch.project_id !== undefined || patch.client_id !== undefined) {
+      const { data: current, error: curErr } = await context.supabase
+        .from("tasks")
+        .select("brand_id, client_id, project_id")
+        .eq("id", data.taskId)
+        .single();
+      if (curErr) throw curErr;
+      const nextClientId =
+        patch.client_id !== undefined ? patch.client_id : (current!.client_id as string | null);
+      const nextProjectId =
+        patch.project_id !== undefined ? patch.project_id : (current!.project_id as string | null);
+      // Trocar de cliente invalida um projeto de outro cliente: desvincula em vez de falhar.
+      if (patch.client_id !== undefined && patch.project_id === undefined && nextProjectId) {
+        const { data: proj } = await context.supabase
+          .from("projects")
+          .select("client_id")
+          .eq("id", nextProjectId)
+          .maybeSingle();
+        if (proj && proj.client_id && proj.client_id !== nextClientId) {
+          patch.project_id = null;
+        }
+      }
+      await assertProjectScope(context.supabase as never, {
+        brandId: current!.brand_id as string,
+        clientId: nextClientId,
+        projectId: patch.project_id !== undefined ? patch.project_id : nextProjectId,
+      });
+    }
     if (patch.done === true) {
       patch.status = "done";
       patch.done_at = new Date().toISOString();
@@ -283,6 +382,21 @@ export const deleteTaskFn = createServerFn({ method: "POST" })
     const { error } = await context.supabase
       .from("tasks")
       .delete()
+      .eq("id", data.taskId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+/** Arquivamento reversível: nunca apaga a tarefa nem as subtarefas. */
+export const setTaskArchivedFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ taskId: z.string().uuid(), archived: z.boolean() }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("tasks")
+      .update({ archived_at: data.archived ? new Date().toISOString() : null })
       .eq("id", data.taskId);
     if (error) throw error;
     return { ok: true };

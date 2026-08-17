@@ -58,6 +58,10 @@ export type TaskFilters = {
   clientId: string | "all";
   projectId: string | "all";
   hideDone: boolean;
+  /** Filtro de prazo: hoje, atrasadas, próximos 7 dias ou sem prazo. */
+  due: "all" | "overdue" | "today" | "week" | "none";
+  /** Visão de arquivamento (arquivar nunca exclui a tarefa). */
+  archive: "active" | "archived";
 };
 
 export const DEFAULT_FILTERS: TaskFilters = {
@@ -68,6 +72,8 @@ export const DEFAULT_FILTERS: TaskFilters = {
   clientId: "all",
   projectId: "all",
   hideDone: false,
+  due: "all",
+  archive: "active",
 };
 
 export function applyFilters(tasks: TaskRow[], filters: TaskFilters, myId: string | null): TaskRow[] {
@@ -85,6 +91,23 @@ export function applyFilters(tasks: TaskRow[], filters: TaskFilters, myId: strin
       return false;
     if (filters.clientId !== "all" && t.client_id !== filters.clientId) return false;
     if (filters.projectId !== "all" && t.project_id !== filters.projectId) return false;
+    if (filters.due !== "all") {
+      const now = new Date();
+      const due = t.due_at ? new Date(t.due_at) : null;
+      if (filters.due === "none" && due) return false;
+      if (filters.due !== "none") {
+        if (!due) return false;
+        if (filters.due === "overdue" && !(due.getTime() < now.getTime() && t.status !== "done"))
+          return false;
+        if (filters.due === "today" && due.toDateString() !== now.toDateString()) return false;
+        if (filters.due === "week") {
+          const limit = new Date(now);
+          limit.setDate(limit.getDate() + 7);
+          if (due.getTime() > limit.getTime() || due.getTime() < now.setHours(0, 0, 0, 0))
+            return false;
+        }
+      }
+    }
     if (!q) return true;
     return (
       t.title.toLowerCase().includes(q) ||
@@ -104,6 +127,8 @@ function countActive(filters: TaskFilters): number {
   if (filters.clientId !== "all") n++;
   if (filters.projectId !== "all") n++;
   if (filters.hideDone) n++;
+  if (filters.due !== "all") n++;
+  if (filters.archive !== "active") n++;
   return n;
 }
 
@@ -275,6 +300,39 @@ export function TaskToolbar({
                       .map((p) => (
                         <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                       ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Prazo</Label>
+                <Select
+                  value={filters.due}
+                  onValueChange={(v) => onFiltersChange({ ...filters, due: v as TaskFilters["due"] })}
+                >
+                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Qualquer</SelectItem>
+                    <SelectItem value="overdue">Atrasadas</SelectItem>
+                    <SelectItem value="today">Hoje</SelectItem>
+                    <SelectItem value="week">Próximos 7 dias</SelectItem>
+                    <SelectItem value="none">Sem prazo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Visão</Label>
+                <Select
+                  value={filters.archive}
+                  onValueChange={(v) =>
+                    onFiltersChange({ ...filters, archive: v as TaskFilters["archive"] })
+                  }
+                >
+                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Ativas</SelectItem>
+                    <SelectItem value="archived">Arquivadas</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
