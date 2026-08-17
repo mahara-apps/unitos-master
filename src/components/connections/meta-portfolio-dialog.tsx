@@ -47,6 +47,9 @@ function metaPopupFeatures(): string {
   return `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`;
 }
 
+/** Sessões Meta já varridas nesta aba do navegador. */
+const scannedSessions = new Set<string>();
+
 function metaStuckMessage(): string {
   return "A conexão da Meta não foi concluída. Se a janela ficou em branco ou em /business/cancel, tente novamente mantendo as permissões do canal selecionadas.";
 }
