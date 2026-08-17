@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -67,6 +67,12 @@ import {
   inspectMetaConnectionFn,
   type InspectResult,
 } from "@/lib/meta/reconnect.functions";
+import {
+  listDiscoveredMetaAccountsFn,
+  reconcileMetaConnectionFn,
+  type DiscoveredAccountsResult,
+} from "@/lib/meta/discovery.functions";
+import { linkMetaAccount } from "@/lib/meta/portfolio.functions";
 import {
   listChannelHistoryFn,
   recordChannelEventFn,
@@ -190,6 +196,11 @@ export function ChannelsCenter({
   const [manage, setManage] = useState<WorkspaceChannel | null>(null);
   const [linkTarget, setLinkTarget] = useState<WorkspaceChannel | null>(null);
   const [reconnectTarget, setReconnectTarget] = useState<WorkspaceChannel | null>(null);
+  const [linkDiscovered, setLinkDiscovered] = useState<
+    DiscoveredAccountsResult["accounts"][number] | null
+  >(null);
+  const reauthRef = useRef(false);
+  const discoverFn = useServerFn(listDiscoveredMetaAccountsFn);
 
   const { data: channels = [], isLoading } = useQuery({
     queryKey: ["workspace-channels", brandId],
@@ -205,6 +216,17 @@ export function ChannelsCenter({
     staleTime: 60_000,
   });
 
+  const {
+    data: discovery,
+    isLoading: loadingDiscovery,
+    isFetching: fetchingDiscovery,
+  } = useQuery({
+    queryKey: ["meta-discovered-accounts", brandId],
+    queryFn: () => discoverFn({ data: { brandId: brandId! } }),
+    enabled: !!brandId,
+    staleTime: 120_000,
+  });
+
   const { data: clients = [] } = useQuery({
     queryKey: ["clients", brandId],
     queryFn: () => clientsFn({ data: { brandId: brandId! } }),
@@ -217,6 +239,7 @@ export function ChannelsCenter({
     qc.invalidateQueries({ queryKey: ["channel-history", brandId] });
     qc.invalidateQueries({ queryKey: ["meta-connections", brandId] });
     qc.invalidateQueries({ queryKey: ["connections", brandId] });
+    qc.invalidateQueries({ queryKey: ["meta-discovered-accounts", brandId] });
   };
 
   useEffect(() => {
@@ -240,6 +263,7 @@ export function ChannelsCenter({
         return;
       }
       setConnecting(null);
+      if (d.ok && d.sessionId && reauthRef.current) return;
       if (d.ok && d.sessionId) {
         toast.success("Autorização concluída. Selecione as contas para conectar.");
         setConnectOpen(false);
@@ -294,10 +318,11 @@ export function ChannelsCenter({
     () => channels.filter((c) => c.status === "active" || c.status === "attention"),
     [channels],
   );
-  const available = useMemo(
-    () => connected.filter((c) => c.clients.length === 0),
-    [connected],
-  );
+  /**
+   * "Contas disponíveis" = contas realmente devolvidas pela Meta na autorização
+   * atual e ainda não salvas neste workspace. Nunca derivado do histórico.
+   */
+  const available = useMemo(() => discovery?.accounts ?? [], [discovery]);
   const attention = useMemo(
     () => channels.filter((c) => channelState(c) !== "ready"),
     [channels],
@@ -469,26 +494,96 @@ export function ChannelsCenter({
         <TabsContent value="accounts" className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-muted-foreground">
-              Contas autorizadas na Meta que ainda não atendem nenhum cliente. Cada
-              conta pode atender apenas um cliente por vez.
+              Contas que a Meta devolveu na autorização atual e que ainda não
+              existem neste workspace. Cada conta atende apenas um cliente.
+              {discovery?.discoveredAt ? (
+                <span className="ml-1">
+                  Verificado {formatRelative(discovery.discoveredAt)}.
+                </span>
+              ) : null}
             </p>
             {canManage ? (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 text-xs"
-                onClick={() => setConnectOpen(true)}
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Buscar contas na Meta
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 text-xs"
+                  disabled={fetchingDiscovery || !!discovery?.needsAuthorization}
+                  onClick={() => {
+                    void qc
+                      .fetchQuery({
+                        queryKey: ["meta-discovered-accounts", brandId, "refresh"],
+                        queryFn: () =>
+                          discoverFn({ data: { brandId: brandId!, refresh: true } }),
+                      })
+                      .then((r) => {
+                        qc.setQueryData(["meta-discovered-accounts", brandId], r);
+                        if (r.error) toast.error("A Meta recusou a consulta.", { description: r.error, duration: 12000 });
+                        else toast.success(`${r.accounts.length} conta(s) disponível(is).`);
+                      })
+                      .catch((e) =>
+                        toast.error("Não foi possível consultar a Meta.", {
+                          description: e instanceof Error ? e.message : undefined,
+                          duration: 12000,
+                        }),
+                      );
+                  }}
+                >
+                  {fetchingDiscovery ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  )}
+                  Sincronizar com a Meta
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs"
+                  onClick={() => setConnectOpen(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Autorizar na Meta
+                </Button>
+              </div>
             ) : null}
           </div>
 
-          {available.length === 0 ? (
+          {discovery?.error ? (
+            <Card className="border-severity-critical/30 bg-severity-critical/10 p-3 text-xs text-severity-critical">
+              {discovery.error}
+            </Card>
+          ) : null}
+          {discovery?.warnings?.length ? (
+            <Card className="border-severity-warning/30 bg-severity-warning/10 p-3 text-[11px] text-severity-warning">
+              {discovery.warnings.slice(0, 3).join(" · ")}
+            </Card>
+          ) : null}
+
+          {loadingDiscovery ? (
+            <Skeleton className="h-40 w-full rounded-xl" />
+          ) : discovery?.needsAuthorization ? (
+            <Card className="flex flex-col items-start gap-2 border-dashed p-5">
+              <div className="text-sm font-medium">Autorize a Meta para listar contas</div>
+              <p className="text-xs text-muted-foreground">
+                Nenhuma autorização válida encontrada neste workspace. Faça o login
+                na Meta mantendo todas as Páginas e contas do Instagram marcadas.
+              </p>
+              {canManage ? (
+                <Button
+                  size="sm"
+                  className="mt-1 h-8 gap-1.5 text-xs"
+                  onClick={() => setConnectOpen(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Autorizar na Meta
+                </Button>
+              ) : null}
+            </Card>
+          ) : available.length === 0 ? (
             <Card className="border-dashed p-5 text-xs text-muted-foreground">
-              Nenhuma conta disponível. Todas as contas autorizadas já estão
-              vinculadas a um cliente.
+              A Meta devolveu {discovery?.alreadyLinked ?? 0} conta(s) e todas já
+              existem neste workspace (conectadas ou no histórico). Use
+              “Sincronizar com a Meta” após alterar permissões.
             </Card>
           ) : (
             <Card className="overflow-hidden">
@@ -497,9 +592,9 @@ export function ChannelsCenter({
                   <TableRow>
                     <TableHead className="text-xs">Conta</TableHead>
                     <TableHead className="text-xs">Canal</TableHead>
-                    <TableHead className="text-xs">Identificador</TableHead>
-                    <TableHead className="text-xs">Status</TableHead>
-                    <TableHead className="w-[140px]" />
+                    <TableHead className="text-xs">ID Meta</TableHead>
+                    <TableHead className="text-xs">Autorização</TableHead>
+                    <TableHead className="w-[150px]" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -507,9 +602,9 @@ export function ChannelsCenter({
                     const def = channelDef(c.channel);
                     const Icon = def.icon;
                     return (
-                      <TableRow key={c.connectionId}>
+                      <TableRow key={`${c.channel}:${c.externalId}`}>
                         <TableCell className="text-xs font-medium">
-                          {c.accountLabel}
+                          {c.label}
                           {c.handle ? (
                             <span className="ml-1 text-muted-foreground">
                               @{c.handle.replace(/^@/, "")}
@@ -525,15 +620,13 @@ export function ChannelsCenter({
                         <TableCell>
                           <CopyableId
                             label={c.channel === "instagram" ? "IG" : "Page"}
-                            value={
-                              c.channel === "instagram"
-                                ? (c.instagramBusinessId ?? c.externalId)
-                                : (c.pageId ?? c.externalId)
-                            }
+                            value={c.externalId}
                           />
                         </TableCell>
                         <TableCell>
-                          <StatusBadge state={channelState(c)} />
+                          <StatusBadge
+                            state={c.status === "ready" ? "ready" : "auth"}
+                          />
                         </TableCell>
                         <TableCell className="text-right">
                           {canManage ? (
@@ -541,10 +634,10 @@ export function ChannelsCenter({
                               size="sm"
                               variant="outline"
                               className="h-7 gap-1.5 text-xs"
-                              onClick={() => setLinkTarget(c)}
+                              onClick={() => setLinkDiscovered(c)}
                             >
                               <Link2 className="h-3.5 w-3.5" />
-                              Vincular cliente
+                              Conectar e vincular
                             </Button>
                           ) : null}
                         </TableCell>
@@ -692,9 +785,19 @@ export function ChannelsCenter({
         onChanged={invalidate}
       />
 
+      <LinkDiscoveredDialog
+        account={linkDiscovered}
+        brandId={brandId}
+        sessionId={discovery?.sessionId ?? null}
+        clients={clients.map((c) => ({ id: c.id as string, name: c.name as string }))}
+        onOpenChange={(v) => !v && setLinkDiscovered(null)}
+        onChanged={invalidate}
+      />
+
       <ReconnectDialog
         row={reconnectTarget}
         brandId={brandId}
+        reauthRef={reauthRef}
         onOpenChange={(v) => !v && setReconnectTarget(null)}
         onChanged={invalidate}
       />
@@ -977,15 +1080,20 @@ function LinkClientDialog({
 function ReconnectDialog({
   row,
   brandId,
+  reauthRef,
   onOpenChange,
   onChanged,
 }: {
   row: WorkspaceChannel | null;
   brandId: string | null;
+  reauthRef: React.MutableRefObject<boolean>;
   onOpenChange: (v: boolean) => void;
   onChanged: () => void;
 }) {
   const inspectFn = useServerFn(inspectMetaConnectionFn);
+  const startMetaFn = useServerFn(startMetaOAuth);
+  const reconcileFn = useServerFn(reconcileMetaConnectionFn);
+  const [reauthorizing, setReauthorizing] = useState(false);
   const applyFn = useServerFn(applyMetaReconnectFn);
   const recordFn = useServerFn(recordChannelEventFn);
   const [result, setResult] = useState<InspectResult | null>(null);
@@ -1049,6 +1157,93 @@ function ReconnectDialog({
     onError: () => toast.error("Não foi possível atualizar a conexão."),
   });
 
+  /**
+   * Reconexão real: nova autorização na Meta + nova descoberta. A conta só volta
+   * a ficar ativa se a Meta continuar devolvendo o mesmo ID externo.
+   */
+  useEffect(() => {
+    function onMessage(ev: MessageEvent) {
+      const d = ev.data as {
+        source?: string;
+        type?: string;
+        ok?: boolean;
+        error?: string;
+        sessionId?: string | null;
+      };
+      if (!d || d.source !== "meta-oauth" || d.type === "missing-scopes") return;
+      if (!reauthRef.current) return;
+      if (!d.ok || !d.sessionId) {
+        reauthRef.current = false;
+        setReauthorizing(false);
+        if (d.error)
+          toast.error("A Meta não concluiu a autorização.", {
+            description: d.error,
+            duration: 12000,
+          });
+        return;
+      }
+      const sessionId = d.sessionId;
+      void (async () => {
+        try {
+          const res = await reconcileFn({
+            data: { brandId: brandId!, connectionId: row!.connectionId, sessionId },
+          });
+          if (res.ok) {
+            toast.success(res.message.title, { description: res.message.description });
+            onOpenChange(false);
+            onChanged();
+          } else {
+            toast.error(res.message.title, {
+              description: res.message.description,
+              duration: 12000,
+            });
+            onChanged();
+          }
+        } catch (e) {
+          toast.error("Não foi possível concluir a reconexão.", {
+            description: e instanceof Error ? e.message : undefined,
+            duration: 12000,
+          });
+        } finally {
+          reauthRef.current = false;
+          setReauthorizing(false);
+        }
+      })();
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [row?.connectionId, brandId]);
+
+  async function startReauth() {
+    if (!row || !brandId) return;
+    reauthRef.current = true;
+    setReauthorizing(true);
+    const popup = window.open(
+      "",
+      "meta-oauth",
+      "width=760,height=820,resizable=yes,scrollbars=yes",
+    );
+    try {
+      const { authorizeUrl } = await startMetaFn({
+        data: {
+          brandId,
+          channel: row.channel as "facebook" | "instagram",
+          forceReauth: true,
+        },
+      });
+      if (popup) popup.location.href = authorizeUrl;
+      else window.location.href = authorizeUrl;
+    } catch (err) {
+      reauthRef.current = false;
+      setReauthorizing(false);
+      popup?.close();
+      toast.error("Não foi possível abrir a autorização da Meta.", {
+        description: err instanceof Error ? err.message : undefined,
+        duration: 10000,
+      });
+    }
+  }
+
   if (!row) return null;
   const def = channelDef(row.channel);
 
@@ -1105,6 +1300,20 @@ function ReconnectDialog({
             onClick={() => onOpenChange(false)}
           >
             Cancelar
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 gap-1.5 text-xs"
+            disabled={reauthorizing}
+            onClick={() => void startReauth()}
+          >
+            {reauthorizing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+            Nova autorização na Meta
           </Button>
           {result?.ok && result.changed ? (
             <>
@@ -1421,6 +1630,143 @@ function ManageChannelDialog({
             )}
           </DialogFooter>
         ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* -------------------- vincular conta descoberta na Meta -------------------- */
+
+function LinkDiscoveredDialog({
+  account,
+  brandId,
+  sessionId,
+  clients,
+  onOpenChange,
+  onChanged,
+}: {
+  account: DiscoveredAccountsResult["accounts"][number] | null;
+  brandId: string | null;
+  sessionId: string | null;
+  clients: Array<{ id: string; name: string }>;
+  onOpenChange: (v: boolean) => void;
+  onChanged: () => void;
+}) {
+  const linkFn = useServerFn(linkMetaAccount);
+  const [clientId, setClientId] = useState("");
+  const [linkPair, setLinkPair] = useState(true);
+
+  useEffect(() => {
+    setClientId("");
+    setLinkPair(true);
+  }, [account?.externalId]);
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      if (!account || !brandId || !sessionId || !clientId) return;
+      await linkFn({
+        data: {
+          brandId,
+          sessionId,
+          channel: account.channel,
+          targetId: account.externalId,
+          clientId,
+          linkPair:
+            account.channel === "facebook" && !!account.instagramBusinessId
+              ? linkPair
+              : false,
+        },
+      });
+    },
+    onSuccess: () => {
+      toast.success("Conta conectada e vinculada ao cliente.");
+      onOpenChange(false);
+      onChanged();
+    },
+    onError: (e) =>
+      toast.error("Não foi possível conectar esta conta.", {
+        description: e instanceof Error ? e.message : undefined,
+        duration: 12000,
+      }),
+  });
+
+  if (!account) return null;
+  const def = channelDef(account.channel);
+  const canPair = account.channel === "facebook" && !!account.instagramBusinessId;
+
+  return (
+    <Dialog open={!!account} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-base">Conectar e vincular</DialogTitle>
+          <DialogDescription className="text-xs">
+            {def.label} · {account.label} · ID {account.externalId}. A conta é salva
+            no workspace e passa a atender apenas o cliente escolhido.
+          </DialogDescription>
+        </DialogHeader>
+
+        {!sessionId ? (
+          <div className="rounded-lg border border-severity-warning/30 bg-severity-warning/10 p-3 text-xs text-severity-warning">
+            A autorização da Meta expirou. Autorize novamente para conectar esta
+            conta.
+          </div>
+        ) : null}
+
+        {account.status !== "ready" ? (
+          <div className="rounded-lg border border-severity-warning/30 bg-severity-warning/10 p-3 text-[11px] text-severity-warning">
+            A Meta ainda não liberou publicação para esta conta. Você pode vinculá-la
+            agora, mas será necessário refazer a autorização marcando esta conta.
+          </div>
+        ) : null}
+
+        <Select value={clientId} onValueChange={setClientId}>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="Selecione o cliente" />
+          </SelectTrigger>
+          <SelectContent>
+            {clients.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {canPair ? (
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={linkPair}
+              onChange={(e) => setLinkPair(e.target.checked)}
+              className="h-3.5 w-3.5"
+            />
+            Conectar também o Instagram vinculado a esta Página
+          </label>
+        ) : null}
+
+        <DialogFooter>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 text-xs"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancelar
+          </Button>
+          <Button
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            disabled={!clientId || !sessionId || mut.isPending}
+            onClick={() => mut.mutate()}
+          >
+            {mut.isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Link2 className="h-3.5 w-3.5" />
+            )}
+            Conectar
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
