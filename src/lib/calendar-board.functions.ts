@@ -153,7 +153,7 @@ export const listPublicationBoardFn = createServerFn({ method: "POST" })
     const { data: posts, error: postErr } = await supabase
       .from("posts")
       .select(
-        "id,title,copy,cover_url,channels,client_id,brand_id,pipeline_id,stage_id,stage,review_status,scheduled_at,published_at,created_at,updated_at,created_by",
+        "id,title,copy,cover_url,reference_media,channels,client_id,brand_id,pipeline_id,stage_id,stage,review_status,scheduled_at,published_at,created_at,updated_at,created_by",
       )
       .in("id", postIds)
       .is("deleted_at", null);
@@ -168,6 +168,35 @@ export const listPublicationBoardFn = createServerFn({ method: "POST" })
       .in("post_id", postIds)
       .in("status", ACTIVE_PLACEMENT_STATUS);
     if (allPlErr) throw new Error(allPlErr.message);
+
+    // 4.1) Thumbnails: cover_url quando existir; senão assina a 1ª mídia
+    // persistida em reference_media (bucket privado brand-media).
+    const coverByPost = new Map<string, string | null>();
+    await Promise.all(
+      (posts ?? []).map(async (p) => {
+        const direct = (p.cover_url as string | null) ?? null;
+        if (direct) {
+          coverByPost.set(p.id as string, direct);
+          return;
+        }
+        const first = (Array.isArray(p.reference_media) ? p.reference_media : [])
+          .map((r) => r as Record<string, unknown>)
+          .find((r) => typeof r?.path === "string");
+        if (!first) {
+          coverByPost.set(p.id as string, null);
+          return;
+        }
+        const bucket = typeof first.bucket === "string" ? (first.bucket as string) : "brand-media";
+        try {
+          const { data: signed } = await supabase.storage
+            .from(bucket)
+            .createSignedUrl(first.path as string, 3600);
+          coverByPost.set(p.id as string, signed?.signedUrl ?? null);
+        } catch {
+          coverByPost.set(p.id as string, null);
+        }
+      }),
+    );
 
     // 5) Fila real de publicação (erro/permalink/tentativas).
     const { data: queue, error: qErr } = await supabase
@@ -333,7 +362,7 @@ export const listPublicationBoardFn = createServerFn({ method: "POST" })
         postId: post.id as string,
         title: (post.title as string) ?? "Sem título",
         copy: (post.copy as string) ?? "",
-        coverUrl: (post.cover_url as string | null) ?? null,
+        coverUrl: coverByPost.get(post.id as string) ?? (post.cover_url as string | null) ?? null,
         brandId: post.brand_id as string,
         clientId: post.client_id as string,
         pipelineId: (post.pipeline_id as string | null) ?? null,

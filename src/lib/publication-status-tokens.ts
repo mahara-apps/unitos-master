@@ -1,4 +1,5 @@
 import type { PublicationOverall } from "@/lib/calendar-board.functions";
+import type { SocialNetworkKey } from "@/lib/calendar-tokens";
 
 /**
  * Linguagem visual única de status de publicação (agenda, lista, painel,
@@ -124,4 +125,32 @@ export function relativeLabel(iso: string | null | undefined) {
   if (hours < 24) return `${suffix} ${hours} h`;
   const days = Math.round(hours / 24);
   return `${suffix} ${days} d`;
+}
+
+/** Cor de marca (tint) por rede — usada nos ícones de destino. */
+export const NETWORK_COLOR: Record<SocialNetworkKey, string> = {
+  instagram: "text-pink-500 dark:text-pink-400",
+  facebook: "text-blue-600 dark:text-blue-400",
+  linkedin: "text-sky-600 dark:text-sky-400",
+  tiktok: "text-rose-500 dark:text-rose-400",
+  youtube: "text-red-600 dark:text-red-500",
+  whatsapp: "text-emerald-600 dark:text-emerald-400",
+  threads: "text-foreground/70",
+  x: "text-foreground/70",
+  blog: "text-amber-600 dark:text-amber-400",
+  other: "text-muted-foreground",
+};
+
+/** Chip colorido por formato (Feed/Stories/Reels/Carrossel). */
+export const FORMAT_CHIP: Record<string, string> = {
+  feed: "border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300",
+  stories: "border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-300",
+  reels: "border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300",
+  carrossel: "border-teal-500/30 bg-teal-500/10 text-teal-700 dark:text-teal-300",
+  carousel: "border-teal-500/30 bg-teal-500/10 text-teal-700 dark:text-teal-300",
+};
+
+export function formatChip(raw: string | null | undefined) {
+  const k = (raw ?? "").toLowerCase();
+  return FORMAT_CHIP[k] ?? "border-border/70 bg-muted/60 text-muted-foreground";
 }
