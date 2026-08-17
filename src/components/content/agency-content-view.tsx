@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/table";
 import { PanelCard } from "@/components/ui/panel-card";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
+import { PageKpi, PageKpiGrid, type KpiStatus } from "@/components/ui/page-kpi";
 import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
