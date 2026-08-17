@@ -50,7 +50,9 @@ export type ClientDashboard = {
 
   publishedInRange: number;
   publishedPreviousRange: number | null;
-  publishTrend: Array<{ day: string; count: number }>;
+  /** Série do período atual + série alinhada do período anterior (comparação). */
+  publishTrend: Array<{ day: string; count: number; previous: number | null }>;
+
   avgPerWeek: number | null;
   bestDay: { day: string; count: number } | null;
 
