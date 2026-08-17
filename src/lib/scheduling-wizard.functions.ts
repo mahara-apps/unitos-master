@@ -7,6 +7,7 @@ import {
   deriveTargetConnectionIds,
 } from "@/lib/placements.server";
 import { resolveStageIdByKey } from "@/lib/post-stage.server";
+import { assertScheduleLead } from "@/lib/schedule-rules";
 
 
 /**

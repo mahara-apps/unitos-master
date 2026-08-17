@@ -12,6 +12,7 @@ import {
   type PlacementDestination,
 } from "@/lib/placements.server";
 import { resolveLegacyStage } from "@/lib/post-stage.server";
+import { assertScheduleLead } from "@/lib/schedule-rules";
 
 
 const DestinationSchema = z.object({
@@ -989,6 +990,16 @@ export const updatePostFn = createServerFn({ method: "POST" })
         .update({ scheduled_at: patch.scheduled_at as string | null } as never)
         .eq("post_id", data.postId)
         .neq("status", "published");
+
+      // Reagendamento de peça JÁ enfileirada precisa mover a fila real
+      // (`social_posts`), senão o worker publicaria no horário antigo.
+      if (typeof patch.scheduled_at === "string") {
+        await context.supabase
+          .from("social_posts")
+          .update({ scheduled_at: patch.scheduled_at })
+          .eq("post_id", data.postId)
+          .eq("status", "scheduled");
+      }
     }
 
 
