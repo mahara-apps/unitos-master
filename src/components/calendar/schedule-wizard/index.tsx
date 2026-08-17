@@ -429,7 +429,12 @@ export function ScheduleWizard({
   const captionLimit = useMemo(() => tightestCaptionLimit(pairs.map((p) => p.channel)), [pairs]);
 
   const overLimit = copy.length > captionLimit;
+  // Rascunho pode ser salvo sempre; agendar/publicar exige TODOS os destinos
+  // com capacidade confirmada (fail closed).
   const canSubmit = pairs.length > 0 && !overLimit && !!title.trim();
+  const canPublish =
+    canSubmit && blockedDestinations.length === 0 && !readinessQ.isLoading;
+
 
   function togglePair(channel: SocialChannel, format: PlacementFormat) {
     const conn = connByChannel.get(channel);
