@@ -1,5 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { brain, type BrainContext } from "@/lib/brain/api";
 import { loadBriefingContext } from "@/lib/monthly-plan-context.server";
@@ -889,4 +891,476 @@ export const approveMonthlyPlanFn = createServerFn({ method: "POST" })
     );
 
     return { created: res.created };
+  });
+
+/* ================================================================
+ * Organização operacional: PROJETO → TAREFA → SUBTAREFA / PAUTA
+ * ----------------------------------------------------------------
+ * A pauta (monthly_plans) já possui `project_id`, e `projects` possui
+ * `monthly_plan_id`. Os dois lados são mantidos em sincronia aqui —
+ * nenhuma tabela nova é criada e nenhum projeto é criado sem intenção
+ * explícita do usuário.
+ * ============================================================== */
+
+/** Estados canônicos usados pelos filtros da dashboard de pautas. */
+export const PLAN_ARCHIVE_FILTERS = ["active", "archived", "all"] as const;
+export type PlanArchiveFilter = (typeof PLAN_ARCHIVE_FILTERS)[number];
+
+export type PlanProjectOption = {
+  id: string;
+  name: string;
+  status: string;
+  linkedPlanId: string | null;
+};
+
+/** Projetos ATIVOS do contexto atual (brand + cliente) para vincular pautas. */
+export const listPlanProjectOptionsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+        includeArchived: z.boolean().optional().default(false),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }): Promise<PlanProjectOption[]> => {
+    let q = context.supabase
+      .from("projects")
+      .select("id, name, status, monthly_plan_id")
+      .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
+      .order("name", { ascending: true })
+      .limit(200);
+    if (!data.includeArchived) q = q.neq("status", "archived");
+    const { data: rows, error } = await q;
+    if (error) throw error;
+    return ((rows ?? []) as unknown as Array<{
+      id: string;
+      name: string;
+      status: string;
+      monthly_plan_id: string | null;
+    }>).map((r) => ({
+      id: r.id,
+      name: r.name,
+      status: r.status,
+      linkedPlanId: r.monthly_plan_id,
+    }));
+  });
+
+/** Cliente Supabase autenticado injetado pelo middleware. */
+type PlanSupabaseClient = SupabaseClient<Database>;
+
+const PlanOrganization = z.discriminatedUnion("mode", [
+  z.object({ mode: z.literal("none") }),
+  z.object({ mode: z.literal("existing"), projectId: z.string().uuid() }),
+  z.object({
+    mode: z.literal("new"),
+    name: z.string().trim().min(1).max(120),
+    description: z.string().max(2000).nullable().optional(),
+    due_at: z.string().min(4).nullable().optional(),
+  }),
+]);
+export type PlanOrganizationInput = z.infer<typeof PlanOrganization>;
+
+/**
+ * Resolve a organização escolhida pelo usuário em um `project_id`.
+ * `none` nunca cria projeto. `existing` valida o escopo brand+cliente.
+ */
+async function resolveProjectForPlan(
+  supabase: PlanSupabaseClient,
+  args: {
+    brandId: string;
+    clientId: string;
+    userId: string | null;
+    organization: PlanOrganizationInput;
+  },
+): Promise<string | null> {
+  const { organization: org } = args;
+  if (org.mode === "none") return null;
+
+  if (org.mode === "existing") {
+    const { data: row } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("id", org.projectId)
+      .eq("brand_id", args.brandId)
+      .eq("client_id", args.clientId)
+      .maybeSingle();
+    if (!row) throw new Error("project_not_in_scope");
+    return (row as { id: string }).id;
+  }
+
+  const { data: created, error } = await supabase
+    .from("projects")
+    .insert({
+      brand_id: args.brandId,
+      client_id: args.clientId,
+      name: org.name,
+      description: org.description ?? null,
+      status: "active",
+      color: "#8b5cf6",
+      owner_id: args.userId,
+      due_at: org.due_at ?? null,
+    } as never)
+    .select("id")
+    .single();
+  if (error) throw error;
+  return (created as { id: string }).id;
+}
+
+/** Criação manual de pauta — fluxo único, com organização explícita. */
+export const createMonthlyPlanFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+        title: z.string().trim().min(1).max(240),
+        description: z.string().max(4000).nullable().optional(),
+        objectives: z.string().max(4000).nullable().optional(),
+        organization: PlanOrganization,
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }): Promise<{ planId: string; projectId: string | null }> => {
+    const projectId = await resolveProjectForPlan(context.supabase as PlanSupabaseClient, {
+      brandId: data.brandId,
+      clientId: data.clientId,
+      userId: context.userId,
+      organization: data.organization,
+    });
+
+    const { data: row, error } = await context.supabase
+      .from("monthly_plans" as never)
+      .insert({
+        brand_id: data.brandId,
+        client_id: data.clientId,
+        title: data.title,
+        description: data.description ?? null,
+        objectives: data.objectives ?? null,
+        status: "draft",
+        created_by: context.userId,
+        project_id: projectId,
+      } as never)
+      .select("id")
+      .single();
+    if (error) throw error;
+    const planId = (row as unknown as { id: string }).id;
+
+    if (projectId) {
+      // Mantém o lado `projects.monthly_plan_id` coerente quando ainda está livre.
+      await context.supabase
+        .from("projects")
+        .update({ monthly_plan_id: planId } as never)
+        .eq("id", projectId)
+        .is("monthly_plan_id", null);
+    }
+    return { planId, projectId };
+  });
+
+/** Vincula/desvincula a pauta a um projeto (sem criar projeto involuntário). */
+export const setPlanProjectFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        planId: z.string().uuid(),
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+        organization: PlanOrganization,
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }): Promise<{ projectId: string | null }> => {
+    const { data: planRow } = await context.supabase
+      .from("monthly_plans" as never)
+      .select("id, brand_id, client_id, project_id")
+      .eq("id", data.planId)
+      .maybeSingle();
+    if (!planRow) throw new Error("plan_not_found");
+    const plan = planRow as unknown as {
+      id: string;
+      brand_id: string;
+      client_id: string;
+      project_id: string | null;
+    };
+    if (plan.brand_id !== data.brandId || plan.client_id !== data.clientId) {
+      throw new Error("plan_not_in_scope");
+    }
+
+    const projectId = await resolveProjectForPlan(context.supabase as PlanSupabaseClient, {
+      brandId: data.brandId,
+      clientId: data.clientId,
+      userId: context.userId,
+      organization: data.organization,
+    });
+
+    const { error } = await context.supabase
+      .from("monthly_plans" as never)
+      .update({ project_id: projectId } as never)
+      .eq("id", data.planId);
+    if (error) throw error;
+
+    // Espelha o vínculo no projeto novo e libera o antigo, quando era exclusivo.
+    if (plan.project_id && plan.project_id !== projectId) {
+      await context.supabase
+        .from("projects")
+        .update({ monthly_plan_id: null } as never)
+        .eq("id", plan.project_id)
+        .eq("monthly_plan_id", data.planId);
+    }
+    if (projectId) {
+      await context.supabase
+        .from("projects")
+        .update({ monthly_plan_id: data.planId } as never)
+        .eq("id", projectId)
+        .is("monthly_plan_id", null);
+    }
+    return { projectId };
+  });
+
+/** Arquiva a pauta: sai da operação ativa, nada é apagado. */
+export const archiveMonthlyPlanFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ planId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("monthly_plans" as never)
+      .update({ status: "archived" } as never)
+      .eq("id", data.planId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+/**
+ * Restaura a pauta para a operação ativa. O status de volta é derivado do
+ * histórico real da própria pauta (não é uma string arbitrária de UI).
+ */
+export const restoreMonthlyPlanFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => z.object({ planId: z.string().uuid() }).parse(i))
+  .handler(async ({ data, context }): Promise<{ status: MonthlyPlanStatus }> => {
+    const { data: row } = await context.supabase
+      .from("monthly_plans" as never)
+      .select("id, internal_approved_at, client_decision_at, client_decision_mode")
+      .eq("id", data.planId)
+      .maybeSingle();
+    if (!row) throw new Error("plan_not_found");
+    const plan = row as unknown as {
+      internal_approved_at: string | null;
+      client_decision_at: string | null;
+      client_decision_mode: string | null;
+    };
+    const status: MonthlyPlanStatus = plan.client_decision_at
+      ? "approved"
+      : plan.internal_approved_at
+        ? "pending_client"
+        : "draft";
+    const { error } = await context.supabase
+      .from("monthly_plans" as never)
+      .update({ status } as never)
+      .eq("id", data.planId);
+    if (error) throw error;
+    return { status };
+  });
+
+/* ---------- Dashboard de pautas ---------- */
+
+export type PlanBoardItem = {
+  id: string;
+  title: string;
+  status: MonthlyPlanStatus;
+  created_at: string;
+  author_name: string | null;
+  topics_count: number;
+  topics_approved: number;
+  posts_count: number;
+  project: { id: string; name: string; status: string } | null;
+  /** Tarefas do projeto da pauta (execução operacional real). */
+  tasks: { total: number; open: number; primary: string | null };
+};
+
+export type PlanBoard = {
+  items: PlanBoardItem[];
+  summary: {
+    active: number;
+    inProduction: number;
+    withClient: number;
+    archived: number;
+  };
+  projects: Array<{ id: string; name: string; status: string }>;
+};
+
+/** Listagem da dashboard de pautas, escopada em brand + cliente. */
+export const listPlanBoardFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+        archive: z.enum(PLAN_ARCHIVE_FILTERS).default("active"),
+        projectId: z.string().uuid().nullable().optional(),
+        /** "none" = pautas sem projeto. */
+        withoutProject: z.boolean().optional().default(false),
+        q: z.string().max(200).optional(),
+      })
+      .parse(i),
+  )
+  .handler(async ({ data, context }): Promise<PlanBoard> => {
+    const { data: allRows, error } = await context.supabase
+      .from("monthly_plans" as never)
+      .select("id, title, status, created_at, created_by, project_id")
+      .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
+      .order("created_at", { ascending: false })
+      .limit(300);
+    if (error) throw error;
+    const all = (allRows ?? []) as unknown as Array<{
+      id: string;
+      title: string;
+      status: MonthlyPlanStatus;
+      created_at: string;
+      created_by: string | null;
+      project_id: string | null;
+    }>;
+
+    const summary = {
+      active: all.filter((p) => p.status !== "archived").length,
+      inProduction: all.filter((p) => p.status === "approved").length,
+      withClient: all.filter((p) => p.status === "pending_client").length,
+      archived: all.filter((p) => p.status === "archived").length,
+    };
+
+    let rows = all;
+    if (data.archive === "active") rows = rows.filter((p) => p.status !== "archived");
+    else if (data.archive === "archived") rows = rows.filter((p) => p.status === "archived");
+    if (data.withoutProject) rows = rows.filter((p) => !p.project_id);
+    else if (data.projectId) rows = rows.filter((p) => p.project_id === data.projectId);
+    const term = (data.q ?? "").trim().toLowerCase();
+    if (term) rows = rows.filter((p) => (p.title ?? "").toLowerCase().includes(term));
+
+    // Projetos do contexto (para o filtro e para os rótulos de hierarquia).
+    const { data: projectRows } = await context.supabase
+      .from("projects")
+      .select("id, name, status")
+      .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
+      .order("name", { ascending: true })
+      .limit(200);
+    const projects = (projectRows ?? []) as unknown as Array<{
+      id: string;
+      name: string;
+      status: string;
+    }>;
+    const projectMap = new Map(projects.map((p) => [p.id, p]));
+
+    if (rows.length === 0) return { items: [], summary, projects };
+
+    const planIds = rows.map((r) => r.id);
+
+    const authorMap = new Map<string, string>();
+    const userIds = Array.from(
+      new Set(rows.map((r) => r.created_by).filter((v): v is string => !!v)),
+    );
+    if (userIds.length) {
+      const { data: profs } = await context.supabase
+        .from("user_profiles")
+        .select("id, full_name")
+        .in("id", userIds);
+      for (const p of profs ?? []) {
+        authorMap.set(p.id as string, (p.full_name as string | null) ?? "");
+      }
+    }
+
+    // Tópicos da pauta (unidade editorial).
+    const topicTotals = new Map<string, { total: number; approved: number }>();
+    const { data: topicRows } = await context.supabase
+      .from("monthly_plan_topics" as never)
+      .select("id, monthly_plan_id, status")
+      .in("monthly_plan_id", planIds);
+    const topics = (topicRows ?? []) as unknown as Array<{
+      id: string;
+      monthly_plan_id: string;
+      status: string | null;
+    }>;
+    for (const t of topics) {
+      const cur = topicTotals.get(t.monthly_plan_id) ?? { total: 0, approved: 0 };
+      cur.total += 1;
+      if (t.status === "approved") cur.approved += 1;
+      topicTotals.set(t.monthly_plan_id, cur);
+    }
+
+    // Peças geradas a partir dos tópicos (rastreabilidade pauta → post).
+    const postsByPlan = new Map<string, number>();
+    const topicToPlan = new Map(topics.map((t) => [t.id, t.monthly_plan_id]));
+    if (topics.length) {
+      const { data: postRows } = await context.supabase
+        .from("posts")
+        .select("id, monthly_plan_topic_id")
+        .eq("brand_id", data.brandId)
+        .in("monthly_plan_topic_id", Array.from(topicToPlan.keys()));
+      for (const p of (postRows ?? []) as unknown as Array<{
+        monthly_plan_topic_id: string | null;
+      }>) {
+        const planId = p.monthly_plan_topic_id
+          ? topicToPlan.get(p.monthly_plan_topic_id)
+          : undefined;
+        if (planId) postsByPlan.set(planId, (postsByPlan.get(planId) ?? 0) + 1);
+      }
+    }
+
+    // Tarefas do projeto vinculado (Projeto → Tarefa).
+    const taskAgg = new Map<string, { total: number; open: number; primary: string | null }>();
+    const linkedProjectIds = Array.from(
+      new Set(rows.map((r) => r.project_id).filter((v): v is string => !!v)),
+    );
+    if (linkedProjectIds.length) {
+      const { data: taskRows } = await context.supabase
+        .from("tasks")
+        .select("id, title, status, project_id, created_at")
+        .eq("brand_id", data.brandId)
+        .in("project_id", linkedProjectIds)
+        .order("created_at", { ascending: true });
+      for (const t of (taskRows ?? []) as unknown as Array<{
+        title: string;
+        status: string | null;
+        project_id: string | null;
+      }>) {
+        if (!t.project_id) continue;
+        const cur = taskAgg.get(t.project_id) ?? { total: 0, open: 0, primary: null };
+        cur.total += 1;
+        const open = String(t.status ?? "") !== "done";
+        if (open) cur.open += 1;
+        if (!cur.primary && open) cur.primary = t.title;
+        taskAgg.set(t.project_id, cur);
+      }
+    }
+
+    const items: PlanBoardItem[] = rows.map((r) => {
+      const project = r.project_id ? projectMap.get(r.project_id) ?? null : null;
+      const tCount = topicTotals.get(r.id) ?? { total: 0, approved: 0 };
+      const tasks = (r.project_id ? taskAgg.get(r.project_id) : null) ?? {
+        total: 0,
+        open: 0,
+        primary: null,
+      };
+      return {
+        id: r.id,
+        title: r.title,
+        status: r.status,
+        created_at: r.created_at,
+        author_name: r.created_by ? authorMap.get(r.created_by) || null : null,
+        topics_count: tCount.total,
+        topics_approved: tCount.approved,
+        posts_count: postsByPlan.get(r.id) ?? 0,
+        project: project ? { id: project.id, name: project.name, status: project.status } : null,
+        tasks,
+      };
+    });
+
+    return { items, summary, projects };
   });

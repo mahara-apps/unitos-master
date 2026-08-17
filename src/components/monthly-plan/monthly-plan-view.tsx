@@ -8,9 +8,6 @@ import {
   ArrowRight,
   Check,
   CheckCheck,
-  ChevronDown,
-  ChevronUp,
-  ChevronsUpDown,
   FolderKanban,
 
   Link as LinkIcon,
@@ -24,7 +21,6 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { PLAN_STATUS_META } from "@/lib/monthly-plan-status";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,14 +33,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 import { DashboardPageShell } from "@/components/ui/dashboard-primitives";
 import { describeError } from "@/lib/errors";
@@ -56,6 +44,8 @@ import {
 import { requestPlanOverageFn } from "@/lib/plan-overage.functions";
 import { VolumetryCards, type PlanVolumetry } from "@/components/monthly-plan/volumetry-cards";
 import { ContextSourcesRow } from "@/components/monthly-plan/context-sources-row";
+import { PautaBoard } from "@/components/monthly-plan/pauta-board";
+import { NewPautaDialog } from "@/components/monthly-plan/new-pauta-dialog";
 import {
   PLAN_CHANNELS,
   PLAN_CHANNEL_LABEL as CHANNEL_LABEL,
@@ -72,7 +62,6 @@ import {
   getPlanClientLinkFn,
   getPlanVolumetryFn,
   listBriefingsForPlanFn,
-  listMonthlyPlansFn,
   regenerateTopicFn,
   setTopicDecisionFn,
   submitPlanToClientFn,
@@ -80,7 +69,6 @@ import {
   updateMonthlyPlanFn,
   updateTopicFn,
   type GenerateMonthlyPlanResult,
-  type MonthlyPlanListItem,
   type MonthlyPlanTopic,
   type MonthlyPlanWithTopics,
 } from "@/lib/monthly-plans.functions";
@@ -134,12 +122,6 @@ export function MonthlyPlanView({
     queryFn: () => listBriefings({ data: { brandId, clientId } }),
   });
 
-  const listPlans = useServerFn(listMonthlyPlansFn);
-  const historyQ = useQuery({
-    queryKey: ["monthly-plans", "list", brandId, clientId],
-    queryFn: () => listPlans({ data: { brandId, clientId } }),
-  });
-
   const getVolumetry = useServerFn(getPlanVolumetryFn);
   const volumetryQ = useQuery({
     queryKey: ["monthly-plan", "volumetry", clientId],
@@ -149,6 +131,7 @@ export function MonthlyPlanView({
   const hasVolumetry = (volumetry?.totalTarget ?? 0) > 0;
 
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [newPautaOpen, setNewPautaOpen] = useState(false);
 
   const requestOverage = useServerFn(requestPlanOverageFn);
   const overageM = useMutation({
@@ -275,10 +258,19 @@ export function MonthlyPlanView({
 
         <VolumetryCards volumetry={volumetry} loading={volumetryQ.isLoading} />
 
-        <PlanHistory
-          data={historyQ.data ?? []}
-          loading={historyQ.isLoading}
+        <PautaBoard
+          brandId={brandId}
+          clientId={clientId}
           onOpen={(id) => setPlanId(id)}
+          onNewPauta={() => setNewPautaOpen(true)}
+        />
+
+        <NewPautaDialog
+          open={newPautaOpen}
+          onOpenChange={setNewPautaOpen}
+          brandId={brandId}
+          clientId={clientId}
+          onCreated={(id) => setPlanId(id)}
         />
 
         <GeneratePlanWizard
@@ -320,207 +312,6 @@ export function MonthlyPlanView({
 }
 
 // Metadados de status vivem em @/lib/monthly-plan-status (compartilhados com Projetos).
-
-type PlanSortKey = "title" | "created_at" | "status" | "topics_count";
-
-function PlanHistory({
-  data,
-  loading,
-  onOpen,
-}: {
-  data: MonthlyPlanListItem[];
-  loading: boolean;
-  onOpen: (id: string) => void;
-}) {
-  const [sortKey, setSortKey] = useState<PlanSortKey>("created_at");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [page, setPage] = useState(1);
-  const pageSize = 10;
-
-  const sorted = useMemo(() => {
-    const rows = [...data];
-    rows.sort((a, b) => {
-      let cmp = 0;
-      if (sortKey === "created_at")
-        cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-      else if (sortKey === "topics_count") cmp = a.topics_count - b.topics_count;
-      else if (sortKey === "status")
-        cmp = (PLAN_STATUS_META[a.status]?.label ?? a.status).localeCompare(
-          PLAN_STATUS_META[b.status]?.label ?? b.status,
-          "pt-BR",
-        );
-      else cmp = (a.title ?? "").localeCompare(b.title ?? "", "pt-BR");
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-    return rows;
-  }, [data, sortKey, sortDir]);
-
-  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
-  const current = Math.min(page, totalPages);
-  const rows = sorted.slice((current - 1) * pageSize, current * pageSize);
-
-  const toggleSort = (key: PlanSortKey) => {
-    if (key === sortKey) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    else {
-      setSortKey(key);
-      setSortDir(key === "created_at" || key === "topics_count" ? "desc" : "asc");
-    }
-    setPage(1);
-  };
-
-  const SortHeader = ({
-    label,
-    keyName,
-    className,
-  }: {
-    label: string;
-    keyName: PlanSortKey;
-    className?: string;
-  }) => (
-    <TableHead className={className}>
-      <button
-        type="button"
-        onClick={() => toggleSort(keyName)}
-        className="inline-flex items-center gap-1 text-xs font-medium hover:text-foreground"
-      >
-        {label}
-        {sortKey === keyName ? (
-          sortDir === "asc" ? (
-            <ChevronUp className="h-3 w-3" />
-          ) : (
-            <ChevronDown className="h-3 w-3" />
-          )
-        ) : (
-          <ChevronsUpDown className="h-3 w-3 opacity-40" />
-        )}
-      </button>
-    </TableHead>
-  );
-
-  if (loading) {
-    return (
-      <div className="mt-8 space-y-2">
-        <Skeleton className="h-4 w-40" />
-        <Skeleton className="h-16 w-full" />
-        <Skeleton className="h-16 w-full" />
-      </div>
-    );
-  }
-  if (data.length === 0) return null;
-
-  return (
-    <div className="mt-8">
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="text-sm font-semibold tracking-tight">Histórico de pautas deste cliente</h2>
-        <span className="text-xs text-muted-foreground">{data.length} registros</span>
-      </div>
-      <div className="overflow-hidden rounded-xl border border-border/60 bg-card/40">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <SortHeader label="Status" keyName="status" className="w-[150px]" />
-              <SortHeader label="Título" keyName="title" />
-              <SortHeader label="Tópicos" keyName="topics_count" className="w-[100px]" />
-              <TableHead className="w-[160px] text-xs font-medium">Autor</TableHead>
-              <SortHeader label="Criada em" keyName="created_at" className="w-[170px]" />
-              <TableHead className="w-[48px]" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((p) => {
-              const meta = PLAN_STATUS_META[p.status] ?? PLAN_STATUS_META.draft;
-              return (
-                <TableRow
-                  key={p.id}
-                  className="cursor-pointer"
-                  onClick={() => onOpen(p.id)}
-                >
-                  <TableCell>
-                    <span
-                      className={`inline-flex h-5 items-center rounded-full border px-2 text-[10px] font-medium uppercase tracking-wide ${meta.cls}`}
-                    >
-                      {meta.label}
-                    </span>
-                  </TableCell>
-                  <TableCell className="max-w-[420px]">
-                    <span className="line-clamp-1 text-sm font-medium">{p.title}</span>
-                  </TableCell>
-                  <TableCell className="tabular-nums text-xs text-muted-foreground">
-                    {p.topics_count}
-                  </TableCell>
-                  <TableCell className="truncate text-xs text-muted-foreground">
-                    {p.author_name ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-xs tabular-nums text-muted-foreground">
-                    {new Date(p.created_at).toLocaleString("pt-BR", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </TableCell>
-                  <TableCell>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-        {totalPages > 1 ? (
-          <div className="flex items-center justify-between border-t border-border/60 px-4 py-2">
-            <span className="text-xs text-muted-foreground">
-              Página {current} de {totalPages}
-            </span>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={current <= 1}
-                onClick={() => setPage(current - 1)}
-              >
-                Anterior
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={current >= totalPages}
-                onClick={() => setPage(current + 1)}
-              >
-                Próxima
-              </Button>
-            </div>
-          </div>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-
-function GenerationSkeleton({ message }: { message: string }) {
-  return (
-    <div className="space-y-5">
-      <div className="flex items-center gap-3 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-        <span className="animate-pulse">{message}</span>
-      </div>
-      <div className="space-y-3">
-        <Skeleton className="h-6 w-2/3" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-11/12" />
-      </div>
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-20 w-full rounded-lg" />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* --------------------------------------------------------------- */
 
 function ApprovalView({
   planId,
