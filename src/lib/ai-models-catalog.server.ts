@@ -41,6 +41,12 @@ export const MODEL_CATALOG: Record<
     operational: "gemini-flash-latest",
     image: "imagen-4.0-generate-001",
   },
+  groq: {
+    // Groq expõe a API compatível com OpenAI; ids conforme o catálogo atual.
+    strategic: "openai/gpt-oss-120b",
+    operational: "llama-3.3-70b-versatile",
+    image: null, // Groq não gera imagem
+  },
 };
 
 /**
@@ -67,6 +73,11 @@ export const MODEL_FALLBACKS: Record<
     operational: ["gemini-flash-latest", "gemini-3.6-flash", "gemini-2.5-flash"],
     image: ["imagen-4.0-generate-001", "imagen-4.0-fast-generate-001"],
   },
+  groq: {
+    strategic: ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "moonshotai/kimi-k2-instruct-0905"],
+    operational: ["llama-3.3-70b-versatile", "openai/gpt-oss-20b", "llama-3.1-8b-instant"],
+    image: [],
+  },
 };
 
 /** Convenience default for legacy call sites. */
@@ -74,6 +85,7 @@ export const DEFAULT_TEXT_MODEL: Record<ProviderName, string> = {
   openai: MODEL_CATALOG.openai.operational!,
   anthropic: MODEL_CATALOG.anthropic.operational!,
   gemini: MODEL_CATALOG.gemini.operational!,
+  groq: MODEL_CATALOG.groq.operational!,
 };
 
 

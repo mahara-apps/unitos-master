@@ -21,7 +21,7 @@ import {
   type ProviderRole,
 } from "./ai-models-catalog.server";
 
-const PROVIDERS: ProviderName[] = ["openai", "anthropic", "gemini"];
+const PROVIDERS: ProviderName[] = ["openai", "anthropic", "gemini", "groq"];
 const ROLES: ProviderRole[] = ["strategic", "operational", "image"];
 
 export type HealthCheckEntry = {

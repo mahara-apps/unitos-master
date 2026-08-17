@@ -39,6 +39,12 @@ const PRICE_PER_MTOK: Record<string, { input: number; output: number }> = {
   "claude-sonnet-4-5": { input: 3, output: 15 },
   "claude-3-7-sonnet-latest": { input: 3, output: 15 },
   "claude-3-5-haiku-latest": { input: 0.8, output: 4 },
+  // ---- Groq (ids normalizados, sem prefixo de vendor) ----
+  "gpt-oss-120b": { input: 0.15, output: 0.75 },
+  "gpt-oss-20b": { input: 0.1, output: 0.5 },
+  "llama-3.3-70b-versatile": { input: 0.59, output: 0.79 },
+  "llama-3.1-8b-instant": { input: 0.05, output: 0.08 },
+  "kimi-k2-instruct-0905": { input: 1, output: 3 },
 };
 
 /** Fallback conservador quando o modelo não está tabelado. */

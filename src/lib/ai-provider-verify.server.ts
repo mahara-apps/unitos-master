@@ -33,6 +33,12 @@ function endpointFor(provider: ProviderName, apiKey: string): Endpoint {
       headers: { "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
     };
   }
+  if (provider === "groq") {
+    return {
+      url: "https://api.groq.com/openai/v1/models",
+      headers: { Authorization: `Bearer ${apiKey}` },
+    };
+  }
   return {
     url: "https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",
     headers: { "x-goog-api-key": apiKey },
@@ -54,6 +60,7 @@ const PROVIDER_LABEL: Record<ProviderName, string> = {
   openai: "OpenAI",
   anthropic: "Anthropic",
   gemini: "Gemini",
+  groq: "Groq",
 };
 
 /**
