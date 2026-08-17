@@ -14,7 +14,13 @@ import * as query from "../query";
 export interface BrainConsolidated {
   memories: SemanticMemoryHit[];
   insights: Array<{ description: string; insight_type: string; confidence: number | null }>;
-  memoryRows: BrainMemoryRow[];
+  /** Projeção enxuta de memórias (title/description) usada pelo LLM. */
+  memoryRows: Array<{
+    title: string;
+    description: string;
+    confidence: number | null;
+    scope?: BrainMemoryRow["scope"];
+  }>;
   stats: BrainStats;
   markdown: string;
 }
