@@ -70,51 +70,38 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
           media: any;
         }>) {
           try {
-            const { data: conn, error: connErr } = await supabaseAdmin
-              .from("social_connections")
-              .select(
-                "id, brand_id, provider, channel, status, external_id, account_id, access_token_ciphertext",
-              )
-              .eq("id", post.connection_id)
-              .eq("brand_id", post.brand_id)
-              .maybeSingle();
-            if (connErr) throw new Error(connErr.message);
-            if (!conn) {
-              throw new Error(
-                "CONNECTION_SCOPE_MISMATCH: conexão removida ou de outra marca",
-              );
-            }
-            // Defesa em profundidade: o canal precisa estar vinculado ao
-            // cliente do post em client_social_accounts (fonte de verdade).
-            if (post.client_id) {
-              const { data: link, error: linkErr } = await supabaseAdmin
-                .from("client_social_accounts")
-                .select("id")
-                .eq("brand_id", post.brand_id)
-                .eq("client_id", post.client_id)
-                .eq("connection_id", post.connection_id)
-                .maybeSingle();
-              if (linkErr) throw new Error(linkErr.message);
-              if (!link) {
-                throw new Error(
-                  "CONNECTION_SCOPE_MISMATCH: canal não está vinculado ao cliente do post agendado",
-                );
+            // ---- PRÉ-FLIGHT (2ª barreira, fail closed) ----------------------
+            // A autorização pode ter mudado depois do agendamento: revalidamos
+            // toda a cadeia (marca → cliente → vínculo → conexão → canal →
+            // target → token → granular scope do target) ANTES de chamar a
+            // Meta. Erro determinístico (autorização/vínculo) NÃO consome
+            // retries: o destino vira `blocked`/`connection_required`.
+            const { resolvePublishTarget } = await import(
+              "@/lib/meta/publish-capability.server"
+            );
+            const { capability, connection: conn } = await resolvePublishTarget(
+              supabaseAdmin,
+              {
+                brandId: post.brand_id,
+                clientId: post.client_id,
+                connectionId: post.connection_id,
+                format: post.placement === "story" ? "stories" : "feed",
+                force: true,
+              },
+            );
+            if (!capability.publishReady) {
+              if (capability.deterministic) {
+                throw new DeterministicBlock(capability.message, capability.code);
               }
+              throw new Error(capability.message);
             }
-            if ((conn as any).status && (conn as any).status !== "active") {
-              throw new Error("Conexão não está ativa — reconecte a página");
-            }
-            if (!(conn as any).access_token_ciphertext) {
-              throw new Error("Conexão sem token — reconecte a página");
-            }
-            if (post.placement === "story" && (conn as any).channel !== "instagram") {
-              throw new Error(
-                "CONNECTION_SCOPE_MISMATCH: Stories só é suportado em conexões Instagram",
+            if (!conn) {
+              throw new DeterministicBlock(
+                "Este canal não está mais conectado a este cliente. Reconecte a conta para continuar.",
+                "wrong_brand",
               );
             }
-            if ((conn as any).channel === "instagram" && !(conn as any).account_id) {
-              throw new Error("Conexão sem conta Instagram Business vinculada");
-            }
+
 
 
             const caption = buildCaption(
