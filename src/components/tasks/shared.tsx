@@ -96,6 +96,7 @@ import {
   type TaskRow,
   type TaskStatus,
 } from "@/lib/tasks.functions";
+import { createProject } from "@/lib/projects.functions";
 import { listBrandAssigneesFn } from "@/lib/content.functions";
 import { listClients } from "@/lib/workspace.functions";
 
