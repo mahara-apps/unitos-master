@@ -79,11 +79,7 @@ import {
 import { searchInstagramLocationsFn } from "@/lib/meta/locations.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "@tanstack/react-router";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 function slugifyMediaName(name: string) {
   return name
@@ -148,7 +144,9 @@ export function ScheduleWizard({
   const [locationName, setLocationName] = useState("");
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
-  const [submitting, setSubmitting] = useState<null | "draft" | "publish" | "schedule" | "save_draft">(null);
+  const [submitting, setSubmitting] = useState<
+    null | "draft" | "publish" | "schedule" | "save_draft"
+  >(null);
   const [previewKey, setPreviewKey] = useState<string>("instagram::feed");
   const [locationId, setLocationId] = useState<string | null>(null);
   // ID da peça em edição. Começa no seed e passa a existir localmente depois do
@@ -183,9 +181,7 @@ export function ScheduleWizard({
       setPreviewKey("instagram::feed");
       setPostId(seed?.postId ?? null);
       if (uploadRef.current) uploadRef.current.value = "";
-      const base = defaultDate
-        ? new Date(defaultDate)
-        : new Date(Date.now() + 60 * 60 * 1000);
+      const base = defaultDate ? new Date(defaultDate) : new Date(Date.now() + 60 * 60 * 1000);
       base.setSeconds(0, 0);
       setScheduleDate(fmtDate(base));
       setScheduleTime(fmtTime(base));
@@ -308,7 +304,6 @@ export function ScheduleWizard({
     setPairs((prev) => prev.filter((p) => isFormatCompatibleWithMedia(p.format, mediaKind)));
   }, [mediaKind, hydrating]);
 
-
   // Ensure preview channel is one we have selected — else fall back to first pair
   useEffect(() => {
     if (!pairs.length) return;
@@ -335,10 +330,7 @@ export function ScheduleWizard({
     [pairs, previewKey],
   );
 
-  const captionLimit = useMemo(
-    () => tightestCaptionLimit(pairs.map((p) => p.channel)),
-    [pairs],
-  );
+  const captionLimit = useMemo(() => tightestCaptionLimit(pairs.map((p) => p.channel)), [pairs]);
 
   const overLimit = copy.length > captionLimit;
   const canSubmit = pairs.length > 0 && !overLimit && !!title.trim();
@@ -506,7 +498,6 @@ export function ScheduleWizard({
       qc.invalidateQueries({ queryKey: ["wizard-drafts"] });
       onSaved?.();
       if (action !== "publish" || (res?.published ?? 0) > 0) onOpenChange(false);
-
     } catch (e) {
       toast.error(describeError(e));
     } finally {
@@ -515,8 +506,7 @@ export function ScheduleWizard({
   }
 
   const primaryConn =
-    (previewPair ? connByChannel.get(previewPair.channel) : null) ??
-    connectionsQ.data?.[0];
+    (previewPair ? connByChannel.get(previewPair.channel) : null) ?? connectionsQ.data?.[0];
   const previewMedia = selectedMedia[0];
 
   // Política de link por rede/formato — feed do IG/Reels/TikTok não
@@ -611,7 +601,12 @@ export function ScheduleWizard({
               )}
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" disabled={!!submitting} onClick={() => onOpenChange(false)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={!!submitting}
+                onClick={() => onOpenChange(false)}
+              >
                 Cancelar
               </Button>
               <Button
@@ -702,8 +697,15 @@ export function ScheduleWizard({
                       </div>
                     ) : availableConnections.length === 0 ? (
                       <div className="p-3 text-center">
-                        <p className="text-xs font-medium">Nenhuma rede vinculada a este cliente.</p>
-                        <Button asChild size="sm" variant="outline" className="mt-2 h-7 text-[11px]">
+                        <p className="text-xs font-medium">
+                          Nenhuma rede vinculada a este cliente.
+                        </p>
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="outline"
+                          className="mt-2 h-7 text-[11px]"
+                        >
                           <Link to="/connections">Ir para Conexões</Link>
                         </Button>
                       </div>
@@ -979,7 +981,11 @@ export function ScheduleWizard({
                           preload="metadata"
                         />
                       ) : m.publicUrl ? (
-                        <img src={m.publicUrl} alt={m.name} className="h-full w-full object-cover" />
+                        <img
+                          src={m.publicUrl}
+                          alt={m.name}
+                          className="h-full w-full object-cover"
+                        />
                       ) : null}
                       <span className="absolute bottom-0.5 left-0.5 rounded bg-black/60 px-1 text-[9px] font-semibold text-white">
                         {i + 1}
@@ -1027,7 +1033,9 @@ export function ScheduleWizard({
               className="flex w-full items-center justify-between rounded-md px-1 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
               <span>Configurações adicionais (link, local, primeiro comentário)</span>
-              <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", showExtras && "rotate-180")} />
+              <ChevronDown
+                className={cn("h-3.5 w-3.5 transition-transform", showExtras && "rotate-180")}
+              />
             </button>
             {showExtras ? (
               <div className="space-y-3 rounded-lg border border-border/60 p-3">
@@ -1228,12 +1236,7 @@ function SectionTitle({
       >
         {index}
       </span>
-      <h3
-        className={cn(
-          "font-semibold tracking-tight",
-          compact ? "text-xs" : "text-sm",
-        )}
-      >
+      <h3 className={cn("font-semibold tracking-tight", compact ? "text-xs" : "text-sm")}>
         {title}
       </h3>
     </div>
@@ -1288,10 +1291,7 @@ function PostPreview({
     .join("\n\n");
   const initials = (handle || "?").slice(0, 2).toUpperCase();
   const vertical =
-    format === "reels" ||
-    format === "stories" ||
-    channel === "tiktok" ||
-    channel === "youtube";
+    format === "reels" || format === "stories" || channel === "tiktok" || channel === "youtube";
   const wideMedia = channel === "linkedin" || channel === "x";
   const isStories = format === "stories";
   const isReels = format === "reels" || channel === "tiktok" || channel === "youtube";
@@ -1300,12 +1300,26 @@ function PostPreview({
   if (vertical) {
     // Reels/TikTok/Shorts/Stories — full-bleed 9:16 com overlay.
     return (
-      <div className="relative w-full max-w-[300px] overflow-hidden rounded-2xl border border-border/60 bg-black shadow-lg" style={{ aspectRatio: "9 / 16" }}>
+      <div
+        className="relative w-full max-w-[300px] overflow-hidden rounded-2xl border border-border/60 bg-black shadow-lg"
+        style={{ aspectRatio: "9 / 16" }}
+      >
         {media?.publicUrl ? (
           media.kind === "video" ? (
-            <video src={media.publicUrl} className="absolute inset-0 h-full w-full object-cover" muted playsInline loop autoPlay />
+            <video
+              src={media.publicUrl}
+              className="absolute inset-0 h-full w-full object-cover"
+              muted
+              playsInline
+              loop
+              autoPlay
+            />
           ) : (
-            <img src={media.publicUrl} alt="preview" className="absolute inset-0 h-full w-full object-cover" />
+            <img
+              src={media.publicUrl}
+              alt="preview"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
           )
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-white/60">
@@ -1357,7 +1371,12 @@ function PostPreview({
 
   // Feed padrão (IG/FB/LinkedIn/X)
   return (
-    <div className={cn("w-full max-w-[380px] overflow-hidden rounded-2xl border shadow-sm", chromeStyle.card)}>
+    <div
+      className={cn(
+        "w-full max-w-[380px] overflow-hidden rounded-2xl border shadow-sm",
+        chromeStyle.card,
+      )}
+    >
       {/* Header (X mostra @handle · texto acima da mídia) */}
       <div className="flex items-center justify-between px-3 py-2.5">
         <div className="flex min-w-0 items-center gap-2">
@@ -1385,10 +1404,20 @@ function PostPreview({
       ) : null}
 
       {/* Media */}
-      <div className="relative w-full bg-muted" style={{ aspectRatio: wideMedia ? "1.91 / 1" : "1 / 1" }}>
+      <div
+        className="relative w-full bg-muted"
+        style={{ aspectRatio: wideMedia ? "1.91 / 1" : "1 / 1" }}
+      >
         {media?.publicUrl ? (
           media.kind === "video" ? (
-            <video src={media.publicUrl} className="h-full w-full object-cover" muted playsInline loop autoPlay />
+            <video
+              src={media.publicUrl}
+              className="h-full w-full object-cover"
+              muted
+              playsInline
+              loop
+              autoPlay
+            />
           ) : (
             <img src={media.publicUrl} alt="preview" className="h-full w-full object-cover" />
           )
@@ -1404,10 +1433,7 @@ function PostPreview({
             {Array.from({ length: Math.min(mediaCount, 10) }).map((_, i) => (
               <span
                 key={i}
-                className={cn(
-                  "h-1.5 w-1.5 rounded-full",
-                  i === 0 ? "bg-white" : "bg-white/50",
-                )}
+                className={cn("h-1.5 w-1.5 rounded-full", i === 0 ? "bg-white" : "bg-white/50")}
               />
             ))}
           </div>
@@ -1415,7 +1441,7 @@ function PostPreview({
       </div>
 
       {/* Actions bar — Instagram/Facebook only */}
-      {(channel === "instagram" || channel === "facebook") ? (
+      {channel === "instagram" || channel === "facebook" ? (
         <div className="flex items-center justify-between px-3 pt-2.5">
           <div className="flex items-center gap-3 text-foreground">
             <Heart className="h-5 w-5" />
@@ -1427,14 +1453,12 @@ function PostPreview({
       ) : null}
 
       {/* Copy abaixo — IG/FB */}
-      {(channel === "instagram" || channel === "facebook") ? (
+      {channel === "instagram" || channel === "facebook" ? (
         <div className="px-3 pb-3 pt-2">
           <div className="text-[11.5px] leading-snug">
             <span className="font-semibold">{handle}</span>{" "}
             <span className="whitespace-pre-wrap text-foreground/90">
-              {fullCopy || (
-                <span className="text-muted-foreground">Sua legenda aparece aqui…</span>
-              )}
+              {fullCopy || <span className="text-muted-foreground">Sua legenda aparece aqui…</span>}
             </span>
           </div>
         </div>
@@ -1472,17 +1496,9 @@ function channelChromeStyle(channel: SocialChannel) {
 // Link policy — sinaliza se o link será clicável na rede escolhida.
 // ============================================================
 
-export type LinkPolicy =
-  | "none"
-  | "clickable"
-  | "sticker"
-  | "not-clickable"
-  | "mixed";
+export type LinkPolicy = "none" | "clickable" | "sticker" | "not-clickable" | "mixed";
 
-function classifyLinkPolicy(
-  channel: SocialChannel,
-  format: PlacementFormat,
-): LinkPolicy {
+function classifyLinkPolicy(channel: SocialChannel, format: PlacementFormat): LinkPolicy {
   // Stories: Instagram/Facebook viram sticker de link.
   if (format === "stories") return "sticker";
   // Instagram feed/reels/carrossel: link não é clicável na legenda.
@@ -1547,9 +1563,7 @@ function LocationCombobox({
           }}
           onFocus={() => setOpen(true)}
           placeholder={
-            instagramConnectionId
-              ? "Digite para buscar no Instagram…"
-              : "Ex.: São Paulo, SP"
+            instagramConnectionId ? "Digite para buscar no Instagram…" : "Ex.: São Paulo, SP"
           }
         />
       </PopoverTrigger>
@@ -1593,9 +1607,7 @@ function LocationCombobox({
                 >
                   <span className="font-medium">{r.name}</span>
                   {r.subtitle ? (
-                    <span className="text-[10px] text-muted-foreground">
-                      {r.subtitle}
-                    </span>
+                    <span className="text-[10px] text-muted-foreground">{r.subtitle}</span>
                   ) : null}
                 </button>
               </li>
