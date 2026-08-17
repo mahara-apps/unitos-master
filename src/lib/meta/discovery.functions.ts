@@ -219,12 +219,24 @@ export const reconcileMetaConnectionFn = createServerFn({ method: "POST" })
       };
     }
 
-    const patch: Record<string, unknown> = {
+    const patch: {
+      status: string;
+      last_error: string | null;
+      last_synced_at: string;
+      owner_external_id: string;
+      meta_user_id: string;
+      page_id?: string | null;
+      external_name?: string | null;
+      instagram_business_id?: string | null;
+      account_id?: string | null;
+      account_username?: string | null;
+      access_token_ciphertext?: string;
+    } = {
       status: "active",
       last_error: null,
       last_synced_at: new Date().toISOString(),
-      owner_external_id: session.meta_user_id,
-      meta_user_id: session.meta_user_id,
+      owner_external_id: session.meta_user_id as string,
+      meta_user_id: session.meta_user_id as string,
     };
 
     if (page) {
@@ -247,7 +259,7 @@ export const reconcileMetaConnectionFn = createServerFn({ method: "POST" })
       patch.account_id = standalone.instagramId;
       patch.account_username = standalone.username ?? null;
       patch.external_name = standalone.username ?? standalone.name ?? externalId;
-      patch.access_token_ciphertext = session.user_token_ciphertext;
+      patch.access_token_ciphertext = session.user_token_ciphertext as string;
     }
 
     const { error: upErr } = await context.supabase
