@@ -35,6 +35,13 @@ import {
 import { ExpandedModal } from "@/components/ui/expanded-modal";
 import { MediaLibraryDialog } from "@/components/calendar/schedule-wizard/media-library-dialog";
 import { PublicationStatusPanel } from "@/components/calendar/schedule-wizard/publication-status";
+import {
+  MIN_SCHEDULE_LEAD_MESSAGE,
+  MIN_SCHEDULE_LEAD_MINUTES,
+  earliestScheduleDateInput,
+  earliestScheduleTimeInput,
+  isScheduleLeadValid,
+} from "@/lib/schedule-rules";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -539,6 +546,14 @@ export function ScheduleWizard({
     }
     if (action === "schedule" && (!scheduleDate || !scheduleTime)) {
       toast.error("Defina data e horário para agendar.");
+      return;
+    }
+    // Regra dos 5 minutos: feedback antes de enviar (o servidor revalida).
+    if (
+      action === "schedule" &&
+      !isScheduleLeadValid(new Date(`${scheduleDate}T${scheduleTime}`))
+    ) {
+      toast.error(MIN_SCHEDULE_LEAD_MESSAGE);
       return;
     }
     if (submitting) return;
@@ -1345,7 +1360,7 @@ export function ScheduleWizard({
                 <Input
                   type="date"
                   value={scheduleDate}
-                  min={fmtDate(new Date())}
+                  min={earliestScheduleDateInput()}
                   onChange={(e) => setScheduleDate(e.target.value)}
                   className="pr-8 [&::-webkit-calendar-picker-indicator]:opacity-0"
                 />
@@ -1355,6 +1370,7 @@ export function ScheduleWizard({
                 <Input
                   type="time"
                   value={scheduleTime}
+                  min={earliestScheduleTimeInput(scheduleDate)}
                   onChange={(e) => setScheduleTime(e.target.value)}
                   className="pr-8 [&::-webkit-calendar-picker-indicator]:opacity-0"
                 />
@@ -1362,8 +1378,15 @@ export function ScheduleWizard({
               </div>
             </div>
             <p className="text-[10.5px] text-muted-foreground">
-              Fuso: {tzLabel()} · use “Publicar agora” no menu ao lado de “Agendar”.
+              Fuso: {tzLabel()} · mínimo de {MIN_SCHEDULE_LEAD_MINUTES} minutos a partir
+              de agora · use “Publicar agora” no menu ao lado de “Agendar”.
             </p>
+            {scheduleDate && scheduleTime &&
+            !isScheduleLeadValid(new Date(`${scheduleDate}T${scheduleTime}`)) ? (
+              <p className="rounded-md border border-destructive/40 bg-destructive/5 px-2 py-1.5 text-[10.5px] text-destructive">
+                {MIN_SCHEDULE_LEAD_MESSAGE}
+              </p>
+            ) : null}
           </section>
 
           <section className="space-y-2 rounded-xl border border-border/60 bg-background p-3">
