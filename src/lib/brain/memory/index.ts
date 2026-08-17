@@ -1,80 +1,128 @@
 // ⚠️ Brain Memory Store — leitura e escrita de memórias consolidadas.
+//
+// Schema real (public.brain_memory): title / description / category / scope /
+// client_id / brand_id / confidence / reinforcement_count / status.
+// NÃO existem colunas `topic` nem `summary` — o código antigo lia esses nomes e
+// o PostgREST devolvia erro, que era engolido: o Brain parecia "sem memória".
+// Toda leitura aqui falha de forma OBSERVÁVEL (brainFail), nunca em silêncio.
+//
+// Isolamento (hierarquia GLOBAL → BRAND → CLIENT):
+//  - com cliente ativo: global + marca + AQUELE cliente;
+//  - sem cliente ativo: global + marca (nunca memórias de um cliente
+//    específico, para não misturar clientes num contexto de marca).
 import type { BrainContext, BrainMemoryRow } from "../core";
+import { brainFail } from "../observability";
+
+const SELECT =
+  "id, brand_id, client_id, scope, category, title, description, confidence, reinforcement_count, updated_at";
 
 export interface RememberInput {
-  topic: string;
-  summary: string;
+  title: string;
+  description: string;
+  category?: string;
   confidence?: number;
   source_module?: string;
   tags?: string[];
   metadata?: Record<string, unknown>;
 }
 
+type RawMemory = {
+  id: string;
+  brand_id: string | null;
+  client_id: string | null;
+  scope: string | null;
+  category: string | null;
+  title: string | null;
+  description: string | null;
+  confidence: number | null;
+  reinforcement_count: number | null;
+  updated_at: string | null;
+};
+
+function toRow(r: RawMemory): BrainMemoryRow {
+  return {
+    id: r.id,
+    title: r.title ?? "(sem título)",
+    description: r.description ?? "",
+    category: r.category ?? "geral",
+    scope: (r.scope as BrainMemoryRow["scope"]) ?? "global",
+    confidence: r.confidence,
+    reinforcement_count: r.reinforcement_count ?? 0,
+    brand_id: r.brand_id,
+    client_id: r.client_id,
+    updated_at: r.updated_at,
+  };
+}
+
+/** Aplica o recorte de escopo. Nunca retorna memória de outro cliente. */
+function scoped<T>(q: T, ctx: BrainContext): T {
+  const query = q as unknown as {
+    or: (f: string) => unknown;
+    is: (c: string, v: null) => unknown;
+  };
+  let out: unknown = ctx.brandId
+    ? query.or(`brand_id.eq.${ctx.brandId},brand_id.is.null`)
+    : query.is("brand_id", null);
+  const next = out as { or: (f: string) => unknown; is: (c: string, v: null) => unknown };
+  out = ctx.clientId
+    ? next.or(`client_id.eq.${ctx.clientId},client_id.is.null`)
+    : next.is("client_id", null);
+  return out as T;
+}
+
 export async function list(
   ctx: BrainContext,
-  opts: { limit?: number } = {},
+  opts: { limit?: number; categories?: string[] } = {},
 ): Promise<BrainMemoryRow[]> {
+  const limit = opts.limit ?? 15;
   let q = ctx.supabase
     .from("brain_memory")
-    .select("topic, summary, confidence, brand_id, metadata")
+    .select(SELECT)
+    .eq("status", "active")
     .order("confidence", { ascending: false })
-    .limit(opts.limit ?? 15);
-  q = ctx.brandId ? q.eq("brand_id", ctx.brandId) : q.is("brand_id", null);
-  // brain_memory não tem coluna client_id — quando há cliente ativo, restringe
-  // a memórias explicitamente marcadas com este client_id em metadata
-  // (ou genéricas, sem client_id em metadata) para não vazar entre clientes.
-  if (ctx.clientId) {
-    q = q.or(`metadata->>client_id.eq.${ctx.clientId},metadata->>client_id.is.null`);
-  }
-  const { data } = await q;
-  return ((data ?? []) as Array<BrainMemoryRow>).slice(0, opts.limit ?? 15).map((r) => ({
-    topic: r.topic,
-    summary: r.summary,
-    confidence: r.confidence,
-  }));
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  if (opts.categories?.length) q = q.in("category", opts.categories);
+  const { data, error } = await scoped(q, ctx);
+  if (error) brainFail("memory.list", error, ctx);
+  return ((data ?? []) as RawMemory[]).map(toRow);
 }
 
 export async function remember(
   ctx: BrainContext,
   input: RememberInput,
 ): Promise<{ ok: boolean; id?: string; error?: string }> {
-  const { data, error } = await ctx.supabase
-    .from("brain_memory")
-    .insert({
-      brand_id: ctx.brandId ?? null,
-      client_id: ctx.clientId ?? null,
-      topic: input.topic,
-      summary: input.summary,
-      confidence: input.confidence ?? 0.5,
-      source_module: input.source_module ?? "brain.api",
-      tags: input.tags ?? [],
-      metadata: input.metadata ?? {},
-    })
-    .select("id")
-    .maybeSingle();
-  if (error) {
-    console.error("[brain.memory.remember]", error.message);
-    return { ok: false, error: error.message };
-  }
-  return { ok: true, id: (data as { id?: string } | null)?.id };
+  // Escreve pelo mesmo caminho da consolidação (RPC) para herdar versionamento,
+  // reforço, escopo automático e trilha de auditoria.
+  return evolve(ctx, {
+    entityType: "note",
+    entityId: crypto.randomUUID(),
+    category: input.category ?? "manual_note",
+    title: input.title,
+    description: input.description,
+    evidenceConfidence: input.confidence ?? 0.5,
+    origin: "manual",
+    tags: input.tags ?? [],
+    metadata: { ...(input.metadata ?? {}), source_module: input.source_module ?? "brain.api" },
+  });
 }
 
 export async function search(
   ctx: BrainContext,
   args: { text: string; limit?: number },
 ): Promise<BrainMemoryRow[]> {
+  const term = args.text.replace(/[%,()]/g, " ").trim();
+  if (!term) return [];
   const q = ctx.supabase
     .from("brain_memory")
-    .select("topic, summary, confidence, brand_id")
-    .ilike("summary", `%${args.text}%`)
+    .select(SELECT)
+    .eq("status", "active")
+    .or(`title.ilike.%${term}%,description.ilike.%${term}%`)
     .order("confidence", { ascending: false })
     .limit(args.limit ?? 15);
-  const { data } = ctx.brandId ? await q.eq("brand_id", ctx.brandId) : await q;
-  return ((data ?? []) as Array<BrainMemoryRow>).map((r) => ({
-    topic: r.topic,
-    summary: r.summary,
-    confidence: r.confidence,
-  }));
+  const { data, error } = await scoped(q, ctx);
+  if (error) brainFail("memory.search", error, ctx);
+  return ((data ?? []) as RawMemory[]).map(toRow);
 }
 
 // ---------- Lifecycle: evolve / touch / versions / decay ----------
@@ -116,7 +164,9 @@ export async function evolve(
     _source_event: input.sourceEvent ?? null,
     _tags: input.tags ?? [],
     _relations: input.relations ?? [],
-    _metadata: input.metadata ?? {},
+    // O client_id do escopo viaja no metadata; o trigger brain_scope_guard
+    // resolve `scope` e `client_id` de forma determinística no banco.
+    _metadata: { ...(input.metadata ?? {}), client_id: ctx.clientId ?? null },
     _contradicts: input.contradicts ?? false,
   });
   if (error) {
@@ -154,10 +204,7 @@ export async function versions(
     .eq("memory_id", memoryId)
     .order("version", { ascending: false })
     .limit(limit);
-  if (error) {
-    console.error("[brain.memory.versions]", error.message);
-    return [];
-  }
+  if (error) brainFail("memory.versions", error, ctx);
   return (data ?? []) as Array<Record<string, unknown>>;
 }
 
