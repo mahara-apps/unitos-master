@@ -9,7 +9,11 @@ import {
   isMetaRateLimit,
   nowIso,
   readPagesPayload,
+  beginDiscovery,
+  mergeDiscoveredPages,
+  stripPageTokens,
 } from "./portfolio-shared";
+
 
 export type {
   PortfolioPage,
@@ -89,29 +93,97 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
     let cachedAds =
       (session.ad_accounts as unknown as PortfolioAdAccount[]) ?? [];
 
+    // A brand-new OAuth session starts with `pages: []`. Instead of showing an
+    // empty selector (or forcing a Graph scan while the app is rate limited),
+    // seed it with the discovery METADATA already known for the same Meta user
+    // on the same brand. Tokens are stripped — they stay bound to the session
+    // that minted them; link time re-fetches the Page token with the current
+    // session's user token.
+    let seededFromCache = false;
+    if (cachedPages.length === 0 && cachedStandaloneIg.length === 0) {
+      const { data: prior } = await context.supabase
+        .from("meta_oauth_sessions")
+        .select("id, pages, created_at")
+        .eq("brand_id", data.brandId)
+        .eq("meta_user_id", session.meta_user_id)
+        .neq("id", session.id)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      for (const row of prior ?? []) {
+        const payload = readPagesPayload(row.pages);
+        if (payload.pages.length === 0 && payload.standaloneInstagram.length === 0) continue;
+        cachedPages = stripPageTokens(payload.pages);
+        cachedStandaloneIg = payload.standaloneInstagram;
+        businessCount = payload.businessCount;
+        seededFromCache = true;
+        break;
+      }
+    }
 
     const ch = data.channel ?? null;
     const needPages =
       (ch === null || ch === "facebook" || ch === "instagram" || ch === "threads") &&
-      data.refresh;
-    const needThreads =
-      (ch === null || ch === "threads") &&
-      data.refresh;
-    const needAds =
-      (ch === null || ch === "ads") &&
-      data.refresh;
+      !!data.refresh;
+    // Threads is a disabled product: never queried automatically. Only an
+    // explicit refresh of the Threads channel itself may probe it.
+    const needThreads = ch === "threads" && !!data.refresh;
+    const needAds = (ch === null || ch === "ads") && !!data.refresh;
 
-    if (needPages || needThreads || needAds) {
-      if (
-        sessionState.portfolio_rate_limited_until &&
-        new Date(sessionState.portfolio_rate_limited_until).getTime() > Date.now()
-      ) {
+    const rateLimitedUntil = sessionState.portfolio_rate_limited_until;
+    const inCooldown =
+      !!rateLimitedUntil && new Date(rateLimitedUntil).getTime() > Date.now();
+
+    if ((needPages || needThreads || needAds) && inCooldown) {
+      // Cooldown must never be converted into "no accounts": keep the known
+      // assets and report the rate-limited state instead of scanning.
+      const knownCount = cachedPages.length + cachedStandaloneIg.length;
+      console.log(
+        `Meta discovery: requests=0 cache=${knownCount > 0 ? "hit" : "miss"} status=rate_limited cached_accounts=${knownCount}`,
+      );
+      if (knownCount === 0) {
         throw new Error(
           `${RATE_LIMIT_PREFIX} Limite de requisições da Meta atingido. Tente novamente após ${new Date(
-            sessionState.portfolio_rate_limited_until,
+            rateLimitedUntil!,
           ).toLocaleString("pt-BR")}.`,
         );
       }
+      portfolioStatus = "rate_limited";
+      portfolioRateLimitedUntil = rateLimitedUntil ?? null;
+    }
+
+    let discoveryLock: { done: () => void } | null = null;
+    if ((needPages || needThreads || needAds) && !inCooldown) {
+      const lock = beginDiscovery(`${session.id}:${ch ?? "all"}`);
+      if (lock.wait) {
+        // Another in-flight discovery for the same session/channel: wait for it
+        // and serve the cache it wrote instead of firing a duplicate scan.
+        await lock.wait;
+        const fresh = await context.supabase
+          .from("meta_oauth_sessions")
+          .select("pages, portfolio_load_status, portfolio_loaded_at, portfolio_error")
+          .eq("id", session.id)
+          .maybeSingle();
+        const payload = readPagesPayload(fresh.data?.pages);
+        if (payload.pages.length > 0 || payload.standaloneInstagram.length > 0) {
+          cachedPages = payload.pages;
+          cachedStandaloneIg = payload.standaloneInstagram;
+          scanWarnings = payload.warnings;
+          businessCount = payload.businessCount;
+        }
+        portfolioStatus =
+          (fresh.data?.portfolio_load_status as typeof portfolioStatus) ?? portfolioStatus;
+        portfolioLoadedAt = fresh.data?.portfolio_loaded_at ?? portfolioLoadedAt;
+        portfolioError = fresh.data?.portfolio_error ?? null;
+        console.log("Meta discovery: requests=0 cache=hit status=deduped");
+      } else {
+        discoveryLock = lock;
+      }
+    }
+
+    if (discoveryLock) {
+      try {
+
+
 
       const { decryptCredential } = await import("@/lib/credentials-crypto.server");
       const { MetaProvider, MetaGraphError } = await import("./provider.server");
@@ -152,15 +224,17 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
 
       try {
         if (needPages) {
+          const knownPages = cachedPages;
+          const knownIg = cachedStandaloneIg;
           const scan = await provider.scanPortfolio(userToken);
-          console.log("[getMetaPortfolio] scan result", {
-            pages: scan.pages.length,
-            withIg: scan.pages.filter((p) => !!p.instagramBusinessId).length,
-            standaloneIg: scan.standaloneInstagram.length,
-            businesses: scan.businessCount,
-            warnings: scan.warnings.length,
-          });
-          cachedPages = scan.pages.map((p) => ({
+          console.log(
+            `Meta discovery: requests=${scan.requestCount} cache=${
+              seededFromCache ? "seeded" : "miss"
+            } deep=${scan.deep} pages=${scan.pages.length} withIg=${
+              scan.pages.filter((p) => !!p.instagramBusinessId).length
+            } standaloneIg=${scan.standaloneInstagram.length} warnings=${scan.warnings.length}`,
+          );
+          const fresh = scan.pages.map((p) => ({
             pageId: p.pageId,
             pageName: p.pageName,
             category: p.category ?? null,
@@ -170,16 +244,22 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
             instagramPictureUrl: p.instagramPictureUrl ?? null,
             pageAccessToken: p.pageAccessToken,
           }));
-          cachedStandaloneIg = scan.standaloneInstagram.map((i) => ({
+          // Never lose assets that a previous scan already proved to exist.
+          cachedPages = mergeDiscoveredPages(fresh, knownPages) as typeof cachedPages;
+          const freshIg = scan.standaloneInstagram.map((i) => ({
             instagramId: i.instagramId,
             username: i.username,
             name: i.name,
             pictureUrl: i.pictureUrl,
             businessName: i.businessName,
           }));
+          const igById = new Map(knownIg.map((i) => [i.instagramId, i]));
+          for (const i of freshIg) igById.set(i.instagramId, i);
+          cachedStandaloneIg = Array.from(igById.values());
           scanWarnings = scan.warnings;
-          businessCount = scan.businessCount;
+          businessCount = scan.businessCount || businessCount;
         }
+
 
         if (needThreads) {
           const pagesForThreads = cachedPages.map((p) => ({
@@ -308,7 +388,11 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
           throw new Error("Falha ao consultar a Graph API da Meta.");
         }
       }
+      } finally {
+        discoveryLock.done();
+      }
     }
+
 
     const pages = cachedPages.map((p) => ({
       pageId: p.pageId,

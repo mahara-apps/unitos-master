@@ -83,7 +83,12 @@ export type MetaPortfolioScan = {
   /** Non-fatal problems (e.g. a portfolio edge we could not read). */
   warnings: string[];
   businessCount: number;
+  /** Graph requests actually performed by this scan (observability). */
+  requestCount: number;
+  /** Whether the Business Portfolio traversal ran (opt-in "deep" mode). */
+  deep: boolean;
 };
+
 
 /**
  * Rate limits and expired tokens must abort the whole scan; permission errors
@@ -291,20 +296,26 @@ export class MetaProvider {
 
   /**
    * Lists the Facebook Pages the user manages together with each page's
-   * page-scoped access token (which is what we persist for future API calls)
-   * and the connected Instagram Business account, when present.
+   * page-scoped access token and the connected Instagram Business account.
    *
-   * Sources (deduped by id):
-   *  1. `/me/accounts` — Pages the user administers directly.
-   *  2. `/me/businesses` → `owned_pages` + `client_pages` — Pages that belong
-   *     to a Business Portfolio the user administers (requires
-   *     `business_management`). Without this, agencies only ever see a
-   *     fraction of their assets.
-   *  3. `/me/businesses` → `owned_instagram_accounts` +
-   *     `client_instagram_accounts` — IG Business accounts assigned straight to
-   *     the portfolio, with no Page the user can administer.
+   * Normal discovery (`deep: false`, the default) uses ONE source of truth:
+   * `/me/accounts` — which already returns the Page id/name/token plus
+   * `instagram_business_account`. That is 1–2 Graph requests.
+   *
+   * `deep: true` additionally traverses Business Portfolios
+   * (`/me/businesses` → `owned_pages` / `client_pages` /
+   * `owned_instagram_accounts`). This costs hundreds of requests on large
+   * portfolios, so it is NEVER triggered automatically — it is kept only as an
+   * explicit opt-in capability. `client_instagram_accounts` is not requested at
+   * all: that edge does not exist in this Graph version (error #100).
    */
-  async scanPortfolio(userAccessToken: string): Promise<MetaPortfolioScan> {
+  async scanPortfolio(
+    userAccessToken: string,
+    opts?: { deep?: boolean },
+  ): Promise<MetaPortfolioScan> {
+    const deep = opts?.deep === true;
+    let requestCount = 0;
+
     type PageRow = {
       id: string;
       name: string;
@@ -395,6 +406,7 @@ export class MetaProvider {
       let nextUrl: string | null = null;
       let first = true;
       while ((first || nextUrl) && !outOfTime()) {
+        requestCount += 1;
         const res: Paged<T> = first
           ? await this.graph<Paged<T>>(startPath, {
               accessToken: userAccessToken,
@@ -407,10 +419,11 @@ export class MetaProvider {
       }
     };
 
-    // 1) Pages administered directly by the user profile. Meta occasionally
-    //    returns a generic HTTP 500 when a field is unavailable for one asset
-    //    in a large portfolio. Retry with progressively conservative field
-    //    sets instead of discarding the entire account list.
+    // 1) PRIMARY SOURCE OF TRUTH — Pages administered by the user, with the
+    //    attached Instagram Business account. Meta occasionally returns a
+    //    generic HTTP 500 when a field is unavailable for one asset in a large
+    //    portfolio, so retry with progressively conservative field sets instead
+    //    of discarding the entire account list.
     let directPagesLoaded = false;
     let directPagesError: unknown = null;
     for (const fields of [PAGE_FIELDS, COMPAT_PAGE_FIELDS, MINIMAL_PAGE_FIELDS]) {
@@ -426,106 +439,95 @@ export class MetaProvider {
       }
     }
     if (!directPagesLoaded) {
-      warnings.push(
-        `A Meta apresentou uma instabilidade ao listar as Páginas administradas diretamente${
-          directPagesError instanceof MetaGraphError ? `: ${directPagesError.message}` : ""
-        }. Os portfólios empresariais continuarão sendo verificados.`,
-      );
+      // Nothing usable came back and the failure was not fatal-classified:
+      // surface it as an error instead of pretending the account list is empty.
+      throw directPagesError instanceof Error
+        ? directPagesError
+        : new MetaGraphError("Não foi possível listar as Páginas da Meta.", 500);
     }
 
-    // 2 + 3) Business Portfolios (incluindo portfólios filhos, para não perder
-    //        contas atribuídas a um portfólio vinculado ao principal).
-    //        Failures here are non-fatal: we still want to show whatever
-    //        /me/accounts returned, with a visible warning.
+    // 2) OPT-IN DEEP SCAN — Business Portfolios. Costs hundreds of requests on
+    //    large accounts, so it only runs when explicitly requested. Never
+    //    triggered by opening the selector or by "Sincronizar".
     const businesses: BusinessRow[] = [];
-    const seenBusinesses = new Set<string>();
-    const pushBusiness = (rows: BusinessRow[]) => {
-      for (const b of rows) {
-        if (seenBusinesses.has(b.id)) continue;
-        seenBusinesses.add(b.id);
-        businesses.push(b);
+    if (deep) {
+      const seenBusinesses = new Set<string>();
+      const pushBusiness = (rows: BusinessRow[]) => {
+        for (const b of rows) {
+          if (seenBusinesses.has(b.id)) continue;
+          seenBusinesses.add(b.id);
+          businesses.push(b);
+        }
+      };
+      try {
+        await loop<BusinessRow>(
+          "/me/businesses",
+          { fields: "id,name", limit: "100" },
+          pushBusiness,
+        );
+      } catch (err) {
+        warnings.push(
+          `Não foi possível listar seus portfólios empresariais${
+            err instanceof MetaGraphError ? `: ${err.message}` : ""
+          }. Reautorize concedendo a permissão "business_management" para ver todas as contas.`,
+        );
       }
-    };
-    try {
-      await loop<BusinessRow>("/me/businesses", { fields: "id,name", limit: "100" }, pushBusiness);
-    } catch (err) {
-      warnings.push(
-        `Não foi possível listar seus portfólios empresariais${
-          err instanceof MetaGraphError ? `: ${err.message}` : ""
-        }. Reautorize concedendo a permissão "business_management" para ver todas as contas.`,
-      );
-    }
 
-    // Portfólios filhos: percorre em largura, limitado para não estourar o
-    // rate limit da Graph API em portfólios muito grandes.
-    for (let i = 0; i < businesses.length && i < 25; i += 1) {
-      if (outOfTime()) break;
-      const parent = businesses[i]!;
-      for (const edge of ["owned_businesses", "client_businesses"] as const) {
+      for (const biz of businesses) {
+        if (outOfTime()) break;
+        const label = biz.name ?? biz.id;
+        for (const edge of ["owned_pages", "client_pages"] as const) {
+          try {
+            await loop<PageRow>(
+              `/${biz.id}/${edge}`,
+              { fields: COMPAT_PAGE_FIELDS, limit: "100" },
+              ingestPages,
+            );
+          } catch (err) {
+            if (isFatalScanError(err)) throw err;
+            recordEdgeFailure(edge, label, err);
+          }
+        }
+        // NOTE: only `owned_instagram_accounts` exists. `client_instagram_accounts`
+        // is not a valid edge in this Graph version and must not be requested.
         try {
-          await loop<BusinessRow>(
-            `/${parent.id}/${edge}`,
-            { fields: "id,name", limit: "100" },
-            pushBusiness,
+          await loop<IgRow>(
+            `/${biz.id}/owned_instagram_accounts`,
+            { fields: IG_FIELDS, limit: "100" },
+            (rows) => {
+              for (const ig of rows) {
+                if (seenIg.has(ig.id)) continue;
+                seenIg.add(ig.id);
+                standaloneInstagram.push({
+                  instagramId: ig.id,
+                  username: ig.username ?? null,
+                  name: ig.name ?? null,
+                  pictureUrl: ig.profile_picture_url ?? null,
+                  businessId: biz.id,
+                  businessName: biz.name ?? null,
+                });
+              }
+            },
           );
         } catch (err) {
           if (isFatalScanError(err)) throw err;
-          // Portfólios sem acesso a esta aresta são comuns; só registramos.
+          recordEdgeFailure("owned_instagram_accounts", label, err);
         }
       }
-    }
 
-
-    for (const biz of businesses) {
-      if (outOfTime()) break;
-      const label = biz.name ?? biz.id;
-      for (const edge of ["owned_pages", "client_pages"] as const) {
-        try {
-          await loop<PageRow>(
-            `/${biz.id}/${edge}`,
-            { fields: COMPAT_PAGE_FIELDS, limit: "100" },
-            ingestPages,
-          );
-        } catch (err) {
-          if (isFatalScanError(err)) throw err;
-          recordEdgeFailure(edge, label, err);
-        }
+      for (const [edge, count] of edgeFailureCounts) {
+        const sample = edgeFailureSamples.get(edge);
+        warnings.push(
+          `A Meta restringiu ${count} leitura${count === 1 ? "" : "s"} em ${edge}.` +
+            (sample ? ` Exemplo: ${sample}` : ""),
+        );
       }
-      for (const edge of ["owned_instagram_accounts", "client_instagram_accounts"] as const) {
-        try {
-          await loop<IgRow>(`/${biz.id}/${edge}`, { fields: IG_FIELDS, limit: "100" }, (rows) => {
-            for (const ig of rows) {
-              if (seenIg.has(ig.id)) continue;
-              seenIg.add(ig.id);
-              standaloneInstagram.push({
-                instagramId: ig.id,
-                username: ig.username ?? null,
-                name: ig.name ?? null,
-                pictureUrl: ig.profile_picture_url ?? null,
-                businessId: biz.id,
-                businessName: biz.name ?? null,
-              });
-            }
-          });
-        } catch (err) {
-          if (isFatalScanError(err)) throw err;
-          recordEdgeFailure(edge, label, err);
-        }
+
+      if (timedOut) {
+        warnings.push(
+          "A varredura foi interrompida por tempo limite: mostramos as contas encontradas até aqui.",
+        );
       }
-    }
-
-    for (const [edge, count] of edgeFailureCounts) {
-      const sample = edgeFailureSamples.get(edge);
-      warnings.push(
-        `A Meta restringiu ${count} leitura${count === 1 ? "" : "s"} em ${edge}.` +
-          (sample ? ` Exemplo: ${sample}` : ""),
-      );
-    }
-
-    if (timedOut) {
-      warnings.push(
-        "A varredura foi interrompida por tempo limite: mostramos as contas encontradas até aqui. Clique em \"Sincronizar novamente\" para continuar a busca.",
-      );
     }
 
     return {
@@ -533,8 +535,11 @@ export class MetaProvider {
       standaloneInstagram,
       warnings,
       businessCount: businesses.length,
+      requestCount,
+      deep,
     };
   }
+
 
   /**
    * Fetches a Page access token on demand. Pages discovered through a Business
