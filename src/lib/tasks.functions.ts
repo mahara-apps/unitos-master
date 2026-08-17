@@ -236,6 +236,31 @@ export const countMyPendingTasksFn = createServerFn({ method: "GET" })
     return { count: count ?? 0 };
   });
 
+
+/**
+ * Garante a hierarquia Projeto → Tarefa: o projeto precisa ser da mesma workspace
+ * e do mesmo cliente da tarefa. Complementa o trigger no banco com mensagem clara.
+ */
+async function assertProjectScope(
+  supabase: { from: (t: string) => any },
+  args: { brandId: string; clientId: string | null; projectId: string | null },
+): Promise<void> {
+  if (!args.projectId) return;
+  const { data: project, error } = await supabase
+    .from("projects")
+    .select("id, brand_id, client_id, status")
+    .eq("id", args.projectId)
+    .maybeSingle();
+  if (error) throw error;
+  if (!project) throw new Error("Projeto não encontrado.");
+  if (project.brand_id !== args.brandId) {
+    throw new Error("Este projeto pertence a outra workspace.");
+  }
+  if (project.client_id && project.client_id !== args.clientId) {
+    throw new Error("Este projeto pertence a outro cliente. Selecione o cliente correto.");
+  }
+}
+
 const CreateTaskInput = z.object({
   brandId: z.string().uuid(),
   title: z.string().trim().min(1).max(200),
@@ -252,6 +277,11 @@ export const createTaskFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => CreateTaskInput.parse(i))
   .handler(async ({ data, context }) => {
+    await assertProjectScope(context.supabase as never, {
+      brandId: data.brandId,
+      clientId: data.client_id ?? null,
+      projectId: data.project_id ?? null,
+    });
     const { data: row, error } = await context.supabase
       .from("tasks")
       .insert({
@@ -303,6 +333,34 @@ export const updateTaskFn = createServerFn({ method: "POST" })
       done?: boolean;
       done_at?: string | null;
     };
+    if (patch.project_id !== undefined || patch.client_id !== undefined) {
+      const { data: current, error: curErr } = await context.supabase
+        .from("tasks")
+        .select("brand_id, client_id, project_id")
+        .eq("id", data.taskId)
+        .single();
+      if (curErr) throw curErr;
+      const nextClientId =
+        patch.client_id !== undefined ? patch.client_id : (current!.client_id as string | null);
+      const nextProjectId =
+        patch.project_id !== undefined ? patch.project_id : (current!.project_id as string | null);
+      // Trocar de cliente invalida um projeto de outro cliente: desvincula em vez de falhar.
+      if (patch.client_id !== undefined && patch.project_id === undefined && nextProjectId) {
+        const { data: proj } = await context.supabase
+          .from("projects")
+          .select("client_id")
+          .eq("id", nextProjectId)
+          .maybeSingle();
+        if (proj && proj.client_id && proj.client_id !== nextClientId) {
+          patch.project_id = null;
+        }
+      }
+      await assertProjectScope(context.supabase as never, {
+        brandId: current!.brand_id as string,
+        clientId: nextClientId,
+        projectId: patch.project_id !== undefined ? patch.project_id : nextProjectId,
+      });
+    }
     if (patch.done === true) {
       patch.status = "done";
       patch.done_at = new Date().toISOString();
@@ -324,6 +382,21 @@ export const deleteTaskFn = createServerFn({ method: "POST" })
     const { error } = await context.supabase
       .from("tasks")
       .delete()
+      .eq("id", data.taskId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+/** Arquivamento reversível: nunca apaga a tarefa nem as subtarefas. */
+export const setTaskArchivedFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    z.object({ taskId: z.string().uuid(), archived: z.boolean() }).parse(i),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("tasks")
+      .update({ archived_at: data.archived ? new Date().toISOString() : null })
       .eq("id", data.taskId);
     if (error) throw error;
     return { ok: true };
