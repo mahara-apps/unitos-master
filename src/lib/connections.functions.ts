@@ -24,7 +24,9 @@ export type ChannelConfig = {
 export type ConnectionsSettings = {
   brandId: string;
   monthlyBudgetUsd: number;
-  textProvider: "openai" | "anthropic" | "gemini";
+  textProvider: "openai" | "anthropic" | "gemini" | "groq";
+  /** Provedor secundário usado só em falha transitória do principal. */
+  textFallbackProvider: "openai" | "anthropic" | "gemini" | "groq" | null;
   imageProvider: "openai" | "gemini";
   providers: Record<string, ProviderConfig>;
   channels: Record<string, ChannelConfig>;
@@ -42,6 +44,8 @@ export type ConnectionsSettings = {
 function providerFromModel(model: string | null): string {
   const m = (model ?? "").toLowerCase();
   if (m.includes("claude")) return "anthropic";
+  if (m.includes("llama") || m.includes("gpt-oss") || m.includes("kimi") || m.includes("groq"))
+    return "groq";
   if (m.includes("gemini") || m.includes("imagen")) return "gemini";
   if (m.includes("gpt") || m.includes("o1") || m.includes("o3") || m.includes("dall"))
     return "openai";
@@ -98,6 +102,8 @@ export const getConnections = createServerFn({ method: "GET" })
       brandId: data.brandId,
       monthlyBudgetUsd: row ? Number(row.monthly_budget_usd) : 500,
       textProvider: (row?.text_provider as ConnectionsSettings["textProvider"]) ?? "openai",
+      textFallbackProvider:
+        (row?.text_fallback_provider as ConnectionsSettings["textFallbackProvider"]) ?? null,
       imageProvider:
         row?.image_provider === "openai" ? "openai" : "gemini",
       providers: (row?.providers as Record<string, ProviderConfig>) ?? {},
@@ -110,7 +116,11 @@ export const getConnections = createServerFn({ method: "GET" })
 const UpsertInput = z.object({
   brandId: z.string().uuid(),
   monthlyBudgetUsd: z.number().min(0).max(1_000_000).optional(),
-  textProvider: z.enum(["openai", "anthropic", "gemini"]).optional(),
+  textProvider: z.enum(["openai", "anthropic", "gemini", "groq"]).optional(),
+  /** "none" limpa o fallback. */
+  textFallbackProvider: z
+    .enum(["openai", "anthropic", "gemini", "groq", "none"])
+    .optional(),
   // Anthropic não gera imagem — não pode ser selecionada como provedor de imagem.
   imageProvider: z.enum(["openai", "gemini"]).optional(),
 });
@@ -123,6 +133,12 @@ export const updateConnectionsSettings = createServerFn({ method: "POST" })
       brand_id: data.brandId,
       ...(data.monthlyBudgetUsd !== undefined ? { monthly_budget_usd: data.monthlyBudgetUsd } : {}),
       ...(data.textProvider ? { text_provider: data.textProvider } : {}),
+      ...(data.textFallbackProvider
+        ? {
+            text_fallback_provider:
+              data.textFallbackProvider === "none" ? null : data.textFallbackProvider,
+          }
+        : {}),
       ...(data.imageProvider ? { image_provider: data.imageProvider } : {}),
     };
 
@@ -135,7 +151,7 @@ export const updateConnectionsSettings = createServerFn({ method: "POST" })
 
 const ProviderKeyInput = z.object({
   brandId: z.string().uuid(),
-  provider: z.enum(["openai", "anthropic", "gemini"]),
+  provider: z.enum(["openai", "anthropic", "gemini", "groq"]),
   apiKey: z.string().trim().min(8).max(400),
 });
 
@@ -206,7 +222,7 @@ export const saveProviderKey = createServerFn({ method: "POST" })
 
 const TestProviderInput = z.object({
   brandId: z.string().uuid(),
-  provider: z.enum(["openai", "anthropic", "gemini"]),
+  provider: z.enum(["openai", "anthropic", "gemini", "groq"]),
 });
 
 /** Revalida a chave já salva do provedor, sem precisar redigitá-la. */
@@ -258,7 +274,7 @@ export const testProviderKey = createServerFn({ method: "POST" })
 
 const RemoveProviderInput = z.object({
   brandId: z.string().uuid(),
-  provider: z.enum(["openai", "anthropic", "gemini"]),
+  provider: z.enum(["openai", "anthropic", "gemini", "groq"]),
 });
 
 export const removeProviderKey = createServerFn({ method: "POST" })

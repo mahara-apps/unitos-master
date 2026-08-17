@@ -9,9 +9,6 @@
  */
 
 import { generateText } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { decryptCredential } from "./credentials-crypto.server";
 import {
   PROVIDER_CAPABILITIES,
@@ -21,7 +18,7 @@ import {
   type ProviderRole,
 } from "./ai-models-catalog.server";
 
-const PROVIDERS: ProviderName[] = ["openai", "anthropic", "gemini"];
+const PROVIDERS: ProviderName[] = ["openai", "anthropic", "gemini", "groq"];
 const ROLES: ProviderRole[] = ["strategic", "operational", "image"];
 
 export type HealthCheckEntry = {
@@ -88,6 +85,14 @@ async function listProviderModels(
         id: m.id,
         created: m.created_at ? Date.parse(m.created_at) / 1000 : undefined,
       }));
+    }
+    if (provider === "groq") {
+      const res = await fetch("https://api.groq.com/openai/v1/models", {
+        headers: { Authorization: `Bearer ${apiKey}` },
+      });
+      if (!res.ok) return [];
+      const json = (await res.json()) as { data?: Array<{ id: string; created?: number }> };
+      return (json.data ?? []).map((m) => ({ id: m.id, created: m.created }));
     }
     const res = await fetch(
       "https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",
@@ -177,12 +182,8 @@ async function pingTextModel(
   apiKey: string,
   modelId: string,
 ): Promise<void> {
-  const model =
-    provider === "openai"
-      ? createOpenAI({ apiKey })(modelId)
-      : provider === "anthropic"
-        ? createAnthropic({ apiKey })(modelId)
-        : createGoogleGenerativeAI({ apiKey })(modelId);
+  const { instantiateProviderModel } = await import("./ai-provider.server");
+  const model = instantiateProviderModel(provider, apiKey, modelId);
   await generateText({ model, prompt: "ping" });
 }
 

@@ -25,6 +25,7 @@ import {
   Activity,
   Coins,
   RefreshCw,
+  Zap,
 } from "lucide-react";
 import { AlertTriangle, Briefcase } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -97,7 +98,7 @@ function ConnectionsHeaderRegister() {
   return null;
 }
 
-type ProviderId = "openai" | "anthropic" | "gemini";
+type ProviderId = "openai" | "anthropic" | "gemini" | "groq";
 type ChannelId =
   | "instagram"
   | "facebook"
@@ -157,6 +158,19 @@ const PROVIDERS: ProviderDef[] = [
       { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro", kind: "text" },
       { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", kind: "text" },
       { id: "imagen-4", label: "Imagen 4", kind: "image" },
+    ],
+  },
+  {
+    id: "groq",
+    name: "Groq",
+    hint: "Llama 3.3 · GPT-OSS (baixa latência)",
+    tone: "text-orange-500",
+    docs: "console.groq.com",
+    icon: Zap,
+    models: [
+      { id: "openai/gpt-oss-120b", label: "GPT-OSS 120B", kind: "text" },
+      { id: "llama-3.3-70b-versatile", label: "Llama 3.3 70B", kind: "text" },
+      { id: "llama-3.1-8b-instant", label: "Llama 3.1 8B Instant", kind: "text" },
     ],
   },
 ];
@@ -389,6 +403,7 @@ function ConnectionsPage() {
     monthlyBudgetUsd?: number;
     textProvider?: ProviderId;
     imageProvider?: ProviderId;
+    textFallbackProvider?: ProviderId | "none";
   };
   const updateFn = useServerFn(updateConnectionsSettings);
   const updateMut = useMutation({
@@ -527,7 +542,7 @@ function ConnectionsPage() {
         />
 
         <DashboardPanelSurface className="p-4">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <LeaderPicker
               label="Modelo de texto ativo"
               icon={<Sparkles className="h-3.5 w-3.5" />}
@@ -540,6 +555,13 @@ function ConnectionsPage() {
               value={data?.imageProvider ?? "gemini"}
               onChange={(v) => updateMut.mutate({ brandId, imageProvider: v })}
               kind="image"
+            />
+            <FallbackPicker
+              value={data?.textFallbackProvider ?? "none"}
+              primary={data?.textProvider ?? "openai"}
+              onChange={(v) =>
+                updateMut.mutate({ brandId, textFallbackProvider: v })
+              }
             />
             <BudgetInput
               active={active}
@@ -909,6 +931,46 @@ function LeaderPicker({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
+          {options.map((p) => (
+            <SelectItem key={p.id} value={p.id}>
+              {p.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+/**
+ * Provedor secundário: usado apenas quando o principal falha por erro
+ * transitório (503, 429, quota, timeout). "Nenhum" mantém o comportamento
+ * atual — marcas com um único provedor não mudam nada.
+ */
+function FallbackPicker({
+  value,
+  primary,
+  onChange,
+}: {
+  value: ProviderId | "none";
+  primary: ProviderId;
+  onChange: (v: ProviderId | "none") => void;
+}) {
+  const options = PROVIDERS.filter(
+    (p) => supportsKind(p.id as AiProviderName, "text") && p.id !== primary,
+  );
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-2 text-xs font-medium">
+        <Zap className="h-3.5 w-3.5" />
+        Fallback de texto
+      </div>
+      <Select value={value} onValueChange={(v) => onChange(v as ProviderId | "none")}>
+        <SelectTrigger className="h-9 w-[170px]">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">Nenhum</SelectItem>
           {options.map((p) => (
             <SelectItem key={p.id} value={p.id}>
               {p.name}

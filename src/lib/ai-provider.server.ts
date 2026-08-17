@@ -1,6 +1,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createGroq } from "@ai-sdk/groq";
 import type { LanguageModel } from "ai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptCredential } from "./credentials-crypto.server";
@@ -14,6 +15,7 @@ import {
 } from "./ai-models-catalog.server";
 
 import { IMAGE_PROVIDERS, supportsKind } from "./ai-capabilities";
+import { classifyAiError, unwrapAiError } from "./ai-failures.server";
 import { recordAiUsage, type AiUsageContext } from "./ai-usage.server";
 
 export type { AiUsageContext };
@@ -22,11 +24,33 @@ export type { AiUsageContext };
 export type { ProviderName, ProviderRole };
 export type ProviderKind = "text" | "image";
 
+/** Registro de cada tentativa por provedor — consumido pela observabilidade. */
+export type ProviderAttempt = {
+  provider: ProviderName;
+  model: string;
+  attempt: number;
+  result: "success" | string;
+};
+
 export type BrandAiModel = {
   provider: ProviderName;
   modelId: string;
   model: LanguageModel;
+  /** Provedor secundário elegível (fallback), quando configurado. */
+  fallbackProvider: ProviderName | null;
+  /**
+   * Array mutável preenchido em runtime com cada tentativa/troca de provedor.
+   * Os pipelines já existentes apenas o leem para gravar em `ai_jobs`.
+   */
+  providerAttempts: ProviderAttempt[];
 };
+
+/** Resumo curto (sem segredos) para gravar em ai_jobs. */
+export function describeProviderAttempts(attempts: ProviderAttempt[]): string {
+  return attempts
+    .map((a) => `${a.provider}/${a.model}#${a.attempt}:${a.result}`)
+    .join(" → ");
+}
 
 export type BrandProviderKey = {
   provider: ProviderName;
@@ -92,14 +116,56 @@ export async function getBrandProviderKey(
   return { provider, apiKey };
 }
 
-function instantiateModel(
+export function instantiateProviderModel(
   provider: ProviderName,
   apiKey: string,
   modelId: string,
 ): LanguageModel {
   if (provider === "openai") return createOpenAI({ apiKey })(modelId);
   if (provider === "anthropic") return createAnthropic({ apiKey })(modelId);
+  if (provider === "groq") return createGroq({ apiKey })(modelId);
   return createGoogleGenerativeAI({ apiKey })(modelId);
+}
+
+const instantiateModel = instantiateProviderModel;
+
+/**
+ * Provedor secundário da marca (`brand_connections.text_fallback_provider`).
+ * Só é elegível quando é diferente do principal, está conectado e possui
+ * chave decifrável. Retorna null quando não há fallback usável — marcas com um
+ * único provedor continuam funcionando exatamente como antes.
+ */
+export async function getBrandFallbackProviderKey(
+  supabase: SupabaseClient,
+  brandId: string,
+  primary: ProviderName,
+): Promise<BrandProviderKey | null> {
+  try {
+    const { data: conn } = await supabase
+      .from("brand_connections")
+      .select("text_fallback_provider, providers")
+      .eq("brand_id", brandId)
+      .maybeSingle();
+    const fallback = (conn as { text_fallback_provider?: string | null } | null)
+      ?.text_fallback_provider as ProviderName | null | undefined;
+    if (!fallback || fallback === primary) return null;
+    const providers = (conn?.providers ?? {}) as Record<string, { connected?: boolean } | undefined>;
+    if (!providers[fallback]?.connected) return null;
+    if (!supportsKind(fallback, "text")) return null;
+
+    const { data: credRow } = await supabase
+      .from("brand_api_credentials")
+      .select("ciphertext")
+      .eq("brand_id", brandId)
+      .eq("provider", fallback)
+      .maybeSingle();
+    if (!credRow?.ciphertext) return null;
+    const apiKey = await decryptCredential(credRow.ciphertext as string);
+    return { provider: fallback, apiKey };
+  } catch (err) {
+    console.warn("[ai-provider] fallback provider indisponível", err);
+    return null;
+  }
 }
 
 type ModelV2 = Extract<LanguageModel, { doGenerate: unknown }>;
@@ -133,6 +199,9 @@ function withModelInstrumentation(
     apiKey: string;
     brandId: string;
     usage?: AiUsageContext;
+    /** Provedor secundário elegível — usado só em falha transitória. */
+    fallback?: { provider: ProviderName; apiKey: string; modelId: string } | null;
+    attempts: ProviderAttempt[];
   },
 ): ModelV2 {
   const log = (
@@ -193,8 +262,13 @@ function withModelInstrumentation(
   ): Promise<T> => {
     const tried: string[] = [base.modelId];
     let current: ModelV2 = base;
+    let provider = ctx.provider;
+    let apiKey = ctx.apiKey;
+    let switchedProvider = false;
+    let call = 0;
     for (;;) {
       const modelId = tried[tried.length - 1] ?? base.modelId;
+      call += 1;
       try {
         const out = (await (current[op] as (o: unknown) => Promise<unknown>)(options)) as T;
         if (op === "doStream") {
@@ -207,32 +281,62 @@ function withModelInstrumentation(
           (out as { usage?: UsageLike }).usage,
         );
         log(modelId, inTok, outTok, true);
+        ctx.attempts.push({ provider, model: modelId, attempt: call, result: "success" });
         return out;
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        if (!isModelUnavailableError(msg)) {
-          log(modelId, 0, 0, false, msg);
-          throw err;
+        const { kind, retryable } = classifyAiError(err);
+        ctx.attempts.push({ provider, model: modelId, attempt: call, result: kind });
+
+        // 1) Modelo descontinuado/indisponível no MESMO provedor: promove o
+        //    próximo da cadeia do papel (comportamento já existente).
+        if (isModelUnavailableError(msg)) {
+          const next = nextFallbackModel(provider, ctx.role, tried);
+          if (next) {
+            console.warn(
+              `[ai-provider] ${provider}/${ctx.role}: ${modelId} indisponível — tentando ${next}`,
+            );
+            await saveCatalogOverride({
+              provider,
+              role: ctx.role,
+              modelId: next,
+              replacedModelId: modelId,
+              reason: msg,
+            });
+            tried.push(next);
+            current = instantiateModel(provider, apiKey, next) as ModelV2;
+            continue;
+          }
         }
-        const next = nextFallbackModel(ctx.provider, ctx.role, tried);
-        if (!next) {
-          log(modelId, 0, 0, false, msg);
+
+        // 2) Falha transitória do PROVEDOR (503/429/quota/timeout): tenta uma
+        //    única vez o provedor secundário da marca. Erros permanentes
+        //    (chave inválida, config, request inválido) nunca trocam provedor.
+        const transient =
+          retryable &&
+          (kind === "provider_unavailable" ||
+            kind === "provider_rate_limit" ||
+            kind === "provider_quota");
+        if (transient && ctx.fallback && !switchedProvider) {
+          switchedProvider = true;
+          console.warn(
+            `[ai-provider] ${provider} falhou (${kind}) — alternando para ${ctx.fallback.provider}/${ctx.fallback.modelId}`,
+          );
+          provider = ctx.fallback.provider;
+          apiKey = ctx.fallback.apiKey;
+          tried.length = 0;
+          tried.push(ctx.fallback.modelId);
+          current = instantiateModel(provider, apiKey, ctx.fallback.modelId) as ModelV2;
+          continue;
+        }
+
+        log(modelId, 0, 0, false, msg);
+        if (isModelUnavailableError(msg)) {
           throw new Error(
-            `ai_model_unavailable:${ctx.provider}:${ctx.role}: o modelo ${modelId} foi descontinuado pelo provedor e não há substituto configurado. Detalhe: ${msg}`,
+            `ai_model_unavailable:${provider}:${ctx.role}: o modelo ${modelId} foi descontinuado pelo provedor e não há substituto configurado. Detalhe: ${unwrapAiError(err).text.slice(0, 300)}`,
           );
         }
-        console.warn(
-          `[ai-provider] ${ctx.provider}/${ctx.role}: ${modelId} indisponível — tentando ${next}`,
-        );
-        await saveCatalogOverride({
-          provider: ctx.provider,
-          role: ctx.role,
-          modelId: next,
-          replacedModelId: modelId,
-          reason: msg,
-        });
-        tried.push(next);
-        current = instantiateModel(ctx.provider, ctx.apiKey, next) as ModelV2;
+        throw err;
       }
     }
   };
@@ -301,16 +405,35 @@ export async function getBrandAiModel(
 
   await assertBudget(supabase, brandId, usage);
 
+  // Provedor secundário (opcional): usado apenas em falha transitória.
+  let fallback: { provider: ProviderName; apiKey: string; modelId: string } | null = null;
+  if (kind === "text") {
+    const cred = await getBrandFallbackProviderKey(supabase, brandId, provider);
+    if (cred) {
+      const fbModel = await resolveModel(cred.provider, role);
+      if (fbModel) fallback = { provider: cred.provider, apiKey: cred.apiKey, modelId: fbModel };
+    }
+  }
+
+  const providerAttempts: ProviderAttempt[] = [];
   const base = instantiateModel(provider, apiKey, modelId) as ModelV2;
   const model = withModelInstrumentation(base, {
     provider,
     role,
     apiKey,
     brandId,
+    fallback,
+    attempts: providerAttempts,
     ...(usage ? { usage } : {}),
   });
 
-  return { provider, modelId, model };
+  return {
+    provider,
+    modelId,
+    model,
+    fallbackProvider: fallback?.provider ?? null,
+    providerAttempts,
+  };
 }
 
 

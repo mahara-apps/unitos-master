@@ -3,7 +3,7 @@
  * Kept out of `*.server.ts` so the UI and `*.functions.ts` can import it.
  */
 
-export type ProviderName = "openai" | "anthropic" | "gemini";
+export type ProviderName = "openai" | "anthropic" | "gemini" | "groq";
 export type ProviderRole = "strategic" | "operational" | "image";
 export type ProviderKind = "text" | "image";
 
@@ -14,6 +14,8 @@ export const PROVIDER_CAPABILITIES: Record<
   openai: { text: true, image: true },
   anthropic: { text: true, image: false },
   gemini: { text: true, image: true },
+  // Groq serve texto em alta velocidade; não gera imagem.
+  groq: { text: true, image: false },
 };
 
 export const TEXT_PROVIDERS = (

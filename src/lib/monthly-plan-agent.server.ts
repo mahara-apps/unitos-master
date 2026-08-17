@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import type { z } from "zod";
-import { getBrandAiModel } from "@/lib/ai-provider.server";
+import { getBrandAiModel, describeProviderAttempts } from "@/lib/ai-provider.server";
 import { buildBrandContextBlueprint } from "@/lib/ai-agents.functions";
 import {
   BACKOFF_MS,
@@ -112,7 +112,7 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
     .join("\n\n---\n\n");
 
   // Orçamento e medição de tokens/custo são aplicados pelo provider.
-  const { model, modelId } = await getBrandAiModel(
+  const { model, modelId, providerAttempts } = await getBrandAiModel(
     opts.supabase,
     opts.brandId,
     "text",
@@ -145,10 +145,11 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
           throw error;
         }
       }
-      await opts.onAttempt?.({ attempt, ok: true });
+      const trace = describeProviderAttempts(providerAttempts);
+      await opts.onAttempt?.({ attempt, ok: true, ...(trace ? { message: trace } : {}) });
       return {
         output: output as z.infer<T>,
-        modelId,
+        modelId: providerAttempts[providerAttempts.length - 1]?.model ?? modelId,
         brandBlueprintUsed: !!brandBlueprint,
         attempts: attempt,
       };
@@ -162,7 +163,7 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
         ok: false,
         kind,
         retryable,
-        message: text.slice(0, 500),
+        message: `${describeProviderAttempts(providerAttempts)} | ${text}`.slice(0, 500),
       });
       if (!retryable || attempt === MAX_ATTEMPTS) break;
       await sleep(BACKOFF_MS[attempt - 1]!);

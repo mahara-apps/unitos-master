@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { generateText } from "ai";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
-import { getBrandAiModelAdmin } from "@/lib/ai-provider.server";
+import { getBrandAiModelAdmin, describeProviderAttempts } from "@/lib/ai-provider.server";
 import {
   classifyAiError,
   unwrapAiError,
@@ -357,7 +357,7 @@ async function runJson(opts: {
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const { provider, modelId, model } = await getBrandAiModelAdmin(
+      const { provider, modelId, model, providerAttempts } = await getBrandAiModelAdmin(
         opts.brandId,
         "text",
         role,
@@ -377,8 +377,11 @@ async function runJson(opts: {
       const text = (res.text ?? "").trim();
       if (!text) throw new Error("ai_invalid_output: o provedor não retornou conteúdo.");
       const value = parseJsonLoose(text);
-      await opts.onAttempt?.({ attempt, ok: true });
-      return { value, provider, modelId };
+      const trace = describeProviderAttempts(providerAttempts);
+      await opts.onAttempt?.({ attempt, ok: true, ...(trace ? { message: trace } : {}) });
+      // Provedor efetivamente usado (pode ter havido fallback de provedor).
+      const used = providerAttempts[providerAttempts.length - 1];
+      return { value, provider: used?.provider ?? provider, modelId: used?.model ?? modelId };
     } catch (err) {
       lastErr = err;
       const { kind, retryable } = classifyAiError(err);
