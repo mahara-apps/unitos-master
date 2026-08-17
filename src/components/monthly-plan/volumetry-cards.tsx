@@ -30,6 +30,14 @@ export type PlanVolumetry = {
   approvedOverage?: Record<string, number>;
 };
 
+const CHANNEL_ICON: Partial<Record<PlanChannel, typeof Instagram>> = {
+  instagram: Instagram,
+  facebook: Facebook,
+  linkedin: Linkedin,
+  tiktok: Music2,
+  youtube: Youtube,
+};
+
 function MetricCard({
   label,
   sub,
@@ -37,6 +45,7 @@ function MetricCard({
   generated,
   emphasis,
   breakdown,
+  icon,
 }: {
   label: string;
   sub?: string;
@@ -44,47 +53,68 @@ function MetricCard({
   generated: number;
   emphasis?: boolean;
   breakdown?: Partial<Record<ContentFormat, number>>;
+  icon?: React.ReactNode;
 }) {
   const available = Math.max(0, quota - generated);
   const pct = quota > 0 ? Math.min(100, Math.round((generated / quota) * 100)) : 0;
+  const status: KpiStatus = emphasis
+    ? "success"
+    : available === 0 && quota > 0
+      ? "warning"
+      : generated > 0
+        ? "info"
+        : "neutral";
+  const formats = breakdown
+    ? CONTENT_FORMATS.filter((f) => (breakdown[f] ?? 0) > 0)
+    : [];
+
   return (
-    <Card className={emphasis ? "border-health-good/30 bg-health-good/5" : undefined}>
-      <CardContent className="space-y-3 p-4">
-        <div className="flex items-baseline justify-between gap-2">
-          <span className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {label}
+    <PageKpi
+      label={label}
+      value={quota}
+      status={status}
+      icon={icon}
+      trailing={`${pct}%`}
+      className={emphasis ? "bg-health-good/5" : undefined}
+      description={
+        <span className="block w-full space-y-2">
+          {sub ? <span className="block truncate text-[11px]">{sub}</span> : null}
+          {formats.length > 0 ? (
+            <span className="flex flex-wrap gap-1">
+              {formats.map((f) => (
+                <span
+                  key={f}
+                  className="rounded-full border border-border/60 bg-muted/40 px-1.5 py-0.5 text-[10px] tabular-nums leading-none text-muted-foreground"
+                >
+                  {CONTENT_FORMAT_LABEL[f]} {breakdown?.[f]}
+                </span>
+              ))}
+            </span>
+          ) : null}
+          <span className="block h-1 w-full overflow-hidden rounded-full bg-muted">
+            <span
+              className={`block h-full rounded-full ${
+                status === "warning"
+                  ? "bg-severity-warning"
+                  : status === "success"
+                    ? "bg-health-good"
+                    : "bg-severity-info"
+              }`}
+              style={{ width: `${pct}%` }}
+            />
           </span>
-          <span className="text-lg font-semibold tabular-nums">{quota}</span>
-        </div>
-        {sub ? <p className="text-[11px] text-muted-foreground">{sub}</p> : null}
-        {breakdown && CONTENT_FORMATS.some((f) => (breakdown[f] ?? 0) > 0) ? (
-          <div className="flex flex-wrap gap-1">
-            {CONTENT_FORMATS.filter((f) => (breakdown[f] ?? 0) > 0).map((f) => (
-              <span
-                key={f}
-                className="rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] tabular-nums text-muted-foreground"
-              >
-                {CONTENT_FORMAT_LABEL[f]} {breakdown[f]}
-              </span>
-            ))}
-          </div>
-        ) : null}
-        <div className="space-y-1.5">
-          <Progress
-            value={pct}
-            className={`h-1.5${emphasis ? " bg-health-good/20 [&>div]:bg-health-good" : ""}`}
-          />
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+          <span className="flex items-center justify-between text-[11px]">
             <span className="tabular-nums">{generated} gerados</span>
             <span className="font-medium tabular-nums text-foreground">
               {available} disponíveis
             </span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+          </span>
+        </span>
+      }
+    />
   );
 }
+
 
 export function VolumetryCards({
   volumetry,
