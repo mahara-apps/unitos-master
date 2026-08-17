@@ -177,19 +177,38 @@ const ConnIdInput = z.object({
   brandId: z.string().uuid(),
 });
 
+/**
+ * Remoção de canal = revogação lógica (histórico preservado).
+ * Apaga apenas o vínculo com clientes e invalida credenciais; a linha
+ * permanece em `social_connections` com status "revoked", de modo que ela
+ * apareça no Histórico e NÃO volte para "Contas disponíveis".
+ */
 export const disconnectMeta = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => ConnIdInput.parse(input))
   .handler(async ({ data, context }) => {
+    const { error: linkErr } = await context.supabase
+      .from("client_social_accounts")
+      .delete()
+      .eq("connection_id", data.connectionId)
+      .eq("brand_id", data.brandId);
+    if (linkErr) throw linkErr;
+
     const { error } = await context.supabase
       .from("social_connections")
-      .delete()
+      .update({
+        status: "revoked",
+        client_id: null,
+        last_error: "Canal removido do workspace pela equipe.",
+        last_synced_at: new Date().toISOString(),
+      })
       .eq("id", data.connectionId)
       .eq("brand_id", data.brandId)
       .eq("provider", "meta");
     if (error) throw error;
     return { ok: true };
   });
+
 
 /**
  * Re-fetches Page + Instagram metadata using the stored page access token
