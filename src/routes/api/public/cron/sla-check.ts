@@ -1,4 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { insertNotificationsDeduped } from "@/lib/notifications-dedupe";
+
 
 /**
  * SLA overdue notifier.
