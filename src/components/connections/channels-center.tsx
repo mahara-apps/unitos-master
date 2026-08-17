@@ -244,6 +244,31 @@ export function ChannelsCenter({
     qc.invalidateQueries({ queryKey: ["meta-discovered-accounts", brandId] });
   };
 
+  /** Nova varredura na Meta (mesma operação de antes, agora reutilizável). */
+  function refreshDiscovery() {
+    void qc
+      .fetchQuery({
+        queryKey: ["meta-discovered-accounts", brandId, "refresh"],
+        queryFn: () => discoverFn({ data: { brandId: brandId!, refresh: true } }),
+      })
+      .then((r) => {
+        qc.setQueryData(["meta-discovered-accounts", brandId], r);
+        if (r.error)
+          toast.error("A Meta recusou a consulta.", {
+            description: r.error,
+            duration: 12000,
+          });
+        else toast.success(`${r.accounts.length} conta(s) disponível(is).`);
+      })
+      .catch((e) =>
+        toast.error("Não foi possível consultar a Meta.", {
+          description: e instanceof Error ? e.message : undefined,
+          duration: 12000,
+        }),
+      );
+  }
+
+
   useEffect(() => {
     function onMessage(ev: MessageEvent) {
       const d = ev.data as {
