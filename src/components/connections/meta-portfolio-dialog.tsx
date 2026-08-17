@@ -349,7 +349,11 @@ export function MetaPortfolioDialog({
       );
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message ?? "Falha na operação"),
+    onError: (e: Error) => {
+      const friendly = humanizeMetaError(e);
+      toast.error(`${friendly.title} ${friendly.description}`, { duration: 9000 });
+    },
+
   });
 
   async function handleToggle(
