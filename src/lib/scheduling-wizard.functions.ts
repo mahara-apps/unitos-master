@@ -843,6 +843,22 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           if (!(conn as { account_id?: string | null }).account_id && d.channel === "instagram") {
             throw new Error("Conexão sem conta Instagram Business vinculada");
           }
+          // PRÉ-FLIGHT: autorização granular da Meta para ESTA conta.
+          {
+            const { resolvePublishTarget } = await import(
+              "@/lib/meta/publish-capability.server"
+            );
+            const { capability } = await resolvePublishTarget(supabase, {
+              brandId: data.brandId,
+              clientId: data.clientId,
+              connectionId: d.connectionId,
+              channel: d.channel,
+              format: d.format,
+            });
+            if (!capability.publishReady) throw new Error(capability.message);
+          }
+
+
 
 
           // Stories multi-frame: publica cada mídia como um Story separado.
