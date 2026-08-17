@@ -390,6 +390,9 @@ const SaveInput = z.object({
   title: z.string().min(1).max(160),
   copy: z.string().default(""),
   mediaPaths: z.array(z.string()).default([]),
+  // IDs de brand_media_assets na MESMA ordem de mediaPaths (opcional).
+  mediaAssetIds: z.array(z.string()).default([]),
+
   hashtags: z.array(z.string()).default([]),
   firstComment: z.string().max(2200).nullable().optional(),
   linkUrl: z.string().url().nullable().optional(),
