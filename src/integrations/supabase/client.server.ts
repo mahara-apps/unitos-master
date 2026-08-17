@@ -41,9 +41,12 @@ function createSupabaseAdminClient() {
       ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
       ...(!SUPABASE_SERVICE_ROLE_KEY ? ['SB_SERVICE_ROLE_KEY'] : []),
     ];
-    const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Connect Supabase in Lovable Cloud.`;
-    console.error(`[Supabase] ${message}`);
-    throw new Error(message);
+    // Detalhe fica APENAS no log do servidor; a mensagem que chega ao usuário
+    // é genérica (nunca expõe nomes de secrets na interface).
+    console.error(
+      `[Supabase] Missing Supabase environment variable(s): ${missing.join(', ')}. Connect Supabase in Lovable Cloud.`,
+    );
+    throw new Error('Não foi possível carregar os dados. Tente novamente.');
   }
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
