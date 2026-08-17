@@ -86,6 +86,12 @@ import {
   type BrandMediaAsset,
 } from "@/lib/brand-media.functions";
 import { searchInstagramLocationsFn } from "@/lib/meta/locations.functions";
+import {
+  checkDestinationsReadinessFn,
+  revalidateConnectionCapabilityFn,
+  type DestinationReadiness,
+} from "@/lib/publish-capability.functions";
+
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "@tanstack/react-router";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -339,6 +345,54 @@ export function ScheduleWizard({
     return map;
   }, [connectionsQ.data]);
 
+  // ---- Prontidão de publicação por destino (blindagem Meta, fail closed) ----
+  // "Ativo" não basta: só liberamos o agendamento quando a Meta autoriza a
+  // publicação para AQUELA conta (granular scope) e o vínculo com o cliente
+  // continua válido.
+  const checkReadiness = useServerFn(checkDestinationsReadinessFn);
+  const revalidateCapability = useServerFn(revalidateConnectionCapabilityFn);
+  const selectedConnectionIds = useMemo(
+    () => Array.from(new Set(pairs.map((p) => p.connectionId))).sort(),
+    [pairs],
+  );
+  const readinessQ = useQuery({
+    enabled: open && !hydrating && selectedConnectionIds.length > 0,
+    queryKey: ["publish-readiness", brandId, clientId, selectedConnectionIds],
+    queryFn: () =>
+      checkReadiness({
+        data: { brandId, clientId, connectionIds: selectedConnectionIds },
+      }),
+    staleTime: 60_000,
+  });
+  const readinessByConn = useMemo(() => {
+    const map = new Map<string, DestinationReadiness>();
+    (readinessQ.data ?? []).forEach((r) => map.set(r.connectionId, r));
+    return map;
+  }, [readinessQ.data]);
+  const blockedDestinations = useMemo(
+    () =>
+      pairs.filter((p) => readinessByConn.get(p.connectionId)?.publishReady === false),
+    [pairs, readinessByConn],
+  );
+
+  const handleRevalidate = useCallback(
+    async (connectionId: string) => {
+      try {
+        const r = await revalidateCapability({
+          data: { brandId, clientId, connectionId },
+        });
+        await readinessQ.refetch();
+        if (r.publishReady) toast.success("Destino pronto para publicar.");
+        else toast.error(r.message);
+      } catch (e) {
+        toast.error(describeError(e));
+      }
+    },
+    [brandId, clientId, revalidateCapability, readinessQ],
+  );
+
+
+
   const mediaKind: MediaKind = useMemo(() => inferMediaKind(selectedMedia), [selectedMedia]);
 
   useEffect(() => {
@@ -375,7 +429,12 @@ export function ScheduleWizard({
   const captionLimit = useMemo(() => tightestCaptionLimit(pairs.map((p) => p.channel)), [pairs]);
 
   const overLimit = copy.length > captionLimit;
+  // Rascunho pode ser salvo sempre; agendar/publicar exige TODOS os destinos
+  // com capacidade confirmada (fail closed).
   const canSubmit = pairs.length > 0 && !overLimit && !!title.trim();
+  const canPublish =
+    canSubmit && blockedDestinations.length === 0 && !readinessQ.isLoading;
+
 
   function togglePair(channel: SocialChannel, format: PlacementFormat) {
     const conn = connByChannel.get(channel);
@@ -720,7 +779,15 @@ export function ScheduleWizard({
                 <Button
                   size="sm"
                   className="rounded-r-none"
-                  disabled={!canSubmit || busy || uploading}
+                  disabled={!canPublish || busy || uploading}
+                  title={
+                    canPublish
+                      ? undefined
+                      : (blockedDestinations
+                          .map((p) => readinessByConn.get(p.connectionId)?.message)
+                          .filter(Boolean)[0] as string | undefined) ??
+                        "Verificando autorização dos destinos…"
+                  }
                   onClick={() => persist("schedule")}
                 >
                   {submitting === "schedule" ? (
@@ -735,20 +802,27 @@ export function ScheduleWizard({
                     <Button
                       size="sm"
                       className="rounded-l-none border-l border-primary-foreground/20 px-2"
-                      disabled={!canSubmit || busy || uploading}
+                      disabled={!canPublish || busy || uploading}
                     >
                       <ChevronDown className="h-3.5 w-3.5" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem onClick={() => persist("publish")} disabled={busy}>
+                    <DropdownMenuItem
+                      onClick={() => persist("publish")}
+                      disabled={busy || !canPublish}
+                    >
                       <Send className="mr-2 h-3.5 w-3.5" /> Publicar agora
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => persist("schedule")} disabled={busy}>
+                    <DropdownMenuItem
+                      onClick={() => persist("schedule")}
+                      disabled={busy || !canPublish}
+                    >
                       <CalendarClock className="mr-2 h-3.5 w-3.5" /> Agendar para depois
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+
               </div>
             </div>
           </>
@@ -877,38 +951,108 @@ export function ScheduleWizard({
                 Nenhum destino selecionado — clique para escolher canais e formatos.
               </button>
             ) : (
-              <div className="flex flex-wrap gap-1.5">
-                {pairs.map((p) => {
-                  const Icon = FORMAT_ICON[p.format];
-                  const conn = connByChannel.get(p.channel);
-                  return (
-                    <span
-                      key={`${p.channel}::${p.format}`}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-card px-2 py-1 text-[10.5px]"
-                    >
-                      <Avatar className="h-4 w-4">
-                        <AvatarImage src={conn?.avatarUrl ?? undefined} />
-                        <AvatarFallback className="text-[7px] uppercase">
-                          {p.channel.slice(0, 2)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <Icon className="h-3 w-3 text-muted-foreground" />
-                      <span className="capitalize">
-                        {p.channel} · {FORMAT_LABEL[p.format]}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => togglePair(p.channel, p.format)}
-                        className="text-muted-foreground hover:text-destructive"
-                        title="Remover destino"
+              <div className="space-y-1.5">
+                <div className="flex flex-wrap gap-1.5">
+                  {pairs.map((p) => {
+                    const Icon = FORMAT_ICON[p.format];
+                    const conn = connByChannel.get(p.channel);
+                    const r = readinessByConn.get(p.connectionId);
+                    const state = readinessQ.isLoading
+                      ? "checking"
+                      : !r
+                        ? "checking"
+                        : r.publishReady
+                          ? "ready"
+                          : r.action === "relink"
+                            ? "disconnected"
+                            : "auth";
+                    return (
+                      <span
+                        key={`${p.channel}::${p.format}`}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[10.5px]",
+                          state === "ready"
+                            ? "border-emerald-500/40 bg-emerald-500/10"
+                            : state === "checking"
+                              ? "border-border/60 bg-card"
+                              : "border-destructive/50 bg-destructive/10",
+                        )}
                       >
-                        <X className="h-2.5 w-2.5" />
-                      </button>
-                    </span>
+                        <Avatar className="h-4 w-4">
+                          <AvatarImage src={conn?.avatarUrl ?? undefined} />
+                          <AvatarFallback className="text-[7px] uppercase">
+                            {p.channel.slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <Icon className="h-3 w-3 text-muted-foreground" />
+                        <span className="capitalize">
+                          {p.channel} · {FORMAT_LABEL[p.format]}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "h-4 border-none px-1 text-[9px] font-semibold",
+                            state === "ready"
+                              ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                              : state === "checking"
+                                ? "bg-muted text-muted-foreground"
+                                : "bg-destructive/15 text-destructive",
+                          )}
+                          title={r?.message ?? "Verificando autorização…"}
+                        >
+                          {state === "ready"
+                            ? "Pronto"
+                            : state === "checking"
+                              ? "Verificando…"
+                              : state === "disconnected"
+                                ? "Desconectado"
+                                : "Autorização necessária"}
+                        </Badge>
+                        <button
+                          type="button"
+                          onClick={() => togglePair(p.channel, p.format)}
+                          className="text-muted-foreground hover:text-destructive"
+                          title="Remover destino"
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+                {blockedDestinations.map((p) => {
+                  const r = readinessByConn.get(p.connectionId);
+                  if (!r) return null;
+                  return (
+                    <div
+                      key={`blk-${p.connectionId}-${p.format}`}
+                      className="flex items-start justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-2 py-1.5 text-[10.5px] text-destructive"
+                    >
+                      <span className="min-w-0">{r.message}</span>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-1.5 text-[10px]"
+                          onClick={() => handleRevalidate(p.connectionId)}
+                        >
+                          Revalidar
+                        </Button>
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-1.5 text-[10px]"
+                        >
+                          <Link to="/connections">Conexões</Link>
+                        </Button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
             )}
+
           </section>
 
           <Separator />

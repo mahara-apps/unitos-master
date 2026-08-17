@@ -1,4 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import {
+  checkDestinationsReadinessFn,
+  type DestinationReadiness,
+} from "@/lib/publish-capability.functions";
+
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -134,6 +140,28 @@ export function ChannelsTab({
 
   const rows = linkedQ.data ?? [];
 
+  // Capacidade REAL de publicação (não apenas `status = active`): valida
+  // vínculo, token e escopo granular da Meta para cada conta do cliente.
+  const checkReadiness = useServerFn(checkDestinationsReadinessFn);
+  const connIds = useMemo(
+    () => rows.map((r) => r.connectionId).sort(),
+    [rows],
+  );
+  const readinessQ = useQuery({
+    enabled: connIds.length > 0,
+    queryKey: ["client-channels-readiness", brandId, clientId, connIds],
+    queryFn: () =>
+      checkReadiness({ data: { brandId, clientId, connectionIds: connIds } }),
+    staleTime: 60_000,
+  });
+  const readinessByConn = useMemo(() => {
+    const map = new Map<string, DestinationReadiness>();
+    (readinessQ.data ?? []).forEach((r) => map.set(r.connectionId, r));
+    return map;
+  }, [readinessQ.data]);
+
+
+
   return (
     <div className="space-y-4">
       <ProfilePageHeader
@@ -245,10 +273,13 @@ export function ChannelsTab({
                 key={row.connectionId}
                 row={row}
                 canManage={canManage}
+                readiness={readinessByConn.get(row.connectionId) ?? null}
+                checking={readinessQ.isLoading}
                 onUnlink={() => setUnlinkTarget(row)}
               />
             ))}
           </ul>
+
         )}
       </ProfileSection>
 
@@ -276,16 +307,31 @@ export function ChannelsTab({
 function ChannelRow({
   row,
   canManage,
+  readiness,
+  checking,
   onUnlink,
 }: {
   row: LinkedChannel;
   canManage: boolean;
+  readiness?: DestinationReadiness | null;
+  checking?: boolean;
   onUnlink: () => void;
 }) {
   const def = channelDef(row.channel);
   const Icon = def.icon;
   const status = normalizeStatus(row.status);
   const handle = row.handle ? `@${row.handle.replace(/^@/, "")}` : row.accountLabel;
+  // Publicação só é liberada com capacidade confirmada pela Meta.
+  const capLabel = checking
+    ? "Verificando…"
+    : !readiness
+      ? null
+      : readiness.publishReady
+        ? "Pronto para publicar"
+        : readiness.action === "relink"
+          ? "Desconectado"
+          : "Autorização necessária";
+
 
   return (
     <li className="flex flex-col gap-3 px-5 py-4 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center sm:gap-4">
@@ -307,11 +353,30 @@ function ChannelRow({
           <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
             {providerLabel(row.provider)} · {accountType(row)}
           </p>
+          {capLabel && !readiness?.publishReady && !checking ? (
+            <p className="mt-0.5 text-[11px] text-destructive">{readiness?.message}</p>
+          ) : null}
         </div>
       </div>
 
       <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-end">
+        {capLabel ? (
+          <span
+            className={cn(
+              "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium",
+              checking
+                ? "border-border/60 bg-muted/40 text-muted-foreground"
+                : readiness?.publishReady
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                  : "border-destructive/30 bg-destructive/10 text-destructive",
+            )}
+            title={readiness?.message ?? undefined}
+          >
+            {capLabel}
+          </span>
+        ) : null}
         <ChannelStatusBadge status={status} />
+
         {canManage ? (
           <Button
             size="sm"

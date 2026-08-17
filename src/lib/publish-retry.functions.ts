@@ -124,16 +124,24 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
         );
         const published = mine.find((r) => r.status === "published");
         const failed = mine.find((r) => r.status === "failed");
+        const blocked = mine.find((r) => r.status === "blocked");
         const inFlight = mine.find(
           (r) => r.status === "scheduled" || r.status === "publishing",
         );
+        const plStatus = (pl.status as string) ?? "draft";
         const status = published
           ? "published"
           : inFlight
             ? (inFlight.status as string)
-            : failed
-              ? "failed"
-              : ((pl.status as string) ?? "draft");
+            : blocked ||
+                plStatus === "connection_required" ||
+                plStatus === "authorization_required"
+              ? (plStatus === "authorization_required"
+                  ? "authorization_required"
+                  : "connection_required")
+              : failed
+                ? "failed"
+                : plStatus;
         return {
           placementId: pl.id as string,
           connectionId,
@@ -145,11 +153,21 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
             (published?.published_at as string | null) ??
             ((pl.published_at as string | null) ?? null),
           permalink: (published?.external_permalink as string | null) ?? null,
-          error: published ? null : ((failed?.last_error as string | null) ?? null),
+          error: published
+            ? null
+            : ((blocked?.last_error as string | null) ??
+              (failed?.last_error as string | null) ??
+              null),
           attempts: Number(failed?.publish_attempts ?? 0),
           canRetry:
-            !published && !inFlight && (status === "failed") && !!connectionId,
+            !published &&
+            !inFlight &&
+            (status === "failed" ||
+              status === "connection_required" ||
+              status === "authorization_required") &&
+            !!connectionId,
         };
+
       },
     );
 
@@ -229,10 +247,14 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
     ) {
       throw new Error("Já existe uma republicação em andamento para este destino.");
     }
-    const failedRow = mine.find((r) => r.status === "failed");
-    if (!failedRow && (pl.status as string) !== "failed") {
+    const failedRow =
+      mine.find((r) => r.status === "failed") ??
+      mine.find((r) => r.status === "blocked");
+    const retryableStatuses = ["failed", "connection_required", "authorization_required"];
+    if (!failedRow && !retryableStatuses.includes(pl.status as string)) {
       throw new Error("Este destino não está em falha.");
     }
+
 
     // 3) Conexão ativa, do canal certo e vinculada ao cliente
     const { data: conn, error: cErr } = await supabase
@@ -306,19 +328,22 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
       throw new Error("Instagram exige mídia (imagem ou vídeo).");
     }
 
-    // 5) Pré-validação de permissão no provider (não consome tentativa do worker)
+    // 5) Pré-flight completo de capacidade (cadeia + granular scope do target).
+    //    Bloqueia ANTES de reenfileirar, sem consumir tentativa do worker.
     if (conn.provider === "meta") {
-      const { verifyMetaPublishReadiness } = await import(
-        "@/lib/meta/publish-readiness.server"
+      const { resolvePublishTarget } = await import(
+        "@/lib/meta/publish-capability.server"
       );
-      const check = await verifyMetaPublishReadiness({
+      const { capability } = await resolvePublishTarget(supabase, {
+        brandId: data.brandId,
+        clientId: clientId ?? null,
+        connectionId: pl.connection_id as string,
         channel: conn.channel as string,
-        pageId: conn.external_id as string,
-        igUserId: (conn.account_id as string | null) ?? null,
-        tokenCiphertext: conn.access_token_ciphertext as string,
+        force: true,
       });
-      if (!check.ok) throw new Error(check.error);
+      if (!capability.publishReady) throw new Error(capability.message);
     }
+
 
     // 6) Caption/hashtags: reaproveita a tentativa anterior; senão deriva do post
     let caption: string | null = (failedRow?.caption as string | null) ?? null;

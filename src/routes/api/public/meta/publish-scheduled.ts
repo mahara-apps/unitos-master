@@ -1,6 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 /**
+ * Erro determinístico de autorização/vínculo: NUNCA deve consumir retries.
+ * O destino é marcado como `blocked` (placement `connection_required` /
+ * `authorization_required`) com mensagem acionável.
+ */
+class DeterministicBlock extends Error {
+  code: string;
+  constructor(message: string, code: string) {
+    super(message);
+    this.name = "DeterministicBlock";
+    this.code = code;
+  }
+}
+
+
+
+/**
  * Drena `social_posts` agendados. pg_cron chama a cada minuto.
  *
  * Concorrência: usa `claim_scheduled_social_posts` (SECURITY DEFINER + FOR UPDATE
@@ -70,51 +86,38 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
           media: any;
         }>) {
           try {
-            const { data: conn, error: connErr } = await supabaseAdmin
-              .from("social_connections")
-              .select(
-                "id, brand_id, provider, channel, status, external_id, account_id, access_token_ciphertext",
-              )
-              .eq("id", post.connection_id)
-              .eq("brand_id", post.brand_id)
-              .maybeSingle();
-            if (connErr) throw new Error(connErr.message);
-            if (!conn) {
-              throw new Error(
-                "CONNECTION_SCOPE_MISMATCH: conexão removida ou de outra marca",
-              );
-            }
-            // Defesa em profundidade: o canal precisa estar vinculado ao
-            // cliente do post em client_social_accounts (fonte de verdade).
-            if (post.client_id) {
-              const { data: link, error: linkErr } = await supabaseAdmin
-                .from("client_social_accounts")
-                .select("id")
-                .eq("brand_id", post.brand_id)
-                .eq("client_id", post.client_id)
-                .eq("connection_id", post.connection_id)
-                .maybeSingle();
-              if (linkErr) throw new Error(linkErr.message);
-              if (!link) {
-                throw new Error(
-                  "CONNECTION_SCOPE_MISMATCH: canal não está vinculado ao cliente do post agendado",
-                );
+            // ---- PRÉ-FLIGHT (2ª barreira, fail closed) ----------------------
+            // A autorização pode ter mudado depois do agendamento: revalidamos
+            // toda a cadeia (marca → cliente → vínculo → conexão → canal →
+            // target → token → granular scope do target) ANTES de chamar a
+            // Meta. Erro determinístico (autorização/vínculo) NÃO consome
+            // retries: o destino vira `blocked`/`connection_required`.
+            const { resolvePublishTarget } = await import(
+              "@/lib/meta/publish-capability.server"
+            );
+            const { capability, connection: conn } = await resolvePublishTarget(
+              supabaseAdmin,
+              {
+                brandId: post.brand_id,
+                clientId: post.client_id,
+                connectionId: post.connection_id,
+                format: post.placement === "story" ? "stories" : "feed",
+                force: true,
+              },
+            );
+            if (!capability.publishReady) {
+              if (capability.deterministic) {
+                throw new DeterministicBlock(capability.message, capability.code);
               }
+              throw new Error(capability.message);
             }
-            if ((conn as any).status && (conn as any).status !== "active") {
-              throw new Error("Conexão não está ativa — reconecte a página");
-            }
-            if (!(conn as any).access_token_ciphertext) {
-              throw new Error("Conexão sem token — reconecte a página");
-            }
-            if (post.placement === "story" && (conn as any).channel !== "instagram") {
-              throw new Error(
-                "CONNECTION_SCOPE_MISMATCH: Stories só é suportado em conexões Instagram",
+            if (!conn) {
+              throw new DeterministicBlock(
+                "Este canal não está mais conectado a este cliente. Reconecte a conta para continuar.",
+                "wrong_brand",
               );
             }
-            if ((conn as any).channel === "instagram" && !(conn as any).account_id) {
-              throw new Error("Conexão sem conta Instagram Business vinculada");
-            }
+
 
 
             const caption = buildCaption(
@@ -165,12 +168,28 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
             results.push({ id: post.id, ok: true });
 
           } catch (err) {
+            // Classificação de erro:
+            //  - determinístico (autorização/vínculo) → `blocked`, sem retry;
+            //  - transitório (timeout/5xx/rate limit) → política de retry atual.
+            if (err instanceof DeterministicBlock) {
+              await (supabaseAdmin as any).rpc("mark_social_post_blocked", {
+                p_post_id: post.id,
+                p_error: err.message,
+                p_reason:
+                  err.code === "not_linked_to_client" || err.code === "wrong_brand"
+                    ? "connection_required"
+                    : "authorization_required",
+              });
+              results.push({ id: post.id, ok: false, error: err.message });
+              continue;
+            }
             const msg = formatPublishError(err);
             await (supabaseAdmin as any).rpc("mark_social_post_failed", {
               p_post_id: post.id,
               p_error: msg,
             });
             results.push({ id: post.id, ok: false, error: msg });
+
           }
         }
 
