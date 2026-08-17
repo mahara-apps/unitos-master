@@ -115,7 +115,7 @@ export function ClientAccountDashboard({
       </div>
 
       {/* ── 1. Resumo executivo ───────────────────────────── */}
-      <section className="grid divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-card sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
+      <PageKpiGrid columns={4}>
         <MetricCell
           icon={<Send className="h-3.5 w-3.5" />}
           label="Publicações"
@@ -195,7 +195,7 @@ export function ClientAccountDashboard({
           to={d.failedCount > 0 ? "/calendar" : attentionCount > 0 ? "/content" : "/connections"}
           cta={attentionCount > 0 ? "Resolver" : "Ver conexões"}
         />
-      </section>
+      </PageKpiGrid>
 
       {/* ── 2. Saúde da operação ──────────────────────────── */}
       <OperationHealth data={d} clientId={clientId} />
@@ -748,6 +748,7 @@ function PanelEmpty({
   );
 }
 
+/** Adaptador do padrão canônico `PageKpi` — preserva navegação e dados. */
 function MetricCell({
   icon,
   label,
@@ -765,32 +766,24 @@ function MetricCell({
   to: string;
   cta: string;
 }) {
+  const status: KpiStatus =
+    tone === "critical"
+      ? "danger"
+      : tone === "warning"
+        ? "warning"
+        : tone === "positive"
+          ? "success"
+          : "neutral";
   return (
-    <Link
-      to={to as never}
-      className="group relative flex flex-col gap-1 px-4 py-3.5 transition-colors hover:bg-muted/40"
-    >
-      <span
-        className={cn(
-          "flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide",
-          tone === "critical"
-            ? "text-destructive"
-            : tone === "warning"
-              ? "text-amber-600 dark:text-amber-400"
-              : tone === "positive"
-                ? "text-emerald-600 dark:text-emerald-400"
-                : "text-muted-foreground",
-        )}
-      >
-        {icon}
-        {label}
-      </span>
-      <span className="text-[26px] font-semibold leading-none tabular-nums">{value}</span>
-      <span className="min-h-[16px] text-[11px] leading-tight">{hint}</span>
-      <span className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
-        {cta}
-        <ArrowRight className="h-3 w-3" />
-      </span>
+    <Link to={to as never} aria-label={cta} className="block h-full">
+      <PageKpi
+        icon={icon}
+        label={label}
+        value={value}
+        status={status}
+        description={hint}
+        className="h-full transition-colors hover:border-foreground/25 hover:bg-accent/30"
+      />
     </Link>
   );
 }
