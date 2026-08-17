@@ -56,6 +56,8 @@ import {
 } from "@/lib/customer-dashboard.functions";
 import { Sparkline } from "@/components/dashboard/sparkline";
 import { AgencyOpsSection } from "@/components/dashboard/agency-ops-section";
+import { ClientAccountDashboard } from "@/components/dashboard/client-account-dashboard";
+
 import { KpiCard } from "@/components/ui/kpi-card";
 import { PanelCard as Card } from "@/components/ui/panel-card";
 import { PanelEmptyState as EmptyState } from "@/components/ui/panel-empty";
