@@ -54,9 +54,11 @@ const AiPlanSchema = z.object({
         // Formato canônico obrigatório — sem vocabulário legado na escrita.
         content_format: z.enum(["feed", "stories", "reels", "carrossel"]),
         angle: z.string(),
-        channel: z.string().optional().nullable(),
-        target_audience: z.string().optional().nullable(),
-        rationale: z.string().optional().nullable(),
+        // Nullable (sem `.optional()`): provedores com JSON Schema estrito
+        // (Groq/OpenAI) rejeitam o `not` que o `.optional()` gera.
+        channel: z.string().nullable(),
+        target_audience: z.string().nullable(),
+        rationale: z.string().nullable(),
       }),
     )
     .min(1)
