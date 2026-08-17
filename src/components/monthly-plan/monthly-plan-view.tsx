@@ -8,8 +8,6 @@ import {
   ArrowRight,
   Check,
   CheckCheck,
-  ChevronDown,
-  ChevronUp,
   FolderKanban,
 
   Link as LinkIcon,
@@ -23,7 +21,6 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { PLAN_STATUS_META } from "@/lib/monthly-plan-status";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
