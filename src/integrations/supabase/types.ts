@@ -4327,6 +4327,7 @@ export type Database = {
           body: string | null
           brand_id: string
           created_at: string
+          dedupe_key: string | null
           href: string | null
           id: string
           kind: Database["public"]["Enums"]["notification_kind"]
@@ -4339,6 +4340,7 @@ export type Database = {
           body?: string | null
           brand_id: string
           created_at?: string
+          dedupe_key?: string | null
           href?: string | null
           id?: string
           kind: Database["public"]["Enums"]["notification_kind"]
@@ -4351,6 +4353,7 @@ export type Database = {
           body?: string | null
           brand_id?: string
           created_at?: string
+          dedupe_key?: string | null
           href?: string | null
           id?: string
           kind?: Database["public"]["Enums"]["notification_kind"]
