@@ -30,6 +30,31 @@ function cacheKey(connectionId: string, q: string) {
   return `${connectionId}::${q.trim().toLowerCase()}`;
 }
 
+/**
+ * Traduz erros do Graph em mensagens curtas em português. A busca de locais
+ * (`/pages/search`) exige revisão de app (Page Public Content Access), então
+ * o caso mais comum é permissão ausente — o local segue válido como texto.
+ */
+function friendlyGraphError(raw: string): string {
+  const m = raw.toLowerCase();
+  if (
+    m.includes("pages_read_engagement") ||
+    m.includes("page public content access") ||
+    m.includes("page public metadata access") ||
+    m.includes("permission")
+  ) {
+    return "Busca de locais indisponível neste app do Meta (permissão não aprovada). Digite o local manualmente.";
+  }
+  if (m.includes("rate limit") || m.includes("too many")) {
+    return "Muitas buscas em sequência. Tente novamente em alguns instantes.";
+  }
+  if (m.includes("token") || m.includes("session")) {
+    return "Sessão do Meta expirada — reconecte a conta.";
+  }
+  return raw.length > 160 ? "Não foi possível buscar locais agora." : raw;
+}
+
+
 export const searchInstagramLocationsFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
@@ -135,13 +160,18 @@ export const searchInstagramLocationsFn = createServerFn({ method: "GET" })
             return {
               ok: false,
               results: [],
-              error: err.graph?.message ?? err.message,
+              error: friendlyGraphError(err.graph?.message ?? err.message),
             };
           }
           throw err;
         }
       } catch (err) {
-        return { ok: false, results: [], error: (err as Error).message };
+        return {
+          ok: false,
+          results: [],
+          error: friendlyGraphError((err as Error).message),
+        };
       }
+
     },
   );
