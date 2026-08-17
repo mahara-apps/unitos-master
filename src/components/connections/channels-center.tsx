@@ -247,7 +247,11 @@ export function ChannelsCenter({
         setPortfolioChannel(d.channel ?? null);
         setPortfolioOpen(true);
       } else if (d.error) {
-        toast.error("Não foi possível concluir a autorização. Tente novamente.");
+        console.warn("[meta-oauth] falha na autorização:", d.error);
+        toast.error("Não foi possível concluir a autorização.", {
+          description: d.error,
+          duration: 12000,
+        });
       }
     }
     window.addEventListener("message", onMessage);
