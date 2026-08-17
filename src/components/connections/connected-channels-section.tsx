@@ -58,7 +58,7 @@ export function ConnectedChannelsSection({
   const qc = useQueryClient();
   const listFn = useServerFn(listWorkspaceChannelsFn);
   const startMetaFn = useServerFn(startMetaOAuth);
-  const sessionFn = useServerFn(getActiveMetaSession);
+  
 
   const [connectOpen, setConnectOpen] = useState(false);
   const [connecting, setConnecting] = useState<null | "facebook" | "instagram">(null);
