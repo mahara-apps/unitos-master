@@ -201,7 +201,15 @@ export const applyMetaReconnectFn = createServerFn({ method: "POST" })
       });
 
       const nowIso = new Date().toISOString();
-      const patch: Record<string, unknown> = {
+      const patch: {
+        status: string;
+        last_error: string | null;
+        last_synced_at: string;
+        external_name?: string | null;
+        account_id?: string | null;
+        account_username?: string | null;
+        instagram_business_id?: string | null;
+      } = {
         status: "active",
         last_error: null,
         last_synced_at: nowIso,
