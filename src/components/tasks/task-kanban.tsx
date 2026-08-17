@@ -11,7 +11,7 @@ import {
 } from "@dnd-kit/core";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { CalendarIcon, Folder, ListChecks, MessageSquare } from "lucide-react";
+import { CalendarIcon, Folder, ListChecks } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,9 @@ function KanbanCard({ task, onOpen }: { task: TaskRow; onOpen: () => void }) {
   const priority = PRIORITY_META[task.priority];
   const due = relativeDue(task.due_at);
   const overdue = isOverdue(task);
+  const total = task.subtasks_total ?? 0;
+  const doneCount = task.subtasks_done ?? 0;
+  const pct = total > 0 ? Math.round((doneCount / total) * 100) : 0;
   return (
     <div
       ref={setNodeRef}
@@ -41,57 +44,58 @@ function KanbanCard({ task, onOpen }: { task: TaskRow; onOpen: () => void }) {
       {...listeners}
       onDoubleClick={onOpen}
       className={cn(
-        "cursor-grab rounded-lg border border-border/60 bg-card p-3 shadow-sm transition hover:border-foreground/20",
+        "cursor-grab rounded-lg border border-border/60 bg-card p-2.5 shadow-sm transition hover:border-foreground/20",
         isDragging && "opacity-40",
       )}
     >
-      <div className="mb-2 flex items-center gap-1.5">
-        <span className={cn("h-2 w-2 rounded-full", priority.dot)} />
-        <Badge variant="outline" className={cn("text-[9px]", priority.badge)}>
-          {priority.label}
-        </Badge>
-        {overdue && (
-          <Badge
-            variant="outline"
-            className="border-rose-500/30 bg-rose-500/10 text-[9px] text-rose-700 dark:text-rose-300"
-          >
-            Atrasada
-          </Badge>
-        )}
-      </div>
       <button
         onClick={onOpen}
         className="block w-full text-left text-sm font-medium leading-snug hover:underline"
       >
         {task.title}
       </button>
+
       {task.project_name && (
-        <div className="mt-2 inline-flex max-w-full items-center gap-1 truncate text-[11px] text-muted-foreground">
+        <div className="mt-1.5 inline-flex max-w-full items-center gap-1 truncate text-[11px] text-muted-foreground">
           <Folder className="h-3 w-3 shrink-0" /> {task.project_name}
         </div>
       )}
-      <div className="mt-3 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-          {due && (
+
+      {total > 0 ? (
+        <div className="mt-2 flex items-center gap-2">
+          <span className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+            <span
+              className="block h-full rounded-full bg-emerald-500"
+              style={{ width: `${pct}%` }}
+            />
+          </span>
+          <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+            <ListChecks className="h-3 w-3" /> {doneCount}/{total}
+          </span>
+        </div>
+      ) : null}
+
+      <div className="mt-2.5 flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2 text-[11px]">
+          {overdue ? (
+            <span className="font-medium text-rose-600 dark:text-rose-400">Atrasada</span>
+          ) : due ? (
             <span className={cn("inline-flex items-center gap-1", due.tone)}>
               <CalendarIcon className="h-3 w-3" /> {due.label}
             </span>
+          ) : (
+            <span className="text-muted-foreground/70">Sem prazo</span>
           )}
-          {task.comments_count && task.comments_count > 0 ? (
-            <span className="inline-flex items-center gap-1">
-              <MessageSquare className="h-3 w-3" /> {task.comments_count}
-            </span>
-          ) : null}
-          {task.subtasks_total ? (
-            <span className="inline-flex items-center gap-1" title="Subtarefas concluídas">
-              <ListChecks className="h-3 w-3" /> {task.subtasks_done ?? 0}/{task.subtasks_total}
-            </span>
+          {task.priority === "urgent" || task.priority === "high" ? (
+            <Badge variant="outline" className={cn("text-[9px]", priority.badge)}>
+              {priority.label}
+            </Badge>
           ) : null}
         </div>
         {task.assignee_id ? (
-          <TaskAssignee name={task.assignee_name} avatarUrl={task.assignee_avatar} size={22} />
+          <TaskAssignee name={task.assignee_name} avatarUrl={task.assignee_avatar} size={20} />
         ) : (
-          <span className="h-[22px] w-[22px] rounded-full border border-dashed border-border/60" />
+          <span className="h-5 w-5 rounded-full border border-dashed border-border/60" />
         )}
       </div>
     </div>
