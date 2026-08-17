@@ -32,17 +32,32 @@ export interface BrainEventInput {
   payload: Record<string, unknown>;
 }
 
+/** Escopo de isolamento resolvido pelo banco (trigger brain_scope_guard). */
+export type BrainScope = "global" | "brand" | "client";
+
+/** Espelha as colunas REAIS de public.brain_memory (não existe topic/summary). */
 export interface BrainMemoryRow {
-  topic: string;
-  summary: string;
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  scope: BrainScope;
   confidence: number | null;
+  reinforcement_count: number;
+  brand_id: string | null;
+  client_id: string | null;
+  updated_at: string | null;
 }
 
 export interface BrainInsightRow {
+  id?: string;
   insight_type: string;
   description: string;
   confidence: number | null;
   expires_at?: string | null;
+  scope?: BrainScope;
+  brand_id?: string | null;
+  client_id?: string | null;
 }
 
 export interface SemanticMemoryHit {
