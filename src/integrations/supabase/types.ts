@@ -1992,6 +1992,7 @@ export type Database = {
           image_provider: string
           monthly_budget_usd: number
           providers: Json
+          text_fallback_provider: string | null
           text_provider: string
           updated_at: string
         }
@@ -2002,6 +2003,7 @@ export type Database = {
           image_provider?: string
           monthly_budget_usd?: number
           providers?: Json
+          text_fallback_provider?: string | null
           text_provider?: string
           updated_at?: string
         }
@@ -2012,6 +2014,7 @@ export type Database = {
           image_provider?: string
           monthly_budget_usd?: number
           providers?: Json
+          text_fallback_provider?: string | null
           text_provider?: string
           updated_at?: string
         }
