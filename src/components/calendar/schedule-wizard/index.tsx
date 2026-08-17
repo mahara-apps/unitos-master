@@ -565,7 +565,25 @@ export function ScheduleWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, submitting]);
 
-  const busy = !!submitting || hydrating;
+  const busy = !!submitting || hydrating || cancelling;
+
+  async function handleCancelSchedule() {
+    if (!postId) return;
+    setCancelling(true);
+    try {
+      await cancelSchedule({ data: { postId, brandId } });
+      setScheduledAtIso(null);
+      setCancelOpen(false);
+      toast.success("Agendamento cancelado. A peça continua editável.");
+      qc.invalidateQueries({ queryKey: ["calendar"] });
+      qc.invalidateQueries({ queryKey: ["post-detail", postId] });
+      qc.invalidateQueries({ queryKey: ["board"] });
+    } catch (e) {
+      toast.error(describeError(e));
+    } finally {
+      setCancelling(false);
+    }
+  }
   const selectedIds = selectedMedia.map((m) => m.id);
   const availableConnections = connectionsQ.data ?? [];
 
