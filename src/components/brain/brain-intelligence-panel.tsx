@@ -187,7 +187,6 @@ export function BrainIntelligencePanel({
             <ChevronRight className="h-3 w-3 text-muted-foreground" />
           </button>
         </div>
-        </div>
       </header>
 
       {/* ── O que o Brain sabe ─────────────────────────────── */}
