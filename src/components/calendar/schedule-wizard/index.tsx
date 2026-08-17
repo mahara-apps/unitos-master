@@ -86,6 +86,12 @@ import {
   type BrandMediaAsset,
 } from "@/lib/brand-media.functions";
 import { searchInstagramLocationsFn } from "@/lib/meta/locations.functions";
+import {
+  checkDestinationsReadinessFn,
+  revalidateConnectionCapabilityFn,
+  type DestinationReadiness,
+} from "@/lib/publish-capability.functions";
+
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "@tanstack/react-router";
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
