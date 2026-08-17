@@ -61,7 +61,7 @@ export type TaskFilters = {
   /** Filtro de prazo: hoje, atrasadas, próximos 7 dias ou sem prazo. */
   due: "all" | "overdue" | "today" | "week" | "none";
   /** Visão de arquivamento (arquivar nunca exclui a tarefa). */
-  archive: "active" | "archived";
+  archive: "active" | "archived" | "all";
 };
 
 export const DEFAULT_FILTERS: TaskFilters = {
@@ -333,6 +333,7 @@ export function TaskToolbar({
                   <SelectContent>
                     <SelectItem value="active">Ativas</SelectItem>
                     <SelectItem value="archived">Arquivadas</SelectItem>
+                    <SelectItem value="all">Todas</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
