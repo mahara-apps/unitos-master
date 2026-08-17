@@ -361,8 +361,11 @@ export async function buildClientDashboard(
     bestDay,
     channelBreakdown,
     scheduledCount: scheduledSocial.length,
+    upcomingTotal: futureScheduled.length,
     failedCount: failedSocial.length,
     connectionsNeedingAttention: brokenConnections.length,
+    stalled,
+
     upcoming,
     attention,
     activity,
