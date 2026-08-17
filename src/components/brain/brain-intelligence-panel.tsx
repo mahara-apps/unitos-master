@@ -186,13 +186,7 @@ export function BrainIntelligencePanel({
             {health ? HEALTH_LABEL[health.status] : "Saúde"}
             <ChevronRight className="h-3 w-3 text-muted-foreground" />
           </button>
-
-          <Button asChild variant="ghost" size="sm" className="h-8 text-xs">
-            <Link to="/brain/graph">
-              <Network className="mr-1.5 h-3.5 w-3.5" />
-              Grafo
-            </Link>
-          </Button>
+        </div>
         </div>
       </header>
 
