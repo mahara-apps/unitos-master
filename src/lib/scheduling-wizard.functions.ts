@@ -272,9 +272,36 @@ export const loadPostStateFn = createServerFn({ method: "POST" })
 
     const { data: pls, error: plErr } = await context.supabase
       .from("post_placements")
-      .select("format, connection_id, copy_override, media, scheduled_at, status")
+      .select(
+        "format, connection_id, copy_override, media, scheduled_at, status, client_id",
+      )
       .eq("post_id", data.postId);
     if (plErr) throw new Error(plErr.message);
+
+    // RECONCILIAÇÃO: destino atual = conexão ATIVA e vinculada ao cliente hoje
+    // (client_social_accounts). Placement histórico com conexão removida/sem
+    // vínculo NÃO volta como destino selecionado (fail-closed) — ele continua
+    // visível apenas no painel de histórico da publicação.
+    const clientIdOfPost =
+      ((pls ?? []).find((p) => p.client_id)?.client_id as string | null) ?? null;
+    const currentConnectionIds = new Set<string>();
+    if (clientIdOfPost) {
+      const { data: links } = await context.supabase
+        .from("client_social_accounts")
+        .select("connection_id")
+        .eq("brand_id", data.brandId)
+        .eq("client_id", clientIdOfPost);
+      const linkedIds = (links ?? []).map((l) => l.connection_id as string);
+      if (linkedIds.length) {
+        const { data: conns } = await context.supabase
+          .from("social_connections")
+          .select("id")
+          .eq("brand_id", data.brandId)
+          .in("id", linkedIds)
+          .eq("status", "active");
+        for (const c of conns ?? []) currentConnectionIds.add(c.id as string);
+      }
+    }
 
     const destinations: WizardPostState["destinations"] = [];
     let hashtags: string[] = [];
@@ -286,13 +313,12 @@ export const loadPostStateFn = createServerFn({ method: "POST" })
 
     for (const pl of pls ?? []) {
       const co = (pl.copy_override ?? {}) as Record<string, unknown>;
-      const connectionId =
-        (pl.connection_id as string | null) ??
-        (typeof co.connection_id === "string" ? (co.connection_id as string) : null);
+      const connectionId = pl.connection_id as string | null;
       const channel = typeof co.channel === "string" ? (co.channel as string) : "";
-      if (connectionId && channel) {
+      if (connectionId && channel && currentConnectionIds.has(connectionId)) {
         destinations.push({ connectionId, channel, format: pl.format as string });
       }
+
       if (Array.isArray(co.hashtags) && !hashtags.length) {
         hashtags = (co.hashtags as unknown[]).filter(
           (h): h is string => typeof h === "string",
