@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageKpi, type KpiStatus } from "@/components/ui/page-kpi";
 import { cn } from "@/lib/utils";
 
 export function ProfilePageHeader({
