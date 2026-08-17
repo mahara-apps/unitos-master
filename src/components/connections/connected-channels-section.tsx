@@ -117,27 +117,19 @@ export function ConnectedChannelsSection({
       "meta-oauth",
       "width=760,height=820,resizable=yes,scrollbars=yes",
     );
+    // Conectar canal SEMPRE passa pela tela oficial do Meta (login + seleção
+    // de Páginas/contas). Sessões existentes não são reaproveitadas aqui,
+    // senão o seletor interno aparece no lugar do consentimento do Meta.
     try {
-      const existing = await sessionFn({ data: { brandId } });
-      if (existing.sessionId) {
-        popup?.close();
-        setConnectOpen(false);
-        setPortfolioSessionId(existing.sessionId);
-        setPortfolioChannel(channel);
-        setPortfolioOpen(true);
-        setConnecting(null);
-        return;
-      }
-    } catch {
-      // segue para o OAuth
-    }
-    try {
-      const { authorizeUrl } = await startMetaFn({ data: { brandId, channel } });
+      const { authorizeUrl } = await startMetaFn({
+        data: { brandId, channel, forceReauth: true },
+      });
       if (popup) popup.location.href = authorizeUrl;
       else window.location.href = authorizeUrl;
     } catch (e) {
       setConnecting(null);
       popup?.close();
+
       toast.error(e instanceof Error ? e.message : "Falha ao iniciar OAuth da Meta");
     }
   }
