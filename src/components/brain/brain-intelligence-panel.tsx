@@ -3,13 +3,12 @@
 // Nenhum número calculado para "preencher" gráfico, nenhum placeholder.
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import {
   Activity,
   ChevronRight,
   Lightbulb,
-  Network,
   Target,
 } from "lucide-react";
 import {
@@ -186,13 +185,6 @@ export function BrainIntelligencePanel({
             {health ? HEALTH_LABEL[health.status] : "Saúde"}
             <ChevronRight className="h-3 w-3 text-muted-foreground" />
           </button>
-
-          <Button asChild variant="ghost" size="sm" className="h-8 text-xs">
-            <Link to="/brain/graph">
-              <Network className="mr-1.5 h-3.5 w-3.5" />
-              Grafo
-            </Link>
-          </Button>
         </div>
       </header>
 
