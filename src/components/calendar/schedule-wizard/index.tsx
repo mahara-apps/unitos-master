@@ -265,6 +265,11 @@ export function ScheduleWizard({
           setScheduleDate(fmtDate(d));
           setScheduleTime(fmtTime(d));
         }
+        // Peça agendada continua editável — só sinalizamos o estado para
+        // liberar a ação "Cancelar agendamento".
+        setScheduledAtIso(
+          st.stage === "scheduled" ? (st.scheduledAt ?? null) : null,
+        );
       })
       .catch((e) => toast.error(describeError(e)))
       .finally(() => {
