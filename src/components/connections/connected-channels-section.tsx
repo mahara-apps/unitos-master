@@ -36,7 +36,7 @@ import {
 } from "@/lib/client-channels.functions";
 import {
   disconnectMeta,
-  getActiveMetaSession,
+  
   refreshMetaConnection,
   startMetaOAuth,
 } from "@/lib/meta/meta.functions";
