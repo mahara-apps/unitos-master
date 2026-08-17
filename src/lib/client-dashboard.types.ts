@@ -59,8 +59,13 @@ export type ClientDashboard = {
   channelBreakdown: Array<{ channel: string; count: number; share: number }>;
 
   scheduledCount: number;
+  /** Total de conteúdos com agendamento futuro (independente do horizonte de 7 dias). */
+  upcomingTotal: number;
   failedCount: number;
   connectionsNeedingAttention: number;
+  /** Conteúdos sem movimentação há muitos dias (gargalo silencioso). */
+  stalled: { count: number; days: number; stageLabel: string | null } | null;
+
 
   upcoming: ClientUpcomingItem[];
   attention: ClientAttentionItem[];
