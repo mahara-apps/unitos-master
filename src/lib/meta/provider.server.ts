@@ -83,7 +83,12 @@ export type MetaPortfolioScan = {
   /** Non-fatal problems (e.g. a portfolio edge we could not read). */
   warnings: string[];
   businessCount: number;
+  /** Graph requests actually performed by this scan (observability). */
+  requestCount: number;
+  /** Whether the Business Portfolio traversal ran (opt-in "deep" mode). */
+  deep: boolean;
 };
+
 
 /**
  * Rate limits and expired tokens must abort the whole scan; permission errors
