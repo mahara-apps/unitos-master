@@ -161,6 +161,10 @@ export function ScheduleWizard({
   // primeiro save — impede que "Salvar rascunho" duas vezes crie duas peças.
   const [postId, setPostId] = useState<string | null>(null);
   const [hydrating, setHydrating] = useState(false);
+  // Agendamento vigente da peça (quando ela é reaberta já agendada).
+  const [scheduledAtIso, setScheduledAtIso] = useState<string | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   // UI local do composer (não persiste nada).
   const [destPickerOpen, setDestPickerOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
