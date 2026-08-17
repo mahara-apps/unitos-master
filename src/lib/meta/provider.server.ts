@@ -296,20 +296,26 @@ export class MetaProvider {
 
   /**
    * Lists the Facebook Pages the user manages together with each page's
-   * page-scoped access token (which is what we persist for future API calls)
-   * and the connected Instagram Business account, when present.
+   * page-scoped access token and the connected Instagram Business account.
    *
-   * Sources (deduped by id):
-   *  1. `/me/accounts` — Pages the user administers directly.
-   *  2. `/me/businesses` → `owned_pages` + `client_pages` — Pages that belong
-   *     to a Business Portfolio the user administers (requires
-   *     `business_management`). Without this, agencies only ever see a
-   *     fraction of their assets.
-   *  3. `/me/businesses` → `owned_instagram_accounts` +
-   *     `client_instagram_accounts` — IG Business accounts assigned straight to
-   *     the portfolio, with no Page the user can administer.
+   * Normal discovery (`deep: false`, the default) uses ONE source of truth:
+   * `/me/accounts` — which already returns the Page id/name/token plus
+   * `instagram_business_account`. That is 1–2 Graph requests.
+   *
+   * `deep: true` additionally traverses Business Portfolios
+   * (`/me/businesses` → `owned_pages` / `client_pages` /
+   * `owned_instagram_accounts`). This costs hundreds of requests on large
+   * portfolios, so it is NEVER triggered automatically — it is kept only as an
+   * explicit opt-in capability. `client_instagram_accounts` is not requested at
+   * all: that edge does not exist in this Graph version (error #100).
    */
-  async scanPortfolio(userAccessToken: string): Promise<MetaPortfolioScan> {
+  async scanPortfolio(
+    userAccessToken: string,
+    opts?: { deep?: boolean },
+  ): Promise<MetaPortfolioScan> {
+    const deep = opts?.deep === true;
+    let requestCount = 0;
+
     type PageRow = {
       id: string;
       name: string;
