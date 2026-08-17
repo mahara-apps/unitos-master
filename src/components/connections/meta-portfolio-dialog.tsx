@@ -6,6 +6,7 @@ import {
   AtSign,
   BarChart3,
   CheckCircle2,
+  ChevronDown,
   Facebook,
   Instagram,
   Loader2,
@@ -26,6 +27,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   getMetaPortfolio,
   SESSION_INVALID_PREFIX,
@@ -443,33 +449,29 @@ export function MetaPortfolioDialog({
               ) : null}
             </div>
             {data.scanWarnings?.length ? (
-              <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                <div className="space-y-1">
-                  <p className="font-medium">
-                    A lista pode estar incompleta — a Meta não retornou parte das contas.
+              <Collapsible className="rounded-md border border-amber-500/40 bg-amber-500/10 text-xs text-amber-700 dark:text-amber-300">
+                <div className="flex items-center gap-2 p-3">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <p className="min-w-0 flex-1 font-medium">
+                    {fbPages.length + igPages.length} contas carregadas; algumas leituras foram restringidas pela Meta.
                   </p>
-                  <ul className="list-disc space-y-0.5 pl-4 text-amber-700/80 dark:text-amber-300/80">
-                    {data.scanWarnings.map((w) => (
+                  <CollapsibleTrigger asChild>
+                    <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" title="Ver detalhes técnicos">
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </Button>
+                  </CollapsibleTrigger>
+                </div>
+                <CollapsibleContent className="border-t border-amber-500/30 px-3 pb-3 pt-2">
+                  <ul className="max-h-32 list-disc space-y-1 overflow-y-auto pl-4 text-amber-700/80 dark:text-amber-300/80">
+                    {data.scanWarnings.slice(0, 8).map((w) => (
                       <li key={w}>{w}</li>
                     ))}
                   </ul>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-1 h-7 gap-1.5 text-[11px]"
-                    onClick={handleResync}
-                    disabled={isFetching}
-                  >
-                    {isFetching ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-3 w-3" />
-                    )}
-                    Sincronizar novamente
-                  </Button>
-                </div>
-              </div>
+                  {data.scanWarnings.length > 8 ? (
+                    <p className="mt-2 text-[11px]">Mais {data.scanWarnings.length - 8} diagnósticos semelhantes foram ocultados.</p>
+                  ) : null}
+                </CollapsibleContent>
+              </Collapsible>
             ) : null}
           </div>
         ) : null}
@@ -576,18 +578,6 @@ export function MetaPortfolioDialog({
           </div>
         ) : (
           <Tabs defaultValue={channel ?? "facebook"} className="w-full">
-            {(data?.scanWarnings?.length ?? 0) > 0 && (
-              <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] text-amber-700 dark:text-amber-400">
-                <p className="mb-1 font-medium">
-                  A varredura foi parcial — algumas contas podem não aparecer.
-                </p>
-                <ul className="list-inside list-disc space-y-0.5">
-                  {(data?.scanWarnings ?? []).slice(0, 4).map((w) => (
-                    <li key={w}>{w}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
             {(data?.businessCount ?? 0) > 0 && (
               <p className="mb-2 text-[11px] text-muted-foreground">
                 {data?.businessCount} portfólio(s) empresarial(is) verificado(s) ·{" "}
