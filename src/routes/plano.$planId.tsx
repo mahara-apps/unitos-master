@@ -177,11 +177,11 @@ function Presentation({
           {plan.period_start ? ` · ${formatDate(plan.period_start)}` : ""}
           {plan.period_end ? ` — ${formatDate(plan.period_end)}` : ""}
         </p>
-        <div className="mt-8 grid grid-cols-1 gap-3 md:grid-cols-3">
+        <PageKpiGrid columns={3} className="mt-8">
           <HeroStat label="Investimento mensal" value={CURRENCY(plan.monthly_budget)} />
           <HeroStat label="Alocado" value={CURRENCY(totalAmount)} sub={PCT(totalPct)} />
           <HeroStat label="Iniciativas" value={String(items.length)} />
-        </div>
+        </PageKpiGrid>
       </section>
 
       {/* Funnel */}
