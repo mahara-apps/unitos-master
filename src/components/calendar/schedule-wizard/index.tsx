@@ -5,7 +5,6 @@ import { toast } from "sonner";
 import { describeError } from "@/lib/errors";
 import {
   CalendarClock,
-  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -15,14 +14,11 @@ import {
   Play,
   Layers,
   CircleDot,
-  Type,
-  Maximize2,
   Image as ImageIcon,
   Loader2,
   Send,
   Sparkles,
   UploadCloud,
-  Video as VideoIcon,
   X,
   Hash,
   MessageCircle,
