@@ -10,11 +10,9 @@ import {
   AlertTriangle,
   CalendarClock,
   User as UserIcon,
-  ListTodo,
-  Kanban,
-  CalendarDays,
   Loader2,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { Button } from "@/components/ui/button";
@@ -23,7 +21,6 @@ import {
   DashboardPageShell,
   DashboardPanelSurface,
 } from "@/components/ui/dashboard-primitives";
-import { KpiCard } from "@/components/ui/kpi-card";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { listTasksFn, listProjectsFn } from "@/lib/tasks.functions";
 import { listBrandAssigneesFn } from "@/lib/content.functions";
@@ -175,13 +172,59 @@ function TasksPage() {
       const time = new Date(t.due_at).getTime();
       return time >= startOfDay.getTime() && time <= endOfDay.getTime();
     }).length;
-    return { total, inProgress, done, overdue, mine, dueToday, now };
+    const open = tasks.filter((t) => t.status !== "done").length;
+    return { total, open, inProgress, done, overdue, mine, dueToday, now };
   }, [tasks, me]);
+
+  // ---------- Filtros rápidos (faixa de indicadores) ----------
+  type Quick = "open" | "in_progress" | "overdue" | "mine" | "today" | "done";
+
+  const activeQuick: Quick | null = useMemo(() => {
+    if (filters.due === "overdue") return "overdue";
+    if (filters.due === "today") return "today";
+    if (filters.status === "in_progress") return "in_progress";
+    if (filters.status === "done") return "done";
+    if (filters.assigneeId === "me" && view !== "mine") return "mine";
+    if (filters.hideDone) return "open";
+    return null;
+  }, [filters, view]);
+
+  function applyQuick(q: Quick) {
+    const base: TaskFilters = {
+      ...DEFAULT_FILTERS,
+      search: filters.search,
+      archive: filters.archive,
+    };
+    if (activeQuick === q) {
+      setFilters(base);
+      return;
+    }
+    switch (q) {
+      case "open":
+        setFilters({ ...base, hideDone: true });
+        break;
+      case "in_progress":
+        setFilters({ ...base, status: "in_progress" });
+        break;
+      case "overdue":
+        setFilters({ ...base, due: "overdue" });
+        break;
+      case "mine":
+        setFilters({ ...base, assigneeId: "me" });
+        break;
+      case "today":
+        setFilters({ ...base, due: "today" });
+        break;
+      case "done":
+        setFilters({ ...base, status: "done" });
+        break;
+    }
+  }
 
   usePageHeader(
     {
       title: "Tarefas",
-      subtitle: "Trabalho da equipe · atribuições, prazos e discussões",
+      subtitle: "Organize o trabalho da equipe, acompanhe prazos e avance projetos.",
       actions: brandId ? (
         <Button size="sm" onClick={() => setCreateOpen(true)}>
           <Plus className="mr-1.5 h-4 w-4" /> Nova tarefa
@@ -208,39 +251,55 @@ function TasksPage() {
 
   return (
     <DashboardPageShell>
-      {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-        <KpiCard label="Total" value={kpis.total} icon={<Circle className="h-4 w-4" />} tone="neutral" />
-        <KpiCard
-          label="Em andamento"
-          value={kpis.inProgress}
-          icon={<Clock className="h-4 w-4" />}
-          tone="sky"
-        />
-        <KpiCard
-          label="Atrasadas"
-          value={kpis.overdue}
-          icon={<AlertTriangle className="h-4 w-4" />}
-          tone="rose"
-        />
-        <KpiCard
-          label="Concluídas"
-          value={kpis.done}
-          icon={<CheckCircle2 className="h-4 w-4" />}
-          tone="emerald"
-        />
-        <KpiCard
-          label="Minha carga"
-          value={kpis.mine}
-          icon={<UserIcon className="h-4 w-4" />}
-          tone="violet"
-        />
-        <KpiCard
-          label="Prazo hoje"
-          value={kpis.dueToday}
-          icon={<CalendarClock className="h-4 w-4" />}
-          tone="amber"
-        />
+      {/* Resumo operacional — indicadores compactos que também filtram */}
+      <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+        {(
+          [
+            { key: "open", label: "Abertas", value: kpis.open, icon: Circle },
+            { key: "in_progress", label: "Em andamento", value: kpis.inProgress, icon: Clock },
+            { key: "overdue", label: "Atrasadas", value: kpis.overdue, icon: AlertTriangle },
+            { key: "mine", label: "Minhas", value: kpis.mine, icon: UserIcon },
+            { key: "today", label: "Hoje", value: kpis.dueToday, icon: CalendarClock },
+            { key: "done", label: "Concluídas", value: kpis.done, icon: CheckCircle2 },
+          ] as Array<{ key: Quick; label: string; value: number; icon: typeof Circle }>
+        ).map((s) => {
+          const isActive = activeQuick === s.key;
+          return (
+            <button
+              key={s.key}
+              type="button"
+              onClick={() => applyQuick(s.key)}
+              aria-pressed={isActive}
+              className={cn(
+                "flex items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition",
+                isActive
+                  ? "border-primary bg-primary/5"
+                  : "border-border/60 bg-card hover:border-foreground/20",
+              )}
+            >
+              <s.icon
+                className={cn(
+                  "h-3.5 w-3.5 shrink-0",
+                  s.key === "overdue"
+                    ? "text-rose-500"
+                    : s.key === "done"
+                      ? "text-emerald-500"
+                      : s.key === "today"
+                        ? "text-amber-500"
+                        : "text-muted-foreground",
+                )}
+              />
+              <span className="min-w-0">
+                <span className="block text-base font-semibold leading-none tabular-nums">
+                  {s.value}
+                </span>
+                <span className="block truncate text-[10px] uppercase tracking-wide text-muted-foreground">
+                  {s.label}
+                </span>
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Views */}
@@ -272,7 +331,6 @@ function TasksPage() {
         onSortChange={(k, d) => setSearch({ sort: k, dir: d })}
         columns={columns}
         onColumnsChange={setColumns}
-        onNewTask={() => setCreateOpen(true)}
         tasksToExport={filtered}
         assignees={assigneesQ.data ?? []}
         clients={clientsQ.data ?? []}
@@ -300,17 +358,33 @@ function TasksPage() {
           <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando tarefas...
         </DashboardPanelSurface>
       ) : filtered.length === 0 ? (
-        <DashboardPanelSurface>
-          <PanelEmptyState
-            icon={<CheckCircle2 className="h-5 w-5" />}
-            text="Nenhuma tarefa encontrada com os filtros atuais."
-          />
-          <div className="flex justify-center pb-8">
-            <Button size="sm" onClick={() => setCreateOpen(true)}>
-              <Plus className="mr-1.5 h-4 w-4" /> Nova tarefa
-            </Button>
+        <div className="rounded-xl border border-border/60 bg-card px-6 py-10 text-center">
+          <p className="text-sm text-muted-foreground">
+            {tasks.length === 0
+              ? "Comece criando a primeira tarefa."
+              : activeQuick === "overdue"
+                ? "Nenhuma tarefa atrasada."
+                : "Você não tem tarefas neste filtro."}
+          </p>
+          <div className="mt-3 flex justify-center gap-2">
+            {tasks.length === 0 ? (
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                <Plus className="mr-1.5 h-4 w-4" /> Nova tarefa
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setFilters(DEFAULT_FILTERS);
+                  setSearch({ q: undefined });
+                }}
+              >
+                Limpar filtros
+              </Button>
+            )}
           </div>
-        </DashboardPanelSurface>
+        </div>
       ) : view === "kanban" ? (
         <TaskKanban tasks={filtered} onOpenTask={(id) => setSearch({ taskId: id })} onChanged={invalidate} />
       ) : view === "calendar" ? (

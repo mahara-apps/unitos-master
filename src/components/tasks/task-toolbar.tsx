@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import {
   ArrowUpDown,
   Columns3,
@@ -6,7 +5,6 @@ import {
   Filter,
   Group,
   MoreHorizontal,
-  Plus,
   Search,
   X,
 } from "lucide-react";
@@ -142,7 +140,6 @@ export function TaskToolbar({
   onSortChange,
   columns,
   onColumnsChange,
-  onNewTask,
   tasksToExport,
   assignees,
   clients,
@@ -157,7 +154,6 @@ export function TaskToolbar({
   onSortChange: (k: SortKey, d: SortDir) => void;
   columns: VisibleColumns;
   onColumnsChange: (c: VisibleColumns) => void;
-  onNewTask: () => void;
   tasksToExport: TaskRow[];
   assignees: Array<{ id: string; name: string; avatar_url: string | null }>;
   clients: Array<{ id: string; name: string }>;
@@ -203,59 +199,83 @@ export function TaskToolbar({
     toast.success(`Exportadas ${tasksToExport.length} tarefas`);
   }
 
+  const dueLabel: Record<TaskFilters["due"], string> = {
+    all: "Todos",
+    overdue: "Atrasadas",
+    today: "Hoje",
+    week: "Próximos 7 dias",
+    none: "Sem prazo",
+  };
+
   return (
     <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" onClick={onNewTask}>
-          <Plus className="mr-1.5 h-4 w-4" /> Nova tarefa
-        </Button>
-
-        {/* Filter popover */}
+        {/* Filtros */}
         <Popover>
           <PopoverTrigger asChild>
-            <Button size="sm" variant="outline" className="gap-1.5">
-              <Filter className="h-4 w-4" />
-              Filtro
-              {activeCount > 0 && (
-                <Badge variant="secondary" className="ml-1 h-4 min-w-4 px-1 text-[10px]">
-                  {activeCount}
-                </Badge>
-              )}
+            <Button
+              size="sm"
+              variant={activeCount > 0 ? "secondary" : "outline"}
+              className="h-8 gap-1.5"
+            >
+              <Filter className="h-3.5 w-3.5" />
+              Filtrar
+              {activeCount > 0 ? (
+                <span className="text-muted-foreground">· {activeCount}</span>
+              ) : null}
             </Button>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-80 space-y-3">
+          <PopoverContent align="start" className="w-[22rem] space-y-3 p-3">
             <div className="space-y-1.5">
-              <Label className="text-xs">Status</Label>
-              <Select
-                value={filters.status}
-                onValueChange={(v) => onFiltersChange({ ...filters, status: v as TaskStatus | "all" })}
-              >
-                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  {TASK_STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>{STATUS_META[s].label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                Status
+              </Label>
+              <div className="flex flex-wrap gap-1.5">
+                {(["all", ...TASK_STATUSES] as Array<TaskStatus | "all">).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => onFiltersChange({ ...filters, status: s })}
+                    className={cn(
+                      "rounded-md border px-2 py-1 text-[11px] transition",
+                      filters.status === s
+                        ? "border-primary bg-primary/10 text-foreground"
+                        : "border-border/60 text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {s === "all" ? "Todos" : STATUS_META[s].label}
+                  </button>
+                ))}
+              </div>
             </div>
+
             <div className="space-y-1.5">
-              <Label className="text-xs">Prioridade</Label>
-              <Select
-                value={filters.priority}
-                onValueChange={(v) => onFiltersChange({ ...filters, priority: v as TaskPriority | "all" })}
-              >
-                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  {TASK_PRIORITIES.map((p) => (
-                    <SelectItem key={p} value={p}>{PRIORITY_META[p].label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                Prazo
+              </Label>
+              <div className="flex flex-wrap gap-1.5">
+                {(Object.keys(dueLabel) as Array<TaskFilters["due"]>).map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => onFiltersChange({ ...filters, due: d })}
+                    className={cn(
+                      "rounded-md border px-2 py-1 text-[11px] transition",
+                      filters.due === d
+                        ? "border-primary bg-primary/10 text-foreground"
+                        : "border-border/60 text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {dueLabel[d]}
+                  </button>
+                ))}
+              </div>
             </div>
+
             <div className="space-y-1.5">
-              <Label className="text-xs">Responsável</Label>
+              <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                Responsável
+              </Label>
               <Select
                 value={filters.assigneeId}
                 onValueChange={(v) => onFiltersChange({ ...filters, assigneeId: v })}
@@ -270,9 +290,12 @@ export function TaskToolbar({
                 </SelectContent>
               </Select>
             </div>
+
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
-                <Label className="text-xs">Cliente</Label>
+                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Cliente
+                </Label>
                 <Select
                   value={filters.clientId}
                   onValueChange={(v) => onFiltersChange({ ...filters, clientId: v, projectId: "all" })}
@@ -287,7 +310,9 @@ export function TaskToolbar({
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Projeto</Label>
+                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Projeto
+                </Label>
                 <Select
                   value={filters.projectId}
                   onValueChange={(v) => onFiltersChange({ ...filters, projectId: v })}
@@ -296,7 +321,12 @@ export function TaskToolbar({
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     {projects
-                      .filter((p) => filters.clientId === "all" || p.client_id === filters.clientId || p.client_id === null)
+                      .filter(
+                        (p) =>
+                          filters.clientId === "all" ||
+                          p.client_id === filters.clientId ||
+                          p.client_id === null,
+                      )
                       .map((p) => (
                         <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                       ))}
@@ -304,25 +334,31 @@ export function TaskToolbar({
                 </Select>
               </div>
             </div>
+
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
-                <Label className="text-xs">Prazo</Label>
+                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Prioridade
+                </Label>
                 <Select
-                  value={filters.due}
-                  onValueChange={(v) => onFiltersChange({ ...filters, due: v as TaskFilters["due"] })}
+                  value={filters.priority}
+                  onValueChange={(v) =>
+                    onFiltersChange({ ...filters, priority: v as TaskPriority | "all" })
+                  }
                 >
                   <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Qualquer</SelectItem>
-                    <SelectItem value="overdue">Atrasadas</SelectItem>
-                    <SelectItem value="today">Hoje</SelectItem>
-                    <SelectItem value="week">Próximos 7 dias</SelectItem>
-                    <SelectItem value="none">Sem prazo</SelectItem>
+                    <SelectItem value="all">Todas</SelectItem>
+                    {TASK_PRIORITIES.map((p) => (
+                      <SelectItem key={p} value={p}>{PRIORITY_META[p].label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label className="text-xs">Visão</Label>
+                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  Arquivamento
+                </Label>
                 <Select
                   value={filters.archive}
                   onValueChange={(v) =>
@@ -338,7 +374,8 @@ export function TaskToolbar({
                 </Select>
               </div>
             </div>
-            <div className="flex items-center justify-between pt-2">
+
+            <div className="flex items-center justify-between border-t border-border/60 pt-2">
               <label className="flex items-center gap-2 text-xs">
                 <Checkbox
                   checked={filters.hideDone}
@@ -349,6 +386,7 @@ export function TaskToolbar({
               <Button
                 variant="ghost"
                 size="sm"
+                className="h-7"
                 onClick={() => onFiltersChange({ ...DEFAULT_FILTERS, search: filters.search })}
                 disabled={activeCount === 0}
               >
@@ -358,20 +396,20 @@ export function TaskToolbar({
           </PopoverContent>
         </Popover>
 
-        {/* Sort */}
+        {/* Ordenar */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="outline" className="gap-1.5">
-              <ArrowUpDown className="h-4 w-4" /> Ordenar
+            <Button size="sm" variant="outline" className="h-8 gap-1.5">
+              <ArrowUpDown className="h-3.5 w-3.5" /> Ordenar
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             <DropdownMenuLabel>Campo</DropdownMenuLabel>
             <DropdownMenuRadioGroup value={sortKey} onValueChange={(v) => onSortChange(v as SortKey, sortDir)}>
+              <DropdownMenuRadioItem value="due">Prazo</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="title">Nome</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="priority">Prioridade</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="status">Status</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="due">Prazo</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="assignee">Responsável</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="project">Projeto</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="created">Criado em</DropdownMenuRadioItem>
@@ -385,46 +423,26 @@ export function TaskToolbar({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Group */}
+        {/* Agrupar */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="outline" className="gap-1.5">
-              <Group className="h-4 w-4" /> Agrupar
-              {groupBy !== "none" && <Badge variant="secondary" className="ml-1 text-[10px]">1</Badge>}
+            <Button size="sm" variant="outline" className="h-8 gap-1.5">
+              <Group className="h-3.5 w-3.5" /> Agrupar
+              {groupBy !== "none" ? (
+                <span className="text-muted-foreground">· {GROUP_LABEL[groupBy]}</span>
+              ) : null}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             <DropdownMenuRadioGroup value={groupBy} onValueChange={(v) => onGroupByChange(v as GroupBy)}>
-              <DropdownMenuRadioItem value="none">Nenhum</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="status">Status</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="priority">Prioridade</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="project">Projeto</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="client">Cliente</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="assignee">Responsável</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="client">Cliente</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="due">Prazo</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="priority">Prioridade</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="none">Nenhum</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {/* Columns */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="outline" className="gap-1.5">
-              <Columns3 className="h-4 w-4" /> Colunas
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuLabel>Exibir campos</DropdownMenuLabel>
-            {(Object.keys(columns) as Array<keyof VisibleColumns>).map((k) => (
-              <DropdownMenuItem key={k} onSelect={(e) => e.preventDefault()}>
-                <label className="flex w-full items-center gap-2 text-sm">
-                  <Checkbox
-                    checked={columns[k]}
-                    onCheckedChange={(v) => onColumnsChange({ ...columns, [k]: Boolean(v) })}
-                  />
-                  {COLUMN_LABEL[k]}
-                </label>
-              </DropdownMenuItem>
-            ))}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -436,24 +454,33 @@ export function TaskToolbar({
             value={filters.search}
             onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
             placeholder="Pesquisar tarefas..."
-            className="h-9 pl-9"
+            className="h-8 pl-9"
           />
         </div>
-        <Button size="sm" variant="outline" onClick={exportCsv} title="Exportar CSV">
-          <Download className="h-4 w-4" />
-        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="sm" variant="outline">
+            <Button size="sm" variant="outline" className="h-8 w-8 p-0" title="Mais opções">
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => toast.info("Em breve: campos personalizados")}>
-              Campos personalizados
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => toast.info("Em breve: automação")}>
-              Automações
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel className="flex items-center gap-1.5">
+              <Columns3 className="h-3.5 w-3.5" /> Colunas
+            </DropdownMenuLabel>
+            {(Object.keys(columns) as Array<keyof VisibleColumns>).map((k) => (
+              <DropdownMenuItem key={k} onSelect={(e) => e.preventDefault()}>
+                <label className="flex w-full items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={columns[k]}
+                    onCheckedChange={(v) => onColumnsChange({ ...columns, [k]: Boolean(v) })}
+                  />
+                  {COLUMN_LABEL[k]}
+                </label>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={exportCsv}>
+              <Download className="mr-2 h-4 w-4" /> Exportar CSV
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -461,6 +488,16 @@ export function TaskToolbar({
     </div>
   );
 }
+
+const GROUP_LABEL: Record<GroupBy, string> = {
+  none: "Nenhum",
+  status: "Status",
+  priority: "Prioridade",
+  project: "Projeto",
+  client: "Cliente",
+  assignee: "Responsável",
+  due: "Prazo",
+};
 
 const COLUMN_LABEL: Record<keyof VisibleColumns, string> = {
   assignee: "Responsável",
