@@ -1,5 +1,5 @@
-// Central de acompanhamento da conta do cliente.
-// Regra: todo número exibido vem de `clientDashboardFn` (dados reais, escopados
+// Central operacional da conta do cliente (ClientMode do Dashboard).
+// Regra: todo número exibido vem de `clientDashboardFn` (dados reais escopados
 // por brand_id + client_id). Nada é mockado; sem dados usamos empty states.
 import * as React from "react";
 import { Link } from "@tanstack/react-router";
@@ -8,9 +8,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  Bar,
-  BarChart,
+  Area,
+  AreaChart,
   CartesianGrid,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -19,23 +20,28 @@ import {
 import {
   AlertTriangle,
   ArrowRight,
+  ArrowUpRight,
   BadgeCheck,
   CalendarClock,
   CheckCircle2,
-  Layers,
+  ChevronRight,
   Send,
+  Sparkles,
+  TrendingDown,
+  TrendingUp,
 } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { clientDashboardFn } from "@/lib/client-dashboard.functions";
 import { channelLabel } from "@/lib/client-dashboard.labels";
 import type {
+  ClientActivityItem,
   ClientAttentionItem,
   ClientDashboard,
+  ClientStageStat,
   ClientUpcomingItem,
 } from "@/lib/client-dashboard.types";
 
@@ -67,396 +73,645 @@ export function ClientAccountDashboard({
   });
   const d = q.data;
 
-  if (q.isLoading && !d) {
-    return (
-      <div className="w-full space-y-4 px-4 py-6 sm:px-6 lg:px-8">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
-        </div>
-        <Skeleton className="h-32" />
-        <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-          <Skeleton className="h-72" />
-          <Skeleton className="h-72" />
-        </div>
-      </div>
-    );
-  }
+  if (q.isLoading && !d) return <DashboardSkeleton />;
 
   if (q.isError || !d) {
     return (
-      <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
+      <Shell>
         <Panel title="Não foi possível carregar o painel">
-          <div className="px-4 py-6 text-sm text-muted-foreground">
-            Tente atualizar a página. Se o erro continuar, verifique a conexão com o servidor.
+          <div className="flex flex-col items-start gap-3 px-4 py-6">
+            <p className="text-sm text-muted-foreground">
+              Houve uma falha ao buscar os dados desta conta.
+            </p>
+            <Button size="sm" variant="outline" onClick={() => q.refetch()}>
+              Tentar novamente
+            </Button>
           </div>
         </Panel>
-      </div>
+      </Shell>
     );
   }
 
-  const problems = d.failedCount + d.connectionsNeedingAttention;
+  const attentionCount = d.attention.length;
 
   return (
-    <div className="w-full space-y-5 px-4 py-6 sm:px-6 lg:px-8">
-      {/* ── BLOCO 1 — Resumo operacional ─────────────────── */}
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard
-          icon={<Layers className="h-4 w-4" />}
-          label="Conteúdos em produção"
-          value={d.pipelineTotal}
-          sub={
-            d.stages.filter((s) => s.count > 0).length
-              ? d.stages
-                  .filter((s) => s.count > 0)
-                  .slice(0, 4)
-                  .map((s) => `${s.count} ${s.label.toLowerCase()}`)
-                  .join(" · ")
-              : "Nenhum conteúdo no pipeline"
-          }
-          to="/content"
-        />
-        <SummaryCard
-          icon={<BadgeCheck className="h-4 w-4" />}
-          label="Aprovações"
-          value={d.approvalsPending}
-          sub={
-            d.approvalsPending > 0
-              ? `${d.approvalsPending} aguardando sua aprovação`
-              : d.approvalsDecided > 0
-                ? `${d.approvalsDecided} já decididas`
-                : "Sem pendências"
-          }
-          tone={d.approvalsPending > 0 ? "attention" : "muted"}
-          to="/content"
-        />
-        <SummaryCard
-          icon={<Send className="h-4 w-4" />}
+    <Shell>
+      {/* ── Linha de contexto ─────────────────────────────── */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+        <span className="font-medium text-muted-foreground">Visão operacional da conta</span>
+        <span className="text-border">•</span>
+        <span className="text-muted-foreground/80">Últimos {d.rangeDays} dias</span>
+        {attentionCount > 0 && (
+          <>
+            <span className="text-border">•</span>
+            <span className="inline-flex items-center gap-1.5 font-medium text-amber-600 dark:text-amber-400">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {attentionCount === 1
+                ? "1 item precisa da sua atenção"
+                : `${attentionCount} itens precisam da sua atenção`}
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* ── 1. Resumo executivo ───────────────────────────── */}
+      <section className="grid divide-y divide-border/50 overflow-hidden rounded-xl border border-border/60 bg-card sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
+        <MetricCell
+          icon={<Send className="h-3.5 w-3.5" />}
           label="Publicações"
           value={d.publishedInRange}
-          sub={
-            d.publishedPreviousRange != null
-              ? `${formatDelta(d.publishedInRange - d.publishedPreviousRange)} vs. período anterior`
-              : `Últimos ${d.rangeDays} dias`
+          hint={
+            d.publishedPreviousRange != null ? (
+              <DeltaHint current={d.publishedInRange} previous={d.publishedPreviousRange} />
+            ) : (
+              <span className="text-muted-foreground/70">no período selecionado</span>
+            )
           }
           to="/calendar"
+          cta="Ver publicações"
         />
-        <SummaryCard
-          icon={problems ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-          label="Falhas / atenção"
-          value={problems}
-          sub={
-            problems === 0
-              ? "Tudo funcionando"
-              : [
-                  d.failedCount > 0 &&
-                    `${d.failedCount} ${d.failedCount === 1 ? "publicação falhou" : "publicações falharam"}`,
+        <MetricCell
+          icon={<CalendarClock className="h-3.5 w-3.5" />}
+          label="Próximas"
+          value={d.upcomingTotal}
+          hint={
+            d.upcoming[0] ? (
+              <span className="text-muted-foreground/80">
+                próxima {format(parseISO(d.upcoming[0].scheduledAt), "dd MMM · HH:mm", { locale: ptBR })}
+              </span>
+            ) : (
+              <span className="text-muted-foreground/70">nada agendado</span>
+            )
+          }
+          to="/calendar"
+          cta="Ver agenda"
+        />
+        <MetricCell
+          icon={<BadgeCheck className="h-3.5 w-3.5" />}
+          label="Aprovações"
+          value={d.approvalsPending}
+          tone={d.approvalsPending > 0 ? "warning" : "neutral"}
+          hint={
+            d.approvalsPending > 0 ? (
+              <span className="text-amber-600 dark:text-amber-400">aguardando decisão</span>
+            ) : (
+              <span className="text-muted-foreground/70">
+                {d.approvalsDecided > 0 ? `${d.approvalsDecided} já decididas` : "sem pendências"}
+              </span>
+            )
+          }
+          to="/content"
+          cta="Ver aprovações"
+        />
+        <MetricCell
+          icon={
+            attentionCount ? (
+              <AlertTriangle className="h-3.5 w-3.5" />
+            ) : (
+              <CheckCircle2 className="h-3.5 w-3.5" />
+            )
+          }
+          label="Atenção"
+          value={attentionCount}
+          tone={
+            d.failedCount > 0 ? "critical" : attentionCount > 0 ? "warning" : "positive"
+          }
+          hint={
+            attentionCount === 0 ? (
+              <span className="text-emerald-600 dark:text-emerald-400">tudo em dia</span>
+            ) : (
+              <span className="text-muted-foreground/80">
+                {[
+                  d.failedCount > 0 && `${d.failedCount} falha${d.failedCount > 1 ? "s" : ""}`,
                   d.connectionsNeedingAttention > 0 &&
-                    `${d.connectionsNeedingAttention} ${
-                      d.connectionsNeedingAttention === 1 ? "conexão" : "conexões"
-                    } precisa de atenção`,
+                    `${d.connectionsNeedingAttention} conexão${d.connectionsNeedingAttention > 1 ? "es" : ""}`,
+                  d.stalled && `${d.stalled.count} parado${d.stalled.count > 1 ? "s" : ""}`,
                 ]
                   .filter(Boolean)
-                  .join(" · ")
+                  .join(" · ")}
+              </span>
+            )
           }
-          tone={problems ? "critical" : "muted"}
-          to={d.failedCount > 0 ? "/calendar" : "/connections"}
+          to={d.failedCount > 0 ? "/calendar" : attentionCount > 0 ? "/content" : "/connections"}
+          cta={attentionCount > 0 ? "Resolver" : "Ver conexões"}
         />
       </section>
 
-      {/* ── BLOCO 2/7 — Saúde da operação (fluxo editorial) ── */}
-      <Panel
-        title="Saúde da operação"
-        subtitle="Distribuição real dos conteúdos no fluxo editorial"
-        action={
-          <Link
-            to="/customers/$customerId/pauta"
-            params={{ customerId: clientId }}
-            className="text-xs text-muted-foreground hover:text-foreground"
-          >
-            Abrir pauta →
-          </Link>
-        }
-      >
-        {d.pipelineTotal === 0 ? (
-          <PanelEmpty text="Nenhum conteúdo no fluxo editorial deste cliente ainda." />
-        ) : (
-          <div className="space-y-3 px-4 py-4">
-            <div className="flex h-2 overflow-hidden rounded-full bg-muted">
-              {d.stages
-                .filter((s) => s.count > 0)
-                .map((s, i) => (
-                  <div
-                    key={s.id}
-                    style={{
-                      width: `${s.share * 100}%`,
-                      background: `var(--chart-${(i % 5) + 1})`,
-                    }}
-                    title={`${s.label}: ${s.count}`}
-                  />
-                ))}
-            </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-              {d.stages.map((s, i) => (
-                <Link
-                  key={s.id}
-                  to="/content"
-                  className={cn(
-                    "group rounded-lg border border-border/60 px-3 py-2 transition-colors hover:border-primary/40 hover:bg-muted/40",
-                    s.count === 0 && "opacity-60",
-                  )}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className="h-1.5 w-1.5 rounded-full"
-                      style={{ background: `var(--chart-${(i % 5) + 1})` }}
-                    />
-                    <span className="truncate text-[11px] uppercase tracking-wide text-muted-foreground">
-                      {s.label}
-                    </span>
-                  </div>
-                  <div className="mt-0.5 flex items-baseline gap-1.5">
-                    <span className="text-lg font-semibold tabular-nums">{s.count}</span>
-                    {d.pipelineTotal > 0 && (
-                      <span className="text-[11px] text-muted-foreground">
-                        {Math.round(s.share * 100)}%
-                      </span>
-                    )}
-                  </div>
-                </Link>
-              ))}
-            </div>
-            {d.bottleneck && (
-              <p className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                {d.bottleneck.count} conteúdos parados em {d.bottleneck.label} (
-                {Math.round(d.bottleneck.share * 100)}% do pipeline)
-              </p>
-            )}
-          </div>
-        )}
-      </Panel>
+      {/* ── 2. Saúde da operação ──────────────────────────── */}
+      <OperationHealth data={d} clientId={clientId} />
 
-      {/* ── BLOCO 3/4 — Publicações + canais ─────────────── */}
-      <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
-        <Panel
-          title="Publicações ao longo do tempo"
-          subtitle="Quantidade de conteúdos publicados no período"
-        >
-          {d.publishedInRange === 0 ? (
-            <PanelEmpty text="Ainda não há publicações suficientes para gerar este gráfico." />
-          ) : (
-            <div className="space-y-3 px-4 py-4">
-              <ResponsiveContainer width="100%" height={190}>
-                <BarChart data={d.publishTrend}>
-                  <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="day"
-                    tickFormatter={shortDay}
-                    tick={{ fontSize: 10 }}
-                    stroke="var(--muted-foreground)"
-                    interval="preserveStartEnd"
-                    minTickGap={16}
-                  />
-                  <YAxis
-                    allowDecimals={false}
-                    width={22}
-                    tick={{ fontSize: 10 }}
-                    stroke="var(--muted-foreground)"
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: "var(--card)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 8,
-                      fontSize: 12,
-                    }}
-                    labelFormatter={(v) => longDay(String(v))}
-                    formatter={(v: number) => [`${v}`, "Publicações"]}
-                  />
-                  <Bar dataKey="count" fill="var(--primary)" radius={[3, 3, 0, 0]} maxBarSize={26} />
-                </BarChart>
-              </ResponsiveContainer>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <MiniStat label="Total publicado" value={String(d.publishedInRange)} />
-                <MiniStat
-                  label="Média por semana"
-                  value={d.avgPerWeek != null ? d.avgPerWeek.toFixed(1) : "—"}
-                />
-                <MiniStat
-                  label="Melhor dia"
-                  value={d.bestDay ? `${shortDay(d.bestDay.day)} · ${d.bestDay.count}` : "—"}
-                />
-                <MiniStat
-                  label="Canal mais usado"
-                  value={
-                    d.channelBreakdown[0] ? channelLabel(d.channelBreakdown[0].channel) : "—"
-                  }
-                />
-              </div>
-            </div>
-          )}
-        </Panel>
-
-        <Panel title="Desempenho por canal" subtitle="Somente canais com publicações no período">
-          {d.channelBreakdown.length === 0 ? (
-            <PanelEmpty text="Nenhuma publicação por canal registrada no período." />
-          ) : d.channelBreakdown.length === 1 ? (
-            <div className="px-4 py-6">
-              <div className="text-sm font-semibold">
-                {channelLabel(d.channelBreakdown[0].channel)}
-              </div>
-              <div className="mt-1 text-2xl font-semibold tabular-nums">
-                {d.channelBreakdown[0].count}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {d.channelBreakdown[0].count === 1 ? "publicação" : "publicações"} no período
-              </p>
-            </div>
-          ) : (
-            <ul className="divide-y divide-border/40">
-              {d.channelBreakdown.map((c, i) => (
-                <li key={c.channel} className="px-4 py-3">
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="font-medium">{channelLabel(c.channel)}</span>
-                    <span className="tabular-nums text-muted-foreground">
-                      {c.count} · {Math.round(c.share * 100)}%
-                    </span>
-                  </div>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${c.share * 100}%`,
-                        background: `var(--chart-${(i % 5) + 1})`,
-                      }}
-                    />
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Panel>
+      {/* ── 3. Publicações + canais ───────────────────────── */}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+        <PublishRhythm data={d} />
+        <ChannelsPanel data={d} />
       </div>
 
-      {/* ── BLOCO 5/6 — Próximas publicações + atenção ───── */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Panel
-          title="Próximas publicações"
-          subtitle="Agenda dos próximos 7 dias"
-          action={
-            <Link to="/calendar" className="text-xs text-muted-foreground hover:text-foreground">
-              Ver calendário →
-            </Link>
-          }
-        >
-          {d.upcoming.length === 0 ? (
-            <PanelEmpty text="Nenhuma publicação agendada nos próximos 7 dias." />
-          ) : (
-            <ul className="divide-y divide-border/40">
-              {d.upcoming.map((item) => (
-                <UpcomingRow key={item.id} item={item} />
-              ))}
-            </ul>
-          )}
-        </Panel>
-
-        <Panel
-          title="Atenção necessária"
-          subtitle={d.attention.length ? "Itens que exigem ação" : "Nenhuma ação necessária"}
-          muted={d.attention.length === 0}
-        >
-          {d.attention.length === 0 ? (
-            <div className="flex items-center gap-3 px-4 py-6">
-              <span className="grid h-9 w-9 place-items-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 className="h-4 w-4" />
-              </span>
-              <div>
-                <div className="text-sm font-medium">Tudo em dia</div>
-                <p className="text-xs text-muted-foreground">
-                  Nenhuma ação necessária no momento.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <ul className="divide-y divide-border/40">
-              {d.attention.map((a) => (
-                <AttentionRow key={a.id} item={a} />
-              ))}
-            </ul>
-          )}
-        </Panel>
+      {/* ── 4. Atenção + próximas publicações ─────────────── */}
+      <div className="grid gap-4 xl:grid-cols-2">
+        <AttentionPanel items={d.attention} />
+        <UpcomingPanel items={d.upcoming} />
       </div>
 
-      {/* ── BLOCO 9 — Atividade recente ──────────────────── */}
-      <Panel title="Atividade recente" subtitle="O que aconteceu na conta">
-        {d.activity.length === 0 ? (
-          <PanelEmpty text="Nenhuma atividade registrada no período." />
-        ) : (
-          <ul className="divide-y divide-border/40">
-            {d.activity.map((a) => (
-              <li key={a.id} className="flex items-start gap-3 px-4 py-2.5">
-                <span
-                  className={cn(
-                    "mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full",
-                    a.tone === "positive"
-                      ? "bg-emerald-500"
-                      : a.tone === "attention"
-                        ? "bg-amber-500"
-                        : "bg-muted-foreground/50",
-                  )}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{a.title}</div>
-                  <div className="text-xs text-muted-foreground">{a.description}</div>
-                </div>
-                <span className="shrink-0 text-[11px] text-muted-foreground">
-                  {format(parseISO(a.at), "dd MMM · HH:mm", { locale: ptBR })}
-                </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Panel>
+      {/* ── 5. Atividade recente ──────────────────────────── */}
+      <ActivityPanel items={d.activity} clientId={clientId} />
 
-      {/* Desempenho de conteúdos: só existirá quando houver coleta real. */}
+      {/* ── 6. Performance social (estado informativo) ────── */}
       {!d.hasPerformanceData && (
-        <p className="text-center text-xs text-muted-foreground">
-          Dados de desempenho (alcance, impressões e engajamento) ainda não disponíveis para esta
-          conta.
-        </p>
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border/60 px-3.5 py-2.5 text-xs text-muted-foreground">
+          <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+          <span className="font-medium text-foreground/80">Performance social</span>
+          <span>
+            A coleta de alcance e engajamento ainda não está disponível para esta conta.
+          </span>
+        </div>
       )}
-    </div>
+    </Shell>
   );
 }
 
-// ── primitivas locais ───────────────────────────────────────
+// ══ Blocos ═══════════════════════════════════════════════════
+
+function OperationHealth({ data, clientId }: { data: ClientDashboard; clientId: string }) {
+  const stages = data.stages;
+  return (
+    <Panel
+      title="Saúde da operação"
+      subtitle="Fluxo editorial → aprovação → agendamento → publicação"
+      action={
+        <div className="flex items-center gap-3">
+          {data.bottleneck && (
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="h-3 w-3" />
+              Gargalo: {data.bottleneck.label}
+            </span>
+          )}
+          <Link
+            to="/customers/$customerId/pauta"
+            params={{ customerId: clientId }}
+            className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Pauta →
+          </Link>
+        </div>
+      }
+    >
+      {data.pipelineTotal === 0 ? (
+        <PanelEmpty
+          title="Nenhum conteúdo no fluxo"
+          text="Assim que a pauta for aprovada, os conteúdos aparecem aqui."
+          cta={{ label: "Abrir pauta", to: "/customers/$customerId/pauta", params: { customerId: clientId } }}
+        />
+      ) : (
+        <div className="flex flex-wrap items-stretch gap-1 px-3 py-3">
+          {stages.map((s, i) => (
+            <React.Fragment key={s.id}>
+              {i > 0 && (
+                <ChevronRight className="mt-4 hidden h-3.5 w-3.5 shrink-0 self-start text-border sm:block" />
+              )}
+              <StageChip
+                stage={s}
+                total={data.pipelineTotal}
+                isBottleneck={data.bottleneck?.label === s.label}
+              />
+            </React.Fragment>
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function StageChip({
+  stage,
+  total,
+  isBottleneck,
+}: {
+  stage: ClientStageStat;
+  total: number;
+  isBottleneck: boolean;
+}) {
+  const pct = total ? Math.round(stage.share * 100) : 0;
+  return (
+    <Link
+      to="/content"
+      className={cn(
+        "group min-w-[104px] flex-1 rounded-lg border px-3 py-2 transition-all",
+        isBottleneck
+          ? "border-amber-500/50 bg-amber-500/[0.07]"
+          : "border-transparent bg-muted/40 hover:border-border/70 hover:bg-muted/70",
+        stage.count === 0 && "opacity-55",
+      )}
+    >
+      <div className="truncate text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
+        {stage.label}
+      </div>
+      <div className="mt-0.5 flex items-baseline gap-1.5">
+        <span className="text-xl font-semibold leading-none tabular-nums">{stage.count}</span>
+        <span className="text-[10.5px] text-muted-foreground/70">{pct}%</span>
+      </div>
+      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-border/60">
+        <div
+          className={cn("h-full rounded-full", isBottleneck ? "bg-amber-500" : "bg-primary/70")}
+          style={{ width: `${Math.max(stage.count > 0 ? 6 : 0, pct)}%` }}
+        />
+      </div>
+    </Link>
+  );
+}
+
+function PublishRhythm({ data }: { data: ClientDashboard }) {
+  const hasPrevious = data.publishTrend.some((p) => p.previous != null);
+  return (
+    <Panel
+      title="Publicações no período"
+      subtitle="Ritmo de publicação por dia"
+      action={
+        hasPrevious ? (
+          <span className="flex items-center gap-3 text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="h-1.5 w-3 rounded-full bg-primary" /> atual
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-1.5 w-3 rounded-full bg-muted-foreground/50" /> anterior
+            </span>
+          </span>
+        ) : null
+      }
+    >
+      {data.publishedInRange === 0 ? (
+        <PanelEmpty
+          title="Nenhuma publicação no período"
+          text="O ritmo de publicação aparece aqui após a primeira publicação efetivada."
+          cta={{ label: "Ir para calendário", to: "/calendar" }}
+        />
+      ) : (
+        <div className="space-y-3 px-2 pb-3 pt-4">
+          <ResponsiveContainer width="100%" height={196}>
+            <AreaChart data={data.publishTrend} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="pubFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.28} />
+                  <stop offset="100%" stopColor="var(--primary)" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} stroke="var(--border)" strokeOpacity={0.5} />
+              <XAxis
+                dataKey="day"
+                tickFormatter={shortDay}
+                tick={{ fontSize: 10 }}
+                tickLine={false}
+                axisLine={false}
+                stroke="var(--muted-foreground)"
+                interval="preserveStartEnd"
+                minTickGap={22}
+              />
+              <YAxis
+                allowDecimals={false}
+                width={24}
+                tick={{ fontSize: 10 }}
+                tickLine={false}
+                axisLine={false}
+                stroke="var(--muted-foreground)"
+              />
+              <Tooltip
+                contentStyle={{
+                  background: "var(--card)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 10,
+                  fontSize: 12,
+                  boxShadow: "0 8px 24px -12px rgb(0 0 0 / 0.35)",
+                }}
+                labelFormatter={(v) => longDay(String(v))}
+                formatter={(value: number, key) => [
+                  `${value} ${value === 1 ? "publicação" : "publicações"}`,
+                  key === "previous" ? "Período anterior" : "Período atual",
+                ]}
+              />
+              {hasPrevious && (
+                <Line
+                  type="monotone"
+                  dataKey="previous"
+                  stroke="var(--muted-foreground)"
+                  strokeOpacity={0.55}
+                  strokeWidth={1.5}
+                  strokeDasharray="4 4"
+                  dot={false}
+                />
+              )}
+              <Area
+                type="monotone"
+                dataKey="count"
+                stroke="var(--primary)"
+                strokeWidth={2}
+                fill="url(#pubFill)"
+                dot={false}
+                activeDot={{ r: 3.5 }}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+          <div className="grid grid-cols-2 gap-2 px-2 sm:grid-cols-4">
+            <MiniStat label="Publicado" value={String(data.publishedInRange)} />
+            <MiniStat
+              label="Média / semana"
+              value={data.avgPerWeek != null ? data.avgPerWeek.toFixed(1) : "—"}
+            />
+            <MiniStat
+              label="Melhor dia"
+              value={data.bestDay ? `${shortDay(data.bestDay.day)} · ${data.bestDay.count}` : "—"}
+            />
+            <MiniStat
+              label="Canal líder"
+              value={
+                data.channelBreakdown[0] ? channelLabel(data.channelBreakdown[0].channel) : "—"
+              }
+            />
+          </div>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function ChannelsPanel({ data }: { data: ClientDashboard }) {
+  const max = data.channelBreakdown[0]?.count ?? 0;
+  return (
+    <Panel
+      title="Canais"
+      subtitle="Publicações efetivamente realizadas"
+      action={
+        <Link
+          to="/connections"
+          className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          Conexões →
+        </Link>
+      }
+    >
+      {data.channelBreakdown.length === 0 ? (
+        <PanelEmpty
+          title="Nenhuma publicação por canal"
+          text="Os canais aparecem aqui quando houver publicação confirmada no período."
+          cta={{ label: "Ver conexões", to: "/connections" }}
+        />
+      ) : (
+        <ul className="space-y-3 px-4 py-4">
+          {data.channelBreakdown.map((c) => (
+            <li key={c.channel}>
+              <Link to="/connections" className="group block">
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="text-sm font-medium transition-colors group-hover:text-primary">
+                    {channelLabel(c.channel)}
+                  </span>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {c.count} · {Math.round(c.share * 100)}%
+                  </span>
+                </div>
+                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-emerald-500/80"
+                    style={{ width: `${max ? Math.max(4, (c.count / max) * 100) : 0}%` }}
+                  />
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
+function AttentionPanel({ items }: { items: ClientAttentionItem[] }) {
+  const critical = items.some((i) => i.severity === "critical");
+  return (
+    <section
+      className={cn(
+        "overflow-hidden rounded-xl border bg-card",
+        critical ? "border-destructive/45" : items.length ? "border-amber-500/40" : "border-border/60",
+      )}
+    >
+      <header className="flex items-center justify-between gap-3 border-b border-border/40 px-4 py-2.5">
+        <div>
+          <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+            Atenção necessária
+            {items.length > 0 && (
+              <span
+                className={cn(
+                  "rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums",
+                  critical
+                    ? "bg-destructive/15 text-destructive"
+                    : "bg-amber-500/15 text-amber-700 dark:text-amber-400",
+                )}
+              >
+                {items.length}
+              </span>
+            )}
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            {items.length ? "Itens que exigem ação agora" : "Nenhuma pendência no momento"}
+          </p>
+        </div>
+      </header>
+      {items.length === 0 ? (
+        <div className="flex items-center gap-3 px-4 py-7">
+          <span className="grid h-9 w-9 place-items-center rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <CheckCircle2 className="h-4 w-4" />
+          </span>
+          <div>
+            <div className="text-sm font-medium">Tudo em dia</div>
+            <p className="text-xs text-muted-foreground">Nenhuma ação necessária neste momento.</p>
+          </div>
+        </div>
+      ) : (
+        <ul className="divide-y divide-border/40">
+          {items.map((a) => (
+            <li key={a.id} className="flex items-start gap-3 px-4 py-3">
+              <span
+                className={cn(
+                  "mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full",
+                  a.severity === "critical" ? "bg-destructive" : "bg-amber-500",
+                )}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium leading-snug">{a.title}</div>
+                <p className="truncate text-xs text-muted-foreground">{a.description}</p>
+                {a.detail && (
+                  <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground/75">
+                    {a.detail}
+                  </p>
+                )}
+              </div>
+              {a.action && (
+                <Button asChild size="sm" variant="ghost" className="h-7 shrink-0 gap-1 px-2 text-xs">
+                  <Link to={a.action.to}>
+                    {a.action.label}
+                    <ArrowUpRight className="h-3 w-3" />
+                  </Link>
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+const UPCOMING_STATUS: Record<
+  ClientUpcomingItem["status"],
+  { label: string; dot: string; text: string }
+> = {
+  scheduled: { label: "Agendado", dot: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
+  awaiting_approval: {
+    label: "Aguardando aprovação",
+    dot: "bg-amber-500",
+    text: "text-amber-600 dark:text-amber-400",
+  },
+  failed: { label: "Falha", dot: "bg-destructive", text: "text-destructive" },
+  published: { label: "Publicado", dot: "bg-emerald-500", text: "text-emerald-600 dark:text-emerald-400" },
+};
+
+function UpcomingPanel({ items }: { items: ClientUpcomingItem[] }) {
+  return (
+    <Panel
+      title="Próximas publicações"
+      subtitle="Agenda dos próximos 7 dias"
+      action={
+        <Link
+          to="/calendar"
+          className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          Calendário →
+        </Link>
+      }
+    >
+      {items.length === 0 ? (
+        <PanelEmpty
+          title="Nenhuma publicação agendada"
+          text="Sua próxima publicação aparecerá aqui."
+          cta={{ label: "Ir para calendário", to: "/calendar" }}
+        />
+      ) : (
+        <ul className="divide-y divide-border/40">
+          {items.map((item) => {
+            const status = UPCOMING_STATUS[item.status];
+            return (
+              <li key={item.id}>
+                <Link
+                  to="/content"
+                  search={{ post: item.id }}
+                  className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-muted/50"
+                >
+                  <div className="w-[62px] shrink-0">
+                    <div className="text-[11px] font-semibold uppercase tabular-nums leading-tight">
+                      {format(parseISO(item.scheduledAt), "dd MMM", { locale: ptBR })}
+                    </div>
+                    <div className="text-[11px] tabular-nums text-muted-foreground">
+                      {format(parseISO(item.scheduledAt), "HH:mm")}
+                    </div>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium leading-snug">{item.title}</div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {[item.channels.join(" + ") || null, item.format].filter(Boolean).join(" · ") ||
+                        "Sem canal definido"}
+                    </div>
+                  </div>
+                  <span
+                    className={cn(
+                      "flex shrink-0 items-center gap-1.5 text-[11px] font-medium",
+                      status.text,
+                    )}
+                  >
+                    <span className={cn("h-1.5 w-1.5 rounded-full", status.dot)} />
+                    {status.label}
+                  </span>
+                  <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
+function ActivityPanel({ items, clientId }: { items: ClientActivityItem[]; clientId: string }) {
+  const visible = items.slice(0, 8);
+  return (
+    <Panel
+      title="Atividade recente"
+      subtitle="O que aconteceu nesta conta"
+      action={
+        items.length > 0 ? (
+          <Link
+            to="/customers/$customerId"
+            params={{ customerId: clientId }}
+            className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Ver tudo →
+          </Link>
+        ) : null
+      }
+    >
+      {visible.length === 0 ? (
+        <PanelEmpty
+          title="Nenhuma atividade registrada"
+          text="As movimentações de conteúdo desta conta aparecem aqui."
+        />
+      ) : (
+        <ul className="grid gap-x-6 px-4 py-2 md:grid-cols-2">
+          {visible.map((a) => (
+            <li key={a.id} className="flex items-start gap-2.5 py-2">
+              <span
+                className={cn(
+                  "mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full",
+                  a.tone === "positive"
+                    ? "bg-emerald-500"
+                    : a.tone === "attention"
+                      ? "bg-amber-500"
+                      : "bg-violet-500/70",
+                )}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[13px] font-medium leading-snug">{a.description}</div>
+                <div className="truncate text-[11px] text-muted-foreground">{a.title}</div>
+              </div>
+              <span className="shrink-0 pt-0.5 text-[11px] tabular-nums text-muted-foreground/80">
+                {format(parseISO(a.at), "dd MMM · HH:mm", { locale: ptBR })}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
+  );
+}
+
+// ══ Primitivas locais ════════════════════════════════════════
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return <div className="w-full space-y-4 px-4 py-5 sm:px-6 lg:px-8">{children}</div>;
+}
 
 function Panel({
   title,
   subtitle,
   action,
-  muted,
   children,
 }: {
   title: string;
   subtitle?: string;
   action?: React.ReactNode;
-  muted?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <section
-      className={cn(
-        "overflow-hidden rounded-xl border border-border/60 bg-card",
-        muted && "bg-card/60",
-      )}
-    >
+    <section className="overflow-hidden rounded-xl border border-border/60 bg-card">
       <header className="flex items-center justify-between gap-3 border-b border-border/40 px-4 py-2.5">
-        <div>
-          <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
-          {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
+        <div className="min-w-0">
+          <h2 className="truncate text-sm font-semibold tracking-tight">{title}</h2>
+          {subtitle && <p className="truncate text-xs text-muted-foreground">{subtitle}</p>}
         </div>
         {action}
       </header>
@@ -465,130 +720,124 @@ function Panel({
   );
 }
 
-function PanelEmpty({ text }: { text: string }) {
-  return <p className="px-4 py-8 text-center text-xs text-muted-foreground">{text}</p>;
+function PanelEmpty({
+  title,
+  text,
+  cta,
+}: {
+  title: string;
+  text: string;
+  cta?: { label: string; to: string; params?: Record<string, string> };
+}) {
+  return (
+    <div className="flex flex-col items-center gap-1.5 px-6 py-9 text-center">
+      <p className="text-sm font-medium">{title}</p>
+      <p className="max-w-sm text-xs text-muted-foreground">{text}</p>
+      {cta && (
+        <Button asChild size="sm" variant="outline" className="mt-2 h-7 text-xs">
+          {cta.params ? (
+            <Link to={cta.to as never} params={cta.params as never}>
+              {cta.label}
+            </Link>
+          ) : (
+            <Link to={cta.to as never}>{cta.label}</Link>
+          )}
+        </Button>
+      )}
+    </div>
+  );
 }
 
-function SummaryCard({
+function MetricCell({
   icon,
   label,
   value,
-  sub,
-  tone = "muted",
+  hint,
+  tone = "neutral",
   to,
+  cta,
 }: {
   icon: React.ReactNode;
   label: string;
   value: number;
-  sub: string;
-  tone?: "muted" | "attention" | "critical";
+  hint: React.ReactNode;
+  tone?: "neutral" | "warning" | "critical" | "positive";
   to: string;
+  cta: string;
 }) {
   return (
     <Link
-      to={to}
+      to={to as never}
+      className="group relative flex flex-col gap-1 px-4 py-3.5 transition-colors hover:bg-muted/40"
+    >
+      <span
+        className={cn(
+          "flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide",
+          tone === "critical"
+            ? "text-destructive"
+            : tone === "warning"
+              ? "text-amber-600 dark:text-amber-400"
+              : tone === "positive"
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-muted-foreground",
+        )}
+      >
+        {icon}
+        {label}
+      </span>
+      <span className="text-[26px] font-semibold leading-none tabular-nums">{value}</span>
+      <span className="min-h-[16px] text-[11px] leading-tight">{hint}</span>
+      <span className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
+        {cta}
+        <ArrowRight className="h-3 w-3" />
+      </span>
+    </Link>
+  );
+}
+
+function DeltaHint({ current, previous }: { current: number; previous: number }) {
+  const delta = current - previous;
+  if (delta === 0)
+    return <span className="text-muted-foreground/80">estável vs. período anterior</span>;
+  const up = delta > 0;
+  return (
+    <span
       className={cn(
-        "group rounded-xl border bg-card p-4 transition-colors hover:border-primary/40",
-        tone === "critical"
-          ? "border-destructive/40"
-          : tone === "attention"
-            ? "border-amber-500/40"
-            : "border-border/60",
+        "inline-flex items-center gap-1",
+        up ? "text-emerald-600 dark:text-emerald-400" : "text-amber-600 dark:text-amber-400",
       )}
     >
-      <div className="flex items-center justify-between">
-        <span
-          className={cn(
-            "flex items-center gap-1.5 text-xs font-medium text-muted-foreground",
-            tone === "critical" && "text-destructive",
-            tone === "attention" && "text-amber-600 dark:text-amber-400",
-          )}
-        >
-          {icon}
-          {label}
-        </span>
-        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-      </div>
-      <div className="mt-2 text-2xl font-semibold tabular-nums">{value}</div>
-      <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{sub}</p>
-    </Link>
+      {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+      {up ? "+" : ""}
+      {delta} vs. anterior ({previous})
+    </span>
   );
 }
 
 function MiniStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border/50 px-3 py-2">
+    <div className="rounded-lg bg-muted/40 px-2.5 py-1.5">
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="truncate text-sm font-semibold">{value}</div>
+      <div className="truncate text-[13px] font-semibold">{value}</div>
     </div>
   );
 }
 
-const UPCOMING_STATUS: Record<
-  ClientUpcomingItem["status"],
-  { label: string; className: string }
-> = {
-  scheduled: { label: "Agendado", className: "border-border/60 text-muted-foreground" },
-  awaiting_approval: {
-    label: "Aguardando aprovação",
-    className: "border-amber-500/40 text-amber-600 dark:text-amber-400",
-  },
-  failed: { label: "Falha", className: "border-destructive/40 text-destructive" },
-  published: {
-    label: "Publicado",
-    className: "border-emerald-500/40 text-emerald-600 dark:text-emerald-400",
-  },
-};
-
-function UpcomingRow({ item }: { item: ClientUpcomingItem }) {
-  const status = UPCOMING_STATUS[item.status];
+function DashboardSkeleton() {
   return (
-    <li>
-      <Link
-        to="/content"
-        search={{ post: item.id }}
-        className="flex items-start gap-3 px-4 py-2.5 transition-colors hover:bg-muted/40"
-      >
-        <span className="w-[86px] shrink-0 text-xs font-medium tabular-nums text-muted-foreground">
-          {format(parseISO(item.scheduledAt), "dd MMM · HH:mm", { locale: ptBR })}
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium">{item.title}</div>
-          <div className="truncate text-xs text-muted-foreground">
-            {[item.channels.join(" + ") || null, item.format].filter(Boolean).join(" · ") ||
-              "Sem canal definido"}
-          </div>
-        </div>
-        <Badge variant="outline" className={cn("shrink-0 text-[10px]", status.className)}>
-          {status.label}
-        </Badge>
-      </Link>
-    </li>
-  );
-}
-
-function AttentionRow({ item }: { item: ClientAttentionItem }) {
-  return (
-    <li className="flex items-start gap-3 px-4 py-3">
-      <span
-        className={cn(
-          "mt-1 h-2 w-2 shrink-0 rounded-full",
-          item.severity === "critical" ? "bg-destructive" : "bg-amber-500",
-        )}
-      />
-      <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium">{item.title}</div>
-        <p className="truncate text-xs text-muted-foreground">{item.description}</p>
-        {item.detail && (
-          <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground/80">{item.detail}</p>
-        )}
+    <Shell>
+      <Skeleton className="h-4 w-56" />
+      <Skeleton className="h-[104px] rounded-xl" />
+      <Skeleton className="h-[116px] rounded-xl" />
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+        <Skeleton className="h-[300px] rounded-xl" />
+        <Skeleton className="h-[300px] rounded-xl" />
       </div>
-      {item.action && (
-        <Button asChild size="sm" variant="outline" className="h-7 shrink-0 text-xs">
-          <Link to={item.action.to}>{item.action.label}</Link>
-        </Button>
-      )}
-    </li>
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Skeleton className="h-56 rounded-xl" />
+        <Skeleton className="h-56 rounded-xl" />
+      </div>
+    </Shell>
   );
 }
 
@@ -598,10 +847,3 @@ function shortDay(iso: string): string {
 function longDay(iso: string): string {
   return format(parseISO(`${iso}T12:00:00`), "dd 'de' MMMM", { locale: ptBR });
 }
-function formatDelta(delta: number): string {
-  if (delta === 0) return "estável";
-  return `${delta > 0 ? "+" : ""}${delta}`;
-}
-
-// Ícone não usado diretamente aqui, mantido para clareza de intenção.
-void CalendarClock;
