@@ -131,6 +131,7 @@ export function OperationsPanel({
   return (
     <div className="flex flex-col gap-3">
       <Block
+        tone="border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-300"
         icon={<CalendarClock className="h-4 w-4" />}
         title="Próximas publicações"
         count={`${upcoming.length} na fila`}
@@ -184,6 +185,7 @@ export function OperationsPanel({
       </Block>
 
       <Block
+        tone="border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300"
         icon={<AlertTriangle className="h-4 w-4" />}
         title="Precisam de atenção"
         count={
@@ -243,6 +245,7 @@ export function OperationsPanel({
       </Block>
 
       <Block
+        tone="border-destructive/30 bg-destructive/10 text-destructive"
         icon={<XCircle className="h-4 w-4" />}
         title="Falhas recentes"
         count={
@@ -297,6 +300,7 @@ export function OperationsPanel({
       </Block>
 
       <Block
+        tone="border-border/60 bg-muted/50 text-muted-foreground"
         icon={<FileText className="h-4 w-4" />}
         title="Rascunhos"
         count={
