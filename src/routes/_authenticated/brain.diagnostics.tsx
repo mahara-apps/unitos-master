@@ -21,7 +21,6 @@ import {
 import { usePageHeader } from "@/hooks/use-page-header";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageKpi, PageKpiGrid, type KpiStatus } from "@/components/ui/page-kpi";
 import {
