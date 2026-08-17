@@ -224,15 +224,17 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
 
       try {
         if (needPages) {
+          const knownPages = cachedPages;
+          const knownIg = cachedStandaloneIg;
           const scan = await provider.scanPortfolio(userToken);
-          console.log("[getMetaPortfolio] scan result", {
-            pages: scan.pages.length,
-            withIg: scan.pages.filter((p) => !!p.instagramBusinessId).length,
-            standaloneIg: scan.standaloneInstagram.length,
-            businesses: scan.businessCount,
-            warnings: scan.warnings.length,
-          });
-          cachedPages = scan.pages.map((p) => ({
+          console.log(
+            `Meta discovery: requests=${scan.requestCount} cache=${
+              seededFromCache ? "seeded" : "miss"
+            } deep=${scan.deep} pages=${scan.pages.length} withIg=${
+              scan.pages.filter((p) => !!p.instagramBusinessId).length
+            } standaloneIg=${scan.standaloneInstagram.length} warnings=${scan.warnings.length}`,
+          );
+          const fresh = scan.pages.map((p) => ({
             pageId: p.pageId,
             pageName: p.pageName,
             category: p.category ?? null,
@@ -242,16 +244,22 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
             instagramPictureUrl: p.instagramPictureUrl ?? null,
             pageAccessToken: p.pageAccessToken,
           }));
-          cachedStandaloneIg = scan.standaloneInstagram.map((i) => ({
+          // Never lose assets that a previous scan already proved to exist.
+          cachedPages = mergeDiscoveredPages(fresh, knownPages) as typeof cachedPages;
+          const freshIg = scan.standaloneInstagram.map((i) => ({
             instagramId: i.instagramId,
             username: i.username,
             name: i.name,
             pictureUrl: i.pictureUrl,
             businessName: i.businessName,
           }));
+          const igById = new Map(knownIg.map((i) => [i.instagramId, i]));
+          for (const i of freshIg) igById.set(i.instagramId, i);
+          cachedStandaloneIg = Array.from(igById.values());
           scanWarnings = scan.warnings;
-          businessCount = scan.businessCount;
+          businessCount = scan.businessCount || businessCount;
         }
+
 
         if (needThreads) {
           const pagesForThreads = cachedPages.map((p) => ({
