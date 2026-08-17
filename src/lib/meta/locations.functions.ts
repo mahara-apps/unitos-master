@@ -135,13 +135,18 @@ export const searchInstagramLocationsFn = createServerFn({ method: "GET" })
             return {
               ok: false,
               results: [],
-              error: err.graph?.message ?? err.message,
+              error: friendlyGraphError(err.graph?.message ?? err.message),
             };
           }
           throw err;
         }
       } catch (err) {
-        return { ok: false, results: [], error: (err as Error).message };
+        return {
+          ok: false,
+          results: [],
+          error: friendlyGraphError((err as Error).message),
+        };
       }
+
     },
   );
