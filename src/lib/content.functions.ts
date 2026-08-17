@@ -976,7 +976,22 @@ export const updatePostFn = createServerFn({ method: "POST" })
       patch.channels = deriveChannelsFromDestinations(data.destinations);
       patch.target_connection_ids = deriveTargetConnectionIds(data.destinations);
     }
+
+    // Regra dos 5 minutos: só vale para peça JÁ agendada (fila ativa). Mudar a
+    // data de uma peça em produção/ideia é planejamento editorial, não fila.
+    if (typeof patch.scheduled_at === "string") {
+      const { data: cur } = await context.supabase
+        .from("posts")
+        .select("stage")
+        .eq("id", data.postId)
+        .maybeSingle();
+      if ((cur?.stage as string | null) === "scheduled") {
+        assertScheduleLead(patch.scheduled_at as string);
+      }
+    }
+
     const { error } = await context.supabase
+
       .from("posts")
       .update(patch as never)
       .eq("id", data.postId);
