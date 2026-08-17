@@ -526,13 +526,20 @@ function CandidateRow({
 }: {
   row: WorkspaceChannel;
   pending: boolean;
-  onSelect: () => void;
+  onSelect?: () => void;
 }) {
   const def = channelDef(row.channel);
   const Icon = def.icon;
+  const taken = !onSelect;
+  const ownerName = row.clients[0]?.name ?? null;
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border/50 p-3">
+    <div
+      className={cn(
+        "flex items-center gap-3 rounded-lg border border-border/50 p-3",
+        taken && "opacity-60",
+      )}
+    >
       <Avatar className="h-8 w-8 shrink-0">
         <AvatarImage src={row.avatarUrl ?? undefined} alt={row.accountLabel} />
         <AvatarFallback className="text-[10px] uppercase">
@@ -546,17 +553,25 @@ function CandidateRow({
         </div>
         <p className="truncate text-xs text-muted-foreground">
           {row.handle ? `@${row.handle.replace(/^@/, "")}` : row.accountLabel}
+          {taken && ownerName ? ` · ${ownerName}` : ""}
         </p>
       </div>
       <Button
         size="sm"
         variant="outline"
         className="h-7 shrink-0 px-2.5 text-xs"
-        disabled={pending}
+        disabled={pending || taken}
         onClick={onSelect}
       >
-        {pending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Selecionar"}
+        {taken ? (
+          "Indisponível"
+        ) : pending ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          "Selecionar"
+        )}
       </Button>
     </div>
+
   );
 }
