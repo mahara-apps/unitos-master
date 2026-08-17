@@ -13,10 +13,18 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { describeError } from "@/lib/errors";
 import {
   listPostPublicationStateFn,
+  rebindPlacementConnectionFn,
   retryFailedPlacementFn,
 } from "@/lib/publish-retry.functions";
 
@@ -38,9 +46,16 @@ const FORMAT_LABEL: Record<string, string> = {
 };
 
 /**
- * Painel "Publicação" do composer. Mostra o estado REAL por destino e permite
- * republicar individualmente apenas os destinos que falharam (nunca reenvia
- * destinos já publicados).
+ * Painel "Publicação" do composer.
+ *
+ * Separa três conceitos que antes se misturavam:
+ *  1. HISTÓRICO da publicação (placements, inclusive de contas já removidas);
+ *  2. DESTINOS ATUAIS (client_social_accounts → social_connections ativas);
+ *  3. seleção atual do composer (fora deste painel).
+ *
+ * Uma conta removida nunca volta como destino publicável: para recuperar um
+ * destino histórico o usuário escolhe EXPLICITAMENTE uma conta atual do mesmo
+ * canal (nunca casamento por username) e só então republicamos aquele destino.
  */
 export function PublicationStatusPanel({
   postId,
@@ -52,7 +67,9 @@ export function PublicationStatusPanel({
   const qc = useQueryClient();
   const listState = useServerFn(listPostPublicationStateFn);
   const retryFn = useServerFn(retryFailedPlacementFn);
+  const rebindFn = useServerFn(rebindPlacementConnectionFn);
   const [retrying, setRetrying] = useState<string | null>(null);
+  const [picked, setPicked] = useState<Record<string, string>>({});
 
   const stateQ = useQuery({
     queryKey: ["post-publication-state", postId],
@@ -74,14 +91,19 @@ export function PublicationStatusPanel({
     );
   if (!relevant) return null;
 
+  async function refresh() {
+    await qc.invalidateQueries({ queryKey: ["post-publication-state", postId] });
+    await qc.invalidateQueries({ queryKey: ["calendar-posts"] });
+    await qc.invalidateQueries({ queryKey: ["publication-board"] });
+  }
+
   async function handleRetry(placementId: string, label: string) {
     if (retrying) return;
     setRetrying(placementId);
     try {
       await retryFn({ data: { postId, brandId, placementId } });
       toast.success(`${label} recolocado na fila de publicação.`);
-      await qc.invalidateQueries({ queryKey: ["post-publication-state", postId] });
-      await qc.invalidateQueries({ queryKey: ["calendar-posts"] });
+      await refresh();
     } catch (e) {
       toast.error(describeError(e));
     } finally {
@@ -89,7 +111,31 @@ export function PublicationStatusPanel({
     }
   }
 
-  const failed = state!.destinations.filter((d) => d.canRetry);
+  /** Recupera destino histórico: revincula à conta atual escolhida + republica. */
+  async function handleRecover(placementId: string, label: string) {
+    const connectionId = picked[placementId];
+    if (!connectionId) {
+      toast.error("Escolha a conta atual que deve publicar este destino.");
+      return;
+    }
+    if (retrying) return;
+    setRetrying(placementId);
+    try {
+      await rebindFn({ data: { postId, brandId, placementId, connectionId } });
+      await retryFn({ data: { postId, brandId, placementId } });
+      toast.success(`${label} recuperado e recolocado na fila de publicação.`);
+      await refresh();
+    } catch (e) {
+      toast.error(describeError(e));
+    } finally {
+      setRetrying(null);
+    }
+  }
+
+  const destinations = state!.destinations;
+  const targets = state!.availableTargets ?? [];
+  const failed = destinations.filter((d) => d.canRetry);
+  const recoverable = destinations.filter((d) => d.needsRebind);
 
   return (
     <section className="rounded-lg border border-border/70 bg-muted/20 p-3">
@@ -131,10 +177,22 @@ export function PublicationStatusPanel({
         ) : null}
       </header>
 
+      {recoverable.length ? (
+        <p className="mb-2 flex items-start gap-1.5 rounded-md border border-orange-500/40 bg-orange-500/5 px-2.5 py-2 text-[11px] leading-snug text-orange-700 dark:text-orange-300">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          Esta publicação possui destinos históricos que não estão mais conectados.
+          Escolha a conta atual do cliente para recuperar cada destino pendente.
+        </p>
+      ) : null}
+
+      <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        Histórico da publicação
+      </h4>
       <ul className="space-y-1.5">
-        {state!.destinations.map((d) => {
+        {destinations.map((d) => {
           const label = CHANNEL_LABEL[d.channel] ?? d.channel ?? "Destino";
           const fmt = FORMAT_LABEL[d.format] ?? d.format;
+          const options = targets.filter((t) => !d.channel || t.channel === d.channel);
           return (
             <li
               key={d.placementId}
@@ -160,8 +218,21 @@ export function PublicationStatusPanel({
                     {label} · {fmt}
                   </span>
                   <span className="truncate text-[11px] text-muted-foreground">
-                    {d.accountLabel ? `@${d.accountLabel}` : ""}
+                    {d.historical
+                      ? "Conta removida"
+                      : d.accountLabel
+                        ? `@${d.accountLabel}`
+                        : ""}
                   </span>
+                  {d.status === "published" ? (
+                    <Badge variant="outline" className="h-5 shrink-0 text-[10px]">
+                      Publicado
+                    </Badge>
+                  ) : d.historical ? (
+                    <Badge variant="outline" className="h-5 shrink-0 text-[10px]">
+                      Histórico
+                    </Badge>
+                  ) : null}
                 </div>
                 <div className="flex shrink-0 items-center gap-1.5">
                   {d.permalink ? (
@@ -192,6 +263,57 @@ export function PublicationStatusPanel({
                   ) : null}
                 </div>
               </div>
+
+              {d.needsRebind ? (
+                <div className="mt-2 space-y-1.5 rounded-md border border-border/60 bg-background px-2.5 py-2">
+                  <p className="text-[11px] text-muted-foreground">
+                    {options.length
+                      ? `Destinos atuais disponíveis para ${label}: escolha a conta que deve publicar.`
+                      : `Nenhuma conta ${label} vinculada a este cliente hoje. Vincule em Perfil do cliente > Canais.`}
+                  </p>
+                  {options.length ? (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Select
+                        value={picked[d.placementId] ?? ""}
+                        onValueChange={(v) =>
+                          setPicked((prev) => ({ ...prev, [d.placementId]: v }))
+                        }
+                      >
+                        <SelectTrigger className="h-7 w-[260px] text-[11px]">
+                          <SelectValue placeholder="Selecionar conta atual" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {options.map((t) => (
+                            <SelectItem
+                              key={t.connectionId}
+                              value={t.connectionId}
+                              className="text-[11px]"
+                            >
+                              {CHANNEL_LABEL[t.channel] ?? t.channel} ·{" "}
+                              {t.handle ? `@${t.handle}` : t.accountLabel}
+                              {t.externalId ? ` · ID ${t.externalId}` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        size="sm"
+                        className="h-7 text-[11px]"
+                        disabled={!!retrying || !picked[d.placementId]}
+                        onClick={() => handleRecover(d.placementId, label)}
+                      >
+                        {retrying === d.placementId ? (
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        ) : (
+                          <RefreshCw className="mr-1 h-3 w-3" />
+                        )}
+                        Republicar {label}
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
               {d.status === "failed" && d.error ? (
                 <p className="mt-1 pl-5 text-[11px] leading-snug text-destructive">
                   {d.error}
@@ -212,6 +334,37 @@ export function PublicationStatusPanel({
           );
         })}
       </ul>
+
+      <h4 className="mb-1.5 mt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        Destinos disponíveis atualmente
+      </h4>
+      {targets.length ? (
+        <ul className="space-y-1">
+          {targets.map((t) => (
+            <li
+              key={t.connectionId}
+              className="flex items-center gap-2 rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-[11px]"
+            >
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+              <span className="font-medium">
+                {CHANNEL_LABEL[t.channel] ?? t.channel}
+              </span>
+              <span className="truncate text-muted-foreground">
+                {t.handle ? `@${t.handle}` : t.accountLabel}
+                {t.externalId ? ` · ID ${t.externalId}` : ""}
+              </span>
+              <span className="ml-auto shrink-0 text-emerald-600 dark:text-emerald-400">
+                Pronto para publicar
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="rounded-md border border-dashed border-border/70 px-2.5 py-2 text-[11px] text-muted-foreground">
+          Nenhuma conta vinculada a este cliente. Vincule em Perfil do cliente &gt;
+          Canais.
+        </p>
+      )}
     </section>
   );
 }
