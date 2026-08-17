@@ -24,15 +24,15 @@ export type AiModelStatus = {
 
 export const getAiModelStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async (): Promise<AiModelStatus> => {
+  .handler(async ({ context }): Promise<AiModelStatus> => {
     const { MODEL_CATALOG } = await import("@/lib/ai-models-catalog.server");
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    const { data: overrides } = await supabaseAdmin
+    // Leitura autenticada (RLS: apenas super admins veem overrides/health).
+    // Não usa service role — o painel é read-only para o usuário logado.
+    const { data: overrides } = await context.supabase
       .from("ai_model_catalog_overrides")
       .select("provider, role, model_id, replaced_model_id, reason, updated_at");
 
-    const { data: lastCheck } = await supabaseAdmin
+    const { data: lastCheck } = await context.supabase
       .from("ai_model_health")
       .select("checked_at")
       .order("checked_at", { ascending: false })
