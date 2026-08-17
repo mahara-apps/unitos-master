@@ -12,7 +12,7 @@ import {
   beginDiscovery,
 } from "./portfolio-shared";
 
-} from "./portfolio-shared";
+
 import type { PublishAuthorizationInfo } from "./portfolio-shared";
 
 
