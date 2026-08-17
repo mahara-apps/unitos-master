@@ -138,6 +138,7 @@ export function ScheduleWizard({
   const saveFn = useServerFn(saveScheduledPostFn);
   const registerMedia = useServerFn(registerBrandMediaFn);
   const loadPostState = useServerFn(loadPostStateFn);
+  const cancelSchedule = useServerFn(cancelPostScheduleFn);
 
   const [title, setTitle] = useState("");
   const [copy, setCopy] = useState("");
