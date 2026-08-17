@@ -327,9 +327,11 @@ function ProjectsIndexPage() {
     const all = projectsQ.data?.projects ?? [];
     const stats = projectsQ.data?.stats ?? {};
     const query = q.trim().toLowerCase();
+    // Arquivados só aparecem quando explicitamente pedidos.
+    const scoped = statusFilter === "archived" ? all : all.filter((r) => r.status !== "archived");
     const filtered = !query
-      ? all
-      : all.filter(
+      ? scoped
+      : scoped.filter(
           (r) =>
             r.name.toLowerCase().includes(query) ||
             clientName(r.client_id).toLowerCase().includes(query),
@@ -357,7 +359,7 @@ function ProjectsIndexPage() {
       if (va === vb) return a.name.localeCompare(b.name);
       return va > vb ? dir : -dir;
     });
-  }, [projectsQ.data, q, sortKey, sortDir, clients]);
+  }, [projectsQ.data, q, sortKey, sortDir, clients, statusFilter]);
 
   function onSort(k: SortKey) {
     if (k === sortKey) {
@@ -493,7 +495,7 @@ function ProjectsIndexPage() {
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Todos os status</SelectItem>
+              <SelectItem value="all">Ativos (sem arquivados)</SelectItem>
               {Object.entries(STATUS_META).map(([k, v]) => (
                 <SelectItem key={k} value={k}>
                   {v.label}
