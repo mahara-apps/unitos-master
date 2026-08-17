@@ -30,7 +30,7 @@ import {
   disconnectMeta,
   refreshMetaConnection,
   startMetaOAuth,
-  getActiveMetaSession,
+  
 } from "@/lib/meta/meta.functions";
 import { upsertChannel } from "@/lib/connections.functions";
 
@@ -414,7 +414,7 @@ function ConnectButton({
     try {
       const metaChannel = metaChannelFromId(channel.id);
       const { authorizeUrl } = await startFn({
-        data: { brandId, ...(metaChannel ? { channel: metaChannel } : {}) },
+        data: { brandId, ...(metaChannel ? { channel: metaChannel } : {}), forceReauth: true },
       });
       if (popup) popup.location.href = authorizeUrl;
       else window.location.href = authorizeUrl;
@@ -648,45 +648,21 @@ function ManageSheet({
   });
 
   const startOAuthFn = useServerFn(startMetaOAuth);
-  const getActiveSessionFn = useServerFn(getActiveMetaSession);
 
   /**
-   * Adds a Meta account. When `forceReauth` is false (default, "Adicionar
-   * conta"), we first check for an existing valid user token — if present,
-   * we simply open the account selector using the cached session instead of
-   * triggering an OAuth popup. `forceReauth: true` skips the reuse path and
-   * always opens the OAuth popup with `auth_type=reauthenticate` (used for
-   * "Conectar outro perfil Meta" and per-account "Reconectar" actions).
+   * Adds a Meta account. Every path goes through Meta's official dialog with
+   * `auth_type=reauthenticate`, so login + Page/Instagram asset selection are
+   * always shown. Existing sessions are never reused here — reusing them made
+   * the in-app account selector replace Meta's own consent screen.
    */
-  async function handleAddMeta(opts?: { forceReauth?: boolean }) {
-    const forceReauth = !!opts?.forceReauth;
+  async function handleAddMeta(_opts?: { forceReauth?: boolean }) {
     const metaChannel = metaChannelFromId(channel.id);
 
     // O popup precisa ser criado sincronamente no clique, senão o navegador
     // bloqueia a janela depois de qualquer `await`.
     const popup = window.open("", "meta-oauth", metaPopupFeatures());
 
-    // Fast-path: reuse an existing session and skip the popup entirely.
-    if (!forceReauth) {
-      try {
-        const { sessionId } = await getActiveSessionFn({ data: { brandId } });
-        if (sessionId) {
-          popup?.close();
-          window.postMessage(
-            {
-              source: "meta-oauth",
-              ok: true,
-              sessionId,
-              channel: metaChannel ?? null,
-            },
-            "*",
-          );
-          return;
-        }
-      } catch {
-        /* fall through to the OAuth popup */
-      }
-    }
+
 
 
     let completed = false;
@@ -716,7 +692,7 @@ function ManageSheet({
         data: {
           brandId,
           ...(metaChannel ? { channel: metaChannel } : {}),
-          forceReauth,
+          forceReauth: true,
         },
       });
       if (popup) popup.location.href = authorizeUrl;

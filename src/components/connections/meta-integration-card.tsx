@@ -137,7 +137,9 @@ export function MetaIntegrationCard({ brandId }: { brandId: string | null }) {
     const popup = window.open("", "meta-oauth", "width=640,height=760");
     setConnecting(source);
     try {
-      const { authorizeUrl } = await startFn({ data: { brandId, channel: source } });
+      const { authorizeUrl } = await startFn({
+        data: { brandId, channel: source, forceReauth: true },
+      });
       if (popup) popup.location.href = authorizeUrl;
       else window.location.href = authorizeUrl;
     } catch (e) {
