@@ -1,6 +1,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createGroq } from "@ai-sdk/groq";
 import type { LanguageModel } from "ai";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { decryptCredential } from "./credentials-crypto.server";
@@ -14,6 +15,7 @@ import {
 } from "./ai-models-catalog.server";
 
 import { IMAGE_PROVIDERS, supportsKind } from "./ai-capabilities";
+import { classifyAiError, unwrapAiError } from "./ai-failures.server";
 import { recordAiUsage, type AiUsageContext } from "./ai-usage.server";
 
 export type { AiUsageContext };
@@ -22,11 +24,33 @@ export type { AiUsageContext };
 export type { ProviderName, ProviderRole };
 export type ProviderKind = "text" | "image";
 
+/** Registro de cada tentativa por provedor — consumido pela observabilidade. */
+export type ProviderAttempt = {
+  provider: ProviderName;
+  model: string;
+  attempt: number;
+  result: "success" | string;
+};
+
 export type BrandAiModel = {
   provider: ProviderName;
   modelId: string;
   model: LanguageModel;
+  /** Provedor secundário elegível (fallback), quando configurado. */
+  fallbackProvider: ProviderName | null;
+  /**
+   * Array mutável preenchido em runtime com cada tentativa/troca de provedor.
+   * Os pipelines já existentes apenas o leem para gravar em `ai_jobs`.
+   */
+  providerAttempts: ProviderAttempt[];
 };
+
+/** Resumo curto (sem segredos) para gravar em ai_jobs. */
+export function describeProviderAttempts(attempts: ProviderAttempt[]): string {
+  return attempts
+    .map((a) => `${a.provider}/${a.model}#${a.attempt}:${a.result}`)
+    .join(" → ");
+}
 
 export type BrandProviderKey = {
   provider: ProviderName;
@@ -92,14 +116,56 @@ export async function getBrandProviderKey(
   return { provider, apiKey };
 }
 
-function instantiateModel(
+export function instantiateProviderModel(
   provider: ProviderName,
   apiKey: string,
   modelId: string,
 ): LanguageModel {
   if (provider === "openai") return createOpenAI({ apiKey })(modelId);
   if (provider === "anthropic") return createAnthropic({ apiKey })(modelId);
+  if (provider === "groq") return createGroq({ apiKey })(modelId);
   return createGoogleGenerativeAI({ apiKey })(modelId);
+}
+
+const instantiateModel = instantiateProviderModel;
+
+/**
+ * Provedor secundário da marca (`brand_connections.text_fallback_provider`).
+ * Só é elegível quando é diferente do principal, está conectado e possui
+ * chave decifrável. Retorna null quando não há fallback usável — marcas com um
+ * único provedor continuam funcionando exatamente como antes.
+ */
+export async function getBrandFallbackProviderKey(
+  supabase: SupabaseClient,
+  brandId: string,
+  primary: ProviderName,
+): Promise<BrandProviderKey | null> {
+  try {
+    const { data: conn } = await supabase
+      .from("brand_connections")
+      .select("text_fallback_provider, providers")
+      .eq("brand_id", brandId)
+      .maybeSingle();
+    const fallback = (conn as { text_fallback_provider?: string | null } | null)
+      ?.text_fallback_provider as ProviderName | null | undefined;
+    if (!fallback || fallback === primary) return null;
+    const providers = (conn?.providers ?? {}) as Record<string, { connected?: boolean } | undefined>;
+    if (!providers[fallback]?.connected) return null;
+    if (!supportsKind(fallback, "text")) return null;
+
+    const { data: credRow } = await supabase
+      .from("brand_api_credentials")
+      .select("ciphertext")
+      .eq("brand_id", brandId)
+      .eq("provider", fallback)
+      .maybeSingle();
+    if (!credRow?.ciphertext) return null;
+    const apiKey = await decryptCredential(credRow.ciphertext as string);
+    return { provider: fallback, apiKey };
+  } catch (err) {
+    console.warn("[ai-provider] fallback provider indisponível", err);
+    return null;
+  }
 }
 
 type ModelV2 = Extract<LanguageModel, { doGenerate: unknown }>;
