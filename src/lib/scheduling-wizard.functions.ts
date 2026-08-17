@@ -7,6 +7,7 @@ import {
   deriveTargetConnectionIds,
 } from "@/lib/placements.server";
 import { resolveStageIdByKey } from "@/lib/post-stage.server";
+import { assertScheduleLead } from "@/lib/schedule-rules";
 
 
 /**
@@ -443,17 +444,18 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const supabase = context.supabase;
 
-    // Validação de horário mínimo (>= agora + 5min) para agendamento
+    // Regra dos 5 minutos (fonte única: @/lib/schedule-rules)
     let scheduledIso: string | null = null;
     if (data.action === "schedule") {
       if (!data.scheduledAt) throw new Error("Data de agendamento obrigatória");
       const scheduled = new Date(data.scheduledAt);
-      const min = Date.now() + 5 * 60 * 1000;
-      if (scheduled.getTime() < min) {
-        throw new Error("Agende para pelo menos 5 minutos a partir de agora");
+      if (Number.isNaN(scheduled.getTime())) {
+        throw new Error("Data de agendamento inválida");
       }
+      assertScheduleLead(scheduled);
       scheduledIso = scheduled.toISOString();
     }
+
 
     // Pré-validação de agendamento: antes de gravar o post como "scheduled",
     // conferimos que cada destino suportado tem conexão ativa, token presente

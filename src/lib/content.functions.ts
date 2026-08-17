@@ -12,6 +12,7 @@ import {
   type PlacementDestination,
 } from "@/lib/placements.server";
 import { resolveLegacyStage } from "@/lib/post-stage.server";
+import { assertScheduleLead } from "@/lib/schedule-rules";
 
 
 const DestinationSchema = z.object({
@@ -975,7 +976,22 @@ export const updatePostFn = createServerFn({ method: "POST" })
       patch.channels = deriveChannelsFromDestinations(data.destinations);
       patch.target_connection_ids = deriveTargetConnectionIds(data.destinations);
     }
+
+    // Regra dos 5 minutos: só vale para peça JÁ agendada (fila ativa). Mudar a
+    // data de uma peça em produção/ideia é planejamento editorial, não fila.
+    if (typeof patch.scheduled_at === "string") {
+      const { data: cur } = await context.supabase
+        .from("posts")
+        .select("stage")
+        .eq("id", data.postId)
+        .maybeSingle();
+      if ((cur?.stage as string | null) === "scheduled") {
+        assertScheduleLead(patch.scheduled_at as string);
+      }
+    }
+
     const { error } = await context.supabase
+
       .from("posts")
       .update(patch as never)
       .eq("id", data.postId);
@@ -989,6 +1005,16 @@ export const updatePostFn = createServerFn({ method: "POST" })
         .update({ scheduled_at: patch.scheduled_at as string | null } as never)
         .eq("post_id", data.postId)
         .neq("status", "published");
+
+      // Reagendamento de peça JÁ enfileirada precisa mover a fila real
+      // (`social_posts`), senão o worker publicaria no horário antigo.
+      if (typeof patch.scheduled_at === "string") {
+        await context.supabase
+          .from("social_posts")
+          .update({ scheduled_at: patch.scheduled_at })
+          .eq("post_id", data.postId)
+          .eq("status", "scheduled");
+      }
     }
 
 
