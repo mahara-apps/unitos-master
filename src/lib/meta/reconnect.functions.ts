@@ -64,7 +64,7 @@ async function loadConnection(
   const res = await supabase
     .from("social_connections")
     .select(
-      "id, channel, external_id, external_name, account_id, account_username, page_id, instagram_business_id, access_token_ciphertext",
+      "id, channel, status, external_id, external_name, account_id, account_username, page_id, instagram_business_id, access_token_ciphertext",
     )
     .eq("id", connectionId)
     .eq("brand_id", brandId)
@@ -74,6 +74,7 @@ async function loadConnection(
   return res.data as {
     id: string;
     channel: string;
+    status: string;
     external_id: string;
     external_name: string | null;
     account_id: string | null;
@@ -82,6 +83,7 @@ async function loadConnection(
     instagram_business_id: string | null;
     access_token_ciphertext: string;
   } | null;
+
 }
 
 export const inspectMetaConnectionFn = createServerFn({ method: "POST" })
