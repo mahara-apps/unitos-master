@@ -782,16 +782,30 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
 
 
 
+/** Remoção = revogação lógica (mesma regra de `disconnectMeta`). */
 export const unlinkMetaAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => UnlinkInput.parse(input))
   .handler(async ({ data, context }) => {
+    const { error: linkErr } = await context.supabase
+      .from("client_social_accounts")
+      .delete()
+      .eq("connection_id", data.connectionId)
+      .eq("brand_id", data.brandId);
+    if (linkErr) throw linkErr;
+
     const { error } = await context.supabase
       .from("social_connections")
-      .delete()
+      .update({
+        status: "revoked",
+        client_id: null,
+        last_error: "Canal removido do workspace pela equipe.",
+        last_synced_at: new Date().toISOString(),
+      })
       .eq("id", data.connectionId)
       .eq("brand_id", data.brandId)
       .eq("provider", "meta");
     if (error) throw error;
     return { ok: true };
   });
+
