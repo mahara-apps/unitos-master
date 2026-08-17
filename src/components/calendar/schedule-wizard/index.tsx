@@ -1537,9 +1537,10 @@ function LocationCombobox({
             <Loader2 className="h-3 w-3 animate-spin" /> Buscando…
           </div>
         ) : searchQ.data && !searchQ.data.ok ? (
-          <div className="p-2 text-[11px] text-destructive">
+          <div className="max-w-full break-words p-2 text-[11px] leading-snug text-amber-600 dark:text-amber-400">
             {searchQ.data.error ?? "Falha na busca."}
           </div>
+
         ) : (searchQ.data?.results ?? []).length === 0 ? (
           <div className="p-2 text-[11px] text-muted-foreground">
             Nenhum local encontrado para “{debounced}”.
