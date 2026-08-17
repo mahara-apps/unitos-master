@@ -17,6 +17,21 @@ export type BrainDiagnostics = {
     day: WindowStats;
     total: WindowStats;
   };
+  /** Saúde do worker de aprendizado (pg_cron). Se estiver parado, o Brain
+   *  não aprende — e isso precisa ser visível, não silencioso. */
+  worker: {
+    lastRunAt: string | null;
+    lastStatus: string | null;
+    lastDurationMs: number | null;
+    lastError: string | null;
+    minutesSinceLastRun: number | null;
+    healthy: boolean;
+    runs24h: number;
+    failures24h: number;
+    discarded24h: number;
+    processed24h: number;
+    memoriesTouched24h: number;
+  };
   queue: {
     pending: number;
     running: number;
@@ -37,6 +52,9 @@ export type BrainDiagnostics = {
     id: string;
     memory_type: string;
     key: string;
+    title: string | null;
+    category: string | null;
+    scope: string | null;
     version: number;
     confidence: number;
     updated_at: string;
@@ -142,7 +160,7 @@ export const brainDiagnosticsFn = createServerFn({ method: "POST" })
           sb
             .from("brain_learning_queue")
             .select("id", { count: "exact", head: true })
-            .eq("status", "processed")
+            .eq("status", "done")
             .gte("processed_at", isoAgo(3_600_000)),
         ),
         scope(
@@ -157,7 +175,7 @@ export const brainDiagnosticsFn = createServerFn({ method: "POST" })
           sb
             .from("brain_learning_queue")
             .select("started_at,processed_at")
-            .eq("status", "processed")
+            .eq("status", "done")
             .gte("processed_at", isoAgo(3_600_000))
             .not("started_at", "is", null)
             .not("processed_at", "is", null)
@@ -188,6 +206,54 @@ export const brainDiagnosticsFn = createServerFn({ method: "POST" })
       ? Math.round((Date.now() - new Date(oldestRow.enqueued_at).getTime()) / 1000)
       : null;
 
+    // Saúde do worker: última execução + agregados de 24h.
+    const [lastRunQ, runs24hQ] = await Promise.all([
+      sb
+        .from("brain_worker_runs")
+        .select("started_at,finished_at,status,duration_ms,error,processed,discarded,failed,memories_created,memories_updated")
+        .order("started_at", { ascending: false })
+        .limit(1),
+      sb
+        .from("brain_worker_runs")
+        .select("status,processed,discarded,failed,memories_created,memories_updated")
+        .gte("started_at", isoAgo(86_400_000))
+        .limit(2000),
+    ]);
+
+    type RunRow = {
+      started_at: string;
+      status: string | null;
+      duration_ms: number | null;
+      error: string | null;
+      processed: number | null;
+      discarded: number | null;
+      failed: number | null;
+      memories_created: number | null;
+      memories_updated: number | null;
+    };
+    const lastRun = ((lastRunQ.data ?? [])[0] ?? null) as RunRow | null;
+    const runs = (runs24hQ.data ?? []) as RunRow[];
+    const sum = (k: keyof RunRow) =>
+      runs.reduce((acc: number, r) => acc + (Number(r[k] ?? 0) || 0), 0);
+    const minutesSinceLastRun = lastRun
+      ? Math.round((Date.now() - new Date(lastRun.started_at).getTime()) / 60_000)
+      : null;
+    const worker = {
+      lastRunAt: lastRun?.started_at ?? null,
+      lastStatus: lastRun?.status ?? null,
+      lastDurationMs: lastRun?.duration_ms ?? null,
+      lastError: lastRun?.error ?? null,
+      minutesSinceLastRun,
+      // O cron roda a cada minuto; acima de 10min sem execução é falha.
+      healthy:
+        !!lastRun && lastRun.status !== "error" && (minutesSinceLastRun ?? 999) <= 10,
+      runs24h: runs.length,
+      failures24h: runs.filter((r) => r.status === "error").length,
+      discarded24h: sum("discarded"),
+      processed24h: sum("processed"),
+      memoriesTouched24h: sum("memories_created") + sum("memories_updated"),
+    };
+
     // Recent lists
     const [evRecent, memRecent, insRecent] = await Promise.all([
       scope(
@@ -200,7 +266,7 @@ export const brainDiagnosticsFn = createServerFn({ method: "POST" })
       scope(
         sb
           .from("brain_memory")
-          .select("id,memory_type,key,version,confidence,updated_at,reinforcement_count")
+          .select("id,memory_type,key,title,category,scope,version,confidence,updated_at,reinforcement_count")
           .eq("status", "active")
           .order("updated_at", { ascending: false })
           .limit(10),
@@ -217,6 +283,7 @@ export const brainDiagnosticsFn = createServerFn({ method: "POST" })
     return {
       generatedAt: new Date().toISOString(),
       windows: { minute, hour, day, total },
+      worker,
       queue: {
         pending: pendingQ.count ?? 0,
         running: runningQ.count ?? 0,
