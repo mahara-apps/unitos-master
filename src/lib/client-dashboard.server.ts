@@ -161,7 +161,8 @@ export async function buildClientDashboard(
   // Só comparamos quando existe base anterior real.
   const publishedPreviousRange = prevPublished > 0 ? prevPublished : null;
 
-  const dayKeys: string[] = Array.from({ length: Math.min(rangeDays, 90) }, (_, i) => {
+  const buckets = Math.min(rangeDays, 90);
+  const dayKeys: string[] = Array.from({ length: buckets }, (_, i) => {
     const d = new Date(safeFrom + i * DAY);
     d.setUTCHours(0, 0, 0, 0);
     return d.toISOString().slice(0, 10);
@@ -171,12 +172,29 @@ export async function buildClientDashboard(
     const key = String(p.published_at).slice(0, 10);
     if (trendMap.has(key)) trendMap.set(key, (trendMap.get(key) ?? 0) + 1);
   }
-  const publishTrend = Array.from(trendMap, ([day, count]) => ({ day, count }));
+  // Série alinhada do período anterior (mesmo número de dias, deslocado).
+  const prevKeys = Array.from({ length: buckets }, (_, i) => {
+    const d = new Date(safeFrom - rangeDays * DAY + i * DAY);
+    d.setUTCHours(0, 0, 0, 0);
+    return d.toISOString().slice(0, 10);
+  });
+  const prevMap = new Map<string, number>(prevKeys.map((d) => [d, 0]));
+  for (const p of scopedPosts) {
+    if (!p.published_at) continue;
+    const key = String(p.published_at).slice(0, 10);
+    if (prevMap.has(key)) prevMap.set(key, (prevMap.get(key) ?? 0) + 1);
+  }
+  const publishTrend = dayKeys.map((day, i) => ({
+    day,
+    count: trendMap.get(day) ?? 0,
+    previous: prevPublished > 0 ? (prevMap.get(prevKeys[i]!) ?? 0) : null,
+  }));
   const avgPerWeek = publishedInRange > 0 ? publishedInRange / (rangeDays / 7) : null;
   const bestDay = publishTrend.reduce<{ day: string; count: number } | null>(
-    (acc, d) => (d.count > 0 && (!acc || d.count > acc.count) ? d : acc),
+    (acc, d) => (d.count > 0 && (!acc || d.count > acc.count) ? { day: d.day, count: d.count } : acc),
     null,
   );
+
 
   // ── Canais (providers realmente publicados no período) ────
   const channelMap = new Map<string, number>();
