@@ -149,7 +149,10 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
       .map((pl) => {
         const post = postById.get(pl.post_id as string);
         const when =
-          (pl.scheduled_at as string | null) ?? (pl.published_at as string | null);
+          (pl.scheduled_at as string | null) ??
+          (pl.published_at as string | null) ??
+          extraByPost.get(pl.id as string) ??
+          null;
         if (!post || !when) return null;
         return {
           id: pl.id as string,
