@@ -36,6 +36,12 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }): Promise<CalendarPost[]> => {
+    // Janela de datas aplicada a scheduled_at OU published_at.
+    const dateWindow = [
+      `and(scheduled_at.gte.${data.from},scheduled_at.lte.${data.to})`,
+      `and(published_at.gte.${data.from},published_at.lte.${data.to})`,
+    ].join(",");
+
     // Read from post_placements — each placement is a discrete calendar entry.
     let plq = context.supabase
       .from("post_placements")
@@ -44,10 +50,11 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
       // Only confirmed calendar entries: scheduled or already published.
       // Drafts with a date live in the Kanban / pending panels, not here.
       .in("status", ["scheduled", "published", "failed"])
-      .not("scheduled_at", "is", null)
-      .gte("scheduled_at", data.from)
-      .lte("scheduled_at", data.to)
-      .order("scheduled_at", { ascending: true });
+      // Data efetiva = agendamento OU publicação. Publicações imediatas
+      // ("Publicar agora") não têm scheduled_at, então precisam entrar pela
+      // janela de published_at — senão o post de hoje não aparece.
+      .or(dateWindow)
+      .order("scheduled_at", { ascending: true, nullsFirst: false });
     if (data.clientId) plq = plq.eq("client_id", data.clientId);
     const { data: placements, error: plErr } = await plq;
     if (plErr) throw plErr;
@@ -65,9 +72,7 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
       )
       .eq("brand_id", data.brandId)
       .is("deleted_at", null)
-      .not("scheduled_at", "is", null)
-      .gte("scheduled_at", data.from)
-      .lte("scheduled_at", data.to)
+      .or(dateWindow)
       .in("stage", ["approved", "scheduled", "published"]);
     if (data.clientId) dq = dq.eq("client_id", data.clientId);
     const { data: datedPosts, error: dErr } = await dq;
@@ -115,13 +120,15 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
     const fromPlacements = (placements ?? [])
       .map((pl) => {
         const post = postById.get(pl.post_id as string);
-        if (!post || !pl.scheduled_at) return null;
+        const when =
+          (pl.scheduled_at as string | null) ?? (pl.published_at as string | null);
+        if (!post || !when) return null;
         return {
           id: pl.id as string,
           placement_id: pl.id as string,
           post_id: pl.post_id as string,
           title: post.title as string,
-          scheduled_at: pl.scheduled_at as string,
+          scheduled_at: when,
           channels: (post.channels as string[]) ?? [],
           cover_url: (post.cover_url as string | null) ?? null,
           client_id: post.client_id as string,
@@ -140,12 +147,14 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
       .filter((v): v is CalendarPost => v !== null);
 
     // Peças datadas sem placement: entrada virtual (placement_id nulo).
-    const fromPosts = orphanPosts.map((p) => ({
+    const fromPosts = orphanPosts
+      .filter((p) => p.scheduled_at || p.published_at)
+      .map((p) => ({
       id: `post:${p.id as string}`,
       placement_id: null,
       post_id: p.id as string,
       title: p.title as string,
-      scheduled_at: p.scheduled_at as string,
+      scheduled_at: (p.scheduled_at as string | null) ?? (p.published_at as string),
       channels: (p.channels as string[]) ?? [],
       cover_url: (p.cover_url as string | null) ?? null,
       client_id: p.client_id as string,
