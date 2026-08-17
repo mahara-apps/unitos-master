@@ -237,12 +237,14 @@ export function MetaPortfolioDialog({
             channel === "ads" || !channel ? "facebook" : channel,
           );
         } else {
+          const friendly = humanizeMetaError(msg);
           toast.error(
             isRateLimit
               ? "Limite de requisições da Meta atingido. Por favor, aguarde alguns minutos antes de tentar novamente."
-              : msg,
+              : `${friendly.title} ${friendly.description}`,
             { duration: 9000 },
           );
+
         }
         refreshNextRef.current = false;
         throw err instanceof Error ? err : new Error(msg);
