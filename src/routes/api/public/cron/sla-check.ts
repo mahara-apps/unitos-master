@@ -93,7 +93,10 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
           return Response.json({ ok: true, scanned: 0, notified: 0 });
         }
 
-        // 3. Notify assignees (dedupe last 24h per (user, post, kind))
+        // 3. Notify assignees.
+        // Idempotência: uma notificação por (user, post) ENQUANTO houver uma
+        // pendente (não lida) — evita recriar o mesmo aviso a cada execução —
+        // e no máximo uma por 24h depois de lida.
         const since24h = new Date(Date.now() - 86_400_000).toISOString();
         const withAssignee = overdue.filter((o) => o.assignee_id);
 
@@ -102,21 +105,20 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
           const userIds = Array.from(new Set(withAssignee.map((o) => o.assignee_id as string)));
           const { data: recent } = await supabaseAdmin
             .from("notifications")
-            .select("user_id, payload")
+            .select("user_id, dedupe_key, read_at, created_at")
             .eq("kind", "sla_overdue")
             .in("user_id", userIds)
-            .gte("created_at", since24h);
+            .or(`read_at.is.null,created_at.gte.${since24h}`);
           const seen = new Set(
             (recent ?? [])
               .map((r) => {
-                const p = (r.payload as Record<string, unknown> | null) ?? {};
-                const postId = typeof p.post_id === "string" ? (p.post_id as string) : null;
-                return postId ? `${r.user_id}:${postId}` : null;
+                const key = typeof r.dedupe_key === "string" ? r.dedupe_key : null;
+                return key ? `${r.user_id}:${key}` : null;
               })
               .filter(Boolean) as string[],
           );
           const toInsert = withAssignee
-            .filter((o) => !seen.has(`${o.assignee_id}:${o.post_id}`))
+            .filter((o) => !seen.has(`${o.assignee_id}:sla_overdue:${o.post_id}`))
             .map((o) => {
               const overdueLabel =
                 o.hours_overdue >= 24
@@ -130,6 +132,7 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
               title: `SLA vencido em "${o.stage_label}"`,
               body: `${o.title} • atrasado há ${overdueLabel} (SLA ${slaLabel})`,
               href: `/content`,
+              dedupe_key: `sla_overdue:${o.post_id}`,
               payload: {
                 post_id: o.post_id,
                 stage_id: o.stage_id,
@@ -140,11 +143,16 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
               };
             });
           if (toInsert.length > 0) {
-            const { error: insErr } = await supabaseAdmin.from("notifications").insert(toInsert as never);
+            // ignoreDuplicates: o índice único parcial (user, kind, dedupe_key)
+            // WHERE read_at IS NULL blinda contra execuções concorrentes.
+            const { error: insErr, count } = await supabaseAdmin
+              .from("notifications")
+              .upsert(toInsert as never, { ignoreDuplicates: true, count: "exact" });
             if (insErr) throw insErr;
-            notifiedAssignees = toInsert.length;
+            notifiedAssignees = count ?? toInsert.length;
           }
         }
+
 
         // 4. Notify managers per brand (aggregated: one per manager per brand per day)
         const brandIds = Array.from(new Set(overdue.map((o) => o.brand_id)));
