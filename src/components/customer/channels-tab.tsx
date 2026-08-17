@@ -307,16 +307,31 @@ export function ChannelsTab({
 function ChannelRow({
   row,
   canManage,
+  readiness,
+  checking,
   onUnlink,
 }: {
   row: LinkedChannel;
   canManage: boolean;
+  readiness?: DestinationReadiness | null;
+  checking?: boolean;
   onUnlink: () => void;
 }) {
   const def = channelDef(row.channel);
   const Icon = def.icon;
   const status = normalizeStatus(row.status);
   const handle = row.handle ? `@${row.handle.replace(/^@/, "")}` : row.accountLabel;
+  // Publicação só é liberada com capacidade confirmada pela Meta.
+  const capLabel = checking
+    ? "Verificando…"
+    : !readiness
+      ? null
+      : readiness.publishReady
+        ? "Pronto para publicar"
+        : readiness.action === "relink"
+          ? "Desconectado"
+          : "Autorização necessária";
+
 
   return (
     <li className="flex flex-col gap-3 px-5 py-4 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center sm:gap-4">
