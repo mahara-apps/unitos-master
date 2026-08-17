@@ -403,6 +403,7 @@ function ConnectionsPage() {
     monthlyBudgetUsd?: number;
     textProvider?: ProviderId;
     imageProvider?: ProviderId;
+    textFallbackProvider?: ProviderId | "none";
   };
   const updateFn = useServerFn(updateConnectionsSettings);
   const updateMut = useMutation({
