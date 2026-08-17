@@ -3,7 +3,9 @@ import { cn } from "@/lib/utils";
 import {
   PUBLICATION_STATUS,
   formatLabel,
+  formatChip,
   timeLabel,
+  NETWORK_COLOR,
 } from "@/lib/publication-status-tokens";
 import { SOCIAL_NETWORKS, classifySocialNetwork } from "@/lib/calendar-tokens";
 import type { PublicationItem } from "@/lib/calendar-board.functions";
@@ -21,7 +23,7 @@ function DestinationDots({ item }: { item: PublicationItem }) {
       <span className="flex items-center gap-1">
         {nets.slice(0, 3).map((k) => {
           const Icon = SOCIAL_NETWORKS[k].Icon;
-          return <Icon key={k} className="h-3 w-3 text-muted-foreground" strokeWidth={2} />;
+          return <Icon key={k} className={cn("h-3 w-3", NETWORK_COLOR[k])} strokeWidth={2} />;
         })}
       </span>
     );
@@ -43,11 +45,8 @@ function DestinationDots({ item }: { item: PublicationItem }) {
             <Icon
               className={cn(
                 "h-3 w-3",
-                ok
-                  ? "text-emerald-600 dark:text-emerald-400"
-                  : bad
-                    ? "text-destructive"
-                    : "text-muted-foreground",
+                bad ? "text-destructive" : NETWORK_COLOR[key],
+                !ok && !bad && !busy ? "opacity-70" : null,
               )}
               strokeWidth={2}
             />
@@ -120,7 +119,7 @@ export function PublicationCard({
         <span className="flex flex-wrap items-center gap-1.5">
           <DestinationDots item={item} />
           <span className={cn("h-1.5 w-1.5 rounded-full", token.dot)} aria-hidden />
-          <span className="text-[10px] leading-none text-muted-foreground">
+          <span className={cn("text-[10px] font-medium leading-none", token.text)}>
             {item.overall === "partial"
               ? `${item.publishedCount}/${item.totalDestinations} publicados`
               : token.label}
@@ -175,7 +174,19 @@ export function PublicationRow({
           {item.formats.length ? (
             <>
               <span aria-hidden>·</span>
-              <span>{item.formats.map(formatLabel).join(", ")}</span>
+              <span className="flex flex-wrap items-center gap-1">
+                {item.formats.map((f) => (
+                  <span
+                    key={f}
+                    className={cn(
+                      "rounded-full border px-1.5 py-px text-[10px] font-medium leading-none",
+                      formatChip(f),
+                    )}
+                  >
+                    {formatLabel(f)}
+                  </span>
+                ))}
+              </span>
             </>
           ) : null}
         </span>
