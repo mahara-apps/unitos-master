@@ -55,60 +55,70 @@ export const Route = createFileRoute("/api/public/meta/callback")({
           const requestedScopes = getMetaScopesForChannel(state.channel ?? null);
 
           // 2) code -> short-lived -> long-lived user token
-          const shortLived = await provider.exchangeCode(code);
-          const longLived = await provider.exchangeForLongLivedUserToken(
-            shortLived.accessToken,
-          );
+          let stage = "troca do código de autorização";
+          try {
+            const shortLived = await provider.exchangeCode(code);
+            stage = "criação do token de longa duração";
+            const longLived = await provider.exchangeForLongLivedUserToken(
+              shortLived.accessToken,
+            );
 
-          // 3) Identify Meta user + granted scopes (NO Graph scans here — those
-          //    are lazy-loaded on demand when the user opens the portfolio
-          //    dialog, to stay well under Meta's per-app rate limits).
-          const me = await provider.getMe(longLived.accessToken);
-          const grantedScopes = await provider.listGrantedPermissions(
-            longLived.accessToken,
-          );
+            // 3) Identify Meta user + granted scopes (NO Graph scans here — those
+            //    are lazy-loaded on demand when the user opens the portfolio
+            //    dialog, to stay well under Meta's per-app rate limits).
+            stage = "leitura da conta Meta";
+            const me = await provider.getMe(longLived.accessToken);
+            stage = "leitura das permissões concedidas";
+            const grantedScopes = await provider.listGrantedPermissions(
+              longLived.accessToken,
+            );
 
-          const missingScopes = requestedScopes.filter(
-            (s) => !grantedScopes.includes(s),
-          );
+            const missingScopes = requestedScopes.filter(
+              (s) => !grantedScopes.includes(s),
+            );
 
-          // 4) Persist ONLY the user token + identity in a short-lived session
-          //    row. Portfolio arrays start empty and are populated lazily by
-          //    `getMetaPortfolio` when the dialog is actually opened.
-          const userTokenCiphertext = await encryptCredential(longLived.accessToken);
-          const { data: sessionRow, error: sessErr } = await supabaseAdmin
-            .from("meta_oauth_sessions")
-            .insert({
-              brand_id: state.brandId,
-              user_id: state.userId,
-              meta_user_id: me.id,
-              meta_user_name: me.name ?? null,
-              meta_user_email: me.email ?? null,
-              user_token_ciphertext: userTokenCiphertext,
-              user_token_expires_at: longLived.expiresAt?.toISOString() ?? null,
-              scopes: grantedScopes,
-              requested_scopes: requestedScopes,
-              pages: [] as unknown as import("@/integrations/supabase/types").Json,
-              threads_accounts: [] as unknown as import("@/integrations/supabase/types").Json,
-              ad_accounts: [] as unknown as import("@/integrations/supabase/types").Json,
-            })
-            .select("id")
-            .single();
-          if (sessErr) throw sessErr;
+            // 4) Persist ONLY the user token + identity in a short-lived session
+            //    row. Portfolio arrays start empty and are populated lazily by
+            //    `getMetaPortfolio` when the dialog is actually opened.
+            stage = "criação da sessão de seleção de contas";
+            const userTokenCiphertext = await encryptCredential(longLived.accessToken);
+            const { data: sessionRow, error: sessErr } = await supabaseAdmin
+              .from("meta_oauth_sessions")
+              .insert({
+                brand_id: state.brandId,
+                user_id: state.userId,
+                meta_user_id: me.id,
+                meta_user_name: me.name ?? null,
+                meta_user_email: me.email ?? null,
+                user_token_ciphertext: userTokenCiphertext,
+                user_token_expires_at: longLived.expiresAt?.toISOString() ?? null,
+                scopes: grantedScopes,
+                requested_scopes: requestedScopes,
+                pages: [] as unknown as import("@/integrations/supabase/types").Json,
+                threads_accounts: [] as unknown as import("@/integrations/supabase/types").Json,
+                ad_accounts: [] as unknown as import("@/integrations/supabase/types").Json,
+              })
+              .select("id")
+              .single();
+            if (sessErr) throw sessErr;
 
-          return htmlResult({
-            ok: true,
-            message:
-              "Login Meta concluído. Abra o seletor de contas para carregar seu portfólio.",
-            redirectTo: appendSessionParam(
-              state.redirectTo ?? "/connections",
-              sessionRow.id,
-              state.channel ?? null,
-            ),
-            sessionId: sessionRow.id,
-            channel: state.channel ?? null,
-            missingScopes,
-          });
+            return htmlResult({
+              ok: true,
+              message:
+                "Login Meta concluído. Abra o seletor de contas para carregar seu portfólio.",
+              redirectTo: appendSessionParam(
+                state.redirectTo ?? "/connections",
+                sessionRow.id,
+                state.channel ?? null,
+              ),
+              sessionId: sessionRow.id,
+              channel: state.channel ?? null,
+              missingScopes,
+            });
+          } catch (err) {
+            console.error(`[meta/callback] falha na etapa: ${stage}`, err);
+            throw err;
+          }
         } catch (err) {
           console.error("[meta/callback] falha ao concluir OAuth", err);
           const msg =
