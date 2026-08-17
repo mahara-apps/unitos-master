@@ -627,6 +627,16 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
     // ---- Agendar: cria linhas em social_posts para o worker pg_cron drenar ----
     // Sem isso, o horário passa e nada é publicado (Kanban fica "Agendado" para sempre).
     if (data.action === "schedule" && scheduledIso) {
+      // Reagendamento de peça já agendada: limpa a fila pendente antes de
+      // re-enfileirar (evita duplicidade e conflito de índice único).
+      await supabase
+        .from("social_posts")
+        .update({ status: "cancelled" })
+        .eq("post_id", postId)
+        .eq("brand_id", data.brandId)
+        .in("status", ["scheduled", "failed"])
+        .is("publish_locked_at", null);
+
       // Formatos ainda não agendáveis viram avisos (mesmo padrão da branch publish).
       const enqueueResults: Array<{
         channel: string;
