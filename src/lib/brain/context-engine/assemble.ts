@@ -94,13 +94,13 @@ async function buildUncached(
   for (const m of memRows) {
     candidateCount++;
     const score = relevanceScore(
-      { text: `${m.topic} ${m.summary}`, confidence: m.confidence },
+      { text: `${m.title} ${m.description} ${m.category}`, confidence: m.confidence },
       intent.keywords,
     );
     items.push({
       kind: "memory",
-      label: m.topic,
-      detail: m.summary,
+      label: m.title,
+      detail: m.description,
       score,
       confidence: m.confidence,
     });

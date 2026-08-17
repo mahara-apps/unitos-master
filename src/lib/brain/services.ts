@@ -167,7 +167,7 @@ export async function summarize(ctx: BrainContext): Promise<string> {
   );
   if (mems.length) {
     lines.push("Memórias-chave:");
-    for (const m of mems) lines.push(`- ${m.topic}: ${m.summary}`);
+    for (const m of mems) lines.push(`- ${m.title}: ${m.description}`);
   }
   if (ins.length) {
     lines.push("Insights ativos:");

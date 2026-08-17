@@ -51,7 +51,7 @@ export async function consolidate(
       `### Memórias consolidadas\n${memoryRowsProjected
         .map(
           (m) =>
-            `- **${m.topic}**${m.confidence != null ? ` _(conf ${Math.round((m.confidence ?? 0) * 100)}%)_` : ""}: ${m.summary}`,
+            `- **${m.title}**${m.confidence != null ? ` _(conf ${Math.round((m.confidence ?? 0) * 100)}%)_` : ""} _[${m.scope}]_: ${m.description}`,
         )
         .join("\n")}`,
     );
