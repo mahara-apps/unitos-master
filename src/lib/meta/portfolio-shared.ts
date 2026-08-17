@@ -35,6 +35,26 @@ export type PortfolioAdAccount = {
   businessName: string | null;
 };
 
+/** Autorização granular de publicação (espelho serializável do server). */
+export type ChannelAuthorizationInfo = {
+  broad: boolean;
+  targets: string[];
+  granted: boolean;
+};
+
+export type PublishAuthorizationInfo = {
+  instagram: ChannelAuthorizationInfo;
+  facebook: ChannelAuthorizationInfo;
+  checkedAt: string;
+  unavailable: boolean;
+};
+
+/** Estado canônico de UX de uma conta descoberta. */
+export type DiscoveredAccountStatus =
+  | "ready"
+  | "authorization_required"
+  | "unavailable";
+
 export type PortfolioResponse = {
   sessionId: string;
   metaUser: { id: string; name: string | null; email: string | null };
@@ -53,6 +73,8 @@ export type PortfolioResponse = {
   standaloneInstagramCount: number;
   scanWarnings: string[];
   businessCount: number;
+  /** Autorização granular por canal (target_ids da Meta). */
+  publishAuthorization: PublishAuthorizationInfo | null;
   threadsAccounts: PortfolioThreadsAccount[];
   adAccounts: PortfolioAdAccount[];
   connected: {
@@ -121,6 +143,7 @@ export type CachedPagesPayload = {
   standaloneInstagram: PortfolioStandaloneInstagram[];
   warnings: string[];
   businessCount: number;
+  publishAuthorization?: PublishAuthorizationInfo | null;
 };
 
 /**
@@ -133,6 +156,7 @@ export function readPagesPayload(raw: unknown): CachedPagesPayload {
     standaloneInstagram: [],
     warnings: [],
     businessCount: 0,
+    publishAuthorization: null,
   };
   if (!raw) return empty;
   if (Array.isArray(raw)) {
@@ -145,6 +169,8 @@ export function readPagesPayload(raw: unknown): CachedPagesPayload {
       standaloneInstagram: Array.isArray(o.standaloneInstagram) ? o.standaloneInstagram : [],
       warnings: Array.isArray(o.warnings) ? o.warnings : [],
       businessCount: typeof o.businessCount === "number" ? o.businessCount : 0,
+      publishAuthorization:
+        (o.publishAuthorization as PublishAuthorizationInfo | undefined) ?? null,
     };
   }
   return empty;
@@ -203,4 +229,21 @@ export function stripPageTokens(
   pages: CachedPagesPayload["pages"],
 ): CachedPagesPayload["pages"] {
   return pages.map(({ pageAccessToken: _drop, ...rest }) => rest);
+}
+
+/**
+ * Status canônico de uma conta descoberta, derivado APENAS da autorização
+ * granular do target real. Nunca infere por username nem por canal conectado.
+ */
+export function accountDiscoveryStatus(
+  auth: PublishAuthorizationInfo | null | undefined,
+  channel: "instagram" | "facebook",
+  targetId: string | null | undefined,
+): DiscoveredAccountStatus {
+  if (!targetId) return "unavailable";
+  if (!auth || auth.unavailable) return "authorization_required";
+  const ch = auth[channel];
+  if (!ch.granted) return "authorization_required";
+  if (ch.broad) return "ready";
+  return ch.targets.includes(String(targetId)) ? "ready" : "authorization_required";
 }
