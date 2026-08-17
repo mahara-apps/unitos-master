@@ -3,12 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Loader2, Save, KeyRound, Building2, MapPin, MessageCircle, User, Bell, Globe, Clock } from "lucide-react";
+import { Loader2, Save, KeyRound, MessageCircle, User, Globe, Clock, Briefcase } from "lucide-react";
 import { getMyProfile, updateMyProfile, changeMyPassword } from "@/lib/profile.functions";
-import { getBrandCompany, updateBrandCompany } from "@/lib/workspace.functions";
-import { useActiveContext } from "@/hooks/use-active-context";
-import { useAccessRole } from "@/hooks/use-access-role";
-import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { usePageHeader } from "@/hooks/use-page-header";
-import { SettingsStatCard } from "@/components/settings/settings-stat-card";
+import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 
 export const Route = createFileRoute("/_authenticated/settings/profile")({
   component: ProfilePage,
