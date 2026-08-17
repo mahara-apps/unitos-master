@@ -731,8 +731,6 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
             account_username: spec.accountUsername,
             page_id: pageIdCol,
             instagram_business_id: igIdCol,
-
-            account_username: spec.accountUsername,
             owner_external_id: session.meta_user_id,
             owner_name: session.meta_user_name ?? null,
             access_token_ciphertext: ciphertext,
