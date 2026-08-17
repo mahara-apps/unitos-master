@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { ExpandedModal } from "@/components/ui/expanded-modal";
 import { MediaLibraryDialog } from "@/components/calendar/schedule-wizard/media-library-dialog";
+import { PublicationStatusPanel } from "@/components/calendar/schedule-wizard/publication-status";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
