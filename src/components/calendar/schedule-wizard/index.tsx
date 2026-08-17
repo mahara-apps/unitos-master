@@ -75,7 +75,7 @@ import {
 import { searchInstagramLocationsFn } from "@/lib/meta/locations.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { Link } from "@tanstack/react-router";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 function slugifyMediaName(name: string) {
   return name
@@ -554,7 +554,7 @@ export function ScheduleWizard({
           onOpenChange(v);
         }}
         size="composer"
-        className="sm:h-[min(780px,calc(100dvh-4rem))]"
+        className="sm:h-[min(936px,calc(100dvh-2rem))] sm:max-h-[calc(100dvh-2rem)]"
         title={postId ? "Editar publicação" : "Nova publicação"}
         description={
           pairs.length
@@ -575,7 +575,7 @@ export function ScheduleWizard({
             ) : null}
           </>
         }
-        bodyClassName="grid min-h-0 grid-cols-1 overflow-hidden p-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,360px)]"
+        bodyClassName="grid min-h-0 grid-cols-1 overflow-hidden p-0 lg:grid-cols-[minmax(0,1fr)_minmax(0,432px)]"
         footerClassName="justify-between"
         footer={
           <>
@@ -1496,7 +1496,7 @@ function LocationCombobox({
       searchFn({
         data: {
           brandId,
-          connectionId: instagramConnectionId!,
+          connectionId: instagramConnectionId ?? "",
           query: debounced,
         },
       }),
@@ -1504,8 +1504,9 @@ function LocationCombobox({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
+      <PopoverAnchor asChild>
         <Input
+          id="wiz-location"
           value={q}
           onChange={(e) => {
             setQ(e.target.value);
@@ -1517,7 +1518,7 @@ function LocationCombobox({
             instagramConnectionId ? "Digite para buscar no Instagram…" : "Ex.: São Paulo, SP"
           }
         />
-      </PopoverTrigger>
+      </PopoverAnchor>
       <PopoverContent
         align="start"
         className="w-[--radix-popover-trigger-width] p-1"
