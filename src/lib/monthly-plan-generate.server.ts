@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { brain, type BrainContext } from "@/lib/brain/api";
+import { loadBrainAgentContext } from "@/lib/brain/agent-context.server";
 import { loadBriefingContext } from "@/lib/monthly-plan-context.server";
 import { loadStrategyContext } from "@/lib/monthly-plan-strategy.server";
 import { loadPerformanceContext } from "@/lib/monthly-plan-performance.server";
