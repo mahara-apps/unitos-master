@@ -271,6 +271,44 @@ export async function buildClientDashboard(
     });
   }
 
+  // ── Conteúdo parado (sem movimentação) ────────────────────
+  const STALL_DAYS = 7;
+  const stallLimit = new Date(nowMs - STALL_DAYS * DAY).toISOString();
+  const stalledPosts = scopedPosts.filter((p) => {
+    if (p.published_at || p.scheduled_at) return false;
+    const stageKey = String(
+      (p.stage_id && stageById.get(p.stage_id)?.key) || p.stage || "",
+    ).toLowerCase();
+    if (/publicad|published|arquiv/.test(stageKey)) return false;
+    return String(p.updated_at ?? p.created_at ?? "") < stallLimit;
+  });
+  const stalledStageCount = new Map<string, number>();
+  for (const p of stalledPosts) {
+    const label =
+      (p.stage_id && stageById.get(p.stage_id)?.label) ||
+      stageByKey.get(String(p.stage ?? "").toLowerCase())?.label ||
+      null;
+    if (label) stalledStageCount.set(label, (stalledStageCount.get(label) ?? 0) + 1);
+  }
+  const topStalledStage =
+    Array.from(stalledStageCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  const stalled = stalledPosts.length
+    ? { count: stalledPosts.length, days: STALL_DAYS, stageLabel: topStalledStage }
+    : null;
+  if (stalled) {
+    attention.push({
+      id: "stalled",
+      severity: "warning",
+      title: "Conteúdo parado",
+      description:
+        stalled.count === 1
+          ? `1 conteúdo sem movimentação há mais de ${STALL_DAYS} dias`
+          : `${stalled.count} conteúdos sem movimentação há mais de ${STALL_DAYS} dias`,
+      detail: stalled.stageLabel ? `Concentrado em ${stalled.stageLabel}` : null,
+      action: { label: "Ver conteúdos", to: "/content" },
+    });
+  }
+
   // ── Próximas publicações (7 dias) ─────────────────────────
   const horizon = new Date(nowMs + 7 * DAY).toISOString();
   const nowIso = new Date(nowMs).toISOString();
@@ -278,7 +316,11 @@ export async function buildClientDashboard(
   const pendingPostIds = new Set(
     approvals.filter((a) => a.status === "pending").map((a) => a.post_id),
   );
+  const futureScheduled = scopedPosts.filter(
+    (p) => p.scheduled_at && p.scheduled_at >= nowIso && !p.published_at,
+  );
   const upcoming: ClientUpcomingItem[] = scopedPosts
+
     .filter((p) => p.scheduled_at && p.scheduled_at >= nowIso && p.scheduled_at <= horizon)
     .sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)))
     .slice(0, 8)
