@@ -23,7 +23,7 @@ import { useActiveContext } from "@/hooks/use-active-context";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
+import { PageKpi, PageKpiGrid, type KpiStatus } from "@/components/ui/page-kpi";
 import {
   brainDiagnosticsFn,
   type BrainDiagnostics,
@@ -155,7 +155,8 @@ function BrainDiagnosticsRoute() {
       <PageKpiGrid columns={4}>
         <QueueKpi
           loading={loading}
-          icon={<Waves className="h-4 w-4 text-amber-500" />}
+          icon={<Waves className="h-4 w-4" />}
+          status="warning"
           label="Fila pendente"
           value={d?.queue.pending}
           hint={
@@ -166,14 +167,15 @@ function BrainDiagnosticsRoute() {
         />
         <QueueKpi
           loading={loading}
-          icon={<Loader2 className="h-4 w-4 text-primary" />}
+          icon={<Loader2 className="h-4 w-4" />}
+          status="info"
           label="Em processamento"
           value={d?.queue.running}
           hint="workers ativos agora"
         />
         <QueueKpi
           loading={loading}
-          icon={<Clock className="h-4 w-4" style={{ color: "var(--chart-4)" }} />}
+          icon={<Clock className="h-4 w-4" />}
           label="Tempo médio"
           value={d?.queue.avgProcessingMs ?? undefined}
           suffix=" ms"
@@ -185,7 +187,7 @@ function BrainDiagnosticsRoute() {
         />
         <QueueKpi
           loading={loading}
-          icon={<AlertTriangle className="h-4 w-4 text-destructive" />}
+          icon={<AlertTriangle className="h-4 w-4" />}
           label="Falhas"
           value={d?.queue.failed}
           hint={`${d?.queue.processedLastHour ?? 0} processadas na última hora`}
@@ -328,6 +330,7 @@ function QueueKpi({
   hint,
   loading,
   tone,
+  status,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -336,12 +339,13 @@ function QueueKpi({
   hint?: string;
   loading?: boolean;
   tone?: "warn";
+  status?: KpiStatus;
 }) {
   return (
     <PageKpi
       icon={icon}
       label={label}
-      status={tone === "warn" ? "danger" : "neutral"}
+      status={tone === "warn" ? "danger" : (status ?? "neutral")}
       value={
         loading || value === undefined ? (
           <Skeleton className="h-7 w-16" />
