@@ -337,6 +337,14 @@ export class MetaProvider {
     const standaloneInstagram: MetaInstagramAsset[] = [];
     const seenIg = new Set<string>();
     const warnings: string[] = [];
+    const edgeFailureCounts = new Map<string, number>();
+    const edgeFailureSamples = new Map<string, string>();
+    const recordEdgeFailure = (edge: string, label: string, err: unknown) => {
+      edgeFailureCounts.set(edge, (edgeFailureCounts.get(edge) ?? 0) + 1);
+      if (!edgeFailureSamples.has(edge) && err instanceof MetaGraphError) {
+        edgeFailureSamples.set(edge, `Portfólio "${label}": ${err.message}`);
+      }
+    };
     // Prazo total do scan. Portfólios grandes têm centenas de arestas; sem um
     // limite o request nunca retorna e o diálogo fica em loading infinito.
     const deadline = Date.now() + 45_000;
@@ -480,11 +488,7 @@ export class MetaProvider {
           );
         } catch (err) {
           if (isFatalScanError(err)) throw err;
-          warnings.push(
-            `Portfólio "${label}": falha ao ler ${edge}${
-              err instanceof MetaGraphError ? ` (${err.message})` : ""
-            }.`,
-          );
+          recordEdgeFailure(edge, label, err);
         }
       }
       for (const edge of ["owned_instagram_accounts", "client_instagram_accounts"] as const) {
@@ -505,13 +509,17 @@ export class MetaProvider {
           });
         } catch (err) {
           if (isFatalScanError(err)) throw err;
-          warnings.push(
-            `Portfólio "${label}": falha ao ler ${edge}${
-              err instanceof MetaGraphError ? ` (${err.message})` : ""
-            }.`,
-          );
+          recordEdgeFailure(edge, label, err);
         }
       }
+    }
+
+    for (const [edge, count] of edgeFailureCounts) {
+      const sample = edgeFailureSamples.get(edge);
+      warnings.push(
+        `A Meta restringiu ${count} leitura${count === 1 ? "" : "s"} em ${edge}.` +
+          (sample ? ` Exemplo: ${sample}` : ""),
+      );
     }
 
     if (timedOut) {
