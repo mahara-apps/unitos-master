@@ -23,6 +23,7 @@ import { useActiveContext } from "@/hooks/use-active-context";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import {
   brainDiagnosticsFn,
   type BrainDiagnostics,
