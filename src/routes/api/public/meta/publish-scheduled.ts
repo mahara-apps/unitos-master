@@ -1,6 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 /**
+ * Erro determinístico de autorização/vínculo: NUNCA deve consumir retries.
+ * O destino é marcado como `blocked` (placement `connection_required` /
+ * `authorization_required`) com mensagem acionável.
+ */
+class DeterministicBlock extends Error {
+  code: string;
+  constructor(message: string, code: string) {
+    super(message);
+    this.name = "DeterministicBlock";
+    this.code = code;
+  }
+}
+
+
+
+/**
  * Drena `social_posts` agendados. pg_cron chama a cada minuto.
  *
  * Concorrência: usa `claim_scheduled_social_posts` (SECURITY DEFINER + FOR UPDATE
