@@ -71,7 +71,11 @@ export const updateMyProfile = createServerFn({ method: "POST" })
       locale: data.locale,
       avatar_url: data.avatar_url ?? null,
       whatsapp: data.whatsapp ?? null,
-      notify_whatsapp: data.notify_whatsapp ?? false,
+      // `notify_whatsapp` é preferência de notificação: fonte única em
+      // /settings/notifications. Só é gravado aqui se explicitamente enviado.
+      ...(typeof data.notify_whatsapp === "boolean"
+        ? { notify_whatsapp: data.notify_whatsapp }
+        : {}),
     };
     const { error } = await context.supabase
       .from("user_profiles")
