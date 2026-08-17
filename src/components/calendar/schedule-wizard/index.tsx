@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { ExpandedModal } from "@/components/ui/expanded-modal";
 import { MediaLibraryDialog } from "@/components/calendar/schedule-wizard/media-library-dialog";
+import { PublicationStatusPanel } from "@/components/calendar/schedule-wizard/publication-status";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -755,7 +756,13 @@ export function ScheduleWizard({
       >
         {/* ---------------- Coluna 1 — edição ---------------- */}
         <div className="min-h-0 space-y-5 overflow-y-auto border-b border-border/60 px-5 py-4 lg:border-b-0 lg:border-r">
+          {/* Estado real de publicação por destino + republicação de falhas */}
+          {postId ? (
+            <PublicationStatusPanel postId={postId} brandId={brandId} />
+          ) : null}
+
           {/* Destinos */}
+
           <section className="space-y-2">
             <div className="flex items-center justify-between">
               <Label className="text-xs">Destinos</Label>

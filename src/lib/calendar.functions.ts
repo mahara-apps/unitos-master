@@ -43,7 +43,7 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
       .eq("brand_id", data.brandId)
       // Only confirmed calendar entries: scheduled or already published.
       // Drafts with a date live in the Kanban / pending panels, not here.
-      .in("status", ["scheduled", "published"])
+      .in("status", ["scheduled", "published", "failed"])
       .not("scheduled_at", "is", null)
       .gte("scheduled_at", data.from)
       .lte("scheduled_at", data.to)

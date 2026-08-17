@@ -131,7 +131,9 @@ function CalendarPage() {
     if (openingPost) return;
     // Peça agendada (ainda não publicada) abre o composer completo, com todos
     // os dados salvos, para editar ou cancelar o agendamento.
-    if (p.status === "scheduled" && !p.published_at) {
+    // Agendada ou com falha de publicação: abre o composer completo (permite
+    // editar, cancelar agendamento ou republicar o destino que falhou).
+    if ((p.status === "scheduled" || p.status === "failed") && !p.published_at) {
       setWizardDate(null);
       setWizardSeed({ postId: p.post_id });
       setWizardOpen(true);
@@ -679,8 +681,20 @@ function CalendarPage() {
                       {new Date(p.scheduled_at).toLocaleString("pt-BR")} · {p.channels?.join(", ")}
                     </div>
                   </div>
-                  <Badge variant={p.status === "published" ? "default" : "outline"}>
-                    {p.status === "published" ? "Publicado" : "Agendado"}
+                  <Badge
+                    variant={
+                      p.status === "published"
+                        ? "default"
+                        : p.status === "failed"
+                          ? "destructive"
+                          : "outline"
+                    }
+                  >
+                    {p.status === "published"
+                      ? "Publicado"
+                      : p.status === "failed"
+                        ? "Falhou"
+                        : "Agendado"}
                   </Badge>
                 </button>
               </li>

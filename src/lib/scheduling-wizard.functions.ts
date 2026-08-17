@@ -921,23 +921,13 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         }
       }
       const okCount = results.filter((r) => r.ok).length;
+      const failCount = results.filter((r) => !r.ok).length;
       if (okCount > 0) {
         const nowIso = new Date().toISOString();
-        // Fallback idempotente. O caminho canônico é o trigger
-        // `trg_social_posts_sync_publication` → `sync_post_publication_state`,
-        // que marca placement (por connection_id + família de formato), a peça
-        // e o `stage_id` da coluna "Publicado". Este bloco garante o estado
-        // quando parte dos destinos falhou (a peça não fica presa em Agendado).
-        await supabase
-          .from("posts")
-          .update({ stage: "published", published_at: nowIso } as any)
-          .eq("id", postId)
-          .eq("brand_id", data.brandId);
-
         // Placements viram histórico por DESTINO REAL (post + canal + formato).
         for (const r of results) {
           if (!r.connectionId) continue;
-          const q = supabase
+          await supabase
             .from("post_placements")
             .update(
               (r.ok
@@ -946,9 +936,21 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             )
             .eq("post_id", postId)
             .eq("connection_id", r.connectionId)
-            .eq("format", r.format);
-          if (r.ok) await q.neq("status", "published");
-          else await q.neq("status", "published");
+            .eq("format", r.format)
+            .neq("status", "published");
+        }
+
+        // PUBLICAÇÃO PARCIAL: a peça só vira `published` quando TODOS os
+        // destinos publicaram. Com qualquer falha, a peça NÃO é publicada — o
+        // estado real fica visível pelos placements ("Publicação parcial").
+        // O caminho canônico é o trigger `trg_social_posts_sync_publication`
+        // → `sync_post_publication_state`, que já aplica a mesma regra.
+        if (failCount === 0) {
+          await supabase
+            .from("posts")
+            .update({ stage: "published", published_at: nowIso } as any)
+            .eq("id", postId)
+            .eq("brand_id", data.brandId);
         }
       }
 
