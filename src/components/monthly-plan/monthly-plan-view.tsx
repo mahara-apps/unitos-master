@@ -10,7 +10,6 @@ import {
   CheckCheck,
   ChevronDown,
   ChevronUp,
-  ChevronsUpDown,
   FolderKanban,
 
   Link as LinkIcon,
@@ -37,14 +36,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 
 import { DashboardPageShell } from "@/components/ui/dashboard-primitives";
 import { describeError } from "@/lib/errors";
@@ -74,7 +65,6 @@ import {
   getPlanClientLinkFn,
   getPlanVolumetryFn,
   listBriefingsForPlanFn,
-  listMonthlyPlansFn,
   regenerateTopicFn,
   setTopicDecisionFn,
   submitPlanToClientFn,
@@ -82,7 +72,6 @@ import {
   updateMonthlyPlanFn,
   updateTopicFn,
   type GenerateMonthlyPlanResult,
-  type MonthlyPlanListItem,
   type MonthlyPlanTopic,
   type MonthlyPlanWithTopics,
 } from "@/lib/monthly-plans.functions";
@@ -134,12 +123,6 @@ export function MonthlyPlanView({
   const briefingsQ = useQuery({
     queryKey: ["monthly-plan", "briefings", brandId, clientId],
     queryFn: () => listBriefings({ data: { brandId, clientId } }),
-  });
-
-  const listPlans = useServerFn(listMonthlyPlansFn);
-  const historyQ = useQuery({
-    queryKey: ["monthly-plans", "list", brandId, clientId],
-    queryFn: () => listPlans({ data: { brandId, clientId } }),
   });
 
   const getVolumetry = useServerFn(getPlanVolumetryFn);
