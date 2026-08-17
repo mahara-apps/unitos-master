@@ -309,7 +309,9 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         }
         const conn = connMap.get(d.connectionId);
         if (!conn) {
-          throw new Error(`Conexão ${d.channel} não encontrada nesta marca.`);
+          throw new Error(
+            `CONNECTION_SCOPE_MISMATCH: conexão ${d.channel} não pertence a esta marca.`,
+          );
         }
         if (!conn.access_token_ciphertext) {
           throw new Error(
@@ -318,7 +320,14 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         }
         if (!linkedIds.has(d.connectionId)) {
           throw new Error(
-            `Canal ${d.channel} não está vinculado a este cliente. Vincule em Perfil do cliente > Canais.`,
+            `CONNECTION_SCOPE_MISMATCH: canal ${d.channel} não está vinculado a este cliente. Vincule em Perfil do cliente > Canais.`,
+          );
+        }
+        // Plataforma da conexão precisa bater com o canal do destino — nunca
+        // publicar um destino Instagram numa conexão Facebook (ou vice-versa).
+        if ((conn as { channel?: string | null }).channel !== d.channel) {
+          throw new Error(
+            `CONNECTION_SCOPE_MISMATCH: conexão selecionada é de ${(conn as { channel?: string | null }).channel ?? "canal desconhecido"}, mas o destino é ${d.channel}.`,
           );
         }
         if (conn.status !== "active") {
