@@ -115,7 +115,7 @@ export function hubToLegacyBriefing(
 ): LegacyBriefingData {
   const h = hub as Record<string, unknown>;
   const volumetry = (h.volumetry ?? {}) as Record<string, number | undefined>;
-  const weekly = Object.values(volumetry).reduce((s, v) => s + (Number(v) || 0), 0);
+  const weekly = Object.values(volumetry).reduce<number>((s, v) => s + (Number(v) || 0), 0);
   const competitors = Array.isArray(h.competitors) ? (h.competitors as Array<Record<string, unknown>>) : [];
 
   return {
