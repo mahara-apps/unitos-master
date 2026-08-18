@@ -18,8 +18,13 @@ export type BriefingRequestRow = {
   client_id: string;
   requested_fields: string[];
   message: string | null;
-  status: "requested" | "submitted" | "in_review";
+  status: "requested" | "submitted" | "in_review" | "approved";
   base_version_id: string | null;
+  accepted_fields: string[];
+  pending_fields: string[];
+  review_decision: "approved" | "partial" | "changes_requested" | null;
+  review_note: string | null;
+  decided_at: string | null;
   due_at: string | null;
   requested_at: string;
   submitted_at: string | null;
@@ -65,6 +70,11 @@ export const listBriefingRequestsFn = createServerFn({ method: "POST" })
       submitted_at: (r.submitted_at as string | null) ?? null,
       reviewed_at: (r.reviewed_at as string | null) ?? null,
       canceled_at: (r.canceled_at as string | null) ?? null,
+      accepted_fields: (r.accepted_fields as string[]) ?? [],
+      pending_fields: (r.pending_fields as string[]) ?? [],
+      review_decision: (r.review_decision as BriefingRequestRow["review_decision"]) ?? null,
+      review_note: (r.review_note as string | null) ?? null,
+      decided_at: (r.decided_at as string | null) ?? null,
       proposals: Array.isArray(r.brand_briefing_proposals) ? r.brand_briefing_proposals.length : 0,
     }));
   });

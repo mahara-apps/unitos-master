@@ -102,4 +102,11 @@ export const BRIEFING_REQUEST_STATUS_LABEL: Record<string, string> = {
   requested: "Aguardando cliente",
   submitted: "Respondido",
   in_review: "Em revisão",
+  approved: "Aprovado",
+};
+
+export const BRIEFING_REVIEW_DECISION_LABEL: Record<string, string> = {
+  approved: "Aprovado",
+  partial: "Aprovado parcialmente",
+  changes_requested: "Complementação solicitada",
 };
