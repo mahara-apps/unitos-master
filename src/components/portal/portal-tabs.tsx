@@ -22,6 +22,7 @@ import {
   Hourglass,
   CheckCircle2,
   ArrowRight,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,7 @@ import { BRIEFING_BLOCKS, BRIEFING_FIELDS } from "@/lib/briefing-fields";
 import { briefingField, briefingFieldLabel, type BriefingField } from "@/lib/briefing-fields";
 import type { PortalTabId } from "./portal-nav";
 import { PautaApprovals } from "./portal-pauta";
+import { PLAN_PENDING_CLIENT_STATUS } from "@/lib/monthly-plan-client.types";
 import {
   EmptyState,
   GridSkeleton,
@@ -90,7 +92,7 @@ export function HomeTab() {
   const pendingPosts = pendingQ.data ?? [];
   const plansAwaiting = (plansQ.data ?? []).filter((p) => p.status === PLAN_PENDING_CLIENT_STATUS);
   const briefingsPending = (briefingQ.data ?? []).filter(
-    (r) => r.status === "requested" || r.status === "changes_requested_pending",
+    (r) => r.status === "requested" || (r.pending_fields?.length ?? 0) > 0,
   );
 
   const now = Date.now();
