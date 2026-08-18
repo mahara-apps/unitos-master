@@ -232,3 +232,34 @@ export function briefingToPromptText(b: CanonicalBriefing): string {
   lines.push(`Completude do briefing: ${b.completion}%`);
   return lines.join("\n");
 }
+
+/**
+ * Projeta o briefing canônico no formato de linha de `brand_briefings`
+ * esperado pela UI/agentes, preservando metadados da linha legada quando
+ * existir. NÃO escreve nada — apenas normaliza a leitura.
+ */
+export function projectCanonicalBriefingRow(
+  canonical: CanonicalBriefing,
+  legacyRow: Record<string, unknown> | null | undefined,
+  scope: { brandId: string; clientId: string },
+): Record<string, unknown> | null {
+  const hasHubData = canonical.completion > 0;
+  if (!legacyRow && !hasHubData) return null;
+  const base = legacyRow ?? {
+    id: null,
+    brand_id: scope.brandId,
+    client_id: scope.clientId,
+    raw_text: null,
+    created_at: null,
+  };
+  return {
+    ...base,
+    data: {
+      ...(((legacyRow?.data as Record<string, unknown>) ?? {}) as Record<string, unknown>),
+      ...canonical.legacy,
+    },
+    completude: canonical.completion,
+    /** Origem do dado exposto (diagnóstico da Fase 1). */
+    source: "brand_hub",
+  };
+}
