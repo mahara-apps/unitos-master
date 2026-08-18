@@ -23,9 +23,24 @@ export const ADMIN_LEVEL_ROLES: readonly AuthorityRole[] = ["super_admin", "admi
 export const isAuthorityRole = (v: unknown): v is AuthorityRole =>
   typeof v === "string" && (AUTHORITY_ROLES as readonly string[]).includes(v);
 
-type RpcClient = {
-  rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
+/** Aceita qualquer client Supabase (tipado ou não) — só usamos `rpc`. */
+export type RpcClient = {
+  rpc: (fn: never, args?: never) => unknown;
 };
+
+type RpcResult = { data: unknown; error: unknown };
+
+async function callRpc(
+  supabase: RpcClient,
+  fn: string,
+  args: Record<string, unknown>,
+): Promise<RpcResult> {
+  const res = await (supabase.rpc as unknown as (
+    f: string,
+    a: Record<string, unknown>,
+  ) => Promise<RpcResult>)(fn, args);
+  return res;
+}
 
 /** Papel canônico do usuário na marca (fonte única: brand_members + is_super_admin). */
 export async function resolveAuthorityRole(
@@ -33,7 +48,7 @@ export async function resolveAuthorityRole(
   userId: string,
   brandId?: string | null,
 ): Promise<AuthorityRole | null> {
-  const { data, error } = await supabase.rpc("app_access_role", {
+  const { data, error } = await callRpc(supabase, "app_access_role", {
     _user_id: userId,
     _brand_id: brandId ?? null,
   });
@@ -63,7 +78,7 @@ export async function assertClientScope(
   userId: string,
   clientId: string,
 ): Promise<void> {
-  const { data, error } = await supabase.rpc("can_access_client", {
+  const { data, error } = await callRpc(supabase, "can_access_client", {
     _client_id: clientId,
     _user_id: userId,
   });
