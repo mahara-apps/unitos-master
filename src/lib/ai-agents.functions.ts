@@ -619,19 +619,26 @@ export const briefingParseFn = createServerFn({ method: "POST" })
       schema: BriefingSchema,
     });
 
-    const { data: row, error } = await context.supabase
-      .from("brand_briefings")
-      .insert({
-        brand_id: data.brandId,
-        client_id: data.clientId,
-        raw_text: data.texto,
-        data: out,
-        completude: out.completude_percentual ?? 0,
-        created_by: context.userId,
-      })
-      .select()
-      .single();
-    if (error) throw error;
+    // FASE 2: escrita canônica em clients.brand_hub + versão de auditoria.
+    const { writeCanonicalBriefing } = await import("@/lib/briefing-write.server");
+    const { legacyToHubPatch, loadCanonicalBriefing, projectCanonicalBriefingRow } = await import(
+      "@/lib/briefing-source.server"
+    );
+    await writeCanonicalBriefing(context.supabase, {
+      brandId: data.brandId,
+      clientId: data.clientId,
+      patch: legacyToHubPatch(out as unknown as Record<string, unknown>),
+      authorId: context.userId,
+      origin: "ai.briefing",
+    });
+    const canonical = await loadCanonicalBriefing(context.supabase, {
+      clientId: data.clientId,
+      brandId: data.brandId,
+    });
+    const row = projectCanonicalBriefingRow(canonical, null, {
+      brandId: data.brandId,
+      clientId: data.clientId,
+    });
     return { row, output: out };
   });
 
