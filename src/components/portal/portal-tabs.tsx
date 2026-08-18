@@ -22,6 +22,7 @@ import {
   Hourglass,
   CheckCircle2,
   ArrowRight,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,6 +37,7 @@ import { BRIEFING_BLOCKS, BRIEFING_FIELDS } from "@/lib/briefing-fields";
 import { briefingField, briefingFieldLabel, type BriefingField } from "@/lib/briefing-fields";
 import type { PortalTabId } from "./portal-nav";
 import { PautaApprovals } from "./portal-pauta";
+import { PLAN_PENDING_CLIENT_STATUS } from "@/lib/monthly-plan-client.types";
 import {
   EmptyState,
   GridSkeleton,
@@ -50,88 +52,312 @@ import {
 
 /* ---------------------------------- HOME ---------------------------------- */
 
+/**
+ * FASE 2 — Início orientado a ação.
+ *
+ * Só usa dados reais já expostos pelo portal: `metrics`, `approvals("pending")`,
+ * `plans`, `briefingRequests` e `calendar(mês atual)`. Nenhuma métrica nova,
+ * nenhuma chamada nova ao banco e nenhum termo interno da agência.
+ */
 export function HomeTab() {
   const api = usePortalApi();
-  const q = useQuery({
+  const ym = new Date().toISOString().slice(0, 7);
+
+  const metricsQ = useQuery({
     queryKey: ["portal", "metrics", api.scopeKey],
     queryFn: () => api.metrics(),
     staleTime: 30_000,
   });
-  const m = q.data;
-  const loading = q.isLoading;
-  const cards: Array<{
-    label: string;
-    value: number;
-    description: string;
-    status: "warning" | "success" | "info";
-    icon: typeof Hourglass;
-    tab: PortalTabId;
-  }> = [
-    {
-      label: "Aguardando você",
-      value: m?.pending ?? 0,
-      description: (m?.pending ?? 0) > 0 ? "Revisar agora" : "Nada pendente",
-      status: "warning",
-      icon: Hourglass,
-      tab: "approvals",
-    },
-    {
-      label: "Aprovados no mês",
-      value: m?.approvedThisMonth ?? 0,
-      description: "Neste mês",
-      status: "success",
-      icon: CheckCircle2,
-      tab: "approvals",
-    },
-    {
-      label: "Agendados",
-      value: m?.scheduled ?? 0,
-      description: "Na fila de publicação",
-      status: "info",
-      icon: CalendarClock,
-      tab: "calendar",
-    },
-  ];
+  const pendingQ = useQuery({
+    queryKey: ["portal", "approvals", api.scopeKey, "pending"],
+    queryFn: () => api.approvals("pending"),
+    staleTime: 30_000,
+  });
+  const plansQ = useQuery({
+    queryKey: ["portal", "plans", api.scopeKey],
+    queryFn: () => api.plans(),
+    staleTime: 30_000,
+  });
+  const briefingQ = useQuery({
+    queryKey: ["portal", "briefing-requests", api.scopeKey],
+    queryFn: () => api.briefingRequests(),
+    staleTime: 30_000,
+  });
+  const calendarQ = useQuery({
+    queryKey: ["portal", "calendar", api.scopeKey, ym],
+    queryFn: () => api.calendar(ym),
+    staleTime: 30_000,
+  });
+
+  const pendingPosts = pendingQ.data ?? [];
+  const plansAwaiting = (plansQ.data ?? []).filter((p) => p.status === PLAN_PENDING_CLIENT_STATUS);
+  const briefingsPending = (briefingQ.data ?? []).filter(
+    (r) => r.status === "requested" || (r.pending_fields?.length ?? 0) > 0,
+  );
+
+  const now = Date.now();
+  const upcoming = useMemo(
+    () =>
+      (calendarQ.data ?? [])
+        .filter((p) => p.scheduled_at && new Date(p.scheduled_at).getTime() >= now)
+        .sort((a, b) => (a.scheduled_at! < b.scheduled_at! ? -1 : 1))
+        .slice(0, 5),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [calendarQ.data],
+  );
+
+  const recent = useMemo(() => {
+    const items: Array<{ id: string; text: string; detail: string; when: string }> = [];
+    for (const p of calendarQ.data ?? []) {
+      if (p.approval?.decided_at) {
+        items.push({
+          id: `post-${p.id}`,
+          text: p.title ?? "Conteúdo",
+          detail:
+            p.approval.status === "approved"
+              ? "Você aprovou"
+              : p.approval.status === "adjust"
+                ? "Você pediu ajustes"
+                : p.approval.status === "rejected"
+                  ? "Você recusou"
+                  : "Você respondeu",
+          when: p.approval.decided_at,
+        });
+      } else if (p.published_at) {
+        items.push({
+          id: `pub-${p.id}`,
+          text: p.title ?? "Conteúdo",
+          detail: "Publicado",
+          when: p.published_at,
+        });
+      }
+    }
+    for (const p of plansQ.data ?? []) {
+      if (p.client_decision_at)
+        items.push({
+          id: `plan-${p.id}`,
+          text: p.title,
+          detail: "Pauta respondida",
+          when: p.client_decision_at,
+        });
+    }
+    for (const r of briefingQ.data ?? []) {
+      if (r.submitted_at)
+        items.push({
+          id: `br-${r.id}`,
+          text: "Briefing",
+          detail: "Respostas enviadas",
+          when: r.submitted_at,
+        });
+    }
+    return items.sort((a, b) => (a.when < b.when ? 1 : -1)).slice(0, 6);
+  }, [calendarQ.data, plansQ.data, briefingQ.data]);
+
+  const loadingKpis = metricsQ.isLoading || plansQ.isLoading || briefingQ.isLoading;
+  const kpiValue = (v: number) => (loadingKpis ? <Skeleton className="h-6 w-10" /> : v);
+
+  const pendingCount = metricsQ.data?.pending ?? pendingPosts.length;
 
   return (
     <div className="space-y-6">
-      <PageKpiGrid columns={3}>
-        {cards.map((c) => {
-          const Icon = c.icon;
-          return (
-            <PortalLink key={c.label} tab={c.tab} className="block">
-              <PageKpi
-                label={c.label}
-                value={loading ? <Skeleton className="h-6 w-10" /> : c.value}
-                icon={<Icon />}
-                status={c.status}
-                description={c.description}
-              />
-            </PortalLink>
-          );
-        })}
+      <PageKpiGrid columns={4}>
+        <PortalLink tab="approvals" className="block">
+          <PageKpi
+            label="Aguardando aprovação"
+            value={kpiValue(pendingCount)}
+            icon={<Hourglass />}
+            status={pendingCount > 0 ? "warning" : "success"}
+            description={pendingCount > 0 ? "Conteúdos esperando você" : "Nada pendente"}
+          />
+        </PortalLink>
+        <PortalLink tab="pauta" className="block">
+          <PageKpi
+            label="Pauta pendente"
+            value={kpiValue(plansAwaiting.length)}
+            icon={<Sparkles />}
+            status={plansAwaiting.length > 0 ? "warning" : "success"}
+            description={
+              plansAwaiting.length > 0 ? "Pautas do mês para revisar" : "Nenhuma pauta em aberto"
+            }
+          />
+        </PortalLink>
+        <PortalLink tab="briefing" className="block">
+          <PageKpi
+            label="Briefing pendente"
+            value={kpiValue(briefingsPending.length)}
+            icon={<FileText />}
+            status={briefingsPending.length > 0 ? "warning" : "success"}
+            description={
+              briefingsPending.length > 0 ? "Perguntas da equipe" : "Nenhuma pergunta em aberto"
+            }
+          />
+        </PortalLink>
+        <PortalLink tab="calendar" className="block">
+          <PageKpi
+            label="Próximos compromissos"
+            value={calendarQ.isLoading ? <Skeleton className="h-6 w-10" /> : upcoming.length}
+            icon={<CalendarClock />}
+            status="info"
+            description="Publicações já com data"
+          />
+        </PortalLink>
       </PageKpiGrid>
 
-      <div className="rounded-xl border border-border/60 bg-card p-6">
-        <h2 className="text-lg font-semibold tracking-tight">
-          Tudo o que sua marca está publicando, em um só lugar.
-        </h2>
-        <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Aqui você aprova os conteúdos, acompanha a pauta e o calendário do mês, responde o
-          briefing quando solicitado, baixa arquivos e consulta as informações da sua marca.
-        </p>
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Button size="sm" asChild>
-            <PortalLink tab="approvals">Revisar aprovações</PortalLink>
-          </Button>
-          <Button size="sm" variant="outline" asChild>
-            <PortalLink tab="pauta">Ver pauta do mês</PortalLink>
-          </Button>
-          <Button size="sm" variant="outline" asChild>
-            <PortalLink tab="calendar">Ver calendário</PortalLink>
+      {/* Pendências */}
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold tracking-tight">O que precisa de você</h2>
+        {loadingKpis ? (
+          <ListSkeleton />
+        ) : pendingCount === 0 && plansAwaiting.length === 0 && briefingsPending.length === 0 ? (
+          <EmptyState
+            icon={CheckCircle2}
+            title="Você está em dia"
+            description="Assim que a equipe enviar algo para sua aprovação, aparece aqui."
+          />
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {pendingCount > 0 && (
+              <PendingAction
+                icon={CheckSquare}
+                title="Aprovar conteúdo"
+                description={`${pendingCount} ${pendingCount === 1 ? "conteúdo aguarda" : "conteúdos aguardam"} sua aprovação.`}
+                cta="Aprovar conteúdo"
+                tab="approvals"
+              />
+            )}
+            {plansAwaiting.length > 0 && (
+              <PendingAction
+                icon={Sparkles}
+                title="Aprovar pauta"
+                description={
+                  plansAwaiting.length === 1
+                    ? `${plansAwaiting[0].title} — ${plansAwaiting[0].pending} ${plansAwaiting[0].pending === 1 ? "item sem decisão" : "itens sem decisão"}.`
+                    : `${plansAwaiting.length} pautas aguardam sua resposta.`
+                }
+                cta="Aprovar pauta"
+                tab="pauta"
+              />
+            )}
+            {briefingsPending.length > 0 && (
+              <PendingAction
+                icon={FileText}
+                title="Responder briefing"
+                description={
+                  briefingsPending[0]?.due_at
+                    ? `Responda até ${formatDate(briefingsPending[0].due_at)}.`
+                    : "A equipe precisa de algumas informações da sua marca."
+                }
+                cta="Responder briefing"
+                tab="briefing"
+              />
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* Próximas publicações */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold tracking-tight">Próximas publicações</h2>
+          <Button size="sm" variant="ghost" asChild>
+            <PortalLink tab="calendar">
+              Ver calendário <ArrowRight className="ml-1 h-3.5 w-3.5" />
+            </PortalLink>
           </Button>
         </div>
+        {calendarQ.isLoading ? (
+          <ListSkeleton />
+        ) : upcoming.length === 0 ? (
+          <EmptyState
+            icon={CalendarClock}
+            title="Nenhuma publicação com data"
+            description="Quando um conteúdo aprovado receber data, ele aparece aqui."
+          />
+        ) : (
+          <div className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60 bg-card">
+            {upcoming.map((p) => (
+              <div key={p.id} className="flex items-center gap-3 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{p.title ?? "Conteúdo"}</div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <CalendarDays className="h-3 w-3" />
+                      {new Date(p.scheduled_at as string).toLocaleString("pt-BR", {
+                        day: "2-digit",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                    {(p.channels ?? []).slice(0, 3).map((c) => (
+                      <Badge key={c} variant="secondary" className="capitalize">
+                        {c}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Atividade recente */}
+      <section className="space-y-3">
+        <h2 className="text-sm font-semibold tracking-tight">Atividade recente</h2>
+        {calendarQ.isLoading ? (
+          <ListSkeleton />
+        ) : recent.length === 0 ? (
+          <EmptyState
+            icon={Clock}
+            title="Nada por aqui ainda"
+            description="Suas aprovações e respostas ficam registradas nesta lista."
+          />
+        ) : (
+          <ol className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60 bg-card">
+            {recent.map((r) => (
+              <li key={r.id} className="flex items-center gap-3 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm">{r.text}</div>
+                  <div className="text-xs text-muted-foreground">{r.detail}</div>
+                </div>
+                <span className="shrink-0 text-xs text-muted-foreground">{formatDate(r.when)}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function PendingAction({
+  icon: Icon,
+  title,
+  description,
+  cta,
+  tab,
+}: {
+  icon: typeof Hourglass;
+  title: string;
+  description: string;
+  cta: string;
+  tab: PortalTabId;
+}) {
+  return (
+    <div className="flex flex-col justify-between gap-3 rounded-xl border border-border/60 bg-card p-4">
+      <div className="space-y-1">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Icon className="h-4 w-4 text-severity-warning" />
+          {title}
+        </div>
+        <p className="text-xs text-muted-foreground">{description}</p>
       </div>
+      <Button size="sm" asChild className="self-start">
+        <PortalLink tab={tab}>
+          {cta} <ArrowRight className="ml-1 h-3.5 w-3.5" />
+        </PortalLink>
+      </Button>
     </div>
   );
 }
