@@ -36,6 +36,7 @@ import { PortalBrand } from "./portal-brand";
 import { PLAN_PENDING_CLIENT_STATUS } from "@/lib/monthly-plan-client.types";
 import {
   EmptyState,
+  ErrorState,
   GridSkeleton,
   ListSkeleton,
   formatDate,
@@ -145,10 +146,25 @@ export function HomeTab() {
     return items.sort((a, b) => (a.when < b.when ? 1 : -1)).slice(0, 6);
   }, [calendarQ.data, plansQ.data, briefingQ.data]);
 
+  const failed =
+    metricsQ.isError && plansQ.isError && briefingQ.isError && calendarQ.isError;
   const loadingKpis = metricsQ.isLoading || plansQ.isLoading || briefingQ.isLoading;
   const kpiValue = (v: number) => (loadingKpis ? <Skeleton className="h-6 w-10" /> : v);
 
   const pendingCount = metricsQ.data?.pending ?? pendingPosts.length;
+
+  if (failed)
+    return (
+      <ErrorState
+        description="Não conseguimos carregar seu resumo agora."
+        onRetry={() => {
+          metricsQ.refetch();
+          plansQ.refetch();
+          briefingQ.refetch();
+          calendarQ.refetch();
+        }}
+      />
+    );
 
   return (
     <div className="space-y-6">
@@ -459,6 +475,7 @@ export function ApprovalsTab() {
             <button
               key={f.id}
               onClick={() => setFilter(f.id)}
+              aria-pressed={active}
               className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs transition-colors ${
                 active
                   ? "bg-accent text-accent-foreground"
@@ -485,6 +502,11 @@ export function ApprovalsTab() {
 
       {q.isLoading ? (
         <GridSkeleton />
+      ) : q.isError ? (
+        <ErrorState
+          description="Não conseguimos carregar seus conteúdos agora."
+          onRetry={() => q.refetch()}
+        />
       ) : !q.data?.length ? (
         <EmptyState
           icon={filter === "pending" ? CheckCircle2 : CheckSquare}
