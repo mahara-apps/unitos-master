@@ -141,12 +141,18 @@ function PautaDetail({ planId, onBack }: { planId: string; onBack: () => void })
   const topics = q.data?.topics ?? [];
   const editable = q.data?.plan.status === PLAN_PENDING_CLIENT_STATUS;
 
-  const rows = useMemo(
+  type Row = {
+    topic: PublicPlanTopic;
+    decision: Decision | "pending";
+    comment: string;
+    staged: boolean;
+  };
+
+  const rows = useMemo<Row[]>(
     () =>
       topics.map((topic) => {
         const local = items[topic.id];
-        const saved: Decision | "pending" =
-          topic.client_status === "pending" ? "pending" : topic.client_status;
+        const saved: Decision | "pending" = topic.client_status;
         const decision: Decision | "pending" = local?.decision ?? saved;
         return {
           topic,
@@ -157,6 +163,7 @@ function PautaDetail({ planId, onBack }: { planId: string; onBack: () => void })
       }),
     [topics, items],
   );
+
 
   const counts = useMemo(
     () => ({
