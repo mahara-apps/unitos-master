@@ -57,6 +57,8 @@ export type CanonicalBriefing = {
   legacy: LegacyBriefingData;
   /** Métrica oficial de completude. */
   completion: number;
+  /** Status do ciclo de vida do briefing (clients.briefing_status). */
+  status: "draft" | "requested" | "submitted" | "in_review" | "approved";
   /** Se existe registro em brand_briefings (compatibilidade / diagnóstico). */
   hasLegacyRow: boolean;
   legacyRowId: string | null;
