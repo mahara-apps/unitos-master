@@ -242,7 +242,7 @@ function InviteRow({ brandId, invite }: {
   brandId: string;
   invite: {
     id: string; email: string; role: string; token: string; expires_at: string;
-    permissions: PermissionId[]; revoked_at?: string | null; temp_password_sent?: boolean;
+    revoked_at?: string | null; temp_password_sent?: boolean;
   };
 }) {
   const qc = useQueryClient();
