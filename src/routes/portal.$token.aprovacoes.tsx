@@ -6,6 +6,5 @@ export const Route = createFileRoute("/portal/$token/aprovacoes")({
 });
 
 function PortalApprovalsRoute() {
-  const { token } = Route.useParams();
-  return <ApprovalsTab token={token} />;
+  return <ApprovalsTab />;
 }

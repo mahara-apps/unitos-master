@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { PortalLink, usePortalApi } from "./portal-context";
+import type { PortalTabId } from "./portal-nav";
 import { PautaApprovals } from "./portal-pauta";
 import {
   EmptyState, GridSkeleton, ListSkeleton, buildMonthGrid, formatBytes, formatDate,
