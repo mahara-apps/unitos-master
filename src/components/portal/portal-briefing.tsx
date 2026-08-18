@@ -17,7 +17,8 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { usePortalApi } from "./portal-context";
-import { EmptyState, ListSkeleton, formatDate } from "./portal-shared";
+import { EmptyState,
+  ErrorState, ListSkeleton, formatDate } from "./portal-shared";
 import {
   BRIEFING_BLOCKS,
   briefingField,
@@ -110,6 +111,13 @@ export function PortalBriefing() {
   });
 
   if (q.isLoading) return <ListSkeleton />;
+  if (q.isError)
+    return (
+      <ErrorState
+        description="Não conseguimos carregar seus pedidos de briefing agora."
+        onRetry={() => q.refetch()}
+      />
+    );
 
   const requests = q.data ?? [];
   const open = requests.filter((r) => {

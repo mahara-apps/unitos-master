@@ -235,6 +235,11 @@ function PautaDetail({ planId, onBack }: { planId: string; onBack: () => void })
 
       {q.isLoading ? (
         <ListSkeleton />
+      ) : q.isError ? (
+        <ErrorState
+          description="Não conseguimos carregar esta pauta agora."
+          onRetry={() => q.refetch()}
+        />
       ) : !q.data ? (
         <EmptyState
           icon={Sparkles}
@@ -309,6 +314,7 @@ function PautaDetail({ planId, onBack }: { planId: string; onBack: () => void })
                   variant={filter === f.id ? "default" : "outline"}
                   className="h-8 rounded-full text-xs"
                   onClick={() => setFilter(f.id)}
+                  aria-pressed={filter === f.id}
                 >
                   {f.label} ({n})
                 </Button>

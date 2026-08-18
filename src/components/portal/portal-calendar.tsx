@@ -231,6 +231,11 @@ export function PortalCalendar() {
 
       {q.isLoading ? (
         <ListSkeleton />
+      ) : q.isError ? (
+        <ErrorState
+          description="Não conseguimos carregar o calendário deste mês agora."
+          onRetry={() => q.refetch()}
+        />
       ) : items.length === 0 ? (
         <EmptyState
           icon={CalendarDays}
