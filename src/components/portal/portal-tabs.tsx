@@ -3,14 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckSquare,
   CalendarDays,
-  FolderOpen,
   FileText,
   Check,
   X,
   MessageSquareWarning,
   MessageCircle,
-  Download,
-  Search,
   Clock,
   Loader2,
   ImageIcon,
@@ -30,7 +27,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { PortalLink, usePortalApi } from "./portal-context";
 import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
-import { BRIEFING_BLOCKS, BRIEFING_FIELDS } from "@/lib/briefing-fields";
 import type { PortalTabId } from "./portal-nav";
 import { PautaApprovals } from "./portal-pauta";
 import { PortalCalendar } from "./portal-calendar";
@@ -42,7 +38,6 @@ import {
   EmptyState,
   GridSkeleton,
   ListSkeleton,
-  formatBytes,
   formatDate,
   usePortalIdentity,
 } from "./portal-shared";
