@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { resolvePortalTokenFn } from "@/lib/portal-public.functions";
 import { FullScreenLoader, PortalIdentityProvider, TokenError } from "@/components/portal/portal-shared";
+import { PortalModeProvider } from "@/components/portal/portal-context";
 import { PORTAL_TABS, activePortalTab } from "@/components/portal/portal-nav";
 
 export const Route = createFileRoute("/portal/$token")({
@@ -63,6 +64,7 @@ function PortalShell() {
     .toUpperCase();
 
   return (
+    <PortalModeProvider value={{ kind: "token", token }}>
     <PortalIdentityProvider value={identity}>
       <div
         className={`min-h-screen bg-background text-foreground ${theme?.dark ? "dark" : ""}`}
@@ -171,5 +173,6 @@ function PortalShell() {
         </div>
       </div>
     </PortalIdentityProvider>
+    </PortalModeProvider>
   );
 }
