@@ -95,20 +95,23 @@ beforeAll(async () => {
     .maybeSingle();
   const superIsFlagged = Boolean(prof.data?.is_super_admin);
 
+  // Sem RETURNING: a associação de owner só existe depois do AFTER trigger,
+  // então a linha ainda não é visível pela policy de SELECT no mesmo comando.
   const brandA = await owner.client
     .from("brands")
-    .insert({ name: `RBAC ${TAG}`, slug: `rbac-${TAG}`, created_by: owner.id })
-    .select("id")
-    .single();
+    .insert({ name: `RBAC ${TAG}`, slug: `rbac-${TAG}`, created_by: owner.id });
   if (brandA.error) throw new Error(`brandA: ${brandA.error.message}`);
   const brandB = await outsider.client
     .from("brands")
-    .insert({ name: `RBAC Outra ${TAG}`, slug: `rbac-outra-${TAG}`, created_by: outsider.id })
-    .select("id")
-    .single();
+    .insert({ name: `RBAC Outra ${TAG}`, slug: `rbac-outra-${TAG}`, created_by: outsider.id });
   if (brandB.error) throw new Error(`brandB: ${brandB.error.message}`);
-  const brandId = brandA.data.id as string;
-  const otherBrandId = brandB.data.id as string;
+  const fetchBrand = async (a: Actor, slug: string) => {
+    const r = await a.client.from("brands").select("id").eq("slug", slug).single();
+    if (r.error) throw new Error(`brand ${slug}: ${r.error.message}`);
+    return r.data.id as string;
+  };
+  const brandId = await fetchBrand(owner, `rbac-${TAG}`);
+  const otherBrandId = await fetchBrand(outsider, `rbac-outra-${TAG}`);
 
   const bm = await owner.client.from("brand_members").insert([
     { brand_id: brandId, user_id: manager.id, role: "manager" },
