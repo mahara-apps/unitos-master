@@ -753,10 +753,26 @@ export function BriefingTab() {
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {r.submitted_at ? `Enviado em ${formatDate(r.submitted_at)}` : "—"}
+                    {r.decided_at ? ` · revisado em ${formatDate(r.decided_at)}` : ""}
                   </div>
+                  {r.accepted_fields.length > 0 ? (
+                    <div className="text-xs text-muted-foreground">
+                      Aproveitado no briefing: {r.accepted_fields.map(briefingFieldLabel).join(", ")}
+                    </div>
+                  ) : null}
+                  {r.review_note ? (
+                    <div className="text-xs text-muted-foreground">Observação da equipe: {r.review_note}</div>
+                  ) : null}
                 </div>
-                <Badge variant="secondary" className="shrink-0 text-[10px]">
-                  {r.status === "in_review" ? "Em revisão pela equipe" : "Respondido"}
+                <Badge
+                  variant={r.status === "approved" ? "default" : "secondary"}
+                  className="shrink-0 text-[10px]"
+                >
+                  {r.status === "approved"
+                    ? "Aprovado pela equipe"
+                    : r.status === "in_review"
+                      ? "Em revisão pela equipe"
+                      : "Respondido"}
                 </Badge>
               </div>
             ))}
@@ -773,7 +789,15 @@ export function BriefingTab() {
 function BriefingRequestForm({
   request,
 }: {
-  request: { id: string; requested_fields: string[]; message: string | null; due_at: string | null };
+  request: {
+    id: string;
+    requested_fields: string[];
+    message: string | null;
+    due_at: string | null;
+    pending_fields?: string[];
+    review_decision?: "approved" | "partial" | "changes_requested" | null;
+    review_note?: string | null;
+  };
 }) {
   const api = usePortalApi();
   const qc = useQueryClient();
@@ -781,7 +805,12 @@ function BriefingRequestForm({
   const [note, setNote] = useState("");
   const [files, setFiles] = useState<Array<{ name: string; mime?: string | null; dataBase64: string }>>([]);
 
-  const fields = request.requested_fields.map(briefingField).filter(Boolean) as BriefingField[];
+  /** Após uma revisão parcial, o cliente só precisa complementar o que ficou pendente. */
+  const keys =
+    request.review_decision && (request.pending_fields?.length ?? 0) > 0
+      ? request.pending_fields!
+      : request.requested_fields;
+  const fields = keys.map(briefingField).filter(Boolean) as BriefingField[];
 
   const submit = useMutation({
     mutationFn: () =>
@@ -826,8 +855,13 @@ function BriefingRequestForm({
         <div className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-amber-600 dark:text-amber-400">
           <Hourglass className="h-3 w-3" /> aguardando você
         </div>
-        <div className="text-sm font-medium">A equipe precisa destas informações</div>
+        <div className="text-sm font-medium">
+          {request.review_decision ? "A equipe pediu complementação" : "A equipe precisa destas informações"}
+        </div>
         {request.message ? <div className="text-xs text-muted-foreground">{request.message}</div> : null}
+        {request.review_note ? (
+          <div className="text-xs text-muted-foreground">Observação da equipe: {request.review_note}</div>
+        ) : null}
         {request.due_at ? (
           <div className="text-xs text-muted-foreground">Responda até {formatDate(request.due_at)}.</div>
         ) : null}
