@@ -1038,18 +1038,17 @@ export const loadClientContextFn = createServerFn({ method: "POST" })
 
     const totalCost = (usage.data ?? []).reduce((s, r) => s + Number(r.cost_usd ?? 0), 0);
 
-    // Fonte canônica do briefing: clients.brand_hub (brand_briefings só metadados).
+    // Fonte única do briefing: clients.brand_hub.
     const canonical = await loadCanonicalBriefing(context.supabase, {
       clientId: data.clientId,
       brandId: data.brandId,
     });
 
     return {
-      briefing: projectCanonicalBriefingRow(
-        canonical,
-        (briefing.data ?? null) as Record<string, unknown> | null,
-        { brandId: data.brandId, clientId: data.clientId },
-      ),
+      briefing: projectCanonicalBriefingRow(canonical, null, {
+        brandId: data.brandId,
+        clientId: data.clientId,
+      }),
       voice: voice.data,
       personas: personas.data,
       cohorts: cohorts.data,
