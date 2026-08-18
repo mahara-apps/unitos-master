@@ -428,86 +428,140 @@ export function BrandTab() {
 
 /* -------------------------------- APPROVALS ------------------------------- */
 
+type ApprovalFilter = "pending" | "approved" | "adjust" | "all";
+
+const APPROVAL_FILTERS: Array<{ id: ApprovalFilter; label: string }> = [
+  { id: "pending", label: "Pendentes" },
+  { id: "approved", label: "Aprovados" },
+  { id: "adjust", label: "Ajustes solicitados" },
+  { id: "all", label: "Todos" },
+];
+
+/** Rótulos voltados ao cliente — nada de status técnico. */
+const DECISION_LABEL: Record<string, string> = {
+  pending: "Aguardando você",
+  approved: "Aprovado por você",
+  rejected: "Recusado por você",
+  adjust: "Ajustes solicitados",
+  changes_requested: "Ajustes solicitados",
+};
+
+const DECISION_TONE: Record<string, { badge: string; bar: string; box: string }> = {
+  pending: {
+    badge: "border-amber-500/40 text-amber-600 dark:text-amber-400",
+    bar: "bg-amber-500",
+    box: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  },
+  approved: {
+    badge: "border-emerald-500/40 text-emerald-600 dark:text-emerald-400",
+    bar: "bg-emerald-500",
+    box: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  },
+  rejected: {
+    badge: "border-rose-500/40 text-rose-600 dark:text-rose-400",
+    bar: "bg-rose-500",
+    box: "border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-400",
+  },
+  adjust: {
+    badge: "border-sky-500/40 text-sky-600 dark:text-sky-400",
+    bar: "bg-sky-500",
+    box: "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-400",
+  },
+};
+
+function decisionTone(status: string) {
+  return DECISION_TONE[status === "changes_requested" ? "adjust" : status] ?? DECISION_TONE.pending;
+}
+
+const EMPTY_BY_FILTER: Record<ApprovalFilter, { title: string; description: string }> = {
+  pending: {
+    title: "Você está em dia",
+    description: "Nenhum conteúdo aguardando sua aprovação neste momento.",
+  },
+  approved: {
+    title: "Nenhum conteúdo aprovado ainda",
+    description: "Os conteúdos que você aprovar ficam guardados aqui.",
+  },
+  adjust: {
+    title: "Nenhum ajuste solicitado",
+    description: "Quando você pedir alterações em um conteúdo, ele aparece nesta lista.",
+  },
+  all: {
+    title: "Nada compartilhado ainda",
+    description: "Assim que a equipe enviar conteúdos para você, eles aparecem aqui.",
+  },
+};
+
 export function ApprovalsTab() {
   const identity = usePortalIdentity();
   const api = usePortalApi();
-  const [filter, setFilter] = useState<"all" | "pending" | "approved" | "adjust">("pending");
+  const [filter, setFilter] = useState<ApprovalFilter>("pending");
   const [openId, setOpenId] = useState<string | null>(null);
+
   const q = useQuery({
     queryKey: ["portal", "approvals", api.scopeKey, filter],
     queryFn: () => api.approvals(filter),
   });
+  const metricsQ = useQuery({
+    queryKey: ["portal", "metrics", api.scopeKey],
+    queryFn: () => api.metrics(),
+    staleTime: 30_000,
+  });
+  const pendingCount = metricsQ.data?.pending ?? 0;
 
-  return (
-    <ApprovalsContent
-      filter={filter}
-      setFilter={setFilter}
-      q={q}
-      openId={openId}
-      setOpenId={setOpenId}
-      identity={identity}
-    />
-  );
-}
-
-type ApprovalsListQuery = {
-  isLoading: boolean;
-  data?: Array<Record<string, unknown>> | null;
-};
-
-function ApprovalsContent({
-  filter,
-  setFilter,
-  q,
-  openId,
-  setOpenId,
-  identity,
-}: {
-  filter: "all" | "pending" | "approved" | "adjust";
-  setFilter: (f: "all" | "pending" | "approved" | "adjust") => void;
-  q: ApprovalsListQuery;
-  openId: string | null;
-  setOpenId: (id: string | null) => void;
-  identity: { value: string; save: (v: string) => void };
-}) {
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap gap-1 rounded-lg border border-border/60 bg-card p-1">
-        {(["pending", "all", "approved", "adjust"] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`rounded-md px-3 py-1.5 text-xs transition-colors ${
-              filter === f
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {f === "pending"
-              ? "Pendentes"
-              : f === "all"
-                ? "Todos"
-                : f === "approved"
-                  ? "Aprovados"
-                  : "Ajustes"}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center gap-1 rounded-lg border border-border/60 bg-card p-1">
+        {APPROVAL_FILTERS.map((f) => {
+          const active = filter === f.id;
+          return (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs transition-colors ${
+                active
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {f.label}
+              {f.id === "pending" && pendingCount > 0 && (
+                <span className="rounded-full bg-severity-warning/15 px-1.5 text-[10px] font-medium text-severity-warning">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
+
+      {filter === "pending" && pendingCount > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Abra cada conteúdo para ver a imagem e o texto antes de aprovar. Para pedir alterações ou
+          recusar, é necessário escrever um comentário.
+        </p>
+      )}
+
       {q.isLoading ? (
         <GridSkeleton />
       ) : !q.data?.length ? (
         <EmptyState
-          icon={CheckSquare}
-          title="Nada por aqui"
-          description="Nenhum post neste filtro."
+          icon={filter === "pending" ? CheckCircle2 : CheckSquare}
+          title={EMPTY_BY_FILTER[filter].title}
+          description={EMPTY_BY_FILTER[filter].description}
         />
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {q.data.map((p) => (
-            <ApprovalCard key={p.id as string} post={p} onOpen={() => setOpenId(p.id as string)} />
+            <ApprovalCard
+              key={p.id}
+              post={p as unknown as Record<string, unknown>}
+              onOpen={() => setOpenId(p.id)}
+            />
           ))}
         </div>
       )}
+
       {openId && (
         <ApprovalDialog
           postId={openId}
@@ -521,54 +575,33 @@ function ApprovalsContent({
 }
 
 function ApprovalCard({ post, onOpen }: { post: Record<string, unknown>; onOpen: () => void }) {
-  const status = ((post.approval as { status: string } | undefined)?.status ?? "pending") as
-    | "pending"
-    | "approved"
-    | "rejected"
-    | "adjust";
-  const tone: Record<typeof status, { badge: string; bar: string }> = {
-    pending: {
-      badge: "border-amber-500/40 text-amber-600 dark:text-amber-400",
-      bar: "bg-amber-500",
-    },
-    approved: {
-      badge: "border-emerald-500/40 text-emerald-600 dark:text-emerald-400",
-      bar: "bg-emerald-500",
-    },
-    rejected: { badge: "border-rose-500/40 text-rose-600 dark:text-rose-400", bar: "bg-rose-500" },
-    adjust: { badge: "border-sky-500/40 text-sky-600 dark:text-sky-400", bar: "bg-sky-500" },
-  };
-  const label = {
-    pending: "Aguardando",
-    approved: "Aprovado",
-    rejected: "Rejeitado",
-    adjust: "Ajustes",
-  }[status];
+  const status = ((post.approval as { status: string } | undefined)?.status ?? "pending") as string;
+  const tone = decisionTone(status);
   const channels = Array.isArray(post.channels) ? (post.channels as string[]) : [];
   return (
     <button
       onClick={onOpen}
       className="group relative flex flex-col overflow-hidden rounded-xl border border-border/60 bg-card text-left transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-md"
     >
-      <span className={`absolute inset-x-0 top-0 z-10 h-0.5 ${tone[status].bar}`} />
+      <span className={`absolute inset-x-0 top-0 z-10 h-0.5 ${tone.bar}`} />
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted">
         {post.cover_url ? (
           <img
             src={post.cover_url as string}
-            alt=""
+            alt={(post.title as string) || "Prévia do conteúdo"}
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 text-muted-foreground">
             <ImageIcon className="h-6 w-6 opacity-40" />
-            <span className="font-mono text-[10px] uppercase tracking-widest">sem preview</span>
+            <span className="text-[11px]">Sem imagem</span>
           </div>
         )}
         <Badge
           variant="outline"
-          className={`absolute left-2 top-2.5 border bg-background/85 backdrop-blur ${tone[status].badge}`}
+          className={`absolute left-2 top-2.5 border bg-background/85 backdrop-blur ${tone.badge}`}
         >
-          {label}
+          {DECISION_LABEL[status] ?? DECISION_LABEL.pending}
         </Badge>
         <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/70 via-black/10 to-transparent p-2.5 opacity-0 transition-opacity group-hover:opacity-100">
           <span className="inline-flex items-center gap-1 rounded-md bg-white/95 px-2 py-1 text-[11px] font-medium text-black">
@@ -579,29 +612,17 @@ function ApprovalCard({ post, onOpen }: { post: Record<string, unknown>; onOpen:
       </div>
       <div className="flex flex-1 flex-col gap-2 p-3">
         <div className="line-clamp-2 text-sm font-medium leading-snug">
-          {(post.title as string) || "Sem título"}
+          {(post.title as string) || "Conteúdo"}
         </div>
         <div className="mt-auto flex flex-wrap items-center gap-1.5">
-          {post.format ? (
-            <Badge
-              variant="secondary"
-              className="rounded-md px-1.5 py-0 font-mono text-[9px] uppercase tracking-wider"
-            >
-              {post.format as string}
-            </Badge>
-          ) : null}
-          {channels.slice(0, 2).map((c) => (
-            <Badge
-              key={c}
-              variant="outline"
-              className="rounded-md px-1.5 py-0 font-mono text-[9px] uppercase tracking-wider"
-            >
+          {channels.slice(0, 3).map((c) => (
+            <Badge key={c} variant="secondary" className="rounded-md px-1.5 py-0 text-[10px] capitalize">
               {c}
             </Badge>
           ))}
         </div>
         {post.scheduled_at ? (
-          <div className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
             <CalendarClock className="h-3 w-3" />
             {formatDate(post.scheduled_at as string)}
           </div>
@@ -639,19 +660,21 @@ function ApprovalDialog({
     onSuccess: (_r, vars) => {
       toast.success(
         vars.decision === "approved"
-          ? "Post aprovado"
+          ? "Conteúdo aprovado"
           : vars.decision === "rejected"
-            ? "Post rejeitado"
+            ? "Conteúdo recusado"
             : vars.decision === "adjust"
               ? "Ajustes solicitados"
               : "Comentário enviado",
       );
+      // Lista, resumo e detalhe atualizam imediatamente; o detalhe fica aberto
+      // para o cliente ver a decisão registrada sem perder o contexto.
       qc.invalidateQueries({ queryKey: ["portal", "approvals", api.scopeKey] });
       qc.invalidateQueries({ queryKey: ["portal", "metrics", api.scopeKey] });
+      qc.invalidateQueries({ queryKey: ["portal", "calendar", api.scopeKey] });
       qc.invalidateQueries({ queryKey: ["portal", "post", api.scopeKey, postId] });
       setNote("");
       setMode(null);
-      if (vars.decision !== "comment") onClose();
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -662,50 +685,40 @@ function ApprovalDialog({
   const gallery = useMemo(() => {
     const list: Array<{ url: string; type: string }> = [];
     if (post?.cover_url) list.push({ url: post.cover_url as string, type: "image" });
-    for (const m of media) {
-      if (m.url && m.url !== post?.cover_url) list.push(m);
+    for (const item of media) {
+      if (item.url && item.url !== post?.cover_url) list.push(item);
     }
     return list;
   }, [post?.cover_url, media]);
   const current = gallery[activeMedia] ?? gallery[0];
-  const statusLabel: Record<string, string> = {
-    approved: "Aprovado",
-    rejected: "Rejeitado",
-    adjust: "Ajustes solicitados",
-    changes_requested: "Ajustes solicitados",
-    pending: "Aguardando decisão",
-  };
-  const statusTone: Record<string, string> = {
-    approved: "border-emerald-500/40 text-emerald-600 bg-emerald-500/10",
-    rejected: "border-rose-500/40 text-rose-600 bg-rose-500/10",
-    adjust: "border-amber-500/40 text-amber-600 bg-amber-500/10",
-    changes_requested: "border-amber-500/40 text-amber-600 bg-amber-500/10",
-    pending: "border-border/60 text-muted-foreground bg-muted/40",
-  };
-  const currentStatus = (approval?.status ?? "pending") as string;
+  const currentStatus = approval?.status ?? "pending";
+  const tone = decisionTone(currentStatus);
+  const decided = Boolean(approval && approval.status !== "pending");
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-4xl gap-0 overflow-hidden p-0">
         <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
-          {/* Media column */}
+          {/* Prévia */}
           <div className="relative flex flex-col bg-muted/40">
             <div className="relative flex aspect-[4/5] w-full items-center justify-center overflow-hidden md:aspect-auto md:flex-1">
               {current?.url ? (
-                <img src={current.url} alt="" className="h-full w-full object-cover" />
+                <img
+                  src={current.url}
+                  alt={post?.title ?? "Prévia do conteúdo"}
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
                   <ImageIcon className="h-8 w-8 opacity-40" />
-                  <span className="font-mono text-[10px] uppercase tracking-widest">
-                    sem preview
-                  </span>
+                  <span className="text-xs">Sem imagem</span>
                 </div>
               )}
               <Badge
                 variant="outline"
-                className={`absolute left-3 top-3 border backdrop-blur ${statusTone[currentStatus] ?? statusTone.pending}`}
+                className={`absolute left-3 top-3 border bg-background/85 backdrop-blur ${tone.badge}`}
               >
-                {statusLabel[currentStatus] ?? "Aguardando"}
+                {DECISION_LABEL[currentStatus] ?? DECISION_LABEL.pending}
               </Badge>
             </div>
             {gallery.length > 1 && (
@@ -728,34 +741,22 @@ function ApprovalDialog({
             )}
           </div>
 
-          {/* Content column */}
+          {/* Conteúdo e decisão */}
           <div className="flex max-h-[88vh] min-w-0 flex-col">
             <DialogHeader className="space-y-2 border-b border-border/60 px-5 py-4 text-left">
               <DialogTitle className="pr-8 text-base font-semibold leading-snug">
-                {post?.title ?? "Post"}
+                {post?.title ?? "Conteúdo"}
               </DialogTitle>
               <div className="flex flex-wrap items-center gap-1.5">
-                {post?.format && (
-                  <Badge
-                    variant="secondary"
-                    className="rounded-md font-mono text-[10px] uppercase tracking-wider"
-                  >
-                    {post.format}
-                  </Badge>
-                )}
                 {(post?.channels ?? []).map((c) => (
-                  <Badge
-                    key={c}
-                    variant="outline"
-                    className="rounded-md font-mono text-[10px] uppercase tracking-wider"
-                  >
+                  <Badge key={c} variant="secondary" className="rounded-md text-[10px] capitalize">
                     {c}
                   </Badge>
                 ))}
                 {post?.scheduled_at && (
                   <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
                     <CalendarClock className="h-3 w-3" />
-                    {formatDate(post.scheduled_at as string)}
+                    Previsto para {formatDate(post.scheduled_at as string)}
                   </span>
                 )}
               </div>
@@ -769,34 +770,41 @@ function ApprovalDialog({
                 </>
               ) : (
                 <>
-                  {approval && approval.status !== "pending" && (
-                    <div
-                      className={`rounded-md border px-3 py-2 text-xs ${statusTone[approval.status] ?? statusTone.pending}`}
-                    >
-                      <div className="font-medium">
-                        {statusLabel[approval.status] ?? approval.status}
+                  {decided && approval && (
+                    <section className="space-y-1.5">
+                      <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                        Sua decisão
                       </div>
-                      {approval.notes && <div className="mt-1 opacity-80">{approval.notes}</div>}
-                      {approval.decided_by_name && (
-                        <div className="mt-1 inline-flex items-center gap-1 opacity-70">
-                          <User2 className="h-3 w-3" />
-                          {approval.decided_by_name}
-                          {approval.decided_at && <> · {formatDate(approval.decided_at)}</>}
+                      <div className={`rounded-md border px-3 py-2 text-xs ${tone.box}`}>
+                        <div className="font-medium">
+                          {DECISION_LABEL[approval.status] ?? "Respondido"}
                         </div>
-                      )}
-                    </div>
+                        {approval.notes && (
+                          <div className="mt-1 whitespace-pre-line opacity-80">
+                            {approval.notes}
+                          </div>
+                        )}
+                        {(approval.decided_by_name || approval.decided_at) && (
+                          <div className="mt-1.5 inline-flex items-center gap-1 opacity-70">
+                            <User2 className="h-3 w-3" />
+                            {approval.decided_by_name ?? "Você"}
+                            {approval.decided_at && <> · {formatDate(approval.decided_at)}</>}
+                          </div>
+                        )}
+                      </div>
+                    </section>
                   )}
                   <section className="space-y-1.5">
-                    <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                      Legenda
+                    <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                      Texto da publicação
                     </div>
                     <div className="whitespace-pre-line rounded-md border border-border/60 bg-muted/40 p-3 leading-relaxed">
-                      {(post?.copy as string) || "—"}
+                      {(post?.copy as string) || "Sem texto por enquanto."}
                     </div>
                   </section>
                   {post?.script && (
                     <section className="space-y-1.5">
-                      <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                      <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
                         Roteiro
                       </div>
                       <div className="whitespace-pre-line rounded-md border border-border/60 bg-muted/40 p-3 leading-relaxed">
@@ -806,11 +814,11 @@ function ApprovalDialog({
                   )}
                   {mode && (
                     <section className="space-y-1.5">
-                      <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                      <div className="text-[11px] uppercase tracking-widest text-muted-foreground">
                         {mode === "reject"
-                          ? "Motivo da rejeição"
+                          ? "Por que você está recusando?"
                           : mode === "adjust"
-                            ? "Descreva o ajuste desejado"
+                            ? "O que deve ser ajustado?"
                             : "Seu comentário"}
                       </div>
                       <Textarea
@@ -820,17 +828,22 @@ function ApprovalDialog({
                         placeholder={
                           mode === "comment"
                             ? "Deixe uma observação para a equipe…"
-                            : "Seja específico para acelerar a revisão…"
+                            : "Explique com detalhes para a equipe resolver de primeira…"
                         }
                         className="min-h-[110px] resize-none"
                       />
+                      {!note.trim() && mode !== "comment" && (
+                        <p className="text-[11px] text-muted-foreground">
+                          O comentário é obrigatório nesta opção.
+                        </p>
+                      )}
                     </section>
                   )}
                 </>
               )}
             </div>
 
-            {/* Sticky footer */}
+            {/* Ações */}
             <div className="space-y-3 border-t border-border/60 bg-card/70 px-5 py-4">
               {disabled && (
                 <div className="space-y-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 p-3">
@@ -874,9 +887,9 @@ function ApprovalDialog({
                     {m.isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : mode === "reject" ? (
-                      "Confirmar rejeição"
+                      "Confirmar recusa"
                     ) : mode === "adjust" ? (
-                      "Solicitar ajuste"
+                      "Enviar pedido de ajuste"
                     ) : (
                       "Enviar comentário"
                     )}
@@ -895,7 +908,7 @@ function ApprovalDialog({
                     ) : (
                       <Check className="mr-1.5 h-4 w-4" />
                     )}
-                    Aprovar publicação
+                    {decided && currentStatus === "approved" ? "Manter aprovado" : "Aprovar"}
                   </Button>
                   <div className="grid grid-cols-3 gap-2">
                     <Button
@@ -904,7 +917,7 @@ function ApprovalDialog({
                       disabled={disabled}
                       onClick={() => setMode("adjust")}
                     >
-                      <MessageSquareWarning className="mr-1 h-4 w-4" /> Ajustar
+                      <MessageSquareWarning className="mr-1 h-4 w-4" /> Ajustes
                     </Button>
                     <Button
                       size="sm"
@@ -912,7 +925,7 @@ function ApprovalDialog({
                       disabled={disabled}
                       onClick={() => setMode("reject")}
                     >
-                      <X className="mr-1 h-4 w-4" /> Rejeitar
+                      <X className="mr-1 h-4 w-4" /> Recusar
                     </Button>
                     <Button
                       size="sm"
@@ -923,6 +936,9 @@ function ApprovalDialog({
                       <MessageCircle className="mr-1 h-4 w-4" /> Comentar
                     </Button>
                   </div>
+                  <Button size="sm" variant="ghost" className="w-full" onClick={onClose}>
+                    Voltar para a lista
+                  </Button>
                 </div>
               )}
             </div>
