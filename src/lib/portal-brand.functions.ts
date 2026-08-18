@@ -16,7 +16,8 @@ export type PortalBrandHub = {
   niche: string | null;
   toneOfVoice: string | null;
   updatedAt: string | null;
-  hub: Record<string, unknown>;
+  /** Campos de marca já normalizados em texto (somente leitura). */
+  hub: Record<string, string>;
 };
 
 async function readBrandHub(clientId: string, brandId: string): Promise<PortalBrandHub> {
@@ -29,13 +30,23 @@ async function readBrandHub(clientId: string, brandId: string): Promise<PortalBr
     .maybeSingle();
   if (error) throw new Error(error.message);
   const row = (data ?? {}) as Record<string, unknown>;
-  const hub = (row["brand_hub"] ?? {}) as Record<string, unknown>;
+  const raw = (row["brand_hub"] ?? {}) as Record<string, unknown>;
+  const hub: Record<string, string> = {};
+  for (const [k, v] of Object.entries(typeof raw === "object" && raw !== null ? raw : {})) {
+    if (v == null) continue;
+    const text = Array.isArray(v)
+      ? v.filter((x) => typeof x === "string" || typeof x === "number").join("\n")
+      : typeof v === "string" || typeof v === "number"
+        ? String(v)
+        : "";
+    if (text.trim()) hub[k] = text.trim();
+  }
   return {
     clientName: (row["name"] as string) ?? null,
     niche: (row["niche"] as string) ?? null,
     toneOfVoice: (row["tone_of_voice"] as string) ?? null,
     updatedAt: (row["briefing_updated_at"] as string) ?? (row["updated_at"] as string) ?? null,
-    hub: typeof hub === "object" && hub !== null ? hub : {},
+    hub,
   };
 }
 
