@@ -52,6 +52,7 @@ import { Route as ApiJobsCustomerPipelineRouteImport } from './routes/api/jobs/c
 import { Route as ApiJobsCopilotRouteImport } from './routes/api/jobs/copilot'
 import { Route as ApiJobsAnalyzeDocumentRouteImport } from './routes/api/jobs/analyze-document'
 import { Route as ApiChatStreamRouteImport } from './routes/api/chat.stream'
+import { Route as PortalAreaPautaRouteImport } from './routes/_portal/area.pauta'
 import { Route as PortalAreaInicioRouteImport } from './routes/_portal/area.inicio'
 import { Route as PortalAreaCalendarioRouteImport } from './routes/_portal/area.calendario'
 import { Route as PortalAreaBriefingRouteImport } from './routes/_portal/area.briefing'
@@ -315,6 +316,11 @@ const ApiChatStreamRoute = ApiChatStreamRouteImport.update({
   id: '/api/chat/stream',
   path: '/api/chat/stream',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PortalAreaPautaRoute = PortalAreaPautaRouteImport.update({
+  id: '/pauta',
+  path: '/pauta',
+  getParentRoute: () => PortalAreaRoute,
 } as any)
 const PortalAreaInicioRoute = PortalAreaInicioRouteImport.update({
   id: '/inicio',
@@ -606,6 +612,7 @@ export interface FileRoutesByFullPath {
   '/area/briefing': typeof PortalAreaBriefingRoute
   '/area/calendario': typeof PortalAreaCalendarioRoute
   '/area/inicio': typeof PortalAreaInicioRoute
+  '/area/pauta': typeof PortalAreaPautaRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
@@ -685,6 +692,7 @@ export interface FileRoutesByTo {
   '/area/briefing': typeof PortalAreaBriefingRoute
   '/area/calendario': typeof PortalAreaCalendarioRoute
   '/area/inicio': typeof PortalAreaInicioRoute
+  '/area/pauta': typeof PortalAreaPautaRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
@@ -773,6 +781,7 @@ export interface FileRoutesById {
   '/_portal/area/briefing': typeof PortalAreaBriefingRoute
   '/_portal/area/calendario': typeof PortalAreaCalendarioRoute
   '/_portal/area/inicio': typeof PortalAreaInicioRoute
+  '/_portal/area/pauta': typeof PortalAreaPautaRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
@@ -860,6 +869,7 @@ export interface FileRouteTypes {
     | '/area/briefing'
     | '/area/calendario'
     | '/area/inicio'
+    | '/area/pauta'
     | '/api/chat/stream'
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
@@ -939,6 +949,7 @@ export interface FileRouteTypes {
     | '/area/briefing'
     | '/area/calendario'
     | '/area/inicio'
+    | '/area/pauta'
     | '/api/chat/stream'
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
@@ -1026,6 +1037,7 @@ export interface FileRouteTypes {
     | '/_portal/area/briefing'
     | '/_portal/area/calendario'
     | '/_portal/area/inicio'
+    | '/_portal/area/pauta'
     | '/api/chat/stream'
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
@@ -1404,6 +1416,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/chat/stream'
       preLoaderRoute: typeof ApiChatStreamRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_portal/area/pauta': {
+      id: '/_portal/area/pauta'
+      path: '/pauta'
+      fullPath: '/area/pauta'
+      preLoaderRoute: typeof PortalAreaPautaRouteImport
+      parentRoute: typeof PortalAreaRoute
     }
     '/_portal/area/inicio': {
       id: '/_portal/area/inicio'
@@ -1879,6 +1898,7 @@ interface PortalAreaRouteChildren {
   PortalAreaBriefingRoute: typeof PortalAreaBriefingRoute
   PortalAreaCalendarioRoute: typeof PortalAreaCalendarioRoute
   PortalAreaInicioRoute: typeof PortalAreaInicioRoute
+  PortalAreaPautaRoute: typeof PortalAreaPautaRoute
 }
 
 const PortalAreaRouteChildren: PortalAreaRouteChildren = {
@@ -1887,6 +1907,7 @@ const PortalAreaRouteChildren: PortalAreaRouteChildren = {
   PortalAreaBriefingRoute: PortalAreaBriefingRoute,
   PortalAreaCalendarioRoute: PortalAreaCalendarioRoute,
   PortalAreaInicioRoute: PortalAreaInicioRoute,
+  PortalAreaPautaRoute: PortalAreaPautaRoute,
 }
 
 const PortalAreaRouteWithChildren = PortalAreaRoute._addFileChildren(
