@@ -8,7 +8,6 @@ import {
   Hourglass,
   Loader2,
   Paperclip,
-  Search,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -500,6 +499,3 @@ function LegacyBriefingLinks() {
     </section>
   );
 }
-
-/** Reservado: busca futura no histórico (mantém o import de ícone coerente). */
-export const BRIEFING_SEARCH_ICON = Search;
