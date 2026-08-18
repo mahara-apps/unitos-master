@@ -4,6 +4,10 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getBrandAiModel } from "./ai-provider.server";
 import type { Json } from "@/integrations/supabase/types";
+import {
+  loadCanonicalBriefing,
+  projectCanonicalBriefingRow,
+} from "@/lib/briefing-source.server";
 
 import { brain } from "@/lib/brain/api";
 
