@@ -72,6 +72,23 @@ export async function assertBrandAdmin(
   return role;
 }
 
+/**
+ * Exige autoridade administrativa (super_admin/admin/manager) — com marca
+ * quando informada, ou no melhor papel do usuário quando o escopo é global
+ * (ex.: auditoria consolidada de todas as marcas do usuário).
+ */
+export async function assertAdminAuthority(
+  supabase: RpcClient,
+  userId: string,
+  brandId?: string | null,
+): Promise<AuthorityRole> {
+  const role = await resolveAuthorityRole(supabase, userId, brandId ?? null);
+  if (!role || !ADMIN_LEVEL_ROLES.includes(role)) {
+    throw new Error("Forbidden: papel insuficiente para esta operação");
+  }
+  return role;
+}
+
 /** Exige que o cliente esteja no escopo do usuário (mesma regra da RLS). */
 export async function assertClientScope(
   supabase: RpcClient,

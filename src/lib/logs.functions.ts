@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertAdminAuthority } from "@/lib/access-guard";
 
 export type LogLevel = "error" | "warn" | "info" | "success";
 export type LogSource = "ai_job" | "activity" | "notification";
@@ -179,6 +180,9 @@ export const listSystemLogs = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => Input.parse(input ?? {}))
   .handler(async ({ data, context }): Promise<SystemLogEntry[]> => {
     const { supabase, userId } = context;
+    // Auditoria é restrita a papéis administrativos (super_admin/admin/manager),
+    // inclusive em chamadas diretas ao endpoint.
+    await assertAdminAuthority(supabase, userId, data.brandId ?? null);
     const limit = data.limit ?? 200;
     const sources = data.sources ?? ["ai_job", "activity", "notification"];
 
