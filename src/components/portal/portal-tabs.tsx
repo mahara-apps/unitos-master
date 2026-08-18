@@ -9,7 +9,6 @@ import {
   X,
   MessageSquareWarning,
   MessageCircle,
-  ExternalLink,
   Download,
   Search,
   Clock,
