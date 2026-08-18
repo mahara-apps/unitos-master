@@ -300,13 +300,21 @@ describe("escrita: INSERT / UPDATE / DELETE via RLS", () => {
     expect(del.data ?? []).toHaveLength(1);
   });
 
-  it("MANAGER não edita a marca; ADMIN edita", async () => {
+  // Regra canônica (Fase 1 — blindagem do Settings): identidade/dados da marca
+  // são administráveis por super_admin / admin (owner) / manager.
+  it("MANAGER e ADMIN editam a marca; EDITOR não", async () => {
     const m = await cx.manager.client
+      .from("brands")
+      .update({ name: `RBAC Manager ${TAG}` })
+      .eq("id", cx.brandId)
+      .select("id");
+    expect(m.data ?? []).toHaveLength(1);
+    const e = await cx.user.client
       .from("brands")
       .update({ name: `Hack ${TAG}` })
       .eq("id", cx.brandId)
       .select("id");
-    expect(m.data ?? []).toHaveLength(0);
+    expect(e.data ?? []).toHaveLength(0);
     const o = await cx.owner.client
       .from("brands")
       .update({ name: `RBAC ${TAG}` })
