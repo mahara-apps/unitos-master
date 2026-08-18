@@ -5852,6 +5852,15 @@ export type Database = {
         Args: { _client_id: string; _user_id: string }
         Returns: boolean
       }
+      can_access_client_row: {
+        Args: {
+          _brand_id: string
+          _client_id: string
+          _owner_user_id: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
       can_access_task: {
         Args: { _task_id: string; _user_id: string }
         Returns: boolean
