@@ -3,6 +3,7 @@ import { z } from "zod";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getBrandAiModel } from "@/lib/ai-provider.server";
+import { briefingToPromptText, loadCanonicalBriefing } from "@/lib/briefing-source.server";
 
 const InputSchema = z.object({
   brandId: z.string().uuid(),
