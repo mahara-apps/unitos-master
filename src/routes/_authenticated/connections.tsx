@@ -436,29 +436,19 @@ function ConnectionsPage() {
         </TabsContent>
 
         {/* Tab: Mensageria */}
-        <TabsContent value="messaging" className="space-y-3">
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <MessagingKpiCards data={msgKpis} />
-        </div>
-
-        <SectionHeader
-          icon={<Send className="h-3.5 w-3.5" />}
-          title="mensageria & entrega"
-          hint="WhatsApp Evolution · WhatsApp Cloud · Resend"
-        />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {MESSAGING_CHANNELS.map((c) => (
-            <ToolCredentialCard
-              key={c.id}
-              tool={c}
-              config={data?.channels?.[c.id]}
-              brandId={brandId}
-              onChanged={invalidate}
-            />
-          ))}
-        </div>
-
-        {brandId && <TemplateEditor brandId={brandId} />}
+        <TabsContent value="messaging" className="space-y-4">
+          <div>
+            <h2 className="text-base font-semibold">Mensageria</h2>
+            <p className="text-xs text-muted-foreground">
+              Configure os canais de comunicação e gerencie os templates usados pelo sistema.
+            </p>
+          </div>
+          <MessagingCenter
+            brandId={brandId}
+            channels={channelsMap}
+            isLoading={isLoading}
+            onChanged={invalidate}
+          />
         </TabsContent>
       </Tabs>
     </DashboardPageShell>
