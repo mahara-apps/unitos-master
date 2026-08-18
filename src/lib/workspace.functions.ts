@@ -68,14 +68,7 @@ export const listClients = createServerFn({ method: "GET" })
     if (error) throw error;
     const list = clients ?? [];
     if (list.length === 0) return [];
-    // `clients.brand_hub` é a fonte canônica do briefing; brand_briefings só
-    // entra como fallback de compatibilidade (clientes antigos).
-    const { data: briefings } = await context.supabase
-      .from("brand_briefings")
-      .select("client_id")
-      .eq("brand_id", data.brandId)
-      .in("client_id", list.map((c) => c.id));
-    const withLegacyBriefing = new Set((briefings ?? []).map((b) => b.client_id));
+    // Fonte única do briefing: clients.brand_hub.
     return list.map((c) => {
       const { brand_hub, ...rest } = c as typeof c & { brand_hub?: unknown };
       const completion = computeBriefingCompletion(
@@ -84,7 +77,7 @@ export const listClients = createServerFn({ method: "GET" })
       );
       return {
         ...rest,
-        has_briefing: completion > 0 || withLegacyBriefing.has(c.id),
+        has_briefing: completion > 0,
         briefing_completion: completion,
       };
     });
