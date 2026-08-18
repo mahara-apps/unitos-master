@@ -30,7 +30,15 @@ const CLIENT_VISIBLE_STATUS = [
   "client_approved",
   "changes_requested",
   "client_rejected",
+  // Histórico: pauta que o cliente aprovou e seguiu para produção (`approved`).
+  // Só entra na visão do cliente se houver decisão dele registrada (ver filtro
+  // `hasClientHistory`), e a decisão continua bloqueada por `plan_not_pending`.
+  "approved",
 ];
+
+/** `approved` só é visível como histórico quando o cliente decidiu de fato. */
+const hasClientHistory = (row: { status: string; client_decision_at: string | null }) =>
+  row.status !== "approved" || !!row.client_decision_at;
 
 export async function listPlansForClient(
   sb: SupabaseClient,
@@ -45,13 +53,13 @@ export async function listPlansForClient(
     .limit(50);
   if (error) throw new Error("plan_list_failed");
 
-  const rows = (plans ?? []) as Array<{
+  const rows = ((plans ?? []) as Array<{
     id: string;
     title: string;
     status: string;
     created_at: string;
     client_decision_at: string | null;
-  }>;
+  }>).filter(hasClientHistory);
   if (rows.length === 0) return [];
 
   const { data: topics } = await sb
@@ -104,6 +112,9 @@ export async function loadPlanForClient(
       .order("position", { ascending: true }),
   ]);
   if (!plan) throw new Error("plan_not_found");
+  if (!hasClientHistory(plan as { status: string; client_decision_at: string | null })) {
+    throw new Error("plan_not_found");
+  }
 
   return {
     plan: plan as PublicPlanResolve["plan"],
