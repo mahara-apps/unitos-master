@@ -44,6 +44,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BriefingRequestPanel } from "@/components/brand-hub/briefing-request-panel";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Stepper } from "@/components/ui/stepper";
@@ -1592,6 +1593,10 @@ function StackedBrainLayout(props: StackedProps) {
 
           <BrainSection id="documentos" title="Documentos & Contexto IA">
             <DocumentsTab brandId={brandId} clientId={clientId} />
+          </BrainSection>
+
+          <BrainSection id="briefing-cliente" title="Briefing com o cliente">
+            <BriefingRequestPanel brandId={brandId} clientId={clientId} />
           </BrainSection>
 
           {appendSlot ? <div className="space-y-10 pt-4">{appendSlot}</div> : null}

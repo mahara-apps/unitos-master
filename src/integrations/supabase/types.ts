@@ -1900,6 +1900,167 @@ export type Database = {
           },
         ]
       }
+      brand_briefing_proposals: {
+        Row: {
+          attachments: Json
+          base_version_id: string | null
+          brand_id: string
+          client_id: string
+          created_at: string
+          id: string
+          note: string | null
+          payload: Json
+          request_id: string
+          submitted_by: string | null
+          submitted_via: string
+        }
+        Insert: {
+          attachments?: Json
+          base_version_id?: string | null
+          brand_id: string
+          client_id: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          payload?: Json
+          request_id: string
+          submitted_by?: string | null
+          submitted_via?: string
+        }
+        Update: {
+          attachments?: Json
+          base_version_id?: string | null
+          brand_id?: string
+          client_id?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          payload?: Json
+          request_id?: string
+          submitted_by?: string | null
+          submitted_via?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_briefing_proposals_base_version_id_fkey"
+            columns: ["base_version_id"]
+            isOneToOne: false
+            referencedRelation: "brand_briefing_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_briefing_proposals_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "brand_briefing_proposals_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_briefing_proposals_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_briefing_proposals_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "brand_briefing_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_briefing_requests: {
+        Row: {
+          base_version_id: string | null
+          brand_id: string
+          canceled_at: string | null
+          client_id: string
+          created_at: string
+          due_at: string | null
+          id: string
+          message: string | null
+          requested_at: string
+          requested_by: string | null
+          requested_fields: string[]
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          submitted_at: string | null
+        }
+        Insert: {
+          base_version_id?: string | null
+          brand_id: string
+          canceled_at?: string | null
+          client_id: string
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          message?: string | null
+          requested_at?: string
+          requested_by?: string | null
+          requested_fields?: string[]
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string | null
+        }
+        Update: {
+          base_version_id?: string | null
+          brand_id?: string
+          canceled_at?: string | null
+          client_id?: string
+          created_at?: string
+          due_at?: string | null
+          id?: string
+          message?: string | null
+          requested_at?: string
+          requested_by?: string | null
+          requested_fields?: string[]
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_briefing_requests_base_version_id_fkey"
+            columns: ["base_version_id"]
+            isOneToOne: false
+            referencedRelation: "brand_briefing_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_briefing_requests_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "brand_briefing_requests_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_briefing_requests_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_briefing_versions: {
         Row: {
           brand_id: string

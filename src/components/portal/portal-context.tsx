@@ -20,6 +20,12 @@ import {
   listPortalSessionBriefingsFn,
 } from "@/lib/portal-session.functions";
 import {
+  listPortalBriefingRequestsFn,
+  submitPortalBriefingProposalFn,
+  listPortalSessionBriefingRequestsFn,
+  submitPortalSessionBriefingProposalFn,
+} from "@/lib/portal-briefing.functions";
+import {
   listPortalPlansFn,
   getPortalPlanFn,
   decidePortalPlanFn,
@@ -73,6 +79,8 @@ export function usePortalApi() {
   const tCalendar = useServerFn(listPortalCalendarFn);
   const tFiles = useServerFn(listPortalFilesFn);
   const tBriefings = useServerFn(listPortalBriefingsFn);
+  const tBriefingRequests = useServerFn(listPortalBriefingRequestsFn);
+  const tSubmitBriefing = useServerFn(submitPortalBriefingProposalFn);
   const tPlans = useServerFn(listPortalPlansFn);
   const tPlan = useServerFn(getPortalPlanFn);
   const tDecidePlan = useServerFn(decidePortalPlanFn);
@@ -84,6 +92,8 @@ export function usePortalApi() {
   const sCalendar = useServerFn(listPortalSessionCalendarFn);
   const sFiles = useServerFn(listPortalSessionFilesFn);
   const sBriefings = useServerFn(listPortalSessionBriefingsFn);
+  const sBriefingRequests = useServerFn(listPortalSessionBriefingRequestsFn);
+  const sSubmitBriefing = useServerFn(submitPortalSessionBriefingProposalFn);
   const sPlans = useServerFn(listPortalSessionPlansFn);
   const sPlan = useServerFn(getPortalSessionPlanFn);
   const sDecidePlan = useServerFn(decidePortalSessionPlanFn);
@@ -115,6 +125,17 @@ export function usePortalApi() {
       files: (search: string) =>
         isToken ? tFiles({ data: { token, search } }) : sFiles({ data: { ...base, search } }),
       briefings: () => (isToken ? tBriefings({ data: { token } }) : sBriefings({ data: base })),
+      briefingRequests: () =>
+        isToken ? tBriefingRequests({ data: { token } }) : sBriefingRequests({ data: base }),
+      submitBriefing: (input: {
+        requestId: string;
+        answers: Record<string, string | string[]>;
+        note?: string;
+        attachments?: Array<{ name: string; mime?: string | null; dataBase64: string }>;
+      }) =>
+        isToken
+          ? tSubmitBriefing({ data: { token, ...input } })
+          : sSubmitBriefing({ data: { ...base, ...input } }),
       plans: () => (isToken ? tPlans({ data: { token } }) : sPlans({ data: base })),
       plan: (planId: string) =>
         isToken ? tPlan({ data: { token, planId } }) : sPlan({ data: { ...base, planId } }),
