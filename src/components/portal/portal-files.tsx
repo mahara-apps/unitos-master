@@ -4,7 +4,7 @@ import { Download, Eye, FileText, FolderOpen, Image as ImageIcon, Search, Table2
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { usePortalApi } from "./portal-context";
-import { EmptyState, ListSkeleton, formatBytes, formatDate } from "./portal-shared";
+import { EmptyState, ErrorState, ListSkeleton, formatBytes, formatDate } from "./portal-shared";
 
 /**
  * FASE 7 — Arquivos do Portal.
@@ -106,6 +106,7 @@ export function PortalFiles() {
               key={k}
               type="button"
               onClick={() => setKind(k)}
+              aria-pressed={kind === k}
               className={`rounded-full border px-3 py-1 text-xs transition-colors ${
                 kind === k
                   ? "border-foreground/20 bg-foreground text-background"
@@ -120,6 +121,11 @@ export function PortalFiles() {
 
       {q.isLoading ? (
         <ListSkeleton />
+      ) : q.isError ? (
+        <ErrorState
+          description="Não conseguimos carregar seus arquivos agora."
+          onRetry={() => q.refetch()}
+        />
       ) : visible.length === 0 ? (
         <EmptyState
           icon={FolderOpen}

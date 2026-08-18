@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { usePortalApi } from "./portal-context";
-import { EmptyState, ListSkeleton, formatDate } from "./portal-shared";
+import { EmptyState, ErrorState, ListSkeleton, formatDate } from "./portal-shared";
 import type { PlanDecisionItem, PublicPlanTopic } from "@/lib/monthly-plan-client.types";
 import { PLAN_PENDING_CLIENT_STATUS } from "@/lib/monthly-plan-client.types";
 
@@ -68,6 +68,13 @@ export function PautaApprovals() {
 
   if (openId) return <PautaDetail planId={openId} onBack={() => setOpenId(null)} />;
   if (q.isLoading) return <ListSkeleton />;
+  if (q.isError)
+    return (
+      <ErrorState
+        description="Não conseguimos carregar suas pautas agora."
+        onRetry={() => q.refetch()}
+      />
+    );
   if (!q.data?.length)
     return (
       <EmptyState

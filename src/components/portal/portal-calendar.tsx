@@ -14,7 +14,14 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { usePortalApi } from "./portal-context";
-import { EmptyState, ListSkeleton, buildMonthGrid, formatMonth, shiftYm } from "./portal-shared";
+import {
+  EmptyState,
+  ErrorState,
+  ListSkeleton,
+  buildMonthGrid,
+  formatMonth,
+  shiftYm,
+} from "./portal-shared";
 
 /**
  * FASE 5 — Calendário do Portal.
