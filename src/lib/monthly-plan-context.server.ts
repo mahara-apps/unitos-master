@@ -82,7 +82,11 @@ export async function loadBriefingContext(
       .not("ai_summary", "is", null)
       .limit(12),
     opts.briefingId
-      ? supabase.from("brand_briefings").select("data").eq("id", opts.briefingId).maybeSingle()
+      ? supabase
+          .from("brand_briefing_versions")
+          .select("snapshot")
+          .eq("id", opts.briefingId)
+          .maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
 
