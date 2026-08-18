@@ -112,6 +112,9 @@ export async function loadPlanForClient(
       .order("position", { ascending: true }),
   ]);
   if (!plan) throw new Error("plan_not_found");
+  if (!hasClientHistory(plan as { status: string; client_decision_at: string | null })) {
+    throw new Error("plan_not_found");
+  }
 
   return {
     plan: plan as PublicPlanResolve["plan"],
