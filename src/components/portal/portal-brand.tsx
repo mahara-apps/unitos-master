@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { usePortalApi } from "./portal-context";
-import { EmptyState, ListSkeleton, formatDate } from "./portal-shared";
+import { EmptyState, ErrorState, ListSkeleton, formatDate } from "./portal-shared";
 import { BRIEFING_BLOCKS, BRIEFING_FIELDS } from "@/lib/briefing-fields";
 
 /**
@@ -37,6 +37,13 @@ export function PortalBrand() {
   });
 
   if (q.isLoading) return <ListSkeleton />;
+  if (q.isError)
+    return (
+      <ErrorState
+        description="Não conseguimos carregar as informações da sua marca agora."
+        onRetry={() => q.refetch()}
+      />
+    );
 
   const data = q.data;
   const hub = data?.hub ?? {};
@@ -67,9 +74,9 @@ export function PortalBrand() {
     <div className="space-y-5">
       <header className="space-y-2 rounded-xl border border-border/60 bg-card px-4 py-4 sm:px-5">
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-base font-semibold tracking-tight">
+          <h2 className="text-base font-semibold tracking-tight">
             {data?.clientName ?? "Sua marca"}
-          </h1>
+          </h2>
           {data?.niche ? (
             <Badge variant="secondary" className="text-[11px]">
               {data.niche}
@@ -77,8 +84,8 @@ export function PortalBrand() {
           ) : null}
         </div>
         <p className="text-xs text-muted-foreground">
-          Estas são as informações da sua marca que a equipe usa para criar os conteúdos. Para
-          mudar algo, fale com a equipe ou responda um novo briefing.
+          Estas são as informações da sua marca que a equipe usa para criar os conteúdos. Para mudar
+          algo, fale com a equipe ou responda um novo briefing.
           {data?.updatedAt ? ` Atualizado em ${formatDate(data.updatedAt)}.` : ""}
         </p>
         {data?.toneOfVoice ? (

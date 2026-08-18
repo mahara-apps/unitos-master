@@ -1,10 +1,18 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download, Eye, FileText, FolderOpen, Image as ImageIcon, Search, Table2 } from "lucide-react";
+import {
+  Download,
+  Eye,
+  FileText,
+  FolderOpen,
+  Image as ImageIcon,
+  Search,
+  Table2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { usePortalApi } from "./portal-context";
-import { EmptyState, ListSkeleton, formatBytes, formatDate } from "./portal-shared";
+import { EmptyState, ErrorState, ListSkeleton, formatBytes, formatDate } from "./portal-shared";
 
 /**
  * FASE 7 — Arquivos do Portal.
@@ -28,9 +36,19 @@ function fileKind(mime: string | null, name: string): Exclude<FileKind, "all"> {
   const ext = name.toLowerCase().split(".").pop() ?? "";
   if (m.startsWith("image/") || ["png", "jpg", "jpeg", "webp", "gif", "svg", "avif"].includes(ext))
     return "image";
-  if (m.includes("pdf") || m.includes("word") || m.includes("text") || ["pdf", "doc", "docx", "txt", "md"].includes(ext))
+  if (
+    m.includes("pdf") ||
+    m.includes("word") ||
+    m.includes("text") ||
+    ["pdf", "doc", "docx", "txt", "md"].includes(ext)
+  )
     return "doc";
-  if (m.includes("sheet") || m.includes("csv") || m.includes("excel") || ["xls", "xlsx", "csv"].includes(ext))
+  if (
+    m.includes("sheet") ||
+    m.includes("csv") ||
+    m.includes("excel") ||
+    ["xls", "xlsx", "csv"].includes(ext)
+  )
     return "sheet";
   return "other";
 }
@@ -106,6 +124,7 @@ export function PortalFiles() {
               key={k}
               type="button"
               onClick={() => setKind(k)}
+              aria-pressed={kind === k}
               className={`rounded-full border px-3 py-1 text-xs transition-colors ${
                 kind === k
                   ? "border-foreground/20 bg-foreground text-background"
@@ -120,6 +139,11 @@ export function PortalFiles() {
 
       {q.isLoading ? (
         <ListSkeleton />
+      ) : q.isError ? (
+        <ErrorState
+          description="Não conseguimos carregar seus arquivos agora."
+          onRetry={() => q.refetch()}
+        />
       ) : visible.length === 0 ? (
         <EmptyState
           icon={FolderOpen}

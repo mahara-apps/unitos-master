@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { usePortalApi } from "./portal-context";
-import { EmptyState, ListSkeleton, formatDate } from "./portal-shared";
+import { EmptyState, ErrorState, ListSkeleton, formatDate } from "./portal-shared";
 import type { PlanDecisionItem, PublicPlanTopic } from "@/lib/monthly-plan-client.types";
 import { PLAN_PENDING_CLIENT_STATUS } from "@/lib/monthly-plan-client.types";
 
@@ -68,6 +68,13 @@ export function PautaApprovals() {
 
   if (openId) return <PautaDetail planId={openId} onBack={() => setOpenId(null)} />;
   if (q.isLoading) return <ListSkeleton />;
+  if (q.isError)
+    return (
+      <ErrorState
+        description="Não conseguimos carregar suas pautas agora."
+        onRetry={() => q.refetch()}
+      />
+    );
   if (!q.data?.length)
     return (
       <EmptyState
@@ -164,7 +171,6 @@ function PautaDetail({ planId, onBack }: { planId: string; onBack: () => void })
     [topics, items],
   );
 
-
   const counts = useMemo(
     () => ({
       total: rows.length,
@@ -228,6 +234,11 @@ function PautaDetail({ planId, onBack }: { planId: string; onBack: () => void })
 
       {q.isLoading ? (
         <ListSkeleton />
+      ) : q.isError ? (
+        <ErrorState
+          description="Não conseguimos carregar esta pauta agora."
+          onRetry={() => q.refetch()}
+        />
       ) : !q.data ? (
         <EmptyState
           icon={Sparkles}
@@ -302,6 +313,7 @@ function PautaDetail({ planId, onBack }: { planId: string; onBack: () => void })
                   variant={filter === f.id ? "default" : "outline"}
                   className="h-8 rounded-full text-xs"
                   onClick={() => setFilter(f.id)}
+                  aria-pressed={filter === f.id}
                 >
                   {f.label} ({n})
                 </Button>
@@ -507,7 +519,9 @@ function TopicDialog({
               )}
               {topic.rationale && (
                 <div>
-                  <div className="text-xs font-medium text-muted-foreground">Por que faz sentido</div>
+                  <div className="text-xs font-medium text-muted-foreground">
+                    Por que faz sentido
+                  </div>
                   <p className="mt-1 whitespace-pre-line">{topic.rationale}</p>
                 </div>
               )}
