@@ -1073,15 +1073,7 @@ export const loadCustomerCoreFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => clientScopeInput.parse(i))
   .handler(async ({ data, context }) => {
-    const [briefing, voice, usage] = await Promise.all([
-      context.supabase
-        .from("brand_briefings")
-        .select("*")
-        .eq("brand_id", data.brandId)
-        .eq("client_id", data.clientId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+    const [voice, usage] = await Promise.all([
       context.supabase
         .from("brand_voice_cards")
         .select("*")
@@ -1096,17 +1088,16 @@ export const loadCustomerCoreFn = createServerFn({ method: "POST" })
         .gte("created_at", new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString()),
     ]);
     const totalCost = (usage.data ?? []).reduce((s, r) => s + Number(r.cost_usd ?? 0), 0);
-    // Fonte canônica do briefing: clients.brand_hub.
+    // Fonte única do briefing: clients.brand_hub.
     const canonical = await loadCanonicalBriefing(context.supabase, {
       clientId: data.clientId,
       brandId: data.brandId,
     });
     return {
-      briefing: projectCanonicalBriefingRow(
-        canonical,
-        (briefing.data ?? null) as Record<string, unknown> | null,
-        { brandId: data.brandId, clientId: data.clientId },
-      ),
+      briefing: projectCanonicalBriefingRow(canonical, null, {
+        brandId: data.brandId,
+        clientId: data.clientId,
+      }),
       voice: voice.data,
       usage: { last30d: usage.data ?? [], totalCostUsd: totalCost },
     };
