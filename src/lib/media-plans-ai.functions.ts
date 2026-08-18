@@ -83,35 +83,27 @@ export const generateMediaPlanWithAi = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => InputSchema.parse(d))
   .handler(async ({ data, context }): Promise<{ items: AiMediaPlanItem[] }> => {
-    // Load brand + client context (best-effort)
-    const [{ data: brand }, { data: client }, { data: briefing }] = await Promise.all([
+    // Load brand + briefing canônico (clients.brand_hub) — best-effort
+    const [{ data: brand }, canonical] = await Promise.all([
       context.supabase
         .from("brands")
         .select("name")
         .eq("id", data.brandId)
         .maybeSingle(),
-      context.supabase
-        .from("clients")
-        .select("name, niche, tone_of_voice")
-        .eq("id", data.clientId)
-        .maybeSingle(),
-      context.supabase
-        .from("brand_briefings")
-        .select("content")
-        .eq("client_id", data.clientId)
-        .maybeSingle(),
+      loadCanonicalBriefing(context.supabase, {
+        clientId: data.clientId,
+        brandId: data.brandId,
+      }),
     ]);
+    const client = {
+      name: canonical.clientName,
+      niche: canonical.niche,
+      tone_of_voice: canonical.hub.tone_text ?? canonical.toneOfVoice,
+    };
 
     const split = data.funnelSplit ?? { topo: 30, meio: 40, fundo: 30 };
-    const brief = (() => {
-      try {
-        const c = (briefing as { content?: unknown } | null)?.content;
-        if (!c) return "";
-        return typeof c === "string" ? c : JSON.stringify(c);
-      } catch {
-        return "";
-      }
-    })();
+    const brief = briefingToPromptText(canonical);
+
 
     const budgetBRL = new Intl.NumberFormat("pt-BR", {
       style: "currency",
