@@ -20,6 +20,7 @@ import { Route as PlanoPlanIdRouteImport } from './routes/plano.$planId'
 import { Route as PautaPlanIdRouteImport } from './routes/pauta.$planId'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ApprovalTokenRouteImport } from './routes/approval.$token'
+import { Route as PortalAreaRouteImport } from './routes/_portal/area'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedProjectsRouteImport } from './routes/_authenticated/projects'
@@ -142,6 +143,11 @@ const ApprovalTokenRoute = ApprovalTokenRouteImport.update({
   id: '/approval/$token',
   path: '/approval/$token',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PortalAreaRoute = PortalAreaRouteImport.update({
+  id: '/area',
+  path: '/area',
+  getParentRoute: () => PortalRouteRoute,
 } as any)
 const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
   id: '/tasks',
@@ -307,9 +313,9 @@ const ApiChatStreamRoute = ApiChatStreamRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const PortalAreaInicioRoute = PortalAreaInicioRouteImport.update({
-  id: '/area/inicio',
-  path: '/area/inicio',
-  getParentRoute: () => PortalRouteRoute,
+  id: '/inicio',
+  path: '/inicio',
+  getParentRoute: () => PortalAreaRoute,
 } as any)
 const AuthenticatedSuperAdminFeaturesRoute =
   AuthenticatedSuperAdminFeaturesRouteImport.update({
@@ -549,6 +555,7 @@ export interface FileRoutesByFullPath {
   '/projects': typeof AuthenticatedProjectsRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
+  '/area': typeof PortalAreaRouteWithChildren
   '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/pauta/$planId': typeof PautaPlanIdRoute
@@ -624,6 +631,7 @@ export interface FileRoutesByTo {
   '/media-plans': typeof AuthenticatedMediaPlansRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/tasks': typeof AuthenticatedTasksRoute
+  '/area': typeof PortalAreaRouteWithChildren
   '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/pauta/$planId': typeof PautaPlanIdRoute
@@ -706,6 +714,7 @@ export interface FileRoutesById {
   '/_authenticated/projects': typeof AuthenticatedProjectsRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
+  '/_portal/area': typeof PortalAreaRouteWithChildren
   '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/pauta/$planId': typeof PautaPlanIdRoute
@@ -788,6 +797,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/settings'
     | '/tasks'
+    | '/area'
     | '/approval/$token'
     | '/invite/$token'
     | '/pauta/$planId'
@@ -863,6 +873,7 @@ export interface FileRouteTypes {
     | '/media-plans'
     | '/notifications'
     | '/tasks'
+    | '/area'
     | '/approval/$token'
     | '/invite/$token'
     | '/pauta/$planId'
@@ -944,6 +955,7 @@ export interface FileRouteTypes {
     | '/_authenticated/projects'
     | '/_authenticated/settings'
     | '/_authenticated/tasks'
+    | '/_portal/area'
     | '/approval/$token'
     | '/invite/$token'
     | '/pauta/$planId'
@@ -1120,6 +1132,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/approval/$token'
       preLoaderRoute: typeof ApprovalTokenRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_portal/area': {
+      id: '/_portal/area'
+      path: '/area'
+      fullPath: '/area'
+      preLoaderRoute: typeof PortalAreaRouteImport
+      parentRoute: typeof PortalRouteRoute
     }
     '/_authenticated/tasks': {
       id: '/_authenticated/tasks'
@@ -1340,10 +1359,10 @@ declare module '@tanstack/react-router' {
     }
     '/_portal/area/inicio': {
       id: '/_portal/area/inicio'
-      path: '/area/inicio'
+      path: '/inicio'
       fullPath: '/area/inicio'
       preLoaderRoute: typeof PortalAreaInicioRouteImport
-      parentRoute: typeof PortalRouteRoute
+      parentRoute: typeof PortalAreaRoute
     }
     '/_authenticated/super-admin/features': {
       id: '/_authenticated/super-admin/features'
@@ -1778,12 +1797,24 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
-interface PortalRouteRouteChildren {
+interface PortalAreaRouteChildren {
   PortalAreaInicioRoute: typeof PortalAreaInicioRoute
 }
 
-const PortalRouteRouteChildren: PortalRouteRouteChildren = {
+const PortalAreaRouteChildren: PortalAreaRouteChildren = {
   PortalAreaInicioRoute: PortalAreaInicioRoute,
+}
+
+const PortalAreaRouteWithChildren = PortalAreaRoute._addFileChildren(
+  PortalAreaRouteChildren,
+)
+
+interface PortalRouteRouteChildren {
+  PortalAreaRoute: typeof PortalAreaRouteWithChildren
+}
+
+const PortalRouteRouteChildren: PortalRouteRouteChildren = {
+  PortalAreaRoute: PortalAreaRouteWithChildren,
 }
 
 const PortalRouteRouteWithChildren = PortalRouteRoute._addFileChildren(
