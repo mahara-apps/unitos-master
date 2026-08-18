@@ -30,16 +30,26 @@ export function TokenError({ message }: { message?: string }) {
       <div className="max-w-md rounded-xl border border-border/60 bg-card p-6 text-center">
         <h1 className="text-lg font-semibold">Link indisponível</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          {message === "token_expired" ? "Este link expirou." :
-           message === "token_revoked" ? "Este link foi revogado." :
-           "Este link não é válido. Peça um novo para sua equipe."}
+          {message === "token_expired"
+            ? "Este link expirou."
+            : message === "token_revoked"
+              ? "Este link foi revogado."
+              : "Este link não é válido. Peça um novo para sua equipe."}
         </p>
       </div>
     </div>
   );
 }
 
-export function EmptyState({ icon: Icon, title, description }: { icon: typeof Home; title: string; description: string }) {
+export function EmptyState({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: typeof Home;
+  title: string;
+  description: string;
+}) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 bg-card px-6 py-16 text-center">
       <Icon className="h-6 w-6 text-muted-foreground" />
@@ -52,13 +62,21 @@ export function EmptyState({ icon: Icon, title, description }: { icon: typeof Ho
 export function GridSkeleton() {
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {Array.from({ length: 8 }).map((_, i) => <Skeleton key={i} className="aspect-[4/5] w-full" />)}
+      {Array.from({ length: 8 }).map((_, i) => (
+        <Skeleton key={i} className="aspect-[4/5] w-full" />
+      ))}
     </div>
   );
 }
 
 export function ListSkeleton() {
-  return <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}</div>;
+  return (
+    <div className="space-y-2">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Skeleton key={i} className="h-14 w-full" />
+      ))}
+    </div>
+  );
 }
 
 /* -------------------------------- formatters ------------------------------ */

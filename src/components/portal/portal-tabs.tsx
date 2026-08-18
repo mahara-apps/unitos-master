@@ -1,10 +1,28 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  CheckSquare, CalendarDays, FolderOpen, FileText,
-  Check, X, MessageSquareWarning, MessageCircle, ExternalLink,
-  Download, Search, Clock, Loader2, ChevronLeft, ChevronRight, ImageIcon, User2, CalendarClock,
-  Hourglass, CheckCircle2, Layers, ArrowRight,
+  CheckSquare,
+  CalendarDays,
+  FolderOpen,
+  FileText,
+  Check,
+  X,
+  MessageSquareWarning,
+  MessageCircle,
+  ExternalLink,
+  Download,
+  Search,
+  Clock,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ImageIcon,
+  User2,
+  CalendarClock,
+  Hourglass,
+  CheckCircle2,
+  Layers,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,8 +38,15 @@ import { briefingField, briefingFieldLabel, type BriefingField } from "@/lib/bri
 import type { PortalTabId } from "./portal-nav";
 import { PautaApprovals } from "./portal-pauta";
 import {
-  EmptyState, GridSkeleton, ListSkeleton, buildMonthGrid, formatBytes, formatDate,
-  formatMonth, shiftYm, usePortalIdentity,
+  EmptyState,
+  GridSkeleton,
+  ListSkeleton,
+  buildMonthGrid,
+  formatBytes,
+  formatDate,
+  formatMonth,
+  shiftYm,
+  usePortalIdentity,
 } from "./portal-shared";
 
 /* ---------------------------------- HOME ---------------------------------- */
@@ -93,8 +118,8 @@ export function HomeTab() {
           Tudo o que sua marca está publicando, em um só lugar.
         </h2>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Aqui você aprova os conteúdos, acompanha a pauta e o calendário do mês, responde
-          o briefing quando solicitado, baixa arquivos e consulta as informações da sua marca.
+          Aqui você aprova os conteúdos, acompanha a pauta e o calendário do mês, responde o
+          briefing quando solicitado, baixa arquivos e consulta as informações da sua marca.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <Button size="sm" asChild>
@@ -151,8 +176,8 @@ export function BrandTab() {
       <div className="rounded-xl border border-border/60 bg-card p-5">
         <h2 className="text-base font-semibold tracking-tight">{data?.clientName}</h2>
         <p className="mt-1 text-xs text-muted-foreground">
-          Estas são as informações da sua marca usadas pela equipe. Para atualizar algo,
-          fale com a equipe ou responda um novo briefing.
+          Estas são as informações da sua marca usadas pela equipe. Para atualizar algo, fale com a
+          equipe ou responda um novo briefing.
           {data?.updatedAt ? ` Última atualização em ${formatDate(data.updatedAt)}.` : ""}
         </p>
       </div>
@@ -206,7 +231,12 @@ type ApprovalsListQuery = {
 };
 
 function ApprovalsContent({
-  filter, setFilter, q, openId, setOpenId, identity,
+  filter,
+  setFilter,
+  q,
+  openId,
+  setOpenId,
+  identity,
 }: {
   filter: "all" | "pending" | "approved" | "adjust";
   setFilter: (f: "all" | "pending" | "approved" | "adjust") => void;
@@ -223,17 +253,29 @@ function ApprovalsContent({
             key={f}
             onClick={() => setFilter(f)}
             className={`rounded-md px-3 py-1.5 text-xs transition-colors ${
-              filter === f ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"
+              filter === f
+                ? "bg-accent text-accent-foreground"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {f === "pending" ? "Pendentes" : f === "all" ? "Todos" : f === "approved" ? "Aprovados" : "Ajustes"}
+            {f === "pending"
+              ? "Pendentes"
+              : f === "all"
+                ? "Todos"
+                : f === "approved"
+                  ? "Aprovados"
+                  : "Ajustes"}
           </button>
         ))}
       </div>
       {q.isLoading ? (
         <GridSkeleton />
       ) : !q.data?.length ? (
-        <EmptyState icon={CheckSquare} title="Nada por aqui" description="Nenhum post neste filtro." />
+        <EmptyState
+          icon={CheckSquare}
+          title="Nada por aqui"
+          description="Nenhum post neste filtro."
+        />
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {q.data.map((p) => (
@@ -255,14 +297,28 @@ function ApprovalsContent({
 
 function ApprovalCard({ post, onOpen }: { post: Record<string, unknown>; onOpen: () => void }) {
   const status = ((post.approval as { status: string } | undefined)?.status ?? "pending") as
-    | "pending" | "approved" | "rejected" | "adjust";
+    | "pending"
+    | "approved"
+    | "rejected"
+    | "adjust";
   const tone: Record<typeof status, { badge: string; bar: string }> = {
-    pending: { badge: "border-amber-500/40 text-amber-600 dark:text-amber-400", bar: "bg-amber-500" },
-    approved: { badge: "border-emerald-500/40 text-emerald-600 dark:text-emerald-400", bar: "bg-emerald-500" },
+    pending: {
+      badge: "border-amber-500/40 text-amber-600 dark:text-amber-400",
+      bar: "bg-amber-500",
+    },
+    approved: {
+      badge: "border-emerald-500/40 text-emerald-600 dark:text-emerald-400",
+      bar: "bg-emerald-500",
+    },
     rejected: { badge: "border-rose-500/40 text-rose-600 dark:text-rose-400", bar: "bg-rose-500" },
     adjust: { badge: "border-sky-500/40 text-sky-600 dark:text-sky-400", bar: "bg-sky-500" },
   };
-  const label = { pending: "Aguardando", approved: "Aprovado", rejected: "Rejeitado", adjust: "Ajustes" }[status];
+  const label = {
+    pending: "Aguardando",
+    approved: "Aprovado",
+    rejected: "Rejeitado",
+    adjust: "Ajustes",
+  }[status];
   const channels = Array.isArray(post.channels) ? (post.channels as string[]) : [];
   return (
     <button
@@ -302,12 +358,19 @@ function ApprovalCard({ post, onOpen }: { post: Record<string, unknown>; onOpen:
         </div>
         <div className="mt-auto flex flex-wrap items-center gap-1.5">
           {post.format ? (
-            <Badge variant="secondary" className="rounded-md px-1.5 py-0 font-mono text-[9px] uppercase tracking-wider">
+            <Badge
+              variant="secondary"
+              className="rounded-md px-1.5 py-0 font-mono text-[9px] uppercase tracking-wider"
+            >
               {post.format as string}
             </Badge>
           ) : null}
           {channels.slice(0, 2).map((c) => (
-            <Badge key={c} variant="outline" className="rounded-md px-1.5 py-0 font-mono text-[9px] uppercase tracking-wider">
+            <Badge
+              key={c}
+              variant="outline"
+              className="rounded-md px-1.5 py-0 font-mono text-[9px] uppercase tracking-wider"
+            >
               {c}
             </Badge>
           ))}
@@ -324,8 +387,16 @@ function ApprovalCard({ post, onOpen }: { post: Record<string, unknown>; onOpen:
 }
 
 function ApprovalDialog({
-  postId, identity, onIdentityChange, onClose,
-}: { postId: string; identity: string; onIdentityChange: (v: string) => void; onClose: () => void }) {
+  postId,
+  identity,
+  onIdentityChange,
+  onClose,
+}: {
+  postId: string;
+  identity: string;
+  onIdentityChange: (v: string) => void;
+  onClose: () => void;
+}) {
   const qc = useQueryClient();
   const api = usePortalApi();
   const q = useQuery({
@@ -336,18 +407,25 @@ function ApprovalDialog({
   const [mode, setMode] = useState<null | "reject" | "adjust" | "comment">(null);
   const [activeMedia, setActiveMedia] = useState(0);
   const m = useMutation({
-    mutationFn: (payload: { decision: "approved" | "rejected" | "adjust" | "comment"; note?: string }) =>
-      api.decidePost({ postId, identity, ...payload }),
+    mutationFn: (payload: {
+      decision: "approved" | "rejected" | "adjust" | "comment";
+      note?: string;
+    }) => api.decidePost({ postId, identity, ...payload }),
     onSuccess: (_r, vars) => {
       toast.success(
-        vars.decision === "approved" ? "Post aprovado" :
-        vars.decision === "rejected" ? "Post rejeitado" :
-        vars.decision === "adjust" ? "Ajustes solicitados" : "Comentário enviado",
+        vars.decision === "approved"
+          ? "Post aprovado"
+          : vars.decision === "rejected"
+            ? "Post rejeitado"
+            : vars.decision === "adjust"
+              ? "Ajustes solicitados"
+              : "Comentário enviado",
       );
       qc.invalidateQueries({ queryKey: ["portal", "approvals", api.scopeKey] });
       qc.invalidateQueries({ queryKey: ["portal", "metrics", api.scopeKey] });
       qc.invalidateQueries({ queryKey: ["portal", "post", api.scopeKey, postId] });
-      setNote(""); setMode(null);
+      setNote("");
+      setMode(null);
       if (vars.decision !== "comment") onClose();
     },
     onError: (e: Error) => toast.error(e.message),
@@ -366,8 +444,11 @@ function ApprovalDialog({
   }, [post?.cover_url, media]);
   const current = gallery[activeMedia] ?? gallery[0];
   const statusLabel: Record<string, string> = {
-    approved: "Aprovado", rejected: "Rejeitado", adjust: "Ajustes solicitados",
-    changes_requested: "Ajustes solicitados", pending: "Aguardando decisão",
+    approved: "Aprovado",
+    rejected: "Rejeitado",
+    adjust: "Ajustes solicitados",
+    changes_requested: "Ajustes solicitados",
+    pending: "Aguardando decisão",
   };
   const statusTone: Record<string, string> = {
     approved: "border-emerald-500/40 text-emerald-600 bg-emerald-500/10",
@@ -390,7 +471,9 @@ function ApprovalDialog({
               ) : (
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
                   <ImageIcon className="h-8 w-8 opacity-40" />
-                  <span className="font-mono text-[10px] uppercase tracking-widest">sem preview</span>
+                  <span className="font-mono text-[10px] uppercase tracking-widest">
+                    sem preview
+                  </span>
                 </div>
               )}
               <Badge
@@ -408,7 +491,9 @@ function ApprovalDialog({
                     type="button"
                     onClick={() => setActiveMedia(i)}
                     className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-md border transition ${
-                      i === activeMedia ? "border-primary ring-2 ring-primary/30" : "border-border/60 opacity-70 hover:opacity-100"
+                      i === activeMedia
+                        ? "border-primary ring-2 ring-primary/30"
+                        : "border-border/60 opacity-70 hover:opacity-100"
                     }`}
                   >
                     <img src={g.url} alt="" className="h-full w-full object-cover" />
@@ -425,13 +510,20 @@ function ApprovalDialog({
                 {post?.title ?? "Post"}
               </DialogTitle>
               <div className="flex flex-wrap items-center gap-1.5">
-                {(post?.format) && (
-                  <Badge variant="secondary" className="rounded-md font-mono text-[10px] uppercase tracking-wider">
+                {post?.format && (
+                  <Badge
+                    variant="secondary"
+                    className="rounded-md font-mono text-[10px] uppercase tracking-wider"
+                  >
                     {post.format}
                   </Badge>
                 )}
                 {(post?.channels ?? []).map((c) => (
-                  <Badge key={c} variant="outline" className="rounded-md font-mono text-[10px] uppercase tracking-wider">
+                  <Badge
+                    key={c}
+                    variant="outline"
+                    className="rounded-md font-mono text-[10px] uppercase tracking-wider"
+                  >
                     {c}
                   </Badge>
                 ))}
@@ -453,8 +545,12 @@ function ApprovalDialog({
               ) : (
                 <>
                   {approval && approval.status !== "pending" && (
-                    <div className={`rounded-md border px-3 py-2 text-xs ${statusTone[approval.status] ?? statusTone.pending}`}>
-                      <div className="font-medium">{statusLabel[approval.status] ?? approval.status}</div>
+                    <div
+                      className={`rounded-md border px-3 py-2 text-xs ${statusTone[approval.status] ?? statusTone.pending}`}
+                    >
+                      <div className="font-medium">
+                        {statusLabel[approval.status] ?? approval.status}
+                      </div>
                       {approval.notes && <div className="mt-1 opacity-80">{approval.notes}</div>}
                       {approval.decided_by_name && (
                         <div className="mt-1 inline-flex items-center gap-1 opacity-70">
@@ -466,14 +562,18 @@ function ApprovalDialog({
                     </div>
                   )}
                   <section className="space-y-1.5">
-                    <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Legenda</div>
+                    <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                      Legenda
+                    </div>
                     <div className="whitespace-pre-line rounded-md border border-border/60 bg-muted/40 p-3 leading-relaxed">
                       {(post?.copy as string) || "—"}
                     </div>
                   </section>
                   {post?.script && (
                     <section className="space-y-1.5">
-                      <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Roteiro</div>
+                      <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Roteiro
+                      </div>
                       <div className="whitespace-pre-line rounded-md border border-border/60 bg-muted/40 p-3 leading-relaxed">
                         {post.script}
                       </div>
@@ -482,13 +582,21 @@ function ApprovalDialog({
                   {mode && (
                     <section className="space-y-1.5">
                       <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                        {mode === "reject" ? "Motivo da rejeição" : mode === "adjust" ? "Descreva o ajuste desejado" : "Seu comentário"}
+                        {mode === "reject"
+                          ? "Motivo da rejeição"
+                          : mode === "adjust"
+                            ? "Descreva o ajuste desejado"
+                            : "Seu comentário"}
                       </div>
                       <Textarea
                         autoFocus
                         value={note}
                         onChange={(e) => setNote(e.target.value)}
-                        placeholder={mode === "comment" ? "Deixe uma observação para a equipe…" : "Seja específico para acelerar a revisão…"}
+                        placeholder={
+                          mode === "comment"
+                            ? "Deixe uma observação para a equipe…"
+                            : "Seja específico para acelerar a revisão…"
+                        }
                         className="min-h-[110px] resize-none"
                       />
                     </section>
@@ -515,7 +623,15 @@ function ApprovalDialog({
               )}
               {mode ? (
                 <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" className="flex-1" onClick={() => { setMode(null); setNote(""); }}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => {
+                      setMode(null);
+                      setNote("");
+                    }}
+                  >
                     Cancelar
                   </Button>
                   <Button
@@ -532,9 +648,13 @@ function ApprovalDialog({
                   >
                     {m.isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : mode === "reject" ? "Confirmar rejeição"
-                      : mode === "adjust" ? "Solicitar ajuste"
-                      : "Enviar comentário"}
+                    ) : mode === "reject" ? (
+                      "Confirmar rejeição"
+                    ) : mode === "adjust" ? (
+                      "Solicitar ajuste"
+                    ) : (
+                      "Enviar comentário"
+                    )}
                   </Button>
                 </div>
               ) : (
@@ -545,17 +665,36 @@ function ApprovalDialog({
                     disabled={disabled || m.isPending}
                     onClick={() => m.mutate({ decision: "approved" })}
                   >
-                    {m.isPending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1.5 h-4 w-4" />}
+                    {m.isPending ? (
+                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Check className="mr-1.5 h-4 w-4" />
+                    )}
                     Aprovar publicação
                   </Button>
                   <div className="grid grid-cols-3 gap-2">
-                    <Button size="sm" variant="outline" disabled={disabled} onClick={() => setMode("adjust")}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={disabled}
+                      onClick={() => setMode("adjust")}
+                    >
                       <MessageSquareWarning className="mr-1 h-4 w-4" /> Ajustar
                     </Button>
-                    <Button size="sm" variant="outline" disabled={disabled} onClick={() => setMode("reject")}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={disabled}
+                      onClick={() => setMode("reject")}
+                    >
                       <X className="mr-1 h-4 w-4" /> Rejeitar
                     </Button>
-                    <Button size="sm" variant="ghost" disabled={disabled} onClick={() => setMode("comment")}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={disabled}
+                      onClick={() => setMode("comment")}
+                    >
                       <MessageCircle className="mr-1 h-4 w-4" /> Comentar
                     </Button>
                   </div>
@@ -600,27 +739,42 @@ export function CalendarTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button size="icon" variant="outline" className="h-8 w-8" onClick={() => setYm(shiftYm(ym, -1))}>
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-8 w-8"
+            onClick={() => setYm(shiftYm(ym, -1))}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <div className="rounded-md border border-border/60 bg-card px-3 py-1.5 text-sm font-medium capitalize">
             {formatMonth(ym)}
           </div>
-          <Button size="icon" variant="outline" className="h-8 w-8 rotate-180" onClick={() => setYm(shiftYm(ym, 1))}>
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-8 w-8 rotate-180"
+            onClick={() => setYm(shiftYm(ym, 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
         </div>
       </div>
       <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
         <div className="grid grid-cols-7 border-b border-border/60 bg-muted/40">
-          {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map((d) => (
-            <div key={d} className="px-2 py-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{d}</div>
+          {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
+            <div
+              key={d}
+              className="px-2 py-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground"
+            >
+              {d}
+            </div>
           ))}
         </div>
         <div className="grid grid-cols-7">
           {days.map((d, i) => {
             const key = d?.toISOString().slice(0, 10);
-            const items = key ? byDay.get(key) ?? [] : [];
+            const items = key ? (byDay.get(key) ?? []) : [];
             const isOpen = !!(key && expanded[key]);
             return (
               <div
@@ -630,7 +784,9 @@ export function CalendarTab() {
                 {d && (
                   <>
                     <div className="mb-1 flex items-center justify-between">
-                      <span className="text-[11px] font-medium text-muted-foreground">{d.getDate()}</span>
+                      <span className="text-[11px] font-medium text-muted-foreground">
+                        {d.getDate()}
+                      </span>
                       {items.length > 0 && (
                         <span className="rounded-full bg-primary/10 px-1.5 font-mono text-[9px] text-primary">
                           {items.length}
@@ -654,9 +810,13 @@ export function CalendarTab() {
                           className="inline-flex w-full items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/10"
                         >
                           {isOpen ? (
-                            <>Ver menos <ChevronLeft className="h-3 w-3 rotate-90" /></>
+                            <>
+                              Ver menos <ChevronLeft className="h-3 w-3 rotate-90" />
+                            </>
                           ) : (
-                            <>+{items.length - 3} <ChevronRight className="h-3 w-3" /></>
+                            <>
+                              +{items.length - 3} <ChevronRight className="h-3 w-3" />
+                            </>
                           )}
                         </button>
                       )}
@@ -686,12 +846,21 @@ export function FilesTab() {
     <div className="space-y-4">
       <div className="relative max-w-md">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar arquivos" className="h-9 pl-9" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar arquivos"
+          className="h-9 pl-9"
+        />
       </div>
       {q.isLoading ? (
         <ListSkeleton />
       ) : !q.data?.length ? (
-        <EmptyState icon={FolderOpen} title="Sem arquivos" description="A equipe ainda não compartilhou documentos." />
+        <EmptyState
+          icon={FolderOpen}
+          title="Sem arquivos"
+          description="A equipe ainda não compartilhou documentos."
+        />
       ) : (
         <div className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60 bg-card">
           {q.data.map((f) => (
@@ -770,11 +939,14 @@ export function BriefingTab() {
                   </div>
                   {r.accepted_fields.length > 0 ? (
                     <div className="text-xs text-muted-foreground">
-                      Aproveitado no briefing: {r.accepted_fields.map(briefingFieldLabel).join(", ")}
+                      Aproveitado no briefing:{" "}
+                      {r.accepted_fields.map(briefingFieldLabel).join(", ")}
                     </div>
                   ) : null}
                   {r.review_note ? (
-                    <div className="text-xs text-muted-foreground">Observação da equipe: {r.review_note}</div>
+                    <div className="text-xs text-muted-foreground">
+                      Observação da equipe: {r.review_note}
+                    </div>
                   ) : null}
                 </div>
                 <Badge
@@ -816,7 +988,9 @@ function BriefingRequestForm({
   const qc = useQueryClient();
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [note, setNote] = useState("");
-  const [files, setFiles] = useState<Array<{ name: string; mime?: string | null; dataBase64: string }>>([]);
+  const [files, setFiles] = useState<
+    Array<{ name: string; mime?: string | null; dataBase64: string }>
+  >([]);
 
   /** Após uma revisão parcial, o cliente só precisa complementar o que ficou pendente. */
   const keys =
@@ -833,7 +1007,10 @@ function BriefingRequestForm({
           fields.map((f) => [
             f.key,
             f.type === "list"
-              ? (answers[f.key] ?? "").split("\n").map((v) => v.trim()).filter(Boolean)
+              ? (answers[f.key] ?? "")
+                  .split("\n")
+                  .map((v) => v.trim())
+                  .filter(Boolean)
               : (answers[f.key] ?? ""),
           ]),
         ),
@@ -869,14 +1046,22 @@ function BriefingRequestForm({
           <Hourglass className="h-3 w-3" /> aguardando você
         </div>
         <div className="text-sm font-medium">
-          {request.review_decision ? "A equipe pediu complementação" : "A equipe precisa destas informações"}
+          {request.review_decision
+            ? "A equipe pediu complementação"
+            : "A equipe precisa destas informações"}
         </div>
-        {request.message ? <div className="text-xs text-muted-foreground">{request.message}</div> : null}
+        {request.message ? (
+          <div className="text-xs text-muted-foreground">{request.message}</div>
+        ) : null}
         {request.review_note ? (
-          <div className="text-xs text-muted-foreground">Observação da equipe: {request.review_note}</div>
+          <div className="text-xs text-muted-foreground">
+            Observação da equipe: {request.review_note}
+          </div>
         ) : null}
         {request.due_at ? (
-          <div className="text-xs text-muted-foreground">Responda até {formatDate(request.due_at)}.</div>
+          <div className="text-xs text-muted-foreground">
+            Responda até {formatDate(request.due_at)}.
+          </div>
         ) : null}
       </div>
 
@@ -910,7 +1095,9 @@ function BriefingRequestForm({
         <div className="text-xs font-medium">Anexos (opcional)</div>
         <Input type="file" multiple onChange={(e) => void pickFiles(e.target.files)} />
         {files.length ? (
-          <div className="text-[11px] text-muted-foreground">{files.length} arquivo(s) selecionado(s)</div>
+          <div className="text-[11px] text-muted-foreground">
+            {files.length} arquivo(s) selecionado(s)
+          </div>
         ) : null}
       </div>
 
@@ -930,11 +1117,16 @@ function BriefingRequestForm({
 /** Links de briefing por token (fluxo legado) — mantidos apenas como histórico. */
 function LegacyBriefingLinks() {
   const api = usePortalApi();
-  const q = useQuery({ queryKey: ["portal", "briefings", api.scopeKey], queryFn: () => api.briefings() });
+  const q = useQuery({
+    queryKey: ["portal", "briefings", api.scopeKey],
+    queryFn: () => api.briefings(),
+  });
 
   const rows = q.data ?? [];
   const isOpen = (b: (typeof rows)[number]) =>
-    !b.revoked_at && !b.submitted_at && (!b.expires_at || new Date(b.expires_at).getTime() > Date.now());
+    !b.revoked_at &&
+    !b.submitted_at &&
+    (!b.expires_at || new Date(b.expires_at).getTime() > Date.now());
   const pending = rows.filter(isOpen);
   const history = rows.filter((b) => !isOpen(b));
 
@@ -960,7 +1152,12 @@ function LegacyBriefingLinks() {
                     : "Suas respostas alimentam a estratégia e a pauta do mês."}
                 </div>
               </div>
-              <a href={`/p/briefing/${b.token}`} target="_blank" rel="noreferrer" className="shrink-0">
+              <a
+                href={`/p/briefing/${b.token}`}
+                target="_blank"
+                rel="noreferrer"
+                className="shrink-0"
+              >
                 <Button size="sm" className="gap-1.5">
                   Responder briefing <ExternalLink className="h-3.5 w-3.5" />
                 </Button>
@@ -973,7 +1170,9 @@ function LegacyBriefingLinks() {
           <span className="inline-flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
             <CheckCircle2 className="h-4 w-4" /> Nada pendente
           </span>
-          <span className="ml-2 text-muted-foreground">Você respondeu tudo o que a equipe pediu.</span>
+          <span className="ml-2 text-muted-foreground">
+            Você respondeu tudo o que a equipe pediu.
+          </span>
         </div>
       )}
 
@@ -987,7 +1186,11 @@ function LegacyBriefingLinks() {
               const state = b.submitted_at
                 ? { label: "Respondido", tone: "text-sky-500", when: b.submitted_at }
                 : b.revoked_at
-                  ? { label: "Encerrado pela equipe", tone: "text-muted-foreground", when: b.revoked_at }
+                  ? {
+                      label: "Encerrado pela equipe",
+                      tone: "text-muted-foreground",
+                      when: b.revoked_at,
+                    }
                   : { label: "Prazo encerrado", tone: "text-amber-500", when: b.expires_at };
               return (
                 <div key={b.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
@@ -1005,4 +1208,3 @@ function LegacyBriefingLinks() {
     </div>
   );
 }
-

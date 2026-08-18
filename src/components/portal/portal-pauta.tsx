@@ -58,7 +58,11 @@ export function PautaApprovals() {
                   <CalendarDays className="h-3 w-3" /> {formatDate(p.created_at)}
                 </span>
                 <span>{p.topics} itens</span>
-                {p.pending > 0 && <span className="text-amber-600 dark:text-amber-400">{p.pending} sem decisão</span>}
+                {p.pending > 0 && (
+                  <span className="text-amber-600 dark:text-amber-400">
+                    {p.pending} sem decisão
+                  </span>
+                )}
               </div>
             </div>
             <span
@@ -91,7 +95,9 @@ function PautaDetail({ planId, onBack }: { planId: string; onBack: () => void })
     queryKey: ["portal", "plan", api.scopeKey, planId],
     queryFn: () => api.plan(planId),
   });
-  const [items, setItems] = useState<Record<string, { decision: PlanDecisionItem["decision"]; comment: string }>>({});
+  const [items, setItems] = useState<
+    Record<string, { decision: PlanDecisionItem["decision"]; comment: string }>
+  >({});
   const [feedback, setFeedback] = useState("");
 
   const topics = q.data?.topics ?? [];
@@ -151,7 +157,11 @@ function PautaDetail({ planId, onBack }: { planId: string; onBack: () => void })
       {q.isLoading ? (
         <ListSkeleton />
       ) : !q.data ? (
-        <EmptyState icon={Sparkles} title="Pauta indisponível" description="Peça um novo link à equipe." />
+        <EmptyState
+          icon={Sparkles}
+          title="Pauta indisponível"
+          description="Peça um novo link à equipe."
+        />
       ) : (
         <>
           <div className="rounded-xl border border-border/60 bg-card p-5">
@@ -160,7 +170,9 @@ function PautaDetail({ planId, onBack }: { planId: string; onBack: () => void })
             </div>
             <h2 className="mt-1 text-lg font-semibold tracking-tight">{q.data.plan.title}</h2>
             {q.data.plan.objectives && (
-              <p className="mt-2 whitespace-pre-line text-sm text-muted-foreground">{q.data.plan.objectives}</p>
+              <p className="mt-2 whitespace-pre-line text-sm text-muted-foreground">
+                {q.data.plan.objectives}
+              </p>
             )}
             {!editable && (
               <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs text-muted-foreground">
@@ -176,15 +188,25 @@ function PautaDetail({ planId, onBack }: { planId: string; onBack: () => void })
             {decided.map(({ topic, decision }) => (
               <div key={topic.id} className="rounded-xl border border-border/60 bg-card p-4">
                 <div className="flex flex-wrap items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  {topic.channel && <span className="rounded bg-muted px-1.5 py-0.5">{topic.channel}</span>}
-                  {topic.content_format && <span className="rounded bg-muted px-1.5 py-0.5">{topic.content_format}</span>}
-                  <span className={decision ? "text-foreground" : "text-amber-600 dark:text-amber-400"}>
+                  {topic.channel && (
+                    <span className="rounded bg-muted px-1.5 py-0.5">{topic.channel}</span>
+                  )}
+                  {topic.content_format && (
+                    <span className="rounded bg-muted px-1.5 py-0.5">{topic.content_format}</span>
+                  )}
+                  <span
+                    className={decision ? "text-foreground" : "text-amber-600 dark:text-amber-400"}
+                  >
                     {decision ? DECISION_LABEL[decision] : "sem decisão"}
                   </span>
                 </div>
                 <div className="mt-1.5 text-sm font-medium">{topic.topic_title}</div>
-                {topic.angle && <div className="mt-1 text-xs text-muted-foreground">{topic.angle}</div>}
-                {topic.rationale && <div className="mt-1 text-xs text-muted-foreground">{topic.rationale}</div>}
+                {topic.angle && (
+                  <div className="mt-1 text-xs text-muted-foreground">{topic.angle}</div>
+                )}
+                {topic.rationale && (
+                  <div className="mt-1 text-xs text-muted-foreground">{topic.rationale}</div>
+                )}
 
                 {editable && (
                   <div className="mt-3 space-y-2">
@@ -249,7 +271,11 @@ function PautaDetail({ planId, onBack }: { planId: string; onBack: () => void })
                   disabled={decide.isPending}
                   onClick={() => decide.mutate({ planId, decision: "approve", feedback })}
                 >
-                  {decide.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  {decide.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
                   Aprovar tudo
                 </Button>
                 <Button
@@ -269,7 +295,9 @@ function PautaDetail({ planId, onBack }: { planId: string; onBack: () => void })
                   <RotateCcw className="h-4 w-4" /> Pedir revisão geral
                 </Button>
                 {missing > 0 && (
-                  <span className="text-xs text-muted-foreground">{missing} item(ns) ainda sem decisão</span>
+                  <span className="text-xs text-muted-foreground">
+                    {missing} item(ns) ainda sem decisão
+                  </span>
                 )}
               </div>
             </div>

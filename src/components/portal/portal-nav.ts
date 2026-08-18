@@ -1,4 +1,12 @@
-import { Home, CheckSquare, CalendarDays, FolderOpen, FileText, Sparkles, Palette } from "lucide-react";
+import {
+  Home,
+  CheckSquare,
+  CalendarDays,
+  FolderOpen,
+  FileText,
+  Sparkles,
+  Palette,
+} from "lucide-react";
 
 export type PortalTabId =
   | "home"
@@ -53,9 +61,7 @@ export function tokenTabRoute(tab: PortalTabId): string {
 
 /** Aba ativa a partir do pathname, nos dois modos. */
 export function activePortalTab(pathname: string, base: string): PortalTabId {
-  const rest = pathname.startsWith(base)
-    ? pathname.slice(base.length).replace(/^\/|\/$/g, "")
-    : "";
+  const rest = pathname.startsWith(base) ? pathname.slice(base.length).replace(/^\/|\/$/g, "") : "";
   if (rest === "inicio") return "home";
   return PORTAL_TABS.find((t) => t.segment && t.segment === rest)?.id ?? "home";
 }

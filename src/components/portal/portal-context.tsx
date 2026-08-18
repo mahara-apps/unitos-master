@@ -52,7 +52,13 @@ export type PortalMode =
 
 const ModeContext = createContext<PortalMode>({ kind: "session", clientId: null });
 
-export function PortalModeProvider({ value, children }: { value: PortalMode; children: ReactNode }) {
+export function PortalModeProvider({
+  value,
+  children,
+}: {
+  value: PortalMode;
+  children: ReactNode;
+}) {
   return <ModeContext.Provider value={value}>{children}</ModeContext.Provider>;
 }
 
@@ -68,7 +74,11 @@ export function portalScopeKey(mode: PortalMode): string {
 type ApprovalStatus = "all" | "pending" | "approved" | "adjust";
 type PostDecision = "approved" | "rejected" | "adjust" | "comment";
 type PlanDecision = "approve" | "reject" | "changes" | "per_item";
-type PlanItems = Array<{ topicId: string; decision: "approved" | "rejected" | "changes"; comment: string }>;
+type PlanItems = Array<{
+  topicId: string;
+  decision: "approved" | "rejected" | "changes";
+  comment: string;
+}>;
 
 export function usePortalApi() {
   const mode = usePortalMode();
@@ -104,7 +114,7 @@ export function usePortalApi() {
   return useMemo(() => {
     const isToken = mode.kind === "token";
     const token = mode.kind === "token" ? mode.token : "";
-    const clientId = mode.kind === "session" ? mode.clientId ?? undefined : undefined;
+    const clientId = mode.kind === "session" ? (mode.clientId ?? undefined) : undefined;
     const base = isToken ? { token } : clientId ? { clientId } : {};
 
     return {
@@ -114,10 +124,17 @@ export function usePortalApi() {
       scopeKey: portalScopeKey(mode),
       metrics: () => (isToken ? tMetrics({ data: { token } }) : sMetrics({ data: base })),
       approvals: (status: ApprovalStatus) =>
-        isToken ? tApprovals({ data: { token, status } }) : sApprovals({ data: { ...base, status } }),
+        isToken
+          ? tApprovals({ data: { token, status } })
+          : sApprovals({ data: { ...base, status } }),
       post: (postId: string) =>
         isToken ? tPost({ data: { token, postId } }) : sPost({ data: { ...base, postId } }),
-      decidePost: (input: { postId: string; decision: PostDecision; note?: string; identity: string }) =>
+      decidePost: (input: {
+        postId: string;
+        decision: PostDecision;
+        note?: string;
+        identity: string;
+      }) =>
         isToken
           ? tDecide({ data: { token, ...input } })
           : sDecide({
@@ -147,7 +164,10 @@ export function usePortalApi() {
         decision: PlanDecision;
         feedback?: string;
         items?: PlanItems;
-      }) => (isToken ? tDecidePlan({ data: { token, ...input } }) : sDecidePlan({ data: { ...base, ...input } })),
+      }) =>
+        isToken
+          ? tDecidePlan({ data: { token, ...input } })
+          : sDecidePlan({ data: { ...base, ...input } }),
       brandHub: () => (isToken ? tBrandHub({ data: { token } }) : sBrandHub({ data: base })),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -192,4 +212,3 @@ export function PortalLink({
     </Link>
   );
 }
-

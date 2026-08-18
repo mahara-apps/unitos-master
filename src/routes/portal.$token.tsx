@@ -4,7 +4,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { resolvePortalTokenFn } from "@/lib/portal-public.functions";
-import { FullScreenLoader, PortalIdentityProvider, TokenError } from "@/components/portal/portal-shared";
+import {
+  FullScreenLoader,
+  PortalIdentityProvider,
+  TokenError,
+} from "@/components/portal/portal-shared";
 import { PortalModeProvider } from "@/components/portal/portal-context";
 import { PortalShell } from "@/components/portal/portal-shell";
 import { activePortalTab } from "@/components/portal/portal-nav";
@@ -16,10 +20,7 @@ import { activePortalTab } from "@/components/portal/portal-nav";
 export const Route = createFileRoute("/portal/$token")({
   component: PortalShellRoute,
   head: () => ({
-    meta: [
-      { title: "Portal do cliente" },
-      { name: "robots", content: "noindex" },
-    ],
+    meta: [{ title: "Portal do cliente" }, { name: "robots", content: "noindex" }],
   }),
 });
 
@@ -71,8 +72,8 @@ function PortalShellRoute() {
           background={theme?.bg ?? null}
           footerLabel={
             theme?.showAgencyCredit === false
-              ? theme?.footerLabel ?? ""
-              : theme?.footerLabel ?? (brand?.name ? `por ${brand.name}` : "")
+              ? (theme?.footerLabel ?? "")
+              : (theme?.footerLabel ?? (brand?.name ? `por ${brand.name}` : ""))
           }
           headerActions={
             <Input

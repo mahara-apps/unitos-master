@@ -4,7 +4,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { listMyPortalClientsFn, resolvePortalSessionFn } from "@/lib/portal-session.functions";
-import { FullScreenLoader, PortalIdentityProvider, TokenError } from "@/components/portal/portal-shared";
+import {
+  FullScreenLoader,
+  PortalIdentityProvider,
+  TokenError,
+} from "@/components/portal/portal-shared";
 import { PortalModeProvider } from "@/components/portal/portal-context";
 import { PortalShell } from "@/components/portal/portal-shell";
 import { activePortalTab } from "@/components/portal/portal-nav";
@@ -42,7 +46,11 @@ function PortalAreaLayout() {
     localStorage.setItem(STORAGE_KEY, id);
   };
 
-  const linksQ = useQuery({ queryKey: ["portal", "my-clients"], queryFn: () => listClients(), staleTime: 5 * 60_000 });
+  const linksQ = useQuery({
+    queryKey: ["portal", "my-clients"],
+    queryFn: () => listClients(),
+    staleTime: 5 * 60_000,
+  });
   const sessionQ = useQuery({
     queryKey: ["portal", "session", clientId ?? "default"],
     queryFn: () => resolve({ data: clientId ? { clientId } : {} }),
@@ -94,7 +102,12 @@ function PortalAreaLayout() {
                   </SelectContent>
                 </Select>
               )}
-              <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground" onClick={signOut}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2 text-muted-foreground"
+                onClick={signOut}
+              >
                 <LogOut className="h-4 w-4" /> Sair
               </Button>
             </>
