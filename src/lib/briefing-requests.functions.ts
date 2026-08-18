@@ -31,7 +31,7 @@ export type BriefingRequestRow = {
 export type BriefingProposalRow = {
   id: string;
   request_id: string;
-  payload: Record<string, unknown>;
+  payload: Record<string, string | string[]>;
   attachments: Array<{ name: string; path: string; mime: string | null; size: number | null; url?: string | null }>;
   note: string | null;
   submitted_via: "portal_session" | "portal_token";
@@ -158,7 +158,7 @@ export const getBriefingProposalsFn = createServerFn({ method: "POST" })
         return {
           id: r.id as string,
           request_id: r.request_id as string,
-          payload: (r.payload ?? {}) as Record<string, unknown>,
+          payload: (r.payload ?? {}) as Record<string, string | string[]>,
           attachments: signed,
           note: (r.note as string | null) ?? null,
           submitted_via: r.submitted_via as BriefingProposalRow["submitted_via"],
