@@ -53,6 +53,7 @@ import { Route as ApiJobsCopilotRouteImport } from './routes/api/jobs/copilot'
 import { Route as ApiJobsAnalyzeDocumentRouteImport } from './routes/api/jobs/analyze-document'
 import { Route as ApiChatStreamRouteImport } from './routes/api/chat.stream'
 import { Route as PortalAreaInicioRouteImport } from './routes/_portal/area.inicio'
+import { Route as PortalAreaAprovacoesRouteImport } from './routes/_portal/area.aprovacoes'
 import { Route as AuthenticatedSuperAdminFeaturesRouteImport } from './routes/_authenticated/super-admin.features'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsSlaRouteImport } from './routes/_authenticated/settings.sla'
@@ -317,6 +318,11 @@ const PortalAreaInicioRoute = PortalAreaInicioRouteImport.update({
   path: '/inicio',
   getParentRoute: () => PortalAreaRoute,
 } as any)
+const PortalAreaAprovacoesRoute = PortalAreaAprovacoesRouteImport.update({
+  id: '/aprovacoes',
+  path: '/aprovacoes',
+  getParentRoute: () => PortalAreaRoute,
+} as any)
 const AuthenticatedSuperAdminFeaturesRoute =
   AuthenticatedSuperAdminFeaturesRouteImport.update({
     id: '/super-admin/features',
@@ -577,6 +583,7 @@ export interface FileRoutesByFullPath {
   '/settings/sla': typeof AuthenticatedSettingsSlaRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
+  '/area/aprovacoes': typeof PortalAreaAprovacoesRoute
   '/area/inicio': typeof PortalAreaInicioRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
@@ -652,6 +659,7 @@ export interface FileRoutesByTo {
   '/settings/sla': typeof AuthenticatedSettingsSlaRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
+  '/area/aprovacoes': typeof PortalAreaAprovacoesRoute
   '/area/inicio': typeof PortalAreaInicioRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
@@ -736,6 +744,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/sla': typeof AuthenticatedSettingsSlaRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/_authenticated/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
+  '/_portal/area/aprovacoes': typeof PortalAreaAprovacoesRoute
   '/_portal/area/inicio': typeof PortalAreaInicioRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
@@ -819,6 +828,7 @@ export interface FileRouteTypes {
     | '/settings/sla'
     | '/settings/team'
     | '/super-admin/features'
+    | '/area/aprovacoes'
     | '/area/inicio'
     | '/api/chat/stream'
     | '/api/jobs/analyze-document'
@@ -894,6 +904,7 @@ export interface FileRouteTypes {
     | '/settings/sla'
     | '/settings/team'
     | '/super-admin/features'
+    | '/area/aprovacoes'
     | '/area/inicio'
     | '/api/chat/stream'
     | '/api/jobs/analyze-document'
@@ -977,6 +988,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/sla'
     | '/_authenticated/settings/team'
     | '/_authenticated/super-admin/features'
+    | '/_portal/area/aprovacoes'
     | '/_portal/area/inicio'
     | '/api/chat/stream'
     | '/api/jobs/analyze-document'
@@ -1362,6 +1374,13 @@ declare module '@tanstack/react-router' {
       path: '/inicio'
       fullPath: '/area/inicio'
       preLoaderRoute: typeof PortalAreaInicioRouteImport
+      parentRoute: typeof PortalAreaRoute
+    }
+    '/_portal/area/aprovacoes': {
+      id: '/_portal/area/aprovacoes'
+      path: '/aprovacoes'
+      fullPath: '/area/aprovacoes'
+      preLoaderRoute: typeof PortalAreaAprovacoesRouteImport
       parentRoute: typeof PortalAreaRoute
     }
     '/_authenticated/super-admin/features': {
@@ -1798,10 +1817,12 @@ const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
 interface PortalAreaRouteChildren {
+  PortalAreaAprovacoesRoute: typeof PortalAreaAprovacoesRoute
   PortalAreaInicioRoute: typeof PortalAreaInicioRoute
 }
 
 const PortalAreaRouteChildren: PortalAreaRouteChildren = {
+  PortalAreaAprovacoesRoute: PortalAreaAprovacoesRoute,
   PortalAreaInicioRoute: PortalAreaInicioRoute,
 }
 
