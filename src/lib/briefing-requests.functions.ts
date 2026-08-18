@@ -192,3 +192,53 @@ export const markBriefingRequestInReviewFn = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+
+/* ------------------------- FASE 4 — revisão e promoção ------------------------- */
+
+/** Comparação campo a campo (briefing atual × proposta) para a tela de revisão. */
+export const getBriefingReviewDiffFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => Scope.extend({ requestId: z.string().uuid() }).parse(i))
+  .handler(async ({ context, data }) => {
+    const { buildBriefingReviewDiff } = await import("@/lib/briefing-review.server");
+    return buildBriefingReviewDiff(context.supabase, { brandId: data.brandId, clientId: data.clientId }, data.requestId);
+  });
+
+/** Aprovar, aprovar parcialmente ou solicitar complementação. */
+export const decideBriefingReviewFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) =>
+    Scope.extend({
+      requestId: z.string().uuid(),
+      decision: z.enum(["approved", "partial", "changes_requested"]),
+      acceptedFields: z.array(z.string()).optional(),
+      note: z.string().max(2000).optional(),
+    }).parse(i),
+  )
+  .handler(async ({ context, data }) => {
+    const { decideBriefingReview } = await import("@/lib/briefing-review.server");
+    return decideBriefingReview(
+      context.supabase,
+      { brandId: data.brandId, clientId: data.clientId },
+      context.userId,
+      {
+        requestId: data.requestId,
+        decision: data.decision,
+        acceptedFields: data.acceptedFields,
+        note: data.note,
+      },
+    );
+  });
+
+/** Histórico de decisões de revisão. */
+export const listBriefingReviewsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((i: unknown) => Scope.extend({ requestId: z.string().uuid().nullish() }).parse(i))
+  .handler(async ({ context, data }) => {
+    const { listBriefingReviews } = await import("@/lib/briefing-review.server");
+    return listBriefingReviews(
+      context.supabase,
+      { brandId: data.brandId, clientId: data.clientId },
+      data.requestId ?? null,
+    );
+  });
