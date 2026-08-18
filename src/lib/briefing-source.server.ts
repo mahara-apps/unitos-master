@@ -163,41 +163,67 @@ export function hubToLegacyBriefing(
 }
 
 /**
+ * FASE 2 — Converte um payload legado (chaves pt-BR / IA) em um patch de
+ * `brand_hub`. Usado por todos os fluxos que antes escreviam em
+ * `brand_briefings`, que agora escrevem apenas na fonte canônica.
+ */
+export function legacyToHubPatch(legacy: Record<string, unknown> | null | undefined): Partial<BrandHubData> {
+  if (!legacy) return {};
+  const out: Record<string, unknown> = {};
+  for (const f of HUB_TEXT_FIELDS) {
+    const s = str(legacy[f]);
+    if (s) out[f] = s;
+  }
+  const audience = str(legacy.publico_alvo);
+  if (audience) out.audience = audience;
+  const tone = str(legacy.tom_de_voz);
+  if (tone) out.tone_text = tone;
+  const pains = toList(legacy.dores_do_cliente_final);
+  if (pains.length) out.pain_points = pains.join("\n");
+  const diffs = toList(legacy.diferenciais);
+  if (diffs.length) out.differentials = diffs.join("\n");
+  const tags = toList(legacy.hashtags_sugeridas);
+  if (tags.length) out.hashtags = tags;
+  const competitors = toList(legacy.concorrentes_mencionados);
+  if (competitors.length) out.competitors = competitors.map((handle) => ({ handle }));
+  return out as Partial<BrandHubData>;
+}
+
+export type BriefingStatus = "draft" | "requested" | "submitted" | "in_review" | "approved";
+
+export const BRIEFING_STATUSES: BriefingStatus[] = [
+  "draft",
+  "requested",
+  "submitted",
+  "in_review",
+  "approved",
+];
+
+/**
  * Leitura canônica do briefing de um cliente.
- * Sempre parte de `clients.brand_hub`; usa `brand_briefings` apenas como
- * fallback de compatibilidade (sem escrever nada).
+ * FASE 2: a ÚNICA fonte é `clients.brand_hub` — não existe mais fallback que
+ * permita ao legado (`brand_briefings`) ser mais atual que o hub. Os registros
+ * legados foram copiados para o hub via migração (sem apagar o histórico).
  */
 export async function loadCanonicalBriefing(
   supabase: SupabaseClient,
   args: { clientId: string; brandId?: string | null },
 ): Promise<CanonicalBriefing> {
-  const [clientRes, legacyRes] = await Promise.all([
-    supabase
-      .from("clients")
-      .select("id, name, niche, tone_of_voice, brand_hub")
-      .eq("id", args.clientId)
-      .maybeSingle(),
-    (() => {
-      let q = supabase
-        .from("brand_briefings")
-        .select("id, data")
-        .eq("client_id", args.clientId)
-        .order("created_at", { ascending: false })
-        .limit(1);
-      if (args.brandId) q = q.eq("brand_id", args.brandId);
-      return q.maybeSingle();
-    })(),
-  ]);
+  const clientRes = await supabase
+    .from("clients")
+    .select("id, name, niche, tone_of_voice, brand_hub, briefing_status")
+    .eq("id", args.clientId)
+    .maybeSingle();
 
   const row = (clientRes.data ?? {}) as {
     name?: string | null;
     niche?: string | null;
     tone_of_voice?: string | null;
     brand_hub?: Record<string, unknown> | null;
+    briefing_status?: string | null;
   };
-  const legacyRow = (legacyRes.data ?? null) as { id?: string; data?: Record<string, unknown> | null } | null;
 
-  const hub = mergeLegacyIntoHub((row.brand_hub ?? {}) as BrandHubData, legacyRow?.data ?? null);
+  const hub = (row.brand_hub ?? {}) as BrandHubData;
   const completion = computeBriefingCompletion(hub, { tone_of_voice: row.tone_of_voice ?? null });
 
   return {
@@ -208,10 +234,13 @@ export async function loadCanonicalBriefing(
     hub,
     legacy: hubToLegacyBriefing(hub, { toneOfVoice: row.tone_of_voice ?? null, completion }),
     completion,
-    hasLegacyRow: !!legacyRow?.id,
-    legacyRowId: legacyRow?.id ?? null,
+    status: (row.briefing_status as BriefingStatus | null) ?? "draft",
+    hasLegacyRow: false,
+    legacyRowId: null,
   };
 }
+
+
 
 /** Texto plano do briefing canônico, para prompts que só precisam de contexto. */
 export function briefingToPromptText(b: CanonicalBriefing): string {
