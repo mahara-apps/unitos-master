@@ -14,8 +14,6 @@ import {
   Search,
   Clock,
   Loader2,
-  ChevronLeft,
-  ChevronRight,
   ImageIcon,
   User2,
   CalendarClock,
@@ -37,16 +35,14 @@ import { BRIEFING_BLOCKS, BRIEFING_FIELDS } from "@/lib/briefing-fields";
 import { briefingField, briefingFieldLabel, type BriefingField } from "@/lib/briefing-fields";
 import type { PortalTabId } from "./portal-nav";
 import { PautaApprovals } from "./portal-pauta";
+import { PortalCalendar } from "./portal-calendar";
 import { PLAN_PENDING_CLIENT_STATUS } from "@/lib/monthly-plan-client.types";
 import {
   EmptyState,
   GridSkeleton,
   ListSkeleton,
-  buildMonthGrid,
   formatBytes,
   formatDate,
-  formatMonth,
-  shiftYm,
   usePortalIdentity,
 } from "./portal-shared";
 
@@ -956,126 +952,7 @@ function ApprovalDialog({
 /* -------------------------------- CALENDAR -------------------------------- */
 
 export function CalendarTab() {
-  const [ym, setYm] = useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-  });
-  const api = usePortalApi();
-  const q = useQuery({
-    queryKey: ["portal", "calendar", api.scopeKey, ym],
-    queryFn: () => api.calendar(ym),
-  });
-  const days = useMemo(() => buildMonthGrid(ym), [ym]);
-  const byDay = useMemo(() => {
-    const map = new Map<string, Array<Record<string, unknown>>>();
-    for (const p of q.data ?? []) {
-      if (!p.scheduled_at) continue;
-      const k = (p.scheduled_at as string).slice(0, 10);
-      const arr = map.get(k) ?? [];
-      arr.push(p as Record<string, unknown>);
-      map.set(k, arr);
-    }
-    return map;
-  }, [q.data]);
-
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button
-            size="icon"
-            variant="outline"
-            className="h-8 w-8"
-            onClick={() => setYm(shiftYm(ym, -1))}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div className="rounded-md border border-border/60 bg-card px-3 py-1.5 text-sm font-medium capitalize">
-            {formatMonth(ym)}
-          </div>
-          <Button
-            size="icon"
-            variant="outline"
-            className="h-8 w-8 rotate-180"
-            onClick={() => setYm(shiftYm(ym, 1))}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-      <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
-        <div className="grid grid-cols-7 border-b border-border/60 bg-muted/40">
-          {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
-            <div
-              key={d}
-              className="px-2 py-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground"
-            >
-              {d}
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7">
-          {days.map((d, i) => {
-            const key = d?.toISOString().slice(0, 10);
-            const items = key ? (byDay.get(key) ?? []) : [];
-            const isOpen = !!(key && expanded[key]);
-            return (
-              <div
-                key={i}
-                className={`min-h-[92px] border-b border-r border-border/60 p-2 text-xs align-top ${d ? "" : "bg-muted/20"}`}
-              >
-                {d && (
-                  <>
-                    <div className="mb-1 flex items-center justify-between">
-                      <span className="text-[11px] font-medium text-muted-foreground">
-                        {d.getDate()}
-                      </span>
-                      {items.length > 0 && (
-                        <span className="rounded-full bg-primary/10 px-1.5 font-mono text-[9px] text-primary">
-                          {items.length}
-                        </span>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      {(isOpen ? items : items.slice(0, 3)).map((p) => (
-                        <div
-                          key={p.id as string}
-                          className="truncate rounded border border-border/60 bg-background px-1.5 py-1 text-[10px]"
-                          title={p.title as string}
-                        >
-                          {(p.title as string) || "Post"}
-                        </div>
-                      ))}
-                      {items.length > 3 && (
-                        <button
-                          type="button"
-                          onClick={() => key && setExpanded((s) => ({ ...s, [key]: !s[key] }))}
-                          className="inline-flex w-full items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/10"
-                        >
-                          {isOpen ? (
-                            <>
-                              Ver menos <ChevronLeft className="h-3 w-3 rotate-90" />
-                            </>
-                          ) : (
-                            <>
-                              +{items.length - 3} <ChevronRight className="h-3 w-3" />
-                            </>
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-      {q.isLoading && <Skeleton className="h-4 w-32" />}
-    </div>
-  );
+  return <PortalCalendar />;
 }
 
 /* ---------------------------------- FILES --------------------------------- */
