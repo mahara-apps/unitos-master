@@ -23,7 +23,27 @@ export type LegacyBriefingData = {
   concorrentes_mencionados: string[];
   volume_semanal_estimado: number | null;
   completude_percentual: number;
-  [key: string]: unknown;
+  mission: string | null;
+  positioning: string | null;
+  values: string | null;
+  offer: string | null;
+  price_range: string | null;
+  objections: string | null;
+  journey: string | null;
+  desires: string | null;
+  goals: string | null;
+};
+
+/** Linha de briefing normalizada (leitura), derivada do brand_hub. */
+export type CanonicalBriefingRow = {
+  id: string | null;
+  brand_id: string;
+  client_id: string;
+  raw_text: string | null;
+  created_at: string | null;
+  data: LegacyBriefingData;
+  completude: number;
+  source: "brand_hub";
 };
 
 export type CanonicalBriefing = {
