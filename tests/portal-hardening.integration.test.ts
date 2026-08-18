@@ -312,7 +312,46 @@ describe("portal_decide — trava de estado", () => {
       .single();
     expect((data as { status: string }).status).toBe("approved");
   });
+
+  it("recusa ajuste sem nota e preserva a nota anterior", async () => {
+    const c = anonClient();
+    const ok = await c.rpc("portal_decide" as never, {
+      _token: cx.tokenA,
+      _post_id: cx.postVisible,
+      _decision: "adjust",
+      _note: "trocar a foto de capa",
+      _identity: "QA Cliente",
+    } as never);
+    expect(ok.error).toBeNull();
+
+    for (const note of [undefined, null, "   "]) {
+      const { error } = await c.rpc("portal_decide" as never, {
+        _token: cx.tokenA,
+        _post_id: cx.postVisible,
+        _decision: "adjust",
+        _note: note,
+        _identity: "QA Cliente",
+      } as never);
+      expect(error?.message ?? "").toContain("note_required");
+    }
+
+    const { data } = await admin
+      .from("post_approvals")
+      .select("status, notes")
+      .eq("post_id", cx.postVisible)
+      .single();
+    const row = data as { status: string; notes: string | null };
+    expect(row.status).toBe("adjust");
+    expect(row.notes).toBe("trocar a foto de capa");
+    const { data: post } = await admin
+      .from("posts")
+      .select("review_status, rework_notes")
+      .eq("id", cx.postVisible)
+      .single();
+    expect((post as { rework_notes: string | null }).rework_notes).toBe("trocar a foto de capa");
+  });
 });
+
 
 describe("Portal autenticado — escopo multi-cliente", () => {
   it("lista os vínculos do usuário", async () => {
