@@ -166,7 +166,25 @@ export const applyDocumentToBriefing = createServerFn({ method: "POST" })
       throw new Error("Nenhum campo válido selecionado.");
     }
 
-    const { data: existing, error: exErr } = await context.supabase
+    // Fonte canônica: clients.brand_hub. As chaves de DocumentBriefingSummary
+    // são exatamente as chaves do brand_hub, então o patch é aplicado direto.
+    const { data: clientRow, error: clientErr } = await context.supabase
+      .from("clients")
+      .select("brand_hub")
+      .eq("id", data.clientId)
+      .maybeSingle();
+    if (clientErr) throw clientErr;
+    const currentHub = ((clientRow?.brand_hub ?? {}) as Record<string, unknown>) ?? {};
+    const mergedHub = { ...currentHub, ...patch };
+    const { error: hubErr } = await context.supabase
+      .from("clients")
+      .update({ brand_hub: mergedHub as never })
+      .eq("id", data.clientId)
+      .eq("brand_id", data.brandId);
+    if (hubErr) throw hubErr;
+
+    // Compatibilidade temporária: espelha em brand_briefings (não é fonte).
+    const { data: existing } = await context.supabase
       .from("brand_briefings")
       .select("id, data")
       .eq("brand_id", data.brandId)
@@ -174,26 +192,21 @@ export const applyDocumentToBriefing = createServerFn({ method: "POST" })
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (exErr) throw exErr;
 
     const mergedData = { ...((existing?.data as Record<string, unknown>) ?? {}), ...patch };
 
     if (existing?.id) {
-      const { error } = await context.supabase
+      await context.supabase
         .from("brand_briefings")
         .update({ data: mergedData as never })
         .eq("id", existing.id);
-      if (error) throw error;
     } else {
-      const { error } = await context.supabase
-        .from("brand_briefings")
-        .insert({
-          brand_id: data.brandId,
-          client_id: data.clientId,
-          data: mergedData as never,
-          created_by: context.userId,
-        });
-      if (error) throw error;
+      await context.supabase.from("brand_briefings").insert({
+        brand_id: data.brandId,
+        client_id: data.clientId,
+        data: mergedData as never,
+        created_by: context.userId,
+      });
     }
 
     await (context.supabase as unknown as {
@@ -212,19 +225,16 @@ export const applyDocumentToBriefing = createServerFn({ method: "POST" })
 
 /**
  * Get the current briefing snapshot for before/after comparison in the UI.
+ * Lê a fonte canônica (clients.brand_hub), com fallback de compatibilidade.
  */
 export const getBriefingSnapshot = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => Scope.parse(i))
   .handler(async ({ data, context }): Promise<Partial<DocumentBriefingSummary>> => {
-    const { data: row, error } = await context.supabase
-      .from("brand_briefings")
-      .select("data")
-      .eq("brand_id", data.brandId)
-      .eq("client_id", data.clientId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (error) throw error;
-    return ((row?.data as Partial<DocumentBriefingSummary>) ?? {}) as Partial<DocumentBriefingSummary>;
+    const { loadCanonicalBriefing } = await import("@/lib/briefing-source.server");
+    const canonical = await loadCanonicalBriefing(context.supabase, {
+      clientId: data.clientId,
+      brandId: data.brandId,
+    });
+    return canonical.hub as Partial<DocumentBriefingSummary>;
   });
