@@ -69,7 +69,7 @@ beforeAll(async () => {
     name: `Cliente A ${testTag}`,
     owner_user_id: operator.id,
     cnpj: "12345678000199",
-    notes: "dado interno sensivel",
+    description: "dado interno sensivel",
   });
   const clientB = await insert("clients", {
     brand_id: brandId,
@@ -168,7 +168,7 @@ describe("portal_resolve — superfície de dados", () => {
         "socials",
       ].sort(),
     );
-    for (const leak of ["cnpj", "notes", "mrr", "owner_user_id", "legal_name", "brand_hub"]) {
+    for (const leak of ["cnpj", "description", "mrr", "owner_user_id", "legal_name", "brand_hub"]) {
       expect(res.client).not.toHaveProperty(leak);
     }
   });
