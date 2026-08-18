@@ -41,13 +41,13 @@ export function PortalShell({
 
   return (
     <div
-      className={`min-h-screen bg-background text-foreground ${dark ? "dark" : ""}`}
+      className={`min-h-dvh bg-background text-foreground ${dark ? "dark" : ""}`}
       style={{
         ["--portal-accent" as string]: accent,
         ...(background ? { ["--background" as string]: background, background } : {}),
       }}
     >
-      <div className="flex min-h-screen">
+      <div className="flex min-h-dvh">
         <aside className="hidden w-64 shrink-0 flex-col border-r border-border/60 bg-card lg:flex">
           <div className="flex items-center gap-3 border-b border-border/60 px-5 py-5">
             {logoUrl ? (
@@ -78,9 +78,12 @@ export function PortalShell({
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex items-center gap-1 overflow-x-auto border-b border-border/60 bg-card px-3 py-2 lg:hidden">
+          <nav
+            aria-label="Navegação do portal"
+            className="flex items-center gap-1 overflow-x-auto border-b border-border/60 bg-card px-3 py-2 lg:hidden"
+          >
             <PortalNavList activeTab={activeTab} compact />
-          </div>
+          </nav>
 
           <header className="flex flex-col gap-3 border-b border-border/60 bg-background px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <div className="min-w-0">
@@ -114,7 +117,8 @@ function PortalNavList({ activeTab, compact }: { activeTab: PortalTabId; compact
             <PortalLink
               key={t.id}
               tab={t.id}
-              className={`flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-xs transition-colors ${
+              current={active}
+              className={`flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-xs transition-colors ${
                 active ? "bg-accent text-accent-foreground" : "text-muted-foreground"
               }`}
             >
@@ -126,7 +130,7 @@ function PortalNavList({ activeTab, compact }: { activeTab: PortalTabId; compact
     );
   }
   return (
-    <nav className="flex-1 space-y-0.5 px-3 py-4">
+    <nav aria-label="Navegação do portal" className="flex-1 space-y-0.5 px-3 py-4">
       {PORTAL_TABS.map((t) => {
         const Icon = t.icon;
         const active = activeTab === t.id;
@@ -134,6 +138,7 @@ function PortalNavList({ activeTab, compact }: { activeTab: PortalTabId; compact
           <PortalLink
             key={t.id}
             tab={t.id}
+            current={active}
             className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
               active
                 ? "bg-accent text-accent-foreground"

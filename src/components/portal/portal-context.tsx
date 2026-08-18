@@ -189,25 +189,35 @@ export function PortalLink({
   tab,
   className,
   children,
+  current,
+  "aria-label": ariaLabel,
 }: {
   tab: PortalTabId;
   className?: string;
   children: ReactNode;
+  /** Marca o link como página atual (navegação do shell). */
+  current?: boolean;
+  "aria-label"?: string;
 }) {
   const mode = usePortalMode();
+  const shared = {
+    className,
+    "aria-current": current ? ("page" as const) : undefined,
+    "aria-label": ariaLabel,
+  };
   if (mode.kind === "token") {
     return (
       <Link
         to={tokenTabRoute(tab) as "/portal/$token"}
         params={{ token: mode.token }}
-        className={className}
+        {...shared}
       >
         {children}
       </Link>
     );
   }
   return (
-    <Link to={sessionTabPath(tab) as "/area/inicio"} className={className}>
+    <Link to={sessionTabPath(tab) as "/area/inicio"} {...shared}>
       {children}
     </Link>
   );

@@ -79,6 +79,7 @@ function PortalShellRoute() {
             <Input
               value={identity.value}
               onChange={(e) => identity.save(e.target.value)}
+              aria-label="Seu nome, usado para registrar suas decisões"
               placeholder="Seu nome (para registrar decisões)"
               className="h-9 w-64"
             />
