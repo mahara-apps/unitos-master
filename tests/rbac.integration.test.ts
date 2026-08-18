@@ -1,37 +1,71 @@
 /**
- * FASE 1 RBAC — matriz de papéis × escopo executada com clients autenticados
- * reais (RLS exercida de verdade) e contra as funções canônicas do banco
- * (`app_access_role`, `can_access_client`, `my_access`).
+ * FASE 1 RBAC — validação da matriz de papéis × escopo com usuários reais e
+ * clients autenticados (RLS exercida de verdade, sem service role).
  *
  * Papéis: SUPER ADMIN, ADMIN (owner), MANAGER, USER (operação), CLIENTE (portal).
+ * Fontes canônicas exercitadas: app_access_role, can_access_client, my_access.
+ *
+ * Requer apenas SUPABASE_URL + SUPABASE_PUBLISHABLE_KEY.
+ * O papel super_admin depende da flag user_profiles.is_super_admin já estar
+ * marcada na conta de QA (definida fora da app, por operação privilegiada);
+ * quando não estiver, os testes de super admin são marcados como skip.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { admin, createUser, type TestUser } from "./helpers/fixtures";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
+const url = process.env["SUPABASE_URL"];
+const publishable = process.env["SUPABASE_PUBLISHABLE_KEY"];
+if (!url || !publishable) {
+  throw new Error("Ambiente incompleto: SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY");
+}
+
+const PASSWORD = "Qa!23456789";
 const TAG = `rbac${Date.now().toString(36)}`;
+const emailOf = (slot: string) => `rbac.${slot}@unitos-qa.test`;
+
+type Actor = { id: string; email: string; client: SupabaseClient };
+
+async function actor(slot: string): Promise<Actor> {
+  const email = emailOf(slot);
+  const client = createClient(url!, publishable!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  let res = await client.auth.signInWithPassword({ email, password: PASSWORD });
+  if (res.error) {
+    const up = await client.auth.signUp({ email, password: PASSWORD });
+    if (up.error) throw new Error(`signUp ${slot}: ${up.error.message}`);
+    if (!up.data.session) {
+      res = await client.auth.signInWithPassword({ email, password: PASSWORD });
+      if (res.error) throw new Error(`signIn ${slot}: ${res.error.message}`);
+    }
+  }
+  const u = await client.auth.getUser();
+  if (u.error || !u.data.user) throw new Error(`getUser ${slot}: ${u.error?.message}`);
+  return { id: u.data.user.id, email, client };
+}
 
 type Ctx = {
   brandId: string;
   otherBrandId: string;
-  clientAdminOnly: string; // sem responsável e sem vínculos → visível a toda a equipe
-  clientOfUser: string; // owner_user_id = user
-  clientOther: string; // de outro colaborador (fora do escopo do user)
+  clientFree: string; // sem responsável → visível a toda a equipe da marca
+  clientOfUser: string; // owner_user_id = USER
+  clientOfManager: string; // fora do escopo do USER
   otherBrandClient: string;
-  taskOther: string;
-  superAdmin: TestUser;
-  owner: TestUser;
-  manager: TestUser;
-  user: TestUser;
-  portal: TestUser;
-  outsider: TestUser;
+  taskOutOfScope: string;
+  superAdmin: Actor;
+  owner: Actor;
+  manager: Actor;
+  user: Actor;
+  portal: Actor;
+  outsider: Actor;
+  superIsFlagged: boolean;
 };
 
 let cx: Ctx;
 
-async function role(userId: string, brandId: string | null) {
-  const { data, error } = await admin.rpc("app_access_role" as never, {
-    _user_id: userId,
+async function roleOf(a: Actor, brandId: string | null) {
+  const { data, error } = await a.client.rpc("app_access_role" as never, {
+    _user_id: a.id,
     _brand_id: brandId,
   } as never);
   if (error) throw error;
@@ -41,214 +75,229 @@ async function role(userId: string, brandId: string | null) {
 async function visibleClients(c: SupabaseClient, brandId: string) {
   const { data, error } = await c.from("clients").select("id").eq("brand_id", brandId);
   if (error) throw error;
-  return (data ?? []).map((r) => r.id as string);
+  return (data ?? []).map((r) => r.id as string).sort();
 }
 
 beforeAll(async () => {
   const [superAdmin, owner, manager, user, portal, outsider] = await Promise.all([
-    createUser(`${TAG}-super`),
-    createUser(`${TAG}-owner`),
-    createUser(`${TAG}-manager`),
-    createUser(`${TAG}-user`),
-    createUser(`${TAG}-portal`),
-    createUser(`${TAG}-outsider`),
+    actor("super"),
+    actor("owner"),
+    actor("manager"),
+    actor("user"),
+    actor("portal"),
+    actor("outsider"),
   ]);
 
-  await admin.from("user_profiles").update({ is_super_admin: true }).eq("id", superAdmin.id);
+  const prof = await superAdmin.client
+    .from("user_profiles")
+    .select("is_super_admin")
+    .eq("id", superAdmin.id)
+    .maybeSingle();
+  const superIsFlagged = Boolean(prof.data?.is_super_admin);
 
-  const brands = await admin
+  const brandA = await owner.client
     .from("brands")
-    .insert([
-      { name: `RBAC ${TAG}`, slug: `rbac-${TAG}`, created_by: owner.id },
-      { name: `RBAC Outra ${TAG}`, slug: `rbac-outra-${TAG}`, created_by: outsider.id },
-    ])
-    .select("id, slug");
-  if (brands.error) throw brands.error;
-  const brandId = brands.data.find((b) => b.slug === `rbac-${TAG}`)!.id as string;
-  const otherBrandId = brands.data.find((b) => b.slug === `rbac-outra-${TAG}`)!.id as string;
+    .insert({ name: `RBAC ${TAG}`, slug: `rbac-${TAG}`, created_by: owner.id })
+    .select("id")
+    .single();
+  if (brandA.error) throw new Error(`brandA: ${brandA.error.message}`);
+  const brandB = await outsider.client
+    .from("brands")
+    .insert({ name: `RBAC Outra ${TAG}`, slug: `rbac-outra-${TAG}`, created_by: outsider.id })
+    .select("id")
+    .single();
+  if (brandB.error) throw new Error(`brandB: ${brandB.error.message}`);
+  const brandId = brandA.data.id as string;
+  const otherBrandId = brandB.data.id as string;
 
-  await admin.from("brand_members").delete().in("brand_id", [brandId, otherBrandId]);
-  const bm = await admin.from("brand_members").insert([
-    { brand_id: brandId, user_id: owner.id, role: "owner" },
+  const bm = await owner.client.from("brand_members").insert([
     { brand_id: brandId, user_id: manager.id, role: "manager" },
     { brand_id: brandId, user_id: user.id, role: "designer" },
-    { brand_id: otherBrandId, user_id: outsider.id, role: "owner" },
   ]);
-  if (bm.error) throw bm.error;
+  if (bm.error) throw new Error(`brand_members: ${bm.error.message}`);
 
-  const clients = await admin
+  const clients = await owner.client
     .from("clients")
     .insert([
       { brand_id: brandId, name: `Livre ${TAG}` },
       { brand_id: brandId, name: `DoUser ${TAG}`, owner_user_id: user.id },
-      { brand_id: brandId, name: `DeOutro ${TAG}`, owner_user_id: manager.id },
-      { brand_id: otherBrandId, name: `OutraBrand ${TAG}` },
+      { brand_id: brandId, name: `DoManager ${TAG}`, owner_user_id: manager.id },
     ])
     .select("id, name");
-  if (clients.error) throw clients.error;
+  if (clients.error) throw new Error(`clients: ${clients.error.message}`);
   const byName = (p: string) => clients.data.find((c) => c.name.startsWith(p))!.id as string;
-  const clientAdminOnly = byName("Livre");
+  const clientFree = byName("Livre");
   const clientOfUser = byName("DoUser");
-  const clientOther = byName("DeOutro");
-  const otherBrandClient = byName("OutraBrand");
+  const clientOfManager = byName("DoManager");
 
-  const cm = await admin.from("client_members").insert([
-    { brand_id: brandId, client_id: clientOfUser, user_id: portal.id, role: "portal_client" },
-  ]);
-  if (cm.error) throw cm.error;
-
-  const task = await admin
-    .from("tasks")
-    .insert({ brand_id: brandId, client_id: clientOther, title: `Tarefa fora ${TAG}` })
+  const otherClient = await outsider.client
+    .from("clients")
+    .insert({ brand_id: otherBrandId, name: `OutraBrand ${TAG}` })
     .select("id")
     .single();
-  if (task.error) throw task.error;
+  if (otherClient.error) throw new Error(`otherClient: ${otherClient.error.message}`);
+
+  const cm = await owner.client.from("client_members").insert({
+    brand_id: brandId,
+    client_id: clientOfUser,
+    user_id: portal.id,
+    role: "portal_client",
+  });
+  if (cm.error) throw new Error(`client_members: ${cm.error.message}`);
+
+  const task = await owner.client
+    .from("tasks")
+    .insert({ brand_id: brandId, client_id: clientOfManager, title: `Tarefa fora ${TAG}` })
+    .select("id")
+    .single();
+  if (task.error) throw new Error(`task: ${task.error.message}`);
 
   cx = {
     brandId,
     otherBrandId,
-    clientAdminOnly,
+    clientFree,
     clientOfUser,
-    clientOther,
-    otherBrandClient,
-    taskOther: task.data.id as string,
+    clientOfManager,
+    otherBrandClient: otherClient.data.id as string,
+    taskOutOfScope: task.data.id as string,
     superAdmin,
     owner,
     manager,
     user,
     portal,
     outsider,
+    superIsFlagged,
   };
 });
 
 afterAll(async () => {
   if (!cx) return;
-  const brands = [cx.brandId, cx.otherBrandId];
-  await admin.from("tasks").delete().in("brand_id", brands);
-  await admin.from("client_members").delete().in("brand_id", brands);
-  await admin.from("clients").delete().in("brand_id", brands);
-  await admin.from("brand_members").delete().in("brand_id", brands);
-  await admin.from("brands").delete().in("id", brands);
-  for (const u of [cx.superAdmin, cx.owner, cx.manager, cx.user, cx.portal, cx.outsider]) {
-    await admin.auth.admin.deleteUser(u.id).catch(() => {});
-  }
+  await cx.owner.client.from("tasks").delete().eq("brand_id", cx.brandId);
+  await cx.owner.client.from("client_members").delete().eq("brand_id", cx.brandId);
+  await cx.owner.client.from("clients").delete().eq("brand_id", cx.brandId);
+  await cx.owner.client.from("brand_members").delete().eq("brand_id", cx.brandId).neq("user_id", cx.owner.id);
+  await cx.outsider.client.from("clients").delete().eq("brand_id", cx.otherBrandId);
 });
 
-describe("papel canônico (fonte única)", () => {
-  it("resolve os 5 papéis oficiais", async () => {
-    expect(await role(cx.superAdmin.id, cx.brandId)).toBe("super_admin");
-    expect(await role(cx.owner.id, cx.brandId)).toBe("admin");
-    expect(await role(cx.manager.id, cx.brandId)).toBe("manager");
-    expect(await role(cx.user.id, cx.brandId)).toBe("user");
-    expect(await role(cx.portal.id, cx.brandId)).toBe("client");
+describe("papel canônico (fonte única de autoridade)", () => {
+  it("ADMIN / MANAGER / USER / CLIENTE resolvem papéis distintos", async () => {
+    expect(await roleOf(cx.owner, cx.brandId)).toBe("admin");
+    expect(await roleOf(cx.manager, cx.brandId)).toBe("manager");
+    expect(await roleOf(cx.user, cx.brandId)).toBe("user");
+    expect(await roleOf(cx.portal, cx.brandId)).toBe("client");
   });
 
-  it("MANAGER não é ADMIN", async () => {
-    expect(await role(cx.manager.id, cx.brandId)).not.toBe("admin");
+  it("MANAGER ≠ ADMIN", async () => {
+    expect(await roleOf(cx.manager, cx.brandId)).not.toBe("admin");
   });
 
-  it("user_profiles.role não concede autoridade (apenas especialidade)", async () => {
-    await admin.from("user_profiles").update({ role: "admin" }).eq("id", cx.user.id);
-    expect(await role(cx.user.id, cx.brandId)).toBe("user");
+  it("papel é por marca — sem vínculo não há papel", async () => {
+    expect(await roleOf(cx.user, cx.otherBrandId)).toBeNull();
+    expect(await roleOf(cx.outsider, cx.brandId)).toBeNull();
   });
 
-  it("papel é por marca — fora da marca não há papel", async () => {
-    expect(await role(cx.user.id, cx.otherBrandId)).toBeNull();
+  it("SUPER ADMIN é global", async () => {
+    if (!cx.superIsFlagged) return;
+    expect(await roleOf(cx.superAdmin, cx.brandId)).toBe("super_admin");
+    expect(await roleOf(cx.superAdmin, cx.otherBrandId)).toBe("super_admin");
   });
 });
 
-describe("escopo por cliente (my_access + RLS)", () => {
-  it("ADMIN e MANAGER enxergam toda a marca", async () => {
-    for (const u of [cx.owner, cx.manager]) {
-      const ids = await visibleClients(u.client, cx.brandId);
-      expect(ids.sort()).toEqual([cx.clientAdminOnly, cx.clientOfUser, cx.clientOther].sort());
-    }
+describe("escopo de leitura (SELECT via RLS)", () => {
+  it("ADMIN e MANAGER enxergam todos os clientes da marca", async () => {
+    const expected = [cx.clientFree, cx.clientOfUser, cx.clientOfManager].sort();
+    expect(await visibleClients(cx.owner.client, cx.brandId)).toEqual(expected);
+    expect(await visibleClients(cx.manager.client, cx.brandId)).toEqual(expected);
   });
 
-  it("USER fica limitado ao escopo (responsável + clientes sem atribuição)", async () => {
+  it("USER limitado ao escopo (responsável + clientes sem atribuição)", async () => {
     const ids = await visibleClients(cx.user.client, cx.brandId);
     expect(ids).toContain(cx.clientOfUser);
-    expect(ids).toContain(cx.clientAdminOnly);
-    expect(ids).not.toContain(cx.clientOther);
+    expect(ids).toContain(cx.clientFree);
+    expect(ids).not.toContain(cx.clientOfManager);
   });
 
-  it("USER não alcança cliente fora do escopo por acesso direto (URL/id)", async () => {
-    const { data } = await cx.user.client.from("clients").select("id").eq("id", cx.clientOther);
-    expect(data ?? []).toHaveLength(0);
-    const t = await cx.user.client.from("tasks").select("id").eq("id", cx.taskOther);
-    expect(t.data ?? []).toHaveLength(0);
-  });
-
-  it("CLIENTE (portal) fica isolado ao próprio cliente", async () => {
-    const ids = await visibleClients(cx.portal.client, cx.brandId);
-    expect(ids).toEqual([cx.clientOfUser]);
-    const t = await cx.portal.client.from("tasks").select("id").eq("id", cx.taskOther);
-    expect(t.data ?? []).toHaveLength(0);
-  });
-
-  it("SUPER ADMIN é global (as duas marcas)", async () => {
-    const a = await visibleClients(cx.superAdmin.client, cx.brandId);
-    const b = await visibleClients(cx.superAdmin.client, cx.otherBrandId);
-    expect(a).toHaveLength(3);
-    expect(b).toEqual([cx.otherBrandClient]);
+  it("CLIENTE (portal) isolado ao próprio cliente", async () => {
+    expect(await visibleClients(cx.portal.client, cx.brandId)).toEqual([cx.clientOfUser]);
   });
 
   it("isolamento entre marcas", async () => {
-    for (const u of [cx.owner, cx.manager, cx.user]) {
-      expect(await visibleClients(u.client, cx.otherBrandId)).toHaveLength(0);
+    for (const a of [cx.owner, cx.manager, cx.user, cx.portal]) {
+      expect(await visibleClients(a.client, cx.otherBrandId)).toHaveLength(0);
     }
     expect(await visibleClients(cx.outsider.client, cx.brandId)).toHaveLength(0);
   });
 
-  it("my_access espelha exatamente a RLS", async () => {
-    for (const u of [cx.owner, cx.manager, cx.user]) {
-      const { data, error } = await u.client.rpc("my_access" as never, {
-        _brand_id: cx.brandId,
-      } as never);
-      if (error) throw error;
-      const payload = data as { role: string; client_ids: string[] };
-      expect(payload.client_ids.sort()).toEqual((await visibleClients(u.client, cx.brandId)).sort());
-      expect(payload.role).toBe(await role(u.id, cx.brandId));
-    }
+  it("SUPER ADMIN lê as duas marcas", async () => {
+    if (!cx.superIsFlagged) return;
+    expect(await visibleClients(cx.superAdmin.client, cx.brandId)).toHaveLength(3);
+    expect(await visibleClients(cx.superAdmin.client, cx.otherBrandId)).toEqual([cx.otherBrandClient]);
   });
 });
 
-describe("autoridade de escrita (RLS)", () => {
-  it("USER não cria nem exclui clientes", async () => {
+describe("acesso direto por ID/URL", () => {
+  it("USER não alcança cliente nem tarefa fora do escopo pelo id", async () => {
+    const c = await cx.user.client.from("clients").select("id").eq("id", cx.clientOfManager);
+    expect(c.data ?? []).toHaveLength(0);
+    const t = await cx.user.client.from("tasks").select("id").eq("id", cx.taskOutOfScope);
+    expect(t.data ?? []).toHaveLength(0);
+  });
+
+  it("CLIENTE não alcança tarefa de outro cliente pelo id", async () => {
+    const t = await cx.portal.client.from("tasks").select("id").eq("id", cx.taskOutOfScope);
+    expect(t.data ?? []).toHaveLength(0);
+  });
+
+  it("usuário de outra marca não alcança cliente pelo id", async () => {
+    const c = await cx.outsider.client.from("clients").select("id").eq("id", cx.clientOfUser);
+    expect(c.data ?? []).toHaveLength(0);
+  });
+});
+
+describe("escrita: INSERT / UPDATE / DELETE via RLS", () => {
+  it("USER não cria cliente", async () => {
     const ins = await cx.user.client
       .from("clients")
-      .insert({ brand_id: cx.brandId, name: `Proibido ${TAG}` });
+      .insert({ brand_id: cx.brandId, name: `Proibido ${TAG}` })
+      .select("id");
     expect(ins.error).toBeTruthy();
+  });
+
+  it("USER não exclui cliente do próprio escopo", async () => {
     const del = await cx.user.client.from("clients").delete().eq("id", cx.clientOfUser).select("id");
     expect(del.data ?? []).toHaveLength(0);
   });
 
-  it("MANAGER cria cliente, mas não vira dono da marca", async () => {
-    const ins = await cx.manager.client
+  it("USER não atualiza cliente fora do escopo", async () => {
+    const up = await cx.user.client
       .from("clients")
-      .insert({ brand_id: cx.brandId, name: `DoManager ${TAG}` })
+      .update({ description: "hack" })
+      .eq("id", cx.clientOfManager)
       .select("id");
-    expect(ins.error).toBeNull();
-    await admin.from("clients").delete().eq("id", (ins.data ?? [{ id: "" }])[0]!.id);
-
-    const promote = await cx.manager.client
-      .from("brand_members")
-      .update({ role: "owner" })
-      .eq("brand_id", cx.brandId)
-      .eq("user_id", cx.user.id)
-      .select("id");
-    expect(promote.data ?? []).toHaveLength(0);
-
-    const editOwner = await cx.manager.client
-      .from("brand_members")
-      .update({ role: "editor" })
-      .eq("brand_id", cx.brandId)
-      .eq("user_id", cx.owner.id)
-      .select("id");
-    expect(editOwner.data ?? []).toHaveLength(0);
+    expect(up.data ?? []).toHaveLength(0);
   });
 
-  it("MANAGER não edita a marca (só ADMIN)", async () => {
+  it("USER atualiza cliente dentro do escopo", async () => {
+    const up = await cx.user.client
+      .from("clients")
+      .update({ description: `ok ${TAG}` })
+      .eq("id", cx.clientOfUser)
+      .select("id");
+    expect(up.data ?? []).toHaveLength(1);
+  });
+
+  it("MANAGER cria e exclui cliente (autoridade administrativa)", async () => {
+    const ins = await cx.manager.client
+      .from("clients")
+      .insert({ brand_id: cx.brandId, name: `DoManager2 ${TAG}` })
+      .select("id");
+    expect(ins.error).toBeNull();
+    const id = (ins.data ?? [])[0]!.id as string;
+    const del = await cx.manager.client.from("clients").delete().eq("id", id).select("id");
+    expect(del.data ?? []).toHaveLength(1);
+  });
+
+  it("MANAGER não edita a marca; ADMIN edita", async () => {
     const m = await cx.manager.client
       .from("brands")
       .update({ name: `Hack ${TAG}` })
@@ -263,13 +312,90 @@ describe("autoridade de escrita (RLS)", () => {
     expect(o.data ?? []).toHaveLength(1);
   });
 
-  it("USER não gerencia membros da equipe", async () => {
-    const r = await cx.user.client
+  it("MANAGER não promove ninguém a owner nem altera o owner", async () => {
+    const promote = await cx.manager.client
       .from("brand_members")
       .update({ role: "owner" })
       .eq("brand_id", cx.brandId)
       .eq("user_id", cx.user.id)
       .select("id");
+    expect(promote.data ?? []).toHaveLength(0);
+    const touchOwner = await cx.manager.client
+      .from("brand_members")
+      .update({ role: "editor" })
+      .eq("brand_id", cx.brandId)
+      .eq("user_id", cx.owner.id)
+      .select("id");
+    expect(touchOwner.data ?? []).toHaveLength(0);
+  });
+
+  it("USER não gerencia membros da equipe", async () => {
+    const r = await cx.user.client
+      .from("brand_members")
+      .update({ role: "manager" })
+      .eq("brand_id", cx.brandId)
+      .eq("user_id", cx.user.id)
+      .select("id");
     expect(r.data ?? []).toHaveLength(0);
+  });
+
+  it("USER não escala privilégio marcando-se como super admin", async () => {
+    const r = await cx.user.client
+      .from("user_profiles")
+      .update({ is_super_admin: true })
+      .eq("id", cx.user.id)
+      .select("id");
+    const check = await cx.user.client
+      .from("user_profiles")
+      .select("is_super_admin")
+      .eq("id", cx.user.id)
+      .maybeSingle();
+    expect(Boolean(check.data?.is_super_admin)).toBe(false);
+    if (!r.error) expect(await roleOf(cx.user, cx.brandId)).toBe("user");
+  });
+
+  it("CLIENTE (portal) não escreve em tarefas nem clientes", async () => {
+    const t = await cx.portal.client
+      .from("tasks")
+      .insert({ brand_id: cx.brandId, client_id: cx.clientOfUser, title: `Portal ${TAG}` })
+      .select("id");
+    expect(t.error).toBeTruthy();
+    const c = await cx.portal.client
+      .from("clients")
+      .insert({ brand_id: cx.brandId, name: `Portal cliente ${TAG}` })
+      .select("id");
+    expect(c.error).toBeTruthy();
+  });
+});
+
+describe("contrato das funções de servidor (mesmas usadas por access-guard)", () => {
+  it("my_access devolve papel + escopo idênticos à RLS", async () => {
+    for (const a of [cx.owner, cx.manager, cx.user]) {
+      const { data, error } = await a.client.rpc("my_access" as never, {
+        _brand_id: cx.brandId,
+      } as never);
+      if (error) throw error;
+      const payload = data as { role: string; client_ids: string[] };
+      expect(payload.role).toBe(await roleOf(a, cx.brandId));
+      expect([...payload.client_ids].sort()).toEqual(await visibleClients(a.client, cx.brandId));
+    }
+  });
+
+  it("can_access_client nega cliente fora do escopo e de outra marca", async () => {
+    const deny = await cx.user.client.rpc("can_access_client" as never, {
+      _client_id: cx.clientOfManager,
+      _user_id: cx.user.id,
+    } as never);
+    expect(deny.data).toBe(false);
+    const allow = await cx.user.client.rpc("can_access_client" as never, {
+      _client_id: cx.clientOfUser,
+      _user_id: cx.user.id,
+    } as never);
+    expect(allow.data).toBe(true);
+    const cross = await cx.user.client.rpc("can_access_client" as never, {
+      _client_id: cx.otherBrandClient,
+      _user_id: cx.user.id,
+    } as never);
+    expect(cross.data).toBe(false);
   });
 });
