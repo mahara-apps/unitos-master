@@ -31,6 +31,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { PortalLink, usePortalApi } from "./portal-context";
 import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
+import { BRIEFING_BLOCKS, BRIEFING_FIELDS } from "@/lib/briefing-fields";
 import type { PortalTabId } from "./portal-nav";
 import { PautaApprovals } from "./portal-pauta";
 import { PortalCalendar } from "./portal-calendar";
