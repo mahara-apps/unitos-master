@@ -5954,6 +5954,10 @@ export type Database = {
         }
         Returns: string
       }
+      is_agency_operator: {
+        Args: { _brand_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_brand_member: {
         Args: { _brand_id: string; _user_id: string }
         Returns: boolean
