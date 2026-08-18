@@ -20,6 +20,12 @@ import {
   listPortalSessionBriefingsFn,
 } from "@/lib/portal-session.functions";
 import {
+  listPortalBriefingRequestsFn,
+  submitPortalBriefingProposalFn,
+  listPortalSessionBriefingRequestsFn,
+  submitPortalSessionBriefingProposalFn,
+} from "@/lib/portal-briefing.functions";
+import {
   listPortalPlansFn,
   getPortalPlanFn,
   decidePortalPlanFn,
