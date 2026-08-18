@@ -1,6 +1,4 @@
 import { useMemo, useState } from "react";
-import { Link } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckSquare, CalendarDays, FolderOpen, FileText,
@@ -15,15 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import {
-  getPortalMetricsFn,
-  listPortalApprovalsFn,
-  getPortalPostFn,
-  decidePortalApprovalFn,
-  listPortalCalendarFn,
-  listPortalFilesFn,
-  listPortalBriefingsFn,
-} from "@/lib/portal-public.functions";
+import { PortalLink, usePortalApi } from "./portal-context";
+import { PautaApprovals } from "./portal-pauta";
 import {
   EmptyState, GridSkeleton, ListSkeleton, buildMonthGrid, formatBytes, formatDate,
   formatMonth, shiftYm, usePortalIdentity,
@@ -40,11 +31,11 @@ const HOME_TONES: Record<HomeCardTone, { chip: string; bar: string; value: strin
   neutral: { chip: "bg-muted text-muted-foreground", bar: "bg-border", value: "text-foreground" },
 };
 
-export function HomeTab({ token }: { token: string }) {
-  const fn = useServerFn(getPortalMetricsFn);
+export function HomeTab() {
+  const api = usePortalApi();
   const q = useQuery({
-    queryKey: ["portal", "metrics", token],
-    queryFn: () => fn({ data: { token } }),
+    queryKey: ["portal", "metrics", api.scopeKey],
+    queryFn: () => api.metrics(),
     staleTime: 30_000,
   });
   const m = q.data;
@@ -54,8 +45,7 @@ export function HomeTab({ token }: { token: string }) {
     hint: string;
     tone: HomeCardTone;
     icon: typeof Hourglass;
-    to: string;
-    search?: Record<string, string>;
+    tab: PortalTabId;
   }> = [
     {
       label: "Aguardando você",
@@ -63,7 +53,7 @@ export function HomeTab({ token }: { token: string }) {
       hint: (m?.pending ?? 0) > 0 ? "Revisar agora" : "Nada pendente",
       tone: "amber",
       icon: Hourglass,
-      to: "/portal/$token/aprovacoes",
+      tab: "approvals",
     },
     {
       label: "Aprovados no mês",
@@ -71,7 +61,7 @@ export function HomeTab({ token }: { token: string }) {
       hint: "Neste mês",
       tone: "emerald",
       icon: CheckCircle2,
-      to: "/portal/$token/aprovacoes",
+      tab: "approvals",
     },
     {
       label: "Agendados",
@@ -79,7 +69,7 @@ export function HomeTab({ token }: { token: string }) {
       hint: "Na fila de publicação",
       tone: "sky",
       icon: CalendarClock,
-      to: "/portal/$token/calendario",
+      tab: "calendar",
     },
     {
       label: "Total de posts",
@@ -87,7 +77,7 @@ export function HomeTab({ token }: { token: string }) {
       hint: "Histórico da conta",
       tone: "neutral",
       icon: Layers,
-      to: "/portal/$token/calendario",
+      tab: "calendar",
     },
   ];
   return (
@@ -97,10 +87,9 @@ export function HomeTab({ token }: { token: string }) {
           const t = HOME_TONES[c.tone];
           const Icon = c.icon;
           return (
-            <Link
+            <PortalLink
               key={c.label}
-              to={c.to}
-              params={{ token }}
+              tab={c.tab}
               className="group relative overflow-hidden rounded-xl border border-border/60 bg-card p-4 text-left transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-sm"
             >
               <span className={`absolute inset-x-0 top-0 h-0.5 ${t.bar}`} />
@@ -119,7 +108,7 @@ export function HomeTab({ token }: { token: string }) {
                 {c.hint}
                 <ArrowRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
               </div>
-            </Link>
+            </PortalLink>
           );
         })}
       </div>
@@ -132,10 +121,10 @@ export function HomeTab({ token }: { token: string }) {
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <Button size="sm" asChild>
-            <Link to="/portal/$token/aprovacoes" params={{ token }}>Revisar aprovações</Link>
+            <PortalLink tab="approvals">Revisar aprovações</PortalLink>
           </Button>
           <Button size="sm" variant="outline" asChild>
-            <Link to="/portal/$token/calendario" params={{ token }}>Ver calendário</Link>
+            <PortalLink tab="calendar">Ver calendário</PortalLink>
           </Button>
         </div>
       </div>
@@ -145,15 +134,72 @@ export function HomeTab({ token }: { token: string }) {
 
 /* -------------------------------- APPROVALS ------------------------------- */
 
-export function ApprovalsTab({ token }: { token: string }) {
+export function ApprovalsTab() {
   const identity = usePortalIdentity();
-  const list = useServerFn(listPortalApprovalsFn);
+  const api = usePortalApi();
+  const [section, setSection] = useState<"content" | "pauta">("content");
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "adjust">("pending");
   const [openId, setOpenId] = useState<string | null>(null);
   const q = useQuery({
-    queryKey: ["portal", "approvals", token, filter],
-    queryFn: () => list({ data: { token, status: filter } }),
+    queryKey: ["portal", "approvals", api.scopeKey, filter],
+    queryFn: () => api.approvals(filter),
+    enabled: section === "content",
   });
+  const plansQ = useQuery({
+    queryKey: ["portal", "plans", api.scopeKey],
+    queryFn: () => api.plans(),
+  });
+  const pautaPending = (plansQ.data ?? []).reduce((n, p) => n + p.pending, 0);
+
+  return (
+    <div className="space-y-4">
+      {/* Fluxo único de aprovação: pauta do mês e conteúdos no mesmo lugar. */}
+      <div className="flex flex-wrap gap-1 rounded-lg border border-border/60 bg-card p-1">
+        {(["content", "pauta"] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => setSection(s)}
+            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs transition-colors ${
+              section === s ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {s === "content" ? "Conteúdos" : "Pauta do mês"}
+            {s === "pauta" && pautaPending > 0 ? (
+              <span className="rounded-full bg-amber-500/15 px-1.5 font-mono text-[10px] text-amber-600 dark:text-amber-400">
+                {pautaPending}
+              </span>
+            ) : null}
+          </button>
+        ))}
+      </div>
+
+      {section === "pauta" ? <PautaApprovals /> : <ApprovalsContent
+        filter={filter}
+        setFilter={setFilter}
+        q={q}
+        openId={openId}
+        setOpenId={setOpenId}
+        identity={identity}
+      />}
+    </div>
+  );
+}
+
+type ApprovalsListQuery = {
+  isLoading: boolean;
+  data?: Array<Record<string, unknown>> | null;
+};
+
+function ApprovalsContent({
+  filter, setFilter, q, openId, setOpenId, identity,
+}: {
+  filter: "all" | "pending" | "approved" | "adjust";
+  setFilter: (f: "all" | "pending" | "approved" | "adjust") => void;
+  q: ApprovalsListQuery;
+  openId: string | null;
+  setOpenId: (id: string | null) => void;
+  identity: { value: string; save: (v: string) => void };
+}) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-1 rounded-lg border border-border/60 bg-card p-1">
@@ -182,7 +228,6 @@ export function ApprovalsTab({ token }: { token: string }) {
       )}
       {openId && (
         <ApprovalDialog
-          token={token}
           postId={openId}
           identity={identity.value}
           onIdentityChange={identity.save}
@@ -264,36 +309,35 @@ function ApprovalCard({ post, onOpen }: { post: Record<string, unknown>; onOpen:
 }
 
 function ApprovalDialog({
-  token, postId, identity, onIdentityChange, onClose,
-}: { token: string; postId: string; identity: string; onIdentityChange: (v: string) => void; onClose: () => void }) {
+  postId, identity, onIdentityChange, onClose,
+}: { postId: string; identity: string; onIdentityChange: (v: string) => void; onClose: () => void }) {
   const qc = useQueryClient();
-  const getPost = useServerFn(getPortalPostFn);
-  const decide = useServerFn(decidePortalApprovalFn);
+  const api = usePortalApi();
   const q = useQuery({
-    queryKey: ["portal", "post", token, postId],
-    queryFn: () => getPost({ data: { token, postId } }),
+    queryKey: ["portal", "post", api.scopeKey, postId],
+    queryFn: () => api.post(postId),
   });
   const [note, setNote] = useState("");
   const [mode, setMode] = useState<null | "reject" | "adjust" | "comment">(null);
   const [activeMedia, setActiveMedia] = useState(0);
   const m = useMutation({
     mutationFn: (payload: { decision: "approved" | "rejected" | "adjust" | "comment"; note?: string }) =>
-      decide({ data: { token, postId, identity, ...payload } }),
+      api.decidePost({ postId, identity, ...payload }),
     onSuccess: (_r, vars) => {
       toast.success(
         vars.decision === "approved" ? "Post aprovado" :
         vars.decision === "rejected" ? "Post rejeitado" :
         vars.decision === "adjust" ? "Ajustes solicitados" : "Comentário enviado",
       );
-      qc.invalidateQueries({ queryKey: ["portal", "approvals", token] });
-      qc.invalidateQueries({ queryKey: ["portal", "metrics", token] });
-      qc.invalidateQueries({ queryKey: ["portal", "post", token, postId] });
+      qc.invalidateQueries({ queryKey: ["portal", "approvals", api.scopeKey] });
+      qc.invalidateQueries({ queryKey: ["portal", "metrics", api.scopeKey] });
+      qc.invalidateQueries({ queryKey: ["portal", "post", api.scopeKey, postId] });
       setNote(""); setMode(null);
       if (vars.decision !== "comment") onClose();
     },
     onError: (e: Error) => toast.error(e.message),
   });
-  const disabled = !identity.trim();
+  const disabled = api.requiresIdentity && !identity.trim();
   const post = q.data?.post;
   const approval = q.data?.approval;
   const media = q.data?.media ?? [];
@@ -512,15 +556,15 @@ function ApprovalDialog({
 
 /* -------------------------------- CALENDAR -------------------------------- */
 
-export function CalendarTab({ token }: { token: string }) {
+export function CalendarTab() {
   const [ym, setYm] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   });
-  const fn = useServerFn(listPortalCalendarFn);
+  const api = usePortalApi();
   const q = useQuery({
-    queryKey: ["portal", "calendar", token, ym],
-    queryFn: () => fn({ data: { token, month: ym } }),
+    queryKey: ["portal", "calendar", api.scopeKey, ym],
+    queryFn: () => api.calendar(ym),
   });
   const days = useMemo(() => buildMonthGrid(ym), [ym]);
   const byDay = useMemo(() => {
@@ -616,12 +660,12 @@ export function CalendarTab({ token }: { token: string }) {
 
 /* ---------------------------------- FILES --------------------------------- */
 
-export function FilesTab({ token }: { token: string }) {
+export function FilesTab() {
   const [search, setSearch] = useState("");
-  const fn = useServerFn(listPortalFilesFn);
+  const api = usePortalApi();
   const q = useQuery({
-    queryKey: ["portal", "files", token, search],
-    queryFn: () => fn({ data: { token, search } }),
+    queryKey: ["portal", "files", api.scopeKey, search],
+    queryFn: () => api.files(search),
   });
   return (
     <div className="space-y-4">
