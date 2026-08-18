@@ -636,6 +636,20 @@ describe("7 & 8. Integridade e E2E", () => {
     }
   });
 
+  it("integridade: task_subtasks.brand_id sempre igual ao brand_id da tarefa pai", async () => {
+    const { data, error } = await admin
+      .from("task_subtasks")
+      .select("id, brand_id, task_id, tasks(brand_id)")
+      .in("brand_id", [fx.brandId, fx.otherBrandId]);
+    expect(error, error?.message).toBeNull();
+    const divergentes = ((data ?? []) as Array<Record<string, any>>).filter(
+      (s) => s.tasks && s.tasks.brand_id !== s.brand_id,
+    );
+    expect(divergentes.map((s) => s.id)).toEqual([]);
+  });
+
+
+
   it("integridade: nenhuma subtarefa órfã após exclusão da tarefa (cascade)", async () => {
     const t = await createTask(A, { title: `T descartável ${testTag}`, client_id: fx.clientA });
     const s = await A.from("task_subtasks")
