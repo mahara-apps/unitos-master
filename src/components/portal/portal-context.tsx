@@ -25,6 +25,7 @@ import {
   listPortalSessionBriefingRequestsFn,
   submitPortalSessionBriefingProposalFn,
 } from "@/lib/portal-briefing.functions";
+import { getPortalBrandHubFn, getPortalSessionBrandHubFn } from "@/lib/portal-brand.functions";
 import {
   listPortalPlansFn,
   getPortalPlanFn,
@@ -33,7 +34,7 @@ import {
   getPortalSessionPlanFn,
   decidePortalSessionPlanFn,
 } from "@/lib/portal-pauta.functions";
-import type { PortalTabId } from "./portal-nav";
+import { sessionTabPath, tokenTabRoute, type PortalTabId } from "./portal-nav";
 
 /**
  * Camada única de dados do Portal do Cliente.
@@ -84,6 +85,7 @@ export function usePortalApi() {
   const tPlans = useServerFn(listPortalPlansFn);
   const tPlan = useServerFn(getPortalPlanFn);
   const tDecidePlan = useServerFn(decidePortalPlanFn);
+  const tBrandHub = useServerFn(getPortalBrandHubFn);
 
   const sMetrics = useServerFn(getPortalSessionMetricsFn);
   const sApprovals = useServerFn(listPortalSessionApprovalsFn);
@@ -97,6 +99,7 @@ export function usePortalApi() {
   const sPlans = useServerFn(listPortalSessionPlansFn);
   const sPlan = useServerFn(getPortalSessionPlanFn);
   const sDecidePlan = useServerFn(decidePortalSessionPlanFn);
+  const sBrandHub = useServerFn(getPortalSessionBrandHubFn);
 
   return useMemo(() => {
     const isToken = mode.kind === "token";
@@ -145,6 +148,7 @@ export function usePortalApi() {
         feedback?: string;
         items?: PlanItems;
       }) => (isToken ? tDecidePlan({ data: { token, ...input } }) : sDecidePlan({ data: { ...base, ...input } })),
+      brandHub: () => (isToken ? tBrandHub({ data: { token } }) : sBrandHub({ data: base })),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode.kind, mode.kind === "token" ? mode.token : mode.clientId]);
