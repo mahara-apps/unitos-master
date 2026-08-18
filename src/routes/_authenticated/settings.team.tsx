@@ -10,7 +10,6 @@ import {
   revokeBrandInvite,
 } from "@/lib/team.functions";
 import { revokePortalTokenFn } from "@/lib/customer-dashboard.functions";
-import { PERMISSION_GROUPS, type PermissionId } from "@/lib/permissions";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -186,7 +185,7 @@ function TeamSettingsPage() {
 
 function MemberRow({ brandId, member }: {
   brandId: string;
-  member: { user_id: string; role: string; permissions: PermissionId[]; full_name: string | null; email: string | null };
+  member: { user_id: string; role: string; full_name: string | null; email: string | null };
 }) {
   const qc = useQueryClient();
   const update = useServerFn(updateBrandMember);
@@ -207,20 +206,14 @@ function MemberRow({ brandId, member }: {
         </div>
       </div>
       <div><Badge variant="secondary" className="capitalize">{member.role}</Badge></div>
-      <div className="flex flex-wrap gap-1">
-        {member.permissions.length === 0 ? (
-          <span className="text-xs text-muted-foreground">—</span>
-        ) : member.permissions.map((p) => (
-          <span key={p} className="text-[11px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground">{p}</span>
-        ))}
-      </div>
+      <div className="text-xs text-muted-foreground">{ROLE_ACCESS_SUMMARY[member.role] ?? "Acesso definido pelo papel"}</div>
       <div className="text-right">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button size="icon" variant="ghost"><MoreHorizontal className="h-4 w-4" /></Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setEditOpen(true)}>Editar permissões</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setEditOpen(true)}>Alterar papel</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="text-destructive"
@@ -230,12 +223,11 @@ function MemberRow({ brandId, member }: {
           </DropdownMenuContent>
         </DropdownMenu>
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
-          <EditPermissionsDialog
+          <EditRoleDialog
             initialRole={member.role}
-            initialPerms={member.permissions}
-            onSave={async (role, perms) => {
-              await update({ data: { brandId, userId: member.user_id, role: role as never, permissions: perms } });
-              toast.success("Permissões atualizadas");
+            onSave={async (role) => {
+              await update({ data: { brandId, userId: member.user_id, role: role as never } });
+              toast.success("Papel atualizado");
               qc.invalidateQueries({ queryKey: ["brand-team", brandId] });
               setEditOpen(false);
             }}
@@ -250,7 +242,7 @@ function InviteRow({ brandId, invite }: {
   brandId: string;
   invite: {
     id: string; email: string; role: string; token: string; expires_at: string;
-    permissions: PermissionId[]; revoked_at?: string | null; temp_password_sent?: boolean;
+    revoked_at?: string | null; temp_password_sent?: boolean;
   };
 }) {
   const qc = useQueryClient();
@@ -346,82 +338,30 @@ function PortalTokenRow({ brandId, token }: {
   );
 }
 
-function PermissionSelector({
-  value, onChange,
-}: { value: PermissionId[]; onChange: (v: PermissionId[]) => void }) {
-  const isAdmin = value.includes("admin.full");
-  const toggle = (id: PermissionId, on: boolean) => {
-    const next = new Set(value);
-    if (on) next.add(id); else next.delete(id);
-    onChange(Array.from(next));
-  };
-  return (
-    <Accordion type="multiple" defaultValue={["admin", "pipelines"]} className="w-full">
-      {PERMISSION_GROUPS.map((g) => (
-        <AccordionItem key={g.id} value={g.id}>
-          <AccordionTrigger className="text-sm">
-            <div className="flex flex-col items-start">
-              <span>{g.label}</span>
-              <span className="text-xs text-muted-foreground font-normal">{g.description}</span>
-            </div>
-          </AccordionTrigger>
-          <AccordionContent>
-            {g.kind === "radio" ? (
-              <RadioGroup
-                value={isAdmin ? "admin.full" : ""}
-                onValueChange={(v) => toggle("admin.full", v === "admin.full")}
-                className="space-y-2"
-              >
-                {g.items.map((it) => (
-                  <label key={it.id} className="flex items-start gap-3 rounded-md p-2 hover:bg-muted/50 cursor-pointer">
-                    <RadioGroupItem value={it.id} id={it.id} className="mt-0.5" />
-                    <div>
-                      <div className="text-sm font-medium">{it.label}</div>
-                      <div className="text-xs text-muted-foreground">{it.description}</div>
-                    </div>
-                  </label>
-                ))}
-              </RadioGroup>
-            ) : (
-              <div className="space-y-2">
-                {g.items.map((it) => (
-                  <label key={it.id} className="flex items-start gap-3 rounded-md p-2 hover:bg-muted/50 cursor-pointer">
-                    <Checkbox
-                      id={it.id}
-                      checked={value.includes(it.id)}
-                      disabled={isAdmin}
-                      onCheckedChange={(c) => toggle(it.id, !!c)}
-                      className="mt-0.5"
-                    />
-                    <div>
-                      <div className="text-sm font-medium">{it.label}</div>
-                      <div className="text-xs text-muted-foreground">{it.description}</div>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            )}
-          </AccordionContent>
-        </AccordionItem>
-      ))}
-    </Accordion>
-  );
-}
+/** Resumo do acesso real concedido por papel (fonte: RBAC/RLS). */
+const ROLE_ACCESS_SUMMARY: Record<string, string> = {
+  owner: "Administra tudo na marca, inclusive equipe e identidade",
+  manager: "Administra equipe, clientes, identidade, SLA e auditoria",
+  editor: "Opera conteúdo e produção nos clientes vinculados",
+  designer: "Opera conteúdo e produção nos clientes vinculados",
+  client: "Somente portal do cliente",
+};
 
-function EditPermissionsDialog({
-  initialRole, initialPerms, onSave,
+function EditRoleDialog({
+  initialRole, onSave,
 }: {
-  initialRole: string; initialPerms: PermissionId[];
-  onSave: (role: string, perms: PermissionId[]) => Promise<void>;
+  initialRole: string;
+  onSave: (role: string) => Promise<void>;
 }) {
   const [role, setRole] = useState(initialRole);
-  const [perms, setPerms] = useState<PermissionId[]>(initialPerms);
   const [saving, setSaving] = useState(false);
   return (
-    <DialogContent className="max-w-lg">
+    <DialogContent className="max-w-md">
       <DialogHeader>
-        <DialogTitle>Editar permissões</DialogTitle>
-        <DialogDescription>Atualize papel e permissões granulares deste membro.</DialogDescription>
+        <DialogTitle>Alterar papel</DialogTitle>
+        <DialogDescription>
+          O papel é o único controle de acesso aplicado pelo sistema. Não existem permissões individuais.
+        </DialogDescription>
       </DialogHeader>
       <div className="space-y-4">
         <div className="space-y-1.5">
@@ -435,12 +375,12 @@ function EditPermissionsDialog({
               <option key={r} value={r}>{r}</option>
             ))}
           </select>
+          <p className="text-[11px] text-muted-foreground">{ROLE_ACCESS_SUMMARY[role]}</p>
         </div>
-        <PermissionSelector value={perms} onChange={setPerms} />
       </div>
       <DialogFooter>
         <Button
-          onClick={async () => { setSaving(true); try { await onSave(role, perms); } finally { setSaving(false); } }}
+          onClick={async () => { setSaving(true); try { await onSave(role); } finally { setSaving(false); } }}
           disabled={saving}
         >
           {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Salvar

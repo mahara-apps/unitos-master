@@ -1,3 +1,14 @@
+/**
+ * Rótulos legados de permissão que ainda existem na coluna
+ * `brand_members.permissions` / `brand_invites.permissions`.
+ *
+ * ATENÇÃO: nenhum deles tem enforcement — nem em RLS, nem em server
+ * functions. O acesso real é decidido exclusivamente pelo PAPEL
+ * (`brand_members.role` + `user_profiles.is_super_admin`), via
+ * `app_access_role`, `is_brand_admin_level`, `has_brand_role` e
+ * `can_access_client`. Estes IDs são mantidos apenas para validar/normalizar
+ * dados históricos já gravados; não exiba-os como se fossem configuráveis.
+ */
 export type PermissionId =
   | "admin.full"
   | "pipelines.admin"
@@ -7,76 +18,15 @@ export type PermissionId =
   | "ai.edit"
   | "ai.analytics";
 
-export const PERMISSION_GROUPS: Array<{
-  id: string;
-  label: string;
-  description: string;
-  kind: "radio" | "checkbox";
-  items: Array<{ id: PermissionId; label: string; description: string }>;
-}> = [
-  {
-    id: "admin",
-    label: "Admin",
-    description: "Acesso total, sem restrições.",
-    kind: "radio",
-    items: [
-      { id: "admin.full", label: "Admin completo", description: "Concede acesso irrestrito a toda a marca." },
-    ],
-  },
-  {
-    id: "pipelines",
-    label: "Pipelines",
-    description: "Gestão do fluxo de conteúdo.",
-    kind: "checkbox",
-    items: [
-      { id: "pipelines.admin", label: "Pipeline Admin", description: "Cria, edita e arquiva pipelines." },
-      { id: "pipelines.member", label: "Pipeline Member", description: "Opera cards e comenta." },
-    ],
-  },
-  {
-    id: "automations",
-    label: "Automations",
-    description: "Workflows e logs de execução.",
-    kind: "checkbox",
-    items: [
-      { id: "automations.manage", label: "Manage Workflows", description: "Cria e edita automações." },
-      { id: "automations.logs", label: "View Logs", description: "Consulta histórico de execuções." },
-    ],
-  },
-  {
-    id: "ai",
-    label: "IA Agents",
-    description: "Configuração dos agentes.",
-    kind: "checkbox",
-    items: [
-      { id: "ai.edit", label: "Edit Prompts/Models", description: "Ajusta prompts e provedores." },
-      { id: "ai.analytics", label: "View AI Analytics", description: "Ver consumo e custo dos agentes." },
-    ],
-  },
+export const ALL_PERMISSION_IDS: PermissionId[] = [
+  "admin.full",
+  "pipelines.admin",
+  "pipelines.member",
+  "automations.manage",
+  "automations.logs",
+  "ai.edit",
+  "ai.analytics",
 ];
-
-export const ALL_PERMISSION_IDS: PermissionId[] = PERMISSION_GROUPS.flatMap((g) => g.items.map((i) => i.id));
-
-/**
- * Permissões padrão aplicadas automaticamente quando um papel é escolhido
- * sem personalização manual. O usuário pode sobrescrever expandindo a
- * seção "Personalizar permissões" no fluxo de convite.
- */
-export const ROLE_DEFAULT_PERMISSIONS: Record<
-  "owner" | "manager" | "editor" | "designer",
-  PermissionId[]
-> = {
-  owner: ["admin.full"],
-  manager: [
-    "pipelines.admin",
-    "automations.manage",
-    "automations.logs",
-    "ai.edit",
-    "ai.analytics",
-  ],
-  editor: ["pipelines.member", "automations.logs"],
-  designer: ["pipelines.member"],
-};
 
 export function normalizePermissions(input: unknown): PermissionId[] {
   if (!Array.isArray(input)) return [];
@@ -123,26 +73,6 @@ export const SIDEBAR_ALLOWED_URLS: Record<AccessRole, ReadonlySet<string>> = {
 
 export const canAccessSidebarUrl = (role: AccessRole, url: string) =>
   SIDEBAR_ALLOWED_URLS[role].has(url);
-
-/**
- * Verifica se um usuário tem uma permissão granular. Super admins (flag
- * `is_super_admin` no perfil) recebem `true` imediatamente, sem consultar
- * `brand_members.permissions`.
- *
- * Uso client-side apenas para gating cosmético — o bloqueio real fica nas
- * RLS/server functions. Passe `isSuperAdmin` como resolvido pela query
- * `useIsSuperAdmin` (evita callback assíncrono no helper).
- */
-export function hasPermission(
-  isSuperAdmin: boolean,
-  grantedPermissions: readonly string[] | null | undefined,
-  permissionId: PermissionId,
-): boolean {
-  if (isSuperAdmin) return true;
-  if (!grantedPermissions) return false;
-  if (grantedPermissions.includes("admin.full")) return true;
-  return grantedPermissions.includes(permissionId);
-}
 
 /** Dados básicos do cliente — apenas admin edita. */
 export const canEditBasicInfo = (role: AccessRole) => role === "admin";
