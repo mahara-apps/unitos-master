@@ -53,13 +53,13 @@ export async function listPlansForClient(
     .limit(50);
   if (error) throw new Error("plan_list_failed");
 
-  const rows = (plans ?? []) as Array<{
+  const rows = ((plans ?? []) as Array<{
     id: string;
     title: string;
     status: string;
     created_at: string;
     client_decision_at: string | null;
-  }>;
+  }>).filter(hasClientHistory);
   if (rows.length === 0) return [];
 
   const { data: topics } = await sb
