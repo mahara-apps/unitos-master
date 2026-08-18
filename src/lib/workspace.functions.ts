@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertBrandAdmin, assertClientScope } from "@/lib/access-guard";
 
 /** Lista brands em que o usuário é membro. */
 export const listMyBrands = createServerFn({ method: "GET" })
@@ -106,6 +107,7 @@ export const createClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => CreateClientInput.parse(input))
   .handler(async ({ data, context }) => {
+    await assertBrandAdmin(context.supabase, context.userId, data.brandId);
     const { data: client, error } = await context.supabase
       .from("clients")
       .insert({
@@ -205,21 +207,15 @@ export const updateClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => UpdateClientInput.parse(input))
   .handler(async ({ data, context }) => {
-    // Autorização: campos de dados básicos (contato/e-mail/socials) exigem owner|manager.
+    // Escopo: o cliente precisa estar no escopo do usuário (mesma regra da RLS).
+    await assertClientScope(context.supabase, context.userId, data.clientId);
+    // Autoridade: dados básicos (nome/contato/socials) exigem ADMIN/MANAGER.
     const basicKeys = new Set(["contact_name", "contact_email", "socials", "name"]);
     const patchesBasic = Object.keys(data.patch).some((k) => basicKeys.has(k));
     if (patchesBasic) {
-      const { data: mem } = await context.supabase
-        .from("brand_members")
-        .select("role")
-        .eq("brand_id", data.brandId)
-        .eq("user_id", context.userId)
-        .maybeSingle();
-      const role = (mem?.role ?? "").toLowerCase();
-      if (role !== "owner" && role !== "manager") {
-        throw new Error("Forbidden: only admins can edit basic customer info");
-      }
+      await assertBrandAdmin(context.supabase, context.userId, data.brandId);
     }
+
     const patch = { ...data.patch } as Record<string, unknown>;
     if (patch.contact_email === "") patch.contact_email = null;
     if (patch.website === "") patch.website = null;
@@ -242,6 +238,7 @@ export const deleteClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => DeleteClientInput.parse(input))
   .handler(async ({ data, context }) => {
+    await assertBrandAdmin(context.supabase, context.userId, data.brandId);
     const { error } = await context.supabase
       .from("clients")
       .delete()

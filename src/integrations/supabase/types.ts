@@ -5794,6 +5794,10 @@ export type Database = {
         }[]
       }
       accept_brand_invite: { Args: { _token: string }; Returns: string }
+      app_access_role: {
+        Args: { _brand_id?: string; _user_id: string }
+        Returns: string
+      }
       block_unusable_scheduled_social_posts: {
         Args: never
         Returns: {
@@ -6006,6 +6010,7 @@ export type Database = {
       }
       media_plan_public_items: { Args: { _token: string }; Returns: Json }
       media_plan_public_resolve: { Args: { _token: string }; Returns: Json }
+      my_access: { Args: { _brand_id?: string }; Returns: Json }
       portal_approvals: {
         Args: { _status?: string; _token?: string }
         Returns: Json
