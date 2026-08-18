@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { ALL_PERMISSION_IDS, normalizePermissions, type PermissionId } from "@/lib/permissions";
+import { assertBrandAdmin, resolveAuthorityRole } from "@/lib/access-guard";
 
 const ROLES = ["owner", "manager", "editor", "designer", "client"] as const;
 
@@ -292,6 +293,13 @@ export const updateBrandMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => UpdateMemberInput.parse(input))
   .handler(async ({ data, context }) => {
+    // Autorização explícita no servidor (não confiar na UI nem só na RLS).
+    const myRole = await assertBrandAdmin(context.supabase, context.userId, data.brandId);
+    const targetRole = await resolveAuthorityRole(context.supabase, data.userId, data.brandId);
+    // MANAGER não gerencia ADMIN nem promove a owner (anti-escalonamento).
+    if (myRole === "manager" && (targetRole === "admin" || data.role === "owner")) {
+      throw new Error("Forbidden: gerente não pode alterar donos da agência");
+    }
     const patch: { role?: (typeof ROLES)[number]; permissions?: PermissionId[] } = {};
     if (data.role) patch.role = data.role;
     if (data.permissions) patch.permissions = data.permissions;
@@ -309,6 +317,11 @@ export const removeBrandMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => RemoveMemberInput.parse(input))
   .handler(async ({ data, context }) => {
+    const myRole = await assertBrandAdmin(context.supabase, context.userId, data.brandId);
+    const targetRole = await resolveAuthorityRole(context.supabase, data.userId, data.brandId);
+    if (myRole === "manager" && targetRole === "admin") {
+      throw new Error("Forbidden: gerente não pode remover donos da agência");
+    }
     const { error } = await context.supabase
       .from("brand_members")
       .delete()

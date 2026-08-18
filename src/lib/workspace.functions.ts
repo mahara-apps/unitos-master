@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertBrandAdmin, assertClientScope } from "@/lib/access-guard";
 
 /** Lista brands em que o usuário é membro. */
 export const listMyBrands = createServerFn({ method: "GET" })
@@ -106,6 +107,7 @@ export const createClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => CreateClientInput.parse(input))
   .handler(async ({ data, context }) => {
+    await assertBrandAdmin(context.supabase, context.userId, data.brandId);
     const { data: client, error } = await context.supabase
       .from("clients")
       .insert({
@@ -242,6 +244,7 @@ export const deleteClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => DeleteClientInput.parse(input))
   .handler(async ({ data, context }) => {
+    await assertBrandAdmin(context.supabase, context.userId, data.brandId);
     const { error } = await context.supabase
       .from("clients")
       .delete()
