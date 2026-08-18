@@ -152,28 +152,12 @@ export function usePortalApi() {
 
 /* ------------------------------- navegação -------------------------------- */
 
-const SESSION_PATHS: Record<PortalTabId, string> = {
-  home: "/area/inicio",
-  approvals: "/area/aprovacoes",
-  calendar: "/area/calendario",
-  files: "/area/arquivos",
-  briefing: "/area/briefing",
-};
-
-const TOKEN_PATHS: Record<PortalTabId, string> = {
-  home: "/portal/$token/",
-  approvals: "/portal/$token/aprovacoes",
-  calendar: "/portal/$token/calendario",
-  files: "/portal/$token/arquivos",
-  briefing: "/portal/$token/briefing",
-};
-
 /** Path da aba no modo ativo — usado por navegação e detecção de aba ativa. */
 export function usePortalPath(tab: PortalTabId): string {
   const mode = usePortalMode();
   return mode.kind === "token"
-    ? TOKEN_PATHS[tab].replace("$token", mode.token)
-    : SESSION_PATHS[tab];
+    ? tokenTabRoute(tab).replace("$token", mode.token)
+    : sessionTabPath(tab);
 }
 
 /** Link interno agnóstico de modo. */
@@ -190,7 +174,7 @@ export function PortalLink({
   if (mode.kind === "token") {
     return (
       <Link
-        to={TOKEN_PATHS[tab] as "/portal/$token"}
+        to={tokenTabRoute(tab) as "/portal/$token"}
         params={{ token: mode.token }}
         className={className}
       >
@@ -199,8 +183,9 @@ export function PortalLink({
     );
   }
   return (
-    <Link to={SESSION_PATHS[tab] as "/area/inicio"} className={className}>
+    <Link to={sessionTabPath(tab) as "/area/inicio"} className={className}>
       {children}
     </Link>
   );
 }
+
