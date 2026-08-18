@@ -14,8 +14,6 @@ import {
   Search,
   Clock,
   Loader2,
-  ChevronLeft,
-  ChevronRight,
   ImageIcon,
   User2,
   CalendarClock,
@@ -43,11 +41,8 @@ import {
   EmptyState,
   GridSkeleton,
   ListSkeleton,
-  buildMonthGrid,
   formatBytes,
   formatDate,
-  formatMonth,
-  shiftYm,
   usePortalIdentity,
 } from "./portal-shared";
 
