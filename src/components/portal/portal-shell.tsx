@@ -1,0 +1,150 @@
+import type { ReactNode } from "react";
+import { PortalLink } from "./portal-context";
+import { PORTAL_TABS, PORTAL_TAB_LABEL, type PortalTabId } from "./portal-nav";
+
+/**
+ * FASE 1 — SHELL ÚNICO do Portal do Cliente.
+ *
+ * Os dois modos (login e link por token) renderizam exatamente esta casca:
+ * sidebar no desktop, navegação horizontal no mobile e cabeçalho com o nome da
+ * aba ativa. O que muda por modo entra pelos slots (`headerActions`, `footer`).
+ */
+export type PortalShellProps = {
+  clientName: string;
+  activeTab: PortalTabId;
+  accent: string;
+  dark?: boolean;
+  logoUrl?: string | null;
+  background?: string | null;
+  footerLabel: string;
+  headerActions?: ReactNode;
+  children: ReactNode;
+};
+
+export function PortalShell({
+  clientName,
+  activeTab,
+  accent,
+  dark,
+  logoUrl,
+  background,
+  footerLabel,
+  headerActions,
+  children,
+}: PortalShellProps) {
+  const initials = (clientName || "?")
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  return (
+    <div
+      className={`min-h-screen bg-background text-foreground ${dark ? "dark" : ""}`}
+      style={{
+        ["--portal-accent" as string]: accent,
+        ...(background ? { ["--background" as string]: background, background } : {}),
+      }}
+    >
+      <div className="flex min-h-screen">
+        <aside className="hidden w-64 shrink-0 flex-col border-r border-border/60 bg-card lg:flex">
+          <div className="flex items-center gap-3 border-b border-border/60 px-5 py-5">
+            {logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={clientName}
+                className="h-10 w-10 shrink-0 rounded-xl object-contain"
+              />
+            ) : (
+              <div
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-semibold text-white shadow-sm"
+                style={{ background: `linear-gradient(135deg, ${accent}, ${accent}cc)` }}
+              >
+                {initials}
+              </div>
+            )}
+            <div className="min-w-0">
+              <div className="truncate text-sm font-semibold tracking-tight">{clientName}</div>
+              <div className="truncate text-[11px] text-muted-foreground">Área do cliente</div>
+            </div>
+          </div>
+
+          <PortalNavList activeTab={activeTab} />
+
+          <div className="border-t border-border/60 px-5 py-4 text-[11px] text-muted-foreground">
+            {footerLabel}
+          </div>
+        </aside>
+
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex items-center gap-1 overflow-x-auto border-b border-border/60 bg-card px-3 py-2 lg:hidden">
+            <PortalNavList activeTab={activeTab} compact />
+          </div>
+
+          <header className="flex flex-col gap-3 border-b border-border/60 bg-background px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div className="min-w-0">
+              <h1 className="truncate text-xl font-semibold tracking-tight">
+                {PORTAL_TAB_LABEL[activeTab]}
+              </h1>
+              <p className="text-xs text-muted-foreground">
+                Área privada de {clientName}. Suas decisões ficam registradas.
+              </p>
+            </div>
+            {headerActions ? (
+              <div className="flex flex-wrap items-center gap-2">{headerActions}</div>
+            ) : null}
+          </header>
+
+          <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PortalNavList({ activeTab, compact }: { activeTab: PortalTabId; compact?: boolean }) {
+  if (compact) {
+    return (
+      <>
+        {PORTAL_TABS.map((t) => {
+          const Icon = t.icon;
+          const active = activeTab === t.id;
+          return (
+            <PortalLink
+              key={t.id}
+              tab={t.id}
+              className={`flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-xs transition-colors ${
+                active ? "bg-accent text-accent-foreground" : "text-muted-foreground"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" /> {t.label}
+            </PortalLink>
+          );
+        })}
+      </>
+    );
+  }
+  return (
+    <nav className="flex-1 space-y-0.5 px-3 py-4">
+      {PORTAL_TABS.map((t) => {
+        const Icon = t.icon;
+        const active = activeTab === t.id;
+        return (
+          <PortalLink
+            key={t.id}
+            tab={t.id}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+              active
+                ? "bg-accent text-accent-foreground"
+                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+            }`}
+          >
+            <Icon className={`h-4 w-4 ${active ? "" : "text-muted-foreground/70"}`} />
+            <span className="truncate">{t.label}</span>
+          </PortalLink>
+        );
+      })}
+    </nav>
+  );
+}

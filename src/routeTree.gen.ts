@@ -42,6 +42,8 @@ import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authen
 import { Route as AuthenticatedMonthlyPlanIndexRouteImport } from './routes/_authenticated/monthly-plan.index'
 import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authenticated/customers.index'
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat.index'
+import { Route as PortalTokenPautaRouteImport } from './routes/portal.$token.pauta'
+import { Route as PortalTokenMinhaMarcaRouteImport } from './routes/portal.$token.minha-marca'
 import { Route as PortalTokenCalendarioRouteImport } from './routes/portal.$token.calendario'
 import { Route as PortalTokenBriefingRouteImport } from './routes/portal.$token.briefing'
 import { Route as PortalTokenArquivosRouteImport } from './routes/portal.$token.arquivos'
@@ -52,6 +54,8 @@ import { Route as ApiJobsCustomerPipelineRouteImport } from './routes/api/jobs/c
 import { Route as ApiJobsCopilotRouteImport } from './routes/api/jobs/copilot'
 import { Route as ApiJobsAnalyzeDocumentRouteImport } from './routes/api/jobs/analyze-document'
 import { Route as ApiChatStreamRouteImport } from './routes/api/chat.stream'
+import { Route as PortalAreaPautaRouteImport } from './routes/_portal/area.pauta'
+import { Route as PortalAreaMinhaMarcaRouteImport } from './routes/_portal/area.minha-marca'
 import { Route as PortalAreaInicioRouteImport } from './routes/_portal/area.inicio'
 import { Route as PortalAreaCalendarioRouteImport } from './routes/_portal/area.calendario'
 import { Route as PortalAreaBriefingRouteImport } from './routes/_portal/area.briefing'
@@ -265,6 +269,16 @@ const AuthenticatedChatIndexRoute = AuthenticatedChatIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedChatRoute,
 } as any)
+const PortalTokenPautaRoute = PortalTokenPautaRouteImport.update({
+  id: '/pauta',
+  path: '/pauta',
+  getParentRoute: () => PortalTokenRoute,
+} as any)
+const PortalTokenMinhaMarcaRoute = PortalTokenMinhaMarcaRouteImport.update({
+  id: '/minha-marca',
+  path: '/minha-marca',
+  getParentRoute: () => PortalTokenRoute,
+} as any)
 const PortalTokenCalendarioRoute = PortalTokenCalendarioRouteImport.update({
   id: '/calendario',
   path: '/calendario',
@@ -315,6 +329,16 @@ const ApiChatStreamRoute = ApiChatStreamRouteImport.update({
   id: '/api/chat/stream',
   path: '/api/chat/stream',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PortalAreaPautaRoute = PortalAreaPautaRouteImport.update({
+  id: '/pauta',
+  path: '/pauta',
+  getParentRoute: () => PortalAreaRoute,
+} as any)
+const PortalAreaMinhaMarcaRoute = PortalAreaMinhaMarcaRouteImport.update({
+  id: '/minha-marca',
+  path: '/minha-marca',
+  getParentRoute: () => PortalAreaRoute,
 } as any)
 const PortalAreaInicioRoute = PortalAreaInicioRouteImport.update({
   id: '/inicio',
@@ -606,6 +630,8 @@ export interface FileRoutesByFullPath {
   '/area/briefing': typeof PortalAreaBriefingRoute
   '/area/calendario': typeof PortalAreaCalendarioRoute
   '/area/inicio': typeof PortalAreaInicioRoute
+  '/area/minha-marca': typeof PortalAreaMinhaMarcaRoute
+  '/area/pauta': typeof PortalAreaPautaRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
@@ -616,6 +642,8 @@ export interface FileRoutesByFullPath {
   '/portal/$token/arquivos': typeof PortalTokenArquivosRoute
   '/portal/$token/briefing': typeof PortalTokenBriefingRoute
   '/portal/$token/calendario': typeof PortalTokenCalendarioRoute
+  '/portal/$token/minha-marca': typeof PortalTokenMinhaMarcaRoute
+  '/portal/$token/pauta': typeof PortalTokenPautaRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
   '/customers/': typeof AuthenticatedCustomersIndexRoute
   '/monthly-plan/': typeof AuthenticatedMonthlyPlanIndexRoute
@@ -685,6 +713,8 @@ export interface FileRoutesByTo {
   '/area/briefing': typeof PortalAreaBriefingRoute
   '/area/calendario': typeof PortalAreaCalendarioRoute
   '/area/inicio': typeof PortalAreaInicioRoute
+  '/area/minha-marca': typeof PortalAreaMinhaMarcaRoute
+  '/area/pauta': typeof PortalAreaPautaRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
@@ -695,6 +725,8 @@ export interface FileRoutesByTo {
   '/portal/$token/arquivos': typeof PortalTokenArquivosRoute
   '/portal/$token/briefing': typeof PortalTokenBriefingRoute
   '/portal/$token/calendario': typeof PortalTokenCalendarioRoute
+  '/portal/$token/minha-marca': typeof PortalTokenMinhaMarcaRoute
+  '/portal/$token/pauta': typeof PortalTokenPautaRoute
   '/chat': typeof AuthenticatedChatIndexRoute
   '/customers': typeof AuthenticatedCustomersIndexRoute
   '/monthly-plan': typeof AuthenticatedMonthlyPlanIndexRoute
@@ -773,6 +805,8 @@ export interface FileRoutesById {
   '/_portal/area/briefing': typeof PortalAreaBriefingRoute
   '/_portal/area/calendario': typeof PortalAreaCalendarioRoute
   '/_portal/area/inicio': typeof PortalAreaInicioRoute
+  '/_portal/area/minha-marca': typeof PortalAreaMinhaMarcaRoute
+  '/_portal/area/pauta': typeof PortalAreaPautaRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
@@ -783,6 +817,8 @@ export interface FileRoutesById {
   '/portal/$token/arquivos': typeof PortalTokenArquivosRoute
   '/portal/$token/briefing': typeof PortalTokenBriefingRoute
   '/portal/$token/calendario': typeof PortalTokenCalendarioRoute
+  '/portal/$token/minha-marca': typeof PortalTokenMinhaMarcaRoute
+  '/portal/$token/pauta': typeof PortalTokenPautaRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
   '/_authenticated/monthly-plan/': typeof AuthenticatedMonthlyPlanIndexRoute
@@ -860,6 +896,8 @@ export interface FileRouteTypes {
     | '/area/briefing'
     | '/area/calendario'
     | '/area/inicio'
+    | '/area/minha-marca'
+    | '/area/pauta'
     | '/api/chat/stream'
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
@@ -870,6 +908,8 @@ export interface FileRouteTypes {
     | '/portal/$token/arquivos'
     | '/portal/$token/briefing'
     | '/portal/$token/calendario'
+    | '/portal/$token/minha-marca'
+    | '/portal/$token/pauta'
     | '/chat/'
     | '/customers/'
     | '/monthly-plan/'
@@ -939,6 +979,8 @@ export interface FileRouteTypes {
     | '/area/briefing'
     | '/area/calendario'
     | '/area/inicio'
+    | '/area/minha-marca'
+    | '/area/pauta'
     | '/api/chat/stream'
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
@@ -949,6 +991,8 @@ export interface FileRouteTypes {
     | '/portal/$token/arquivos'
     | '/portal/$token/briefing'
     | '/portal/$token/calendario'
+    | '/portal/$token/minha-marca'
+    | '/portal/$token/pauta'
     | '/chat'
     | '/customers'
     | '/monthly-plan'
@@ -1026,6 +1070,8 @@ export interface FileRouteTypes {
     | '/_portal/area/briefing'
     | '/_portal/area/calendario'
     | '/_portal/area/inicio'
+    | '/_portal/area/minha-marca'
+    | '/_portal/area/pauta'
     | '/api/chat/stream'
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
@@ -1036,6 +1082,8 @@ export interface FileRouteTypes {
     | '/portal/$token/arquivos'
     | '/portal/$token/briefing'
     | '/portal/$token/calendario'
+    | '/portal/$token/minha-marca'
+    | '/portal/$token/pauta'
     | '/_authenticated/chat/'
     | '/_authenticated/customers/'
     | '/_authenticated/monthly-plan/'
@@ -1335,6 +1383,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChatIndexRouteImport
       parentRoute: typeof AuthenticatedChatRoute
     }
+    '/portal/$token/pauta': {
+      id: '/portal/$token/pauta'
+      path: '/pauta'
+      fullPath: '/portal/$token/pauta'
+      preLoaderRoute: typeof PortalTokenPautaRouteImport
+      parentRoute: typeof PortalTokenRoute
+    }
+    '/portal/$token/minha-marca': {
+      id: '/portal/$token/minha-marca'
+      path: '/minha-marca'
+      fullPath: '/portal/$token/minha-marca'
+      preLoaderRoute: typeof PortalTokenMinhaMarcaRouteImport
+      parentRoute: typeof PortalTokenRoute
+    }
     '/portal/$token/calendario': {
       id: '/portal/$token/calendario'
       path: '/calendario'
@@ -1404,6 +1466,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/chat/stream'
       preLoaderRoute: typeof ApiChatStreamRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_portal/area/pauta': {
+      id: '/_portal/area/pauta'
+      path: '/pauta'
+      fullPath: '/area/pauta'
+      preLoaderRoute: typeof PortalAreaPautaRouteImport
+      parentRoute: typeof PortalAreaRoute
+    }
+    '/_portal/area/minha-marca': {
+      id: '/_portal/area/minha-marca'
+      path: '/minha-marca'
+      fullPath: '/area/minha-marca'
+      preLoaderRoute: typeof PortalAreaMinhaMarcaRouteImport
+      parentRoute: typeof PortalAreaRoute
     }
     '/_portal/area/inicio': {
       id: '/_portal/area/inicio'
@@ -1879,6 +1955,8 @@ interface PortalAreaRouteChildren {
   PortalAreaBriefingRoute: typeof PortalAreaBriefingRoute
   PortalAreaCalendarioRoute: typeof PortalAreaCalendarioRoute
   PortalAreaInicioRoute: typeof PortalAreaInicioRoute
+  PortalAreaMinhaMarcaRoute: typeof PortalAreaMinhaMarcaRoute
+  PortalAreaPautaRoute: typeof PortalAreaPautaRoute
 }
 
 const PortalAreaRouteChildren: PortalAreaRouteChildren = {
@@ -1887,6 +1965,8 @@ const PortalAreaRouteChildren: PortalAreaRouteChildren = {
   PortalAreaBriefingRoute: PortalAreaBriefingRoute,
   PortalAreaCalendarioRoute: PortalAreaCalendarioRoute,
   PortalAreaInicioRoute: PortalAreaInicioRoute,
+  PortalAreaMinhaMarcaRoute: PortalAreaMinhaMarcaRoute,
+  PortalAreaPautaRoute: PortalAreaPautaRoute,
 }
 
 const PortalAreaRouteWithChildren = PortalAreaRoute._addFileChildren(
@@ -1910,6 +1990,8 @@ interface PortalTokenRouteChildren {
   PortalTokenArquivosRoute: typeof PortalTokenArquivosRoute
   PortalTokenBriefingRoute: typeof PortalTokenBriefingRoute
   PortalTokenCalendarioRoute: typeof PortalTokenCalendarioRoute
+  PortalTokenMinhaMarcaRoute: typeof PortalTokenMinhaMarcaRoute
+  PortalTokenPautaRoute: typeof PortalTokenPautaRoute
   PortalTokenIndexRoute: typeof PortalTokenIndexRoute
 }
 
@@ -1918,6 +2000,8 @@ const PortalTokenRouteChildren: PortalTokenRouteChildren = {
   PortalTokenArquivosRoute: PortalTokenArquivosRoute,
   PortalTokenBriefingRoute: PortalTokenBriefingRoute,
   PortalTokenCalendarioRoute: PortalTokenCalendarioRoute,
+  PortalTokenMinhaMarcaRoute: PortalTokenMinhaMarcaRoute,
+  PortalTokenPautaRoute: PortalTokenPautaRoute,
   PortalTokenIndexRoute: PortalTokenIndexRoute,
 }
 

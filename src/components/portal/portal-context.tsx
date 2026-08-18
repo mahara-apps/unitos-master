@@ -25,6 +25,7 @@ import {
   listPortalSessionBriefingRequestsFn,
   submitPortalSessionBriefingProposalFn,
 } from "@/lib/portal-briefing.functions";
+import { getPortalBrandHubFn, getPortalSessionBrandHubFn } from "@/lib/portal-brand.functions";
 import {
   listPortalPlansFn,
   getPortalPlanFn,
@@ -33,7 +34,7 @@ import {
   getPortalSessionPlanFn,
   decidePortalSessionPlanFn,
 } from "@/lib/portal-pauta.functions";
-import type { PortalTabId } from "./portal-nav";
+import { sessionTabPath, tokenTabRoute, type PortalTabId } from "./portal-nav";
 
 /**
  * Camada única de dados do Portal do Cliente.
@@ -51,7 +52,13 @@ export type PortalMode =
 
 const ModeContext = createContext<PortalMode>({ kind: "session", clientId: null });
 
-export function PortalModeProvider({ value, children }: { value: PortalMode; children: ReactNode }) {
+export function PortalModeProvider({
+  value,
+  children,
+}: {
+  value: PortalMode;
+  children: ReactNode;
+}) {
   return <ModeContext.Provider value={value}>{children}</ModeContext.Provider>;
 }
 
@@ -67,7 +74,11 @@ export function portalScopeKey(mode: PortalMode): string {
 type ApprovalStatus = "all" | "pending" | "approved" | "adjust";
 type PostDecision = "approved" | "rejected" | "adjust" | "comment";
 type PlanDecision = "approve" | "reject" | "changes" | "per_item";
-type PlanItems = Array<{ topicId: string; decision: "approved" | "rejected" | "changes"; comment: string }>;
+type PlanItems = Array<{
+  topicId: string;
+  decision: "approved" | "rejected" | "changes";
+  comment: string;
+}>;
 
 export function usePortalApi() {
   const mode = usePortalMode();
@@ -84,6 +95,7 @@ export function usePortalApi() {
   const tPlans = useServerFn(listPortalPlansFn);
   const tPlan = useServerFn(getPortalPlanFn);
   const tDecidePlan = useServerFn(decidePortalPlanFn);
+  const tBrandHub = useServerFn(getPortalBrandHubFn);
 
   const sMetrics = useServerFn(getPortalSessionMetricsFn);
   const sApprovals = useServerFn(listPortalSessionApprovalsFn);
@@ -97,11 +109,12 @@ export function usePortalApi() {
   const sPlans = useServerFn(listPortalSessionPlansFn);
   const sPlan = useServerFn(getPortalSessionPlanFn);
   const sDecidePlan = useServerFn(decidePortalSessionPlanFn);
+  const sBrandHub = useServerFn(getPortalSessionBrandHubFn);
 
   return useMemo(() => {
     const isToken = mode.kind === "token";
     const token = mode.kind === "token" ? mode.token : "";
-    const clientId = mode.kind === "session" ? mode.clientId ?? undefined : undefined;
+    const clientId = mode.kind === "session" ? (mode.clientId ?? undefined) : undefined;
     const base = isToken ? { token } : clientId ? { clientId } : {};
 
     return {
@@ -111,10 +124,17 @@ export function usePortalApi() {
       scopeKey: portalScopeKey(mode),
       metrics: () => (isToken ? tMetrics({ data: { token } }) : sMetrics({ data: base })),
       approvals: (status: ApprovalStatus) =>
-        isToken ? tApprovals({ data: { token, status } }) : sApprovals({ data: { ...base, status } }),
+        isToken
+          ? tApprovals({ data: { token, status } })
+          : sApprovals({ data: { ...base, status } }),
       post: (postId: string) =>
         isToken ? tPost({ data: { token, postId } }) : sPost({ data: { ...base, postId } }),
-      decidePost: (input: { postId: string; decision: PostDecision; note?: string; identity: string }) =>
+      decidePost: (input: {
+        postId: string;
+        decision: PostDecision;
+        note?: string;
+        identity: string;
+      }) =>
         isToken
           ? tDecide({ data: { token, ...input } })
           : sDecide({
@@ -144,7 +164,11 @@ export function usePortalApi() {
         decision: PlanDecision;
         feedback?: string;
         items?: PlanItems;
-      }) => (isToken ? tDecidePlan({ data: { token, ...input } }) : sDecidePlan({ data: { ...base, ...input } })),
+      }) =>
+        isToken
+          ? tDecidePlan({ data: { token, ...input } })
+          : sDecidePlan({ data: { ...base, ...input } }),
+      brandHub: () => (isToken ? tBrandHub({ data: { token } }) : sBrandHub({ data: base })),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode.kind, mode.kind === "token" ? mode.token : mode.clientId]);
@@ -152,28 +176,12 @@ export function usePortalApi() {
 
 /* ------------------------------- navegação -------------------------------- */
 
-const SESSION_PATHS: Record<PortalTabId, string> = {
-  home: "/area/inicio",
-  approvals: "/area/aprovacoes",
-  calendar: "/area/calendario",
-  files: "/area/arquivos",
-  briefing: "/area/briefing",
-};
-
-const TOKEN_PATHS: Record<PortalTabId, string> = {
-  home: "/portal/$token/",
-  approvals: "/portal/$token/aprovacoes",
-  calendar: "/portal/$token/calendario",
-  files: "/portal/$token/arquivos",
-  briefing: "/portal/$token/briefing",
-};
-
 /** Path da aba no modo ativo — usado por navegação e detecção de aba ativa. */
 export function usePortalPath(tab: PortalTabId): string {
   const mode = usePortalMode();
   return mode.kind === "token"
-    ? TOKEN_PATHS[tab].replace("$token", mode.token)
-    : SESSION_PATHS[tab];
+    ? tokenTabRoute(tab).replace("$token", mode.token)
+    : sessionTabPath(tab);
 }
 
 /** Link interno agnóstico de modo. */
@@ -190,7 +198,7 @@ export function PortalLink({
   if (mode.kind === "token") {
     return (
       <Link
-        to={TOKEN_PATHS[tab] as "/portal/$token"}
+        to={tokenTabRoute(tab) as "/portal/$token"}
         params={{ token: mode.token }}
         className={className}
       >
@@ -199,7 +207,7 @@ export function PortalLink({
     );
   }
   return (
-    <Link to={SESSION_PATHS[tab] as "/area/inicio"} className={className}>
+    <Link to={sessionTabPath(tab) as "/area/inicio"} className={className}>
       {children}
     </Link>
   );

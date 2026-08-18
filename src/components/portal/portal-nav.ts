@@ -1,29 +1,67 @@
-import { Home, CheckSquare, CalendarDays, FolderOpen, FileText } from "lucide-react";
+import {
+  Home,
+  CheckSquare,
+  CalendarDays,
+  FolderOpen,
+  FileText,
+  Sparkles,
+  Palette,
+} from "lucide-react";
 
-export type PortalTabId = "home" | "approvals" | "calendar" | "files" | "briefing";
+export type PortalTabId =
+  | "home"
+  | "approvals"
+  | "pauta"
+  | "calendar"
+  | "briefing"
+  | "files"
+  | "brand";
 
 /**
- * Fase 4a — cada aba do portal virou rota real. `to` é o path do TanStack
- * Router (com `$token` como param), `segment` é o sufixo usado para detectar
- * a aba ativa a partir do pathname.
+ * FASE 1 — FONTE ÚNICA de navegação do Portal do Cliente.
+ *
+ * Ordem, rótulos, ícones e os paths dos dois modos (login e link por token)
+ * vivem aqui. Nenhum shell/tela declara navegação própria.
  */
 export const PORTAL_TABS: Array<{
   id: PortalTabId;
   label: string;
   icon: typeof Home;
-  to: string;
+  /** Sufixo do path em ambos os modos ("" = raiz da área). */
   segment: string;
 }> = [
-  { id: "home", label: "Início", icon: Home, to: "/portal/$token/", segment: "" },
-  { id: "approvals", label: "Aprovações", icon: CheckSquare, to: "/portal/$token/aprovacoes", segment: "aprovacoes" },
-  { id: "calendar", label: "Calendário", icon: CalendarDays, to: "/portal/$token/calendario", segment: "calendario" },
-  
-  { id: "files", label: "Arquivos", icon: FolderOpen, to: "/portal/$token/arquivos", segment: "arquivos" },
-  { id: "briefing", label: "Briefing", icon: FileText, to: "/portal/$token/briefing", segment: "briefing" },
+  { id: "home", label: "Início", icon: Home, segment: "" },
+  { id: "approvals", label: "Aprovações", icon: CheckSquare, segment: "aprovacoes" },
+  { id: "pauta", label: "Pauta", icon: Sparkles, segment: "pauta" },
+  { id: "calendar", label: "Calendário", icon: CalendarDays, segment: "calendario" },
+  { id: "briefing", label: "Briefing", icon: FileText, segment: "briefing" },
+  { id: "files", label: "Arquivos", icon: FolderOpen, segment: "arquivos" },
+  { id: "brand", label: "Minha Marca", icon: Palette, segment: "minha-marca" },
 ];
 
-export function activePortalTab(pathname: string, token: string): PortalTabId {
-  const base = `/portal/${token}`;
+export const PORTAL_TAB_LABEL: Record<PortalTabId, string> = PORTAL_TABS.reduce(
+  (acc, t) => ({ ...acc, [t.id]: t.label }),
+  {} as Record<PortalTabId, string>,
+);
+
+const SEGMENT = PORTAL_TABS.reduce(
+  (acc, t) => ({ ...acc, [t.id]: t.segment }),
+  {} as Record<PortalTabId, string>,
+);
+
+/** Path da aba no modo LOGIN. */
+export function sessionTabPath(tab: PortalTabId): string {
+  return SEGMENT[tab] ? `/area/${SEGMENT[tab]}` : "/area/inicio";
+}
+
+/** Path da aba no modo TOKEN (com `$token` literal, para `<Link params>`). */
+export function tokenTabRoute(tab: PortalTabId): string {
+  return SEGMENT[tab] ? `/portal/$token/${SEGMENT[tab]}` : "/portal/$token/";
+}
+
+/** Aba ativa a partir do pathname, nos dois modos. */
+export function activePortalTab(pathname: string, base: string): PortalTabId {
   const rest = pathname.startsWith(base) ? pathname.slice(base.length).replace(/^\/|\/$/g, "") : "";
-  return PORTAL_TABS.find((t) => t.segment === rest)?.id ?? "home";
+  if (rest === "inicio") return "home";
+  return PORTAL_TABS.find((t) => t.segment && t.segment === rest)?.id ?? "home";
 }
