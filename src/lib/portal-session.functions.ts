@@ -12,6 +12,10 @@ import type { PortalApproval, PortalBrand, PortalClient, PortalPost } from "@/li
  * o banco resolve cliente/marca por `auth.uid()` via `client_members`
  * (`role = 'portal_client'`). Contrato de retorno idêntico ao modo token, para
  * que os componentes do portal sirvam às duas árvores de rota.
+ *
+ * Blindagem: todas as RPCs aceitam `_client_id` opcional. O banco valida o
+ * vínculo (`client_not_allowed` quando o usuário não é portal_client daquele
+ * cliente), então um cliente/marca extra nunca é acessível por palpite de ID.
  */
 
 type Json = Parameters<typeof normalizePortalTheme>[0];
@@ -43,6 +47,12 @@ type PortalBriefing = {
   submitted_at: string | null;
   created_at: string;
 };
+export type PortalClientLink = {
+  client_id: string;
+  brand_id: string;
+  client_name: string | null;
+  brand_name: string | null;
+};
 
 type Ctx = { supabase: { rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }> } };
 
@@ -52,11 +62,27 @@ async function rpc<T>(context: Ctx, fn: string, args: Record<string, unknown> = 
   return data as T;
 }
 
+/** `_client_id` opcional; null = vínculo mais recente do usuário. */
+const scopeIn = z.object({ clientId: z.string().uuid().optional() });
+const scope = (data?: { clientId?: string }) => ({ _client_id: data?.clientId ?? null });
+
+/** Vínculos de portal do usuário (para escolher cliente/marca quando há mais de um). */
+export const listMyPortalClientsFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<PortalClientLink[]> =>
+    (await rpc<PortalClientLink[]>(context as unknown as Ctx, "portal_my_clients")) ?? [],
+  );
+
 export const resolvePortalSessionFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<PortalSessionResolve> => {
+  .inputValidator((i: unknown) => scopeIn.parse(i ?? {}))
+  .handler(async ({ context, data }): Promise<PortalSessionResolve> => {
     try {
-      const res = await rpc<Omit<PortalSessionResolve, "theme" | "error">>(context as unknown as Ctx, "portal_resolve");
+      const res = await rpc<Omit<PortalSessionResolve, "theme" | "error">>(
+        context as unknown as Ctx,
+        "portal_resolve",
+        scope(data),
+      );
       const theme = resolvePortalTheme(normalizePortalTheme((res.client?.portal_theme ?? null) as Json), {
         color: res.client?.color ?? null,
         logoUrl: null,
@@ -77,30 +103,36 @@ export const resolvePortalSessionFn = createServerFn({ method: "POST" })
 
 export const getPortalSessionMetricsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<PortalMetrics> =>
-    rpc<PortalMetrics>(context as unknown as Ctx, "portal_metrics"),
+  .inputValidator((i: unknown) => scopeIn.parse(i ?? {}))
+  .handler(async ({ context, data }): Promise<PortalMetrics> =>
+    rpc<PortalMetrics>(context as unknown as Ctx, "portal_metrics", scope(data)),
   );
 
 export const listPortalSessionApprovalsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z.object({ status: z.enum(["all", "pending", "approved", "adjust"]).default("all") }).parse(i ?? {}),
+    scopeIn
+      .extend({ status: z.enum(["all", "pending", "approved", "adjust"]).default("all") })
+      .parse(i ?? {}),
   )
   .handler(async ({ context, data }): Promise<PortalPost[]> => {
-    const rows = await rpc<PortalPost[]>(context as unknown as Ctx, "portal_approvals", { _status: data.status });
+    const rows = await rpc<PortalPost[]>(context as unknown as Ctx, "portal_approvals", {
+      _status: data.status,
+      ...scope(data),
+    });
     await fillPortalCovers(rows ?? []);
     return rows ?? [];
   });
 
 export const getPortalSessionPostFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => z.object({ postId: z.string().uuid() }).parse(i))
+  .inputValidator((i: unknown) => scopeIn.extend({ postId: z.string().uuid() }).parse(i))
   .handler(
     async ({ context, data }): Promise<{ post: PortalPost; approval: PortalApproval | null; media: Array<{ url: string; type: string }> }> => {
       const res = await rpc<{ post: PortalPost; approval: PortalApproval | null }>(
         context as unknown as Ctx,
         "portal_post",
-        { _post_id: data.postId },
+        { _post_id: data.postId, ...scope(data) },
       );
       const post = res.post;
       const media = await signPortalRefs(post.reference_media);
@@ -112,8 +144,8 @@ export const getPortalSessionPostFn = createServerFn({ method: "POST" })
 export const decidePortalSessionApprovalFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z
-      .object({
+    scopeIn
+      .extend({
         postId: z.string().uuid(),
         decision: z.enum(["approved", "rejected", "adjust", "comment"]),
         note: z.string().max(4000).optional(),
@@ -125,24 +157,29 @@ export const decidePortalSessionApprovalFn = createServerFn({ method: "POST" })
       _post_id: data.postId,
       _decision: data.decision,
       _note: data.note ?? null,
+      ...scope(data),
     }),
   );
 
 export const listPortalSessionCalendarFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z.object({ month: z.string().regex(/^\d{4}-\d{2}$/).optional() }).parse(i ?? {}),
+    scopeIn.extend({ month: z.string().regex(/^\d{4}-\d{2}$/).optional() }).parse(i ?? {}),
   )
   .handler(async ({ context, data }): Promise<PortalPost[]> =>
-    (await rpc<PortalPost[]>(context as unknown as Ctx, "portal_calendar", { _month: data.month ?? null })) ?? [],
+    (await rpc<PortalPost[]>(context as unknown as Ctx, "portal_calendar", {
+      _month: data.month ?? null,
+      ...scope(data),
+    })) ?? [],
   );
 
 export const listPortalSessionFilesFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => z.object({ search: z.string().optional() }).parse(i ?? {}))
+  .inputValidator((i: unknown) => scopeIn.extend({ search: z.string().optional() }).parse(i ?? {}))
   .handler(async ({ context, data }): Promise<Array<PortalFile & { url: string | null }>> => {
     const docs = await rpc<PortalFile[]>(context as unknown as Ctx, "portal_files", {
       _search: (data.search ?? "").trim() || null,
+      ...scope(data),
     });
     return Promise.all(
       (docs ?? []).map(async (d) => ({ ...d, url: await signPortalDocument(d.storage_path) })),
@@ -151,6 +188,7 @@ export const listPortalSessionFilesFn = createServerFn({ method: "POST" })
 
 export const listPortalSessionBriefingsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }): Promise<PortalBriefing[]> =>
-    (await rpc<PortalBriefing[]>(context as unknown as Ctx, "portal_briefings")) ?? [],
+  .inputValidator((i: unknown) => scopeIn.parse(i ?? {}))
+  .handler(async ({ context, data }): Promise<PortalBriefing[]> =>
+    (await rpc<PortalBriefing[]>(context as unknown as Ctx, "portal_briefings", scope(data))) ?? [],
   );

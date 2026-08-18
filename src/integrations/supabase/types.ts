@@ -5778,7 +5778,7 @@ export type Database = {
         }[]
       }
       _portal_session_any: {
-        Args: { _token?: string }
+        Args: { _client_id?: string; _token?: string }
         Returns: {
           brand_id: string
           client_id: string
@@ -5786,7 +5786,7 @@ export type Database = {
         }[]
       }
       _portal_session_user: {
-        Args: never
+        Args: { _client_id?: string }
         Returns: {
           brand_id: string
           client_id: string
@@ -5962,6 +5962,10 @@ export type Database = {
         Args: { _brand_id: string; _user_id: string }
         Returns: boolean
       }
+      is_portal_client_of: {
+        Args: { _client_id: string; _user_id: string }
+        Returns: boolean
+      }
       is_portal_user: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin:
         | { Args: never; Returns: boolean }
@@ -6025,17 +6029,21 @@ export type Database = {
       media_plan_public_resolve: { Args: { _token: string }; Returns: Json }
       my_access: { Args: { _brand_id?: string }; Returns: Json }
       portal_approvals: {
-        Args: { _status?: string; _token?: string }
+        Args: { _client_id?: string; _status?: string; _token?: string }
         Returns: Json
       }
-      portal_briefings: { Args: { _token?: string }; Returns: Json }
+      portal_briefings: {
+        Args: { _client_id?: string; _token?: string }
+        Returns: Json
+      }
       portal_calendar: {
-        Args: { _month?: string; _token?: string }
+        Args: { _client_id?: string; _month?: string; _token?: string }
         Returns: Json
       }
       portal_client_ids: { Args: { _user_id: string }; Returns: string[] }
       portal_decide: {
         Args: {
+          _client_id?: string
           _decision?: string
           _identity?: string
           _note?: string
@@ -6045,12 +6053,16 @@ export type Database = {
         Returns: Json
       }
       portal_files: {
-        Args: { _search?: string; _token?: string }
+        Args: { _client_id?: string; _search?: string; _token?: string }
         Returns: Json
       }
-      portal_metrics: { Args: { _token?: string }; Returns: Json }
+      portal_metrics: {
+        Args: { _client_id?: string; _token?: string }
+        Returns: Json
+      }
+      portal_my_clients: { Args: never; Returns: Json }
       portal_post: {
-        Args: { _post_id?: string; _token?: string }
+        Args: { _client_id?: string; _post_id?: string; _token?: string }
         Returns: Json
       }
       portal_rate_register_failure: {
@@ -6058,7 +6070,10 @@ export type Database = {
         Returns: Json
       }
       portal_rate_status: { Args: { _ip_hash: string }; Returns: Json }
-      portal_resolve: { Args: { _token?: string }; Returns: Json }
+      portal_resolve: {
+        Args: { _client_id?: string; _token?: string }
+        Returns: Json
+      }
       process_brain_learning_queue: { Args: { _limit?: number }; Returns: Json }
       reap_brain_learning_queue: { Args: never; Returns: number }
       reap_stuck_ai_jobs: { Args: never; Returns: number }
