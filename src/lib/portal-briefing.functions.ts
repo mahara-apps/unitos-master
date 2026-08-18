@@ -17,12 +17,19 @@ export type PortalBriefingRequest = {
   id: string;
   requested_fields: string[];
   message: string | null;
-  status: "requested" | "submitted" | "in_review";
+  status: "requested" | "submitted" | "in_review" | "approved";
   due_at: string | null;
   requested_at: string;
   submitted_at: string | null;
   /** Última resposta enviada pelo cliente (se houver). */
   answered: Record<string, string | string[]> | null;
+  /** FASE 4 — resultado da revisão da agência (visível ao cliente). */
+  review_decision: "approved" | "partial" | "changes_requested" | null;
+  review_note: string | null;
+  accepted_fields: string[];
+  /** Campos que o cliente ainda precisa complementar. */
+  pending_fields: string[];
+  decided_at: string | null;
 };
 
 const MAX_ATTACHMENTS = 5;
@@ -73,6 +80,11 @@ async function listRequests(scope: PortalScope): Promise<PortalBriefingRequest[]
       requested_at: r.requested_at as string,
       submitted_at: (r.submitted_at as string | null) ?? null,
       answered: latest?.payload ?? null,
+      review_decision: (r.review_decision as PortalBriefingRequest["review_decision"]) ?? null,
+      review_note: (r.review_note as string | null) ?? null,
+      accepted_fields: (r.accepted_fields as string[]) ?? [],
+      pending_fields: (r.pending_fields as string[]) ?? [],
+      decided_at: (r.decided_at as string | null) ?? null,
     };
   });
 }

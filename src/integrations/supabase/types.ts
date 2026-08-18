@@ -1980,51 +1980,72 @@ export type Database = {
       }
       brand_briefing_requests: {
         Row: {
+          accepted_fields: string[]
           base_version_id: string | null
           brand_id: string
           canceled_at: string | null
           client_id: string
           created_at: string
+          decided_at: string | null
+          decided_by: string | null
           due_at: string | null
           id: string
           message: string | null
+          pending_fields: string[]
+          promoted_version_id: string | null
           requested_at: string
           requested_by: string | null
           requested_fields: string[]
+          review_decision: string | null
+          review_note: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           status: string
           submitted_at: string | null
         }
         Insert: {
+          accepted_fields?: string[]
           base_version_id?: string | null
           brand_id: string
           canceled_at?: string | null
           client_id: string
           created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
           due_at?: string | null
           id?: string
           message?: string | null
+          pending_fields?: string[]
+          promoted_version_id?: string | null
           requested_at?: string
           requested_by?: string | null
           requested_fields?: string[]
+          review_decision?: string | null
+          review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
           submitted_at?: string | null
         }
         Update: {
+          accepted_fields?: string[]
           base_version_id?: string | null
           brand_id?: string
           canceled_at?: string | null
           client_id?: string
           created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
           due_at?: string | null
           id?: string
           message?: string | null
+          pending_fields?: string[]
+          promoted_version_id?: string | null
           requested_at?: string
           requested_by?: string | null
           requested_fields?: string[]
+          review_decision?: string | null
+          review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
@@ -2057,6 +2078,83 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_briefing_requests_promoted_version_id_fkey"
+            columns: ["promoted_version_id"]
+            isOneToOne: false
+            referencedRelation: "brand_briefing_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_briefing_reviews: {
+        Row: {
+          accepted_fields: string[]
+          brand_id: string
+          client_id: string
+          created_at: string
+          decision: string
+          id: string
+          note: string | null
+          pending_fields: string[]
+          promoted: Json
+          proposal_id: string | null
+          request_id: string
+          reviewed_by: string | null
+          version_id: string | null
+        }
+        Insert: {
+          accepted_fields?: string[]
+          brand_id: string
+          client_id: string
+          created_at?: string
+          decision: string
+          id?: string
+          note?: string | null
+          pending_fields?: string[]
+          promoted?: Json
+          proposal_id?: string | null
+          request_id: string
+          reviewed_by?: string | null
+          version_id?: string | null
+        }
+        Update: {
+          accepted_fields?: string[]
+          brand_id?: string
+          client_id?: string
+          created_at?: string
+          decision?: string
+          id?: string
+          note?: string | null
+          pending_fields?: string[]
+          promoted?: Json
+          proposal_id?: string | null
+          request_id?: string
+          reviewed_by?: string | null
+          version_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_briefing_reviews_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "brand_briefing_proposals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_briefing_reviews_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "brand_briefing_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_briefing_reviews_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "brand_briefing_versions"
             referencedColumns: ["id"]
           },
         ]
