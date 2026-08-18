@@ -45,25 +45,43 @@ export type Fixture = {
   otherBrandId: string;
   clientA: string;
   clientB: string;
+  /** Cliente da mesma marca sem owner_user_id e sem client_members (cliente "órfão"). */
+  clientOrphan: string;
   otherBrandClient: string;
   otherBrandProject: string;
+  /** owner da marca (papel efetivo 'admin'), criador das duas brands de QA. */
+  userOwner: TestUser;
+  /** manager da marca. */
+  userManager: TestUser;
+  /** editor (papel efetivo 'user') vinculado somente ao clientA. */
   userA: TestUser;
+  /** editor (papel efetivo 'user') vinculado somente ao clientB. */
   userB: TestUser;
+  /** editor (papel efetivo 'user') membro da marca, sem nenhum vínculo de cliente. */
+  userNoLink: TestUser;
+  /** portal_client vinculado somente ao clientA. */
+  userPortal: TestUser;
 };
 
 export async function seed(): Promise<Fixture> {
+  // O trigger add_brand_owner força role='owner' para brands.created_by (NOT NULL).
+  // Por isso o criador é um usuário dedicado, e A/B ficam como editor puro.
+  const userOwner = await createUser("owner");
+  const userManager = await createUser("mgr");
   const userA = await createUser("a");
   const userB = await createUser("b");
+  const userNoLink = await createUser("nolink");
+  const userPortal = await createUser("portal");
 
   const brand = await admin
     .from("brands")
-    .insert({ name: `QA Brand ${TAG}`, slug: `qa-brand-${TAG}`, created_by: userA.id })
+    .insert({ name: `QA Brand ${TAG}`, slug: `qa-brand-${TAG}`, created_by: userOwner.id })
     .select("id")
     .single();
   if (brand.error) throw new Error(`brand: ${brand.error.message}`);
   const otherBrand = await admin
     .from("brands")
-    .insert({ name: `QA Brand2 ${TAG}`, slug: `qa-brand2-${TAG}`, created_by: userB.id })
+    .insert({ name: `QA Brand2 ${TAG}`, slug: `qa-brand2-${TAG}`, created_by: userOwner.id })
     .select("id")
     .single();
   if (otherBrand.error) throw new Error(`brand2: ${otherBrand.error.message}`);
@@ -71,20 +89,29 @@ export async function seed(): Promise<Fixture> {
   const brandId = brand.data.id as string;
   const otherBrandId = otherBrand.data.id as string;
 
-  // brands trigger add_brand_owner pode já inserir o criador; upsert defensivo.
-  for (const [bid, uid] of [
-    [brandId, userA.id],
-    [brandId, userB.id],
-  ] as const) {
-    const existing = await admin
+  const memberships: Array<{ user: TestUser; role: string }> = [
+    { user: userManager, role: "manager" },
+    { user: userA, role: "editor" },
+    { user: userB, role: "editor" },
+    { user: userNoLink, role: "editor" },
+  ];
+  for (const m of memberships) {
+    const r = await admin
       .from("brand_members")
-      .select("id")
-      .eq("brand_id", bid)
-      .eq("user_id", uid)
-      .maybeSingle();
-    if (!existing.data) {
-      const r = await admin.from("brand_members").insert({ brand_id: bid, user_id: uid, role: "editor" });
-      if (r.error) throw new Error(`brand_members: ${r.error.message}`);
+      .insert({ brand_id: brandId, user_id: m.user.id, role: m.role });
+    if (r.error) throw new Error(`brand_members(${m.role}): ${r.error.message}`);
+  }
+
+  // Garantia explícita: nenhum papel foi promovido por trigger.
+  const roles = await admin
+    .from("brand_members")
+    .select("user_id, role")
+    .eq("brand_id", brandId);
+  if (roles.error) throw new Error(`brand_members read: ${roles.error.message}`);
+  for (const m of memberships) {
+    const found = roles.data!.find((r) => r.user_id === m.user.id);
+    if (!found || found.role !== m.role) {
+      throw new Error(`papel inesperado para ${m.user.email}: ${found?.role ?? "ausente"}`);
     }
   }
 
@@ -93,18 +120,21 @@ export async function seed(): Promise<Fixture> {
     .insert([
       { brand_id: brandId, name: `Cliente A ${TAG}` },
       { brand_id: brandId, name: `Cliente B ${TAG}` },
+      { brand_id: brandId, name: `Cliente Orfao ${TAG}` },
       { brand_id: otherBrandId, name: `Cliente Outro ${TAG}` },
     ])
     .select("id, name");
   if (clients.error) throw new Error(`clients: ${clients.error.message}`);
   const clientA = clients.data.find((c) => c.name.startsWith("Cliente A"))!.id as string;
   const clientB = clients.data.find((c) => c.name.startsWith("Cliente B"))!.id as string;
+  const clientOrphan = clients.data.find((c) => c.name.startsWith("Cliente Orfao"))!.id as string;
   const otherBrandClient = clients.data.find((c) => c.name.startsWith("Cliente Outro"))!.id as string;
 
   // Vínculos internos ativam o modo restritivo por cliente (can_access_client).
   const cm = await admin.from("client_members").insert([
     { brand_id: brandId, client_id: clientA, user_id: userA.id, role: "editor" },
     { brand_id: brandId, client_id: clientB, user_id: userB.id, role: "editor" },
+    { brand_id: brandId, client_id: clientA, user_id: userPortal.id, role: "portal_client" },
   ]);
   if (cm.error) throw new Error(`client_members: ${cm.error.message}`);
 
@@ -125,10 +155,15 @@ export async function seed(): Promise<Fixture> {
     otherBrandId,
     clientA,
     clientB,
+    clientOrphan,
     otherBrandClient,
     otherBrandProject: otherProject.data.id as string,
+    userOwner,
+    userManager,
     userA,
     userB,
+    userNoLink,
+    userPortal,
   };
 }
 
@@ -141,7 +176,14 @@ export async function cleanup(fx: Fixture | null) {
   await admin.from("clients").delete().in("brand_id", [fx.brandId, fx.otherBrandId]);
   await admin.from("brand_members").delete().in("brand_id", [fx.brandId, fx.otherBrandId]);
   await admin.from("brands").delete().in("id", [fx.brandId, fx.otherBrandId]);
-  for (const u of [fx.userA, fx.userB]) {
+  for (const u of [
+    fx.userOwner,
+    fx.userManager,
+    fx.userA,
+    fx.userB,
+    fx.userNoLink,
+    fx.userPortal,
+  ]) {
     await admin.auth.admin.deleteUser(u.id).catch(() => {});
   }
 }

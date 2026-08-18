@@ -388,6 +388,166 @@ describe("6. Isolamento / segurança (RLS)", () => {
   });
 });
 
+describe("6b. Matriz de papéis (isolamento por cliente)", () => {
+  it("ADMIN (owner da marca) acessa todos os clientes da própria marca", async () => {
+    const c = fx.userOwner.client;
+    const clients = await c.from("clients").select("id").in("id", [fx.clientA, fx.clientB]);
+    expect((clients.data ?? []).map((r) => r.id).sort()).toEqual(
+      [fx.clientA, fx.clientB].sort(),
+    );
+    const projA = await c.from("projects").select("id").eq("id", ids.projectA);
+    const projB = await c.from("projects").select("id").eq("id", ids.projectB);
+    expect(projA.data ?? []).toHaveLength(1);
+    expect(projB.data ?? []).toHaveLength(1);
+    const taskB = await c.from("tasks").select("id").eq("id", ids.taskB);
+    expect(taskB.data ?? []).toHaveLength(1);
+  });
+
+  it("MANAGER acessa todos os clientes da própria marca", async () => {
+    const c = fx.userManager.client;
+    const clients = await c.from("clients").select("id").in("id", [fx.clientA, fx.clientB]);
+    expect(clients.data ?? []).toHaveLength(2);
+    const projB = await c.from("projects").select("id").eq("id", ids.projectB);
+    expect(projB.data ?? []).toHaveLength(1);
+    const subs = await c.from("task_subtasks").select("id").eq("task_id", ids.taskB);
+    expect(subs.error, subs.error?.message).toBeNull();
+  });
+
+  it("ADMIN/MANAGER não atravessam a fronteira de marca", async () => {
+    for (const u of [fx.userOwner, fx.userManager]) {
+      const other = await u.client.from("clients").select("id").eq("id", fx.otherBrandClient);
+      const otherProj = await u.client
+        .from("projects")
+        .select("id")
+        .eq("id", fx.otherBrandProject);
+      if (u.id === fx.userOwner.id) {
+        // userOwner criou as duas brands de QA: é owner de ambas (esperado).
+        expect(other.data ?? []).toHaveLength(1);
+      } else {
+        expect(other.data ?? [], "manager não é membro da outra marca").toHaveLength(0);
+        expect(otherProj.data ?? []).toHaveLength(0);
+      }
+    }
+  });
+
+  it("USER sem vínculo não acessa cliente com responsáveis definidos", async () => {
+    const c = fx.userNoLink.client;
+    const clients = await c.from("clients").select("id").in("id", [fx.clientA, fx.clientB]);
+    expect(clients.data ?? [], "editor sem vínculo não vê clientes vinculados").toHaveLength(0);
+    const proj = await c.from("projects").select("id").eq("id", ids.projectA);
+    expect(proj.data ?? []).toHaveLength(0);
+    const task = await c.from("tasks").select("id").eq("id", ids.taskB);
+    expect(task.data ?? []).toHaveLength(0);
+    const subs = await c.from("task_subtasks").select("id").eq("task_id", ids.taskB);
+    expect(subs.data ?? []).toHaveLength(0);
+  });
+
+  it("USER sem vínculo não escreve em projeto/tarefa de cliente vinculado", async () => {
+    const c = fx.userNoLink.client;
+    const p = await c
+      .from("projects")
+      .insert({ brand_id: fx.brandId, client_id: fx.clientA, name: `Invasor ${testTag}` })
+      .select("id")
+      .single();
+    expect(p.error, "editor sem vínculo não deveria criar projeto do cliente A").not.toBeNull();
+
+    const t = await c
+      .from("tasks")
+      .insert({
+        brand_id: fx.brandId,
+        client_id: fx.clientA,
+        title: `Invasora ${testTag}`,
+        status: "todo",
+        priority: "medium",
+      })
+      .select("id")
+      .single();
+    expect(t.error, "editor sem vínculo não deveria criar tarefa do cliente A").not.toBeNull();
+  });
+
+  it("USER com vínculo acessa somente o próprio cliente", async () => {
+    const own = await A.from("clients").select("id").eq("id", fx.clientA);
+    expect(own.data ?? []).toHaveLength(1);
+    const foreign = await A.from("clients").select("id").eq("id", fx.clientB);
+    expect(foreign.data ?? []).toHaveLength(0);
+
+    const projects = await A.from("projects").select("client_id").eq("brand_id", fx.brandId);
+    expect(
+      (projects.data ?? []).every((p) => p.client_id === fx.clientA || p.client_id === null),
+      "listagem de projetos vaza cliente alheio",
+    ).toBe(true);
+
+    const tasks = await A.from("tasks").select("client_id").eq("brand_id", fx.brandId);
+    expect(
+      (tasks.data ?? []).every((t) => t.client_id === fx.clientA || t.client_id === null),
+      "listagem de tarefas vaza cliente alheio",
+    ).toBe(true);
+  });
+
+  it("CLIENTE (portal_client) acessa somente o próprio cliente", async () => {
+    const c = fx.userPortal.client;
+    const own = await c.from("clients").select("id").eq("id", fx.clientA);
+    expect(own.data ?? []).toHaveLength(1);
+    const foreign = await c.from("clients").select("id").in("id", [fx.clientB, fx.otherBrandClient]);
+    expect(foreign.data ?? []).toHaveLength(0);
+
+    const projB = await c.from("projects").select("id").eq("id", ids.projectB);
+    expect(projB.data ?? []).toHaveLength(0);
+
+    // Portal não é operador de agência: não escreve em projetos/tarefas.
+    const p = await c
+      .from("projects")
+      .insert({ brand_id: fx.brandId, client_id: fx.clientA, name: `Portal ${testTag}` })
+      .select("id")
+      .single();
+    expect(p.error, "portal_client não deveria criar projeto").not.toBeNull();
+  });
+
+  it("cross-brand permanece bloqueado para USER e CLIENTE", async () => {
+    for (const u of [fx.userA, fx.userB, fx.userNoLink, fx.userPortal]) {
+      const cl = await u.client.from("clients").select("id").eq("id", fx.otherBrandClient);
+      expect(cl.data ?? [], `${u.email} não deveria ver cliente de outra marca`).toHaveLength(0);
+      const pr = await u.client.from("projects").select("id").eq("id", fx.otherBrandProject);
+      expect(pr.data ?? [], `${u.email} não deveria ver projeto de outra marca`).toHaveLength(0);
+    }
+  });
+
+  it("COMPORTAMENTO ATUAL DOCUMENTADO: cliente sem responsável e sem vínculos é visível a todos os membros da marca", async () => {
+    // can_access_client_row(): quando owner_user_id é NULL e não existe nenhum
+    // client_members não-portal, qualquer membro da marca (inclusive editor)
+    // recebe acesso. É a regra de produto vigente para clientes recém-criados.
+    for (const u of [fx.userA, fx.userB, fx.userNoLink, fx.userManager, fx.userOwner]) {
+      const r = await u.client.from("clients").select("id").eq("id", fx.clientOrphan);
+      expect(r.data ?? [], `${u.email} deveria ver o cliente órfão`).toHaveLength(1);
+    }
+    // Portal continua isolado ao próprio cliente.
+    const portal = await fx.userPortal.client
+      .from("clients")
+      .select("id")
+      .eq("id", fx.clientOrphan);
+    expect(portal.data ?? []).toHaveLength(0);
+
+    // Ao ganhar um responsável, o cliente sai do modo aberto.
+    await admin
+      .from("client_members")
+      .insert({
+        brand_id: fx.brandId,
+        client_id: fx.clientOrphan,
+        user_id: fx.userA.id,
+        role: "editor",
+      });
+    const noLinkAfter = await fx.userNoLink.client
+      .from("clients")
+      .select("id")
+      .eq("id", fx.clientOrphan);
+    expect(noLinkAfter.data ?? [], "com vínculo definido o cliente deixa de ser aberto").toHaveLength(0);
+    const linkedAfter = await A.from("clients").select("id").eq("id", fx.clientOrphan);
+    expect(linkedAfter.data ?? []).toHaveLength(1);
+  });
+});
+
+
+
 describe("7 & 8. Integridade e E2E", () => {
   it("E2E: projeto → tarefa → 3 subtarefas → 33% → 66% → 33% → arquivar/restaurar", async () => {
     const p = await createProject(A, fx.brandId, fx.clientA, `Projeto Teste ${testTag}`);
@@ -475,6 +635,20 @@ describe("7 & 8. Integridade e E2E", () => {
       if (t.projects.client_id) expect(t.client_id).toBe(t.projects.client_id);
     }
   });
+
+  it("integridade: task_subtasks.brand_id sempre igual ao brand_id da tarefa pai", async () => {
+    const { data, error } = await admin
+      .from("task_subtasks")
+      .select("id, brand_id, task_id, tasks(brand_id)")
+      .in("brand_id", [fx.brandId, fx.otherBrandId]);
+    expect(error, error?.message).toBeNull();
+    const divergentes = ((data ?? []) as Array<Record<string, any>>).filter(
+      (s) => s.tasks && s.tasks.brand_id !== s.brand_id,
+    );
+    expect(divergentes.map((s) => s.id)).toEqual([]);
+  });
+
+
 
   it("integridade: nenhuma subtarefa órfã após exclusão da tarefa (cascade)", async () => {
     const t = await createTask(A, { title: `T descartável ${testTag}`, client_id: fx.clientA });
