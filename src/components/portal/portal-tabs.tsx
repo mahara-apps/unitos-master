@@ -706,38 +706,94 @@ export function FilesTab() {
 
 /* -------------------------------- BRIEFING -------------------------------- */
 
-export function BriefingTab({ token }: { token: string }) {
-  const fn = useServerFn(listPortalBriefingsFn);
-  const q = useQuery({ queryKey: ["portal", "briefings", token], queryFn: () => fn({ data: { token } }) });
+/**
+ * Briefing como pendência do cliente: o que falta responder aparece em
+ * destaque com uma única ação; o histórico fica recolhido abaixo. Nenhum token
+ * é exibido — ele só viaja no href.
+ */
+export function BriefingTab() {
+  const api = usePortalApi();
+  const q = useQuery({ queryKey: ["portal", "briefings", api.scopeKey], queryFn: () => api.briefings() });
   if (q.isLoading) return <ListSkeleton />;
-  if (!q.data?.length) return <EmptyState icon={FileText} title="Sem briefings ativos" description="A equipe irá compartilhar aqui quando precisar de novas respostas." />;
+
+  const rows = q.data ?? [];
+  const isOpen = (b: (typeof rows)[number]) =>
+    !b.revoked_at && !b.submitted_at && (!b.expires_at || new Date(b.expires_at).getTime() > Date.now());
+  const pending = rows.filter(isOpen);
+  const history = rows.filter((b) => !isOpen(b));
+
+  if (!rows.length)
+    return (
+      <EmptyState
+        icon={FileText}
+        title="Nenhum briefing pendente"
+        description="Quando a equipe precisar de novas informações, o pedido aparece aqui."
+      />
+    );
+
   return (
-    <div className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60 bg-card">
-      {q.data.map((b) => {
-        const revoked = !!b.revoked_at;
-        const submitted = !!b.submitted_at;
-        const expired = b.expires_at && new Date(b.expires_at).getTime() < Date.now();
-        const state = revoked ? "revogado" : submitted ? "respondido" : expired ? "expirado" : "aberto";
-        const stateTone =
-          state === "aberto" ? "text-emerald-500" :
-          state === "respondido" ? "text-sky-500" :
-          state === "expirado" ? "text-amber-500" : "text-muted-foreground";
-        return (
-          <div key={b.id} className="flex items-center justify-between gap-3 px-4 py-3">
-            <div className="min-w-0">
-              <div className="truncate text-sm font-medium">{b.label ?? "Briefing"}</div>
-              <div className={`font-mono text-[10px] uppercase tracking-widest ${stateTone}`}>{state}</div>
-            </div>
-            {state === "aberto" && (
-              <a href={`/p/briefing/${b.token}`} target="_blank" rel="noreferrer">
-                <Button size="sm" variant="outline" className="gap-1.5">
-                  Abrir <ExternalLink className="h-3.5 w-3.5" />
+    <div className="space-y-4">
+      {pending.length > 0 ? (
+        <div className="space-y-3">
+          {pending.map((b) => (
+            <div
+              key={b.id}
+              className="flex flex-col gap-3 rounded-xl border border-amber-500/40 bg-amber-500/5 p-4 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <div className="min-w-0 space-y-1">
+                <div className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-amber-600 dark:text-amber-400">
+                  <Hourglass className="h-3 w-3" /> aguardando você
+                </div>
+                <div className="truncate text-sm font-medium">{b.label ?? "Briefing da marca"}</div>
+                <div className="text-xs text-muted-foreground">
+                  {b.expires_at
+                    ? `Responda até ${formatDate(b.expires_at)} para a equipe seguir com a produção.`
+                    : "Suas respostas alimentam a estratégia e a pauta do mês."}
+                </div>
+              </div>
+              <a href={`/p/briefing/${b.token}`} target="_blank" rel="noreferrer" className="shrink-0">
+                <Button size="sm" className="gap-1.5">
+                  Responder briefing <ExternalLink className="h-3.5 w-3.5" />
                 </Button>
               </a>
-            )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 px-4 py-3 text-sm">
+          <span className="inline-flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
+            <CheckCircle2 className="h-4 w-4" /> Nada pendente
+          </span>
+          <span className="ml-2 text-muted-foreground">Você respondeu tudo o que a equipe pediu.</span>
+        </div>
+      )}
+
+      {history.length > 0 && (
+        <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
+          <div className="border-b border-border/60 px-4 py-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            histórico
           </div>
-        );
-      })}
+          <div className="divide-y divide-border/60">
+            {history.map((b) => {
+              const state = b.submitted_at
+                ? { label: "Respondido", tone: "text-sky-500", when: b.submitted_at }
+                : b.revoked_at
+                  ? { label: "Encerrado pela equipe", tone: "text-muted-foreground", when: b.revoked_at }
+                  : { label: "Prazo encerrado", tone: "text-amber-500", when: b.expires_at };
+              return (
+                <div key={b.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                  <div className="min-w-0 truncate text-sm">{b.label ?? "Briefing"}</div>
+                  <div className={`shrink-0 text-xs ${state.tone}`}>
+                    {state.label}
+                    {state.when ? ` · ${formatDate(state.when)}` : ""}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
