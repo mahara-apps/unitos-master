@@ -714,8 +714,175 @@ export function FilesTab() {
  */
 export function BriefingTab() {
   const api = usePortalApi();
-  const q = useQuery({ queryKey: ["portal", "briefings", api.scopeKey], queryFn: () => api.briefings() });
+  const q = useQuery({
+    queryKey: ["portal", "briefing-requests", api.scopeKey],
+    queryFn: () => api.briefingRequests(),
+  });
+
   if (q.isLoading) return <ListSkeleton />;
+  const requests = q.data ?? [];
+  const pending = requests.filter((r) => r.status === "requested");
+  const answered = requests.filter((r) => r.status !== "requested");
+
+  return (
+    <div className="space-y-4">
+      {pending.length === 0 && answered.length === 0 ? (
+        <EmptyState
+          icon={FileText}
+          title="Nenhum briefing pendente"
+          description="Quando a equipe precisar de novas informações, o pedido aparece aqui."
+        />
+      ) : null}
+
+      {pending.map((r) => (
+        <BriefingRequestForm key={r.id} request={r} />
+      ))}
+
+      {answered.length > 0 && (
+        <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
+          <div className="border-b border-border/60 px-4 py-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            respostas enviadas
+          </div>
+          <div className="divide-y divide-border/60">
+            {answered.map((r) => (
+              <div key={r.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                <div className="min-w-0">
+                  <div className="truncate text-sm">
+                    {r.requested_fields.map(briefingFieldLabel).join(" · ") || "Briefing"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {r.submitted_at ? `Enviado em ${formatDate(r.submitted_at)}` : "—"}
+                  </div>
+                </div>
+                <Badge variant="secondary" className="shrink-0 text-[10px]">
+                  {r.status === "in_review" ? "Em revisão pela equipe" : "Respondido"}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <LegacyBriefingLinks />
+    </div>
+  );
+}
+
+/** Formulário de resposta: mesmos campos do briefing oficial, salvo como proposta. */
+function BriefingRequestForm({
+  request,
+}: {
+  request: { id: string; requested_fields: string[]; message: string | null; due_at: string | null };
+}) {
+  const api = usePortalApi();
+  const qc = useQueryClient();
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [note, setNote] = useState("");
+  const [files, setFiles] = useState<Array<{ name: string; mime?: string | null; dataBase64: string }>>([]);
+
+  const fields = request.requested_fields.map(briefingField).filter(Boolean) as BriefingField[];
+
+  const submit = useMutation({
+    mutationFn: () =>
+      api.submitBriefing({
+        requestId: request.id,
+        answers: Object.fromEntries(
+          fields.map((f) => [
+            f.key,
+            f.type === "list"
+              ? (answers[f.key] ?? "").split("\n").map((v) => v.trim()).filter(Boolean)
+              : (answers[f.key] ?? ""),
+          ]),
+        ),
+        note: note.trim() || undefined,
+        attachments: files.length ? files : undefined,
+      }),
+    onSuccess: () => {
+      toast.success("Resposta enviada para a equipe");
+      void qc.invalidateQueries({ queryKey: ["portal", "briefing-requests"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Não foi possível enviar"),
+  });
+
+  const filled = fields.some((f) => (answers[f.key] ?? "").trim().length > 0);
+
+  async function pickFiles(list: FileList | null) {
+    if (!list?.length) return;
+    const next: typeof files = [];
+    for (const file of Array.from(list).slice(0, 5)) {
+      const buf = await file.arrayBuffer();
+      let bin = "";
+      const bytes = new Uint8Array(buf);
+      for (let i = 0; i < bytes.length; i += 1) bin += String.fromCharCode(bytes[i]!);
+      next.push({ name: file.name, mime: file.type || null, dataBase64: btoa(bin) });
+    }
+    setFiles(next);
+  }
+
+  return (
+    <div className="space-y-4 rounded-xl border border-amber-500/40 bg-amber-500/5 p-4">
+      <div className="space-y-1">
+        <div className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-amber-600 dark:text-amber-400">
+          <Hourglass className="h-3 w-3" /> aguardando você
+        </div>
+        <div className="text-sm font-medium">A equipe precisa destas informações</div>
+        {request.message ? <div className="text-xs text-muted-foreground">{request.message}</div> : null}
+        {request.due_at ? (
+          <div className="text-xs text-muted-foreground">Responda até {formatDate(request.due_at)}.</div>
+        ) : null}
+      </div>
+
+      <div className="grid gap-3">
+        {fields.map((f) => (
+          <div key={f.key} className="space-y-1">
+            <div className="text-xs font-medium">{f.label}</div>
+            {f.hint ? <div className="text-[11px] text-muted-foreground">{f.hint}</div> : null}
+            {f.type === "text" ? (
+              <Input
+                value={answers[f.key] ?? ""}
+                onChange={(e) => setAnswers((p) => ({ ...p, [f.key]: e.target.value }))}
+              />
+            ) : (
+              <Textarea
+                rows={f.type === "list" ? 3 : 4}
+                value={answers[f.key] ?? ""}
+                onChange={(e) => setAnswers((p) => ({ ...p, [f.key]: e.target.value }))}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-1">
+        <div className="text-xs font-medium">Observação (opcional)</div>
+        <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+      </div>
+
+      <div className="space-y-1">
+        <div className="text-xs font-medium">Anexos (opcional)</div>
+        <Input type="file" multiple onChange={(e) => void pickFiles(e.target.files)} />
+        {files.length ? (
+          <div className="text-[11px] text-muted-foreground">{files.length} arquivo(s) selecionado(s)</div>
+        ) : null}
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-[11px] text-muted-foreground">
+          Sua resposta é enviada para revisão da equipe antes de entrar no briefing oficial.
+        </div>
+        <Button size="sm" disabled={!filled || submit.isPending} onClick={() => submit.mutate()}>
+          {submit.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+          Enviar resposta
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Links de briefing por token (fluxo legado) — mantidos apenas como histórico. */
+function LegacyBriefingLinks() {
+  const api = usePortalApi();
+  const q = useQuery({ queryKey: ["portal", "briefings", api.scopeKey], queryFn: () => api.briefings() });
 
   const rows = q.data ?? [];
   const isOpen = (b: (typeof rows)[number]) =>
