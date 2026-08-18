@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { assertBrandAdmin, assertClientScope } from "@/lib/access-guard";
+import { assertAdminAuthority, assertBrandAdmin, assertClientScope } from "@/lib/access-guard";
 import { computeBriefingCompletion } from "@/lib/briefing-progress";
 import type { BrandHubData } from "@/lib/brand-hub.functions";
 
@@ -279,6 +279,9 @@ export const getBrandCompany = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ brandId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
+    // Mesma regra canônica da escrita: dados cadastrais (CPF/CNPJ/endereço)
+    // só são expostos a super_admin / admin / manager.
+    await assertAdminAuthority(context.supabase, context.userId, data.brandId);
     const { data: row, error } = await context.supabase
       .from("brands")
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -299,17 +302,8 @@ export const updateBrandCompany = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => BrandCompanySchema.parse(input))
   .handler(async ({ data, context }) => {
-    // Somente owner/manager podem alterar dados da empresa.
-    const { data: mem } = await context.supabase
-      .from("brand_members")
-      .select("role")
-      .eq("brand_id", data.brandId)
-      .eq("user_id", context.userId)
-      .maybeSingle();
-    const role = (mem?.role ?? "").toLowerCase();
-    if (role !== "owner" && role !== "manager") {
-      throw new Error("Apenas administradores podem editar os dados da empresa.");
-    }
+    // Regra canônica única (UI = server = RLS): super_admin / admin (owner) / manager.
+    await assertAdminAuthority(context.supabase, context.userId, data.brandId);
     const { brandId, ...patch } = data;
     const { error } = await context.supabase
       .from("brands")
