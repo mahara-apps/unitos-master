@@ -1000,15 +1000,7 @@ export const loadClientContextFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
-    const [briefing, voice, personas, cohorts, swot, usage] = await Promise.all([
-      context.supabase
-        .from("brand_briefings")
-        .select("*")
-        .eq("brand_id", data.brandId)
-        .eq("client_id", data.clientId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+    const [voice, personas, cohorts, swot, usage] = await Promise.all([
       context.supabase
         .from("brand_voice_cards")
         .select("*")
