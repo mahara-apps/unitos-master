@@ -195,9 +195,7 @@ export function HomeTab() {
         <PortalLink tab="calendar" className="block">
           <PageKpi
             label="Próximos compromissos"
-            value={
-              calendarQ.isLoading ? <Skeleton className="h-6 w-10" /> : upcoming.length
-            }
+            value={calendarQ.isLoading ? <Skeleton className="h-6 w-10" /> : upcoming.length}
             icon={<CalendarClock />}
             status="info"
             description="Publicações já com data"
@@ -323,9 +321,7 @@ export function HomeTab() {
                   <div className="truncate text-sm">{r.text}</div>
                   <div className="text-xs text-muted-foreground">{r.detail}</div>
                 </div>
-                <span className="shrink-0 text-xs text-muted-foreground">
-                  {formatDate(r.when)}
-                </span>
+                <span className="shrink-0 text-xs text-muted-foreground">{formatDate(r.when)}</span>
               </li>
             ))}
           </ol>
