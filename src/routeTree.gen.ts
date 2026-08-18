@@ -54,6 +54,7 @@ import { Route as ApiJobsAnalyzeDocumentRouteImport } from './routes/api/jobs/an
 import { Route as ApiChatStreamRouteImport } from './routes/api/chat.stream'
 import { Route as PortalAreaInicioRouteImport } from './routes/_portal/area.inicio'
 import { Route as PortalAreaCalendarioRouteImport } from './routes/_portal/area.calendario'
+import { Route as PortalAreaArquivosRouteImport } from './routes/_portal/area.arquivos'
 import { Route as PortalAreaAprovacoesRouteImport } from './routes/_portal/area.aprovacoes'
 import { Route as AuthenticatedSuperAdminFeaturesRouteImport } from './routes/_authenticated/super-admin.features'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
@@ -324,6 +325,11 @@ const PortalAreaCalendarioRoute = PortalAreaCalendarioRouteImport.update({
   path: '/calendario',
   getParentRoute: () => PortalAreaRoute,
 } as any)
+const PortalAreaArquivosRoute = PortalAreaArquivosRouteImport.update({
+  id: '/arquivos',
+  path: '/arquivos',
+  getParentRoute: () => PortalAreaRoute,
+} as any)
 const PortalAreaAprovacoesRoute = PortalAreaAprovacoesRouteImport.update({
   id: '/aprovacoes',
   path: '/aprovacoes',
@@ -590,6 +596,7 @@ export interface FileRoutesByFullPath {
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
   '/area/aprovacoes': typeof PortalAreaAprovacoesRoute
+  '/area/arquivos': typeof PortalAreaArquivosRoute
   '/area/calendario': typeof PortalAreaCalendarioRoute
   '/area/inicio': typeof PortalAreaInicioRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
@@ -667,6 +674,7 @@ export interface FileRoutesByTo {
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
   '/area/aprovacoes': typeof PortalAreaAprovacoesRoute
+  '/area/arquivos': typeof PortalAreaArquivosRoute
   '/area/calendario': typeof PortalAreaCalendarioRoute
   '/area/inicio': typeof PortalAreaInicioRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
@@ -753,6 +761,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/_authenticated/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
   '/_portal/area/aprovacoes': typeof PortalAreaAprovacoesRoute
+  '/_portal/area/arquivos': typeof PortalAreaArquivosRoute
   '/_portal/area/calendario': typeof PortalAreaCalendarioRoute
   '/_portal/area/inicio': typeof PortalAreaInicioRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
@@ -838,6 +847,7 @@ export interface FileRouteTypes {
     | '/settings/team'
     | '/super-admin/features'
     | '/area/aprovacoes'
+    | '/area/arquivos'
     | '/area/calendario'
     | '/area/inicio'
     | '/api/chat/stream'
@@ -915,6 +925,7 @@ export interface FileRouteTypes {
     | '/settings/team'
     | '/super-admin/features'
     | '/area/aprovacoes'
+    | '/area/arquivos'
     | '/area/calendario'
     | '/area/inicio'
     | '/api/chat/stream'
@@ -1000,6 +1011,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/team'
     | '/_authenticated/super-admin/features'
     | '/_portal/area/aprovacoes'
+    | '/_portal/area/arquivos'
     | '/_portal/area/calendario'
     | '/_portal/area/inicio'
     | '/api/chat/stream'
@@ -1393,6 +1405,13 @@ declare module '@tanstack/react-router' {
       path: '/calendario'
       fullPath: '/area/calendario'
       preLoaderRoute: typeof PortalAreaCalendarioRouteImport
+      parentRoute: typeof PortalAreaRoute
+    }
+    '/_portal/area/arquivos': {
+      id: '/_portal/area/arquivos'
+      path: '/arquivos'
+      fullPath: '/area/arquivos'
+      preLoaderRoute: typeof PortalAreaArquivosRouteImport
       parentRoute: typeof PortalAreaRoute
     }
     '/_portal/area/aprovacoes': {
@@ -1837,12 +1856,14 @@ const AuthenticatedRouteRouteWithChildren =
 
 interface PortalAreaRouteChildren {
   PortalAreaAprovacoesRoute: typeof PortalAreaAprovacoesRoute
+  PortalAreaArquivosRoute: typeof PortalAreaArquivosRoute
   PortalAreaCalendarioRoute: typeof PortalAreaCalendarioRoute
   PortalAreaInicioRoute: typeof PortalAreaInicioRoute
 }
 
 const PortalAreaRouteChildren: PortalAreaRouteChildren = {
   PortalAreaAprovacoesRoute: PortalAreaAprovacoesRoute,
+  PortalAreaArquivosRoute: PortalAreaArquivosRoute,
   PortalAreaCalendarioRoute: PortalAreaCalendarioRoute,
   PortalAreaInicioRoute: PortalAreaInicioRoute,
 }
