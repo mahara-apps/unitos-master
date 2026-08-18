@@ -262,24 +262,17 @@ export function projectCanonicalBriefingRow(
   canonical: CanonicalBriefing,
   legacyRow: Record<string, unknown> | null | undefined,
   scope: { brandId: string; clientId: string },
-): Record<string, unknown> | null {
+): CanonicalBriefingRow | null {
   const hasHubData = canonical.completion > 0;
   if (!legacyRow && !hasHubData) return null;
-  const base = legacyRow ?? {
-    id: null,
-    brand_id: scope.brandId,
-    client_id: scope.clientId,
-    raw_text: null,
-    created_at: null,
-  };
   return {
-    ...base,
-    data: {
-      ...(((legacyRow?.data as Record<string, unknown>) ?? {}) as Record<string, unknown>),
-      ...canonical.legacy,
-    },
+    id: typeof legacyRow?.id === "string" ? legacyRow.id : null,
+    brand_id: typeof legacyRow?.brand_id === "string" ? legacyRow.brand_id : scope.brandId,
+    client_id: typeof legacyRow?.client_id === "string" ? legacyRow.client_id : scope.clientId,
+    raw_text: typeof legacyRow?.raw_text === "string" ? legacyRow.raw_text : null,
+    created_at: typeof legacyRow?.created_at === "string" ? legacyRow.created_at : null,
+    data: canonical.legacy,
     completude: canonical.completion,
-    /** Origem do dado exposto (diagnóstico da Fase 1). */
     source: "brand_hub",
   };
 }
