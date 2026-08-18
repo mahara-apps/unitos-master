@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertBrandAdmin, assertClientScope } from "@/lib/access-guard";
+import { computeBriefingCompletion } from "@/lib/briefing-progress";
+import type { BrandHubData } from "@/lib/brand-hub.functions";
 
 /** Lista brands em que o usuário é membro. */
 export const listMyBrands = createServerFn({ method: "GET" })
