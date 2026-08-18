@@ -14,6 +14,7 @@ import {
   sleep,
   type FailureKind,
 } from "@/lib/ai-failures.server";
+import { loadCanonicalBriefing } from "@/lib/briefing-source.server";
 
 
 // Two-phase pipeline — Phase 1 (Strategy).
