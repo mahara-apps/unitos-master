@@ -947,15 +947,16 @@ export const saveArtifactVersionFn = createServerFn({ method: "POST" })
       .object({
         brandId: z.string().uuid(),
         clientId: z.string().uuid(),
-        entityType: z.enum(["briefing", "voice", "personas", "cohorts", "swot"]),
+        entityType: z.enum(["voice", "personas", "cohorts", "swot"]),
         entityId: z.string().uuid(),
         data: z.unknown(),
       })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
+    // FASE 2: o briefing não é mais editado por aqui — sua fonte única é
+    // clients.brand_hub (writeCanonicalBriefing + brand_briefing_versions).
     const tableMap = {
-      briefing: "brand_briefings",
       voice: "brand_voice_cards",
       personas: "brand_personas",
       cohorts: "brand_cohorts",
