@@ -3,14 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckSquare,
   CalendarDays,
-  FolderOpen,
   FileText,
   Check,
   X,
   MessageSquareWarning,
   MessageCircle,
-  Download,
-  Search,
   Clock,
   Loader2,
   ImageIcon,
@@ -30,17 +27,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { PortalLink, usePortalApi } from "./portal-context";
 import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
-import { BRIEFING_BLOCKS, BRIEFING_FIELDS } from "@/lib/briefing-fields";
 import type { PortalTabId } from "./portal-nav";
 import { PautaApprovals } from "./portal-pauta";
 import { PortalCalendar } from "./portal-calendar";
 import { PortalBriefing } from "./portal-briefing";
+import { PortalFiles } from "./portal-files";
+import { PortalBrand } from "./portal-brand";
 import { PLAN_PENDING_CLIENT_STATUS } from "@/lib/monthly-plan-client.types";
 import {
   EmptyState,
   GridSkeleton,
   ListSkeleton,
-  formatBytes,
   formatDate,
   usePortalIdentity,
 } from "./portal-shared";
@@ -367,58 +364,7 @@ export function PautaTab() {
 /* ------------------------------- MINHA MARCA ------------------------------ */
 
 export function BrandTab() {
-  const api = usePortalApi();
-  const q = useQuery({
-    queryKey: ["portal", "brand-hub", api.scopeKey],
-    queryFn: () => api.brandHub(),
-    staleTime: 5 * 60_000,
-  });
-
-  if (q.isLoading) return <ListSkeleton />;
-  const data = q.data;
-  const hub = data?.hub ?? {};
-  const blocks = BRIEFING_BLOCKS.map((b) => ({
-    ...b,
-    fields: BRIEFING_FIELDS.filter((f) => f.block === b.id && hub[f.key]),
-  })).filter((b) => b.fields.length > 0);
-
-  if (!blocks.length)
-    return (
-      <EmptyState
-        icon={FileText}
-        title="Ainda não há informações da sua marca"
-        description="Depois que você responder o briefing, as informações aprovadas aparecem aqui."
-      />
-    );
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-border/60 bg-card p-5">
-        <h2 className="text-base font-semibold tracking-tight">{data?.clientName}</h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Estas são as informações da sua marca usadas pela equipe. Para atualizar algo, fale com a
-          equipe ou responda um novo briefing.
-          {data?.updatedAt ? ` Última atualização em ${formatDate(data.updatedAt)}.` : ""}
-        </p>
-      </div>
-
-      {blocks.map((b) => (
-        <div key={b.id} className="rounded-xl border border-border/60 bg-card p-5">
-          <div className="text-sm font-semibold tracking-tight">{b.label}</div>
-          <dl className="mt-3 grid gap-4 sm:grid-cols-2">
-            {b.fields.map((f) => (
-              <div key={f.key} className="min-w-0">
-                <dt className="text-[11px] uppercase tracking-widest text-muted-foreground">
-                  {f.label}
-                </dt>
-                <dd className="mt-1 whitespace-pre-line text-sm">{hub[f.key]}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-      ))}
-    </div>
-  );
+  return <PortalBrand />;
 }
 
 /* -------------------------------- APPROVALS ------------------------------- */
@@ -957,56 +903,7 @@ export function CalendarTab() {
 /* ---------------------------------- FILES --------------------------------- */
 
 export function FilesTab() {
-  const [search, setSearch] = useState("");
-  const api = usePortalApi();
-  const q = useQuery({
-    queryKey: ["portal", "files", api.scopeKey, search],
-    queryFn: () => api.files(search),
-  });
-  return (
-    <div className="space-y-4">
-      <div className="relative max-w-md">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Buscar arquivos"
-          className="h-9 pl-9"
-        />
-      </div>
-      {q.isLoading ? (
-        <ListSkeleton />
-      ) : !q.data?.length ? (
-        <EmptyState
-          icon={FolderOpen}
-          title="Sem arquivos"
-          description="A equipe ainda não compartilhou documentos."
-        />
-      ) : (
-        <div className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60 bg-card">
-          {q.data.map((f) => (
-            <div key={f.id as string} className="flex items-center justify-between gap-3 px-4 py-3">
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium">{f.name}</div>
-                <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  <span>{formatBytes(f.size_bytes as number | null)}</span>
-                  <Clock className="h-3 w-3" />
-                  <span>{formatDate(f.created_at as string)}</span>
-                </div>
-              </div>
-              {f.url && (
-                <a href={f.url as string} target="_blank" rel="noreferrer">
-                  <Button size="sm" variant="outline" className="gap-1.5">
-                    <Download className="h-3.5 w-3.5" /> Baixar
-                  </Button>
-                </a>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+  return <PortalFiles />;
 }
 
 /* -------------------------------- BRIEFING -------------------------------- */
