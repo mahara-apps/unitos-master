@@ -339,7 +339,7 @@ function PautaDetail({ planId, onBack }: { planId: string; onBack: () => void })
                       <div className="text-sm font-medium">{topic.topic_title}</div>
                       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                         <span className="inline-flex items-center gap-1 capitalize">
-                          <CalendarDays className="h-3 w-3" /> {monthLabel(topic_dateSource(q.data.plan.created_at))}
+                          <CalendarDays className="h-3 w-3" /> {monthLabel(q.data.plan.created_at)}
                         </span>
                         {topic.channel && <span className="capitalize">{topic.channel}</span>}
                         {topic.content_format && (
@@ -442,11 +442,6 @@ function PautaDetail({ planId, onBack }: { planId: string; onBack: () => void })
       )}
     </div>
   );
-}
-
-/** Sem data por item no fluxo atual: usamos o período da pauta. */
-function topic_dateSource(planCreatedAt: string) {
-  return planCreatedAt;
 }
 
 /* ---------------------------- detalhe do item ---------------------------- */
