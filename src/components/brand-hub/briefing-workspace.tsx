@@ -1594,6 +1594,10 @@ function StackedBrainLayout(props: StackedProps) {
             <DocumentsTab brandId={brandId} clientId={clientId} />
           </BrainSection>
 
+          <BrainSection id="briefing-cliente" title="Briefing com o cliente">
+            <BriefingRequestPanel brandId={brandId} clientId={clientId} />
+          </BrainSection>
+
           {appendSlot ? <div className="space-y-10 pt-4">{appendSlot}</div> : null}
         </div>
       </div>
