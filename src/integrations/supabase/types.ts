@@ -1900,6 +1900,67 @@ export type Database = {
           },
         ]
       }
+      brand_briefing_versions: {
+        Row: {
+          brand_id: string
+          changed_by: string | null
+          changed_fields: string[]
+          client_id: string
+          completion: number
+          created_at: string
+          id: string
+          origin: string
+          snapshot: Json
+          status: string
+        }
+        Insert: {
+          brand_id: string
+          changed_by?: string | null
+          changed_fields?: string[]
+          client_id: string
+          completion?: number
+          created_at?: string
+          id?: string
+          origin?: string
+          snapshot?: Json
+          status?: string
+        }
+        Update: {
+          brand_id?: string
+          changed_by?: string | null
+          changed_fields?: string[]
+          client_id?: string
+          completion?: number
+          created_at?: string
+          id?: string
+          origin?: string
+          snapshot?: Json
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_briefing_versions_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "brand_briefing_versions_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_briefing_versions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_briefings: {
         Row: {
           brand_id: string
@@ -3423,6 +3484,9 @@ export type Database = {
           archived_at: string | null
           brand_hub: Json
           brand_id: string
+          briefing_status: string
+          briefing_status_at: string | null
+          briefing_status_by: string | null
           cnpj: string | null
           color: string | null
           contact_email: string | null
@@ -3458,6 +3522,9 @@ export type Database = {
           archived_at?: string | null
           brand_hub?: Json
           brand_id: string
+          briefing_status?: string
+          briefing_status_at?: string | null
+          briefing_status_by?: string | null
           cnpj?: string | null
           color?: string | null
           contact_email?: string | null
@@ -3493,6 +3560,9 @@ export type Database = {
           archived_at?: string | null
           brand_hub?: Json
           brand_id?: string
+          briefing_status?: string
+          briefing_status_at?: string | null
+          briefing_status_by?: string | null
           cnpj?: string | null
           color?: string | null
           contact_email?: string | null

@@ -82,7 +82,11 @@ export async function loadBriefingContext(
       .not("ai_summary", "is", null)
       .limit(12),
     opts.briefingId
-      ? supabase.from("brand_briefings").select("data").eq("id", opts.briefingId).maybeSingle()
+      ? supabase
+          .from("brand_briefing_versions")
+          .select("snapshot")
+          .eq("id", opts.briefingId)
+          .maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
 
@@ -238,8 +242,8 @@ export async function loadBriefingContext(
     }
   }
 
-  // Briefing versionado escolhido explicitamente (opcional)
-  const versioned = (briefingRes as { data?: { data?: unknown } | null } | null)?.data?.data;
+  // Versão de briefing escolhida explicitamente (opcional)
+  const versioned = (briefingRes as { data?: { snapshot?: unknown } | null } | null)?.data?.snapshot;
   if (versioned) {
     const raw = typeof versioned === "string" ? versioned : JSON.stringify(versioned);
     lines.push(`Briefing selecionado (versão): ${raw.slice(0, 3000)}`);

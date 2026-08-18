@@ -218,13 +218,18 @@ export const updateBrandHub = createServerFn({ method: "POST" })
         (next.volumetry ?? {}) as Record<string, number | undefined>,
       ) as BrandHubData["volumetry"];
     }
-    const { error } = await context.supabase
-      .from("clients")
-      .update({ brand_hub: next } as never)
-      .eq("id", data.clientId)
-      .eq("brand_id", data.brandId);
-    if (error) throw error;
-    return { ok: true, brand_hub: next };
+    // FASE 2: escrita canônica + snapshot em brand_briefing_versions.
+    const { writeCanonicalBriefing } = await import("@/lib/briefing-write.server");
+    const res = await writeCanonicalBriefing(context.supabase, {
+      brandId: data.brandId,
+      clientId: data.clientId,
+      patch: next as unknown as Record<string, unknown>,
+      authorId: context.userId,
+      origin: "manual",
+      // Edição manual pode limpar campos: valores vazios devem persistir.
+      skipEmpty: false,
+    });
+    return { ok: true, brand_hub: res.hub };
   });
 
 /* -------------------- Competitor benchmarking -------------------- */

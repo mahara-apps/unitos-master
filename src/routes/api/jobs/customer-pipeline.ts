@@ -787,35 +787,16 @@ async function runStep(params: {
       models[step] = `${provider}:${modelId}`;
       state.briefing = briefing;
 
-      // Mescla com o briefing existente (preserva o que veio de documentos).
-      const { data: existing } = await supabase
-        .from("brand_briefings")
-        .select("id, data")
-        .eq("brand_id", state.brandId)
-        .eq("client_id", state.clientId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      const merged = { ...((existing?.data as Record<string, unknown>) ?? {}), ...briefing };
-      if (existing?.id) {
-        await supabase
-          .from("brand_briefings")
-          .update({
-            data: merged as never,
-            raw_text: state.texto,
-            completude: briefing.completude_percentual ?? 0,
-          })
-          .eq("id", existing.id);
-      } else {
-        await supabase.from("brand_briefings").insert({
-          brand_id: state.brandId,
-          client_id: state.clientId,
-          raw_text: state.texto,
-          data: merged as never,
-          completude: briefing.completude_percentual ?? 0,
-          created_by: userId,
-        });
-      }
+      // FASE 2: escreve na fonte única (clients.brand_hub) + versão auditável.
+      const { writeCanonicalBriefing } = await import("@/lib/briefing-write.server");
+      const { legacyToHubPatch } = await import("@/lib/briefing-source.server");
+      await writeCanonicalBriefing(supabase, {
+        brandId: state.brandId,
+        clientId: state.clientId,
+        patch: legacyToHubPatch(briefing as unknown as Record<string, unknown>),
+        authorId: userId,
+        origin: "ai.pipeline",
+      });
     } else if (step === "voice") {
       const { value, provider, modelId } = await runJson({
         system: P.voice,

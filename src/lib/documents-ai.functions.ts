@@ -166,48 +166,17 @@ export const applyDocumentToBriefing = createServerFn({ method: "POST" })
       throw new Error("Nenhum campo válido selecionado.");
     }
 
-    // Fonte canônica: clients.brand_hub. As chaves de DocumentBriefingSummary
-    // são exatamente as chaves do brand_hub, então o patch é aplicado direto.
-    const { data: clientRow, error: clientErr } = await context.supabase
-      .from("clients")
-      .select("brand_hub")
-      .eq("id", data.clientId)
-      .maybeSingle();
-    if (clientErr) throw clientErr;
-    const currentHub = (clientRow?.brand_hub ?? {}) as Record<string, unknown>;
-    const mergedHub = { ...currentHub, ...patch };
-    const { error: hubErr } = await context.supabase
-      .from("clients")
-      .update({ brand_hub: mergedHub as never })
-      .eq("id", data.clientId)
-      .eq("brand_id", data.brandId);
-    if (hubErr) throw hubErr;
-
-    // Compatibilidade temporária: espelha em brand_briefings (não é fonte).
-    const { data: existing } = await context.supabase
-      .from("brand_briefings")
-      .select("id, data")
-      .eq("brand_id", data.brandId)
-      .eq("client_id", data.clientId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const mergedData = { ...((existing?.data as Record<string, unknown>) ?? {}), ...patch };
-
-    if (existing?.id) {
-      await context.supabase
-        .from("brand_briefings")
-        .update({ data: mergedData as never })
-        .eq("id", existing.id);
-    } else {
-      await context.supabase.from("brand_briefings").insert({
-        brand_id: data.brandId,
-        client_id: data.clientId,
-        data: mergedData as never,
-        created_by: context.userId,
-      });
-    }
+    // Fonte única: clients.brand_hub. As chaves de DocumentBriefingSummary são
+    // exatamente as chaves do brand_hub, então o patch é aplicado direto —
+    // com snapshot de auditoria em brand_briefing_versions.
+    const { writeCanonicalBriefing } = await import("@/lib/briefing-write.server");
+    await writeCanonicalBriefing(context.supabase, {
+      brandId: data.brandId,
+      clientId: data.clientId,
+      patch,
+      authorId: context.userId,
+      origin: "document",
+    });
 
     await (context.supabase as unknown as {
       from: (t: string) => {
