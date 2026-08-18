@@ -30,7 +30,15 @@ const CLIENT_VISIBLE_STATUS = [
   "client_approved",
   "changes_requested",
   "client_rejected",
+  // Histórico: pauta que o cliente aprovou e seguiu para produção (`approved`).
+  // Só entra na visão do cliente se houver decisão dele registrada (ver filtro
+  // `hasClientHistory`), e a decisão continua bloqueada por `plan_not_pending`.
+  "approved",
 ];
+
+/** `approved` só é visível como histórico quando o cliente decidiu de fato. */
+const hasClientHistory = (row: { status: string; client_decision_at: string | null }) =>
+  row.status !== "approved" || !!row.client_decision_at;
 
 export async function listPlansForClient(
   sb: SupabaseClient,

@@ -24,7 +24,7 @@ async function readBrandHub(clientId: string, brandId: string): Promise<PortalBr
   const admin = await scopedAdmin();
   const { data, error } = await admin
     .from("clients")
-    .select("name, niche, tone_of_voice, brand_hub, briefing_updated_at, updated_at")
+    .select("name, niche, tone_of_voice, brand_hub, briefing_status_at, updated_at")
     .eq("id", clientId)
     .eq("brand_id", brandId)
     .maybeSingle();
@@ -45,7 +45,7 @@ async function readBrandHub(clientId: string, brandId: string): Promise<PortalBr
     clientName: (row["name"] as string) ?? null,
     niche: (row["niche"] as string) ?? null,
     toneOfVoice: (row["tone_of_voice"] as string) ?? null,
-    updatedAt: (row["briefing_updated_at"] as string) ?? (row["updated_at"] as string) ?? null,
+    updatedAt: (row["briefing_status_at"] as string) ?? (row["updated_at"] as string) ?? null,
     hub,
   };
 }
