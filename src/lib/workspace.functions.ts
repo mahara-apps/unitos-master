@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertBrandAdmin, assertClientScope } from "@/lib/access-guard";
+import { computeBriefingCompletion } from "@/lib/briefing-progress";
+import type { BrandHubData } from "@/lib/brand-hub.functions";
 
 /** Lista brands em que o usuário é membro. */
 export const listMyBrands = createServerFn({ method: "GET" })
@@ -59,20 +61,33 @@ export const listClients = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { data: clients, error } = await context.supabase
       .from("clients")
-      .select("id, name, legal_name, cnpj, description, niche, color, logo_url, contact_name, contact_email, contact_phone, website, address, tone_of_voice, palette, socials, is_active, owner_user_id, created_at, updated_at")
+      .select("id, name, legal_name, cnpj, description, niche, color, logo_url, contact_name, contact_email, contact_phone, website, address, tone_of_voice, palette, socials, is_active, owner_user_id, created_at, updated_at, brand_hub")
       .eq("brand_id", data.brandId)
       .is("archived_at", null)
       .order("name");
     if (error) throw error;
     const list = clients ?? [];
     if (list.length === 0) return [];
+    // `clients.brand_hub` é a fonte canônica do briefing; brand_briefings só
+    // entra como fallback de compatibilidade (clientes antigos).
     const { data: briefings } = await context.supabase
       .from("brand_briefings")
       .select("client_id")
       .eq("brand_id", data.brandId)
       .in("client_id", list.map((c) => c.id));
-    const withBriefing = new Set((briefings ?? []).map((b) => b.client_id));
-    return list.map((c) => ({ ...c, has_briefing: withBriefing.has(c.id) }));
+    const withLegacyBriefing = new Set((briefings ?? []).map((b) => b.client_id));
+    return list.map((c) => {
+      const { brand_hub, ...rest } = c as typeof c & { brand_hub?: unknown };
+      const completion = computeBriefingCompletion(
+        (brand_hub ?? {}) as BrandHubData,
+        { tone_of_voice: rest.tone_of_voice ?? null },
+      );
+      return {
+        ...rest,
+        has_briefing: completion > 0 || withLegacyBriefing.has(c.id),
+        briefing_completion: completion,
+      };
+    });
   });
 
 const CreateClientInput = z.object({

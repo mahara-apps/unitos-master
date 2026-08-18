@@ -14,6 +14,7 @@ import {
   sleep,
   type FailureKind,
 } from "@/lib/ai-failures.server";
+import { loadCanonicalBriefing } from "@/lib/briefing-source.server";
 
 
 // Two-phase pipeline — Phase 1 (Strategy).
@@ -1086,14 +1087,12 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
             .not("ai_summary", "is", null)
             .order("created_at", { ascending: false })
             .limit(8),
-          supabase
-            .from("brand_briefings")
-            .select("data")
-            .eq("brand_id", input.brandId)
-            .eq("client_id", input.clientId)
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle(),
+          // Briefing canônico derivado de clients.brand_hub (brand_briefings
+          // permanece apenas como fallback interno de compatibilidade).
+          loadCanonicalBriefing(supabase, {
+            clientId: input.clientId,
+            brandId: input.brandId,
+          }),
         ]);
         if (clientRes.error || !clientRes.data) {
           return new Response(clientRes.error?.message ?? "Cliente não encontrado", { status: 404 });
@@ -1102,12 +1101,16 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
         const documents = ((docsRes.data ?? []) as Array<{ name: string | null; ai_summary: unknown }>).map(
           (d) => ({ name: d.name, summary: d.ai_summary }),
         );
+        const canonicalBriefing = priorRes;
         const { text: composed, sources } = composeBriefingFromRecord(
-          clientRes.data as unknown as ClientRow,
+          {
+            ...(clientRes.data as unknown as ClientRow),
+            brand_hub: canonicalBriefing.hub as unknown as ClientRow["brand_hub"],
+          },
           {
             ...(input.texto ? { extraNotes: input.texto } : {}),
             documents,
-            priorBriefingData: (priorRes.data?.data ?? null) as Record<string, unknown> | null,
+            priorBriefingData: canonicalBriefing.legacy as unknown as Record<string, unknown>,
           },
         );
         if (composed.length < 40) {

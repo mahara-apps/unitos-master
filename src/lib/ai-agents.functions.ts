@@ -4,6 +4,10 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getBrandAiModel } from "./ai-provider.server";
 import type { Json } from "@/integrations/supabase/types";
+import {
+  loadCanonicalBriefing,
+  projectCanonicalBriefingRow,
+} from "@/lib/briefing-source.server";
 
 import { brain } from "@/lib/brain/api";
 
@@ -1035,8 +1039,18 @@ export const loadClientContextFn = createServerFn({ method: "POST" })
 
     const totalCost = (usage.data ?? []).reduce((s, r) => s + Number(r.cost_usd ?? 0), 0);
 
+    // Fonte canônica do briefing: clients.brand_hub (brand_briefings só metadados).
+    const canonical = await loadCanonicalBriefing(context.supabase, {
+      clientId: data.clientId,
+      brandId: data.brandId,
+    });
+
     return {
-      briefing: briefing.data,
+      briefing: projectCanonicalBriefingRow(
+        canonical,
+        (briefing.data ?? null) as Record<string, unknown> | null,
+        { brandId: data.brandId, clientId: data.clientId },
+      ),
       voice: voice.data,
       personas: personas.data,
       cohorts: cohorts.data,
@@ -1084,8 +1098,17 @@ export const loadCustomerCoreFn = createServerFn({ method: "POST" })
         .gte("created_at", new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString()),
     ]);
     const totalCost = (usage.data ?? []).reduce((s, r) => s + Number(r.cost_usd ?? 0), 0);
+    // Fonte canônica do briefing: clients.brand_hub.
+    const canonical = await loadCanonicalBriefing(context.supabase, {
+      clientId: data.clientId,
+      brandId: data.brandId,
+    });
     return {
-      briefing: briefing.data,
+      briefing: projectCanonicalBriefingRow(
+        canonical,
+        (briefing.data ?? null) as Record<string, unknown> | null,
+        { brandId: data.brandId, clientId: data.clientId },
+      ),
       voice: voice.data,
       usage: { last30d: usage.data ?? [], totalCostUsd: totalCost },
     };
