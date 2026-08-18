@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { PortalLink, usePortalApi } from "./portal-context";
+import { briefingField, briefingFieldLabel, type BriefingField } from "@/lib/briefing-fields";
 import type { PortalTabId } from "./portal-nav";
 import { PautaApprovals } from "./portal-pauta";
 import {
@@ -890,14 +891,7 @@ function LegacyBriefingLinks() {
   const pending = rows.filter(isOpen);
   const history = rows.filter((b) => !isOpen(b));
 
-  if (!rows.length)
-    return (
-      <EmptyState
-        icon={FileText}
-        title="Nenhum briefing pendente"
-        description="Quando a equipe precisar de novas informações, o pedido aparece aqui."
-      />
-    );
+  if (!rows.length) return null;
 
   return (
     <div className="space-y-4">
