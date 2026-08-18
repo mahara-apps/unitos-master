@@ -8,7 +8,10 @@ export const Route = createFileRoute("/portal/$token/")({
       { name: "description", content: "Acompanhe aprovações, pauta e publicações da sua marca." },
       { name: "robots", content: "noindex" },
       { property: "og:title", content: "Início" },
-      { property: "og:description", content: "Acompanhe aprovações, pauta e publicações da sua marca." },
+      {
+        property: "og:description",
+        content: "Acompanhe aprovações, pauta e publicações da sua marca.",
+      },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],

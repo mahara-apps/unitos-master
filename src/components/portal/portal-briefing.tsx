@@ -17,8 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { usePortalApi } from "./portal-context";
-import { EmptyState,
-  ErrorState, ListSkeleton, formatDate } from "./portal-shared";
+import { EmptyState, ErrorState, ListSkeleton, formatDate } from "./portal-shared";
 import {
   BRIEFING_BLOCKS,
   briefingField,
@@ -51,36 +50,34 @@ function clientState(r: PortalBriefingRequest): ClientState {
   return "waiting";
 }
 
-const STATE_META: Record<
-  ClientState,
-  { label: string; className: string; icon: typeof FileText }
-> = {
-  waiting: {
-    label: "Aguardando sua resposta",
-    className: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400",
-    icon: Hourglass,
-  },
-  submitted: {
-    label: "Enviado",
-    className: "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-400",
-    icon: CheckCircle2,
-  },
-  in_review: {
-    label: "Em revisão",
-    className: "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-400",
-    icon: Clock3,
-  },
-  changes: {
-    label: "Ajustes necessários",
-    className: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400",
-    icon: Hourglass,
-  },
-  done: {
-    label: "Concluído",
-    className: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
-    icon: CheckCircle2,
-  },
-};
+const STATE_META: Record<ClientState, { label: string; className: string; icon: typeof FileText }> =
+  {
+    waiting: {
+      label: "Aguardando sua resposta",
+      className: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+      icon: Hourglass,
+    },
+    submitted: {
+      label: "Enviado",
+      className: "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-400",
+      icon: CheckCircle2,
+    },
+    in_review: {
+      label: "Em revisão",
+      className: "border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-400",
+      icon: Clock3,
+    },
+    changes: {
+      label: "Ajustes necessários",
+      className: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+      icon: Hourglass,
+    },
+    done: {
+      label: "Concluído",
+      className: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+      icon: CheckCircle2,
+    },
+  };
 
 function StateBadge({ state }: { state: ClientState }) {
   const meta = STATE_META[state];
@@ -178,10 +175,7 @@ function RequestForm({ request }: { request: PortalBriefingRequest }) {
 
   /** Após revisão parcial, o cliente só complementa o que ficou pendente. */
   const keys = needsMore ? request.pending_fields : request.requested_fields;
-  const fields = useMemo(
-    () => keys.map(briefingField).filter(Boolean) as BriefingField[],
-    [keys],
-  );
+  const fields = useMemo(() => keys.map(briefingField).filter(Boolean) as BriefingField[], [keys]);
 
   const initial = useMemo(() => {
     const out: Record<string, string> = {};
@@ -321,9 +315,7 @@ function RequestForm({ request }: { request: PortalBriefingRequest }) {
                   <label className="text-sm font-medium" htmlFor={`${request.id}-${f.key}`}>
                     {f.label}
                   </label>
-                  {f.hint ? (
-                    <p className="text-[11px] text-muted-foreground">{f.hint}</p>
-                  ) : null}
+                  {f.hint ? <p className="text-[11px] text-muted-foreground">{f.hint}</p> : null}
                   {f.type === "text" ? (
                     <Input
                       id={`${request.id}-${f.key}`}
@@ -420,9 +412,7 @@ function HistoryRow({ request }: { request: PortalBriefingRequest }) {
             {request.decided_at ? ` · analisado em ${formatDate(request.decided_at)}` : ""}
           </div>
           {state === "submitted" || state === "in_review" ? (
-            <div className="text-xs text-muted-foreground">
-              Aguardando análise da equipe.
-            </div>
+            <div className="text-xs text-muted-foreground">Aguardando análise da equipe.</div>
           ) : null}
           {request.review_note ? (
             <div className="text-xs text-muted-foreground">
@@ -496,7 +486,12 @@ function LegacyBriefingLinks() {
                   : "Suas respostas alimentam a estratégia do mês."}
               </div>
             </div>
-            <a href={`/p/briefing/${b.token}`} target="_blank" rel="noreferrer" className="shrink-0">
+            <a
+              href={`/p/briefing/${b.token}`}
+              target="_blank"
+              rel="noreferrer"
+              className="shrink-0"
+            >
               <Button size="sm" variant="outline" className="gap-1.5">
                 Abrir formulário <ExternalLink className="h-3.5 w-3.5" />
               </Button>

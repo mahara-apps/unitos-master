@@ -207,11 +207,7 @@ export function PortalLink({
   };
   if (mode.kind === "token") {
     return (
-      <Link
-        to={tokenTabRoute(tab) as "/portal/$token"}
-        params={{ token: mode.token }}
-        {...shared}
-      >
+      <Link to={tokenTabRoute(tab) as "/portal/$token"} params={{ token: mode.token }} {...shared}>
         {children}
       </Link>
     );

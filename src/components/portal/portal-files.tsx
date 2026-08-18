@@ -1,6 +1,14 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Download, Eye, FileText, FolderOpen, Image as ImageIcon, Search, Table2 } from "lucide-react";
+import {
+  Download,
+  Eye,
+  FileText,
+  FolderOpen,
+  Image as ImageIcon,
+  Search,
+  Table2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { usePortalApi } from "./portal-context";
@@ -28,9 +36,19 @@ function fileKind(mime: string | null, name: string): Exclude<FileKind, "all"> {
   const ext = name.toLowerCase().split(".").pop() ?? "";
   if (m.startsWith("image/") || ["png", "jpg", "jpeg", "webp", "gif", "svg", "avif"].includes(ext))
     return "image";
-  if (m.includes("pdf") || m.includes("word") || m.includes("text") || ["pdf", "doc", "docx", "txt", "md"].includes(ext))
+  if (
+    m.includes("pdf") ||
+    m.includes("word") ||
+    m.includes("text") ||
+    ["pdf", "doc", "docx", "txt", "md"].includes(ext)
+  )
     return "doc";
-  if (m.includes("sheet") || m.includes("csv") || m.includes("excel") || ["xls", "xlsx", "csv"].includes(ext))
+  if (
+    m.includes("sheet") ||
+    m.includes("csv") ||
+    m.includes("excel") ||
+    ["xls", "xlsx", "csv"].includes(ext)
+  )
     return "sheet";
   return "other";
 }

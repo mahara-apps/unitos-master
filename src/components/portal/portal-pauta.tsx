@@ -171,7 +171,6 @@ function PautaDetail({ planId, onBack }: { planId: string; onBack: () => void })
     [topics, items],
   );
 
-
   const counts = useMemo(
     () => ({
       total: rows.length,
@@ -520,7 +519,9 @@ function TopicDialog({
               )}
               {topic.rationale && (
                 <div>
-                  <div className="text-xs font-medium text-muted-foreground">Por que faz sentido</div>
+                  <div className="text-xs font-medium text-muted-foreground">
+                    Por que faz sentido
+                  </div>
                   <p className="mt-1 whitespace-pre-line">{topic.rationale}</p>
                 </div>
               )}

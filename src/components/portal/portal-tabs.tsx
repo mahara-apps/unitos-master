@@ -146,8 +146,7 @@ export function HomeTab() {
     return items.sort((a, b) => (a.when < b.when ? 1 : -1)).slice(0, 6);
   }, [calendarQ.data, plansQ.data, briefingQ.data]);
 
-  const failed =
-    metricsQ.isError && plansQ.isError && briefingQ.isError && calendarQ.isError;
+  const failed = metricsQ.isError && plansQ.isError && briefingQ.isError && calendarQ.isError;
   const loadingKpis = metricsQ.isLoading || plansQ.isLoading || briefingQ.isLoading;
   const kpiValue = (v: number) => (loadingKpis ? <Skeleton className="h-6 w-10" /> : v);
 

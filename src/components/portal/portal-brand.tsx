@@ -84,8 +84,8 @@ export function PortalBrand() {
           ) : null}
         </div>
         <p className="text-xs text-muted-foreground">
-          Estas são as informações da sua marca que a equipe usa para criar os conteúdos. Para
-          mudar algo, fale com a equipe ou responda um novo briefing.
+          Estas são as informações da sua marca que a equipe usa para criar os conteúdos. Para mudar
+          algo, fale com a equipe ou responda um novo briefing.
           {data?.updatedAt ? ` Atualizado em ${formatDate(data.updatedAt)}.` : ""}
         </p>
         {data?.toneOfVoice ? (
