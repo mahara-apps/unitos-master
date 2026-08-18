@@ -616,7 +616,11 @@ function ApprovalCard({ post, onOpen }: { post: Record<string, unknown>; onOpen:
         </div>
         <div className="mt-auto flex flex-wrap items-center gap-1.5">
           {channels.slice(0, 3).map((c) => (
-            <Badge key={c} variant="secondary" className="rounded-md px-1.5 py-0 text-[10px] capitalize">
+            <Badge
+              key={c}
+              variant="secondary"
+              className="rounded-md px-1.5 py-0 text-[10px] capitalize"
+            >
               {c}
             </Badge>
           ))}
