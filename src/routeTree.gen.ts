@@ -43,6 +43,7 @@ import { Route as AuthenticatedMonthlyPlanIndexRouteImport } from './routes/_aut
 import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authenticated/customers.index'
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat.index'
 import { Route as PortalTokenPautaRouteImport } from './routes/portal.$token.pauta'
+import { Route as PortalTokenMinhaMarcaRouteImport } from './routes/portal.$token.minha-marca'
 import { Route as PortalTokenCalendarioRouteImport } from './routes/portal.$token.calendario'
 import { Route as PortalTokenBriefingRouteImport } from './routes/portal.$token.briefing'
 import { Route as PortalTokenArquivosRouteImport } from './routes/portal.$token.arquivos'
@@ -271,6 +272,11 @@ const AuthenticatedChatIndexRoute = AuthenticatedChatIndexRouteImport.update({
 const PortalTokenPautaRoute = PortalTokenPautaRouteImport.update({
   id: '/pauta',
   path: '/pauta',
+  getParentRoute: () => PortalTokenRoute,
+} as any)
+const PortalTokenMinhaMarcaRoute = PortalTokenMinhaMarcaRouteImport.update({
+  id: '/minha-marca',
+  path: '/minha-marca',
   getParentRoute: () => PortalTokenRoute,
 } as any)
 const PortalTokenCalendarioRoute = PortalTokenCalendarioRouteImport.update({
@@ -636,6 +642,7 @@ export interface FileRoutesByFullPath {
   '/portal/$token/arquivos': typeof PortalTokenArquivosRoute
   '/portal/$token/briefing': typeof PortalTokenBriefingRoute
   '/portal/$token/calendario': typeof PortalTokenCalendarioRoute
+  '/portal/$token/minha-marca': typeof PortalTokenMinhaMarcaRoute
   '/portal/$token/pauta': typeof PortalTokenPautaRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
   '/customers/': typeof AuthenticatedCustomersIndexRoute
@@ -718,6 +725,7 @@ export interface FileRoutesByTo {
   '/portal/$token/arquivos': typeof PortalTokenArquivosRoute
   '/portal/$token/briefing': typeof PortalTokenBriefingRoute
   '/portal/$token/calendario': typeof PortalTokenCalendarioRoute
+  '/portal/$token/minha-marca': typeof PortalTokenMinhaMarcaRoute
   '/portal/$token/pauta': typeof PortalTokenPautaRoute
   '/chat': typeof AuthenticatedChatIndexRoute
   '/customers': typeof AuthenticatedCustomersIndexRoute
@@ -809,6 +817,7 @@ export interface FileRoutesById {
   '/portal/$token/arquivos': typeof PortalTokenArquivosRoute
   '/portal/$token/briefing': typeof PortalTokenBriefingRoute
   '/portal/$token/calendario': typeof PortalTokenCalendarioRoute
+  '/portal/$token/minha-marca': typeof PortalTokenMinhaMarcaRoute
   '/portal/$token/pauta': typeof PortalTokenPautaRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
@@ -899,6 +908,7 @@ export interface FileRouteTypes {
     | '/portal/$token/arquivos'
     | '/portal/$token/briefing'
     | '/portal/$token/calendario'
+    | '/portal/$token/minha-marca'
     | '/portal/$token/pauta'
     | '/chat/'
     | '/customers/'
@@ -981,6 +991,7 @@ export interface FileRouteTypes {
     | '/portal/$token/arquivos'
     | '/portal/$token/briefing'
     | '/portal/$token/calendario'
+    | '/portal/$token/minha-marca'
     | '/portal/$token/pauta'
     | '/chat'
     | '/customers'
@@ -1071,6 +1082,7 @@ export interface FileRouteTypes {
     | '/portal/$token/arquivos'
     | '/portal/$token/briefing'
     | '/portal/$token/calendario'
+    | '/portal/$token/minha-marca'
     | '/portal/$token/pauta'
     | '/_authenticated/chat/'
     | '/_authenticated/customers/'
@@ -1376,6 +1388,13 @@ declare module '@tanstack/react-router' {
       path: '/pauta'
       fullPath: '/portal/$token/pauta'
       preLoaderRoute: typeof PortalTokenPautaRouteImport
+      parentRoute: typeof PortalTokenRoute
+    }
+    '/portal/$token/minha-marca': {
+      id: '/portal/$token/minha-marca'
+      path: '/minha-marca'
+      fullPath: '/portal/$token/minha-marca'
+      preLoaderRoute: typeof PortalTokenMinhaMarcaRouteImport
       parentRoute: typeof PortalTokenRoute
     }
     '/portal/$token/calendario': {
@@ -1971,6 +1990,7 @@ interface PortalTokenRouteChildren {
   PortalTokenArquivosRoute: typeof PortalTokenArquivosRoute
   PortalTokenBriefingRoute: typeof PortalTokenBriefingRoute
   PortalTokenCalendarioRoute: typeof PortalTokenCalendarioRoute
+  PortalTokenMinhaMarcaRoute: typeof PortalTokenMinhaMarcaRoute
   PortalTokenPautaRoute: typeof PortalTokenPautaRoute
   PortalTokenIndexRoute: typeof PortalTokenIndexRoute
 }
@@ -1980,6 +2000,7 @@ const PortalTokenRouteChildren: PortalTokenRouteChildren = {
   PortalTokenArquivosRoute: PortalTokenArquivosRoute,
   PortalTokenBriefingRoute: PortalTokenBriefingRoute,
   PortalTokenCalendarioRoute: PortalTokenCalendarioRoute,
+  PortalTokenMinhaMarcaRoute: PortalTokenMinhaMarcaRoute,
   PortalTokenPautaRoute: PortalTokenPautaRoute,
   PortalTokenIndexRoute: PortalTokenIndexRoute,
 }

@@ -14,6 +14,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { PortalLink, usePortalApi } from "./portal-context";
+import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
+import { BRIEFING_BLOCKS, BRIEFING_FIELDS } from "@/lib/briefing-fields";
 import { briefingField, briefingFieldLabel, type BriefingField } from "@/lib/briefing-fields";
 import type { PortalTabId } from "./portal-nav";
 import { PautaApprovals } from "./portal-pauta";
@@ -24,15 +26,6 @@ import {
 
 /* ---------------------------------- HOME ---------------------------------- */
 
-type HomeCardTone = "amber" | "emerald" | "sky" | "neutral";
-
-const HOME_TONES: Record<HomeCardTone, { chip: string; bar: string; value: string }> = {
-  amber: { chip: "bg-amber-500/10 text-amber-600 dark:text-amber-400", bar: "bg-amber-500", value: "text-amber-600 dark:text-amber-400" },
-  emerald: { chip: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400", bar: "bg-emerald-500", value: "text-foreground" },
-  sky: { chip: "bg-sky-500/10 text-sky-600 dark:text-sky-400", bar: "bg-sky-500", value: "text-foreground" },
-  neutral: { chip: "bg-muted text-muted-foreground", bar: "bg-border", value: "text-foreground" },
-};
-
 export function HomeTab() {
   const api = usePortalApi();
   const q = useQuery({
@@ -41,89 +34,74 @@ export function HomeTab() {
     staleTime: 30_000,
   });
   const m = q.data;
+  const loading = q.isLoading;
   const cards: Array<{
     label: string;
     value: number;
-    hint: string;
-    tone: HomeCardTone;
+    description: string;
+    status: "warning" | "success" | "info";
     icon: typeof Hourglass;
     tab: PortalTabId;
   }> = [
     {
       label: "Aguardando você",
       value: m?.pending ?? 0,
-      hint: (m?.pending ?? 0) > 0 ? "Revisar agora" : "Nada pendente",
-      tone: "amber",
+      description: (m?.pending ?? 0) > 0 ? "Revisar agora" : "Nada pendente",
+      status: "warning",
       icon: Hourglass,
       tab: "approvals",
     },
     {
       label: "Aprovados no mês",
       value: m?.approvedThisMonth ?? 0,
-      hint: "Neste mês",
-      tone: "emerald",
+      description: "Neste mês",
+      status: "success",
       icon: CheckCircle2,
       tab: "approvals",
     },
     {
       label: "Agendados",
       value: m?.scheduled ?? 0,
-      hint: "Na fila de publicação",
-      tone: "sky",
+      description: "Na fila de publicação",
+      status: "info",
       icon: CalendarClock,
       tab: "calendar",
     },
-    {
-      label: "Total de posts",
-      value: m?.total ?? 0,
-      hint: "Histórico da conta",
-      tone: "neutral",
-      icon: Layers,
-      tab: "calendar",
-    },
   ];
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <PageKpiGrid columns={3}>
         {cards.map((c) => {
-          const t = HOME_TONES[c.tone];
           const Icon = c.icon;
           return (
-            <PortalLink
-              key={c.label}
-              tab={c.tab}
-              className="group relative overflow-hidden rounded-xl border border-border/60 bg-card p-4 text-left transition-all hover:-translate-y-0.5 hover:border-border hover:shadow-sm"
-            >
-              <span className={`absolute inset-x-0 top-0 h-0.5 ${t.bar}`} />
-              <div className="flex items-start justify-between gap-2">
-                <div className="font-mono text-[10px] uppercase leading-tight tracking-widest text-muted-foreground">
-                  {c.label}
-                </div>
-                <span className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg ${t.chip}`}>
-                  <Icon className="h-3.5 w-3.5" />
-                </span>
-              </div>
-              <div className={`mt-4 text-3xl font-semibold tabular-nums tracking-tight ${t.value}`}>
-                {q.isLoading ? <Skeleton className="h-8 w-10" /> : c.value}
-              </div>
-              <div className="mt-1 flex items-center gap-1 text-[11px] text-muted-foreground">
-                {c.hint}
-                <ArrowRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
-              </div>
+            <PortalLink key={c.label} tab={c.tab} className="block">
+              <PageKpi
+                label={c.label}
+                value={loading ? <Skeleton className="h-6 w-10" /> : c.value}
+                icon={<Icon />}
+                status={c.status}
+                description={c.description}
+              />
             </PortalLink>
           );
         })}
-      </div>
+      </PageKpiGrid>
+
       <div className="rounded-xl border border-border/60 bg-card p-6">
-        <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">bem-vindo</div>
-        <h2 className="mt-2 text-lg font-semibold">Tudo o que sua marca está publicando, em um só lugar.</h2>
+        <h2 className="text-lg font-semibold tracking-tight">
+          Tudo o que sua marca está publicando, em um só lugar.
+        </h2>
         <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Use as abas ao lado para <b>aprovar posts</b>, ver o <b>calendário</b> do mês,
-          acessar <b>arquivos</b> compartilhados e <b>preencher briefings</b> quando solicitado pela equipe.
+          Aqui você aprova os conteúdos, acompanha a pauta e o calendário do mês, responde
+          o briefing quando solicitado, baixa arquivos e consulta as informações da sua marca.
         </p>
         <div className="mt-4 flex flex-wrap gap-2">
           <Button size="sm" asChild>
             <PortalLink tab="approvals">Revisar aprovações</PortalLink>
+          </Button>
+          <Button size="sm" variant="outline" asChild>
+            <PortalLink tab="pauta">Ver pauta do mês</PortalLink>
           </Button>
           <Button size="sm" variant="outline" asChild>
             <PortalLink tab="calendar">Ver calendário</PortalLink>
@@ -134,56 +112,91 @@ export function HomeTab() {
   );
 }
 
+/* ---------------------------------- PAUTA --------------------------------- */
+
+/** Pauta virou área de primeiro nível (antes era uma seção dentro de Aprovações). */
+export function PautaTab() {
+  return <PautaApprovals />;
+}
+
+/* ------------------------------- MINHA MARCA ------------------------------ */
+
+export function BrandTab() {
+  const api = usePortalApi();
+  const q = useQuery({
+    queryKey: ["portal", "brand-hub", api.scopeKey],
+    queryFn: () => api.brandHub(),
+    staleTime: 5 * 60_000,
+  });
+
+  if (q.isLoading) return <ListSkeleton />;
+  const data = q.data;
+  const hub = data?.hub ?? {};
+  const blocks = BRIEFING_BLOCKS.map((b) => ({
+    ...b,
+    fields: BRIEFING_FIELDS.filter((f) => f.block === b.id && hub[f.key]),
+  })).filter((b) => b.fields.length > 0);
+
+  if (!blocks.length)
+    return (
+      <EmptyState
+        icon={FileText}
+        title="Ainda não há informações da sua marca"
+        description="Depois que você responder o briefing, as informações aprovadas aparecem aqui."
+      />
+    );
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-border/60 bg-card p-5">
+        <h2 className="text-base font-semibold tracking-tight">{data?.clientName}</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Estas são as informações da sua marca usadas pela equipe. Para atualizar algo,
+          fale com a equipe ou responda um novo briefing.
+          {data?.updatedAt ? ` Última atualização em ${formatDate(data.updatedAt)}.` : ""}
+        </p>
+      </div>
+
+      {blocks.map((b) => (
+        <div key={b.id} className="rounded-xl border border-border/60 bg-card p-5">
+          <div className="text-sm font-semibold tracking-tight">{b.label}</div>
+          <dl className="mt-3 grid gap-4 sm:grid-cols-2">
+            {b.fields.map((f) => (
+              <div key={f.key} className="min-w-0">
+                <dt className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                  {f.label}
+                </dt>
+                <dd className="mt-1 whitespace-pre-line text-sm">{hub[f.key]}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* -------------------------------- APPROVALS ------------------------------- */
 
 export function ApprovalsTab() {
   const identity = usePortalIdentity();
   const api = usePortalApi();
-  const [section, setSection] = useState<"content" | "pauta">("content");
   const [filter, setFilter] = useState<"all" | "pending" | "approved" | "adjust">("pending");
   const [openId, setOpenId] = useState<string | null>(null);
   const q = useQuery({
     queryKey: ["portal", "approvals", api.scopeKey, filter],
     queryFn: () => api.approvals(filter),
-    enabled: section === "content",
   });
-  const plansQ = useQuery({
-    queryKey: ["portal", "plans", api.scopeKey],
-    queryFn: () => api.plans(),
-  });
-  const pautaPending = (plansQ.data ?? []).reduce((n, p) => n + p.pending, 0);
 
   return (
-    <div className="space-y-4">
-      {/* Fluxo único de aprovação: pauta do mês e conteúdos no mesmo lugar. */}
-      <div className="flex flex-wrap gap-1 rounded-lg border border-border/60 bg-card p-1">
-        {(["content", "pauta"] as const).map((s) => (
-          <button
-            key={s}
-            onClick={() => setSection(s)}
-            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs transition-colors ${
-              section === s ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {s === "content" ? "Conteúdos" : "Pauta do mês"}
-            {s === "pauta" && pautaPending > 0 ? (
-              <span className="rounded-full bg-amber-500/15 px-1.5 font-mono text-[10px] text-amber-600 dark:text-amber-400">
-                {pautaPending}
-              </span>
-            ) : null}
-          </button>
-        ))}
-      </div>
-
-      {section === "pauta" ? <PautaApprovals /> : <ApprovalsContent
-        filter={filter}
-        setFilter={setFilter}
-        q={q}
-        openId={openId}
-        setOpenId={setOpenId}
-        identity={identity}
-      />}
-    </div>
+    <ApprovalsContent
+      filter={filter}
+      setFilter={setFilter}
+      q={q}
+      openId={openId}
+      setOpenId={setOpenId}
+      identity={identity}
+    />
   );
 }
 
