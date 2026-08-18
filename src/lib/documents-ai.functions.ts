@@ -174,7 +174,7 @@ export const applyDocumentToBriefing = createServerFn({ method: "POST" })
       .eq("id", data.clientId)
       .maybeSingle();
     if (clientErr) throw clientErr;
-    const currentHub = ((clientRow?.brand_hub ?? {}) as Record<string, unknown>) ?? {};
+    const currentHub = (clientRow?.brand_hub ?? {}) as Record<string, unknown>;
     const mergedHub = { ...currentHub, ...patch };
     const { error: hubErr } = await context.supabase
       .from("clients")
