@@ -69,7 +69,7 @@ export async function writeCanonicalBriefing(
     .maybeSingle();
   if (readErr) throw readErr;
 
-  const current = ((clientRow?.brand_hub ?? {}) as Record<string, unknown>) ?? {};
+  const current = (clientRow?.brand_hub ?? {}) as Record<string, unknown>;
   const skipEmpty = args.skipEmpty !== false;
   const next: Record<string, unknown> = { ...current };
   const changedFields: string[] = [];
