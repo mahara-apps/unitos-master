@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react";
-import { Home, Loader2 } from "lucide-react";
+import { AlertTriangle, Home, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /* ------------------------------- identidade ------------------------------- */
@@ -18,7 +19,11 @@ export function usePortalIdentity() {
 
 export function FullScreenLoader() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
+    <div
+      className="flex min-h-dvh items-center justify-center bg-background"
+      role="status"
+      aria-label="Carregando"
+    >
       <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
     </div>
   );
@@ -26,7 +31,7 @@ export function FullScreenLoader() {
 
 export function TokenError({ message }: { message?: string }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-6">
+    <div className="flex min-h-dvh items-center justify-center bg-background p-6">
       <div className="max-w-md rounded-xl border border-border/60 bg-card p-6 text-center">
         <h1 className="text-lg font-semibold">Link indisponível</h1>
         <p className="mt-2 text-sm text-muted-foreground">
@@ -58,6 +63,38 @@ export function EmptyState({
     </div>
   );
 }
+
+/**
+ * FASE 8 — estado de erro único do Portal.
+ *
+ * Antes, uma consulta que falhava caía no empty state ("Você está em dia"), o
+ * que dava ao cliente a informação errada. Agora todo bloco de dados mostra
+ * este aviso com a opção de tentar novamente.
+ */
+export function ErrorState({
+  description = "Não conseguimos carregar estas informações agora.",
+  onRetry,
+}: {
+  description?: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <div
+      role="alert"
+      className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 bg-card px-6 py-14 text-center"
+    >
+      <AlertTriangle className="h-6 w-6 text-severity-warning" />
+      <div className="text-sm font-medium">Algo deu errado</div>
+      <div className="text-xs text-muted-foreground">{description}</div>
+      {onRetry ? (
+        <Button size="sm" variant="outline" className="mt-2" onClick={onRetry}>
+          Tentar novamente
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
 
 export function GridSkeleton() {
   return (
