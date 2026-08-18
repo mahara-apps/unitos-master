@@ -445,7 +445,7 @@ function ConnectionsPage() {
           </div>
           <MessagingCenter
             brandId={brandId}
-            channels={channelsMap}
+            channels={data?.channels ?? {}}
             isLoading={isLoading}
             onChanged={invalidate}
           />
