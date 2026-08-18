@@ -54,10 +54,10 @@ export async function resolveTokenScope(token: string): Promise<PortalScope> {
 
 /** Escopo a partir da sessão autenticada do cliente (modo principal). */
 export async function resolveSessionScope(
-  supabase: RpcClient,
+  supabase: unknown,
   clientId?: string | null,
 ): Promise<PortalScope> {
-  return scopeFrom(supabase, { _client_id: clientId ?? null });
+  return scopeFrom(supabase as RpcClient, { _client_id: clientId ?? null });
 }
 
 /** Client privilegiado usado depois do escopo estar resolvido e validado. */
