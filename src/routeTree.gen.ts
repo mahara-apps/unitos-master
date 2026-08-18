@@ -20,6 +20,7 @@ import { Route as PlanoPlanIdRouteImport } from './routes/plano.$planId'
 import { Route as PautaPlanIdRouteImport } from './routes/pauta.$planId'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as ApprovalTokenRouteImport } from './routes/approval.$token'
+import { Route as PortalAreaRouteImport } from './routes/_portal/area'
 import { Route as AuthenticatedTasksRouteImport } from './routes/_authenticated/tasks'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedProjectsRouteImport } from './routes/_authenticated/projects'
@@ -52,6 +53,10 @@ import { Route as ApiJobsCopilotRouteImport } from './routes/api/jobs/copilot'
 import { Route as ApiJobsAnalyzeDocumentRouteImport } from './routes/api/jobs/analyze-document'
 import { Route as ApiChatStreamRouteImport } from './routes/api/chat.stream'
 import { Route as PortalAreaInicioRouteImport } from './routes/_portal/area.inicio'
+import { Route as PortalAreaCalendarioRouteImport } from './routes/_portal/area.calendario'
+import { Route as PortalAreaBriefingRouteImport } from './routes/_portal/area.briefing'
+import { Route as PortalAreaArquivosRouteImport } from './routes/_portal/area.arquivos'
+import { Route as PortalAreaAprovacoesRouteImport } from './routes/_portal/area.aprovacoes'
 import { Route as AuthenticatedSuperAdminFeaturesRouteImport } from './routes/_authenticated/super-admin.features'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsSlaRouteImport } from './routes/_authenticated/settings.sla'
@@ -142,6 +147,11 @@ const ApprovalTokenRoute = ApprovalTokenRouteImport.update({
   id: '/approval/$token',
   path: '/approval/$token',
   getParentRoute: () => rootRouteImport,
+} as any)
+const PortalAreaRoute = PortalAreaRouteImport.update({
+  id: '/area',
+  path: '/area',
+  getParentRoute: () => PortalRouteRoute,
 } as any)
 const AuthenticatedTasksRoute = AuthenticatedTasksRouteImport.update({
   id: '/tasks',
@@ -307,9 +317,29 @@ const ApiChatStreamRoute = ApiChatStreamRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const PortalAreaInicioRoute = PortalAreaInicioRouteImport.update({
-  id: '/area/inicio',
-  path: '/area/inicio',
-  getParentRoute: () => PortalRouteRoute,
+  id: '/inicio',
+  path: '/inicio',
+  getParentRoute: () => PortalAreaRoute,
+} as any)
+const PortalAreaCalendarioRoute = PortalAreaCalendarioRouteImport.update({
+  id: '/calendario',
+  path: '/calendario',
+  getParentRoute: () => PortalAreaRoute,
+} as any)
+const PortalAreaBriefingRoute = PortalAreaBriefingRouteImport.update({
+  id: '/briefing',
+  path: '/briefing',
+  getParentRoute: () => PortalAreaRoute,
+} as any)
+const PortalAreaArquivosRoute = PortalAreaArquivosRouteImport.update({
+  id: '/arquivos',
+  path: '/arquivos',
+  getParentRoute: () => PortalAreaRoute,
+} as any)
+const PortalAreaAprovacoesRoute = PortalAreaAprovacoesRouteImport.update({
+  id: '/aprovacoes',
+  path: '/aprovacoes',
+  getParentRoute: () => PortalAreaRoute,
 } as any)
 const AuthenticatedSuperAdminFeaturesRoute =
   AuthenticatedSuperAdminFeaturesRouteImport.update({
@@ -549,6 +579,7 @@ export interface FileRoutesByFullPath {
   '/projects': typeof AuthenticatedProjectsRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/tasks': typeof AuthenticatedTasksRoute
+  '/area': typeof PortalAreaRouteWithChildren
   '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/pauta/$planId': typeof PautaPlanIdRoute
@@ -570,6 +601,10 @@ export interface FileRoutesByFullPath {
   '/settings/sla': typeof AuthenticatedSettingsSlaRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
+  '/area/aprovacoes': typeof PortalAreaAprovacoesRoute
+  '/area/arquivos': typeof PortalAreaArquivosRoute
+  '/area/briefing': typeof PortalAreaBriefingRoute
+  '/area/calendario': typeof PortalAreaCalendarioRoute
   '/area/inicio': typeof PortalAreaInicioRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
@@ -624,6 +659,7 @@ export interface FileRoutesByTo {
   '/media-plans': typeof AuthenticatedMediaPlansRoute
   '/notifications': typeof AuthenticatedNotificationsRoute
   '/tasks': typeof AuthenticatedTasksRoute
+  '/area': typeof PortalAreaRouteWithChildren
   '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/pauta/$planId': typeof PautaPlanIdRoute
@@ -644,6 +680,10 @@ export interface FileRoutesByTo {
   '/settings/sla': typeof AuthenticatedSettingsSlaRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
+  '/area/aprovacoes': typeof PortalAreaAprovacoesRoute
+  '/area/arquivos': typeof PortalAreaArquivosRoute
+  '/area/briefing': typeof PortalAreaBriefingRoute
+  '/area/calendario': typeof PortalAreaCalendarioRoute
   '/area/inicio': typeof PortalAreaInicioRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
@@ -706,6 +746,7 @@ export interface FileRoutesById {
   '/_authenticated/projects': typeof AuthenticatedProjectsRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/tasks': typeof AuthenticatedTasksRoute
+  '/_portal/area': typeof PortalAreaRouteWithChildren
   '/approval/$token': typeof ApprovalTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/pauta/$planId': typeof PautaPlanIdRoute
@@ -727,6 +768,10 @@ export interface FileRoutesById {
   '/_authenticated/settings/sla': typeof AuthenticatedSettingsSlaRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/_authenticated/super-admin/features': typeof AuthenticatedSuperAdminFeaturesRoute
+  '/_portal/area/aprovacoes': typeof PortalAreaAprovacoesRoute
+  '/_portal/area/arquivos': typeof PortalAreaArquivosRoute
+  '/_portal/area/briefing': typeof PortalAreaBriefingRoute
+  '/_portal/area/calendario': typeof PortalAreaCalendarioRoute
   '/_portal/area/inicio': typeof PortalAreaInicioRoute
   '/api/chat/stream': typeof ApiChatStreamRoute
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
@@ -788,6 +833,7 @@ export interface FileRouteTypes {
     | '/projects'
     | '/settings'
     | '/tasks'
+    | '/area'
     | '/approval/$token'
     | '/invite/$token'
     | '/pauta/$planId'
@@ -809,6 +855,10 @@ export interface FileRouteTypes {
     | '/settings/sla'
     | '/settings/team'
     | '/super-admin/features'
+    | '/area/aprovacoes'
+    | '/area/arquivos'
+    | '/area/briefing'
+    | '/area/calendario'
     | '/area/inicio'
     | '/api/chat/stream'
     | '/api/jobs/analyze-document'
@@ -863,6 +913,7 @@ export interface FileRouteTypes {
     | '/media-plans'
     | '/notifications'
     | '/tasks'
+    | '/area'
     | '/approval/$token'
     | '/invite/$token'
     | '/pauta/$planId'
@@ -883,6 +934,10 @@ export interface FileRouteTypes {
     | '/settings/sla'
     | '/settings/team'
     | '/super-admin/features'
+    | '/area/aprovacoes'
+    | '/area/arquivos'
+    | '/area/briefing'
+    | '/area/calendario'
     | '/area/inicio'
     | '/api/chat/stream'
     | '/api/jobs/analyze-document'
@@ -944,6 +999,7 @@ export interface FileRouteTypes {
     | '/_authenticated/projects'
     | '/_authenticated/settings'
     | '/_authenticated/tasks'
+    | '/_portal/area'
     | '/approval/$token'
     | '/invite/$token'
     | '/pauta/$planId'
@@ -965,6 +1021,10 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/sla'
     | '/_authenticated/settings/team'
     | '/_authenticated/super-admin/features'
+    | '/_portal/area/aprovacoes'
+    | '/_portal/area/arquivos'
+    | '/_portal/area/briefing'
+    | '/_portal/area/calendario'
     | '/_portal/area/inicio'
     | '/api/chat/stream'
     | '/api/jobs/analyze-document'
@@ -1120,6 +1180,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/approval/$token'
       preLoaderRoute: typeof ApprovalTokenRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_portal/area': {
+      id: '/_portal/area'
+      path: '/area'
+      fullPath: '/area'
+      preLoaderRoute: typeof PortalAreaRouteImport
+      parentRoute: typeof PortalRouteRoute
     }
     '/_authenticated/tasks': {
       id: '/_authenticated/tasks'
@@ -1340,10 +1407,38 @@ declare module '@tanstack/react-router' {
     }
     '/_portal/area/inicio': {
       id: '/_portal/area/inicio'
-      path: '/area/inicio'
+      path: '/inicio'
       fullPath: '/area/inicio'
       preLoaderRoute: typeof PortalAreaInicioRouteImport
-      parentRoute: typeof PortalRouteRoute
+      parentRoute: typeof PortalAreaRoute
+    }
+    '/_portal/area/calendario': {
+      id: '/_portal/area/calendario'
+      path: '/calendario'
+      fullPath: '/area/calendario'
+      preLoaderRoute: typeof PortalAreaCalendarioRouteImport
+      parentRoute: typeof PortalAreaRoute
+    }
+    '/_portal/area/briefing': {
+      id: '/_portal/area/briefing'
+      path: '/briefing'
+      fullPath: '/area/briefing'
+      preLoaderRoute: typeof PortalAreaBriefingRouteImport
+      parentRoute: typeof PortalAreaRoute
+    }
+    '/_portal/area/arquivos': {
+      id: '/_portal/area/arquivos'
+      path: '/arquivos'
+      fullPath: '/area/arquivos'
+      preLoaderRoute: typeof PortalAreaArquivosRouteImport
+      parentRoute: typeof PortalAreaRoute
+    }
+    '/_portal/area/aprovacoes': {
+      id: '/_portal/area/aprovacoes'
+      path: '/aprovacoes'
+      fullPath: '/area/aprovacoes'
+      preLoaderRoute: typeof PortalAreaAprovacoesRouteImport
+      parentRoute: typeof PortalAreaRoute
     }
     '/_authenticated/super-admin/features': {
       id: '/_authenticated/super-admin/features'
@@ -1778,12 +1873,32 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
-interface PortalRouteRouteChildren {
+interface PortalAreaRouteChildren {
+  PortalAreaAprovacoesRoute: typeof PortalAreaAprovacoesRoute
+  PortalAreaArquivosRoute: typeof PortalAreaArquivosRoute
+  PortalAreaBriefingRoute: typeof PortalAreaBriefingRoute
+  PortalAreaCalendarioRoute: typeof PortalAreaCalendarioRoute
   PortalAreaInicioRoute: typeof PortalAreaInicioRoute
 }
 
-const PortalRouteRouteChildren: PortalRouteRouteChildren = {
+const PortalAreaRouteChildren: PortalAreaRouteChildren = {
+  PortalAreaAprovacoesRoute: PortalAreaAprovacoesRoute,
+  PortalAreaArquivosRoute: PortalAreaArquivosRoute,
+  PortalAreaBriefingRoute: PortalAreaBriefingRoute,
+  PortalAreaCalendarioRoute: PortalAreaCalendarioRoute,
   PortalAreaInicioRoute: PortalAreaInicioRoute,
+}
+
+const PortalAreaRouteWithChildren = PortalAreaRoute._addFileChildren(
+  PortalAreaRouteChildren,
+)
+
+interface PortalRouteRouteChildren {
+  PortalAreaRoute: typeof PortalAreaRouteWithChildren
+}
+
+const PortalRouteRouteChildren: PortalRouteRouteChildren = {
+  PortalAreaRoute: PortalAreaRouteWithChildren,
 }
 
 const PortalRouteRouteWithChildren = PortalRouteRoute._addFileChildren(

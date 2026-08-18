@@ -6,6 +6,5 @@ export const Route = createFileRoute("/portal/$token/arquivos")({
 });
 
 function PortalFilesRoute() {
-  const { token } = Route.useParams();
-  return <FilesTab token={token} />;
+  return <FilesTab />;
 }

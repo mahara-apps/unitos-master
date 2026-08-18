@@ -6,6 +6,5 @@ export const Route = createFileRoute("/portal/$token/calendario")({
 });
 
 function PortalCalendarRoute() {
-  const { token } = Route.useParams();
-  return <CalendarTab token={token} />;
+  return <CalendarTab />;
 }

@@ -6,6 +6,5 @@ export const Route = createFileRoute("/portal/$token/briefing")({
 });
 
 function PortalBriefingRoute() {
-  const { token } = Route.useParams();
-  return <BriefingTab token={token} />;
+  return <BriefingTab />;
 }

@@ -6,6 +6,5 @@ export const Route = createFileRoute("/portal/$token/")({
 });
 
 function PortalHomeRoute() {
-  const { token } = Route.useParams();
-  return <HomeTab token={token} />;
+  return <HomeTab />;
 }
