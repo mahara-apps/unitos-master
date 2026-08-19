@@ -313,7 +313,7 @@ function CustomerDetailReady({
     qc.invalidateQueries({ queryKey: CUSTOMER_QUERY_KEYS.legacyContext(scope) });
   };
 
-  // Sub-rotas do painel (brain, media-plan) renderizam sozinhas.
+  // Sub-rotas do painel (ex.: /media-plan) renderizam sozinhas.
   const isChildRoute = pathname.replace(/\/+$/, "") !== `/customers/${customerId}`;
   if (isChildRoute) return <Outlet />;
 
