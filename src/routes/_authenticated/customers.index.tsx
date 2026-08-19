@@ -66,6 +66,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
+import { useAccessRole } from "@/hooks/use-access-role";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { DashboardPageShell } from "@/components/ui/dashboard-primitives";
 import { CustomerAvatar } from "@/components/customer/customer-avatar";
