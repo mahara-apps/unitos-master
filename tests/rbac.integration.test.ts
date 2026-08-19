@@ -213,10 +213,11 @@ describe("escopo de leitura (SELECT via RLS)", () => {
     expect(await visibleClients(cx.manager.client, cx.brandId)).toEqual(expected);
   });
 
-  it("USER limitado ao escopo (responsável + clientes sem atribuição)", async () => {
+  it("USER limitado ao escopo (somente clientes vinculados)", async () => {
     const ids = await visibleClients(cx.user.client, cx.brandId);
     expect(ids).toContain(cx.clientOfUser);
-    expect(ids).toContain(cx.clientFree);
+    // Cliente sem responsável NÃO é mais visível por fallback.
+    expect(ids).not.toContain(cx.clientFree);
     expect(ids).not.toContain(cx.clientOfManager);
   });
 
