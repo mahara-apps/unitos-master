@@ -6143,6 +6143,10 @@ export type Database = {
           reason: string
         }[]
       }
+      brain_apply_partition_policies: {
+        Args: { _part_name: string }
+        Returns: undefined
+      }
       brain_archive_and_prune_events: { Args: never; Returns: Json }
       brain_cleanup_ttl: { Args: never; Returns: Json }
       brain_confidence: {
