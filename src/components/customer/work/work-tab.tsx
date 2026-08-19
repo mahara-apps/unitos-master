@@ -110,7 +110,7 @@ export function WorkTab({ brandId, clientId }: { brandId: string; clientId: stri
 
       <OverviewCard
         title="Projetos"
-        description="Mesma base de /projects, filtrada por este cliente."
+        subtitle="Mesma base de /projects, filtrada por este cliente."
         action={
           <Button asChild size="sm" variant="outline" className="h-8 gap-1.5">
             <Link to="/projects" search={{} as never}>
@@ -127,8 +127,8 @@ export function WorkTab({ brandId, clientId }: { brandId: string; clientId: stri
           </div>
         ) : projects.length === 0 ? (
           <PanelEmptyState
-            title="Nenhum projeto ainda"
-            description="Projetos são criados pela aprovação da pauta ou manualmente em Projetos."
+            icon={<FolderKanban className="h-4 w-4" />}
+            text="Nenhum projeto ainda — projetos nascem da aprovação da pauta ou de /projetos."
           />
         ) : (
           <ul className="divide-y divide-border/60">
@@ -168,7 +168,7 @@ export function WorkTab({ brandId, clientId }: { brandId: string; clientId: stri
 
       <OverviewCard
         title="Tarefas abertas"
-        description="Mesma base de /tarefas — abre o painel completo da tarefa."
+        subtitle="Mesma base de /tarefas — abre o painel completo da tarefa."
         action={
           <Button asChild size="sm" variant="outline" className="h-8 gap-1.5">
             <Link to="/tasks" search={{ view: "list", groupBy: "status" } as never}>
@@ -185,8 +185,8 @@ export function WorkTab({ brandId, clientId }: { brandId: string; clientId: stri
           </div>
         ) : openTasks.length === 0 ? (
           <PanelEmptyState
-            title="Nenhuma tarefa aberta"
-            description="Tarefas de produção são criadas quando a pauta é materializada."
+            icon={<ListTodo className="h-4 w-4" />}
+            text="Nenhuma tarefa aberta para este cliente."
           />
         ) : (
           <ul className="divide-y divide-border/60">
