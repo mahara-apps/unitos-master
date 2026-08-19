@@ -103,7 +103,6 @@ function LoginPage() {
 }
 
 function BrandPanel() {
-  const branding = useBrandBranding(null);
   return (
     <aside className="relative isolate hidden min-w-0 overflow-hidden bg-[linear-gradient(150deg,oklch(0.22_0.03_260)_0%,oklch(0.18_0.02_260)_55%,oklch(0.13_0.02_260)_100%)] text-primary-foreground lg:flex lg:flex-col lg:justify-between lg:p-14">
       <div
