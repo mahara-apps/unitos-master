@@ -35,46 +35,43 @@ export function AddMemberDrawer({
   const close = () => onOpenChange(false);
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="flex w-full flex-col gap-0 p-0 sm:max-w-[520px]"
+    <ExpandedModal
+      open={open}
+      onOpenChange={onOpenChange}
+      size="sm"
+      bodyClassName={EXPANDED_MODAL_TABS_BODY}
+      title={
+        <span className="flex items-center gap-2">
+          <UserPlus className="h-4 w-4 text-primary" />
+          Adicionar membro
+        </span>
+      }
+      description="Convide alguém por e-mail ou vincule uma conta que já existe no Unitos."
+    >
+      <Tabs
+        value={tab}
+        onValueChange={(v) => setTab(v as "invite" | "link")}
+        className="flex flex-1 flex-col overflow-hidden"
       >
-        <SheetHeader className="border-b border-border/60 px-6 py-5">
-          <SheetTitle className="flex items-center gap-2 text-lg">
-            <UserPlus className="h-4 w-4 text-primary" />
-            Adicionar membro
-          </SheetTitle>
-          <SheetDescription>
-            Convide alguém por e-mail ou vincule uma conta que já existe no Unitos.
-          </SheetDescription>
-        </SheetHeader>
+        <div className="border-b border-border/60 px-6 pt-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="invite" className="gap-2">
+              <Mail className="h-3.5 w-3.5" /> Convidar por e-mail
+            </TabsTrigger>
+            <TabsTrigger value="link" className="gap-2">
+              <Link2 className="h-3.5 w-3.5" /> Vincular conta existente
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-        <Tabs
-          value={tab}
-          onValueChange={(v) => setTab(v as "invite" | "link")}
-          className="flex flex-1 flex-col overflow-hidden"
-        >
-          <div className="border-b border-border/60 px-6 pt-4">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="invite" className="gap-2">
-                <Mail className="h-3.5 w-3.5" /> Convidar por e-mail
-              </TabsTrigger>
-              <TabsTrigger value="link" className="gap-2">
-                <Link2 className="h-3.5 w-3.5" /> Vincular conta existente
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="invite" className="flex-1 overflow-y-auto px-6 py-6 data-[state=inactive]:hidden">
-            <InvitePanel brandId={brandId} onDone={onDone} onClose={close} />
-          </TabsContent>
-          <TabsContent value="link" className="flex-1 overflow-y-auto px-6 py-6 data-[state=inactive]:hidden">
-            <LinkPanel brandId={brandId} onDone={onDone} onClose={close} />
-          </TabsContent>
-        </Tabs>
-      </SheetContent>
-    </Sheet>
+        <TabsContent value="invite" className="flex-1 overflow-y-auto px-6 py-6 data-[state=inactive]:hidden">
+          <InvitePanel brandId={brandId} onDone={onDone} onClose={close} />
+        </TabsContent>
+        <TabsContent value="link" className="flex-1 overflow-y-auto px-6 py-6 data-[state=inactive]:hidden">
+          <LinkPanel brandId={brandId} onDone={onDone} onClose={close} />
+        </TabsContent>
+      </Tabs>
+    </ExpandedModal>
   );
 }
 
