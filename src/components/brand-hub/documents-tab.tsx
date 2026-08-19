@@ -241,6 +241,94 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
     return { total: docs.length, analyzed, applied, suggested };
   }, [docs]);
 
+  // Uma única implementação de cada célula, reutilizada pela tabela (desktop)
+  // e pelos cartões (mobile) — mesmos dados, mesmas ações.
+  const renderName = (d: ClientDocumentAi) => (
+    <div className="flex min-w-0 items-start gap-2">
+      <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+      <div className="min-w-0">
+        <div className="truncate text-sm">{d.name}</div>
+        {d.ai_summary?.document_type ? (
+          <div className="text-[11px] text-muted-foreground">{d.ai_summary.document_type}</div>
+        ) : null}
+      </div>
+    </div>
+  );
+
+  const renderAi = (d: ClientDocumentAi) => (
+    <div className="flex flex-col items-start gap-1">
+      {statusBadge(d.ai_status)}
+      {d.ai_status === "done" && d.ai_summary?.briefing ? (
+        <button
+          type="button"
+          onClick={() => setOpenDoc(d)}
+          className="text-left text-[11px] font-medium text-primary underline-offset-2 hover:underline"
+        >
+          Ver leitura & antes/depois
+        </button>
+      ) : null}
+      {d.ai_status === "failed" && d.ai_error ? (
+        <span className="line-clamp-2 text-[11px] text-destructive">{d.ai_error}</span>
+      ) : null}
+    </div>
+  );
+
+  const renderVisibility = (d: ClientDocumentAi) => (
+    <div className="flex flex-wrap items-center gap-2">
+      <Switch
+        checked={d.visible_to_client}
+        disabled={visibility.isPending}
+        aria-label={
+          d.visible_to_client
+            ? "Ocultar documento do portal do cliente"
+            : "Tornar documento visível no portal do cliente"
+        }
+        onCheckedChange={(v) => visibility.mutate({ id: d.id, visible: v })}
+      />
+      {d.visible_to_client ? (
+        <Badge
+          variant="outline"
+          className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+        >
+          <Eye className="mr-1 h-3 w-3" /> Visível no portal
+        </Badge>
+      ) : (
+        <Badge
+          variant="outline"
+          className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+        >
+          <EyeOff className="mr-1 h-3 w-3" /> Não visível
+        </Badge>
+      )}
+    </div>
+  );
+
+  const renderActions = (d: ClientDocumentAi) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0" aria-label="Ações do documento">
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          disabled={d.ai_status === "queued" || d.ai_status === "running"}
+          onClick={() => void analyzeDoc(d.id)}
+        >
+          <Sparkles className="mr-2 h-3.5 w-3.5" />
+          {d.ai_status === "done" ? "Reanalisar" : "Analisar com IA"}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => download(d.id)}>
+          <Download className="mr-2 h-3.5 w-3.5" /> Download
+        </DropdownMenuItem>
+        <DropdownMenuItem className="text-destructive" onClick={() => del.mutate(d.id)}>
+          <Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
+
   return (
     <div className="space-y-4">
       <PageKpiGrid columns={4}>
