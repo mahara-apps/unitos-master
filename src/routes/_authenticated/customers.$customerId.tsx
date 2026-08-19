@@ -386,6 +386,7 @@ function CustomerDetailReady({
                   clientId={customerId}
                   planId={planId}
                   onSelectPlan={setPlanId}
+                  embedded
                 />
               </TabsContent>
 
