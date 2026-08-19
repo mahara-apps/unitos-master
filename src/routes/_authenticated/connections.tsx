@@ -70,11 +70,23 @@ import {
 } from "@/components/ui/dashboard-primitives";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { AiCenter, type AiSettingsUpdate } from "@/components/connections/ai-center";
+import { AiUsagePanel } from "@/components/connections/ai-usage-panel";
+import { AiPromptsPanel } from "@/components/connections/ai-prompts-panel";
+import { LogViewer } from "@/components/logs/log-viewer";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
+type ConnectionsSearch = { tab?: "channels" | "ai" | "messaging"; section?: string };
+
 export const Route = createFileRoute("/_authenticated/connections")({
+  validateSearch: (search: Record<string, unknown>): ConnectionsSearch => ({
+    tab:
+      search.tab === "ai" || search.tab === "messaging" || search.tab === "channels"
+        ? search.tab
+        : undefined,
+    section: typeof search.section === "string" ? search.section : undefined,
+  }),
   component: ConnectionsPage,
 });
 
@@ -211,6 +223,10 @@ function ConnectionsPage() {
   const { brandId } = useActiveContext();
   const qc = useQueryClient();
   const { role, isReady } = useAccessRole();
+  const search = Route.useSearch();
+  const aiSection = ["providers", "usage", "logs", "prompts"].includes(search.section ?? "")
+    ? search.section!
+    : "providers";
 
   // Gate: /connections é área admin (BM, credenciais globais, mapa de conexões).
   // Contas operacionais por cliente vivem em /customers/:id → aba Canais.
@@ -395,7 +411,7 @@ function ConnectionsPage() {
         }}
       />
 
-      <Tabs defaultValue="channels" className="space-y-4">
+      <Tabs defaultValue={search.tab ?? "channels"} className="space-y-4">
         <TabsList variant="bordered">
           <TabsTrigger value="channels">
             <Radio className="h-3.5 w-3.5" />
@@ -411,22 +427,60 @@ function ConnectionsPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Tab: IA */}
+        {/* Tab: IA — Centro de IA (provedores, governança, execuções, prompts) */}
         <TabsContent value="ai" className="space-y-4">
           <div>
             <h2 className="text-base font-semibold">Inteligência Artificial</h2>
             <p className="text-xs text-muted-foreground">
-              Configure provedores, modelos e consumo de IA utilizados pelo workspace.
+              Provedores e modelos, limites e consumo, execuções e prompts dos agentes.
             </p>
           </div>
-          <AiCenter
-            brandId={brandId}
-            data={data as unknown as never}
-            isLoading={isLoading}
-            onChanged={invalidate}
-            isSaving={updateMut.isPending}
-            onUpdateSettings={(input: AiSettingsUpdate) => updateMut.mutate({ brandId, ...input })}
-          />
+          <Tabs defaultValue={aiSection} className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="providers">Provedores & Modelos</TabsTrigger>
+              {role === "admin" ? (
+                <>
+                  <TabsTrigger value="usage">Limites & Consumo</TabsTrigger>
+                  <TabsTrigger value="logs">Execuções</TabsTrigger>
+                  <TabsTrigger value="prompts">Prompts</TabsTrigger>
+                </>
+              ) : null}
+            </TabsList>
+
+            <TabsContent value="providers" className="space-y-4">
+              <AiCenter
+                brandId={brandId}
+                data={data as unknown as never}
+                isLoading={isLoading}
+                onChanged={invalidate}
+                isSaving={updateMut.isPending}
+                onUpdateSettings={(input: AiSettingsUpdate) =>
+                  updateMut.mutate({ brandId, ...input })
+                }
+              />
+            </TabsContent>
+
+            {role === "admin" ? (
+              <>
+                <TabsContent value="usage" className="space-y-4">
+                  <AiUsagePanel brandId={brandId} />
+                </TabsContent>
+
+                <TabsContent value="logs" className="space-y-4">
+                  <LogViewer
+                    queryKey="ai-center-logs"
+                    sources={["ai_job"]}
+                    title="Execuções de IA"
+                    description="Jobs de IA executados no workspace. Últimas 300 entradas por consulta."
+                  />
+                </TabsContent>
+
+                <TabsContent value="prompts" className="space-y-4">
+                  <AiPromptsPanel brandId={brandId} />
+                </TabsContent>
+              </>
+            ) : null}
+          </Tabs>
         </TabsContent>
 
 
