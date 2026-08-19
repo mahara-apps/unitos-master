@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 import { OverviewCard, OverviewEmpty } from "./overview-shared";
 
 export type ActivityEvent = {

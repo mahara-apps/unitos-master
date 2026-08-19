@@ -3,7 +3,6 @@
 // Consome apenas server functions já existentes; nenhum dado mockado.
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -11,8 +10,6 @@ import { Button } from "@/components/ui/button";
 import { OverviewSkeleton } from "@/components/ai-agents/tab-skeletons";
 import { isValidScope } from "@/lib/customer-queries";
 import { loadCustomerDashboardFn } from "@/lib/customer-dashboard.functions";
-import { getBrandHub } from "@/lib/brand-hub.functions";
-import { computeBriefingCompletion } from "@/lib/briefing-progress";
 import { listTasksFn } from "@/lib/tasks.functions";
 import { listScheduledPostsFn } from "@/lib/calendar.functions";
 import { listCalendarEventsFn } from "@/lib/calendar-events.functions";
@@ -36,11 +33,9 @@ type Props = {
 
 export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab }: Props) {
   const loadFn = useServerFn(loadCustomerDashboardFn);
-  const fetchHub = useServerFn(getBrandHub);
   const listTasks = useServerFn(listTasksFn);
   const listScheduled = useServerFn(listScheduledPostsFn);
   const listEvents = useServerFn(listCalendarEventsFn);
-  const navigate = useNavigate();
   const [newAppointment, setNewAppointment] = useState(false);
   const scopeValid = isValidScope({ brandId, clientId });
 
@@ -54,13 +49,6 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
       if (/row-level security|permission denied|unauthorized|forbidden/i.test(msg)) return false;
       return failureCount < 2;
     },
-  });
-
-  const hubQ = useQuery({
-    queryKey: ["brand-hub", brandId, clientId],
-    queryFn: () => fetchHub({ data: { brandId, clientId } }),
-    staleTime: 30_000,
-    enabled: scopeValid,
   });
 
   const tasksQ = useQuery({

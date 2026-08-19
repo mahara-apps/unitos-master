@@ -2,6 +2,7 @@ import { AlertTriangle, CheckCircle2, ShieldCheck } from "lucide-react";
 import { formatDistanceToNow, isPast } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { OverviewCard, OverviewEmpty } from "./overview-shared";
 
 export type AttentionAlert = {
