@@ -104,26 +104,33 @@ function LoginPage() {
 }
 
 function BrandPanel() {
+  const branding = useBrandBranding(null);
   return (
-    <aside className="relative isolate hidden min-w-0 overflow-hidden bg-sidebar text-sidebar-foreground lg:flex lg:flex-col lg:justify-between lg:p-14">
+    <aside className="relative isolate hidden min-w-0 overflow-hidden bg-[linear-gradient(150deg,oklch(0.22_0.03_260)_0%,oklch(0.18_0.02_260)_55%,oklch(0.13_0.02_260)_100%)] text-primary-foreground lg:flex lg:flex-col lg:justify-between lg:p-14">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(120%_90%_at_15%_0%,color-mix(in_oklab,var(--color-primary)_45%,transparent)_0%,transparent_60%)]"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(110%_80%_at_10%_0%,color-mix(in_oklab,var(--color-primary)_55%,transparent)_0%,transparent_62%)]"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.12] [background-image:linear-gradient(to_right,currentColor_1px,transparent_1px),linear-gradient(to_bottom,currentColor_1px,transparent_1px)] [background-size:56px_56px]"
+        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.06] [background-image:linear-gradient(to_right,currentColor_1px,transparent_1px),linear-gradient(to_bottom,currentColor_1px,transparent_1px)] [background-size:64px_64px]"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute -bottom-32 -left-24 -z-10 h-96 w-96 rounded-full bg-primary/25 blur-3xl"
+        className="pointer-events-none absolute -bottom-40 -left-28 -z-10 h-[26rem] w-[26rem] rounded-full bg-primary/30 blur-3xl"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute -top-24 right-[-10%] -z-10 h-80 w-80 rotate-12 rounded-[38%] border border-current/10 bg-current/[0.04]"
+        className="pointer-events-none absolute -top-28 right-[-12%] -z-10 h-80 w-80 rotate-12 rounded-[38%] border border-white/10 bg-white/[0.03]"
       />
 
-      <UnitosLogo variant="full" eager className="h-11 w-auto max-w-[190px] self-start" />
+      <img
+        src={branding.logoDark}
+        alt="Logo da agência"
+        draggable={false}
+        className="h-11 w-auto max-w-[190px] select-none self-start object-contain"
+      />
+
 
       <div className="max-w-md">
         <p className="text-3xl font-semibold leading-tight tracking-tight xl:text-4xl">
