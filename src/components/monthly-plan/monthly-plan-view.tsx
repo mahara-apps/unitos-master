@@ -34,7 +34,6 @@ import {
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 
-import { DashboardPageShell } from "@/components/ui/dashboard-primitives";
 import { describeError } from "@/lib/errors";
 import {
   GeneratePlanWizard,
@@ -84,16 +83,45 @@ const LOADING_MESSAGES = [
   "Finalizando a pauta…",
 ];
 
+/**
+ * Shell da pauta. Quando embutida no Painel do Cliente o padding externo já
+ * existe — repeti-lo criava margens duplas (visível no mobile).
+ */
+function PlanShell({
+  embedded,
+  className,
+  children,
+}: {
+  embedded?: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "w-full space-y-6",
+        embedded ? "px-0 py-0" : "px-4 py-6 sm:px-6 lg:px-8",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function MonthlyPlanView({
   brandId,
   clientId,
   planId: planIdProp,
   onSelectPlan,
+  embedded = false,
 }: {
   brandId: string;
   clientId: string;
   planId?: string | null;
   onSelectPlan?: (id: string | null) => void;
+  /** true quando a pauta é renderizada dentro do Painel do Cliente (que já tem padding). */
+  embedded?: boolean;
 }) {
   // Route-agnostic: this view is mounted from both
   // /_authenticated/customers/$customerId/pauta and /_authenticated/monthly-plan/*
@@ -233,7 +261,7 @@ export function MonthlyPlanView({
   /* -------- ESTADO 1: geração -------- */
   if (!planId) {
     return (
-      <DashboardPageShell>
+      <PlanShell embedded={embedded}>
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 sm:flex sm:flex-wrap sm:justify-between">
           <div className="min-w-0">
             <h1 className="text-2xl font-semibold tracking-tight">
@@ -285,7 +313,7 @@ export function MonthlyPlanView({
           requestingOverage={overageM.isPending}
           onRequestOverage={(items, justification) => overageM.mutate({ items, justification })}
         />
-      </DashboardPageShell>
+      </PlanShell>
     );
   }
 
@@ -295,6 +323,7 @@ export function MonthlyPlanView({
       planId={planId}
       brandId={brandId}
       clientId={clientId}
+      embedded={embedded}
       onBack={() => {
         setWizardOpen(false);
         setPlanId(null);
@@ -319,12 +348,14 @@ function ApprovalView({
   clientId,
   onBack,
   onDiscarded,
+  embedded = false,
 }: {
   planId: string;
   brandId: string;
   clientId: string;
   onBack: () => void;
   onDiscarded: () => void;
+  embedded?: boolean;
 }) {
 
   const qc = useQueryClient();
@@ -560,7 +591,7 @@ function ApprovalView({
 
   if (q.isLoading || !q.data) {
     return (
-      <DashboardPageShell className="space-y-4">
+      <PlanShell embedded={embedded} className="space-y-4">
         <Skeleton className="h-8 w-2/3" />
         <Skeleton className="h-24 w-full" />
         <div className="grid gap-3 sm:grid-cols-2">
@@ -568,7 +599,7 @@ function ApprovalView({
             <Skeleton key={i} className="h-28 w-full rounded-lg" />
           ))}
         </div>
-      </DashboardPageShell>
+      </PlanShell>
     );
   }
 
@@ -583,8 +614,8 @@ function ApprovalView({
   const clientLink = linkQ.data ? `${window.location.origin}${linkQ.data.url}` : null;
 
   return (
-    <div className="pb-32">
-      <DashboardPageShell className="space-y-8">
+    <div className="pb-40 sm:pb-32">
+      <PlanShell embedded={embedded} className="space-y-6 sm:space-y-8">
         {(plan.status === "changes_requested" || plan.status === "client_rejected") &&
         plan.client_feedback ? (
           <p className="text-xs text-amber-400">
@@ -622,7 +653,7 @@ function ApprovalView({
         <section className="space-y-5 rounded-2xl border border-border/60 bg-card/40 p-6 backdrop-blur">
           <InlineEditable
             as="h1"
-            className="text-3xl font-semibold tracking-tight"
+            className="text-2xl font-semibold tracking-tight sm:text-3xl"
             value={plan.title}
             onSave={(v) => savePlan.mutate({ title: v })}
             multiline={false}
@@ -733,11 +764,11 @@ function ApprovalView({
             ))}
           </div>
         </section>
-      </DashboardPageShell>
+      </PlanShell>
 
       {/* Sticky action bar */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/95 backdrop-blur">
-        <div className="flex w-full flex-wrap items-center justify-end gap-3 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="flex w-full flex-col gap-2 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3 sm:px-6 lg:px-8">
           <Button
             variant="outline"
             className="gap-1.5"
