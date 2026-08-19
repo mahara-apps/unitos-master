@@ -2704,7 +2704,10 @@ export type Database = {
         Row: {
           brand_id: string
           created_at: string
+          deactivated_at: string | null
+          deactivated_by: string | null
           id: string
+          is_active: boolean
           permissions: Json
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
@@ -2712,7 +2715,10 @@ export type Database = {
         Insert: {
           brand_id: string
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
           id?: string
+          is_active?: boolean
           permissions?: Json
           role?: Database["public"]["Enums"]["app_role"]
           user_id: string
@@ -2720,7 +2726,10 @@ export type Database = {
         Update: {
           brand_id?: string
           created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
           id?: string
+          is_active?: boolean
           permissions?: Json
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
@@ -6413,6 +6422,18 @@ export type Database = {
         Returns: Json
       }
       process_brain_learning_queue: { Args: { _limit?: number }; Returns: Json }
+      reactivate_portal_token: {
+        Args: { _token_id: string }
+        Returns: {
+          created_at: string
+          expires_at: string
+          id: string
+          label: string
+          last_seen_at: string
+          revoked_at: string
+          token: string
+        }[]
+      }
       reap_brain_learning_queue: { Args: never; Returns: number }
       reap_stuck_ai_jobs: { Args: never; Returns: number }
       refresh_brain_stats: { Args: never; Returns: undefined }
