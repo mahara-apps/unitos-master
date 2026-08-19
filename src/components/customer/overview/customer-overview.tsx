@@ -211,7 +211,7 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
         aiJobs={m.aiJobsCount}
         aiCost30d={m.costTotal30d}
         costSpark={m.costSpark}
-        onOpenChannels={() => onOpenTab?.("channels")}
+        onOpenChannels={() => onOpenTab?.("publicacoes")}
       />
       <OverviewBrain brandId={brandId} clientId={clientId} />
 
