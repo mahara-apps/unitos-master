@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, X, Mail, Link2, UserPlus } from "lucide-react";
 import { inviteBrandMembers, addExistingUserToBrand } from "@/lib/team.functions";
-import { cn } from "@/lib/utils";
 
 type Role = "owner" | "manager" | "editor" | "designer";
 const ROLES: Role[] = ["owner", "manager", "editor", "designer"];
