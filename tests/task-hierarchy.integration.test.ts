@@ -512,11 +512,14 @@ describe("6b. Matriz de papéis (isolamento por cliente)", () => {
     }
   });
 
-  it("COMPORTAMENTO ATUAL DOCUMENTADO: cliente sem responsável e sem vínculos é visível a todos os membros da marca", async () => {
-    // can_access_client_row(): quando owner_user_id é NULL e não existe nenhum
-    // client_members não-portal, qualquer membro da marca (inclusive editor)
-    // recebe acesso. É a regra de produto vigente para clientes recém-criados.
-    for (const u of [fx.userA, fx.userB, fx.userNoLink, fx.userManager, fx.userOwner]) {
+  it("cliente sem responsável e sem vínculos NÃO é visível para USER (somente ADMIN/MANAGER)", async () => {
+    // can_access_client_row(): USER só acessa cliente de que é responsável
+    // (owner_user_id) ou ao qual está vinculado em client_members.
+    for (const u of [fx.userA, fx.userB, fx.userNoLink]) {
+      const r = await u.client.from("clients").select("id").eq("id", fx.clientOrphan);
+      expect(r.data ?? [], `${u.email} não deveria ver o cliente órfão`).toHaveLength(0);
+    }
+    for (const u of [fx.userManager, fx.userOwner]) {
       const r = await u.client.from("clients").select("id").eq("id", fx.clientOrphan);
       expect(r.data ?? [], `${u.email} deveria ver o cliente órfão`).toHaveLength(1);
     }
@@ -527,20 +530,20 @@ describe("6b. Matriz de papéis (isolamento por cliente)", () => {
       .eq("id", fx.clientOrphan);
     expect(portal.data ?? []).toHaveLength(0);
 
-    // Ao ganhar um responsável, o cliente sai do modo aberto.
+    // Ao ganhar vínculo explícito, o USER passa a acessar.
     await admin
       .from("client_members")
       .insert({
         brand_id: fx.brandId,
         client_id: fx.clientOrphan,
         user_id: fx.userA.id,
-        role: "editor",
+        role: "user",
       });
     const noLinkAfter = await fx.userNoLink.client
       .from("clients")
       .select("id")
       .eq("id", fx.clientOrphan);
-    expect(noLinkAfter.data ?? [], "com vínculo definido o cliente deixa de ser aberto").toHaveLength(0);
+    expect(noLinkAfter.data ?? [], "sem vínculo continua sem acesso").toHaveLength(0);
     const linkedAfter = await A.from("clients").select("id").eq("id", fx.clientOrphan);
     expect(linkedAfter.data ?? []).toHaveLength(1);
   });

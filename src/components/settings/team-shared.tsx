@@ -3,31 +3,38 @@ import { cn } from "@/lib/utils";
 import type { BrandRole } from "@/lib/team-admin.functions";
 
 /** Papéis atribuíveis pela tela (o papel `client` vem do portal, não daqui). */
-export const ASSIGNABLE_ROLES: BrandRole[] = ["owner", "manager", "editor", "designer"];
+export const ASSIGNABLE_ROLES: BrandRole[] = ["owner", "manager", "user"];
 
 export const ROLE_LABEL: Record<BrandRole, string> = {
-  owner: "Owner — administra tudo na marca",
-  manager: "Manager / Supervisor — administra equipe e operação",
-  editor: "Editor / Agente — opera conteúdo e produção",
-  designer: "Designer — opera produção criativa",
+  owner: "Admin (proprietário) — administra tudo na marca",
+  manager: "Manager — administra a marca e todos os clientes",
+  user: "User — opera apenas os clientes vinculados",
   client: "Cliente — somente portal",
 };
 
 export const ROLE_SHORT: Record<BrandRole, string> = {
-  owner: "Owner",
+  owner: "Admin",
   manager: "Manager",
-  editor: "Editor",
-  designer: "Designer",
+  user: "User",
   client: "Cliente",
 };
 
 /** Resumo do acesso real concedido pelo papel (fonte: RBAC/RLS do banco). */
 export const ROLE_ACCESS: Record<BrandRole, string> = {
-  owner: "Visualiza, cria/edita, aprova e administra tudo: equipe, identidade, clientes, IA e portais.",
-  manager: "Visualiza, cria/edita e aprova em todos os clientes; administra equipe, SLA e auditoria. Não altera owners.",
-  editor: "Visualiza, cria e edita conteúdo e produção apenas nos clientes vinculados.",
-  designer: "Visualiza, cria e edita produção criativa apenas nos clientes vinculados.",
+  owner:
+    "Visualiza, cria/edita e administra tudo na marca: equipe, identidade, clientes, SLA, conexões e portais.",
+  manager:
+    "Mesmo alcance operacional e administrativo da marca, em todos os clientes. Não altera owners/administradores.",
+  user: "Opera conteúdo, projetos e tarefas apenas nos clientes de que é responsável ou aos quais está vinculado.",
   client: "Acesso restrito ao portal do próprio cliente.",
+};
+
+/** Escopo de clientes aplicado pelo banco (`can_access_client_row`). */
+export const ROLE_SCOPE: Record<BrandRole, string> = {
+  owner: "Todos os clientes da marca",
+  manager: "Todos os clientes da marca",
+  user: "Somente clientes vinculados",
+  client: "Somente o próprio cliente (portal)",
 };
 
 export function memberInitials(name?: string | null, email?: string | null) {
