@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { normalizeNotificationPrefs } from "@/lib/notification-prefs";
 
 const UpdateSchema = z.object({
   full_name: z.string().trim().min(1, "Nome obrigatório").max(120),
@@ -47,14 +48,10 @@ export const getMyProfile = createServerFn({ method: "GET" })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       notify_whatsapp: Boolean((data as any)?.notify_whatsapp ?? false),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      notification_prefs: ((data as any)?.notification_prefs ?? {
-        email: true,
-        push: true,
-        whatsapp_client_portal: false,
-        comments: true,
-        approvals: true,
-        publications: true,
-      }) as Record<string, boolean>,
+      notification_prefs: normalizeNotificationPrefs((data as any)?.notification_prefs) as Record<
+        string,
+        boolean
+      >,
     };
   });
 
@@ -117,29 +114,29 @@ export const changeMyPassword = createServerFn({ method: "POST" })
 
 /* ----------------------- Notification preferences ----------------------- */
 
+/**
+ * Só existem preferências para eventos com emissor real; a fonte única do
+ * mapa kind → preferência é `src/lib/notification-prefs.ts` (espelhada em SQL
+ * por `public.notification_prefs_allows`).
+ */
 const NotificationPrefsSchema = z.object({
-  email: z.boolean(),
-  push: z.boolean(),
-  whatsapp_client_portal: z.boolean(),
   comments: z.boolean(),
+  assignments: z.boolean(),
   approvals: z.boolean(),
-  publications: z.boolean(),
+  deadlines: z.boolean(),
+  ai_jobs: z.boolean(),
 });
 
 export type NotificationPrefs = z.infer<typeof NotificationPrefsSchema>;
 
 export const updateNotificationPrefs = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
-    z.object({ prefs: NotificationPrefsSchema, notify_whatsapp: z.boolean().optional() }).parse(input),
-  )
+  .inputValidator((input: unknown) => z.object({ prefs: NotificationPrefsSchema }).parse(input))
   .handler(async ({ data, context }) => {
-    const patch: Record<string, unknown> = { notification_prefs: data.prefs };
-    if (typeof data.notify_whatsapp === "boolean") patch.notify_whatsapp = data.notify_whatsapp;
     const { error } = await context.supabase
       .from("user_profiles")
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .update(patch as any)
+      .update({ notification_prefs: data.prefs } as any)
       .eq("id", context.userId);
     if (error) throw error;
     return { ok: true };

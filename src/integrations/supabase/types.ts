@@ -6361,6 +6361,11 @@ export type Database = {
       media_plan_public_items: { Args: { _token: string }; Returns: Json }
       media_plan_public_resolve: { Args: { _token: string }; Returns: Json }
       my_access: { Args: { _brand_id?: string }; Returns: Json }
+      notification_pref_for_kind: { Args: { _kind: string }; Returns: string }
+      notification_prefs_allows: {
+        Args: { _kind: string; _user_id: string }
+        Returns: boolean
+      }
       portal_approvals: {
         Args: { _client_id?: string; _status?: string; _token?: string }
         Returns: Json
