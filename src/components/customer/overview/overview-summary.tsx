@@ -1,67 +1,69 @@
+// Card de saúde da conta. Os números gerais vivem no PageKpiGrid do topo —
+// aqui só a leitura de saúde e como ela é composta.
 import { Activity } from "lucide-react";
 import { HealthBar } from "@/components/dashboard/health-bar";
-import { PageKpi, PageKpiGrid, type KpiStatus } from "@/components/ui/page-kpi";
 import { OverviewCard } from "./overview-shared";
+
+const PARTS: Array<{ key: keyof Breakdown; label: string; max: number }> = [
+  { key: "onTime", label: "Prazos cumpridos", max: 40 },
+  { key: "approvals", label: "Aprovações", max: 30 },
+  { key: "briefing", label: "Briefing", max: 15 },
+  { key: "schedule", label: "Agenda", max: 15 },
+];
+
+type Breakdown = { onTime: number; approvals: number; briefing: number; schedule: number };
 
 export function OverviewSummary({
   health,
   breakdown,
-  totalTasks,
-  overdueTasks,
-  contentTotal,
-  briefingCompletion,
 }: {
   health: number;
-  breakdown: { onTime: number; approvals: number; briefing: number; schedule: number };
-  totalTasks: number;
-  overdueTasks: number;
-  contentTotal: number;
-  briefingCompletion: number | null;
+  breakdown: Breakdown;
 }) {
   const tone =
-    health >= 75 ? "text-emerald-400" : health >= 50 ? "text-amber-400" : "text-destructive";
-
-  const stats: Array<{ label: string; value: number | string; status: KpiStatus }> = [
-    { label: "Tarefas", value: totalTasks, status: "neutral" },
-    { label: "Atrasadas", value: overdueTasks, status: overdueTasks > 0 ? "warning" : "neutral" },
-    { label: "Conteúdos", value: contentTotal, status: "neutral" },
-    {
-      label: "Briefing",
-      value: briefingCompletion === null ? "—" : `${briefingCompletion}%`,
-      status: "neutral",
-    },
-  ];
+    health >= 75 ? "text-health-good" : health >= 50 ? "text-severity-warning" : "text-destructive";
+  const reading =
+    health >= 75
+      ? "A conta está saudável."
+      : health >= 50
+        ? "A conta precisa de atenção em alguns pontos."
+        : "A conta está em risco — priorize as pendências.";
 
   return (
     <OverviewCard
-      title="Resumo operacional"
-      subtitle="Situação atual da conta"
+      title="Saúde da conta"
+      subtitle={reading}
       icon={<Activity className="h-4 w-4" />}
     >
-      <div className="flex h-full flex-col justify-between gap-5">
+      <div className="flex h-full flex-col justify-between gap-6">
         <div>
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <div className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                Saúde do cliente
-              </div>
-              <div className={`mt-1 text-4xl font-semibold tabular-nums ${tone}`}>{health}%</div>
-            </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-              <span>Prazos {breakdown.onTime}/40</span>
-              <span>Aprovações {breakdown.approvals}/30</span>
-              <span>Briefing {breakdown.briefing}/15</span>
-              <span>Agenda {breakdown.schedule}/15</span>
-            </div>
+          <div className={`text-5xl font-semibold leading-none tabular-nums ${tone}`}>
+            {health}%
           </div>
-          <HealthBar score={health} className="mt-3" />
+          <HealthBar score={health} className="mt-4" />
         </div>
-
-        <PageKpiGrid columns={4}>
-          {stats.map((s) => (
-            <PageKpi key={s.label} label={s.label} value={s.value} status={s.status} />
-          ))}
-        </PageKpiGrid>
+        <ul className="space-y-2.5">
+          {PARTS.map((p) => {
+            const value = breakdown[p.key];
+            const pct = Math.max(0, Math.min(100, (value / p.max) * 100));
+            return (
+              <li key={p.key} className="flex items-center gap-3">
+                <span className="w-32 shrink-0 truncate text-xs text-muted-foreground">
+                  {p.label}
+                </span>
+                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
+                  <span
+                    className="block h-full rounded-full bg-primary/70"
+                    style={{ width: `${pct}%` }}
+                  />
+                </span>
+                <span className="w-12 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+                  {value}/{p.max}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
       </div>
     </OverviewCard>
   );
