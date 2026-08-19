@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { PortalLink } from "./portal-context";
-import { PORTAL_TABS, PORTAL_TAB_LABEL, type PortalTabId } from "./portal-nav";
+import { PORTAL_TABS, PORTAL_TAB_DESCRIPTION, PORTAL_TAB_LABEL, type PortalTabId } from "./portal-nav";
 
 /**
  * FASE 1 — SHELL ÚNICO do Portal do Cliente.
@@ -41,38 +41,38 @@ export function PortalShell({
 
   return (
     <div
-      className={`min-h-dvh bg-background text-foreground ${dark ? "dark" : ""}`}
+      className="min-h-dvh bg-background text-foreground"
       style={{
         ["--portal-accent" as string]: accent,
         ...(background ? { ["--background" as string]: background, background } : {}),
       }}
     >
       <div className="flex min-h-dvh">
-        <aside className="hidden w-64 shrink-0 flex-col border-r border-border/60 bg-card lg:flex">
-          <div className="flex items-center gap-3 border-b border-border/60 px-5 py-5">
+        <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-border bg-card lg:flex">
+          <div className="flex items-center gap-3 border-b border-border px-5 py-6">
             {logoUrl ? (
               <img
                 src={logoUrl}
                 alt={clientName}
-                className="h-10 w-10 shrink-0 rounded-xl object-contain"
+                className="h-11 w-11 shrink-0 rounded-lg border border-border bg-background object-contain p-1"
               />
             ) : (
               <div
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-semibold text-white shadow-sm"
-                style={{ background: `linear-gradient(135deg, ${accent}, ${accent}cc)` }}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-sm font-semibold text-primary-foreground"
+                style={{ backgroundColor: accent }}
               >
                 {initials}
               </div>
             )}
             <div className="min-w-0">
-              <div className="truncate text-sm font-semibold tracking-tight">{clientName}</div>
-              <div className="truncate text-[11px] text-muted-foreground">Área do cliente</div>
+              <div className="truncate text-sm font-semibold">{clientName}</div>
+              <div className="mt-0.5 truncate text-xs text-muted-foreground">Portal da marca</div>
             </div>
           </div>
 
           <PortalNavList activeTab={activeTab} />
 
-          <div className="border-t border-border/60 px-5 py-4 text-[11px] text-muted-foreground">
+          <div className="border-t border-border px-5 py-4 text-xs text-muted-foreground">
             {footerLabel}
           </div>
         </aside>
@@ -80,26 +80,31 @@ export function PortalShell({
         <div className="flex min-w-0 flex-1 flex-col">
           <nav
             aria-label="Navegação do portal"
-            className="flex items-center gap-1 overflow-x-auto border-b border-border/60 bg-card px-3 py-2 lg:hidden"
+            className="sticky top-0 z-20 flex items-center gap-1 overflow-x-auto border-b border-border bg-card px-3 py-2 shadow-sm lg:hidden"
           >
             <PortalNavList activeTab={activeTab} compact />
           </nav>
 
-          <header className="flex flex-col gap-3 border-b border-border/60 bg-background px-4 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <header className="border-b border-border bg-background px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+            <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <h1 className="truncate text-xl font-semibold tracking-tight">
+              <div className="mb-2 text-xs font-medium text-muted-foreground">{clientName}</div>
+              <h1 className="truncate text-2xl font-semibold">
                 {PORTAL_TAB_LABEL[activeTab]}
               </h1>
-              <p className="text-xs text-muted-foreground">
-                Área privada de {clientName}. Suas decisões ficam registradas.
+              <p className="mt-1 text-sm text-muted-foreground">
+                {PORTAL_TAB_DESCRIPTION[activeTab]}
               </p>
             </div>
             {headerActions ? (
               <div className="flex flex-wrap items-center gap-2">{headerActions}</div>
             ) : null}
+            </div>
           </header>
 
-          <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+          <main className="flex-1 bg-muted/20 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+            <div className="mx-auto max-w-7xl">{children}</div>
+          </main>
         </div>
       </div>
     </div>
@@ -118,8 +123,8 @@ function PortalNavList({ activeTab, compact }: { activeTab: PortalTabId; compact
               key={t.id}
               tab={t.id}
               current={active}
-              className={`flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-xs transition-colors ${
-                active ? "bg-accent text-accent-foreground" : "text-muted-foreground"
+              className={`flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
               <Icon className="h-3.5 w-3.5" /> {t.label}
@@ -130,7 +135,7 @@ function PortalNavList({ activeTab, compact }: { activeTab: PortalTabId; compact
     );
   }
   return (
-    <nav aria-label="Navegação do portal" className="flex-1 space-y-0.5 px-3 py-4">
+    <nav aria-label="Navegação do portal" className="flex-1 space-y-1 px-3 py-5">
       {PORTAL_TABS.map((t) => {
         const Icon = t.icon;
         const active = activeTab === t.id;
@@ -139,10 +144,10 @@ function PortalNavList({ activeTab, compact }: { activeTab: PortalTabId; compact
             key={t.id}
             tab={t.id}
             current={active}
-            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+            className={`relative flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
               active
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
           >
             <Icon className={`h-4 w-4 ${active ? "" : "text-muted-foreground/70"}`} />
