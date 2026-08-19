@@ -47,14 +47,10 @@ export const getMyProfile = createServerFn({ method: "GET" })
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       notify_whatsapp: Boolean((data as any)?.notify_whatsapp ?? false),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      notification_prefs: ((data as any)?.notification_prefs ?? {
-        email: true,
-        push: true,
-        whatsapp_client_portal: false,
-        comments: true,
-        approvals: true,
-        publications: true,
-      }) as Record<string, boolean>,
+      notification_prefs: normalizeNotificationPrefs((data as any)?.notification_prefs) as Record<
+        string,
+        boolean
+      >,
     };
   });
 
