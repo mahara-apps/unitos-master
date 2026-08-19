@@ -19,7 +19,6 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -40,7 +39,6 @@ import {
   GridSkeleton,
   ListSkeleton,
   formatDate,
-  usePortalIdentity,
 } from "./portal-shared";
 
 /* ---------------------------------- HOME ---------------------------------- */
@@ -449,7 +447,6 @@ const EMPTY_BY_FILTER: Record<ApprovalFilter, { title: string; description: stri
 };
 
 export function ApprovalsTab() {
-  const identity = usePortalIdentity();
   const api = usePortalApi();
   const [filter, setFilter] = useState<ApprovalFilter>("pending");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -527,8 +524,6 @@ export function ApprovalsTab() {
       {openId && (
         <ApprovalDialog
           postId={openId}
-          identity={identity.value}
-          onIdentityChange={identity.save}
           onClose={() => setOpenId(null)}
         />
       )}
@@ -600,13 +595,9 @@ function ApprovalCard({ post, onOpen }: { post: Record<string, unknown>; onOpen:
 
 function ApprovalDialog({
   postId,
-  identity,
-  onIdentityChange,
   onClose,
 }: {
   postId: string;
-  identity: string;
-  onIdentityChange: (v: string) => void;
   onClose: () => void;
 }) {
   const qc = useQueryClient();
@@ -622,7 +613,7 @@ function ApprovalDialog({
     mutationFn: (payload: {
       decision: "approved" | "rejected" | "adjust" | "comment";
       note?: string;
-    }) => api.decidePost({ postId, identity, ...payload }),
+    }) => api.decidePost({ postId, ...payload }),
     onSuccess: (_r, vars) => {
       toast.success(
         vars.decision === "approved"
@@ -644,7 +635,6 @@ function ApprovalDialog({
     },
     onError: (e: Error) => toast.error(e.message),
   });
-  const disabled = api.requiresIdentity && !identity.trim();
   const post = q.data?.post;
   const approval = q.data?.approval;
   const media = q.data?.media ?? [];
@@ -811,20 +801,6 @@ function ApprovalDialog({
 
             {/* Ações */}
             <div className="space-y-3 border-t border-border/60 bg-card/70 px-5 py-4">
-              {disabled && (
-                <div className="space-y-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 p-3">
-                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
-                    <User2 className="h-3 w-3" /> Identifique-se para decidir
-                  </div>
-                  <Input
-                    autoFocus
-                    value={identity}
-                    onChange={(e) => onIdentityChange(e.target.value)}
-                    placeholder="Seu nome"
-                    className="h-8 text-sm"
-                  />
-                </div>
-              )}
               {mode ? (
                 <div className="flex gap-2">
                   <Button
@@ -842,7 +818,7 @@ function ApprovalDialog({
                     size="sm"
                     className="flex-1"
                     variant={mode === "reject" ? "destructive" : "default"}
-                    disabled={disabled || m.isPending || (mode !== "comment" && !note.trim())}
+                    disabled={m.isPending || (mode !== "comment" && !note.trim())}
                     onClick={() =>
                       m.mutate({
                         decision: mode === "reject" ? "rejected" : mode,
@@ -866,7 +842,7 @@ function ApprovalDialog({
                   <Button
                     size="sm"
                     className="w-full bg-emerald-600 text-white hover:bg-emerald-600/90"
-                    disabled={disabled || m.isPending}
+                    disabled={m.isPending}
                     onClick={() => m.mutate({ decision: "approved" })}
                   >
                     {m.isPending ? (
@@ -880,7 +856,6 @@ function ApprovalDialog({
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={disabled}
                       onClick={() => setMode("adjust")}
                     >
                       <MessageSquareWarning className="mr-1 h-4 w-4" /> Ajustes
@@ -888,7 +863,6 @@ function ApprovalDialog({
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={disabled}
                       onClick={() => setMode("reject")}
                     >
                       <X className="mr-1 h-4 w-4" /> Recusar
@@ -896,7 +870,6 @@ function ApprovalDialog({
                     <Button
                       size="sm"
                       variant="ghost"
-                      disabled={disabled}
                       onClick={() => setMode("comment")}
                     >
                       <MessageCircle className="mr-1 h-4 w-4" /> Comentar
