@@ -14,7 +14,7 @@ export async function publish(ctx: BrainContext, event: BrainEventInput): Promis
         client_id: event.client_id ?? null,
         source_module: event.source_module,
         event_type: event.event_type,
-        actor_id: event.actor_id ?? ctx.userId,
+        actor_id: event.actor_id !== undefined ? event.actor_id : ctx.userId || null,
         entity_type: event.entity_type ?? null,
         entity_id: event.entity_id ?? null,
         payload: event.payload,

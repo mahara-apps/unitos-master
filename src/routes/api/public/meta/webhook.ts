@@ -94,6 +94,7 @@ export const Route = createFileRoute("/api/public/meta/webhook")({
               event_type: `meta.${channel}.${detectEventType(entry)}`,
               entity_type: "social_connection",
               entity_id: match.id,
+              actor_id: null,
               payload: {
                 object,
                 channel,
@@ -107,7 +108,8 @@ export const Route = createFileRoute("/api/public/meta/webhook")({
 
         if (events.length > 0) {
           const { brain } = await import("@/lib/brain/api");
-          const ctx = { supabase: supabaseAdmin, brandId: null, userId: null };
+          // Contexto de sistema: webhook não tem usuário autenticado.
+          const ctx = { supabase: supabaseAdmin, brandId: null, userId: "" };
           for (const ev of events) {
             await brain.events.publish(ctx, ev);
           }
