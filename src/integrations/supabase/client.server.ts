@@ -30,11 +30,11 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 }
 
 function createSupabaseAdminClient() {
-  const SUPABASE_URL = process.env.SUPABASE_URL;
+  const SUPABASE_URL = process.env['SUPABASE_URL']?.trim();
   // `SUPABASE_*` é prefixo reservado no Lovable Cloud. Em projetos com Supabase
   // externo, o service role vem em `SB_SERVICE_ROLE_KEY` (nome não-reservado).
   const SUPABASE_SERVICE_ROLE_KEY =
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SB_SERVICE_ROLE_KEY;
+    process.env['SUPABASE_SERVICE_ROLE_KEY']?.trim() || process.env['SB_SERVICE_ROLE_KEY']?.trim();
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     const missing = [
@@ -44,7 +44,7 @@ function createSupabaseAdminClient() {
     // Detalhe fica APENAS no log do servidor; a mensagem que chega ao usuário
     // é genérica (nunca expõe nomes de secrets na interface).
     console.error(
-      `[Supabase] Missing Supabase environment variable(s): ${missing.join(', ')}. Connect Supabase in Lovable Cloud.`,
+      `[Supabase] Missing Supabase environment variable(s): ${missing.join(', ')}. Refresh the connected Supabase binding.`,
     );
     throw new Error('Não foi possível carregar os dados. Tente novamente.');
   }
