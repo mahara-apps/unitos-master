@@ -49,7 +49,6 @@ import { Route as PortalTokenBriefingRouteImport } from './routes/portal.$token.
 import { Route as PortalTokenArquivosRouteImport } from './routes/portal.$token.arquivos'
 import { Route as PortalTokenAprovacoesRouteImport } from './routes/portal.$token.aprovacoes'
 import { Route as PBriefingTokenRouteImport } from './routes/p.briefing.$token'
-import { Route as ApiPublicSeedSuperadminsRouteImport } from './routes/api/public/seed-superadmins'
 import { Route as ApiJobsCustomerPipelineRouteImport } from './routes/api/jobs/customer-pipeline'
 import { Route as ApiJobsCopilotRouteImport } from './routes/api/jobs/copilot'
 import { Route as ApiJobsAnalyzeDocumentRouteImport } from './routes/api/jobs/analyze-document'
@@ -304,12 +303,6 @@ const PBriefingTokenRoute = PBriefingTokenRouteImport.update({
   path: '/p/briefing/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicSeedSuperadminsRoute =
-  ApiPublicSeedSuperadminsRouteImport.update({
-    id: '/api/public/seed-superadmins',
-    path: '/api/public/seed-superadmins',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiJobsCustomerPipelineRoute = ApiJobsCustomerPipelineRouteImport.update({
   id: '/api/jobs/customer-pipeline',
   path: '/api/jobs/customer-pipeline',
@@ -636,7 +629,6 @@ export interface FileRoutesByFullPath {
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
-  '/api/public/seed-superadmins': typeof ApiPublicSeedSuperadminsRoute
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/portal/$token/aprovacoes': typeof PortalTokenAprovacoesRoute
   '/portal/$token/arquivos': typeof PortalTokenArquivosRoute
@@ -719,7 +711,6 @@ export interface FileRoutesByTo {
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
-  '/api/public/seed-superadmins': typeof ApiPublicSeedSuperadminsRoute
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/portal/$token/aprovacoes': typeof PortalTokenAprovacoesRoute
   '/portal/$token/arquivos': typeof PortalTokenArquivosRoute
@@ -811,7 +802,6 @@ export interface FileRoutesById {
   '/api/jobs/analyze-document': typeof ApiJobsAnalyzeDocumentRoute
   '/api/jobs/copilot': typeof ApiJobsCopilotRoute
   '/api/jobs/customer-pipeline': typeof ApiJobsCustomerPipelineRoute
-  '/api/public/seed-superadmins': typeof ApiPublicSeedSuperadminsRoute
   '/p/briefing/$token': typeof PBriefingTokenRoute
   '/portal/$token/aprovacoes': typeof PortalTokenAprovacoesRoute
   '/portal/$token/arquivos': typeof PortalTokenArquivosRoute
@@ -902,7 +892,6 @@ export interface FileRouteTypes {
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
-    | '/api/public/seed-superadmins'
     | '/p/briefing/$token'
     | '/portal/$token/aprovacoes'
     | '/portal/$token/arquivos'
@@ -985,7 +974,6 @@ export interface FileRouteTypes {
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
-    | '/api/public/seed-superadmins'
     | '/p/briefing/$token'
     | '/portal/$token/aprovacoes'
     | '/portal/$token/arquivos'
@@ -1076,7 +1064,6 @@ export interface FileRouteTypes {
     | '/api/jobs/analyze-document'
     | '/api/jobs/copilot'
     | '/api/jobs/customer-pipeline'
-    | '/api/public/seed-superadmins'
     | '/p/briefing/$token'
     | '/portal/$token/aprovacoes'
     | '/portal/$token/arquivos'
@@ -1129,7 +1116,6 @@ export interface RootRouteChildren {
   ApiJobsAnalyzeDocumentRoute: typeof ApiJobsAnalyzeDocumentRoute
   ApiJobsCopilotRoute: typeof ApiJobsCopilotRoute
   ApiJobsCustomerPipelineRoute: typeof ApiJobsCustomerPipelineRoute
-  ApiPublicSeedSuperadminsRoute: typeof ApiPublicSeedSuperadminsRoute
   PBriefingTokenRoute: typeof PBriefingTokenRoute
   ApiPublicApprovalTokenRoute: typeof ApiPublicApprovalTokenRoute
   ApiPublicCronSlaCheckRoute: typeof ApiPublicCronSlaCheckRoute
@@ -1430,13 +1416,6 @@ declare module '@tanstack/react-router' {
       path: '/p/briefing/$token'
       fullPath: '/p/briefing/$token'
       preLoaderRoute: typeof PBriefingTokenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/seed-superadmins': {
-      id: '/api/public/seed-superadmins'
-      path: '/api/public/seed-superadmins'
-      fullPath: '/api/public/seed-superadmins'
-      preLoaderRoute: typeof ApiPublicSeedSuperadminsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/jobs/customer-pipeline': {
@@ -2025,7 +2004,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiJobsAnalyzeDocumentRoute: ApiJobsAnalyzeDocumentRoute,
   ApiJobsCopilotRoute: ApiJobsCopilotRoute,
   ApiJobsCustomerPipelineRoute: ApiJobsCustomerPipelineRoute,
-  ApiPublicSeedSuperadminsRoute: ApiPublicSeedSuperadminsRoute,
   PBriefingTokenRoute: PBriefingTokenRoute,
   ApiPublicApprovalTokenRoute: ApiPublicApprovalTokenRoute,
   ApiPublicCronSlaCheckRoute: ApiPublicCronSlaCheckRoute,
