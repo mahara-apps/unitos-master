@@ -210,20 +210,17 @@ function CustomerDetailReady({
   const fetchHub = useServerFn(getBrandHub);
   const qc = useQueryClient();
   const TABS = ALL_TABS;
-  const [activeTab, setActiveTab] = useState<string>(initialTab ?? "overview");
+  const [activeTab, setActiveTab] = useState<string>(resolveTab(initialTab));
   const [wizardOpen, setWizardOpen] = useState(false);
   const [planId, setPlanIdState] = useState<string | null>(initialPlanId ?? null);
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  useEffect(() => {
-    if (activeTab === "brain") setActiveTab("briefing");
-  }, [activeTab]);
-
   // Sincroniza com ?tab=... (links internos como "Editar em Cadastro").
   useEffect(() => {
-    if (initialTab && initialTab !== "brain") setActiveTab(initialTab);
+    if (initialTab) setActiveTab(resolveTab(initialTab));
   }, [initialTab]);
+
 
   // Troca de aba mantém a URL compartilhável (?tab=...).
   const goToTab = (value: string) => {
