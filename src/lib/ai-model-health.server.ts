@@ -10,6 +10,7 @@
 
 import { generateText } from "ai";
 import { decryptCredential } from "./credentials-crypto.server";
+import { filterRowsByPrefs } from "@/lib/notification-prefs";
 import {
   PROVIDER_CAPABILITIES,
   invalidateCatalogCache,
