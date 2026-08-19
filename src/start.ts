@@ -39,7 +39,7 @@ function redirectToLoginWithoutThrowing() {
 // failing with "Unauthorized: No authorization header provided" after the
 // access token silently expires.
 const attachSupabaseAuth = createMiddleware({ type: "function" }).client(async ({ next }) => {
-  let { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+  const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
   let token = data.session?.access_token;
   const expiresAt = data.session?.expires_at;
   const nearExpiry = expiresAt ? expiresAt * 1000 - Date.now() < 60_000 : false;
