@@ -89,17 +89,21 @@ function CustomerDetail() {
   const { role, allowedClientIds, isReady } = useAccessRole();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (customerId) setClientId(customerId);
-  }, [customerId, setClientId]);
+  // O escopo do painel é sempre o `customerId` validado da rota — nunca o
+  // clientId "ambiente". Só espelhamos no contexto ativo quando o acesso já
+  // foi confirmado (efeito abaixo, após a checagem de responsabilidade).
+  const denied = isReady && !!allowedClientIds && !allowedClientIds.has(customerId);
+  const allowed = isReady && !denied && isUuid(customerId);
 
   useEffect(() => {
-    if (!isReady || !allowedClientIds) return;
-    if (!allowedClientIds.has(customerId)) {
-      toast.error("Acesso negado", { description: "Você não é responsável por este cliente." });
-      navigate({ to: FALLBACK_ROUTE[role], replace: true });
-    }
-  }, [isReady, allowedClientIds, customerId, role, navigate]);
+    if (allowed) setClientId(customerId);
+  }, [allowed, customerId, setClientId]);
+
+  useEffect(() => {
+    if (!denied) return;
+    toast.error("Acesso negado", { description: "Você não é responsável por este cliente." });
+    navigate({ to: FALLBACK_ROUTE[role], replace: true });
+  }, [denied, role, navigate]);
 
   if (!isUuid(brandId)) {
     return (
