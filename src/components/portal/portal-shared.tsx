@@ -24,16 +24,26 @@ export function PortalAccessError({ message, mode, onRetry }: { message?: string
       : message?.includes("portal_rate_limited")
         ? "Houve muitas tentativas. Aguarde alguns minutos e tente novamente."
         : "Este acesso não está disponível. Peça um novo link à equipe.";
+  const sessionMessage = message?.includes("portal_client_context_invalid")
+    ? "A marca indicada no endereço não pertence ao seu acesso. Volte à sua área e escolha uma marca válida."
+    : message?.includes("portal_client_context_required")
+      ? "Não identificamos qual marca abrir. Volte à sua área e selecione a marca."
+      : message?.includes("portal_client_context_mismatch")
+        ? "Houve um conflito de contexto de marca. Recarregue e selecione a marca novamente."
+        : message?.includes("portal_no_client_access")
+          ? "Sua conta ainda não está vinculada a nenhuma marca. Fale com a equipe responsável."
+          : message?.includes("client_not_allowed")
+            ? "Você não tem acesso a esta marca."
+            : "Não foi possível abrir sua área do cliente. Tente novamente ou entre novamente na sua conta.";
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background p-6">
       <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-sm">
         <AlertTriangle className="mx-auto h-7 w-7 text-severity-warning" />
         <h1 className="mt-4 text-lg font-semibold">Acesso indisponível</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          {mode === "token"
-            ? tokenMessage
-            : "Não foi possível abrir sua área do cliente. Tente novamente ou entre novamente na sua conta."}
+          {mode === "token" ? tokenMessage : sessionMessage}
         </p>
+
         {onRetry ? (
           <Button size="sm" className="mt-5 gap-2" onClick={onRetry}>
             <RefreshCw className="h-4 w-4" /> Tentar novamente

@@ -191,17 +191,17 @@ export const submitPortalBriefingProposalFn = createServerFn({ method: "POST" })
 
 export const listPortalSessionBriefingRequestsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => z.object({ clientId: z.string().uuid().optional() }).parse(i ?? {}))
+  .inputValidator((i: unknown) => z.object({ clientId: z.string().uuid() }).parse(i ?? {}))
   .handler(async ({ context, data }): Promise<PortalBriefingRequest[]> =>
-    listRequests(await resolveSessionScope(context.supabase, data.clientId ?? null)),
+    listRequests(await resolveSessionScope(context.supabase, data.clientId)),
   );
 
 export const submitPortalSessionBriefingProposalFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => AnswerIn.extend({ clientId: z.string().uuid().optional() }).parse(i))
+  .inputValidator((i: unknown) => AnswerIn.extend({ clientId: z.string().uuid() }).parse(i))
   .handler(async ({ context, data }) =>
     submitProposal(
-      await resolveSessionScope(context.supabase, data.clientId ?? null),
+      await resolveSessionScope(context.supabase, data.clientId),
       data,
       "portal_session",
       context.userId,

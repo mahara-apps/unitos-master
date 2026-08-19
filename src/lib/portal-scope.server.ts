@@ -52,13 +52,22 @@ export async function resolveTokenScope(token: string): Promise<PortalScope> {
   return scopeFrom(publishableClient() as unknown as RpcClient, { _token: token });
 }
 
-/** Escopo a partir da sessão autenticada do cliente (modo principal). */
+/**
+ * Escopo a partir da sessão autenticada do cliente (modo principal).
+ *
+ * `clientId` é OBRIGATÓRIO: sem ele o banco escolheria o "último cliente visto",
+ * o que produziria dados de outro tenant. Ausência = erro explícito.
+ */
 export async function resolveSessionScope(
   supabase: unknown,
   clientId?: string | null,
 ): Promise<PortalScope> {
-  return scopeFrom(supabase as RpcClient, { _client_id: clientId ?? null });
+  if (!clientId) throw new Error("portal_client_context_required");
+  const scope = await scopeFrom(supabase as RpcClient, { _client_id: clientId });
+  if (scope.clientId !== clientId) throw new Error("portal_client_context_mismatch");
+  return scope;
 }
+
 
 /** Client privilegiado usado depois do escopo estar resolvido e validado. */
 export async function scopedAdmin(): Promise<SupabaseClient> {
