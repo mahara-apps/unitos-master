@@ -4,7 +4,9 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { ALL_PERMISSION_IDS, normalizePermissions, type PermissionId } from "@/lib/permissions";
 import { assertBrandAdmin, resolveAuthorityRole } from "@/lib/access-guard";
 
-const ROLES = ["owner", "manager", "editor", "designer", "client"] as const;
+const ROLES = ["owner", "manager", "user", "client"] as const;
+/** Papéis atribuíveis a membros internos (Portal usa `client`). */
+const ASSIGNABLE = ["owner", "manager", "user"] as const;
 
 const BrandIdInput = z.object({ brandId: z.string().uuid() });
 
@@ -101,7 +103,7 @@ export const listBrandTeam = createServerFn({ method: "GET" })
 const InviteInput = z.object({
   brandId: z.string().uuid(),
   emails: z.array(z.string().trim().toLowerCase().email()).min(1).max(20),
-  role: z.enum(ROLES).default("editor"),
+  role: z.enum(ASSIGNABLE).default("user"),
   permissions: z.array(z.enum(ALL_PERMISSION_IDS as [PermissionId, ...PermissionId[]])).default([]),
   expiresAt: z.string().datetime().optional(),
 });
@@ -285,7 +287,7 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
 const UpdateMemberInput = z.object({
   brandId: z.string().uuid(),
   userId: z.string().uuid(),
-  role: z.enum(ROLES).optional(),
+  role: z.enum(ASSIGNABLE).optional(),
   permissions: z.array(z.enum(ALL_PERMISSION_IDS as [PermissionId, ...PermissionId[]])).optional(),
 });
 
@@ -387,7 +389,7 @@ export const acceptBrandInvite = createServerFn({ method: "POST" })
 const AddExistingInput = z.object({
   brandId: z.string().uuid(),
   email: z.string().trim().toLowerCase().email(),
-  role: z.enum(ROLES).default("editor"),
+  role: z.enum(ASSIGNABLE).default("user"),
   permissions: z.array(z.enum(ALL_PERMISSION_IDS as [PermissionId, ...PermissionId[]])).default([]),
 });
 
@@ -397,7 +399,7 @@ const AddExistingInput = z.object({
 
 const AssignmentInput = z.object({
   brandId: z.string().uuid(),
-  role: z.enum(ROLES).default("editor"),
+  role: z.enum(ASSIGNABLE).default("user"),
   permissions: z.array(z.enum(ALL_PERMISSION_IDS as [PermissionId, ...PermissionId[]])).default([]),
   clientIds: z.array(z.string().uuid()).default([]),
 });
@@ -747,7 +749,7 @@ const AddPersonInput = z.object({
   brandId: z.string().uuid(),
   email: z.string().trim().toLowerCase().email(),
   fullName: z.string().trim().max(120).optional().default(""),
-  role: z.enum(ROLES).default("editor"),
+  role: z.enum(ASSIGNABLE).default("user"),
   permissions: z.array(z.enum(ALL_PERMISSION_IDS as [PermissionId, ...PermissionId[]])).default([]),
   clientIds: z.array(z.string().uuid()).default([]),
   sendEmail: z.boolean().default(true),

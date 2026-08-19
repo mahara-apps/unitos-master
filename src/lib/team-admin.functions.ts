@@ -15,7 +15,10 @@ import { assertBrandAdmin, resolveAuthorityRole } from "@/lib/access-guard";
  * checagem, para não depender das nuances das policies de brand_members.
  */
 
-const BRAND_ROLES = ["owner", "manager", "editor", "designer", "client"] as const;
+/** Papéis oficiais: owner (=ADMIN), manager, user. `client` existe só para o Portal. */
+const BRAND_ROLES = ["owner", "manager", "user", "client"] as const;
+/** Papéis atribuíveis a um membro interno da equipe. */
+const INTERNAL_ROLES = ["owner", "manager", "user"] as const;
 export type BrandRole = (typeof BRAND_ROLES)[number];
 
 const BrandInput = z.object({ brandId: z.string().uuid() });
@@ -166,7 +169,7 @@ const SaveMemberInput = z.object({
   fullName: z.string().trim().min(1).max(160).optional(),
   phone: z.string().trim().max(40).nullable().optional(),
   jobTitle: z.string().trim().max(120).nullable().optional(),
-  role: z.enum(BRAND_ROLES).optional(),
+  role: z.enum(INTERNAL_ROLES).optional(),
   isActive: z.boolean().optional(),
 });
 

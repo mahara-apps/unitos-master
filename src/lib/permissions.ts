@@ -42,9 +42,9 @@ export function normalizePermissions(input: unknown): PermissionId[] {
 export type AccessRole = "admin" | "user";
 
 /**
- * Mapeia o papel bruto (brand_members.role: owner|manager|editor|designer|client)
+ * Mapeia o papel bruto (brand_members.role: owner|manager|user|client)
  * para o nível de acesso global usado pela UI/rotas.
- * - owner/manager → admin (acesso irrestrito)
+ * - owner/manager → admin (acesso irrestrito na marca)
  * - demais       → user  (colaborador escopado)
  */
 export function resolveAccessRole(brandRole: string | null | undefined): AccessRole {

@@ -10,15 +10,15 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, X, Mail, Link2, UserPlus } from "lucide-react";
 import { inviteBrandMembers, addExistingUserToBrand } from "@/lib/team.functions";
 
-type Role = "owner" | "manager" | "editor" | "designer";
-const ROLES: Role[] = ["owner", "manager", "editor", "designer"];
+/** Papéis internos oficiais — `client` pertence ao Portal, não à equipe. */
+type Role = "owner" | "manager" | "user";
+const ROLES: Role[] = ["owner", "manager", "user"];
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const ROLE_LABEL: Record<Role, string> = {
-  owner: "Owner — acesso total",
-  manager: "Manager — gerencia pipelines, automações e IA",
-  editor: "Editor — opera pipelines e vê logs",
-  designer: "Designer — opera pipelines",
+  owner: "Admin (proprietário) — administra toda a marca",
+  manager: "Manager — administra a marca e todos os clientes",
+  user: "User — opera apenas os clientes vinculados",
 };
 
 export function AddMemberDrawer({
@@ -98,7 +98,7 @@ function InvitePanel({
   const invite = useServerFn(inviteBrandMembers);
   const [emails, setEmails] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
-  const [role, setRole] = useState<Role>("editor");
+  const [role, setRole] = useState<Role>("user");
   const [busy, setBusy] = useState(false);
 
   const commit = (raw: string) => {
@@ -238,7 +238,7 @@ function LinkPanel({
 }) {
   const link = useServerFn(addExistingUserToBrand);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<Role>("editor");
+  const [role, setRole] = useState<Role>("user");
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {

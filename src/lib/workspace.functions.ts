@@ -25,7 +25,7 @@ export const listMyBrands = createServerFn({ method: "GET" })
     if (error) throw error;
     return (brands ?? []).map((b) => ({
       ...b,
-      role: memberships!.find((m) => m.brand_id === b.id)?.role ?? "editor",
+      role: memberships!.find((m) => m.brand_id === b.id)?.role ?? "user",
     }));
   });
 

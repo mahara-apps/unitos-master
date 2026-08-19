@@ -40,7 +40,7 @@ const ROLE_CARDS: RoleCard[] = [
     badge: "Global",
     icon: Sparkles,
     brandRoles: [],
-    scope: "Todas as marcas da plataforma (flag is_super_admin no perfil).",
+    scope: "Todas as marcas e todos os clientes da plataforma (flag is_super_admin no perfil).",
     can: [
       "Acessar qualquer marca e qualquer cliente",
       "Administrar catálogo de features e configurações globais",
@@ -50,65 +50,65 @@ const ROLE_CARDS: RoleCard[] = [
   },
   {
     key: "admin",
-    label: "Admin (Proprietário)",
+    label: "Admin (proprietário)",
     badge: "Administra a marca",
     icon: Crown,
     brandRoles: ["owner"],
     scope: "Toda a marca e todos os clientes da marca.",
     can: [
-      "Gerenciar equipe: convidar, alterar papel e remover membros",
+      "Gerenciar equipe: convidar, alterar papel, desativar e remover membros",
       "Editar identidade e dados cadastrais da agência",
       "Configurar SLA da marca e SLA das etapas do pipeline",
-      "Ver o log de auditoria da marca",
-      "Gerenciar conexões de canais e limites de IA",
+      "Gerenciar conexões de canais, limites de IA e acessos do portal",
       "Ler e escrever em todos os clientes, projetos e tarefas da marca",
     ],
     cannot: ["Acessar outras marcas em que não é membro"],
   },
   {
     key: "manager",
-    label: "Manager (Gerente)",
+    label: "Manager",
     badge: "Administra a marca",
     icon: ShieldCheck,
     brandRoles: ["manager"],
     scope: "Toda a marca e todos os clientes da marca.",
     can: [
-      "Gerenciar equipe (exceto promover/alterar proprietários)",
+      "Gerenciar equipe (exceto owners/administradores)",
       "Editar identidade e dados cadastrais da agência",
       "Configurar SLA da marca e SLA das etapas do pipeline",
-      "Ver o log de auditoria da marca",
+      "Gerenciar acessos do portal dos clientes da marca",
       "Ler e escrever em todos os clientes, projetos e tarefas da marca",
     ],
     cannot: [
-      "Promover alguém a proprietário ou alterar o proprietário",
+      "Promover alguém a proprietário ou alterar owners/administradores",
       "Acessar outras marcas",
     ],
   },
   {
     key: "user",
-    label: "User / Editor / Designer",
-    badge: "Colaborador",
+    label: "User",
+    badge: "Operação",
     icon: Layers,
-    brandRoles: ["editor", "designer"],
-    scope: "Apenas os clientes em que está vinculado (responsável ou membro do cliente).",
+    brandRoles: ["user"],
+    scope:
+      "Somente os clientes de que é responsável (owner_user_id) ou aos quais está vinculado em client_members.",
     can: [
       "Operar conteúdo, pautas, projetos, tarefas e subtarefas dos clientes vinculados",
       "Comentar, apontar horas e mover cards do pipeline",
-      "Ler etapas e SLA do pipeline",
+      "Ler etapas e SLA do pipeline da marca",
     ],
     cannot: [
-      "Ver o log de auditoria",
-      "Alterar SLA de etapa, identidade da agência ou equipe",
-      "Acessar clientes de outros responsáveis ou de outras marcas",
+      "Ver clientes da marca sem vínculo explícito (não há mais acesso por fallback)",
+      "Alterar SLA de etapa, identidade da agência, equipe ou acessos do portal",
+      "Acessar clientes de outras marcas",
     ],
   },
   {
     key: "client",
-    label: "Portal Client (Cliente)",
-    badge: "Portal",
+    label: "Cliente (Portal)",
+    badge: "Portal — fora da equipe",
     icon: Users,
     brandRoles: ["client"],
-    scope: "Somente o próprio cliente, através do Portal.",
+    scope: "Somente o próprio cliente, através do Portal. Não é membro interno da equipe.",
     can: [
       "Ver e aprovar pauta, conteúdos e aprovações do próprio cliente",
       "Responder briefing e enviar arquivos",
@@ -116,6 +116,7 @@ const ROLE_CARDS: RoleCard[] = [
     ],
     cannot: [
       "Entrar na área interna da agência",
+      "Receber papel de equipe (owner/manager/user)",
       "Ver dados de outros clientes ou campos internos/sensíveis",
     ],
   },
@@ -144,7 +145,7 @@ function PermissionsPage() {
       total: members.length,
       admins: byRole(["owner"]),
       managers: byRole(["manager"]),
-      collaborators: byRole(["editor", "designer"]),
+      collaborators: byRole(["user"]),
       clients: byRole(["client"]),
     };
   }, [members]);
@@ -171,11 +172,11 @@ function PermissionsPage() {
       <PageKpiGrid>
         <PageKpi label="Membros" value={counts.total} icon={<Users className="h-4 w-4" />} />
         <PageKpi
-          label="Proprietários"
+          label="Admins"
           value={counts.admins}
           icon={<Crown className="h-4 w-4" />}
           status={counts.admins === 0 ? "warning" : "info"}
-          description="papel owner"
+          description="papel owner (Admin)"
         />
         <PageKpi
           label="Gerentes"
@@ -184,10 +185,10 @@ function PermissionsPage() {
           description="papel manager"
         />
         <PageKpi
-          label="Colaboradores"
+          label="Users"
           value={counts.collaborators}
           icon={<Layers className="h-4 w-4" />}
-          description="editor ou designer"
+          description="operação escopada"
         />
       </PageKpiGrid>
 
