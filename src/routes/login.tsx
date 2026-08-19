@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { CalendarDays, CheckCircle2, FileText, LayoutGrid } from "lucide-react";
 import { LoginForm } from "@/components/login-form";
 import { supabase } from "@/integrations/supabase/client";
+import logoLight from "@/assets/brand/logo-unitos-light.png.asset.json";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): { next?: string } => ({
@@ -122,6 +123,13 @@ function BrandPanel() {
       <div
         aria-hidden
         className="pointer-events-none absolute -top-28 right-[-12%] -z-10 h-80 w-80 rotate-12 rounded-[38%] border border-white/10 bg-white/[0.03]"
+      />
+
+      <img
+        src={logoLight.url}
+        alt="Unitos"
+        draggable={false}
+        className="mb-10 h-9 w-auto select-none object-contain"
       />
 
       <div className="max-w-md">
