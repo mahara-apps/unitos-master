@@ -53,11 +53,11 @@ export type Fixture = {
   userOwner: TestUser;
   /** manager da marca. */
   userManager: TestUser;
-  /** editor (papel efetivo 'user') vinculado somente ao clientA. */
+  /** user (papel efetivo 'user') vinculado somente ao clientA. */
   userA: TestUser;
-  /** editor (papel efetivo 'user') vinculado somente ao clientB. */
+  /** user (papel efetivo 'user') vinculado somente ao clientB. */
   userB: TestUser;
-  /** editor (papel efetivo 'user') membro da marca, sem nenhum vínculo de cliente. */
+  /** user (papel efetivo 'user') membro da marca, sem nenhum vínculo de cliente. */
   userNoLink: TestUser;
   /** portal_client vinculado somente ao clientA. */
   userPortal: TestUser;
@@ -65,7 +65,7 @@ export type Fixture = {
 
 export async function seed(): Promise<Fixture> {
   // O trigger add_brand_owner força role='owner' para brands.created_by (NOT NULL).
-  // Por isso o criador é um usuário dedicado, e A/B ficam como editor puro.
+  // Por isso o criador é um usuário dedicado, e A/B ficam como user puro.
   const userOwner = await createUser("owner");
   const userManager = await createUser("mgr");
   const userA = await createUser("a");
@@ -91,9 +91,9 @@ export async function seed(): Promise<Fixture> {
 
   const memberships: Array<{ user: TestUser; role: string }> = [
     { user: userManager, role: "manager" },
-    { user: userA, role: "editor" },
-    { user: userB, role: "editor" },
-    { user: userNoLink, role: "editor" },
+    { user: userA, role: "user" },
+    { user: userB, role: "user" },
+    { user: userNoLink, role: "user" },
   ];
   for (const m of memberships) {
     const r = await admin
@@ -132,8 +132,8 @@ export async function seed(): Promise<Fixture> {
 
   // Vínculos internos ativam o modo restritivo por cliente (can_access_client).
   const cm = await admin.from("client_members").insert([
-    { brand_id: brandId, client_id: clientA, user_id: userA.id, role: "editor" },
-    { brand_id: brandId, client_id: clientB, user_id: userB.id, role: "editor" },
+    { brand_id: brandId, client_id: clientA, user_id: userA.id, role: "user" },
+    { brand_id: brandId, client_id: clientB, user_id: userB.id, role: "user" },
     { brand_id: brandId, client_id: clientA, user_id: userPortal.id, role: "portal_client" },
   ]);
   if (cm.error) throw new Error(`client_members: ${cm.error.message}`);
