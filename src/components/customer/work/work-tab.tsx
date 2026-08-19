@@ -28,7 +28,7 @@ import {
   relativeDue,
 } from "@/components/tasks/shared";
 import { ProductionTab } from "@/components/customer/production/production-tab";
-import { PanelSection } from "@/components/customer/ui/panel-section";
+import { PanelError, PanelSection } from "@/components/customer/ui/panel-section";
 
 export function WorkTab({ brandId, clientId }: { brandId: string; clientId: string }) {
   const qc = useQueryClient();
@@ -122,7 +122,12 @@ export function WorkTab({ brandId, clientId }: { brandId: string; clientId: stri
           </Button>
         }
       >
-        {projectsQ.isPending ? (
+        {projectsQ.isError ? (
+          <PanelError
+            message="Não foi possível carregar os projetos deste cliente."
+            onRetry={() => projectsQ.refetch()}
+          />
+        ) : projectsQ.isPending ? (
           <div className="space-y-2 p-4">
             <Skeleton className="h-12 w-full rounded-lg" />
             <Skeleton className="h-12 w-full rounded-lg" />
@@ -182,7 +187,12 @@ export function WorkTab({ brandId, clientId }: { brandId: string; clientId: stri
           </Button>
         }
       >
-        {tasksQ.isPending ? (
+        {tasksQ.isError ? (
+          <PanelError
+            message="Não foi possível carregar as tarefas deste cliente."
+            onRetry={() => tasksQ.refetch()}
+          />
+        ) : tasksQ.isPending ? (
           <div className="space-y-2 p-4">
             <Skeleton className="h-10 w-full rounded-lg" />
             <Skeleton className="h-10 w-full rounded-lg" />

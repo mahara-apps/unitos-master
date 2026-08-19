@@ -24,7 +24,7 @@ import { listPublicationBoardFn, type PublicationItem } from "@/lib/calendar-boa
 import { PublicationRow } from "@/components/calendar/board/publication-card";
 import { PublicationDetailModal } from "@/components/calendar/board/publication-detail";
 import { ChannelsTab } from "@/components/customer/channels-tab";
-import { PanelSection } from "@/components/customer/ui/panel-section";
+import { PanelError, PanelSection } from "@/components/customer/ui/panel-section";
 
 const DAY = 86_400_000;
 
@@ -117,17 +117,15 @@ export function PublicationsTab({ brandId, clientId }: { brandId: string; client
           </Button>
         }
       >
-        {boardQ.isPending ? (
+        {boardQ.isError ? (
+          <PanelError
+            message="Não foi possível carregar as publicações deste cliente."
+            onRetry={() => boardQ.refetch()}
+          />
+        ) : boardQ.isPending ? (
           <div className="space-y-2 p-4">
             <Skeleton className="h-12 w-full rounded-lg" />
             <Skeleton className="h-12 w-full rounded-lg" />
-          </div>
-        ) : boardQ.isError ? (
-          <div className="space-y-3 px-5 py-6 text-sm text-destructive">
-            <p>Não foi possível carregar as publicações deste cliente.</p>
-            <Button size="sm" variant="outline" className="h-8" onClick={() => boardQ.refetch()}>
-              Tentar novamente
-            </Button>
           </div>
         ) : ordered.length === 0 ? (
           <PanelEmptyState

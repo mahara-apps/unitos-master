@@ -80,3 +80,27 @@ export function PanelGroup({
     </section>
   );
 }
+
+/** Estado de erro padrão de bloco (nunca skeleton infinito em erro). */
+export function PanelError({
+  message = "Não foi possível carregar estas informações.",
+  onRetry,
+}: {
+  message?: string;
+  onRetry?: () => void;
+}) {
+  return (
+    <div className="space-y-3 px-4 py-6 text-sm text-destructive sm:px-5">
+      <p>{message}</p>
+      {onRetry ? (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="inline-flex h-8 items-center rounded-md border border-destructive/40 px-3 text-xs font-medium transition-colors hover:bg-destructive/10"
+        >
+          Tentar novamente
+        </button>
+      ) : null}
+    </div>
+  );
+}
