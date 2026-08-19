@@ -228,11 +228,8 @@ function ConnectionsPage() {
     ? search.section!
     : "providers";
 
-  // Gate: /connections é área admin (BM, credenciais globais, mapa de conexões).
-  // Contas operacionais por cliente vivem em /customers/:id → aba Canais.
-  if (isReady && role !== "admin") {
-    return <Navigate to="/dashboard" replace />;
-  }
+
+
 
   // Portfolio selector state (Meta OAuth post-callback).
   const [portfolioSessionId, setPortfolioSessionId] = useState<string | null>(null);
