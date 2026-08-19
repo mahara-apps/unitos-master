@@ -137,7 +137,6 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
     );
   }
 
-
   const data = q.data;
   const m = data.metrics;
   const client = data.client;

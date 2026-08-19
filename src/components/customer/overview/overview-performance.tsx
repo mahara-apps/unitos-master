@@ -27,9 +27,7 @@ export function OverviewPerformance({
 }) {
   const hasData =
     published > 0 || scheduled > 0 || totalApprovals > 0 || aiJobs > 0 || aiCost30d > 0;
-  const approvalPct = totalApprovals
-    ? Math.round((decidedApprovals / totalApprovals) * 100)
-    : 0;
+  const approvalPct = totalApprovals ? Math.round((decidedApprovals / totalApprovals) * 100) : 0;
 
   return (
     <OverviewCard

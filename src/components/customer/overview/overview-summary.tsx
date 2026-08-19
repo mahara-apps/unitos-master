@@ -3,7 +3,6 @@ import { HealthBar } from "@/components/dashboard/health-bar";
 import { PageKpi, PageKpiGrid, type KpiStatus } from "@/components/ui/page-kpi";
 import { OverviewCard } from "./overview-shared";
 
-
 export function OverviewSummary({
   health,
   breakdown,
@@ -20,11 +19,7 @@ export function OverviewSummary({
   briefingCompletion: number | null;
 }) {
   const tone =
-    health >= 75
-      ? "text-emerald-400"
-      : health >= 50
-        ? "text-amber-400"
-        : "text-destructive";
+    health >= 75 ? "text-emerald-400" : health >= 50 ? "text-amber-400" : "text-destructive";
 
   const stats: Array<{ label: string; value: number | string; status: KpiStatus }> = [
     { label: "Tarefas", value: totalTasks, status: "neutral" },
@@ -69,6 +64,5 @@ export function OverviewSummary({
         </PageKpiGrid>
       </div>
     </OverviewCard>
-
   );
 }

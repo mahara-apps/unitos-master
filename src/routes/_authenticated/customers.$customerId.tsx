@@ -88,7 +88,6 @@ const ALL_TABS = [
   { value: "conta", label: "Conta" },
 ] as const;
 
-
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (v: string | null | undefined): v is string => !!v && UUID_RE.test(v);
 
@@ -221,7 +220,6 @@ function CustomerDetailReady({
     if (initialTab) setActiveTab(resolveTab(initialTab));
   }, [initialTab]);
 
-
   // Troca de aba mantém a URL compartilhável (?tab=...).
   const goToTab = (value: string) => {
     const next = resolveTab(value);
@@ -233,7 +231,6 @@ function CustomerDetailReady({
       replace: true,
     });
   };
-
 
   const setPlanId = (id: string | null) => {
     setPlanIdState(id);
@@ -294,7 +291,6 @@ function CustomerDetailReady({
 
   // Troca de aba interna acontece por prop (`onOpenTab`) ou por `?tab=` na URL —
   // não existe mais ponte global via window/CustomEvent.
-
 
   usePageHeader(
     {

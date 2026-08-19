@@ -1,5 +1,14 @@
 import { useState } from "react";
-import { Activity, BadgeCheck, CalendarClock, CheckCircle2, Clock, Send, Sparkles, AlertTriangle } from "lucide-react";
+import {
+  Activity,
+  BadgeCheck,
+  CalendarClock,
+  CheckCircle2,
+  Clock,
+  Send,
+  Sparkles,
+  AlertTriangle,
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { OverviewCard, OverviewEmpty } from "./overview-shared";

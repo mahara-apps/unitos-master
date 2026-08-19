@@ -366,7 +366,9 @@ export function NewCustomerWizard({ brandId, open, onOpenChange }: NewCustomerWi
                   placeholder="Ex.: Café Aurora"
                   autoFocus
                 />
-                {errors.name ? <p className="mt-1 text-xs text-destructive">{errors.name}</p> : null}
+                {errors.name ? (
+                  <p className="mt-1 text-xs text-destructive">{errors.name}</p>
+                ) : null}
               </div>
               <div>
                 <Label className="text-xs">Razão social</Label>
@@ -564,7 +566,9 @@ export function NewCustomerWizard({ brandId, open, onOpenChange }: NewCustomerWi
                 <Select value={ownerUserId} onValueChange={setOwnerUserId}>
                   <SelectTrigger className="mt-1 h-9 text-xs">
                     <SelectValue
-                      placeholder={teamQ.isLoading ? "Carregando equipe…" : "Selecionar responsável…"}
+                      placeholder={
+                        teamQ.isLoading ? "Carregando equipe…" : "Selecionar responsável…"
+                      }
                     />
                   </SelectTrigger>
                   <SelectContent>
@@ -591,11 +595,20 @@ export function NewCustomerWizard({ brandId, open, onOpenChange }: NewCustomerWi
             </div>
 
             <div className="flex justify-between gap-2 pt-1">
-              <Button variant="ghost" onClick={() => setStep(1)} disabled={mut.isPending} className="gap-1.5">
+              <Button
+                variant="ghost"
+                onClick={() => setStep(1)}
+                disabled={mut.isPending}
+                className="gap-1.5"
+              >
                 <ArrowLeft className="h-3.5 w-3.5" /> Voltar
               </Button>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => onOpenChange(false)} disabled={mut.isPending}>
+                <Button
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={mut.isPending}
+                >
                   Cancelar
                 </Button>
                 <Button onClick={() => mut.mutate()} disabled={mut.isPending || !brandId}>

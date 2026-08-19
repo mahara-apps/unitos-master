@@ -181,18 +181,13 @@ export function ProductionReport({ brandId, clientId, quotaByChannel }: Props) {
                   <p className="truncate text-sm font-medium">{r.title || "Sem título"}</p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
                     {r.channels.length
-                      ? r.channels
-                          .map((c) => PLAN_CHANNEL_LABEL[c as PlanChannel] ?? c)
-                          .join(" · ")
+                      ? r.channels.map((c) => PLAN_CHANNEL_LABEL[c as PlanChannel] ?? c).join(" · ")
                       : "Sem canal"}
                     {r.format ? ` · ${r.format}` : ""} ·{" "}
                     {r.origin === "pauta" ? "da pauta" : "criado direto"}
                   </p>
                 </div>
-                <Badge
-                  variant="outline"
-                  className={`text-[10px] ${STAGE_CLASS[r.stage] ?? ""}`}
-                >
+                <Badge variant="outline" className={`text-[10px] ${STAGE_CLASS[r.stage] ?? ""}`}>
                   {STAGE_LABEL[r.stage] ?? r.stage}
                 </Badge>
                 <span className="w-14 shrink-0 text-right text-[11px] tabular-nums text-muted-foreground">

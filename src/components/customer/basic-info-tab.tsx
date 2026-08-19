@@ -17,7 +17,6 @@ import {
 import { listClients, listMyBrands, updateClient } from "@/lib/workspace.functions";
 import { canEditBasicInfo, resolveAccessRole } from "@/lib/permissions";
 
-
 /**
  * Aba "Cadastro" — fonte única do registro do cliente
  * (nome, nicho, site, endereço, contato e redes sociais).
@@ -34,16 +33,21 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
     queryFn: () => listClientsFn({ data: { brandId } }),
     staleTime: 60_000,
   });
-  const brandsQ = useQuery({ queryKey: ["brands"], queryFn: () => listBrandsFn(), staleTime: 60_000 });
+  const brandsQ = useQuery({
+    queryKey: ["brands"],
+    queryFn: () => listBrandsFn(),
+    staleTime: 60_000,
+  });
 
   const client = (clientsQ.data ?? []).find((c) => c.id === clientId);
   const brandRole = brandsQ.data?.find((b) => b.id === brandId)?.role ?? null;
   const accessRole = resolveAccessRole(brandRole);
   const canEdit = canEditBasicInfo(accessRole);
 
-  const socials = (client?.socials && typeof client.socials === "object"
-    ? (client.socials as Record<string, string | undefined>)
-    : {}) ?? {};
+  const socials =
+    (client?.socials && typeof client.socials === "object"
+      ? (client.socials as Record<string, string | undefined>)
+      : {}) ?? {};
   const clientAny = (client ?? {}) as Record<string, unknown>;
 
   const [form, setForm] = useState({
@@ -135,14 +139,14 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
     onError: (e) => toast.error((e as Error).message ?? "Falha ao salvar cadastro"),
   });
 
-  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setSaved(false);
-    setForm((f) => ({ ...f, [key]: e.target.value }));
-  };
+  const set =
+    (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      setSaved(false);
+      setForm((f) => ({ ...f, [key]: e.target.value }));
+    };
 
   const disabled = !canEdit || mut.isPending;
   const dirty = !!base && JSON.stringify(base) !== JSON.stringify(form);
-
 
   if (clientsQ.isLoading && !client) return <ProfileSectionsSkeleton sections={3} />;
 
@@ -346,5 +350,4 @@ export function BasicInfoTab({ brandId, clientId }: { brandId: string; clientId:
       ) : null}
     </div>
   );
-
 }

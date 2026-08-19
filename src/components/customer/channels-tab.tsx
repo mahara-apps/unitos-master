@@ -4,7 +4,6 @@ import {
   type DestinationReadiness,
 } from "@/lib/publish-capability.functions";
 
-
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
@@ -23,11 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { cn } from "@/lib/utils";
-import {
-  channelDef,
-  normalizeStatus,
-  type StatusKey,
-} from "@/components/connections/channel-meta";
+import { channelDef, normalizeStatus, type StatusKey } from "@/components/connections/channel-meta";
 import {
   ProfileEmpty,
   ProfilePageHeader,
@@ -108,13 +103,7 @@ function accountType(row: LinkedChannel) {
 
 /* --------------------------------- screen --------------------------------- */
 
-export function ChannelsTab({
-  brandId,
-  clientId,
-}: {
-  brandId: string;
-  clientId: string;
-}) {
+export function ChannelsTab({ brandId, clientId }: { brandId: string; clientId: string }) {
   const qc = useQueryClient();
   // owner/manager/super_admin podem vincular e desvincular.
   const { role } = useAccessRole();
@@ -143,15 +132,11 @@ export function ChannelsTab({
   // Capacidade REAL de publicação (não apenas `status = active`): valida
   // vínculo, token e escopo granular da Meta para cada conta do cliente.
   const checkReadiness = useServerFn(checkDestinationsReadinessFn);
-  const connIds = useMemo(
-    () => rows.map((r) => r.connectionId).sort(),
-    [rows],
-  );
+  const connIds = useMemo(() => rows.map((r) => r.connectionId).sort(), [rows]);
   const readinessQ = useQuery({
     enabled: connIds.length > 0,
     queryKey: ["client-channels-readiness", brandId, clientId, connIds],
-    queryFn: () =>
-      checkReadiness({ data: { brandId, clientId, connectionIds: connIds } }),
+    queryFn: () => checkReadiness({ data: { brandId, clientId, connectionIds: connIds } }),
     staleTime: 60_000,
   });
   const readinessByConn = useMemo(() => {
@@ -159,8 +144,6 @@ export function ChannelsTab({
     (readinessQ.data ?? []).forEach((r) => map.set(r.connectionId, r));
     return map;
   }, [readinessQ.data]);
-
-
 
   return (
     <div className="space-y-4">
@@ -176,11 +159,7 @@ export function ChannelsTab({
                   Gerenciar integrações
                 </Link>
               </Button>
-              <Button
-                size="sm"
-                className="h-8 gap-1.5 text-xs"
-                onClick={() => setPickerOpen(true)}
-              >
+              <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setPickerOpen(true)}>
                 <Plus className="h-3.5 w-3.5" />
                 Vincular canal
               </Button>
@@ -279,7 +258,6 @@ export function ChannelsTab({
               />
             ))}
           </ul>
-
         )}
       </ProfileSection>
 
@@ -331,7 +309,6 @@ function ChannelRow({
         : readiness.action === "relink"
           ? "Desconectado"
           : "Autorização necessária";
-
 
   return (
     <li className="flex flex-col gap-3 px-5 py-4 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center sm:gap-4">
@@ -424,8 +401,7 @@ function UnlinkDialog({
       onOpenChange(false);
       onChanged();
     },
-    onError: (e) =>
-      toast.error(e instanceof Error ? e.message : "Falha ao remover vínculo"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao remover vínculo"),
   });
 
   return (
@@ -434,8 +410,8 @@ function UnlinkDialog({
         <DialogHeader>
           <DialogTitle className="text-base">Desvincular este canal?</DialogTitle>
           <DialogDescription className="text-xs">
-            Este canal continuará conectado ao workspace, mas deixará de estar
-            disponível para este cliente.
+            Este canal continuará conectado ao workspace, mas deixará de estar disponível para este
+            cliente.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter className="gap-2 sm:gap-2">
@@ -486,7 +462,12 @@ function LinkChannelDialog({
   const listFn = useServerFn(listWorkspaceChannelsFn);
   const toggleFn = useServerFn(toggleClientChannelFn);
 
-  const { data = [], isLoading, isError, refetch } = useQuery({
+  const {
+    data = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
     queryKey: ["workspace-channels", brandId],
     queryFn: () => listFn({ data: { brandId } }),
     enabled: open,
@@ -501,14 +482,11 @@ function LinkChannelDialog({
       onOpenChange(false);
       onChanged();
     },
-    onError: (e) =>
-      toast.error(e instanceof Error ? e.message : "Falha ao vincular canal"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao vincular canal"),
   });
 
   // Exclusividade: uma conta social pertence a no máximo um cliente.
-  const connected = data.filter(
-    (c) => normalizeStatus(c.status) !== "disconnected",
-  );
+  const connected = data.filter((c) => normalizeStatus(c.status) !== "disconnected");
   const candidates = connected.filter((c) => c.clients.length === 0);
   const takenByOthers = connected.filter(
     (c) => c.clients.length > 0 && !c.clients.some((cl) => cl.id === clientId),
@@ -520,8 +498,8 @@ function LinkChannelDialog({
         <DialogHeader>
           <DialogTitle className="text-base">Vincular canal</DialogTitle>
           <DialogDescription className="text-xs">
-            Contas conectadas ao workspace e ainda sem cliente. Para conectar uma
-            nova conta, use a tela de Integrações.
+            Contas conectadas ao workspace e ainda sem cliente. Para conectar uma nova conta, use a
+            tela de Integrações.
           </DialogDescription>
         </DialogHeader>
 
@@ -550,10 +528,9 @@ function LinkChannelDialog({
               <div className="space-y-2 rounded-lg border border-dashed p-4">
                 <p className="text-sm font-medium">Nenhuma conta disponível</p>
                 <p className="text-xs text-muted-foreground">
-                  Todas as contas conectadas já estão atribuídas a algum cliente —
-                  ou ainda não há contas conectadas ao workspace. Cada conta pode
-                  pertencer a apenas um cliente: desvincule-a do cliente atual
-                  antes de atribuí-la aqui.
+                  Todas as contas conectadas já estão atribuídas a algum cliente — ou ainda não há
+                  contas conectadas ao workspace. Cada conta pode pertencer a apenas um cliente:
+                  desvincule-a do cliente atual antes de atribuí-la aqui.
                 </p>
                 <Button asChild size="sm" variant="outline" className="h-8 text-xs">
                   <Link to="/connections">Abrir Integrações</Link>
@@ -584,7 +561,6 @@ function LinkChannelDialog({
             ) : null}
           </div>
         )}
-
       </DialogContent>
     </Dialog>
   );
@@ -613,9 +589,7 @@ function CandidateRow({
     >
       <Avatar className="h-8 w-8 shrink-0">
         <AvatarImage src={row.avatarUrl ?? undefined} alt={row.accountLabel} />
-        <AvatarFallback className="text-[10px] uppercase">
-          {row.channel.slice(0, 2)}
-        </AvatarFallback>
+        <AvatarFallback className="text-[10px] uppercase">{row.channel.slice(0, 2)}</AvatarFallback>
       </Avatar>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
@@ -643,6 +617,5 @@ function CandidateRow({
         )}
       </Button>
     </div>
-
   );
 }
