@@ -50,13 +50,13 @@ afterAll(async () => {
 }, 120_000);
 
 describe("Auditoria (logs) — enforcement de papel no servidor", () => {
-  it("editor/user é bloqueado", async () => {
+  it("USER é bloqueado", async () => {
     await expect(
       assertAdminAuthority(fx!.userA.client, fx!.userA.id, fx!.brandId),
     ).rejects.toThrow(/Forbidden/);
   });
 
-  it("editor sem vínculo também é bloqueado", async () => {
+  it("user sem vínculo também é bloqueado", async () => {
     await expect(
       assertAdminAuthority(fx!.userNoLink.client, fx!.userNoLink.id, fx!.brandId),
     ).rejects.toThrow(/Forbidden/);
@@ -86,7 +86,7 @@ describe("Auditoria (logs) — enforcement de papel no servidor", () => {
 });
 
 describe("SLA de etapa (content_pipeline_stages)", () => {
-  it("editor lê etapas da própria marca (comportamento preservado)", async () => {
+  it("user lê etapas da própria marca (comportamento preservado)", async () => {
     const { data, error } = await fx!.userA.client
       .from("content_pipeline_stages")
       .select("id, label")
@@ -95,10 +95,10 @@ describe("SLA de etapa (content_pipeline_stages)", () => {
     expect(data?.length).toBe(1);
   });
 
-  it("editor não altera etapa", async () => {
+  it("user não altera etapa", async () => {
     const { data, error } = await fx!.userA.client
       .from("content_pipeline_stages")
-      .update({ label: "Hack Editor", sla_days: 9 })
+      .update({ label: "Hack User", sla_days: 9 })
       .eq("id", stageId)
       .select("id");
     expect(error).toBeNull();
@@ -111,10 +111,10 @@ describe("SLA de etapa (content_pipeline_stages)", () => {
     expect(check.data?.label).toBe("Etapa QA");
   });
 
-  it("editor não cria nem remove etapa", async () => {
+  it("user não cria nem remove etapa", async () => {
     const ins = await fx!.userA.client
       .from("content_pipeline_stages")
-      .insert({ pipeline_id: pipelineId, key: "nova", label: "Nova Editor", color: "#888888", position: 9 })
+      .insert({ pipeline_id: pipelineId, key: "nova", label: "Nova User", color: "#888888", position: 9 })
       .select("id");
     expect(ins.error).not.toBeNull();
 
@@ -149,7 +149,7 @@ describe("SLA de etapa (content_pipeline_stages)", () => {
 });
 
 describe("Identidade da agência (brands)", () => {
-  it("editor não altera dados cadastrais", async () => {
+  it("user não altera dados cadastrais", async () => {
     const { data, error } = await fx!.userA.client
       .from("brands")
       .update({ razao_social: "Hack LTDA" })
