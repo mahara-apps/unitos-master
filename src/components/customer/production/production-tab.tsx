@@ -12,8 +12,8 @@ import { ProductionOverages } from "./production-overages";
 export function ProductionTab({ brandId, clientId }: { brandId: string; clientId: string }) {
   const loadVolumetry = useServerFn(getPlanVolumetryFn);
   const volQ = useQuery({
-    queryKey: ["monthly-plan", "volumetry", clientId],
-    queryFn: () => loadVolumetry({ data: { clientId } }),
+    queryKey: ["monthly-plan", "volumetry", brandId, clientId],
+    queryFn: () => loadVolumetry({ data: { brandId, clientId } }),
     staleTime: 30_000,
   });
 

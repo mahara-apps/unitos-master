@@ -89,17 +89,21 @@ function CustomerDetail() {
   const { role, allowedClientIds, isReady } = useAccessRole();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (customerId) setClientId(customerId);
-  }, [customerId, setClientId]);
+  // O escopo do painel é sempre o `customerId` validado da rota — nunca o
+  // clientId "ambiente". Só espelhamos no contexto ativo quando o acesso já
+  // foi confirmado (efeito abaixo, após a checagem de responsabilidade).
+  const denied = isReady && !!allowedClientIds && !allowedClientIds.has(customerId);
+  const allowed = isReady && !denied && isUuid(customerId);
 
   useEffect(() => {
-    if (!isReady || !allowedClientIds) return;
-    if (!allowedClientIds.has(customerId)) {
-      toast.error("Acesso negado", { description: "Você não é responsável por este cliente." });
-      navigate({ to: FALLBACK_ROUTE[role], replace: true });
-    }
-  }, [isReady, allowedClientIds, customerId, role, navigate]);
+    if (allowed) setClientId(customerId);
+  }, [allowed, customerId, setClientId]);
+
+  useEffect(() => {
+    if (!denied) return;
+    toast.error("Acesso negado", { description: "Você não é responsável por este cliente." });
+    navigate({ to: FALLBACK_ROUTE[role], replace: true });
+  }, [denied, role, navigate]);
 
   if (!isUuid(brandId)) {
     return (
@@ -117,6 +121,19 @@ function CustomerDetail() {
         <div className="flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <AlertTriangle className="mt-0.5 h-4 w-4" />
           Cliente inválido.
+        </div>
+      </div>
+    );
+  }
+
+  // Nada de dado protegido é montado antes da validação de escopo terminar.
+  if (!isReady) return <HeaderFallback />;
+  if (denied) {
+    return (
+      <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <AlertTriangle className="mt-0.5 h-4 w-4" />
+          Você não é responsável por este cliente. Redirecionando…
         </div>
       </div>
     );
@@ -218,8 +235,6 @@ function CustomerDetailReady({
       replace: true,
     });
   };
-
-
 
   // Lista de customers do brand ativo — só para nome/cor do header.
   const customersQ = useQuery({
@@ -329,7 +344,6 @@ function CustomerDetailReady({
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-
                 {needsOnboarding && (
                   <Button
                     size="sm"

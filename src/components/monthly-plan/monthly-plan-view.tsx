@@ -124,8 +124,8 @@ export function MonthlyPlanView({
 
   const getVolumetry = useServerFn(getPlanVolumetryFn);
   const volumetryQ = useQuery({
-    queryKey: ["monthly-plan", "volumetry", clientId],
-    queryFn: () => getVolumetry({ data: { clientId } }),
+    queryKey: ["monthly-plan", "volumetry", brandId, clientId],
+    queryFn: () => getVolumetry({ data: { brandId, clientId } }),
   });
   const volumetry = volumetryQ.data as PlanVolumetry | undefined;
   const hasVolumetry = (volumetry?.totalTarget ?? 0) > 0;

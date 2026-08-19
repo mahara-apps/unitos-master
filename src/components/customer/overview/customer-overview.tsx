@@ -3,6 +3,7 @@
 // Consome apenas server functions já existentes; nenhum dado mockado.
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { OverviewSkeleton } from "@/components/ai-agents/tab-skeletons";
@@ -36,6 +37,7 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
   const listTasks = useServerFn(listTasksFn);
   const listScheduled = useServerFn(listScheduledPostsFn);
   const listEvents = useServerFn(listCalendarEventsFn);
+  const navigate = useNavigate();
   const [newAppointment, setNewAppointment] = useState(false);
   const scopeValid = isValidScope({ brandId, clientId });
 
@@ -141,7 +143,9 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
       <OverviewAttention
         alerts={data.alerts ?? []}
         overdue={overdue}
-        onOpenTasks={() => onOpenTab?.("gestao")}
+        onOpenTasks={() =>
+          navigate({ to: "/tasks", search: { view: "list", groupBy: "status" } as never })
+        }
       />
 
       {/* Linha 2 — o que precisa ser feito */}
@@ -188,12 +192,7 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
           brandId={brandId}
           clientId={clientId}
           defaultType="appointment"
-          invalidateKey={[
-            "overview-upcoming-events",
-            brandId,
-            clientId,
-            range.from.slice(0, 10),
-          ]}
+          invalidateKey={["overview-upcoming-events", brandId, clientId, range.from.slice(0, 10)]}
         />
       ) : null}
     </div>
