@@ -15,6 +15,7 @@ import {
   type FailureKind,
 } from "@/lib/ai-failures.server";
 import { loadCanonicalBriefing } from "@/lib/briefing-source.server";
+import { filterRowsByPrefs } from "@/lib/notification-prefs";
 
 
 // Two-phase pipeline — Phase 1 (Strategy).
