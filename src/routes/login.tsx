@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { CalendarDays, CheckCircle2, FileText, LayoutGrid } from "lucide-react";
 import { LoginForm } from "@/components/login-form";
-import { UnitosLogo } from "@/components/brand/unitos-logo";
+import { useBrandBranding } from "@/hooks/use-brand-branding";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/login")({
@@ -141,9 +141,9 @@ function BrandPanel() {
           {FEATURES.map(({ icon: Icon, title, description }) => (
             <li
               key={title}
-              className="flex items-start gap-4 rounded-2xl border border-current/10 bg-current/[0.04] p-4 backdrop-blur-sm transition-colors hover:bg-current/[0.07]"
+              className="flex items-start gap-4 rounded-2xl border border-white/10 bg-white/[0.05] p-4 backdrop-blur-sm transition-colors hover:bg-white/[0.09]"
             >
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/25 text-primary-foreground">
                 <Icon className="h-5 w-5" />
               </span>
               <div className="min-w-0">
