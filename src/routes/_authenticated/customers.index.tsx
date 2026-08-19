@@ -136,7 +136,9 @@ function basicSetup(c: ClientRow) {
 
 function CustomersIndexPage() {
   const { brandId } = useActiveContext();
+  const { role: accessRole } = useAccessRole();
   const qc = useQueryClient();
+
   const navigate = useNavigate();
   const list = useServerFn(listClients);
   const update = useServerFn(updateClient);
