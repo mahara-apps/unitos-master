@@ -921,16 +921,22 @@ async function finishJob(
   userId: string,
 ) {
   const reviewRoute = `/customers/${state.clientId}/briefing`;
-  const { error: notifErr } = await supabase.from("notifications").insert({
-    user_id: userId,
-    brand_id: state.brandId,
-    kind: "system",
-    title: "Estratégia gerada — revise antes de criar ideias",
-    body: "Voice card, personas, cohorts e SWOT prontos. Confira, ajuste e depois clique em Gerar ideias.",
-    href: reviewRoute,
-    payload: { event: "strategy_ready", client_id: state.clientId },
-  });
-  if (notifErr) console.warn("[notifications] insert failed", notifErr);
+  // Respeita a preferência `ai_jobs` do usuário (aplicada no servidor).
+  const rows = await filterRowsByPrefs(supabase as never, [
+    {
+      user_id: userId,
+      brand_id: state.brandId,
+      kind: "system",
+      title: "Estratégia gerada — revise antes de criar ideias",
+      body: "Voice card, personas, cohorts e SWOT prontos. Confira, ajuste e depois clique em Gerar ideias.",
+      href: reviewRoute,
+      payload: { event: "strategy_ready", client_id: state.clientId },
+    },
+  ]);
+  if (rows.length) {
+    const { error: notifErr } = await supabase.from("notifications").insert(rows as never);
+    if (notifErr) console.warn("[notifications] insert failed", notifErr);
+  }
 
   await patch({
     status: "succeeded",
