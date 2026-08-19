@@ -164,7 +164,7 @@ function PortalAreaLayout() {
           headerActions={
             <>
               {links.length > 1 && (
-                <Select value={sessionQ.data.clientId ?? undefined} onValueChange={pickClient}>
+                <Select value={cliente} onValueChange={pickClient}>
                   <SelectTrigger className="h-9 w-56">
                     <SelectValue placeholder="Escolher marca" />
                   </SelectTrigger>
