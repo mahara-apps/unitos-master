@@ -61,7 +61,7 @@ export function CommandMenu() {
           <CommandItem onSelect={() => go("/dashboard")}><LayoutDashboard /> Painel <CommandShortcut>G D</CommandShortcut></CommandItem>
           <CommandItem onSelect={() => go("/content")}><KanbanSquare /> Conteúdo <CommandShortcut>G C</CommandShortcut></CommandItem>
           <CommandItem onSelect={() => go("/customers")}><Users /> Clientes</CommandItem>
-          <CommandItem onSelect={() => go("/settings/ai")}><Settings /> Configurações de IA</CommandItem>
+          <CommandItem onSelect={() => go("/connections")}><Settings /> Integrações e IA</CommandItem>
           <CommandItem onSelect={() => go("/analytics")}><BarChart3 /> Análises</CommandItem>
         </CommandGroup>
         {clientsQ.data && clientsQ.data.length > 0 && (
