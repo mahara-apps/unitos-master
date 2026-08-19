@@ -306,127 +306,75 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
       </section>
 
       <section className="overflow-hidden rounded-xl border border-border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[34%]">Nome</TableHead>
-              <TableHead>Leitura da IA</TableHead>
-              <TableHead className="w-[200px]">Visível ao cliente</TableHead>
-              <TableHead>Enviado</TableHead>
-              <TableHead>Tamanho</TableHead>
-              <TableHead className="w-16 text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {docsQ.isLoading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-xs text-muted-foreground">
-                  Carregando documentos…
-                </TableCell>
-              </TableRow>
-            ) : docs.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="py-10 text-center text-xs text-muted-foreground">
-                  Nenhum documento ainda. Envie um brandbook ou pesquisa acima para começar.
-                </TableCell>
-              </TableRow>
-            ) : (
-              docs.map((d) => (
-                <TableRow key={d.id}>
-                  <TableCell>
-                    <div className="flex items-start gap-2">
-                      <FileText className="mt-0.5 h-4 w-4 text-muted-foreground" />
-                      <div className="min-w-0">
-                        <div className="truncate text-sm">{d.name}</div>
-                        {d.ai_summary?.document_type ? (
-                          <div className="text-[11px] text-muted-foreground">{d.ai_summary.document_type}</div>
-                        ) : null}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-1">
-                      {statusBadge(d.ai_status)}
-                      {d.ai_status === "done" && d.ai_summary?.briefing ? (
-                        <button
-                          type="button"
-                          onClick={() => setOpenDoc(d)}
-                          className="text-left text-[11px] font-medium text-primary underline-offset-2 hover:underline"
-                        >
-                          Ver leitura & antes/depois
-                        </button>
-                      ) : null}
-                      {d.ai_status === "failed" && d.ai_error ? (
-                        <span className="line-clamp-2 text-[11px] text-destructive">{d.ai_error}</span>
-                      ) : null}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={d.visible_to_client}
-                        disabled={visibility.isPending}
-                        aria-label={
-                          d.visible_to_client
-                            ? "Ocultar documento do portal do cliente"
-                            : "Tornar documento visível no portal do cliente"
-                        }
-                        onCheckedChange={(v) => visibility.mutate({ id: d.id, visible: v })}
-                      />
-                      {d.visible_to_client ? (
-                        <Badge
-                          variant="outline"
-                          className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                        >
-                          <Eye className="mr-1 h-3 w-3" /> Visível no portal
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className="border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                        >
-                          <EyeOff className="mr-1 h-3 w-3" /> Não visível
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {new Date(d.created_at).toLocaleString("pt-BR", { dateStyle: "medium", timeStyle: "short" })}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">{fmtSize(d.size_bytes)}</TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          disabled={d.ai_status === "queued" || d.ai_status === "running"}
-                          onClick={() => void analyzeDoc(d.id)}
-                        >
-                          <Sparkles className="mr-2 h-3.5 w-3.5" />
-                          {d.ai_status === "done" ? "Reanalisar" : "Analisar com IA"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => download(d.id)}>
-                          <Download className="mr-2 h-3.5 w-3.5" /> Download
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive"
-                          onClick={() => del.mutate(d.id)}
-                        >
-                          <Trash2 className="mr-2 h-3.5 w-3.5" /> Excluir
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+        {docsQ.isError ? (
+          <div className="space-y-3 px-4 py-10 text-center text-sm text-destructive">
+            <p>Não foi possível carregar os documentos deste cliente.</p>
+            <Button size="sm" variant="outline" onClick={() => docsQ.refetch()}>
+              Tentar novamente
+            </Button>
+          </div>
+        ) : docsQ.isLoading ? (
+          <div className="space-y-2 p-4">
+            <Skeleton className="h-14 w-full rounded-lg" />
+            <Skeleton className="h-14 w-full rounded-lg" />
+            <Skeleton className="h-14 w-full rounded-lg" />
+          </div>
+        ) : docs.length === 0 ? (
+          <p className="px-6 py-10 text-center text-xs text-muted-foreground">
+            Nenhum documento ainda. Envie um brandbook ou pesquisa acima para começar.
+          </p>
+        ) : (
+          <>
+            {/* Mobile (≤ md): mesma informação e ações, em cartões legíveis. */}
+            <ul className="divide-y divide-border/60 md:hidden">
+              {docs.map((d) => (
+                <li key={d.id} className="space-y-2.5 px-4 py-3.5">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+                    {renderName(d)}
+                    {renderActions(d)}
+                  </div>
+                  {renderAi(d)}
+                  {renderVisibility(d)}
+                  <p className="text-[11px] text-muted-foreground">
+                    Enviado em {fmtDate(d.created_at)} · {fmtSize(d.size_bytes)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+
+            {/* Desktop: tabela completa. */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[34%]">Nome</TableHead>
+                    <TableHead>Leitura da IA</TableHead>
+                    <TableHead className="w-[200px]">Visível ao cliente</TableHead>
+                    <TableHead>Enviado</TableHead>
+                    <TableHead>Tamanho</TableHead>
+                    <TableHead className="w-16 text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {docs.map((d) => (
+                    <TableRow key={d.id}>
+                      <TableCell>{renderName(d)}</TableCell>
+                      <TableCell>{renderAi(d)}</TableCell>
+                      <TableCell>{renderVisibility(d)}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {fmtDate(d.created_at)}
+                      </TableCell>
+                      <TableCell className="text-xs tabular-nums">{fmtSize(d.size_bytes)}</TableCell>
+                      <TableCell className="text-right">{renderActions(d)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </>
+        )}
       </section>
+
 
       <AiReadingDrawer
         doc={openDoc}
