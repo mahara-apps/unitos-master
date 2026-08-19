@@ -1,4 +1,10 @@
-import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  useLocation,
+  useNavigate,
+} from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useEffect, useState } from "react";
@@ -16,15 +22,22 @@ import { toast } from "sonner";
 import { listClients } from "@/lib/workspace.functions";
 import { StrategyResults } from "@/components/ai-agents/strategy-results";
 import { CustomerOverview } from "@/components/customer/overview/customer-overview";
-import { ProductionTab } from "@/components/customer/production/production-tab";
+import { WorkTab } from "@/components/customer/work/work-tab";
+import { PublicationsTab } from "@/components/customer/publications/publications-tab";
 import { BasicInfoTab } from "@/components/customer/basic-info-tab";
-import { ChannelsTab } from "@/components/customer/channels-tab";
 import { AccountManagementTab } from "@/components/customer/account-management-tab";
 import { BriefingWorkspace } from "@/components/brand-hub/briefing-workspace";
 import { QuickOnboardingWizard } from "@/components/brand-hub/quick-onboarding-wizard";
 import { getBrandHub } from "@/lib/brand-hub.functions";
 import { computeBriefingCompletion } from "@/lib/briefing-progress";
 import { usePageHeader } from "@/hooks/use-page-header";
+import {
+  CUSTOMER_TABS,
+  CUSTOMER_TAB_SEARCH_VALUES,
+  isCustomerTabAlias,
+  resolveCustomerTab,
+  type CustomerTab,
+} from "@/lib/customer-tabs";
 import {
   CUSTOMER_QUERY_KEYS,
   customerCoreQuery,
@@ -33,63 +46,38 @@ import {
   customerTargetQuery,
 } from "@/lib/customer-queries";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUuid = (v: string | null | undefined): v is string => !!v && UUID_RE.test(v);
+
 export const Route = createFileRoute("/_authenticated/customers/$customerId")({
   validateSearch: (s) =>
     z
       .object({
         onboarding: z.union([z.literal("1"), z.literal(1), z.boolean()]).optional(),
         planId: z.string().uuid().optional(),
-        tab: z
-          .enum([
-            "overview",
-            "briefing",
-            "estrategia",
-            "pauta",
-            "producao",
-            "channels",
-            "conta",
-            // Aliases legados de links internos → resolvidos para "conta".
-            "cadastro",
-            "gestao",
-          ])
-          .optional(),
+        // Aceita as 6 abas canônicas + aliases legados (normalizados no guard).
+        tab: z.enum(CUSTOMER_TAB_SEARCH_VALUES).optional(),
       })
       .parse(s),
+  // Guard de rota: valida o customerId e normaliza a aba ANTES de montar
+  // qualquer conteúdo protegido. A autorização definitiva continua na RLS
+  // (server functions) — este guard é apenas de rota/navegação.
+  beforeLoad: ({ params, search }) => {
+    if (!isUuid(params.customerId)) {
+      throw redirect({ to: "/customers", replace: true });
+    }
+    if (isCustomerTabAlias(search.tab)) {
+      throw redirect({
+        to: "/customers/$customerId",
+        params: { customerId: params.customerId },
+        search: { ...search, tab: resolveCustomerTab(search.tab) },
+        replace: true,
+      });
+    }
+  },
   component: CustomerDetail,
 });
 
-type CustomerTab =
-  | "overview"
-  | "briefing"
-  | "estrategia"
-  | "pauta"
-  | "producao"
-  | "channels"
-  | "conta"
-  | "cadastro"
-  | "gestao";
-
-/** Abas legadas que hoje vivem dentro da aba única "Conta". */
-const TAB_ALIASES: Partial<Record<CustomerTab, CustomerTab>> = {
-  cadastro: "conta",
-  gestao: "conta",
-};
-
-const resolveTab = (tab?: string): string =>
-  (tab && TAB_ALIASES[tab as CustomerTab]) || tab || "overview";
-
-const ALL_TABS = [
-  { value: "overview", label: "Visão geral" },
-  { value: "briefing", label: "Briefing" },
-  { value: "estrategia", label: "Estratégia IA" },
-  { value: "pauta", label: "Pauta" },
-  { value: "producao", label: "Produção" },
-  { value: "channels", label: "Canais" },
-  { value: "conta", label: "Conta" },
-] as const;
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const isUuid = (v: string | null | undefined): v is string => !!v && UUID_RE.test(v);
 
 function CustomerDetail() {
   const { customerId } = Route.useParams();
