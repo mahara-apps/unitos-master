@@ -17,7 +17,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { KpiCard } from "@/components/ui/kpi-card";
+import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
@@ -50,6 +51,10 @@ import {
   type DocumentBriefingSummary,
 } from "@/lib/documents-ai.functions";
 import { supabase } from "@/integrations/supabase/client";
+
+function fmtDate(iso: string): string {
+  return new Date(iso).toLocaleString("pt-BR", { dateStyle: "medium", timeStyle: "short" });
+}
 
 function fmtSize(n: number | null): string {
   if (!n) return "—";
