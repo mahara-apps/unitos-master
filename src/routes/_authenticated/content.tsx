@@ -66,6 +66,7 @@ export const Route = createFileRoute("/_authenticated/content")({
         project: z.string().uuid().optional(),
         post: z.string().uuid().optional(),
         new: z.coerce.boolean().optional(),
+        columns: z.coerce.boolean().optional(),
       })
       .parse(s),
   component: ContentPage,
@@ -125,6 +126,7 @@ function ContentPage() {
           defaultProjectId={search.project ?? null}
           initialPostId={search.post ?? null}
           autoOpenNewTask={!!search.new}
+          autoOpenColumns={!!search.columns}
         />
       )}
     </DashboardPageShell>
@@ -137,12 +139,14 @@ function ContentReady({
   defaultProjectId,
   initialPostId,
   autoOpenNewTask,
+  autoOpenColumns,
 }: {
   brandId: string;
   clientId: string;
   defaultProjectId: string | null;
   initialPostId: string | null;
   autoOpenNewTask: boolean;
+  autoOpenColumns: boolean;
 }) {
   const qc = useQueryClient();
   const listPipelines = useServerFn(listPipelinesFn);
@@ -166,7 +170,7 @@ function ContentReady({
   const [openNewPipeline, setOpenNewPipeline] = useState(false);
   const [openRenamePipeline, setOpenRenamePipeline] = useState(false);
   const [openPostId, setOpenPostId] = useState<string | null>(initialPostId);
-  const [openColumnConfig, setOpenColumnConfig] = useState(false);
+  const [openColumnConfig, setOpenColumnConfig] = useState(autoOpenColumns);
   const [newTaskStageId, setNewTaskStageId] = useState<string | null>(null);
   const [openNewTask, setOpenNewTask] = useState(false);
 
@@ -174,6 +178,11 @@ function ContentReady({
     if (initialPostId) setOpenPostId(initialPostId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPostId]);
+
+  useEffect(() => {
+    if (autoOpenColumns) setOpenColumnConfig(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoOpenColumns]);
 
   useEffect(() => {
     if (autoOpenNewTask) {

@@ -41,6 +41,7 @@ import {
 } from "@/lib/content.functions";
 import { STAGE_BG } from "./stage-colors";
 import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
+import { useAccessRole } from "@/hooks/use-access-role";
 import { describeError } from "@/lib/errors";
 
 type Props = {
@@ -59,6 +60,8 @@ export function ColumnConfigDialog({
   invalidateKey,
 }: Props) {
   const qc = useQueryClient();
+  const { role } = useAccessRole();
+  const canEdit = role === "admin";
   const reorder = useServerFn(reorderStagesFn);
   const update = useServerFn(updateStageFn);
   const remove = useServerFn(deleteStageFn);
@@ -141,6 +144,7 @@ export function ColumnConfigDialog({
                   <SortableRow
                     key={stage.id}
                     stage={stage}
+                    canEdit={canEdit}
                     onPatch={(patch) => patchStage(stage.id, patch)}
                     onDelete={() => deleteStage(stage.id, stage.label)}
                   />
@@ -149,14 +153,20 @@ export function ColumnConfigDialog({
             </SortableContext>
           </DndContext>
 
-          <div>
-            <Button variant="outline" size="sm" className="h-9" onClick={addColumn}>+ Adicionar coluna</Button>
-          </div>
+          {canEdit ? (
+            <div>
+              <Button variant="outline" size="sm" className="h-9" onClick={addColumn}>+ Adicionar coluna</Button>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Somente owners, managers e admins da marca podem alterar colunas e SLA.
+            </p>
+          )}
         </div>
 
         <DialogFooter className="border-t border-border/60 px-6 py-4">
           <Button variant="ghost" className="h-9" onClick={() => onOpenChange(false)}>Fechar</Button>
-          <Button className="h-9" onClick={() => save.mutate()} disabled={!dirty || save.isPending}>
+          <Button className="h-9" onClick={() => save.mutate()} disabled={!canEdit || !dirty || save.isPending}>
             {save.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Salvar ordem
           </Button>
@@ -166,12 +176,30 @@ export function ColumnConfigDialog({
   );
 }
 
+const SLA_PRESETS: Array<{ label: string; hours: number }> = [
+  { label: "12h", hours: 12 },
+  { label: "24h", hours: 24 },
+  { label: "48h", hours: 48 },
+  { label: "72h", hours: 72 },
+  { label: "5d", hours: 120 },
+  { label: "7d", hours: 168 },
+];
+
+function formatSlaHours(h: number) {
+  if (h < 24) return `${h}h`;
+  const d = Math.floor(h / 24);
+  const r = h % 24;
+  return r === 0 ? `${d}d` : `${d}d ${r}h`;
+}
+
 function SortableRow({
   stage,
+  canEdit,
   onPatch,
   onDelete,
 }: {
   stage: PipelineStage;
+  canEdit: boolean;
   onPatch: (patch: Partial<PipelineStage>) => void;
   onDelete: () => void;
 }) {
@@ -223,6 +251,7 @@ function SortableRow({
         <Input
           value={label}
           onChange={(e) => setLabel(e.target.value)}
+          disabled={!canEdit}
           onBlur={() => {
             const v = label.trim();
             if (v && v !== stage.label) onPatch({ label: v });
@@ -234,6 +263,7 @@ function SortableRow({
             <button
               key={c}
               type="button"
+              disabled={!canEdit}
               onClick={() => onPatch({ color: c as StageColor })}
               aria-label={c}
               className={`h-5 w-5 rounded-full ${STAGE_BG[c]} ${
@@ -242,18 +272,24 @@ function SortableRow({
             />
           ))}
         </div>
-        <Button size="icon" variant="ghost" onClick={onDelete} className="h-9 w-9 text-destructive">
+        <Button size="icon" variant="ghost" disabled={!canEdit} onClick={onDelete} className="h-9 w-9 text-destructive">
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
 
       <div className="grid gap-3 md:grid-cols-3 pl-6">
         <div className="space-y-1">
-          <Label className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">SLA (horas)</Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">SLA (horas)</Label>
+            {sla.trim() !== "" && Number.isFinite(Number(sla)) && Number(sla) > 0 ? (
+              <span className="text-[10px] text-muted-foreground">{formatSlaHours(Number(sla))}</span>
+            ) : null}
+          </div>
           <Input
             type="number"
             min={0}
             value={sla}
+            disabled={!canEdit}
             onChange={(e) => setSla(e.target.value)}
             onBlur={() => {
               const raw = sla === "" ? null : Number(sla);
@@ -264,10 +300,38 @@ function SortableRow({
             placeholder="—"
             className="h-9"
           />
+          {canEdit ? (
+            <div className="flex flex-wrap gap-1">
+              {SLA_PRESETS.map((p) => (
+                <button
+                  key={p.hours}
+                  type="button"
+                  onClick={() => {
+                    setSla(String(p.hours));
+                    onPatch({ sla_hours: p.hours, sla_days: Math.max(1, Math.round(p.hours / 24)) });
+                  }}
+                  className="rounded-md border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+                >
+                  {p.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setSla("");
+                  onPatch({ sla_hours: null, sla_days: null });
+                }}
+                className="rounded-md border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+              >
+                sem SLA
+              </button>
+            </div>
+          ) : null}
         </div>
         <div className="flex items-center justify-between rounded-md border border-border/60 bg-background/60 px-3 py-2">
           <Label className="text-xs">Sumir do portal</Label>
           <Switch
+            disabled={!canEdit}
             checked={!!stage.hide_in_portal}
             onCheckedChange={(v) => onPatch({ hide_in_portal: v })}
           />
@@ -275,6 +339,7 @@ function SortableRow({
         <div className="flex items-center justify-between rounded-md border border-border/60 bg-background/60 px-3 py-2">
           <Label className="text-xs">Link aprovação</Label>
           <Switch
+            disabled={!canEdit}
             checked={!!stage.enables_approval_link}
             onCheckedChange={(v) => onPatch({ enables_approval_link: v })}
           />
