@@ -224,14 +224,16 @@ function CustomerDetailReady({
 
   // Troca de aba mantém a URL compartilhável (?tab=...).
   const goToTab = (value: string) => {
-    setActiveTab(value);
+    const next = resolveTab(value);
+    setActiveTab(next);
     navigate({
       to: "/customers/$customerId",
       params: { customerId },
-      search: { tab: value, ...(value === "pauta" && planId ? { planId } : {}) } as never,
+      search: { tab: next, ...(next === "pauta" && planId ? { planId } : {}) } as never,
       replace: true,
     });
   };
+
 
   const setPlanId = (id: string | null) => {
     setPlanIdState(id);
