@@ -13,7 +13,7 @@ export const Route = createFileRoute("/_authenticated/settings/logs")({
  */
 function LogsPage() {
   usePageHeader({
-    title: "Auditoria de atividade",
+    title: "Auditoria",
     subtitle: "Histórico de ações realizadas por pessoas na organização",
   });
 

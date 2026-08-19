@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
-} from "@/components/ui/sheet";
+import { ExpandedModal, EXPANDED_MODAL_TABS_BODY } from "@/components/ui/expanded-modal";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, X, Mail, Link2, UserPlus } from "lucide-react";
 import { inviteBrandMembers, addExistingUserToBrand } from "@/lib/team.functions";
-import { cn } from "@/lib/utils";
 
 type Role = "owner" | "manager" | "editor" | "designer";
 const ROLES: Role[] = ["owner", "manager", "editor", "designer"];
@@ -25,7 +22,10 @@ const ROLE_LABEL: Record<Role, string> = {
 };
 
 export function AddMemberDrawer({
-  open, onOpenChange, brandId, onDone,
+  open,
+  onOpenChange,
+  brandId,
+  onDone,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -37,46 +37,49 @@ export function AddMemberDrawer({
   const close = () => onOpenChange(false);
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="flex w-full flex-col gap-0 p-0 sm:max-w-[520px]"
+    <ExpandedModal
+      open={open}
+      onOpenChange={onOpenChange}
+      size="sm"
+      bodyClassName={EXPANDED_MODAL_TABS_BODY}
+      title={
+        <span className="flex items-center gap-2">
+          <UserPlus className="h-4 w-4 text-primary" />
+          Adicionar membro
+        </span>
+      }
+      description="Convide alguém por e-mail ou vincule uma conta que já existe no Unitos."
+    >
+      <Tabs
+        value={tab}
+        onValueChange={(v) => setTab(v as "invite" | "link")}
+        className="flex flex-1 flex-col overflow-hidden"
       >
-        <SheetHeader className="border-b border-border/60 px-6 py-5">
-          <SheetTitle className="flex items-center gap-2 text-lg">
-            <UserPlus className="h-4 w-4 text-primary" />
-            Adicionar membro
-          </SheetTitle>
-          <SheetDescription>
-            Convide alguém por e-mail ou vincule uma conta que já existe no Unitos.
-          </SheetDescription>
-        </SheetHeader>
+        <div className="border-b border-border/60 px-6 pt-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="invite" className="gap-2">
+              <Mail className="h-3.5 w-3.5" /> Convidar por e-mail
+            </TabsTrigger>
+            <TabsTrigger value="link" className="gap-2">
+              <Link2 className="h-3.5 w-3.5" /> Vincular conta existente
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
-        <Tabs
-          value={tab}
-          onValueChange={(v) => setTab(v as "invite" | "link")}
-          className="flex flex-1 flex-col overflow-hidden"
+        <TabsContent
+          value="invite"
+          className="flex-1 overflow-y-auto px-6 py-6 data-[state=inactive]:hidden"
         >
-          <div className="border-b border-border/60 px-6 pt-4">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="invite" className="gap-2">
-                <Mail className="h-3.5 w-3.5" /> Convidar por e-mail
-              </TabsTrigger>
-              <TabsTrigger value="link" className="gap-2">
-                <Link2 className="h-3.5 w-3.5" /> Vincular conta existente
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="invite" className="flex-1 overflow-y-auto px-6 py-6 data-[state=inactive]:hidden">
-            <InvitePanel brandId={brandId} onDone={onDone} onClose={close} />
-          </TabsContent>
-          <TabsContent value="link" className="flex-1 overflow-y-auto px-6 py-6 data-[state=inactive]:hidden">
-            <LinkPanel brandId={brandId} onDone={onDone} onClose={close} />
-          </TabsContent>
-        </Tabs>
-      </SheetContent>
-    </Sheet>
+          <InvitePanel brandId={brandId} onDone={onDone} onClose={close} />
+        </TabsContent>
+        <TabsContent
+          value="link"
+          className="flex-1 overflow-y-auto px-6 py-6 data-[state=inactive]:hidden"
+        >
+          <LinkPanel brandId={brandId} onDone={onDone} onClose={close} />
+        </TabsContent>
+      </Tabs>
+    </ExpandedModal>
   );
 }
 
@@ -84,8 +87,14 @@ export function AddMemberDrawer({
 // Aba 1 — Convidar por e-mail (multi-e-mail, dispara inviteBrandMembers)
 // ---------------------------------------------------------------------------
 function InvitePanel({
-  brandId, onDone, onClose,
-}: { brandId: string; onDone: () => void; onClose: () => void }) {
+  brandId,
+  onDone,
+  onClose,
+}: {
+  brandId: string;
+  onDone: () => void;
+  onClose: () => void;
+}) {
   const invite = useServerFn(inviteBrandMembers);
   const [emails, setEmails] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
@@ -95,7 +104,10 @@ function InvitePanel({
   const commit = (raw: string) => {
     const clean = raw.trim().toLowerCase();
     if (!clean) return;
-    if (!EMAIL_RE.test(clean)) { toast.error(`E-mail inválido: ${clean}`); return; }
+    if (!EMAIL_RE.test(clean)) {
+      toast.error(`E-mail inválido: ${clean}`);
+      return;
+    }
     if (emails.includes(clean)) return;
     setEmails((prev) => [...prev, clean]);
     setDraft("");
@@ -112,10 +124,14 @@ function InvitePanel({
 
   const submit = async () => {
     if (draft.trim()) commit(draft);
-    const list = draft.trim() && EMAIL_RE.test(draft.trim().toLowerCase())
-      ? Array.from(new Set([...emails, draft.trim().toLowerCase()]))
-      : emails;
-    if (list.length === 0) { toast.error("Adicione ao menos um e-mail"); return; }
+    const list =
+      draft.trim() && EMAIL_RE.test(draft.trim().toLowerCase())
+        ? Array.from(new Set([...emails, draft.trim().toLowerCase()]))
+        : emails;
+    if (list.length === 0) {
+      toast.error("Adicione ao menos um e-mail");
+      return;
+    }
 
     setBusy(true);
     try {
@@ -124,8 +140,12 @@ function InvitePanel({
       });
       const okCount = (res.results ?? []).filter((r) => r.status !== "error").length;
       const failCount = (res.results ?? []).filter((r) => r.status === "error").length;
-      if (okCount > 0) toast.success(`${okCount} convite${okCount > 1 ? "s" : ""} enviado${okCount > 1 ? "s" : ""}`);
-      if (failCount > 0) toast.error(`${failCount} falha${failCount > 1 ? "s" : ""} — verifique os e-mails`);
+      if (okCount > 0)
+        toast.success(
+          `${okCount} convite${okCount > 1 ? "s" : ""} enviado${okCount > 1 ? "s" : ""}`,
+        );
+      if (failCount > 0)
+        toast.error(`${failCount} falha${failCount > 1 ? "s" : ""} — verifique os e-mails`);
       onDone();
       onClose();
     } catch (e) {
@@ -139,7 +159,9 @@ function InvitePanel({
   return (
     <div className="space-y-5">
       <div className="space-y-1.5">
-        <Label htmlFor="invite-emails" className="text-xs">E-mails</Label>
+        <Label htmlFor="invite-emails" className="text-xs">
+          E-mails
+        </Label>
         <div className="min-h-[42px] rounded-md border border-input bg-transparent px-2 py-1.5 flex flex-wrap gap-1.5">
           {emails.map((e) => (
             <Badge key={e} variant="secondary" className="gap-1 pr-1 font-normal">
@@ -166,7 +188,8 @@ function InvitePanel({
           />
         </div>
         <p className="text-[11px] text-muted-foreground">
-          Enter, vírgula ou espaço para adicionar. O convite cria a conta automaticamente se ela não existir.
+          Enter, vírgula ou espaço para adicionar. O convite cria a conta automaticamente se ela não
+          existir.
         </p>
       </div>
 
@@ -177,7 +200,11 @@ function InvitePanel({
           onChange={(e) => setRole(e.target.value as Role)}
           className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm"
         >
-          {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+          {ROLES.map((r) => (
+            <option key={r} value={r}>
+              {ROLE_LABEL[r]}
+            </option>
+          ))}
         </select>
         <p className="text-[11px] text-muted-foreground">
           O papel define todo o acesso (ver aba Permissões). Não há permissões individuais.
@@ -185,7 +212,9 @@ function InvitePanel({
       </div>
 
       <div className="flex items-center justify-end gap-2 pt-2">
-        <Button variant="outline" onClick={onClose} disabled={busy}>Cancelar</Button>
+        <Button variant="outline" onClick={onClose} disabled={busy}>
+          Cancelar
+        </Button>
         <Button onClick={submit} disabled={busy}>
           {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           Enviar convite{emails.length > 1 ? "s" : ""}
@@ -199,8 +228,14 @@ function InvitePanel({
 // Aba 2 — Vincular conta existente (sem e-mail, atribuição direta)
 // ---------------------------------------------------------------------------
 function LinkPanel({
-  brandId, onDone, onClose,
-}: { brandId: string; onDone: () => void; onClose: () => void }) {
+  brandId,
+  onDone,
+  onClose,
+}: {
+  brandId: string;
+  onDone: () => void;
+  onClose: () => void;
+}) {
   const link = useServerFn(addExistingUserToBrand);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("editor");
@@ -208,7 +243,10 @@ function LinkPanel({
 
   const submit = async () => {
     const clean = email.trim().toLowerCase();
-    if (!EMAIL_RE.test(clean)) { toast.error("E-mail inválido"); return; }
+    if (!EMAIL_RE.test(clean)) {
+      toast.error("E-mail inválido");
+      return;
+    }
     setBusy(true);
     try {
       const res = await link({
@@ -219,15 +257,19 @@ function LinkPanel({
         return;
       }
       toast.success(
-        res.status === "added" ? "Membro vinculado à marca"
-        : res.status === "updated" ? `Membro atualizado para ${role}`
-        : `Já era membro com o papel ${role}`,
+        res.status === "added"
+          ? "Membro vinculado à marca"
+          : res.status === "updated"
+            ? `Membro atualizado para ${role}`
+            : `Já era membro com o papel ${role}`,
       );
       onDone();
       onClose();
     } catch (e) {
       const msg = (e as Error).message;
-      toast.error(msg.startsWith("forbidden") ? "Apenas owners e managers podem vincular contas" : msg);
+      toast.error(
+        msg.startsWith("forbidden") ? "Apenas owners e managers podem vincular contas" : msg,
+      );
     } finally {
       setBusy(false);
     }
@@ -236,7 +278,9 @@ function LinkPanel({
   return (
     <div className="space-y-5">
       <div className="space-y-1.5">
-        <Label htmlFor="link-email" className="text-xs">E-mail do usuário</Label>
+        <Label htmlFor="link-email" className="text-xs">
+          E-mail do usuário
+        </Label>
         <Input
           id="link-email"
           type="email"
@@ -257,12 +301,18 @@ function LinkPanel({
           onChange={(e) => setRole(e.target.value as Role)}
           className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm"
         >
-          {ROLES.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+          {ROLES.map((r) => (
+            <option key={r} value={r}>
+              {ROLE_LABEL[r]}
+            </option>
+          ))}
         </select>
       </div>
 
       <div className="flex items-center justify-end gap-2 pt-2">
-        <Button variant="outline" onClick={onClose} disabled={busy}>Cancelar</Button>
+        <Button variant="outline" onClick={onClose} disabled={busy}>
+          Cancelar
+        </Button>
         <Button onClick={submit} disabled={busy}>
           {busy && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
           Vincular à marca
