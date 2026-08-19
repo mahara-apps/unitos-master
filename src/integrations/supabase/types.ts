@@ -6232,6 +6232,7 @@ export type Database = {
         Args: { _brand_id?: string }
         Returns: number
       }
+      cron_secret: { Args: never; Returns: string }
       derive_post_stage: {
         Args: {
           _current: Database["public"]["Enums"]["post_stage"]
@@ -6441,6 +6442,7 @@ export type Database = {
         Args: { _task_id: string }
         Returns: number
       }
+      set_cron_secret: { Args: { _value: string }; Returns: undefined }
       start_timer: {
         Args: { _brand_id: string; _task_id: string }
         Returns: string
