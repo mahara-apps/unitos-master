@@ -240,7 +240,10 @@ async function notifySuperAdmins(
       payload: { source: "ai_model_health", problems } as never,
     }));
   if (!rows.length) return;
-  const { error } = await supabase.from("notifications").insert(rows as never);
+  // Preferência do usuário (ai_jobs) é aplicada no servidor, não só na UI.
+  const allowed = await filterRowsByPrefs(supabase as never, rows);
+  if (!allowed.length) return;
+  const { error } = await supabase.from("notifications").insert(allowed as never);
   if (error) console.error("[ai-model-health] falha ao notificar admins", error);
 }
 
