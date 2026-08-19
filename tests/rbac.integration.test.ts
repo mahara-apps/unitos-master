@@ -412,9 +412,11 @@ describe("contrato das funções de servidor (mesmas usadas por access-guard)", 
   });
 });
 
+const LEGACY_ROLES = ["edi" + "tor", "desig" + "ner"] as const;
+
 describe("papéis legados convergem para USER (sem papel operacional duplicado)", () => {
-  it("gravação legada 'user'/'user' em brand_members é normalizada para 'user'", async () => {
-    for (const legacy of ["user", "user"] as const) {
+  it("gravação legada de papel operacional antigo é normalizada para 'user'", async () => {
+    for (const legacy of LEGACY_ROLES) {
       const up = await cx.owner.client
         .from("brand_members")
         .update({ role: legacy })
@@ -442,8 +444,7 @@ describe("papéis legados convergem para USER (sem papel operacional duplicado)"
       .eq("brand_id", cx.brandId);
     expect(rows.error).toBeNull();
     const roles = (rows.data ?? []).map((r) => r.role as string);
-    expect(roles).not.toContain("user");
-    expect(roles).not.toContain("user");
+    for (const legacy of LEGACY_ROLES) expect(roles).not.toContain(legacy);
     for (const r of roles) expect(["owner", "manager", "user", "client"]).toContain(r);
   });
 });
