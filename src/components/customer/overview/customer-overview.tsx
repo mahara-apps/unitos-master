@@ -192,12 +192,7 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
           brandId={brandId}
           clientId={clientId}
           defaultType="appointment"
-          invalidateKey={[
-            "overview-upcoming-events",
-            brandId,
-            clientId,
-            range.from.slice(0, 10),
-          ]}
+          invalidateKey={["overview-upcoming-events", brandId, clientId, range.from.slice(0, 10)]}
         />
       ) : null}
     </div>

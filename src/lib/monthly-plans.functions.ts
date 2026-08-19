@@ -31,7 +31,6 @@ import {
 import { runPlanGeneration } from "@/lib/monthly-plan-generate.server";
 import { countGeneratedThisMonth } from "@/lib/monthly-plan-generated-count.server";
 
-
 /* ---------- Types ---------- */
 
 export type MonthlyPlanStatus =
@@ -71,9 +70,6 @@ export type GenerateMonthlyPlanResult =
       code: "overage_not_authorized";
       overage: Array<{ channel: PlanChannel; quota: number; requested: number; overage: number }>;
     };
-
-
-
 
 export type MonthlyPlan = {
   id: string;
@@ -123,7 +119,6 @@ export type MonthlyPlanTopic = {
   previous_title: string | null;
   previous_angle: string | null;
   position: number;
-
 };
 
 export type MonthlyPlanWithTopics = {
@@ -309,7 +304,9 @@ export const listMonthlyPlansFn = createServerFn({ method: "POST" })
     }>;
     if (list.length === 0) return [];
 
-    const userIds = Array.from(new Set(list.map((r) => r.created_by).filter((v): v is string => !!v)));
+    const userIds = Array.from(
+      new Set(list.map((r) => r.created_by).filter((v): v is string => !!v)),
+    );
     const authorMap = new Map<string, string>();
     if (userIds.length) {
       const { data: profs } = await context.supabase
@@ -757,25 +754,21 @@ export const submitPlanToClientFn = createServerFn({ method: "POST" })
       .is("revoked_at", null)
       .order("created_at", { ascending: false })
       .limit(1);
-    const found = (existing ?? [])[0] as
-      | { token: string; expires_at: string | null }
-      | undefined;
+    const found = (existing ?? [])[0] as { token: string; expires_at: string | null } | undefined;
 
     let token = found?.token ?? null;
     let expiresAt = found?.expires_at ?? null;
     if (!token || (expiresAt && new Date(expiresAt).getTime() < Date.now())) {
       token = randomToken(40);
       expiresAt = new Date(Date.now() + data.expiresInDays * 86_400_000).toISOString();
-      const { error: insErr } = await context.supabase
-        .from("monthly_plan_tokens" as never)
-        .insert({
-          monthly_plan_id: plan.id,
-          brand_id: plan.brand_id,
-          client_id: plan.client_id,
-          token,
-          expires_at: expiresAt,
-          created_by: context.userId,
-        } as never);
+      const { error: insErr } = await context.supabase.from("monthly_plan_tokens" as never).insert({
+        monthly_plan_id: plan.id,
+        brand_id: plan.brand_id,
+        client_id: plan.client_id,
+        token,
+        expires_at: expiresAt,
+        created_by: context.userId,
+      } as never);
       if (insErr) throw insErr;
     }
 
@@ -948,12 +941,14 @@ export const listPlanProjectOptionsFn = createServerFn({ method: "POST" })
     if (!data.includeArchived) q = q.neq("status", "archived");
     const { data: rows, error } = await q;
     if (error) throw error;
-    return ((rows ?? []) as unknown as Array<{
-      id: string;
-      name: string;
-      status: string;
-      monthly_plan_id: string | null;
-    }>).map((r) => ({
+    return (
+      (rows ?? []) as unknown as Array<{
+        id: string;
+        name: string;
+        status: string;
+        monthly_plan_id: string | null;
+      }>
+    ).map((r) => ({
       id: r.id,
       name: r.name,
       status: r.status,
@@ -1353,7 +1348,7 @@ export const listPlanBoardFn = createServerFn({ method: "POST" })
     }
 
     const items: PlanBoardItem[] = rows.map((r) => {
-      const project = r.project_id ? projectMap.get(r.project_id) ?? null : null;
+      const project = r.project_id ? (projectMap.get(r.project_id) ?? null) : null;
       const tCount = topicTotals.get(r.id) ?? { total: 0, approved: 0 };
       const tasks = (r.project_id ? taskAgg.get(r.project_id) : null) ?? {
         total: 0,

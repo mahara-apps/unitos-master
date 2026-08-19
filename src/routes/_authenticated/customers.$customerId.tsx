@@ -236,8 +236,6 @@ function CustomerDetailReady({
     });
   };
 
-
-
   // Lista de customers do brand ativo — só para nome/cor do header.
   const customersQ = useQuery({
     queryKey: ["clients", brandId],
@@ -346,7 +344,6 @@ function CustomerDetailReady({
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-
                 {needsOnboarding && (
                   <Button
                     size="sm"
