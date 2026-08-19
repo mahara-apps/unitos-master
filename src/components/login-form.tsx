@@ -66,7 +66,7 @@ export function LoginForm() {
 
   return (
     <div className="w-full max-w-[400px]">
-      <UnitosLogo variant="mark" eager className="mb-10 h-9 w-auto lg:hidden" />
+      <UnitosLogo variant="full" eager className="mb-10 h-8 w-auto max-w-[150px] lg:hidden" />
 
       <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
         Bem-vindo de volta
