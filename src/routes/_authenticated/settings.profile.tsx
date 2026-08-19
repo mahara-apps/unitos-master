@@ -194,48 +194,63 @@ function ProfilePage() {
 
   if (isLoading || !form) {
     return (
-      <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-4">
-          <Skeleton className="h-16 w-16 rounded-2xl" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-5 w-48" />
+      <div className="mx-auto w-full max-w-5xl space-y-10 px-4 py-10 sm:px-6 lg:px-10">
+        <div className="flex items-center gap-5">
+          <Skeleton className="h-20 w-20 rounded-2xl" />
+          <div className="flex-1 space-y-3">
+            <Skeleton className="h-6 w-56" />
             <Skeleton className="h-3 w-64" />
           </div>
         </div>
-        <Skeleton className="h-9 w-56 rounded-lg" />
-        <Skeleton className="h-72 w-full rounded-xl" />
+        <Skeleton className="h-16 w-full rounded-xl" />
+        <Skeleton className="h-11 w-56 rounded-xl" />
+        <Skeleton className="h-80 w-full rounded-xl" />
       </div>
     );
   }
 
   const roleLabel = (data?.role ?? "member").toString();
+  const isAdmin = /admin|owner/i.test(roleLabel);
   const localeLabel = LOCALES.find((l) => l.value === form.locale)?.label ?? form.locale;
   const tzShort = form.timezone.split("/")[1]?.replace("_", " ") ?? form.timezone;
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* Identidade da conta — compacta, sem card */}
-      <header className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-4">
-        <Avatar className="h-14 w-14 shrink-0 rounded-2xl sm:h-16 sm:w-16">
-          {form.avatar_url ? <AvatarImage src={form.avatar_url} alt={form.full_name} /> : null}
-          <AvatarFallback className="rounded-2xl bg-muted text-base font-semibold text-foreground">
-            {initials}
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-            <h1 className="truncate text-lg font-semibold tracking-tight sm:text-xl">
+    <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-10">
+      {/* Apresentação do perfil */}
+      <header className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-7">
+        <AvatarUploader
+          userId={data?.id ?? ""}
+          value={form.avatar_url}
+          initials={initials}
+          name={form.full_name || "Perfil"}
+          onChange={(next) => setForm({ ...form, avatar_url: next })}
+          className="shrink-0"
+        />
+        <div className="min-w-0 sm:border-l sm:border-border/50 sm:pl-7">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
+            <h1 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">
               {form.full_name || "Sem nome"}
             </h1>
-            <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <span
+              className={
+                isAdmin
+                  ? "shrink-0 rounded-full border border-brand-lime/40 bg-brand-lime/15 px-2.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-brand-lime-foreground"
+                  : "shrink-0 rounded-full border border-border bg-muted px-2.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-muted-foreground"
+              }
+            >
               {roleLabel}
             </span>
           </div>
-          <p className="mt-0.5 truncate text-[13px] text-muted-foreground">{data?.email ?? "—"}</p>
+          <p className="mt-1.5 truncate text-[13.5px] text-muted-foreground">
+            {data?.email ?? "—"}
+          </p>
+          {form.job_title ? (
+            <p className="mt-0.5 truncate text-[13px] text-muted-foreground">{form.job_title}</p>
+          ) : null}
         </div>
       </header>
 
-      <div className="mt-4 border-t border-border/50 pt-4">
+      <div className="mt-10 border-y border-border/50 py-7">
         <SettingsMetaList>
           <SettingsMetaItem
             label="Função"
@@ -253,28 +268,38 @@ function ProfilePage() {
             icon={<MessageCircle className="h-3.5 w-3.5" />}
             value={form.whatsapp || "não informado"}
           />
-          {form.job_title ? <SettingsMetaItem label="Cargo" value={form.job_title} /> : null}
-          {form.phone ? <SettingsMetaItem label="Telefone" value={form.phone} /> : null}
+          <SettingsMetaItem
+            label="Telefone"
+            icon={<Phone className="h-3.5 w-3.5" />}
+            value={form.phone || "não informado"}
+          />
         </SettingsMetaList>
       </div>
 
-      <Tabs defaultValue="personal" className="mt-7 w-full">
-        <TabsList className="w-full max-w-sm">
-          <TabsTrigger value="personal" className="flex-1">
+      {dirty ? (
+        <p className="mt-6 flex items-center gap-2 text-[12.5px] text-muted-foreground">
+          <span className="h-1.5 w-1.5 rounded-full bg-brand-lime" aria-hidden />
+          Alterações pendentes — use “Salvar alterações” no topo da página.
+        </p>
+      ) : null}
+
+      <Tabs defaultValue="personal" className="mt-8 w-full">
+        <TabsList className={settingsSegmentedListClass}>
+          <TabsTrigger value="personal" className={settingsSegmentedTriggerClass}>
             Pessoal
           </TabsTrigger>
-          <TabsTrigger value="security" className="flex-1">
+          <TabsTrigger value="security" className={settingsSegmentedTriggerClass}>
             Segurança
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="personal" className="mt-6">
+        <TabsContent value="personal" className="mt-10">
           <SettingsBlock
             title="Identificação"
             description="Como seu nome aparece para o time em pautas, tarefas e comentários."
           >
             <SettingsFieldGrid>
-              <SettingsField label="Nome completo" htmlFor="full_name" full>
+              <SettingsField label="Nome completo" htmlFor="full_name">
                 <Input
                   id="full_name"
                   value={form.full_name}
@@ -292,27 +317,25 @@ function ProfilePage() {
                   placeholder="Ex: Estrategista de conteúdo"
                 />
               </SettingsField>
-              <SettingsField label="URL do avatar" htmlFor="avatar_url">
-                <Input
-                  id="avatar_url"
-                  value={form.avatar_url}
-                  onChange={(e) => setForm({ ...form, avatar_url: e.target.value })}
-                  placeholder="https://…/foto.png"
-                  maxLength={500}
-                />
-              </SettingsField>
-              <SettingsField label="Bio" htmlFor="bio" full>
+              <SettingsField
+                label="Bio"
+                htmlFor="bio"
+                full
+                hint="Aparece no seu perfil para o time. Máximo de 600 caracteres."
+              >
                 <Textarea
                   id="bio"
                   value={form.bio}
                   onChange={(e) => setForm({ ...form, bio: e.target.value })}
-                  rows={3}
+                  rows={6}
                   maxLength={600}
+                  className="min-h-32 resize-y leading-relaxed"
                   placeholder="Uma breve descrição sobre você"
                 />
               </SettingsField>
             </SettingsFieldGrid>
           </SettingsBlock>
+
 
           <SettingsBlock
             title="Contato"
