@@ -69,8 +69,16 @@ export async function resolveSessionScope(
 }
 
 
+/** True quando a chave de serviço está configurada no ambiente. */
+export function hasServiceKey(): boolean {
+  return Boolean(process.env["SUPABASE_SERVICE_ROLE_KEY"] || process.env["SB_SERVICE_ROLE_KEY"]);
+}
+
 /** Client privilegiado usado depois do escopo estar resolvido e validado. */
 export async function scopedAdmin(): Promise<SupabaseClient> {
+  // Erro tipado (em vez da mensagem genérica do client) para o portal exibir
+  // orientação clara e não abrir tela branca.
+  if (!hasServiceKey()) throw new Error("portal_service_key_missing");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin as unknown as SupabaseClient;
 }
