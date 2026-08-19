@@ -68,8 +68,7 @@ export function OverviewSummary({
           ))}
         </PageKpiGrid>
       </div>
-
-      </div>
     </OverviewCard>
+
   );
 }
