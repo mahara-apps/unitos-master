@@ -39,8 +39,9 @@ function createSupabaseAdminClient() {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     const missing = [
       ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
-      ...(!SUPABASE_SERVICE_ROLE_KEY ? ['SB_SERVICE_ROLE_KEY'] : []),
+      ...(!SUPABASE_SERVICE_ROLE_KEY ? ['SUPABASE_SERVICE_ROLE_KEY (ou SB_SERVICE_ROLE_KEY)'] : []),
     ];
+
     // Detalhe fica APENAS no log do servidor; a mensagem que chega ao usuário
     // é genérica (nunca expõe nomes de secrets na interface).
     console.error(
