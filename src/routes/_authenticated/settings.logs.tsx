@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { usePageHeader } from "@/hooks/use-page-header";
-import { LogViewer } from "@/components/logs/log-viewer";
+import { LogViewer } from "@/components/system-logs/log-viewer";
 
 export const Route = createFileRoute("/_authenticated/settings/logs")({
   component: LogsPage,

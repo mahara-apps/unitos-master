@@ -72,7 +72,7 @@ import { KpiCard } from "@/components/ui/kpi-card";
 import { AiCenter, type AiSettingsUpdate } from "@/components/connections/ai-center";
 import { AiUsagePanel } from "@/components/connections/ai-usage-panel";
 import { AiPromptsPanel } from "@/components/connections/ai-prompts-panel";
-import { LogViewer } from "@/components/logs/log-viewer";
+import { LogViewer } from "@/components/system-logs/log-viewer";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
