@@ -99,7 +99,7 @@ const UFS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","P
 
 function IdentityPage() {
   const { brandId } = useActiveContext();
-  usePageHeader({ title: "Identidade", subtitle: "Dados cadastrais e identidade visual da marca" }, []);
+  usePageHeader({ title: "Agência", subtitle: "Dados cadastrais e identidade visual da marca" }, []);
 
   if (!brandId) {
     return (

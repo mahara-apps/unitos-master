@@ -27,7 +27,7 @@ type TabGroup = { label: string; tabs: TabDef[] };
  */
 const GROUPS: TabGroup[] = [
   {
-    label: "Conta",
+    label: "Minha conta",
     tabs: [
       { to: "/settings/profile", label: "Perfil", icon: User, admin: false },
       { to: "/settings/notifications", label: "Notificações", icon: Bell, admin: false },
@@ -36,7 +36,7 @@ const GROUPS: TabGroup[] = [
   {
     label: "Workspace",
     tabs: [
-      { to: "/settings/identity", label: "Identidade", icon: Palette, admin: true },
+      { to: "/settings/identity", label: "Agência", icon: Palette, admin: true },
       { to: "/settings/team", label: "Equipe & Acesso", icon: Users, admin: true },
       { to: "/settings/permissions", label: "Permissões", icon: ShieldCheck, admin: true },
       { to: "/settings/logs", label: "Auditoria", icon: History, admin: true },
@@ -46,9 +46,6 @@ const GROUPS: TabGroup[] = [
 
 
 const ALL_TABS = GROUPS.flatMap((g) => g.tabs);
-
-/** Rotas de Configurações que exigem administração da marca. */
-export const ADMIN_SETTINGS_PATHS = ALL_TABS.filter((t) => t.admin).map((t) => t.to);
 
 function SettingsLayout() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });

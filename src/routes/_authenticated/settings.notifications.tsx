@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { usePageHeader } from "@/hooks/use-page-header";
-import { SettingsStatCard } from "@/components/settings/settings-stat-card";
+import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import {
   DEFAULT_NOTIFICATION_PREFS,
   NOTIFICATION_PREF_KEYS,
@@ -116,32 +116,33 @@ function NotificationsPage() {
 
   return (
     <div className="w-full space-y-4 px-4 py-6 sm:px-6 lg:px-8">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <SettingsStatCard
+      <PageKpiGrid>
+        <PageKpi
           label="Eventos ativos"
           value={`${active}/${NOTIFICATION_PREF_KEYS.length}`}
           icon={<Bell className="h-4 w-4" />}
-          tone="violet"
+          status="info"
         />
-        <SettingsStatCard
+        <PageKpi
           label="Aprovações"
           value={prefs.approvals ? "Ativo" : "Inativo"}
           icon={<CheckCircle2 className="h-4 w-4" />}
-          tone={prefs.approvals ? "emerald" : "neutral"}
+          status={prefs.approvals ? "success" : "neutral"}
         />
-        <SettingsStatCard
+        <PageKpi
           label="Prazos"
           value={prefs.deadlines ? "Ativo" : "Inativo"}
           icon={<CalendarClock className="h-4 w-4" />}
-          tone={prefs.deadlines ? "sky" : "neutral"}
+          status={prefs.deadlines ? "success" : "neutral"}
         />
-        <SettingsStatCard
+        <PageKpi
           label="Críticos"
           value="Sempre"
+          description="Não podem ser desligados"
           icon={<AlertTriangle className="h-4 w-4" />}
-          tone="neutral"
+          status="warning"
         />
-      </div>
+      </PageKpiGrid>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

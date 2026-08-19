@@ -29,7 +29,7 @@ import { MoreHorizontal, UserPlus, Copy, X, Loader2, Link2, ShieldOff, ExternalL
 import { cn } from "@/lib/utils";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { SettingsStatCard } from "@/components/settings/settings-stat-card";
+import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import { Users, Mail as MailIcon, Link as LinkIcon, Crown } from "lucide-react";
 import { AddMemberDrawer } from "@/components/settings/add-member-drawer";
 
@@ -56,8 +56,8 @@ function TeamSettingsPage() {
 
   usePageHeader(
     {
-      title: "Equipe",
-      subtitle: "Membros, permissões e convites da marca",
+      title: "Equipe & Acesso",
+      subtitle: "Membros, papéis e convites da marca",
       actions: brandId ? (
         <Button size="sm" onClick={() => setAddOpen(true)}>
           <UserPlus className="h-4 w-4 mr-2" />
@@ -93,17 +93,22 @@ function TeamSettingsPage() {
         onDone={() => qc.invalidateQueries({ queryKey: ["brand-team", brandId] })}
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <SettingsStatCard label="Membros" value={members.length} icon={<Users className="h-4 w-4" />} tone="sky" />
-        <SettingsStatCard label="Convites pendentes" value={pendingInvites.length} icon={<MailIcon className="h-4 w-4" />} tone={pendingInvites.length > 0 ? "amber" : "neutral"} />
-        <SettingsStatCard label="Portais ativos" value={portalTokens.length} icon={<LinkIcon className="h-4 w-4" />} tone="violet" />
-        <SettingsStatCard label="Owners" value={owners} icon={<Crown className="h-4 w-4" />} tone="emerald" />
-      </div>
+      <PageKpiGrid>
+        <PageKpi label="Membros" value={members.length} icon={<Users className="h-4 w-4" />} status="info" />
+        <PageKpi
+          label="Convites pendentes"
+          value={pendingInvites.length}
+          icon={<MailIcon className="h-4 w-4" />}
+          status={pendingInvites.length > 0 ? "warning" : "neutral"}
+        />
+        <PageKpi label="Portais ativos" value={portalTokens.length} icon={<LinkIcon className="h-4 w-4" />} status="info" />
+        <PageKpi label="Owners" value={owners} icon={<Crown className="h-4 w-4" />} status="success" />
+      </PageKpiGrid>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Membros da equipe</CardTitle>
-          <CardDescription>Usuários com acesso a esta marca e suas permissões.</CardDescription>
+          <CardDescription>Usuários com acesso a esta marca e o papel de cada um.</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <div className="grid grid-cols-[minmax(0,1fr)_140px_1fr_60px] items-center gap-4 border-y border-border/60 bg-muted/30 px-4 py-2 text-[11px] uppercase tracking-wider text-muted-foreground">
