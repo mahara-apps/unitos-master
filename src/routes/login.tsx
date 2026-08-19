@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { CalendarDays, CheckCircle2, FileText, LayoutGrid } from "lucide-react";
 import { LoginForm } from "@/components/login-form";
-import { useBrandBranding } from "@/hooks/use-brand-branding";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/login")({
