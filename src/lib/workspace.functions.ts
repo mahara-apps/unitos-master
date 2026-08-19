@@ -299,7 +299,7 @@ export const getBrandCompany = createServerFn({ method: "GET" })
     await assertAdminAuthority(context.supabase, context.userId, data.brandId);
     const { data: row, error } = await context.supabase
       .from("brands")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       .select(
         "id, name, cpf, cnpj, nome_fantasia, razao_social, cep, rua, numero, complemento, bairro, cidade, estado" as any,
       )

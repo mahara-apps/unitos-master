@@ -185,12 +185,10 @@ function ContentReady({
 
   useEffect(() => {
     if (initialPostId) setOpenPostId(initialPostId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPostId]);
 
   useEffect(() => {
     if (autoOpenColumns) setOpenColumnConfig(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpenColumns]);
 
   useEffect(() => {
@@ -198,7 +196,6 @@ function ContentReady({
       setNewTaskStageId(null);
       setOpenNewTask(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoOpenNewTask]);
 
   const navigate = useNavigate();

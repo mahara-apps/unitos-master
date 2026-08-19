@@ -61,7 +61,7 @@ export function AiJobsProvider({ children }: { children: ReactNode }) {
       if (!userId) return;
       channel = supabase
         .channel(`rt:ai_jobs:${userId}`)
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
         .on(
           "postgres_changes" as any,
           {
