@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 // Campo de organização da pauta: Nenhum projeto / Projeto existente / Novo projeto.
 // Nunca cria projeto sem escolha explícita do usuário.
 import * as React from "react";
@@ -84,8 +83,7 @@ export function PautaOrganizationField({
     staleTime: 30_000,
   });
   const [search, setSearch] = React.useState("");
-  const projects: PlanProjectOption[] = useMemo(() => projectsQ.data ?? [], [projectsQ.data]);
-  const projects: PlanProjectOption[] = projectsQ.data ?? [];
+  const projects: PlanProjectOption[] = React.useMemo(() => projectsQ.data ?? [], [projectsQ.data]);
   const filtered = React.useMemo(() => {
     const t = search.trim().toLowerCase();
     return t ? projects.filter((p) => p.name.toLowerCase().includes(t)) : projects;
