@@ -224,8 +224,20 @@ export const generateMonthlyPlanFn = createServerFn({ method: "POST" })
 
 export const getPlanVolumetryFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => z.object({ clientId: z.string().uuid() }).parse(i))
+  .inputValidator((i: unknown) =>
+    z.object({ brandId: z.string().uuid(), clientId: z.string().uuid() }).parse(i),
+  )
   .handler(async ({ data, context }) => {
+    // Escopo explícito: o cliente precisa pertencer ao workspace informado.
+    // A leitura passa por RLS, então um brand/cliente fora do acesso não resolve.
+    const { data: owner } = await context.supabase
+      .from("clients")
+      .select("id")
+      .eq("id", data.clientId)
+      .eq("brand_id", data.brandId)
+      .maybeSingle();
+    if (!owner) throw new Error("Cliente não pertence ao workspace informado.");
+
     // Usa o número real de semanas do mês corrente para exibir a cota correta.
     const now = new Date();
     const ctx = await loadBriefingContext(context.supabase, data.clientId, {
