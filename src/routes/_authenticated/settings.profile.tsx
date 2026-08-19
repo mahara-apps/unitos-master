@@ -10,6 +10,7 @@ import {
   KeyRound,
   Loader2,
   MessageCircle,
+  Phone,
   Save,
   ShieldCheck,
   User,
@@ -37,7 +38,10 @@ import {
   SettingsMetaItem,
   SettingsMetaList,
   SettingsRow,
+  settingsSegmentedListClass,
+  settingsSegmentedTriggerClass,
 } from "@/components/settings/settings-form-ui";
+import { AvatarUploader } from "@/components/settings/avatar-uploader";
 
 export const Route = createFileRoute("/_authenticated/settings/profile")({
   component: ProfilePage,
@@ -423,7 +427,7 @@ function ProfilePage() {
           </SettingsBlock>
         </TabsContent>
 
-        <TabsContent value="security" className="mt-6">
+        <TabsContent value="security" className="mt-10">
           <SettingsBlock
             title="Senha"
             description="Use no mínimo 8 caracteres. Você seguirá conectado após a alteração."
