@@ -2,7 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
-import { Paperclip, Send, X, FileText, Image as ImageIcon, Mic, Loader2, Brain } from "lucide-react";
+import {
+  Paperclip,
+  Send,
+  X,
+  FileText,
+  Image as ImageIcon,
+  Mic,
+  Loader2,
+  Brain,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -16,11 +25,7 @@ import {
   type ChatMessageRow,
   type ChatToolCall,
 } from "@/lib/chat.functions";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const BUCKET = "chat-attachments";
 const MAX_FILE_MB = 20;
@@ -45,7 +50,9 @@ export function ChatConversation({ conversationId }: { conversationId: string })
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [draft, setDraft] = useState("");
-  const [pendingFiles, setPendingFiles] = useState<Array<{ file: File; progress: number; uploaded?: ChatAttachment }>>([]);
+  const [pendingFiles, setPendingFiles] = useState<
+    Array<{ file: File; progress: number; uploaded?: ChatAttachment }>
+  >([]);
   const [recording, setRecording] = useState(false);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordChunksRef = useRef<Blob[]>([]);
@@ -63,7 +70,12 @@ export function ChatConversation({ conversationId }: { conversationId: string })
       .channel(`chat-${conversationId}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "chat_messages", filter: `conversation_id=eq.${conversationId}` },
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "chat_messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
         () => qc.invalidateQueries({ queryKey: ["chat", "messages", conversationId] }),
       )
       .subscribe();
@@ -165,7 +177,9 @@ export function ChatConversation({ conversationId }: { conversationId: string })
         size: file.size,
         kind: kindFromMime(file.type || ""),
       };
-      setPendingFiles((prev) => prev.map((p) => (p.file === file ? { ...p, progress: 100, uploaded } : p)));
+      setPendingFiles((prev) =>
+        prev.map((p) => (p.file === file ? { ...p, progress: 100, uploaded } : p)),
+      );
     }
   }
 
@@ -215,15 +229,11 @@ export function ChatConversation({ conversationId }: { conversationId: string })
       <ScrollArea className="flex-1">
         <div ref={scrollRef} className="mx-auto max-w-3xl px-4 py-6 space-y-6">
           {messages.isLoading && <div className="text-sm text-muted-foreground">Carregando…</div>}
-          {messages.data?.length === 0 && (
-            <EmptyConversation onSuggest={(s) => setDraft(s)} />
-          )}
+          {messages.data?.length === 0 && <EmptyConversation onSuggest={(s) => setDraft(s)} />}
           {messages.data?.map((m) => (
             <MessageBubble key={m.id} message={m} />
           ))}
-          {isThinking && streamingText && (
-            <StreamingBubble text={streamingText} />
-          )}
+          {isThinking && streamingText && <StreamingBubble text={streamingText} />}
           {isThinking && !streamingText && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Brain className="h-4 w-4 animate-pulse" />
@@ -303,7 +313,11 @@ export function ChatConversation({ conversationId }: { conversationId: string })
                 onClick={submitMessage}
                 aria-label="Enviar"
               >
-                {isThinking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {isThinking ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
               </Button>
             </div>
           </div>
@@ -375,9 +389,7 @@ function MessageBubble({ message }: { message: ChatMessageRow }) {
           <div
             className={cn(
               "max-w-full rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
-              isUser
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted/60 text-foreground",
+              isUser ? "bg-primary text-primary-foreground" : "bg-muted/60 text-foreground",
             )}
           >
             <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-ul:my-1 prose-headings:my-2">
@@ -390,7 +402,9 @@ function MessageBubble({ message }: { message: ChatMessageRow }) {
             <CollapsibleTrigger asChild>
               <button className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground">
                 <Brain className="h-3 w-3" />
-                {brain.used_llm ? `Brain + LLM (${brain.model ?? "modelo"})` : "Resposta direta do Brain"}
+                {brain.used_llm
+                  ? `Brain + LLM (${brain.model ?? "modelo"})`
+                  : "Resposta direta do Brain"}
                 {" · "}
                 {brain.memories.length} memórias · {brain.insights.length} insights
                 {tools.length > 0 && <> · {tools.length} ações</>}
@@ -405,7 +419,9 @@ function MessageBubble({ message }: { message: ChatMessageRow }) {
                     <ul className="list-disc pl-4 space-y-0.5">
                       {brain.memories.map((m, i) => (
                         <li key={i}>
-                          <span className="text-muted-foreground">({m.event_type} · {(m.similarity * 100).toFixed(0)}%)</span>{" "}
+                          <span className="text-muted-foreground">
+                            ({m.event_type} · {(m.similarity * 100).toFixed(0)}%)
+                          </span>{" "}
                           {m.summary}
                         </li>
                       ))}
@@ -418,7 +434,9 @@ function MessageBubble({ message }: { message: ChatMessageRow }) {
                     <ul className="list-disc pl-4 space-y-0.5">
                       {brain.insights.map((m, i) => (
                         <li key={i}>
-                          <Badge variant="outline" className="mr-1 text-[9px] px-1 py-0">{m.type}</Badge>
+                          <Badge variant="outline" className="mr-1 text-[9px] px-1 py-0">
+                            {m.type}
+                          </Badge>
                           {m.description}
                         </li>
                       ))}
@@ -430,7 +448,9 @@ function MessageBubble({ message }: { message: ChatMessageRow }) {
                     <div className="font-medium text-muted-foreground">Contadores</div>
                     <div className="flex flex-wrap gap-2">
                       {Object.entries(brain.stats).map(([k, v]) => (
-                        <Badge key={k} variant="secondary" className="text-[9px]">{k}: {v}</Badge>
+                        <Badge key={k} variant="secondary" className="text-[9px]">
+                          {k}: {v}
+                        </Badge>
                       ))}
                     </div>
                   </div>
@@ -460,7 +480,11 @@ function AttachmentChip({
     <div className="flex items-center gap-2 rounded-lg border bg-card px-2 py-1 text-xs">
       {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Icon className="h-3 w-3" />}
       <span className="max-w-[180px] truncate">{name}</span>
-      <button onClick={onRemove} className="text-muted-foreground hover:text-destructive" aria-label="Remover">
+      <button
+        onClick={onRemove}
+        className="text-muted-foreground hover:text-destructive"
+        aria-label="Remover"
+      >
         <X className="h-3 w-3" />
       </button>
     </div>
@@ -531,7 +555,10 @@ function ToolCallList({ tools }: { tools: ChatToolCall[] }) {
       <ul className="list-disc pl-4 space-y-0.5">
         {tools.map((t, i) => (
           <li key={i}>
-            <Badge variant={t.ok ? "secondary" : "destructive"} className="mr-1 text-[9px] px-1 py-0">
+            <Badge
+              variant={t.ok ? "secondary" : "destructive"}
+              className="mr-1 text-[9px] px-1 py-0"
+            >
               {t.name}
             </Badge>
             <span className="text-muted-foreground">{t.ok ? "sucesso" : "falha"}</span>

@@ -138,7 +138,8 @@ export function ClientAccountDashboard({
           hint={
             d.upcoming[0] ? (
               <span className="text-muted-foreground/80">
-                próxima {format(parseISO(d.upcoming[0].scheduledAt), "dd MMM · HH:mm", { locale: ptBR })}
+                próxima{" "}
+                {format(parseISO(d.upcoming[0].scheduledAt), "dd MMM · HH:mm", { locale: ptBR })}
               </span>
             ) : (
               <span className="text-muted-foreground/70">nada agendado</span>
@@ -174,9 +175,7 @@ export function ClientAccountDashboard({
           }
           label="Atenção"
           value={attentionCount}
-          tone={
-            d.failedCount > 0 ? "critical" : attentionCount > 0 ? "warning" : "positive"
-          }
+          tone={d.failedCount > 0 ? "critical" : attentionCount > 0 ? "warning" : "positive"}
           hint={
             attentionCount === 0 ? (
               <span className="text-health-good">tudo em dia</span>
@@ -221,9 +220,7 @@ export function ClientAccountDashboard({
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border/60 px-3.5 py-2.5 text-xs text-muted-foreground">
           <Sparkles className="h-3.5 w-3.5 text-violet-500" />
           <span className="font-medium text-foreground/80">Performance social</span>
-          <span>
-            A coleta de alcance e engajamento ainda não está disponível para esta conta.
-          </span>
+          <span>A coleta de alcance e engajamento ainda não está disponível para esta conta.</span>
         </div>
       )}
     </Shell>
@@ -260,7 +257,11 @@ function OperationHealth({ data, clientId }: { data: ClientDashboard; clientId: 
         <PanelEmpty
           title="Nenhum conteúdo no fluxo"
           text="Assim que a pauta for aprovada, os conteúdos aparecem aqui."
-          cta={{ label: "Abrir pauta", to: "/customers/$customerId/pauta", params: { customerId: clientId } }}
+          cta={{
+            label: "Abrir pauta",
+            to: "/customers/$customerId/pauta",
+            params: { customerId: clientId },
+          }}
         />
       ) : (
         <div className="flex flex-wrap items-stretch gap-1 px-3 py-3">
@@ -488,7 +489,11 @@ function AttentionPanel({ items }: { items: ClientAttentionItem[] }) {
     <section
       className={cn(
         "overflow-hidden rounded-xl border bg-card",
-        critical ? "border-destructive/45" : items.length ? "border-amber-500/40" : "border-border/60",
+        critical
+          ? "border-destructive/45"
+          : items.length
+            ? "border-amber-500/40"
+            : "border-border/60",
       )}
     >
       <header className="flex items-center justify-between gap-3 border-b border-border/40 px-4 py-2.5">
@@ -543,7 +548,12 @@ function AttentionPanel({ items }: { items: ClientAttentionItem[] }) {
                 )}
               </div>
               {a.action && (
-                <Button asChild size="sm" variant="ghost" className="h-7 shrink-0 gap-1 px-2 text-xs">
+                <Button
+                  asChild
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 shrink-0 gap-1 px-2 text-xs"
+                >
                   <Link to={a.action.to as never}>
                     {a.action.label}
                     <ArrowUpRight className="h-3 w-3" />
@@ -614,8 +624,9 @@ function UpcomingPanel({ items }: { items: ClientUpcomingItem[] }) {
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium leading-snug">{item.title}</div>
                     <div className="truncate text-xs text-muted-foreground">
-                      {[item.channels.join(" + ") || null, item.format].filter(Boolean).join(" · ") ||
-                        "Sem canal definido"}
+                      {[item.channels.join(" + ") || null, item.format]
+                        .filter(Boolean)
+                        .join(" · ") || "Sem canal definido"}
                     </div>
                   </div>
                   <span

@@ -124,7 +124,9 @@ export function NewFromTemplateDialog({ open, onOpenChange, brandId }: Props) {
                       <div className="text-sm font-medium">{t.name}</div>
                     </div>
                     {t.is_system && (
-                      <Badge variant="secondary" className="text-[10px]">Sistema</Badge>
+                      <Badge variant="secondary" className="text-[10px]">
+                        Sistema
+                      </Badge>
                     )}
                   </div>
                   {t.description && (
@@ -140,7 +142,11 @@ export function NewFromTemplateDialog({ open, onOpenChange, brandId }: Props) {
 
           <div className="grid gap-1.5">
             <Label>Nome do projeto</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Redes Janeiro/2026" />
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex.: Redes Janeiro/2026"
+            />
           </div>
 
           <div className="grid gap-1.5">
@@ -149,11 +155,15 @@ export function NewFromTemplateDialog({ open, onOpenChange, brandId }: Props) {
               value={clientId ?? "none"}
               onValueChange={(v) => setClientId(v === "none" ? null : v)}
             >
-              <SelectTrigger className="h-9"><SelectValue placeholder="Sem cliente" /></SelectTrigger>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Sem cliente" />
+              </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Sem cliente</SelectItem>
                 {clients.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -161,7 +171,9 @@ export function NewFromTemplateDialog({ open, onOpenChange, brandId }: Props) {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
           <Button
             onClick={() => mut.mutate()}
             disabled={!templateId || !name.trim() || mut.isPending}

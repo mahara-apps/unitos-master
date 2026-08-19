@@ -10,12 +10,7 @@
  *  3) Reference it in a seeded prompt via `{{KEY}}`.
  */
 
-export type VariableCategory =
-  | "identidade"
-  | "briefing"
-  | "audiencia"
-  | "concorrencia"
-  | "runtime";
+export type VariableCategory = "identidade" | "briefing" | "audiencia" | "concorrencia" | "runtime";
 
 export const CATEGORY_LABEL: Record<VariableCategory, string> = {
   identidade: "Identidade visual",
@@ -49,8 +44,7 @@ export const AGENT_VARIABLE_CATALOG: Record<string, VariableSpec> = {
   BRAND_CONTEXT: {
     key: "BRAND_CONTEXT",
     label: "Descrição institucional",
-    description:
-      "Texto curto de posicionamento declarado no briefing (missão + descrição).",
+    description: "Texto curto de posicionamento declarado no briefing (missão + descrição).",
     source: "clients.brand_hub.description / mission",
     category: "briefing",
   },
@@ -65,8 +59,7 @@ export const AGENT_VARIABLE_CATALOG: Record<string, VariableSpec> = {
   PERSONA: {
     key: "PERSONA",
     label: "Persona primária",
-    description:
-      "Recorte da persona principal para prompts mais leves (copywriter, roteirista).",
+    description: "Recorte da persona principal para prompts mais leves (copywriter, roteirista).",
     source: "brand_personas.data (primeira ativa)",
     category: "audiencia",
   },
@@ -88,16 +81,14 @@ export const AGENT_VARIABLE_CATALOG: Record<string, VariableSpec> = {
   HASHTAGS: {
     key: "HASHTAGS",
     label: "Hashtags oficiais",
-    description:
-      "Hashtags declaradas no Brand Hub, injetadas na base de qualquer legenda.",
+    description: "Hashtags declaradas no Brand Hub, injetadas na base de qualquer legenda.",
     source: "clients.brand_hub.hashtags[]",
     category: "briefing",
   },
   COMPETITORS: {
     key: "COMPETITORS",
     label: "Concorrentes monitorados",
-    description:
-      "Lista de handles Instagram dos concorrentes cadastrados no Brand Hub.",
+    description: "Lista de handles Instagram dos concorrentes cadastrados no Brand Hub.",
     source: "brand_competitors.handle",
     category: "concorrencia",
   },
@@ -126,16 +117,14 @@ export const AGENT_VARIABLE_CATALOG: Record<string, VariableSpec> = {
   LOGO_URL: {
     key: "LOGO_URL",
     label: "URL do logotipo",
-    description:
-      "Link público do logo carregado no Brand Hub — referência visual apenas.",
+    description: "Link público do logo carregado no Brand Hub — referência visual apenas.",
     source: "clients.brand_hub.logo_url",
     category: "identidade",
   },
   QUANTIDADE: {
     key: "QUANTIDADE",
     label: "Quantidade de peças",
-    description:
-      "Número total de conteúdos que o Planejador deve gerar na execução atual.",
+    description: "Número total de conteúdos que o Planejador deve gerar na execução atual.",
     source: "input do dialog Plano do Mês",
     category: "runtime",
     runtimeProvided: true,
@@ -151,8 +140,7 @@ export const AGENT_VARIABLE_CATALOG: Record<string, VariableSpec> = {
   CHANNEL_MIX: {
     key: "CHANNEL_MIX",
     label: "Distribuição por canal",
-    description:
-      "Cota obrigatória por plataforma derivada da volumetria semanal do briefing.",
+    description: "Cota obrigatória por plataforma derivada da volumetria semanal do briefing.",
     source: "clients.brand_hub.volumetry * semanas do período",
     category: "runtime",
     runtimeProvided: true,
@@ -169,8 +157,7 @@ export const AGENT_VARIABLE_CATALOG: Record<string, VariableSpec> = {
   USER_PROMPT: {
     key: "USER_PROMPT",
     label: "Briefing pontual",
-    description:
-      "Texto do usuário para a chamada específica (ex.: pedido para o Diretor de Arte).",
+    description: "Texto do usuário para a chamada específica (ex.: pedido para o Diretor de Arte).",
     source: "input do playground / chamada externa",
     category: "runtime",
     runtimeProvided: true,
@@ -217,10 +204,7 @@ export function renderPrompt(
   values: Record<string, string | undefined>,
   fallback = "(não informado)",
 ): string {
-  return template.replace(
-    /\{\{\s*([A-Z0-9_]+)\s*\}\}/g,
-    (_m, key) => values[key] ?? fallback,
-  );
+  return template.replace(/\{\{\s*([A-Z0-9_]+)\s*\}\}/g, (_m, key) => values[key] ?? fallback);
 }
 
 export type ResolvedVariable = {

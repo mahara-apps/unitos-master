@@ -63,10 +63,7 @@ function isDeprecationError(message: string): boolean {
 
 type ListedModel = { id: string; created?: number };
 
-async function listProviderModels(
-  provider: ProviderName,
-  apiKey: string,
-): Promise<ListedModel[]> {
+async function listProviderModels(provider: ProviderName, apiKey: string): Promise<ListedModel[]> {
   try {
     if (provider === "openai") {
       const res = await fetch("https://api.openai.com/v1/models", {
@@ -144,24 +141,16 @@ export function pickSuccessor(
       const isImage = id.includes("image") || id.includes("imagen");
       return wantsImage ? isImage : !isImage;
     })
-    .sort(
-      (a, b) =>
-        (b.created ?? 0) - (a.created ?? 0) || versionScore(b.id) - versionScore(a.id),
-    );
+    .sort((a, b) => (b.created ?? 0) - (a.created ?? 0) || versionScore(b.id) - versionScore(a.id));
 
   return candidates[0]?.id ?? null;
 }
 
 /* ------------------------------ the check ----------------------------- */
 
-type Admin = Awaited<
-  typeof import("@/integrations/supabase/client.server")
->["supabaseAdmin"];
+type Admin = Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"];
 
-async function loadKey(
-  supabase: Admin,
-  provider: ProviderName,
-): Promise<string | null> {
+async function loadKey(supabase: Admin, provider: ProviderName): Promise<string | null> {
   const { data } = await supabase
     .from("brand_api_credentials")
     .select("ciphertext")
@@ -188,13 +177,8 @@ async function pingTextModel(
   await generateText({ model, prompt: "ping" });
 }
 
-async function notifySuperAdmins(
-  supabase: Admin,
-  entries: HealthCheckEntry[],
-): Promise<void> {
-  const problems = entries.filter(
-    (e) => e.status === "deprecated" || e.status === "failed",
-  );
+async function notifySuperAdmins(supabase: Admin, entries: HealthCheckEntry[]): Promise<void> {
+  const problems = entries.filter((e) => e.status === "deprecated" || e.status === "failed");
   if (!problems.length) return;
 
   const { data: admins } = await supabase
@@ -228,7 +212,6 @@ async function notifySuperAdmins(
     .join(" · ")
     .slice(0, 900);
 
-
   const rows = adminIds
     .filter((id) => brandByUser.has(id))
     .map((id) => ({
@@ -258,9 +241,7 @@ async function markProviderVerification(
   status: "valid" | "invalid" | "unverified",
   message: string,
 ): Promise<void> {
-  const { data: rows } = await supabase
-    .from("brand_connections")
-    .select("brand_id, providers");
+  const { data: rows } = await supabase.from("brand_connections").select("brand_id, providers");
   const now = new Date().toISOString();
 
   for (const row of rows ?? []) {
@@ -334,9 +315,7 @@ export async function runAiModelHealthCheck(): Promise<HealthCheckResult> {
       try {
         if (role === "image") {
           listed ??= await listProviderModels(provider, apiKey);
-          const exists = listed.some(
-            (m) => m.id.toLowerCase() === modelId.toLowerCase(),
-          );
+          const exists = listed.some((m) => m.id.toLowerCase() === modelId.toLowerCase());
           if (!exists && listed.length) {
             status = "deprecated";
             error = "modelo de imagem ausente na listagem do provedor";
@@ -356,20 +335,18 @@ export async function runAiModelHealthCheck(): Promise<HealthCheckResult> {
         listed ??= await listProviderModels(provider, apiKey);
         const successor = pickSuccessor(modelId, role, listed);
         if (successor) {
-          const { error: upErr } = await supabaseAdmin
-            .from("ai_model_catalog_overrides")
-            .upsert(
-              {
-                provider,
-                role,
-                model_id: successor,
-                replaced_model_id: modelId,
-                reason: entry.error ?? "deprecated",
-                source: "auto_health_check",
-                updated_at: new Date().toISOString(),
-              } as never,
-              { onConflict: "provider,role" },
-            );
+          const { error: upErr } = await supabaseAdmin.from("ai_model_catalog_overrides").upsert(
+            {
+              provider,
+              role,
+              model_id: successor,
+              replaced_model_id: modelId,
+              reason: entry.error ?? "deprecated",
+              source: "auto_health_check",
+              updated_at: new Date().toISOString(),
+            } as never,
+            { onConflict: "provider,role" },
+          );
           if (upErr) {
             console.error("[ai-model-health] falha ao gravar override", upErr);
           } else {

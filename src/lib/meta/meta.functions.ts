@@ -84,9 +84,8 @@ export const startMetaOAuth = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => StartInput.parse(input))
   .handler(async ({ data, context }) => {
-    const { MetaProvider, getMetaScopesForChannel, signOAuthState } = await import(
-      "./provider.server"
-    );
+    const { MetaProvider, getMetaScopesForChannel, signOAuthState } =
+      await import("./provider.server");
     const { getRequest } = await import("@tanstack/react-start/server");
     let origin: string | null = null;
     try {
@@ -112,7 +111,6 @@ export const startMetaOAuth = createServerFn({ method: "POST" })
       redirectUri: provider.redirectUri,
     };
   });
-
 
 /**
  * Reuses the most recent unexpired Meta user-token session for the current
@@ -171,7 +169,6 @@ export const getActiveMetaSession = createServerFn({ method: "POST" })
     return { sessionId: null as string | null };
   });
 
-
 const ConnIdInput = z.object({
   connectionId: z.string().uuid(),
   brandId: z.string().uuid(),
@@ -208,7 +205,6 @@ export const disconnectMeta = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
-
 
 /**
  * Re-fetches Page + Instagram metadata using the stored page access token

@@ -18,11 +18,7 @@ import {
   type BoardPost,
   type PipelineStage,
 } from "@/lib/content.functions";
-import {
-  CHANNELS,
-  CHANNEL_STYLES,
-  FORMAT_STYLES,
-} from "./stage-colors";
+import { CHANNELS, CHANNEL_STYLES, FORMAT_STYLES } from "./stage-colors";
 import {
   CONTENT_FORMAT_LABEL,
   normalizeContentFormat,
@@ -108,11 +104,7 @@ export function ContentList({ board, posts, onOpenPost }: Props) {
               const scheduled = p.scheduled_at ? new Date(p.scheduled_at) : null;
               const member = members?.find((m) => m.id === p.assignee_id);
               return (
-                <TableRow
-                  key={p.id}
-                  className="cursor-pointer"
-                  onClick={() => onOpenPost(p.id)}
-                >
+                <TableRow key={p.id} className="cursor-pointer" onClick={() => onOpenPost(p.id)}>
                   <TableCell>
                     {p.cover_url ? (
                       <img
@@ -188,9 +180,15 @@ export function ContentList({ board, posts, onOpenPost }: Props) {
                     {scheduled ? (
                       <span className="inline-flex items-center gap-1 text-xs tabular-nums text-foreground/80">
                         <CalendarDays className="h-3 w-3" />
-                        {scheduled.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+                        {scheduled.toLocaleDateString("pt-BR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                        })}
                         {" · "}
-                        {scheduled.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                        {scheduled.toLocaleTimeString("pt-BR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </span>
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>

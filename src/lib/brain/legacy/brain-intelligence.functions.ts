@@ -119,10 +119,7 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
       ),
     );
     const memoriesCountQ = applyBrand(
-      sb
-        .from("brain_memory")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "active"),
+      sb.from("brain_memory").select("id", { count: "exact", head: true }).eq("status", "active"),
     );
     const insightsCountQ = applyBrand(
       sb.from("brain_insights").select("id", { count: "exact", head: true }),
@@ -256,11 +253,7 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
     );
 
     const knowledgeMapQ = applyBrand(
-      sb
-        .from("brain_memory")
-        .select("memory_type, confidence")
-        .eq("status", "active")
-        .limit(2000),
+      sb.from("brain_memory").select("memory_type, confidence").eq("status", "active").limit(2000),
     );
 
     // --- Module ranking (events per source_module) ---
@@ -433,9 +426,7 @@ export const brainIntelligenceFn = createServerFn({ method: "POST" })
       applyBrand(sb.from("clients").select("id, name").order("name").limit(200)),
       applyBrand(sb.from("projects").select("id, name").order("name").limit(200)),
       applyBrand(sb.from("brand_members").select("user_id").limit(200)),
-      applyBrand(
-        sb.from("brain_memory").select("memory_type").eq("status", "active").limit(1000),
-      ),
+      applyBrand(sb.from("brain_memory").select("memory_type").eq("status", "active").limit(1000)),
     ]);
 
     const teamUserIds = Array.from(

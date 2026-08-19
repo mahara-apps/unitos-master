@@ -1,11 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type {
-  AccountAnalytics,
-  PostAnalytics,
-  SocialNetwork,
-} from "./types";
+import type { AccountAnalytics, PostAnalytics, SocialNetwork } from "./types";
 import { withSocialCache, socialCacheKey } from "./cache";
 
 /**
@@ -16,15 +12,7 @@ import { withSocialCache, socialCacheKey } from "./cache";
  * the underlying network's API.
  */
 
-const NETWORK = z.enum([
-  "facebook",
-  "instagram",
-  "linkedin",
-  "tiktok",
-  "youtube",
-  "x",
-  "threads",
-]);
+const NETWORK = z.enum(["facebook", "instagram", "linkedin", "tiktok", "youtube", "x", "threads"]);
 
 const RangeSchema = z
   .object({
@@ -57,12 +45,10 @@ const RecentInput = z.object({
 // ---------------------------------------------------------------------------
 // listSupportedNetworks — safe for the frontend to render "coming soon" chips
 // ---------------------------------------------------------------------------
-export const listSupportedNetworks = createServerFn({ method: "GET" }).handler(
-  async () => {
-    const { listSocialProviders } = await import("./registry.server");
-    return listSocialProviders();
-  },
-);
+export const listSupportedNetworks = createServerFn({ method: "GET" }).handler(async () => {
+  const { listSocialProviders } = await import("./registry.server");
+  return listSocialProviders();
+});
 
 // ---------------------------------------------------------------------------
 // getAccountAnalytics

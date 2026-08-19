@@ -44,16 +44,15 @@ export type Placement = {
   external_ref: string | null;
 };
 
-
-
-
 export const listPlacementsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ postId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }): Promise<Placement[]> => {
     const { data: rows, error } = await context.supabase
       .from("post_placements")
-      .select("id,post_id,brand_id,client_id,format,scheduled_at,copy_override,media,status,published_at,is_primary,external_ref")
+      .select(
+        "id,post_id,brand_id,client_id,format,scheduled_at,copy_override,media,status,published_at,is_primary,external_ref",
+      )
       .eq("post_id", data.postId)
       .order("is_primary", { ascending: false })
       .order("scheduled_at", { ascending: true });

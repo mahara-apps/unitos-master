@@ -44,7 +44,6 @@ const GROUPS: TabGroup[] = [
   },
 ];
 
-
 const ALL_TABS = GROUPS.flatMap((g) => g.tabs);
 
 function SettingsLayout() {

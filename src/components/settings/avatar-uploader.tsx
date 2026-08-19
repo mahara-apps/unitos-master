@@ -68,9 +68,7 @@ export function AvatarUploader({
 
       // Limpa versões anteriores da própria pasta.
       const listed = await supabase.storage.from(BUCKET).list(userId);
-      const stale = (listed.data ?? [])
-        .map((f) => `${userId}/${f.name}`)
-        .filter((p) => p !== path);
+      const stale = (listed.data ?? []).map((f) => `${userId}/${f.name}`).filter((p) => p !== path);
       if (stale.length) await supabase.storage.from(BUCKET).remove(stale);
 
       onChange(signed.data.signedUrl);

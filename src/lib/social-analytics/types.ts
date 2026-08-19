@@ -92,6 +92,4 @@ export type PostAnalytics = {
 };
 
 /** Result envelope used by every provider call — never throws for partials. */
-export type ProviderResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: string; code?: string };
+export type ProviderResult<T> = { ok: true; data: T } | { ok: false; error: string; code?: string };

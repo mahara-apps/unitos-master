@@ -29,9 +29,7 @@ export const Route = createFileRoute("/api/public/meta/data-deletion")({
         const metaUserId = String(parsed.user_id ?? "");
         if (!metaUserId) return jsonResp({ error: "missing_user_id" }, 400);
 
-        const { supabaseAdmin } = await import(
-          "@/integrations/supabase/client.server"
-        );
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
         // Delete every Meta connection owned by this Meta user, and any
         // pending OAuth portfolio session rows.
@@ -42,10 +40,7 @@ export const Route = createFileRoute("/api/public/meta/data-deletion")({
           .eq("owner_external_id", metaUserId)
           .select("id");
 
-        await supabaseAdmin
-          .from("meta_oauth_sessions")
-          .delete()
-          .eq("meta_user_id", metaUserId);
+        await supabaseAdmin.from("meta_oauth_sessions").delete().eq("meta_user_id", metaUserId);
 
         const confirmationCode = buildConfirmationCode("del", metaUserId);
         await supabaseAdmin.from("meta_compliance_events").insert({

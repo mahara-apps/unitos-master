@@ -22,7 +22,9 @@ export const listBrandTeam = createServerFn({ method: "GET" })
         .eq("brand_id", data.brandId),
       supabase
         .from("brand_invites")
-        .select("id, email, role, permissions, token, invited_by, accepted_at, expires_at, created_at, revoked_at, temp_password_sent")
+        .select(
+          "id, email, role, permissions, token, invited_by, accepted_at, expires_at, created_at, revoked_at, temp_password_sent",
+        )
         .eq("brand_id", data.brandId)
         .order("created_at", { ascending: false }),
       supabase.from("clients").select("id, name").eq("brand_id", data.brandId),
@@ -48,7 +50,10 @@ export const listBrandTeam = createServerFn({ method: "GET" })
       const { data: tokens, error: tErr } = await supabase
         .from("portal_tokens")
         .select("id, token, label, client_id, expires_at, revoked_at, last_seen_at, created_at")
-        .in("client_id", clients.map((c) => c.id))
+        .in(
+          "client_id",
+          clients.map((c) => c.id),
+        )
         .order("created_at", { ascending: false });
       if (tErr) throw tErr;
       portalTokens = (tokens ?? []).map((t) => ({
@@ -152,7 +157,9 @@ async function sendInviteEmail(opts: {
     </div>`;
   try {
     const useGateway = Boolean(lovableKey);
-    const url = useGateway ? "https://connector-gateway.lovable.dev/resend/emails" : "https://api.resend.com/emails";
+    const url = useGateway
+      ? "https://connector-gateway.lovable.dev/resend/emails"
+      : "https://api.resend.com/emails";
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (useGateway) {
       headers["Authorization"] = `Bearer ${lovableKey}`;
@@ -163,7 +170,12 @@ async function sendInviteEmail(opts: {
     const res = await fetch(url, {
       method: "POST",
       headers,
-      body: JSON.stringify({ from, to: [opts.to], subject: `Convite para ${opts.brandName}`, html }),
+      body: JSON.stringify({
+        from,
+        to: [opts.to],
+        subject: `Convite para ${opts.brandName}`,
+        html,
+      }),
     });
     if (!res.ok) {
       const body = await res.text();
@@ -194,9 +206,16 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
       throw new Error("forbidden");
     }
 
-    const { data: brand } = await supabase.from("brands").select("name").eq("id", data.brandId).single();
+    const { data: brand } = await supabase
+      .from("brands")
+      .select("name")
+      .eq("id", data.brandId)
+      .single();
     const { data: inviterProfile } = await supabase
-      .from("user_profiles").select("full_name").eq("id", userId).maybeSingle();
+      .from("user_profiles")
+      .select("full_name")
+      .eq("id", userId)
+      .maybeSingle();
     const inviterName = inviterProfile?.full_name || "Alguém do time";
     const brandName = brand?.name || "sua marca";
 
@@ -219,7 +238,10 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
       let provisioned = false;
       let tempPassword: string | undefined;
       try {
-        const { data: existing } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
+        const { data: existing } = await supabaseAdmin.auth.admin.listUsers({
+          page: 1,
+          perPage: 200,
+        });
         const alreadyExists = existing?.users?.some((u) => (u.email ?? "").toLowerCase() === email);
         if (!alreadyExists) {
           tempPassword = randomPassword(16);
@@ -381,7 +403,9 @@ export const acceptBrandInvite = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => AcceptInput.parse(input))
   .handler(async ({ data, context }) => {
-    const { data: brandId, error } = await context.supabase.rpc("accept_brand_invite", { _token: data.token });
+    const { data: brandId, error } = await context.supabase.rpc("accept_brand_invite", {
+      _token: data.token,
+    });
     if (error) throw error;
     return { brandId };
   });
@@ -453,7 +477,9 @@ async function sendCredentialsEmail(opts: {
     </div>`;
   try {
     const useGateway = Boolean(lovableKey);
-    const url = useGateway ? "https://connector-gateway.lovable.dev/resend/emails" : "https://api.resend.com/emails";
+    const url = useGateway
+      ? "https://connector-gateway.lovable.dev/resend/emails"
+      : "https://api.resend.com/emails";
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (useGateway) {
       headers["Authorization"] = `Bearer ${lovableKey}`;
@@ -464,7 +490,12 @@ async function sendCredentialsEmail(opts: {
     const res = await fetch(url, {
       method: "POST",
       headers,
-      body: JSON.stringify({ from, to: [opts.to], subject: "Sua conta no Unitos está pronta", html }),
+      body: JSON.stringify({
+        from,
+        to: [opts.to],
+        subject: "Sua conta no Unitos está pronta",
+        html,
+      }),
     });
     if (!res.ok) {
       const body = await res.text();
@@ -507,7 +538,9 @@ export const provisionUser = createServerFn({ method: "POST" })
       );
       const missing = brandIds.filter((b) => !allowed.has(b));
       if (missing.length > 0) {
-        throw new Error("forbidden: você precisa ser owner ou manager de todos os workspaces selecionados");
+        throw new Error(
+          "forbidden: você precisa ser owner ou manager de todos os workspaces selecionados",
+        );
       }
     }
 
@@ -523,7 +556,9 @@ export const provisionUser = createServerFn({ method: "POST" })
       for (const a of data.assignments) {
         for (const cid of a.clientIds) {
           if (clientBrand.get(cid) !== a.brandId) {
-            throw new Error(`invalid_client: projeto ${cid} não pertence ao workspace ${a.brandId}`);
+            throw new Error(
+              `invalid_client: projeto ${cid} não pertence ao workspace ${a.brandId}`,
+            );
           }
         }
       }
@@ -535,7 +570,10 @@ export const provisionUser = createServerFn({ method: "POST" })
     const email = data.email;
     let existingId: string | null = null;
     for (let page = 1; page <= 20 && !existingId; page++) {
-      const { data: list, error: lErr } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
+      const { data: list, error: lErr } = await supabaseAdmin.auth.admin.listUsers({
+        page,
+        perPage: 200,
+      });
       if (lErr) throw lErr;
       const users = list?.users ?? [];
       const hit = users.find((u) => (u.email ?? "").toLowerCase() === email);
@@ -586,16 +624,25 @@ export const provisionUser = createServerFn({ method: "POST" })
           role: assignment.role,
           created_by: userId,
         }));
-        const { error: cmErr } = await (supabaseAdmin.from as never as (t: string) => {
-          upsert: (v: unknown, o: { onConflict: string }) => Promise<{ error: unknown }>;
-        })("client_members").upsert(rows, { onConflict: "client_id,user_id" });
+        const { error: cmErr } = await (
+          supabaseAdmin.from as never as (t: string) => {
+            upsert: (v: unknown, o: { onConflict: string }) => Promise<{ error: unknown }>;
+          }
+        )("client_members").upsert(rows, { onConflict: "client_id,user_id" });
         if (cmErr) throw cmErr as Error;
       }
 
-      const { data: brand } = await supabase.from("brands").select("name").eq("id", assignment.brandId).maybeSingle();
+      const { data: brand } = await supabase
+        .from("brands")
+        .select("name")
+        .eq("id", assignment.brandId)
+        .maybeSingle();
       let clientNames: string[] = [];
       if (assignment.clientIds.length > 0) {
-        const { data: cRows } = await supabase.from("clients").select("id, name").in("id", assignment.clientIds);
+        const { data: cRows } = await supabase
+          .from("clients")
+          .select("id, name")
+          .in("id", assignment.clientIds);
         clientNames = (cRows ?? []).map((c) => c.name as string);
       }
       workspaceInfo.push({ name: brand?.name ?? "Workspace", clients: clientNames });
@@ -642,14 +689,26 @@ export const listProvisionableBrands = createServerFn({ method: "GET" })
         .in("role", ["owner", "manager"]);
       if (mErr) throw mErr;
       const ids = (memberships ?? []).map((m) => m.brand_id);
-      if (ids.length === 0) return { brands: [] as Array<{ id: string; name: string; clients: Array<{ id: string; name: string }> }>, isSuperAdmin: false };
+      if (ids.length === 0)
+        return {
+          brands: [] as Array<{
+            id: string;
+            name: string;
+            clients: Array<{ id: string; name: string }>;
+          }>,
+          isSuperAdmin: false,
+        };
       brandsQuery = brandsQuery.in("id", ids);
     }
     const { data: brands, error: bErr } = await brandsQuery;
     if (bErr) throw bErr;
     const brandIds = (brands ?? []).map((b) => b.id);
     const { data: clients } = brandIds.length
-      ? await supabase.from("clients").select("id, name, brand_id").in("brand_id", brandIds).order("name")
+      ? await supabase
+          .from("clients")
+          .select("id, name, brand_id")
+          .in("brand_id", brandIds)
+          .order("name")
       : { data: [] };
     const clientsByBrand = new Map<string, Array<{ id: string; name: string }>>();
     for (const c of clients ?? []) {
@@ -732,9 +791,13 @@ export const previewInvite = createServerFn({ method: "POST" })
       .select("email, role, permissions, accepted_at, expires_at, brand_id")
       .eq("token", data.token)
       .maybeSingle();
-    if (!invite) return { invite: null, brand: null as null | { name: string; color: string | null } };
+    if (!invite)
+      return { invite: null, brand: null as null | { name: string; color: string | null } };
     const { data: brand } = await context.supabase
-      .from("brands").select("name, color").eq("id", invite.brand_id).maybeSingle();
+      .from("brands")
+      .select("name, color")
+      .eq("id", invite.brand_id)
+      .maybeSingle();
     return {
       invite: { ...invite, permissions: normalizePermissions(invite.permissions) },
       brand: brand ?? null,
@@ -763,12 +826,18 @@ export const addPerson = createServerFn({ method: "POST" })
 
     // Autorização: super admin OU owner/manager desta marca
     const { data: adminFlag } = await supabase
-      .from("user_profiles").select("is_super_admin").eq("id", userId).maybeSingle();
+      .from("user_profiles")
+      .select("is_super_admin")
+      .eq("id", userId)
+      .maybeSingle();
     const isSuper = Boolean((adminFlag as { is_super_admin?: boolean } | null)?.is_super_admin);
     if (!isSuper) {
       const { data: my } = await supabase
-        .from("brand_members").select("role")
-        .eq("brand_id", data.brandId).eq("user_id", userId).maybeSingle();
+        .from("brand_members")
+        .select("role")
+        .eq("brand_id", data.brandId)
+        .eq("user_id", userId)
+        .maybeSingle();
       if (!my || (my.role !== "owner" && my.role !== "manager")) {
         throw new Error("forbidden: apenas owners e managers podem adicionar pessoas");
       }
@@ -777,7 +846,9 @@ export const addPerson = createServerFn({ method: "POST" })
     // Validar clientIds pertencem à marca
     if (data.clientIds.length > 0) {
       const { data: cRows, error: cErr } = await supabase
-        .from("clients").select("id, brand_id").in("id", data.clientIds);
+        .from("clients")
+        .select("id, brand_id")
+        .in("id", data.clientIds);
       if (cErr) throw cErr;
       for (const c of cRows ?? []) {
         if (c.brand_id !== data.brandId) {
@@ -791,7 +862,10 @@ export const addPerson = createServerFn({ method: "POST" })
     // Procura usuário existente
     let existingId: string | null = null;
     for (let page = 1; page <= 20 && !existingId; page++) {
-      const { data: list, error: lErr } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
+      const { data: list, error: lErr } = await supabaseAdmin.auth.admin.listUsers({
+        page,
+        perPage: 200,
+      });
       if (lErr) throw lErr;
       const users = list?.users ?? [];
       const hit = users.find((u) => (u.email ?? "").toLowerCase() === data.email);
@@ -807,7 +881,10 @@ export const addPerson = createServerFn({ method: "POST" })
     if (existingId) {
       targetId = existingId;
       const { data: prof } = await supabase
-        .from("user_profiles").select("full_name").eq("id", existingId).maybeSingle();
+        .from("user_profiles")
+        .select("full_name")
+        .eq("id", existingId)
+        .maybeSingle();
       fullName = fullName || (prof?.full_name ?? "");
     } else {
       if (!data.fullName || data.fullName.length < 1) {
@@ -833,13 +910,21 @@ export const addPerson = createServerFn({ method: "POST" })
 
     // Vincula ao workspace (upsert brand_members)
     const { data: existingMember } = await supabase
-      .from("brand_members").select("role, permissions")
-      .eq("brand_id", data.brandId).eq("user_id", targetId).maybeSingle();
+      .from("brand_members")
+      .select("role, permissions")
+      .eq("brand_id", data.brandId)
+      .eq("user_id", targetId)
+      .maybeSingle();
 
     const { error: upErr } = await supabaseAdmin
       .from("brand_members")
       .upsert(
-        { brand_id: data.brandId, user_id: targetId, role: data.role, permissions: data.permissions },
+        {
+          brand_id: data.brandId,
+          user_id: targetId,
+          role: data.role,
+          permissions: data.permissions,
+        },
         { onConflict: "brand_id,user_id" },
       );
     if (upErr) throw upErr;
@@ -853,9 +938,11 @@ export const addPerson = createServerFn({ method: "POST" })
         role: data.role,
         created_by: userId,
       }));
-      const { error: cmErr } = await (supabaseAdmin.from as never as (t: string) => {
-        upsert: (v: unknown, o: { onConflict: string }) => Promise<{ error: unknown }>;
-      })("client_members").upsert(rows, { onConflict: "client_id,user_id" });
+      const { error: cmErr } = await (
+        supabaseAdmin.from as never as (t: string) => {
+          upsert: (v: unknown, o: { onConflict: string }) => Promise<{ error: unknown }>;
+        }
+      )("client_members").upsert(rows, { onConflict: "client_id,user_id" });
       if (cmErr) throw cmErr as Error;
     }
 
@@ -865,17 +952,26 @@ export const addPerson = createServerFn({ method: "POST" })
       const samePerms =
         Array.isArray(existingMember.permissions) &&
         existingMember.permissions.length === data.permissions.length &&
-        (existingMember.permissions as string[]).every((p) => (data.permissions as string[]).includes(p));
+        (existingMember.permissions as string[]).every((p) =>
+          (data.permissions as string[]).includes(p),
+        );
       linkStatus = existingMember.role === data.role && samePerms ? "already_member" : "updated";
     }
 
     // E-mail de credenciais (apenas para conta nova)
     let emailStatus: { sent: boolean; error?: string } = { sent: false, error: "skipped" };
     if (mode === "provisioned" && data.sendEmail && tempPassword) {
-      const { data: brand } = await supabase.from("brands").select("name").eq("id", data.brandId).maybeSingle();
+      const { data: brand } = await supabase
+        .from("brands")
+        .select("name")
+        .eq("id", data.brandId)
+        .maybeSingle();
       let clientNames: string[] = [];
       if (data.clientIds.length > 0) {
-        const { data: cRows } = await supabase.from("clients").select("name").in("id", data.clientIds);
+        const { data: cRows } = await supabase
+          .from("clients")
+          .select("name")
+          .in("id", data.clientIds);
         clientNames = (cRows ?? []).map((c) => c.name as string);
       }
       const origin = process.env.APP_URL || "";

@@ -111,9 +111,7 @@ export function MessagingCenter({
         />
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {isLoading
-            ? PROVIDERS.map((p) => (
-                <Skeleton key={p.id} className="h-[124px] rounded-xl" />
-              ))
+            ? PROVIDERS.map((p) => <Skeleton key={p.id} className="h-[124px] rounded-xl" />)
             : PROVIDERS.map((p) => (
                 <ProviderCard
                   key={p.id}
@@ -208,7 +206,9 @@ function MessagingKpis({ brandId }: { brandId: string }) {
         trailing="7d"
         status={failed === 0 ? "success" : "warning"}
         value={failed.toLocaleString("pt-BR")}
-        description={failed === 0 ? "Nenhuma falha registrada" : data?.topFailedChannel ?? undefined}
+        description={
+          failed === 0 ? "Nenhuma falha registrada" : (data?.topFailedChannel ?? undefined)
+        }
       />
       <PageKpi
         icon={<Briefcase />}
@@ -480,7 +480,7 @@ function TestProviderDialog({
           brandId,
           eventKey: event.key,
           channel: provider.channel,
-          subject: provider.channel === "email" ? defaults.subject ?? null : null,
+          subject: provider.channel === "email" ? (defaults.subject ?? null) : null,
           body: defaults.body,
           to: to.trim(),
         },
@@ -503,7 +503,8 @@ function TestProviderDialog({
         <DialogHeader>
           <DialogTitle>Testar {provider.name}</DialogTitle>
           <DialogDescription>
-            Envio real usando o template padrão de {provider.channel === "email" ? "e-mail" : "WhatsApp"}.
+            Envio real usando o template padrão de{" "}
+            {provider.channel === "email" ? "e-mail" : "WhatsApp"}.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">

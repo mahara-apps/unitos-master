@@ -6,13 +6,7 @@ import { assertAdminAuthority } from "@/lib/access-guard";
 export type LogLevel = "error" | "warn" | "info" | "success";
 export type LogSource = "ai_job" | "activity" | "notification";
 
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 export type SystemLogEntry = {
   id: string;
@@ -91,10 +85,13 @@ function toJson(v: unknown): JsonValue {
 
 function jobToEntry(j: JobRow): SystemLogEntry {
   const level: LogLevel =
-    j.status === "failed" ? "error"
-    : j.status === "succeeded" ? "success"
-    : j.status === "running" || j.status === "queued" ? "info"
-    : "warn";
+    j.status === "failed"
+      ? "error"
+      : j.status === "succeeded"
+        ? "success"
+        : j.status === "running" || j.status === "queued"
+          ? "info"
+          : "warn";
   const subtitleParts = [
     j.kind,
     j.status,
@@ -152,10 +149,13 @@ function activityToEntry(a: ActivityRow): SystemLogEntry {
 function notificationToEntry(n: NotificationRow): SystemLogEntry {
   const t = n.kind.toLowerCase();
   const level: LogLevel =
-    t.includes("error") || t.includes("fail") ? "error"
-    : t.includes("warn") ? "warn"
-    : t.includes("success") || t.includes("done") ? "success"
-    : "info";
+    t.includes("error") || t.includes("fail")
+      ? "error"
+      : t.includes("warn")
+        ? "warn"
+        : t.includes("success") || t.includes("done")
+          ? "success"
+          : "info";
   return {
     id: `not_${n.id}`,
     source: "notification",
@@ -194,9 +194,8 @@ export const listSystemLogs = createServerFn({ method: "POST" })
     const memberBrandIds = (memberships ?? []).map((m) => m.brand_id as string);
     if (memberBrandIds.length === 0) return [];
 
-    const brandFilter = data.brandId && memberBrandIds.includes(data.brandId)
-      ? [data.brandId]
-      : memberBrandIds;
+    const brandFilter =
+      data.brandId && memberBrandIds.includes(data.brandId) ? [data.brandId] : memberBrandIds;
 
     const promises: Promise<SystemLogEntry[]>[] = [];
 
@@ -205,7 +204,9 @@ export const listSystemLogs = createServerFn({ method: "POST" })
         (async () => {
           let q = supabase
             .from("ai_jobs")
-            .select("id, brand_id, client_id, user_id, kind, title, subtitle, status, progress, step_label, error, created_at, started_at, finished_at, updated_at, input, result")
+            .select(
+              "id, brand_id, client_id, user_id, kind, title, subtitle, status, progress, step_label, error, created_at, started_at, finished_at, updated_at, input, result",
+            )
             .in("brand_id", brandFilter)
             .order("updated_at", { ascending: false })
             .limit(limit);
@@ -221,7 +222,9 @@ export const listSystemLogs = createServerFn({ method: "POST" })
         (async () => {
           let q = supabase
             .from("activity_events")
-            .select("id, brand_id, client_id, actor_id, entity_type, entity_id, verb, payload, created_at")
+            .select(
+              "id, brand_id, client_id, actor_id, entity_type, entity_id, verb, payload, created_at",
+            )
             .in("brand_id", brandFilter)
             .order("created_at", { ascending: false })
             .limit(limit);
@@ -256,10 +259,11 @@ export const listSystemLogs = createServerFn({ method: "POST" })
 
     if (data.search) {
       const s = data.search.toLowerCase();
-      entries = entries.filter((e) =>
-        e.title.toLowerCase().includes(s) ||
-        (e.subtitle ?? "").toLowerCase().includes(s) ||
-        e.id.toLowerCase().includes(s),
+      entries = entries.filter(
+        (e) =>
+          e.title.toLowerCase().includes(s) ||
+          (e.subtitle ?? "").toLowerCase().includes(s) ||
+          e.id.toLowerCase().includes(s),
       );
     }
 

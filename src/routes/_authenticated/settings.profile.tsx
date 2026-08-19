@@ -340,7 +340,6 @@ function ProfilePage() {
             </SettingsFieldGrid>
           </SettingsBlock>
 
-
           <SettingsBlock
             title="Contato"
             description="Usado pelo time e pelos avisos enviados a você."

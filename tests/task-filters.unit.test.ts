@@ -37,9 +37,26 @@ const today = task({ id: "today", title: "Hoje", due_at: new Date(now + 3600_000
 const inFive = task({ id: "week", title: "Semana", due_at: iso(5) });
 const noDue = task({ id: "none", title: "Sem prazo" });
 const far = task({ id: "far", title: "Longe", due_at: iso(30) });
-const ofClientA = task({ id: "ca", title: "Do cliente A", client_id: "cli-a", client_name: "Cliente A" });
-const ofProject = task({ id: "pj", title: "Do projeto", project_id: "prj-1", project_name: "Projeto Teste", client_id: "cli-a" });
-const doneTask = task({ id: "dn", title: "Concluída", status: "done", done: true, due_at: iso(-3) });
+const ofClientA = task({
+  id: "ca",
+  title: "Do cliente A",
+  client_id: "cli-a",
+  client_name: "Cliente A",
+});
+const ofProject = task({
+  id: "pj",
+  title: "Do projeto",
+  project_id: "prj-1",
+  project_name: "Projeto Teste",
+  client_id: "cli-a",
+});
+const doneTask = task({
+  id: "dn",
+  title: "Concluída",
+  status: "done",
+  done: true,
+  due_at: iso(-3),
+});
 
 const all = [overdue, today, inFive, noDue, far, ofClientA, ofProject, doneTask];
 const f = (patch: Partial<TaskFilters>): TaskFilters => ({ ...DEFAULT_FILTERS, ...patch });
@@ -81,7 +98,9 @@ describe("5. Filtros de tarefas (applyFilters real)", () => {
 
   it("combinação cliente + projeto + busca mantém escopo", () => {
     expect(
-      idsOf(applyFilters(all, f({ clientId: "cli-a", projectId: "prj-1", search: "projeto" }), null)),
+      idsOf(
+        applyFilters(all, f({ clientId: "cli-a", projectId: "prj-1", search: "projeto" }), null),
+      ),
     ).toEqual(["pj"]);
     expect(
       applyFilters(all, f({ clientId: "cli-a", projectId: "prj-1", search: "inexistente" }), null),
@@ -89,7 +108,9 @@ describe("5. Filtros de tarefas (applyFilters real)", () => {
   });
 
   it("hideDone remove concluídas e não vaza em atrasadas", () => {
-    expect(idsOf(applyFilters(all, f({ hideDone: true, due: "overdue" }), null))).toEqual(["overdue"]);
+    expect(idsOf(applyFilters(all, f({ hideDone: true, due: "overdue" }), null))).toEqual([
+      "overdue",
+    ]);
   });
 
   it("o tipo TaskFilters expõe a visão de arquivamento com opção 'todas'", () => {

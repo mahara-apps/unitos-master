@@ -21,24 +21,14 @@ async function importKey(): Promise<CryptoKey> {
   // Derive a stable 32-byte AES key from the secret via SHA-256.
   const material = new TextEncoder().encode(raw);
   const digest = await crypto.subtle.digest("SHA-256", material);
-  return crypto.subtle.importKey(
-    "raw",
-    digest,
-    { name: "AES-GCM" },
-    false,
-    ["encrypt", "decrypt"],
-  );
+  return crypto.subtle.importKey("raw", digest, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
 }
 
 export async function encryptCredential(plaintext: string): Promise<string> {
   const key = await importKey();
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ct = new Uint8Array(
-    await crypto.subtle.encrypt(
-      { name: "AES-GCM", iv },
-      key,
-      new TextEncoder().encode(plaintext),
-    ),
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(plaintext)),
   );
   const out = new Uint8Array(iv.length + ct.length);
   out.set(iv, 0);

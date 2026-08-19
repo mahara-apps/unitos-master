@@ -1,10 +1,5 @@
 import { z } from "zod";
-import {
-  CalendarDays,
-  Kanban,
-  ListTodo,
-  User as UserIcon,
-} from "lucide-react";
+import { CalendarDays, Kanban, ListTodo, User as UserIcon } from "lucide-react";
 
 export const VIEWS = ["list", "kanban", "calendar", "mine"] as const;
 export type View = (typeof VIEWS)[number];

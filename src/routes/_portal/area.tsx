@@ -4,10 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { listMyPortalClientsFn, resolvePortalSessionFn } from "@/lib/portal-session.functions";
-import {
-  FullScreenLoader,
-  PortalAccessError,
-} from "@/components/portal/portal-shared";
+import { FullScreenLoader, PortalAccessError } from "@/components/portal/portal-shared";
 import { PortalModeProvider } from "@/components/portal/portal-context";
 import { PortalShell } from "@/components/portal/portal-shell";
 import { activePortalTab } from "@/components/portal/portal-nav";
@@ -88,8 +85,7 @@ function PortalAreaLayout() {
       />
     );
 
-  if (!links.length)
-    return <PortalAccessError mode="session" message="portal_no_client_access" />;
+  if (!links.length) return <PortalAccessError mode="session" message="portal_no_client_access" />;
 
   // Cliente informado que não pertence ao usuário → erro explícito de contexto.
   if (cliente && !allowed)
@@ -137,7 +133,13 @@ function PortalAreaLayout() {
       />
     );
   if (!sessionQ.data?.client)
-    return <PortalAccessError mode="session" message={sessionQ.data?.error} onRetry={() => void sessionQ.refetch()} />;
+    return (
+      <PortalAccessError
+        mode="session"
+        message={sessionQ.data?.error}
+        onRetry={() => void sessionQ.refetch()}
+      />
+    );
 
   const client = sessionQ.data.client;
   const brand = sessionQ.data.brand;
@@ -152,42 +154,41 @@ function PortalAreaLayout() {
 
   return (
     <PortalModeProvider value={{ kind: "session", clientId: cliente }}>
-
       <PortalShell
-          clientName={client.name}
-          activeTab={activeTab}
-          accent={accent}
-          dark={theme?.dark}
-          logoUrl={theme?.logoUrl ?? null}
-          footerLabel={theme?.footerLabel ?? (brand?.name ? `por ${brand.name}` : "")}
-          headerActions={
-            <>
-              {links.length > 1 && (
-                <Select value={cliente} onValueChange={pickClient}>
-                  <SelectTrigger className="h-9 w-56">
-                    <SelectValue placeholder="Escolher marca" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {links.map((l) => (
-                      <SelectItem key={l.client_id} value={l.client_id}>
-                        {l.client_name ?? "Cliente"}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-2 text-muted-foreground"
-                onClick={signOut}
-              >
-                <LogOut className="h-4 w-4" /> Sair
-              </Button>
-            </>
-          }
-        >
-          <Outlet />
+        clientName={client.name}
+        activeTab={activeTab}
+        accent={accent}
+        dark={theme?.dark}
+        logoUrl={theme?.logoUrl ?? null}
+        footerLabel={theme?.footerLabel ?? (brand?.name ? `por ${brand.name}` : "")}
+        headerActions={
+          <>
+            {links.length > 1 && (
+              <Select value={cliente} onValueChange={pickClient}>
+                <SelectTrigger className="h-9 w-56">
+                  <SelectValue placeholder="Escolher marca" />
+                </SelectTrigger>
+                <SelectContent>
+                  {links.map((l) => (
+                    <SelectItem key={l.client_id} value={l.client_id}>
+                      {l.client_name ?? "Cliente"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 text-muted-foreground"
+              onClick={signOut}
+            >
+              <LogOut className="h-4 w-4" /> Sair
+            </Button>
+          </>
+        }
+      >
+        <Outlet />
       </PortalShell>
     </PortalModeProvider>
   );

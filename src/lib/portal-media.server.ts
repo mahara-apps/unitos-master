@@ -11,7 +11,10 @@ async function storage(): Promise<SupabaseClient> {
   return supabaseAdmin as unknown as SupabaseClient;
 }
 
-export async function signPortalMedia(path: string, bucket = "brand-assets"): Promise<string | null> {
+export async function signPortalMedia(
+  path: string,
+  bucket = "brand-assets",
+): Promise<string | null> {
   const c = await storage();
   const { data } = await c.storage.from(bucket).createSignedUrl(path, 60 * 60 * 24 * 7);
   return data?.signedUrl ?? null;
@@ -40,7 +43,9 @@ export async function fillPortalCovers(
   }
 }
 
-export async function signPortalRefs(reference_media: Json): Promise<Array<{ url: string; type: string }>> {
+export async function signPortalRefs(
+  reference_media: Json,
+): Promise<Array<{ url: string; type: string }>> {
   const out = await Promise.all(
     refs(reference_media).map(async (r) => {
       const path = typeof r?.path === "string" ? r.path : null;

@@ -16,7 +16,8 @@ function ChatEmpty() {
   const create = useServerFn(createChatConversationFn);
   const m = useMutation({
     mutationFn: () => create({ data: {} }),
-    onSuccess: (row) => navigate({ to: "/chat/$conversationId", params: { conversationId: row.id } }),
+    onSuccess: (row) =>
+      navigate({ to: "/chat/$conversationId", params: { conversationId: row.id } }),
   });
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
@@ -26,8 +27,8 @@ function ChatEmpty() {
       <div>
         <h2 className="text-xl font-semibold">Nenhuma conversa selecionada</h2>
         <p className="text-sm text-muted-foreground mt-1 max-w-md">
-          Toda pergunta passa primeiro pelo Brain — memórias, insights e conhecimento consolidado.
-          O modelo generativo só é usado quando necessário.
+          Toda pergunta passa primeiro pelo Brain — memórias, insights e conhecimento consolidado. O
+          modelo generativo só é usado quando necessário.
         </p>
       </div>
       <Button onClick={() => m.mutate()} disabled={m.isPending}>

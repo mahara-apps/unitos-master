@@ -1,16 +1,6 @@
-import {
-  BrainCircuit,
-  Compass,
-  PenTool,
-  LineChart,
-  type LucideIcon,
-} from "lucide-react";
+import { BrainCircuit, Compass, PenTool, LineChart, type LucideIcon } from "lucide-react";
 
-export type AgentCategory =
-  | "intelligence"
-  | "planning"
-  | "creation"
-  | "analysis";
+export type AgentCategory = "intelligence" | "planning" | "creation" | "analysis";
 
 export type AgentMeta = {
   category: AgentCategory;
@@ -24,12 +14,7 @@ export type AgentMeta = {
   model: string;
 };
 
-export const CATEGORY_ORDER: AgentCategory[] = [
-  "intelligence",
-  "planning",
-  "creation",
-  "analysis",
-];
+export const CATEGORY_ORDER: AgentCategory[] = ["intelligence", "planning", "creation", "analysis"];
 
 const CATEGORY_STYLE: Record<AgentCategory, Omit<AgentMeta, "category" | "model">> = {
   intelligence: {
@@ -138,7 +123,10 @@ export function getCategoryStyle(category: AgentCategory) {
 
 /** Clean an agent name by stripping "(Meta)"-style suffixes before Title Case. */
 export function cleanAgentName(raw: string): string {
-  return raw.replace(/\s*\([^)]*\)\s*/g, " ").replace(/\s+/g, " ").trim();
+  return raw
+    .replace(/\s*\([^)]*\)\s*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /** Clean AI-generated prompt names into Title Case, no ALL CAPS, no dashes. */
@@ -151,9 +139,7 @@ export function toTitleCase(raw: string): string {
   const small = new Set(["de", "da", "do", "das", "dos", "e", "a", "o", "para", "com", "em"]);
   return cleaned
     .split(" ")
-    .map((w, i) =>
-      i > 0 && small.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1),
-    )
+    .map((w, i) => (i > 0 && small.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
     .join(" ");
 }
 

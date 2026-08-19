@@ -34,9 +34,10 @@ export async function findResumableGeneration(
   if (error || !jobs?.length) return null;
 
   for (const job of jobs) {
-    const result = (job as { result: unknown }).result as
-      | { monthly_plan_id?: string; period?: string }
-      | null;
+    const result = (job as { result: unknown }).result as {
+      monthly_plan_id?: string;
+      period?: string;
+    } | null;
     const planId = result?.monthly_plan_id;
     if (!planId || (result?.period && result.period !== args.period)) continue;
 

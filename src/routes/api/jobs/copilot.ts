@@ -49,19 +49,37 @@ async function runCopilotJob(params: {
     supabase.from("ai_jobs").update(fields).eq("id", jobId);
 
   try {
-    await patch({ status: "running", started_at: new Date().toISOString(), progress: 10, step_label: "Reading brand context" });
+    await patch({
+      status: "running",
+      started_at: new Date().toISOString(),
+      progress: 10,
+      step_label: "Reading brand context",
+    });
 
     const [{ data: client }, { data: voice }] = await Promise.all([
-      supabase.from("clients").select("name, niche, tone_of_voice").eq("id", input.clientId).maybeSingle(),
-      supabase.from("brand_voice_cards").select("data").eq("client_id", input.clientId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase
+        .from("clients")
+        .select("name, niche, tone_of_voice")
+        .eq("id", input.clientId)
+        .maybeSingle(),
+      supabase
+        .from("brand_voice_cards")
+        .select("data")
+        .eq("client_id", input.clientId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     const brandCtx = [
       client?.name && `Account: ${client.name}`,
       client?.niche && `Niche: ${client.niche}`,
-      (input.tone || client?.tone_of_voice) && `Tone of voice: ${input.tone || client?.tone_of_voice}`,
+      (input.tone || client?.tone_of_voice) &&
+        `Tone of voice: ${input.tone || client?.tone_of_voice}`,
       voice?.data && `Voice card: ${JSON.stringify(voice.data).slice(0, 800)}`,
-    ].filter(Boolean).join("\n");
+    ]
+      .filter(Boolean)
+      .join("\n");
 
     await patch({ progress: 35, step_label: "Drafting copy with AI" });
 
@@ -98,18 +116,36 @@ async function runCopilotJob(params: {
       ],
     });
 
-    const cleaned = text.replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
+    const cleaned = text
+      .replace(/^```(?:json)?/i, "")
+      .replace(/```$/i, "")
+      .trim();
     let parsed: { title?: unknown; content?: unknown; hashtags?: unknown } = {};
-    try { parsed = JSON.parse(cleaned); } catch {
-      const s = cleaned.indexOf("{"); const e = cleaned.lastIndexOf("}");
-      if (s >= 0 && e > s) { try { parsed = JSON.parse(cleaned.slice(s, e + 1)); } catch { /* noop */ } }
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      const s = cleaned.indexOf("{");
+      const e = cleaned.lastIndexOf("}");
+      if (s >= 0 && e > s) {
+        try {
+          parsed = JSON.parse(cleaned.slice(s, e + 1));
+        } catch {
+          /* noop */
+        }
+      }
     }
-    const title = typeof parsed.title === "string" && parsed.title.trim()
-      ? parsed.title.trim().slice(0, 160)
-      : input.briefing.split("\n")[0].slice(0, 120);
-    const content = typeof parsed.content === "string" && parsed.content.trim() ? parsed.content.trim() : cleaned;
+    const title =
+      typeof parsed.title === "string" && parsed.title.trim()
+        ? parsed.title.trim().slice(0, 160)
+        : input.briefing.split("\n")[0].slice(0, 120);
+    const content =
+      typeof parsed.content === "string" && parsed.content.trim() ? parsed.content.trim() : cleaned;
     const hashtags = Array.isArray(parsed.hashtags)
-      ? parsed.hashtags.filter((h): h is string => typeof h === "string").map((h) => h.replace(/^#+/, "").trim()).filter(Boolean).slice(0, 12)
+      ? parsed.hashtags
+          .filter((h): h is string => typeof h === "string")
+          .map((h) => h.replace(/^#+/, "").trim())
+          .filter(Boolean)
+          .slice(0, 12)
       : [];
 
     let postId: string | null = null;
@@ -132,7 +168,9 @@ async function runCopilotJob(params: {
         .order("position", { ascending: false })
         .limit(1);
       const nextPos = ((maxRow?.[0]?.position ?? -1) as number) + 1024;
-      const copy = hashtags.length ? `${content}\n\n${hashtags.map((h) => `#${h}`).join(" ")}` : content;
+      const copy = hashtags.length
+        ? `${content}\n\n${hashtags.map((h) => `#${h}`).join(" ")}`
+        : content;
       const { data: post, error: pErr } = await supabase
         .from("posts")
         .insert({
@@ -164,7 +202,12 @@ async function runCopilotJob(params: {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    await patch({ status: "failed", error: message, finished_at: new Date().toISOString(), step_label: null });
+    await patch({
+      status: "failed",
+      error: message,
+      finished_at: new Date().toISOString(),
+      step_label: null,
+    });
   }
 }
 
@@ -179,7 +222,8 @@ export const Route = createFileRoute("/api/jobs/copilot")({
 
         const rawBody = await request.json().catch(() => null);
         const parse = BodySchema.safeParse(rawBody);
-        if (!parse.success) return new Response(JSON.stringify(parse.error.format()), { status: 400 });
+        if (!parse.success)
+          return new Response(JSON.stringify(parse.error.format()), { status: 400 });
         const input = parse.data;
 
         const supabase = buildUserClient(token);
@@ -203,7 +247,8 @@ export const Route = createFileRoute("/api/jobs/copilot")({
           })
           .select("id")
           .single();
-        if (jobErr || !job) return new Response(jobErr?.message ?? "Failed to enqueue", { status: 500 });
+        if (jobErr || !job)
+          return new Response(jobErr?.message ?? "Failed to enqueue", { status: 500 });
 
         // Run in background — do NOT await. Cloudflare Workers keep the handler
         // alive until the promise settles even after the response is sent.

@@ -15,8 +15,6 @@ class DeterministicBlock extends Error {
   }
 }
 
-
-
 /**
  * Drena `social_posts` agendados. pg_cron chama a cada minuto.
  *
@@ -50,12 +48,9 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
         const cronDenied = assertCronRequest(request);
         if (cronDenied) return cronDenied;
 
-        const { supabaseAdmin } = await import(
-          "@/integrations/supabase/client.server"
-        );
-        const { MetaPublishingService, formatPublishError } = await import(
-          "@/lib/meta/publishing.server"
-        );
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { MetaPublishingService, formatPublishError } =
+          await import("@/lib/meta/publishing.server");
 
         // Sweep fail-closed (1ª barreira): itens vencidos cujo destino já não é
         // utilizável (conexão removida/inativa, sem token, ou conta desvinculada
@@ -106,19 +101,14 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
             // target → token → granular scope do target) ANTES de chamar a
             // Meta. Erro determinístico (autorização/vínculo) NÃO consome
             // retries: o destino vira `blocked`/`connection_required`.
-            const { resolvePublishTarget } = await import(
-              "@/lib/meta/publish-capability.server"
-            );
-            const { capability, connection: conn } = await resolvePublishTarget(
-              supabaseAdmin,
-              {
-                brandId: post.brand_id,
-                clientId: post.client_id,
-                connectionId: post.connection_id,
-                format: post.placement === "story" ? "stories" : "feed",
-                force: true,
-              },
-            );
+            const { resolvePublishTarget } = await import("@/lib/meta/publish-capability.server");
+            const { capability, connection: conn } = await resolvePublishTarget(supabaseAdmin, {
+              brandId: post.brand_id,
+              clientId: post.client_id,
+              connectionId: post.connection_id,
+              format: post.placement === "story" ? "stories" : "feed",
+              force: true,
+            });
             if (!capability.publishReady) {
               if (capability.deterministic) {
                 throw new DeterministicBlock(capability.message, capability.code);
@@ -131,8 +121,6 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
                 "wrong_brand",
               );
             }
-
-
 
             const caption = buildCaption(
               post.caption ?? undefined,
@@ -178,9 +166,13 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
               .eq("id", post.id);
             // Reflete a publicação na peça editorial (posts/post_placements),
             // que é o que Calendário, Projeto e Conteúdo leem.
-            await syncEditorialPublished(supabaseAdmin, post.id, post.placement, post.connection_id);
+            await syncEditorialPublished(
+              supabaseAdmin,
+              post.id,
+              post.placement,
+              post.connection_id,
+            );
             results.push({ id: post.id, ok: true });
-
           } catch (err) {
             // Classificação de erro:
             //  - determinístico (autorização/vínculo) → `blocked`, sem retry;
@@ -211,7 +203,6 @@ export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
               p_error: msg,
             });
             results.push({ id: post.id, ok: false, error: msg });
-
           }
         }
 
@@ -273,8 +264,11 @@ async function syncEditorialPublished(
   }
 }
 
-
-function buildCaption(base?: string, hashtags: string[] = [], mentions: string[] = []): string | undefined {
+function buildCaption(
+  base?: string,
+  hashtags: string[] = [],
+  mentions: string[] = [],
+): string | undefined {
   const parts: string[] = [];
   if (base) parts.push(base);
   const tags = hashtags.filter(Boolean).map((t) => (t.startsWith("#") ? t : `#${t}`));

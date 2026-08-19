@@ -27,7 +27,12 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   brandId: string;
-  task: { id: string; title: string; estimated_minutes: number | null; total_minutes: number } | null;
+  task: {
+    id: string;
+    title: string;
+    estimated_minutes: number | null;
+    total_minutes: number;
+  } | null;
 };
 
 export function TaskTimesheetSheet({ open, onOpenChange, brandId, task }: Props) {
@@ -102,7 +107,12 @@ export function TaskTimesheetSheet({ open, onOpenChange, brandId, task }: Props)
   );
 
   return (
-    <ExpandedModal open={open} onOpenChange={onOpenChange} size="md" title={task?.title ?? "Tarefa"}>
+    <ExpandedModal
+      open={open}
+      onOpenChange={onOpenChange}
+      size="md"
+      title={task?.title ?? "Tarefa"}
+    >
       {task && (
         <div className="space-y-6">
           {/* Timer (Play · Pause · Stop) */}

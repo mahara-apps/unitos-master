@@ -2,9 +2,29 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
-  Send, Users, Layers, Target, TrendingUp, ShieldAlert, Zap, Sparkles, CheckCircle2,
-  Eye, Shield, Clock, BadgeCheck, MessageSquare, ArrowRight, Sprout, AlertTriangle,
-  Lightbulb, Flame, Ban, Check, User, Pencil,
+  Send,
+  Users,
+  Layers,
+  Target,
+  TrendingUp,
+  ShieldAlert,
+  Zap,
+  Sparkles,
+  CheckCircle2,
+  Eye,
+  Shield,
+  Clock,
+  BadgeCheck,
+  MessageSquare,
+  ArrowRight,
+  Sprout,
+  AlertTriangle,
+  Lightbulb,
+  Flame,
+  Ban,
+  Check,
+  User,
+  Pencil,
 } from "lucide-react";
 import { ExpandedModal } from "@/components/ui/expanded-modal";
 import { Badge } from "@/components/ui/badge";
@@ -12,12 +32,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { useState } from "react";
-import {
-  sendPautaToContentFn,
-} from "@/lib/ai-agents.functions";
+import { sendPautaToContentFn } from "@/lib/ai-agents.functions";
 import {
   customerCoreQuery,
   customerTargetQuery,
@@ -26,8 +49,14 @@ import {
 } from "@/lib/customer-queries";
 import { ContextSourceBadge } from "./context-source-badge";
 import {
-  VoiceEditor, PersonasEditor, CohortsEditor, SwotEditor,
-  type VoiceState, type PersonaState, type CohortState, type SwotState,
+  VoiceEditor,
+  PersonasEditor,
+  CohortsEditor,
+  SwotEditor,
+  type VoiceState,
+  type PersonaState,
+  type CohortState,
+  type SwotState,
 } from "./strategy-editors";
 
 type Scope = { brandId: string; clientId: string };
@@ -36,14 +65,26 @@ type Scope = { brandId: string; clientId: string };
 
 function tryParseJson(input: string): unknown {
   // Strip markdown fences
-  let s = input.trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
-  try { return JSON.parse(s); } catch { /* try repair */ }
+  const s = input
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
+  try {
+    return JSON.parse(s);
+  } catch {
+    /* try repair */
+  }
   // Remove trailing junk after last balanced brace/bracket
   const lastCurly = s.lastIndexOf("}");
   const lastSquare = s.lastIndexOf("]");
   const end = Math.max(lastCurly, lastSquare);
   if (end > 0) {
-    try { return JSON.parse(s.slice(0, end + 1)); } catch { /* noop */ }
+    try {
+      return JSON.parse(s.slice(0, end + 1));
+    } catch {
+      /* noop */
+    }
   }
   return null;
 }
@@ -98,7 +139,7 @@ function normalizePersonas(data: unknown): NormalizedPersona[] {
   const arr: RawPersona[] = Array.isArray(parsed)
     ? (parsed as RawPersona[])
     : Array.isArray((parsed as { personas?: unknown }).personas)
-      ? ((parsed as { personas: RawPersona[] }).personas)
+      ? (parsed as { personas: RawPersona[] }).personas
       : [];
   return arr.map((p) => {
     const dorPrincipal = pickString(p, ["dor_principal", "dor", "main_pain"]);
@@ -106,12 +147,20 @@ function normalizePersonas(data: unknown): NormalizedPersona[] {
       ? (p.dores as string[])
       : Array.isArray(p.pain_points)
         ? (p.pain_points as string[])
-        : dorPrincipal ? [dorPrincipal] : [];
+        : dorPrincipal
+          ? [dorPrincipal]
+          : [];
     return {
       nome: pickString(p, ["nome", "nome_persona", "name"]) || "Persona",
       arquetipo: pickString(p, ["arquetipo", "archetype", "arquétipo"]),
       descricao: pickString(p, ["perfil", "descricao", "biografia", "description", "resumo"]),
-      motivacao: pickString(p, ["motivacao", "motivation", "desejo", "desejo_principal", "aspiracao"]),
+      motivacao: pickString(p, [
+        "motivacao",
+        "motivation",
+        "desejo",
+        "desejo_principal",
+        "aspiracao",
+      ]),
       dor_principal: dorPrincipal,
       dores,
       canais_preferidos: Array.isArray(p.canais_preferidos)
@@ -121,18 +170,59 @@ function normalizePersonas(data: unknown): NormalizedPersona[] {
           : Array.isArray(p.channels)
             ? (p.channels as string[])
             : [],
-      logica_compra: pickString(p, ["logica_compra", "logica_de_compra", "buying_logic", "raciocinio_compra"]),
-      fator_confianca: pickString(p, ["fator_confianca", "trust_factor", "confianca", "gatilho_confianca"]),
-      como_decide: pickString(p, ["como_decide", "decision_process", "processo_decisao", "processo_decisorio"]),
-      objecao_dominante: pickString(p, ["objecao_dominante", "objecao", "main_objection", "objecao_principal"]),
-      estilo_comunicacao: pickString(p, ["estilo_comunicacao", "communication_style", "estilo_de_comunicacao", "tom_esperado"]),
-      ciclo_compra: pickString(p, ["ciclo_compra", "ciclo_de_compra", "buying_cycle", "tempo_decisao"]),
-      nivel_consciencia: pickString(p, ["nivel_consciencia", "nivel_de_consciencia", "awareness_level", "consciencia"]),
+      logica_compra: pickString(p, [
+        "logica_compra",
+        "logica_de_compra",
+        "buying_logic",
+        "raciocinio_compra",
+      ]),
+      fator_confianca: pickString(p, [
+        "fator_confianca",
+        "trust_factor",
+        "confianca",
+        "gatilho_confianca",
+      ]),
+      como_decide: pickString(p, [
+        "como_decide",
+        "decision_process",
+        "processo_decisao",
+        "processo_decisorio",
+      ]),
+      objecao_dominante: pickString(p, [
+        "objecao_dominante",
+        "objecao",
+        "main_objection",
+        "objecao_principal",
+      ]),
+      estilo_comunicacao: pickString(p, [
+        "estilo_comunicacao",
+        "communication_style",
+        "estilo_de_comunicacao",
+        "tom_esperado",
+      ]),
+      ciclo_compra: pickString(p, [
+        "ciclo_compra",
+        "ciclo_de_compra",
+        "buying_cycle",
+        "tempo_decisao",
+      ]),
+      nivel_consciencia: pickString(p, [
+        "nivel_consciencia",
+        "nivel_de_consciencia",
+        "awareness_level",
+        "consciencia",
+      ]),
     };
   });
 }
 
-type NormalizedCohort = { name: string; target_personas: string[]; behavioral_traits: string; content_strategy: string; conversion_criteria: string };
+type NormalizedCohort = {
+  name: string;
+  target_personas: string[];
+  behavioral_traits: string;
+  content_strategy: string;
+  conversion_criteria: string;
+};
 
 function normalizeCohorts(data: unknown): NormalizedCohort[] {
   const parsed = extractRaw<unknown>(data);
@@ -140,7 +230,7 @@ function normalizeCohorts(data: unknown): NormalizedCohort[] {
   const arr: Record<string, unknown>[] = Array.isArray(parsed)
     ? (parsed as Record<string, unknown>[])
     : Array.isArray((parsed as { cohorts?: unknown }).cohorts)
-      ? ((parsed as { cohorts: Record<string, unknown>[] }).cohorts)
+      ? (parsed as { cohorts: Record<string, unknown>[] }).cohorts
       : [];
   return arr.map((c) => ({
     name: (c.name as string) ?? (c.nome as string) ?? (c.nome_cohort as string) ?? "Cohort",
@@ -229,7 +319,12 @@ function normalizeVoice(data: unknown): NormalizedVoice | null {
 // SWOT: canonical { swot_analysis, competitive_matrix } or PT-BR
 // { forcas/fraquezas/oportunidades/ameacas, matriz_competitiva[] }.
 type NormalizedSwot = {
-  analysis: { strengths: string[]; weaknesses: string[]; opportunities: string[]; threats: string[] };
+  analysis: {
+    strengths: string[];
+    weaknesses: string[];
+    opportunities: string[];
+    threats: string[];
+  };
   matrix: Array<{ competitor_name: string; our_advantages: string; vulnerabilities: string }>;
 };
 
@@ -250,19 +345,13 @@ function normalizeSwot(data: unknown): NormalizedSwot {
       : [];
   const matrix = rawMatrix.map((c) => ({
     competitor_name:
-      (c.competitor_name as string) ??
-      (c.nome as string) ??
-      (c.concorrente as string) ??
-      "—",
+      (c.competitor_name as string) ?? (c.nome as string) ?? (c.concorrente as string) ?? "—",
     our_advantages:
       (c.our_advantages as string) ??
       (c.vantagens as string) ??
       (c.nossas_vantagens as string) ??
       "",
-    vulnerabilities:
-      (c.vulnerabilities as string) ??
-      (c.vulnerabilidades as string) ??
-      "",
+    vulnerabilities: (c.vulnerabilities as string) ?? (c.vulnerabilidades as string) ?? "",
   }));
   return { analysis, matrix };
 }
@@ -295,17 +384,25 @@ function EmptyHint({ text }: { text: string }) {
   return <p className="text-xs text-muted-foreground">{text}</p>;
 }
 
-function Chip({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "neutral" | "danger" | "success" | "info" }) {
+function Chip({
+  children,
+  tone = "neutral",
+}: {
+  children: React.ReactNode;
+  tone?: "neutral" | "danger" | "success" | "info";
+}) {
   const toneClass =
     tone === "danger"
       ? "border-destructive/30 bg-destructive/10 text-destructive"
       : tone === "success"
-      ? "border-[--health-good]/40 bg-[--health-good]/10 text-[--health-good]"
-      : tone === "info"
-      ? "border-primary/30 bg-primary/10 text-primary"
-      : "border-border bg-muted text-foreground";
+        ? "border-[--health-good]/40 bg-[--health-good]/10 text-[--health-good]"
+        : tone === "info"
+          ? "border-primary/30 bg-primary/10 text-primary"
+          : "border-border bg-muted text-foreground";
   return (
-    <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${toneClass}`}>
+    <span
+      className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${toneClass}`}
+    >
       {children}
     </span>
   );
@@ -337,7 +434,9 @@ export function OverviewTab({ brandId, clientId }: Scope) {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {kpis.map((k) => (
           <div key={k.label} className="rounded-xl border border-border bg-card p-4">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{k.label}</div>
+            <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              {k.label}
+            </div>
             <div className="mt-1 text-2xl font-semibold">{k.value}</div>
           </div>
         ))}
@@ -356,7 +455,9 @@ export function OverviewTab({ brandId, clientId }: Scope) {
           {voice?.tone_characteristics?.length ? (
             <div className="mt-3 flex flex-wrap gap-1.5">
               {voice.tone_characteristics.map((t, i) => (
-                <Chip key={i} tone="info">{t}</Chip>
+                <Chip key={i} tone="info">
+                  {t}
+                </Chip>
               ))}
             </div>
           ) : null}
@@ -367,11 +468,15 @@ export function OverviewTab({ brandId, clientId }: Scope) {
             <ContextSourceBadge source="persona" />
           </div>
           <p className="text-sm text-foreground">
-            {(briefing.publico_alvo as string | null) ?? <span className="text-muted-foreground">—</span>}
+            {(briefing.publico_alvo as string | null) ?? (
+              <span className="text-muted-foreground">—</span>
+            )}
           </p>
           {Array.isArray(briefing.diferenciais) && (briefing.diferenciais as string[]).length ? (
             <div className="mt-3">
-              <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Diferenciais</div>
+              <div className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                Diferenciais
+              </div>
               <div className="flex flex-wrap gap-1.5">
                 {(briefing.diferenciais as string[]).map((d, i) => (
                   <Chip key={i}>{d}</Chip>
@@ -399,8 +504,12 @@ export function StrategyTab({ brandId, clientId }: Scope) {
   const tone = voice?.tone_characteristics ?? [];
   const personality = voice?.brand_personality ?? "";
   const phrases = voice?.brand_phrases_examples ?? [];
-  const diferenciais = Array.isArray(briefing.diferenciais) ? (briefing.diferenciais as string[]) : [];
-  const hashtags = Array.isArray(briefing.hashtags_sugeridas) ? (briefing.hashtags_sugeridas as string[]) : [];
+  const diferenciais = Array.isArray(briefing.diferenciais)
+    ? (briefing.diferenciais as string[])
+    : [];
+  const hashtags = Array.isArray(briefing.hashtags_sugeridas)
+    ? (briefing.hashtags_sugeridas as string[])
+    : [];
 
   const voiceInitial: VoiceState = {
     brand_personality: personality,
@@ -433,12 +542,16 @@ export function StrategyTab({ brandId, clientId }: Scope) {
               <Sparkles className="h-3.5 w-3.5" /> Personalidade da marca
             </div>
             <p className="mt-3 text-sm leading-relaxed text-foreground">
-              {personality || <span className="text-muted-foreground">Voice card ainda não gerado.</span>}
+              {personality || (
+                <span className="text-muted-foreground">Voice card ainda não gerado.</span>
+              )}
             </p>
             {tone.length ? (
               <div className="mt-4 flex flex-wrap gap-1.5">
                 {tone.map((t, i) => (
-                  <Badge key={i} variant="secondary" className="rounded-full font-normal">{t}</Badge>
+                  <Badge key={i} variant="secondary" className="rounded-full font-normal">
+                    {t}
+                  </Badge>
                 ))}
               </div>
             ) : null}
@@ -453,7 +566,10 @@ export function StrategyTab({ brandId, clientId }: Scope) {
             {phrases.length ? (
               <ul className="mt-3 space-y-2">
                 {phrases.map((p, i) => (
-                  <li key={i} className="border-l-2 border-primary/50 pl-3 text-sm italic text-foreground/90">
+                  <li
+                    key={i}
+                    className="border-l-2 border-primary/50 pl-3 text-sm italic text-foreground/90"
+                  >
                     “{p}”
                   </li>
                 ))}
@@ -472,13 +588,22 @@ export function StrategyTab({ brandId, clientId }: Scope) {
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
               <Check className="h-3.5 w-3.5" /> Termos preferidos
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">Vocabulário que reforça o posicionamento.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Vocabulário que reforça o posicionamento.
+            </p>
             <div className="mt-4 flex flex-wrap gap-1.5">
-              {wordsUse.length ? wordsUse.map((w, i) => (
-                <Badge key={i} className="rounded-full border border-emerald-200 bg-emerald-50 font-normal text-emerald-800 hover:bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300">
-                  <Check className="mr-1 h-3 w-3" /> {w}
-                </Badge>
-              )) : <span className="text-xs text-muted-foreground">—</span>}
+              {wordsUse.length ? (
+                wordsUse.map((w, i) => (
+                  <Badge
+                    key={i}
+                    className="rounded-full border border-emerald-200 bg-emerald-50 font-normal text-emerald-800 hover:bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300"
+                  >
+                    <Check className="mr-1 h-3 w-3" /> {w}
+                  </Badge>
+                ))
+              ) : (
+                <span className="text-xs text-muted-foreground">—</span>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -488,20 +613,29 @@ export function StrategyTab({ brandId, clientId }: Scope) {
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-rose-700 dark:text-rose-400">
               <Ban className="h-3.5 w-3.5" /> Palavras proibidas
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">Termos que devem ser evitados na comunicação.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Termos que devem ser evitados na comunicação.
+            </p>
             <div className="mt-4 flex flex-wrap gap-1.5">
-              {wordsAvoid.length ? wordsAvoid.map((w, i) => (
-                <Badge key={i} className="rounded-full border border-rose-200 bg-rose-50 font-normal text-rose-800 hover:bg-rose-50 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
-                  <Ban className="mr-1 h-3 w-3" /> {w}
-                </Badge>
-              )) : <span className="text-xs text-muted-foreground">—</span>}
+              {wordsAvoid.length ? (
+                wordsAvoid.map((w, i) => (
+                  <Badge
+                    key={i}
+                    className="rounded-full border border-rose-200 bg-rose-50 font-normal text-rose-800 hover:bg-rose-50 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300"
+                  >
+                    <Ban className="mr-1 h-3 w-3" /> {w}
+                  </Badge>
+                ))
+              ) : (
+                <span className="text-xs text-muted-foreground">—</span>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Diferenciais + Hashtags */}
-      {(diferenciais.length || hashtags.length) ? (
+      {diferenciais.length || hashtags.length ? (
         <div className="grid gap-4 md:grid-cols-2">
           {diferenciais.length ? (
             <Card>
@@ -511,7 +645,9 @@ export function StrategyTab({ brandId, clientId }: Scope) {
                 </div>
                 <div className="mt-4 flex flex-wrap gap-1.5">
                   {diferenciais.map((d, i) => (
-                    <Badge key={i} variant="outline" className="rounded-full font-normal">{d}</Badge>
+                    <Badge key={i} variant="outline" className="rounded-full font-normal">
+                      {d}
+                    </Badge>
                   ))}
                 </div>
               </CardContent>
@@ -525,7 +661,11 @@ export function StrategyTab({ brandId, clientId }: Scope) {
                 </div>
                 <div className="mt-4 flex flex-wrap gap-1.5">
                   {hashtags.map((h, i) => (
-                    <Badge key={i} variant="secondary" className="rounded-full font-mono text-[11px] font-normal">
+                    <Badge
+                      key={i}
+                      variant="secondary"
+                      className="rounded-full font-mono text-[11px] font-normal"
+                    >
                       {h.startsWith("#") ? h : `#${h}`}
                     </Badge>
                   ))}
@@ -602,7 +742,13 @@ export function TargetTab({ brandId, clientId }: Scope) {
           </div>
           <div className="flex items-center gap-2">
             <ContextSourceBadge source="persona" />
-            <Button variant="outline" size="sm" onClick={() => setPersonasOpen(true)} disabled={!personasId} className="h-8 gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPersonasOpen(true)}
+              disabled={!personasId}
+              className="h-8 gap-1.5"
+            >
               <Pencil className="h-3.5 w-3.5" /> Editar
             </Button>
           </div>
@@ -626,7 +772,13 @@ export function TargetTab({ brandId, clientId }: Scope) {
           </h3>
           <div className="flex items-center gap-2">
             <ContextSourceBadge source="persona" />
-            <Button variant="outline" size="sm" onClick={() => setCohortsOpen(true)} disabled={!cohortsId} className="h-8 gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCohortsOpen(true)}
+              disabled={!cohortsId}
+              className="h-8 gap-1.5"
+            >
               <Pencil className="h-3.5 w-3.5" /> Editar
             </Button>
           </div>
@@ -640,7 +792,9 @@ export function TargetTab({ brandId, clientId }: Scope) {
                     <div className="text-sm font-semibold text-foreground">{c.name}</div>
                     <div className="flex flex-wrap gap-1">
                       {(c.target_personas ?? []).map((tp, j) => (
-                        <Badge key={j} variant="secondary" className="rounded-full font-normal">{tp}</Badge>
+                        <Badge key={j} variant="secondary" className="rounded-full font-normal">
+                          {tp}
+                        </Badge>
                       ))}
                     </div>
                   </div>
@@ -695,7 +849,11 @@ export function TargetTab({ brandId, clientId }: Scope) {
 }
 
 function DiagnosticCard({
-  icon: Icon, label, value, className, iconClass,
+  icon: Icon,
+  label,
+  value,
+  className,
+  iconClass,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
@@ -706,10 +864,14 @@ function DiagnosticCard({
   return (
     <div className={`rounded-xl border p-5 ${className ?? ""}`}>
       <div className="flex items-center gap-2">
-        <div className={`flex h-8 w-8 items-center justify-center rounded-full bg-white/70 dark:bg-background/40 ${iconClass ?? ""}`}>
+        <div
+          className={`flex h-8 w-8 items-center justify-center rounded-full bg-white/70 dark:bg-background/40 ${iconClass ?? ""}`}
+        >
           <Icon className="h-4 w-4" />
         </div>
-        <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">{label}</div>
+        <div className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+          {label}
+        </div>
       </div>
       <p className="mt-3 text-sm font-medium leading-snug text-foreground">
         {value || <span className="text-muted-foreground">—</span>}
@@ -727,7 +889,8 @@ function summarizeDiagnostic(personas: NormalizedPersona[]) {
     return "";
   };
   return {
-    consciencia: first((p) => p.nivel_consciencia) || (personas.length ? "Consciência do problema" : ""),
+    consciencia:
+      first((p) => p.nivel_consciencia) || (personas.length ? "Consciência do problema" : ""),
     barreira: first((p) => p.objecao_dominante) || first((p) => p.dor_principal),
     ciclo: first((p) => p.ciclo_compra) || (personas.length ? "Decisão considerada" : ""),
   };
@@ -756,7 +919,10 @@ function PersonaCard({ persona, onOpen }: { persona: NormalizedPersona; onOpen: 
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold text-foreground">{persona.nome}</div>
           {persona.arquetipo ? (
-            <Badge variant="secondary" className="mt-1 rounded-full border border-sky-200 bg-sky-50 font-normal text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300">
+            <Badge
+              variant="secondary"
+              className="mt-1 rounded-full border border-sky-200 bg-sky-50 font-normal text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300"
+            >
               {persona.arquetipo}
             </Badge>
           ) : null}
@@ -765,7 +931,9 @@ function PersonaCard({ persona, onOpen }: { persona: NormalizedPersona; onOpen: 
 
       {persona.motivacao || persona.descricao ? (
         <div className="mt-4">
-          <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">Motivação</div>
+          <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+            Motivação
+          </div>
           <p className="mt-1 line-clamp-3 text-xs leading-relaxed text-foreground/80">
             {persona.motivacao || persona.descricao}
           </p>
@@ -774,7 +942,9 @@ function PersonaCard({ persona, onOpen }: { persona: NormalizedPersona; onOpen: 
 
       {persona.dor_principal || persona.dores[0] ? (
         <div className="mt-3">
-          <div className="text-[10px] font-medium uppercase tracking-widest text-rose-500">Dor principal</div>
+          <div className="text-[10px] font-medium uppercase tracking-widest text-rose-500">
+            Dor principal
+          </div>
           <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-foreground/80">
             {persona.dor_principal || persona.dores[0]}
           </p>
@@ -783,7 +953,8 @@ function PersonaCard({ persona, onOpen }: { persona: NormalizedPersona; onOpen: 
 
       <div className="mt-auto pt-4">
         <span className="inline-flex items-center gap-1 text-xs font-medium text-sky-600 group-hover:text-sky-700 dark:text-sky-400">
-          Ver detalhamento completo <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+          Ver detalhamento completo{" "}
+          <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
         </span>
       </div>
     </button>
@@ -791,7 +962,10 @@ function PersonaCard({ persona, onOpen }: { persona: NormalizedPersona; onOpen: 
 }
 
 function DrawerSection({
-  icon: Icon, label, iconClass, children,
+  icon: Icon,
+  label,
+  iconClass,
+  children,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
@@ -802,19 +976,29 @@ function DrawerSection({
     <div>
       <div className="flex items-center gap-2">
         <Icon className={`h-3.5 w-3.5 ${iconClass ?? "text-primary"}`} />
-        <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{label}</div>
+        <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+          {label}
+        </div>
       </div>
       <div className="mt-2 text-sm leading-relaxed text-foreground/90">{children}</div>
     </div>
   );
 }
 
-function PersonaDrawer({ persona, onClose }: { persona: NormalizedPersona | null; onClose: () => void }) {
+function PersonaDrawer({
+  persona,
+  onClose,
+}: {
+  persona: NormalizedPersona | null;
+  onClose: () => void;
+}) {
   const open = !!persona;
   return (
     <ExpandedModal
       open={open}
-      onOpenChange={(o) => { if (!o) onClose(); }}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
       size="sm"
       title={
         <span className="flex items-center gap-3">
@@ -828,7 +1012,10 @@ function PersonaDrawer({ persona, onClose }: { persona: NormalizedPersona | null
         persona?.arquetipo ? (
           <span className="flex items-center gap-1">
             Arquétipo:{" "}
-            <Badge variant="secondary" className="rounded-full border border-sky-200 bg-sky-50 font-normal text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300">
+            <Badge
+              variant="secondary"
+              className="rounded-full border border-sky-200 bg-sky-50 font-normal text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-300"
+            >
               {persona.arquetipo}
             </Badge>
           </span>
@@ -837,106 +1024,126 @@ function PersonaDrawer({ persona, onClose }: { persona: NormalizedPersona | null
         )
       }
     >
-        {persona ? (
-          <>
-            <div className="space-y-5">
-              {persona.logica_compra ? (
-                <blockquote className="rounded-r-md border-l-4 border-primary/60 bg-primary/5 px-4 py-3 text-sm italic leading-relaxed text-foreground/90">
-                  “{persona.logica_compra}”
-                  <footer className="mt-1 text-[11px] not-italic uppercase tracking-widest text-muted-foreground">
-                    Lógica de compra
-                  </footer>
-                </blockquote>
-              ) : null}
+      {persona ? (
+        <>
+          <div className="space-y-5">
+            {persona.logica_compra ? (
+              <blockquote className="rounded-r-md border-l-4 border-primary/60 bg-primary/5 px-4 py-3 text-sm italic leading-relaxed text-foreground/90">
+                “{persona.logica_compra}”
+                <footer className="mt-1 text-[11px] not-italic uppercase tracking-widest text-muted-foreground">
+                  Lógica de compra
+                </footer>
+              </blockquote>
+            ) : null}
 
-              {persona.descricao || persona.motivacao ? (
-                <DrawerSection icon={Sparkles} label="Perfil & motivação" iconClass="text-primary">
-                  <p>{persona.motivacao || persona.descricao}</p>
-                </DrawerSection>
-              ) : null}
+            {persona.descricao || persona.motivacao ? (
+              <DrawerSection icon={Sparkles} label="Perfil & motivação" iconClass="text-primary">
+                <p>{persona.motivacao || persona.descricao}</p>
+              </DrawerSection>
+            ) : null}
 
-              <Separator />
+            <Separator />
 
-              <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                Psicologia da compra
-              </div>
+            <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+              Psicologia da compra
+            </div>
 
-              {persona.fator_confianca ? (
-                <DrawerSection icon={BadgeCheck} label="Fator de confiança" iconClass="text-emerald-500">
-                  <p>{persona.fator_confianca}</p>
-                </DrawerSection>
-              ) : null}
+            {persona.fator_confianca ? (
+              <DrawerSection
+                icon={BadgeCheck}
+                label="Fator de confiança"
+                iconClass="text-emerald-500"
+              >
+                <p>{persona.fator_confianca}</p>
+              </DrawerSection>
+            ) : null}
 
-              {persona.como_decide ? (
-                <DrawerSection icon={Target} label="Como decide" iconClass="text-sky-500">
-                  <p>{persona.como_decide}</p>
-                </DrawerSection>
-              ) : null}
+            {persona.como_decide ? (
+              <DrawerSection icon={Target} label="Como decide" iconClass="text-sky-500">
+                <p>{persona.como_decide}</p>
+              </DrawerSection>
+            ) : null}
 
-              {persona.objecao_dominante ? (
-                <DrawerSection icon={AlertTriangle} label="Objeção dominante" iconClass="text-amber-500">
-                  <p>{persona.objecao_dominante}</p>
-                </DrawerSection>
-              ) : null}
+            {persona.objecao_dominante ? (
+              <DrawerSection
+                icon={AlertTriangle}
+                label="Objeção dominante"
+                iconClass="text-amber-500"
+              >
+                <p>{persona.objecao_dominante}</p>
+              </DrawerSection>
+            ) : null}
 
-              {persona.estilo_comunicacao ? (
-                <DrawerSection icon={MessageSquare} label="Estilo de comunicação esperado" iconClass="text-violet-500">
-                  <p>{persona.estilo_comunicacao}</p>
-                </DrawerSection>
-              ) : null}
+            {persona.estilo_comunicacao ? (
+              <DrawerSection
+                icon={MessageSquare}
+                label="Estilo de comunicação esperado"
+                iconClass="text-violet-500"
+              >
+                <p>{persona.estilo_comunicacao}</p>
+              </DrawerSection>
+            ) : null}
 
-              {(persona.dores.length || persona.dor_principal) ? (
-                <>
-                  <Separator />
-                  <DrawerSection icon={Flame} label="Dores mapeadas" iconClass="text-rose-500">
-                    <ul className="space-y-1.5">
-                      {(persona.dores.length ? persona.dores : [persona.dor_principal]).map((d, i) => (
+            {persona.dores.length || persona.dor_principal ? (
+              <>
+                <Separator />
+                <DrawerSection icon={Flame} label="Dores mapeadas" iconClass="text-rose-500">
+                  <ul className="space-y-1.5">
+                    {(persona.dores.length ? persona.dores : [persona.dor_principal]).map(
+                      (d, i) => (
                         <li key={i} className="flex gap-2 text-sm">
                           <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-rose-400" />
                           <span>{d}</span>
                         </li>
-                      ))}
-                    </ul>
-                  </DrawerSection>
-                </>
-              ) : null}
-
-              {persona.canais_preferidos.length ? (
-                <DrawerSection icon={Layers} label="Canais preferidos" iconClass="text-muted-foreground">
-                  <div className="flex flex-wrap gap-1.5">
-                    {persona.canais_preferidos.map((c, i) => (
-                      <Badge key={i} variant="outline" className="rounded-full font-normal">{c}</Badge>
-                    ))}
-                  </div>
+                      ),
+                    )}
+                  </ul>
                 </DrawerSection>
-              ) : null}
+              </>
+            ) : null}
 
-              {(persona.nivel_consciencia || persona.ciclo_compra) ? (
-                <>
-                  <Separator />
-                  <div className="grid grid-cols-2 gap-3">
-                    {persona.nivel_consciencia ? (
-                      <div className="rounded-lg border border-border bg-muted/40 p-3">
-                        <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-                          <Eye className="h-3 w-3" /> Consciência
-                        </div>
-                        <p className="mt-1 text-xs text-foreground">{persona.nivel_consciencia}</p>
+            {persona.canais_preferidos.length ? (
+              <DrawerSection
+                icon={Layers}
+                label="Canais preferidos"
+                iconClass="text-muted-foreground"
+              >
+                <div className="flex flex-wrap gap-1.5">
+                  {persona.canais_preferidos.map((c, i) => (
+                    <Badge key={i} variant="outline" className="rounded-full font-normal">
+                      {c}
+                    </Badge>
+                  ))}
+                </div>
+              </DrawerSection>
+            ) : null}
+
+            {persona.nivel_consciencia || persona.ciclo_compra ? (
+              <>
+                <Separator />
+                <div className="grid grid-cols-2 gap-3">
+                  {persona.nivel_consciencia ? (
+                    <div className="rounded-lg border border-border bg-muted/40 p-3">
+                      <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                        <Eye className="h-3 w-3" /> Consciência
                       </div>
-                    ) : null}
-                    {persona.ciclo_compra ? (
-                      <div className="rounded-lg border border-border bg-muted/40 p-3">
-                        <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-                          <Clock className="h-3 w-3" /> Ciclo
-                        </div>
-                        <p className="mt-1 text-xs text-foreground">{persona.ciclo_compra}</p>
+                      <p className="mt-1 text-xs text-foreground">{persona.nivel_consciencia}</p>
+                    </div>
+                  ) : null}
+                  {persona.ciclo_compra ? (
+                    <div className="rounded-lg border border-border bg-muted/40 p-3">
+                      <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+                        <Clock className="h-3 w-3" /> Ciclo
                       </div>
-                    ) : null}
-                  </div>
-                </>
-              ) : null}
-            </div>
-          </>
-        ) : null}
+                      <p className="mt-1 text-xs text-foreground">{persona.ciclo_compra}</p>
+                    </div>
+                  ) : null}
+                </div>
+              </>
+            ) : null}
+          </div>
+        </>
+      ) : null}
     </ExpandedModal>
   );
 }
@@ -1014,7 +1221,13 @@ export function MarketTab({ brandId, clientId }: Scope) {
         </div>
         <div className="flex items-center gap-2">
           <ContextSourceBadge source="competitors" />
-          <Button variant="outline" size="sm" onClick={() => setSwotOpen(true)} disabled={!swotId} className="h-8 gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setSwotOpen(true)}
+            disabled={!swotId}
+            className="h-8 gap-1.5"
+          >
             <Pencil className="h-3.5 w-3.5" /> Editar SWOT
           </Button>
         </div>
@@ -1031,7 +1244,10 @@ export function MarketTab({ brandId, clientId }: Scope) {
             <ul className="mt-4 space-y-2">
               {q.items.length ? (
                 q.items.map((it, i) => (
-                  <li key={i} className="flex items-start gap-2 text-xs leading-relaxed text-foreground/90">
+                  <li
+                    key={i}
+                    className="flex items-start gap-2 text-xs leading-relaxed text-foreground/90"
+                  >
                     <q.bullet className={`mt-0.5 h-3.5 w-3.5 shrink-0 ${q.bulletTone}`} />
                     <span>{it}</span>
                   </li>
@@ -1174,8 +1390,12 @@ export function TopicsTab({ brandId, clientId }: { brandId: string; clientId: st
                 {p.cohort_alvo ? <Chip>{p.cohort_alvo}</Chip> : null}
                 {sent ? <Chip tone="success">no pipeline</Chip> : null}
               </div>
-              <div className="mt-1.5 truncate text-sm font-semibold text-foreground">{p.titulo}</div>
-              {p.gancho ? <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{p.gancho}</div> : null}
+              <div className="mt-1.5 truncate text-sm font-semibold text-foreground">
+                {p.titulo}
+              </div>
+              {p.gancho ? (
+                <div className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{p.gancho}</div>
+              ) : null}
             </div>
             <Button
               size="sm"

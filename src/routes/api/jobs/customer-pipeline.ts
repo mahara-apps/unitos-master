@@ -17,7 +17,6 @@ import {
 import { loadCanonicalBriefing } from "@/lib/briefing-source.server";
 import { filterRowsByPrefs } from "@/lib/notification-prefs";
 
-
 // Two-phase pipeline — Phase 1 (Strategy).
 // Executa briefing → voz → personas → cohorts → SWOT, mas UMA etapa por
 // requisição HTTP: ao terminar a etapa, o runner agenda a próxima chamando
@@ -158,8 +157,12 @@ function composeBriefingFromRecord(
   push("Desejos", hub.desires, "publico");
 
   // Concorrentes / inspirações
-  const competitors = Array.isArray(hub.competitors) ? (hub.competitors as Array<Record<string, unknown>>) : [];
-  const compHandles = competitors.map((c) => (typeof c.handle === "string" ? c.handle : "")).filter(Boolean);
+  const competitors = Array.isArray(hub.competitors)
+    ? (hub.competitors as Array<Record<string, unknown>>)
+    : [];
+  const compHandles = competitors
+    .map((c) => (typeof c.handle === "string" ? c.handle : ""))
+    .filter(Boolean);
   push("Concorrentes / referências", compHandles, "concorrentes");
   push("Inspirações", hub.inspirations as unknown, "concorrentes");
 
@@ -168,14 +171,19 @@ function composeBriefingFromRecord(
   const paletteHex = palette.map((p) => (typeof p.hex === "string" ? p.hex : "")).filter(Boolean);
   push("Paleta", paletteHex, "estetica");
   const hashtags = hub.hashtags as string[] | undefined;
-  push("Hashtags", hashtags?.map((h) => (h.startsWith("#") ? h : `#${h}`)), "estetica");
+  push(
+    "Hashtags",
+    hashtags?.map((h) => (h.startsWith("#") ? h : `#${h}`)),
+    "estetica",
+  );
   const doDont = (hub.do_dont ?? {}) as { do?: string; dont?: string };
   push("Do", doDont.do, "estetica");
   push("Don't", doDont.dont, "estetica");
 
   // Volumetria, formatos & metas
   const vol = (hub.volumetry ?? {}) as Record<string, number | undefined>;
-  const volBasis = (hub as { volumetry_basis?: unknown }).volumetry_basis === "monthly" ? "mês" : "sem";
+  const volBasis =
+    (hub as { volumetry_basis?: unknown }).volumetry_basis === "monthly" ? "mês" : "sem";
   const volStr = Object.entries(vol)
     .filter(([, n]) => typeof n === "number" && (n as number) > 0)
     .map(([k, n]) => `${k}: ${n}/${volBasis}`)
@@ -201,11 +209,17 @@ function composeBriefingFromRecord(
   const prior = opts.priorBriefingData ?? null;
   if (prior && Object.keys(prior).length > 0) {
     const priorLines = Object.entries(prior)
-      .filter(([, v]) => v != null && (Array.isArray(v) ? v.length > 0 : String(v).trim().length > 0))
+      .filter(
+        ([, v]) => v != null && (Array.isArray(v) ? v.length > 0 : String(v).trim().length > 0),
+      )
       .map(([k, v]) => `- ${k}: ${Array.isArray(v) ? v.join(", ") : String(v)}`)
       .slice(0, 40);
     if (priorLines.length) {
-      lines.push("", "Contexto consolidado do briefing (inclui documentos aplicados):", ...priorLines);
+      lines.push(
+        "",
+        "Contexto consolidado do briefing (inclui documentos aplicados):",
+        ...priorLines,
+      );
       sources.documentos = true;
     }
   }
@@ -235,8 +249,14 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   return new Promise<T>((resolve, reject) => {
     const t = setTimeout(() => reject(new Error(`Timeout de ${ms}ms em ${label}`)), ms);
     promise.then(
-      (v) => { clearTimeout(t); resolve(v); },
-      (e) => { clearTimeout(t); reject(e); },
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
     );
   });
 }
@@ -349,7 +369,13 @@ async function runJson(opts: {
   strategic: boolean;
   brandId: string;
   step: Step;
-  onAttempt?: (info: { attempt: number; ok: boolean; kind?: FailureKind; retryable?: boolean; message?: string }) => Promise<void>;
+  onAttempt?: (info: {
+    attempt: number;
+    ok: boolean;
+    kind?: FailureKind;
+    retryable?: boolean;
+    message?: string;
+  }) => Promise<void>;
 }): Promise<{ value: unknown; provider: string; modelId: string }> {
   const maxAttempts = BACKOFF_MS.length + 1;
   const role = opts.strategic ? "strategic" : "operational";
@@ -402,7 +428,6 @@ async function runJson(opts: {
   throw new StepFailure(lastKind, lastRetryable, unwrapAiError(lastErr).text.slice(0, 800));
 }
 
-
 const P = {
   briefing:
     "Você é um estrategista de marketing sênior. Estruture o briefing bruto em JSON limpo. Nunca invente informação. Responda SOMENTE JSON, sem markdown, com as chaves: publico_alvo, tom_de_voz, dores_do_cliente_final[], diferenciais[], hashtags_sugeridas[], concorrentes_mencionados[], volume_semanal_estimado (número ou null), completude_percentual (0-100).",
@@ -412,8 +437,7 @@ const P = {
     "Você é um estrategista sênior. Gere 3–5 personas acionáveis a partir do briefing. Use EXATAMENTE as chaves: personas[] com nome, descricao, dores, desejos, canais_preferidos, gatilhos_de_decisao, objecoes_comuns. Não use nome_persona nem biografia. Responda SOMENTE JSON.",
   cohorts:
     "Você é estrategista sênior. Gere 3–5 cohorts comportamentais. Use EXATAMENTE as chaves em inglês: cohorts[] com name, target_personas, behavioral_traits, content_strategy, conversion_criteria. Não traduza chaves. Responda SOMENTE JSON.",
-  swot:
-    "Você é estrategista sênior. Gere SWOT + matriz competitiva. Use EXATAMENTE as chaves em inglês: swot_analysis.strengths, weaknesses, opportunities, threats; competitive_matrix[] com competitor_name, our_advantages, vulnerabilities. Não traduza chaves. Responda SOMENTE JSON.",
+  swot: "Você é estrategista sênior. Gere SWOT + matriz competitiva. Use EXATAMENTE as chaves em inglês: swot_analysis.strengths, weaknesses, opportunities, threats; competitive_matrix[] com competitor_name, our_advantages, vulnerabilities. Não traduza chaves. Responda SOMENTE JSON.",
 };
 
 // ---------------- Normalizers ----------------
@@ -422,8 +446,10 @@ const P = {
 
 type AnyRec = Record<string, unknown>;
 const asStr = (v: unknown, d = ""): string => (typeof v === "string" ? v : d);
-const asArr = (v: unknown): string[] => (Array.isArray(v) ? (v as string[]).filter((x) => typeof x === "string") : []);
-const asNum = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+const asArr = (v: unknown): string[] =>
+  Array.isArray(v) ? (v as string[]).filter((x) => typeof x === "string") : [];
+const asNum = (v: unknown): number | null =>
+  typeof v === "number" && Number.isFinite(v) ? v : null;
 
 function normalizeBriefingPayload(raw: unknown): z.infer<typeof BriefingSchema> {
   const r = (raw ?? {}) as AnyRec;
@@ -434,7 +460,9 @@ function normalizeBriefingPayload(raw: unknown): z.infer<typeof BriefingSchema> 
       ? asArr(r.dores_do_cliente_final)
       : asArr(r.dores),
     diferenciais: asArr(r.diferenciais),
-    hashtags_sugeridas: asArr(r.hashtags_sugeridas).length ? asArr(r.hashtags_sugeridas) : asArr(r.hashtags),
+    hashtags_sugeridas: asArr(r.hashtags_sugeridas).length
+      ? asArr(r.hashtags_sugeridas)
+      : asArr(r.hashtags),
     concorrentes_mencionados: asArr(r.concorrentes_mencionados).length
       ? asArr(r.concorrentes_mencionados)
       : asArr(r.concorrentes),
@@ -522,9 +550,13 @@ function normalizeCohortsPayload(raw: unknown): z.infer<typeof CohortsSchema> {
       behavioral_traits:
         asStr(c.behavioral_traits) || asStr(c.comportamento) || asStr(c.tracos_comportamentais),
       content_strategy:
-        asStr(c.content_strategy) || asStr(c.estrategia_conteudo) || asStr(c.estrategia_de_conteudo),
+        asStr(c.content_strategy) ||
+        asStr(c.estrategia_conteudo) ||
+        asStr(c.estrategia_de_conteudo),
       conversion_criteria:
-        asStr(c.conversion_criteria) || asStr(c.criterio_conversao) || asStr(c.criterio_de_conversao),
+        asStr(c.conversion_criteria) ||
+        asStr(c.criterio_conversao) ||
+        asStr(c.criterio_de_conversao),
     })),
   };
 }
@@ -541,7 +573,9 @@ function normalizeSwotPayload(raw: unknown): z.infer<typeof SwotSchema> {
     swot_analysis: {
       strengths: asArr(a.strengths).length ? asArr(a.strengths) : asArr(a.forcas),
       weaknesses: asArr(a.weaknesses).length ? asArr(a.weaknesses) : asArr(a.fraquezas),
-      opportunities: asArr(a.opportunities).length ? asArr(a.opportunities) : asArr(a.oportunidades),
+      opportunities: asArr(a.opportunities).length
+        ? asArr(a.opportunities)
+        : asArr(a.oportunidades),
       threats: asArr(a.threats).length ? asArr(a.threats) : asArr(a.ameacas),
     },
     competitive_matrix: matrixRaw.map((c) => ({
@@ -572,7 +606,9 @@ type JobState = {
 /** Resumo compacto para os prompts seguintes — evita reenviar JSON inteiro. */
 function compactPersonas(p: z.infer<typeof PersonasSchema>): string {
   return p.personas
-    .map((x) => `${x.nome}: ${x.descricao.slice(0, 180)} | dores: ${x.dores.slice(0, 3).join(", ")}`)
+    .map(
+      (x) => `${x.nome}: ${x.descricao.slice(0, 180)} | dores: ${x.dores.slice(0, 3).join(", ")}`,
+    )
     .join("\n");
 }
 function compactCohorts(c: z.infer<typeof CohortsSchema>): string {
@@ -609,7 +645,8 @@ function assertValidOutput(step: Step, payload: unknown): void {
   if (step === "personas") {
     const list = (payload as z.infer<typeof PersonasSchema>).personas;
     if (list.length === 0) fail("nenhuma persona gerada");
-    if (!list.some((p) => nonEmpty(p.descricao) || p.dores.length > 0)) fail("personas sem conteúdo");
+    if (!list.some((p) => nonEmpty(p.descricao) || p.dores.length > 0))
+      fail("personas sem conteúdo");
     return;
   }
   if (step === "cohorts") {
@@ -659,7 +696,8 @@ async function replaceActive(
     .eq("client_id", state.clientId)
     .eq("is_active", true)
     .neq("id", inserted.id);
-  if (deactErr) console.warn(`[customer-pipeline] falha ao desativar registros antigos em ${table}`, deactErr);
+  if (deactErr)
+    console.warn(`[customer-pipeline] falha ao desativar registros antigos em ${table}`, deactErr);
 }
 
 /** Auditoria de tentativa em `activity_events` — mesmo padrão da Copy. */
@@ -700,7 +738,6 @@ async function logStrategyAttempt(
     // auditoria não crítica
   }
 }
-
 
 async function runStep(params: {
   jobId: string;
@@ -772,7 +809,6 @@ async function runStep(params: {
         step,
         ...info,
       });
-
 
     if (step === "briefing") {
       const { value, provider, modelId } = await runJson({
@@ -879,8 +915,7 @@ async function runStep(params: {
     // Interrupção segura: a cadeia PARA aqui. Nada é apagado, nada falso é
     // gravado e as etapas restantes ficam retomáveis.
     const { kind, retryable } = classifyAiError(err);
-    const detail =
-      err instanceof StepFailure ? err.detail : unwrapAiError(err).text.slice(0, 800);
+    const detail = err instanceof StepFailure ? err.detail : unwrapAiError(err).text.slice(0, 800);
     const m = FAILURE_MESSAGE_PT[kind];
     const message = `${m.title} — etapa "${STEP_META[step].label}". ${m.body}`;
 
@@ -953,7 +988,6 @@ async function finishJob(
   });
 }
 
-
 /**
  * Agenda a próxima etapa como uma nova requisição a esta mesma rota.
  * Se a subrequisição falhar (rede/isolate/401), executa a etapa inline no
@@ -1012,9 +1046,7 @@ async function scheduleStep(opts: {
       })
       .eq("id", opts.jobId);
   }
-
 }
-
 
 export const Route = createFileRoute("/api/jobs/customer-pipeline")({
   server: {
@@ -1083,12 +1115,14 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
           }),
         ]);
         if (clientRes.error || !clientRes.data) {
-          return new Response(clientRes.error?.message ?? "Cliente não encontrado", { status: 404 });
+          return new Response(clientRes.error?.message ?? "Cliente não encontrado", {
+            status: 404,
+          });
         }
 
-        const documents = ((docsRes.data ?? []) as Array<{ name: string | null; ai_summary: unknown }>).map(
-          (d) => ({ name: d.name, summary: d.ai_summary }),
-        );
+        const documents = (
+          (docsRes.data ?? []) as Array<{ name: string | null; ai_summary: unknown }>
+        ).map((d) => ({ name: d.name, summary: d.ai_summary }));
         const canonicalBriefing = priorRes;
         const { text: composed, sources } = composeBriefingFromRecord(
           {
@@ -1188,10 +1222,7 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
           return new Response(jobErr?.message ?? "Failed to enqueue", { status: 500 });
         }
 
-        waitUntil(
-          runStep({ jobId: job.id, step: startStep, token, userId, baseUrl }),
-        );
-
+        waitUntil(runStep({ jobId: job.id, step: startStep, token, userId, baseUrl }));
 
         return new Response(JSON.stringify({ jobId: job.id }), {
           status: 202,

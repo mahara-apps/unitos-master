@@ -88,12 +88,12 @@ export const Route = createFileRoute("/_authenticated/analytics")({
 // Design System: canais mapeados aos 7 tons semânticos (sem cores off-palette).
 const CHANNEL_META: Record<string, { label: string; color: string; Icon: typeof Instagram }> = {
   instagram: { label: "Instagram", color: "#ec4899", Icon: Instagram }, // pink-500
-  tiktok: { label: "TikTok", color: "#71717a", Icon: Music2 },          // neutral-500
-  youtube: { label: "YouTube", color: "#f43f5e", Icon: Youtube },       // rose-500
-  linkedin: { label: "LinkedIn", color: "#0ea5e9", Icon: Linkedin },    // sky-500
-  facebook: { label: "Facebook", color: "#0ea5e9", Icon: Facebook },    // sky-500
-  x: { label: "X", color: "#71717a", Icon: TrendingUp },                // neutral-500
-  threads: { label: "Threads", color: "#71717a", Icon: TrendingUp },    // neutral-500
+  tiktok: { label: "TikTok", color: "#71717a", Icon: Music2 }, // neutral-500
+  youtube: { label: "YouTube", color: "#f43f5e", Icon: Youtube }, // rose-500
+  linkedin: { label: "LinkedIn", color: "#0ea5e9", Icon: Linkedin }, // sky-500
+  facebook: { label: "Facebook", color: "#0ea5e9", Icon: Facebook }, // sky-500
+  x: { label: "X", color: "#71717a", Icon: TrendingUp }, // neutral-500
+  threads: { label: "Threads", color: "#71717a", Icon: TrendingUp }, // neutral-500
 };
 
 const FORMAT_LABEL: Record<string, string> = {
@@ -116,9 +116,7 @@ const STAGE_LABEL: Record<string, string> = {
 
 function AnalyticsPage() {
   const { brandId, clientId } = useActiveContext();
-  const [range, setRange] = useState<DateRange | undefined>(() =>
-    daysToDateRange(30),
-  );
+  const [range, setRange] = useState<DateRange | undefined>(() => daysToDateRange(30));
   const [filters, setFilters] = useState<{
     client_ids: string[];
     assignee_ids: string[];
@@ -193,7 +191,6 @@ function AnalyticsPage() {
         },
       }),
   });
-
 
   usePageHeader(
     {
@@ -291,7 +288,9 @@ function SlaPanel({ data }: { data: SlaSnapshot | undefined }) {
           <CardTitle className="flex items-center gap-2 text-base">
             <AlarmClock className="h-4 w-4 text-rose-500" /> Atrasos ativos por responsável
           </CardTitle>
-          <CardDescription>Snapshot atual · {data.activeOverdue} tarefa(s) atrasada(s)</CardDescription>
+          <CardDescription>
+            Snapshot atual · {data.activeOverdue} tarefa(s) atrasada(s)
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="divide-y divide-border">
@@ -304,7 +303,10 @@ function SlaPanel({ data }: { data: SlaSnapshot | undefined }) {
                   </Avatar>
                   <span className="truncate text-sm">{u.full_name}</span>
                 </div>
-                <Badge variant="outline" className="border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                <Badge
+                  variant="outline"
+                  className="border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                >
                   {u.overdue}
                 </Badge>
               </div>
@@ -326,10 +328,14 @@ function SlaPanel({ data }: { data: SlaSnapshot | undefined }) {
                 <span className="truncate">
                   {s.label}{" "}
                   <span className="text-muted-foreground">
-                    · SLA {s.sla_hours < 24 ? `${s.sla_hours}h` : `${Math.round(s.sla_hours / 24)}d`}
+                    · SLA{" "}
+                    {s.sla_hours < 24 ? `${s.sla_hours}h` : `${Math.round(s.sla_hours / 24)}d`}
                   </span>
                 </span>
-                <Badge variant="outline" className="border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                <Badge
+                  variant="outline"
+                  className="border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                >
                   {s.overdue}
                 </Badge>
               </div>
@@ -433,7 +439,10 @@ function SocialTab({
         <KpiCard
           label="Canais ativos"
           value={data.byChannel.length}
-          hint={data.byChannel.map((c) => CHANNEL_META[c.channel]?.label ?? c.channel).join(" · ") || "—"}
+          hint={
+            data.byChannel.map((c) => CHANNEL_META[c.channel]?.label ?? c.channel).join(" · ") ||
+            "—"
+          }
           Icon={TrendingUp}
           accent="violet"
         />
@@ -461,7 +470,13 @@ function SocialTab({
                 <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                 <XAxis dataKey="week" fontSize={11} stroke="hsl(var(--muted-foreground))" />
                 <YAxis fontSize={11} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
-                <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                <Tooltip
+                  contentStyle={{
+                    background: "hsl(var(--popover))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: 8,
+                  }}
+                />
                 <Area
                   type="monotone"
                   dataKey="count"
@@ -540,7 +555,10 @@ function DistributionList({
               </span>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full" style={{ width: `${pct}%`, background: it.color }} />
+              <div
+                className="h-full rounded-full"
+                style={{ width: `${pct}%`, background: it.color }}
+              />
             </div>
           </div>
         );
@@ -583,10 +601,35 @@ function ProductionTab({
                 <LineChart data={data.dailySeries}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                   <XAxis dataKey="date" fontSize={11} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis fontSize={11} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
-                  <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
-                  <Line type="monotone" dataKey="created" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} name="Criados" />
-                  <Line type="monotone" dataKey="published" stroke="#10b981" strokeWidth={2} dot={false} name="Publicados" />{/* emerald-500 */}
+                  <YAxis
+                    fontSize={11}
+                    stroke="hsl(var(--muted-foreground))"
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "hsl(var(--popover))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: 8,
+                    }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="created"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={2}
+                    dot={false}
+                    name="Criados"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="published"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    dot={false}
+                    name="Publicados"
+                  />
+                  {/* emerald-500 */}
                 </LineChart>
               </ResponsiveContainer>
             )}
@@ -627,8 +670,18 @@ function ProductionTab({
                 <BarChart data={data.byChannel}>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                   <XAxis dataKey="channel" fontSize={11} stroke="hsl(var(--muted-foreground))" />
-                  <YAxis fontSize={11} stroke="hsl(var(--muted-foreground))" allowDecimals={false} />
-                  <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+                  <YAxis
+                    fontSize={11}
+                    stroke="hsl(var(--muted-foreground))"
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      background: "hsl(var(--popover))",
+                      border: "1px solid hsl(var(--border))",
+                      borderRadius: 8,
+                    }}
+                  />
                   <Bar dataKey="count" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -671,8 +724,18 @@ function TeamTab({
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-3">
         <KpiCard label="Tarefas abertas" value={data.totalOpen} Icon={Layers} accent="amber" />
-        <KpiCard label="Tarefas concluídas" value={data.totalDone} Icon={CheckCircle2} accent="emerald" />
-        <KpiCard label="Pontualidade média" value={`${data.avgPunctuality}%`} Icon={TrendingUp} accent="violet" />
+        <KpiCard
+          label="Tarefas concluídas"
+          value={data.totalDone}
+          Icon={CheckCircle2}
+          accent="emerald"
+        />
+        <KpiCard
+          label="Pontualidade média"
+          value={`${data.avgPunctuality}%`}
+          Icon={TrendingUp}
+          accent="violet"
+        />
       </div>
 
       <Card>
@@ -794,7 +857,11 @@ function HealthBadge({ score }: { score: number }) {
         ? "bg-amber-500/10 text-amber-600 border-amber-500/30 dark:text-amber-400"
         : "bg-rose-500/10 text-rose-600 border-rose-500/30 dark:text-rose-400";
   const label = score >= 80 ? "Saudável" : score >= 60 ? "Atenção" : "Crítico";
-  return <Badge variant="outline" className={tone}>{label}</Badge>;
+  return (
+    <Badge variant="outline" className={tone}>
+      {label}
+    </Badge>
+  );
 }
 
 function EmptyState({ message }: { message: string }) {
@@ -863,7 +930,9 @@ function FiltersSheet({
       <SheetContent className="w-full sm:max-w-md">
         <SheetHeader>
           <SheetTitle>Filtros</SheetTitle>
-          <SheetDescription>Refine a análise por conta, pessoa, projeto, canal e tag.</SheetDescription>
+          <SheetDescription>
+            Refine a análise por conta, pessoa, projeto, canal e tag.
+          </SheetDescription>
         </SheetHeader>
 
         <ScrollArea className="mt-4 h-[calc(100vh-14rem)] pr-4">
@@ -906,7 +975,13 @@ function FiltersSheet({
           <Button
             variant="ghost"
             onClick={() => {
-              const empty = { client_ids: [], assignee_ids: [], project_ids: [], channels: [], tags: [] };
+              const empty = {
+                client_ids: [],
+                assignee_ids: [],
+                project_ids: [],
+                channels: [],
+                tags: [],
+              };
               setDraft(empty);
               setFilters(empty);
             }}

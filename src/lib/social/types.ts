@@ -15,13 +15,7 @@ import type {
 
 export type { DateRange, Metric, ProviderResult, SocialNetwork, TimeSeriesPoint };
 
-export type SocialMediaType =
-  | "image"
-  | "video"
-  | "carousel"
-  | "text"
-  | "other"
-  | null;
+export type SocialMediaType = "image" | "video" | "carousel" | "text" | "other" | null;
 
 export type SocialPost = {
   network: SocialNetwork;

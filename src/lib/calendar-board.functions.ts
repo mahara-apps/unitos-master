@@ -77,13 +77,7 @@ export type PublicationBoard = {
 const familyOf = (format: string) =>
   (format ?? "").toLowerCase().includes("stor") ? "story" : "feed";
 
-const ACTIVE_PLACEMENT_STATUS = [
-  "draft",
-  "scheduled",
-  "publishing",
-  "published",
-  "failed",
-];
+const ACTIVE_PLACEMENT_STATUS = ["draft", "scheduled", "publishing", "published", "failed"];
 
 export const listPublicationBoardFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -162,9 +156,7 @@ export const listPublicationBoardFn = createServerFn({ method: "POST" })
     // 4) Todos os destinos das peças selecionadas.
     const { data: placements, error: allPlErr } = await supabase
       .from("post_placements")
-      .select(
-        "id,post_id,format,status,connection_id,scheduled_at,published_at,copy_override",
-      )
+      .select("id,post_id,format,status,connection_id,scheduled_at,published_at,copy_override")
       .in("post_id", postIds)
       .in("status", ACTIVE_PLACEMENT_STATUS);
     if (allPlErr) throw new Error(allPlErr.message);
@@ -224,22 +216,21 @@ export const listPublicationBoardFn = createServerFn({ method: "POST" })
         .eq("brand_id", data.brandId)
         .in("id", connIds);
       for (const c of conns ?? []) {
-        connMap.set(c.id as string, {
-          channel: (c.channel as string) ?? "",
-          label:
-            (c.account_username as string | null) ??
-            (c.external_name as string | null) ??
-            null,
-        } as { channel: string; label: string });
+        connMap.set(
+          c.id as string,
+          {
+            channel: (c.channel as string) ?? "",
+            label:
+              (c.account_username as string | null) ?? (c.external_name as string | null) ?? null,
+          } as { channel: string; label: string },
+        );
       }
     }
 
     // 7) Autores.
     const userIds = Array.from(
       new Set(
-        (posts ?? [])
-          .map((p) => p.created_by as string | null)
-          .filter((v): v is string => !!v),
+        (posts ?? []).map((p) => p.created_by as string | null).filter((v): v is string => !!v),
       ),
     );
     const authors = new Map<
@@ -283,9 +274,7 @@ export const listPublicationBoardFn = createServerFn({ method: "POST" })
             ((r.placement as string) === "story" ? "story" : "feed") === family,
         );
         const published = mine.find((r) => r.status === "published");
-        const inFlight = mine.find(
-          (r) => r.status === "publishing" || r.status === "scheduled",
-        );
+        const inFlight = mine.find((r) => r.status === "publishing" || r.status === "scheduled");
         const failed = mine.find((r) => r.status === "failed");
         const status = published
           ? "published"
@@ -299,19 +288,16 @@ export const listPublicationBoardFn = createServerFn({ method: "POST" })
         return {
           placementId: pl.id as string,
           connectionId,
-          channel:
-            conn?.channel ??
-            (typeof co.channel === "string" ? (co.channel as string) : ""),
+          channel: conn?.channel ?? (typeof co.channel === "string" ? (co.channel as string) : ""),
           accountLabel: conn?.label ?? null,
           format: pl.format as string,
           status,
           scheduledAt:
-            (pl.scheduled_at as string | null) ??
-            (inFlight?.scheduled_at as string | null) ??
-            null,
+            (pl.scheduled_at as string | null) ?? (inFlight?.scheduled_at as string | null) ?? null,
           publishedAt:
             (published?.published_at as string | null) ??
-            ((pl.published_at as string | null) ?? null),
+            (pl.published_at as string | null) ??
+            null,
           permalink: (published?.external_permalink as string | null) ?? null,
           error: published ? null : ((failed?.last_error as string | null) ?? null),
           attempts: Number(failed?.publish_attempts ?? 0),
@@ -320,19 +306,15 @@ export const listPublicationBoardFn = createServerFn({ method: "POST" })
       });
 
       const stage = (post.stage as string | null) ?? null;
-      const publishedCount = destinations.filter(
-        (d) => d.status === "published",
-      ).length;
+      const publishedCount = destinations.filter((d) => d.status === "published").length;
       const total = destinations.length;
 
       let overall: PublicationOverall;
       if (total > 0 && publishedCount === total) overall = "published";
       else if (publishedCount > 0) overall = "partial";
-      else if (destinations.some((d) => d.status === "publishing"))
-        overall = "publishing";
+      else if (destinations.some((d) => d.status === "publishing")) overall = "publishing";
       else if (destinations.some((d) => d.status === "failed")) overall = "failed";
-      else if (destinations.some((d) => d.status === "scheduled"))
-        overall = "scheduled";
+      else if (destinations.some((d) => d.status === "scheduled")) overall = "scheduled";
       else if (stage === "review") overall = "awaiting_approval";
       else if (stage === "published") overall = "published";
       else if (stage === "scheduled") overall = "scheduled";
@@ -349,7 +331,6 @@ export const listPublicationBoardFn = createServerFn({ method: "POST" })
         (total > 0 && (overall === "failed" || overall === "publishing")
           ? ((post.updated_at as string | null) ?? null)
           : null);
-
 
       const channels = Array.from(
         new Set([
@@ -380,22 +361,17 @@ export const listPublicationBoardFn = createServerFn({ method: "POST" })
         destinations,
         publishedCount,
         totalDestinations: total,
-        author: post.created_by
-          ? (authors.get(post.created_by as string) ?? null)
-          : null,
+        author: post.created_by ? (authors.get(post.created_by as string) ?? null) : null,
       };
     });
 
-    const inWindow = (v: string | null) =>
-      !!v && v >= data.from && v <= data.to;
+    const inWindow = (v: string | null) => !!v && v >= data.from && v <= data.to;
 
     return {
       items: items.filter(
         (it) =>
           inWindow(it.when) ||
-          it.destinations.some(
-            (d) => inWindow(d.scheduledAt) || inWindow(d.publishedAt),
-          ),
+          it.destinations.some((d) => inWindow(d.scheduledAt) || inWindow(d.publishedAt)),
       ),
       awaitingApproval: items.filter((it) => it.overall === "awaiting_approval"),
     };

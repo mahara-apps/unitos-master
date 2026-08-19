@@ -26,11 +26,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -74,7 +70,11 @@ export const DEFAULT_FILTERS: TaskFilters = {
   archive: "active",
 };
 
-export function applyFilters(tasks: TaskRow[], filters: TaskFilters, myId: string | null): TaskRow[] {
+export function applyFilters(
+  tasks: TaskRow[],
+  filters: TaskFilters,
+  myId: string | null,
+): TaskRow[] {
   const q = filters.search.trim().toLowerCase();
   return tasks.filter((t) => {
     if (filters.hideDone && t.status === "done") return false;
@@ -163,16 +163,7 @@ export function TaskToolbar({
 
   function exportCsv() {
     const rows = [
-      [
-        "Título",
-        "Status",
-        "Prioridade",
-        "Responsável",
-        "Projeto",
-        "Cliente",
-        "Prazo",
-        "Criado em",
-      ],
+      ["Título", "Status", "Prioridade", "Responsável", "Projeto", "Cliente", "Prazo", "Criado em"],
       ...tasksToExport.map((t) => [
         t.title,
         STATUS_META[t.status].label,
@@ -280,12 +271,16 @@ export function TaskToolbar({
                 value={filters.assigneeId}
                 onValueChange={(v) => onFiltersChange({ ...filters, assigneeId: v })}
               >
-                <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="me">Apenas minhas</SelectItem>
                   {assignees.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -298,13 +293,19 @@ export function TaskToolbar({
                 </Label>
                 <Select
                   value={filters.clientId}
-                  onValueChange={(v) => onFiltersChange({ ...filters, clientId: v, projectId: "all" })}
+                  onValueChange={(v) =>
+                    onFiltersChange({ ...filters, clientId: v, projectId: "all" })
+                  }
                 >
-                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     {clients.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -317,7 +318,9 @@ export function TaskToolbar({
                   value={filters.projectId}
                   onValueChange={(v) => onFiltersChange({ ...filters, projectId: v })}
                 >
-                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
                     {projects
@@ -328,7 +331,9 @@ export function TaskToolbar({
                           p.client_id === null,
                       )
                       .map((p) => (
-                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name}
+                        </SelectItem>
                       ))}
                   </SelectContent>
                 </Select>
@@ -346,11 +351,15 @@ export function TaskToolbar({
                     onFiltersChange({ ...filters, priority: v as TaskPriority | "all" })
                   }
                 >
-                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todas</SelectItem>
                     {TASK_PRIORITIES.map((p) => (
-                      <SelectItem key={p} value={p}>{PRIORITY_META[p].label}</SelectItem>
+                      <SelectItem key={p} value={p}>
+                        {PRIORITY_META[p].label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -365,7 +374,9 @@ export function TaskToolbar({
                     onFiltersChange({ ...filters, archive: v as TaskFilters["archive"] })
                   }
                 >
-                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="active">Ativas</SelectItem>
                     <SelectItem value="archived">Arquivadas</SelectItem>
@@ -405,7 +416,10 @@ export function TaskToolbar({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             <DropdownMenuLabel>Campo</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={sortKey} onValueChange={(v) => onSortChange(v as SortKey, sortDir)}>
+            <DropdownMenuRadioGroup
+              value={sortKey}
+              onValueChange={(v) => onSortChange(v as SortKey, sortDir)}
+            >
               <DropdownMenuRadioItem value="due">Prazo</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="title">Nome</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="priority">Prioridade</DropdownMenuRadioItem>
@@ -416,7 +430,10 @@ export function TaskToolbar({
             </DropdownMenuRadioGroup>
             <DropdownMenuSeparator />
             <DropdownMenuLabel>Ordem</DropdownMenuLabel>
-            <DropdownMenuRadioGroup value={sortDir} onValueChange={(v) => onSortChange(sortKey, v as SortDir)}>
+            <DropdownMenuRadioGroup
+              value={sortDir}
+              onValueChange={(v) => onSortChange(sortKey, v as SortDir)}
+            >
               <DropdownMenuRadioItem value="asc">Crescente</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="desc">Decrescente</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
@@ -434,7 +451,10 @@ export function TaskToolbar({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
-            <DropdownMenuRadioGroup value={groupBy} onValueChange={(v) => onGroupByChange(v as GroupBy)}>
+            <DropdownMenuRadioGroup
+              value={groupBy}
+              onValueChange={(v) => onGroupByChange(v as GroupBy)}
+            >
               <DropdownMenuRadioItem value="status">Status</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="project">Projeto</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="assignee">Responsável</DropdownMenuRadioItem>

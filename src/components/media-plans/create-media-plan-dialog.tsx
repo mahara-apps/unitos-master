@@ -27,10 +27,7 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import { listClients } from "@/lib/workspace.functions";
-import {
-  createMediaPlan,
-  upsertMediaPlanItem,
-} from "@/lib/media-plans.functions";
+import { createMediaPlan, upsertMediaPlanItem } from "@/lib/media-plans.functions";
 import { generateMediaPlanWithAi } from "@/lib/media-plans-ai.functions";
 
 type Mode = "manual" | "ai";
@@ -153,9 +150,7 @@ export function CreateMediaPlanDialog({
     },
     onSuccess: async (plan) => {
       await qc.invalidateQueries({ queryKey: ["brand-media-plans", brandId] });
-      toast.success(
-        mode === "ai" ? "Plano gerado por IA com sucesso" : "Plano criado com sucesso",
-      );
+      toast.success(mode === "ai" ? "Plano gerado por IA com sucesso" : "Plano criado com sucesso");
       onOpenChange(false);
       navigate({
         to: "/customers/$customerId/media-plan",
@@ -164,9 +159,7 @@ export function CreateMediaPlanDialog({
       });
     },
     onError: (err) => {
-      toast.error(
-        err instanceof Error ? err.message : "Não foi possível criar o plano",
-      );
+      toast.error(err instanceof Error ? err.message : "Não foi possível criar o plano");
     },
   });
 
@@ -189,16 +182,10 @@ export function CreateMediaPlanDialog({
                 isAi ? "bg-indigo-600" : "bg-foreground",
               )}
             >
-              {isAi ? (
-                <Sparkles className="h-4 w-4" />
-              ) : (
-                <Target className="h-4 w-4" />
-              )}
+              {isAi ? <Sparkles className="h-4 w-4" /> : <Target className="h-4 w-4" />}
             </span>
             <div>
-              <DialogTitle>
-                {isAi ? "Gerar plano com IA" : "Novo plano de mídia"}
-              </DialogTitle>
+              <DialogTitle>{isAi ? "Gerar plano com IA" : "Novo plano de mídia"}</DialogTitle>
               <DialogDescription>
                 {isAi
                   ? "A IA monta 6 a 10 iniciativas balanceando canais e etapas do funil."
@@ -315,11 +302,7 @@ export function CreateMediaPlanDialog({
         </div>
 
         <DialogFooter>
-          <Button
-            variant="ghost"
-            onClick={() => onOpenChange(false)}
-            disabled={busy}
-          >
+          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>
             Cancelar
           </Button>
           <Button

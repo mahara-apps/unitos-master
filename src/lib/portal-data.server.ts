@@ -3,7 +3,12 @@ import { getRequestHeader } from "@tanstack/react-start/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { normalizePortalTheme, resolvePortalTheme } from "@/lib/portal-theme";
 import { fillPortalCovers, signPortalDocument, signPortalRefs } from "@/lib/portal-media.server";
-import { hasServiceKey, resolveSessionScope, resolveTokenScope, scopedAdmin } from "@/lib/portal-scope.server";
+import {
+  hasServiceKey,
+  resolveSessionScope,
+  resolveTokenScope,
+  scopedAdmin,
+} from "@/lib/portal-scope.server";
 import type {
   PortalApproval,
   PortalBriefing,
@@ -31,7 +36,8 @@ function publicClient(): SupabaseClient {
     global: {
       fetch: (input, init) => {
         const headers = new Headers(init?.headers);
-        if (opaque && headers.get("Authorization") === `Bearer ${key}`) headers.delete("Authorization");
+        if (opaque && headers.get("Authorization") === `Bearer ${key}`)
+          headers.delete("Authorization");
         headers.set("apikey", key);
         return fetch(input, { ...init, headers });
       },
@@ -72,7 +78,11 @@ async function publicRpc<T>(fn: string, args: Record<string, unknown>): Promise<
   return data as T;
 }
 
-async function sessionRpc<T>(context: SessionContext, fn: string, args: Record<string, unknown>): Promise<T> {
+async function sessionRpc<T>(
+  context: SessionContext,
+  fn: string,
+  args: Record<string, unknown>,
+): Promise<T> {
   const { data, error } = await context.supabase.rpc(fn, args);
   if (error) throw new Error(error.message);
   return data as T;
@@ -80,7 +90,14 @@ async function sessionRpc<T>(context: SessionContext, fn: string, args: Record<s
 
 function slaFor(enteredAt: string | null, hours: number | null): PortalSla {
   if (!enteredAt || !hours || hours <= 0) {
-    return { status: "none", slaHours: null, hoursInStage: 0, hoursRemaining: 0, hoursOverdue: 0, dueAt: null };
+    return {
+      status: "none",
+      slaHours: null,
+      hoursInStage: 0,
+      hoursRemaining: 0,
+      hoursOverdue: 0,
+      dueAt: null,
+    };
   }
   const entered = new Date(enteredAt).getTime();
   const elapsed = Math.max(0, (Date.now() - entered) / 3_600_000);
@@ -95,7 +112,11 @@ function slaFor(enteredAt: string | null, hours: number | null): PortalSla {
   };
 }
 
-async function enrichSla(posts: PortalPost[], clientId: string, brandId: string): Promise<PortalPost[]> {
+async function enrichSla(
+  posts: PortalPost[],
+  clientId: string,
+  brandId: string,
+): Promise<PortalPost[]> {
   const ids = posts.map((post) => post.id);
   if (!ids.length) return posts;
   // SLA é enriquecimento: sem chave de serviço o portal segue funcionando sem ele.
@@ -109,7 +130,9 @@ async function enrichSla(posts: PortalPost[], clientId: string, brandId: string)
     .eq("visible_in_portal", true)
     .in("id", ids);
   if (error) throw new Error(error.message);
-  const stageIds = Array.from(new Set((rows ?? []).map((row) => row.stage_id).filter(Boolean))) as string[];
+  const stageIds = Array.from(
+    new Set((rows ?? []).map((row) => row.stage_id).filter(Boolean)),
+  ) as string[];
   const stageHours = new Map<string, number>();
   if (stageIds.length) {
     const { data: stages, error: stageError } = await admin
@@ -175,22 +198,39 @@ function resolvedTheme(result: Omit<PortalResolveResult, "theme" | "error">): Po
 
 export async function resolveTokenPortal(token: string): Promise<PortalResolveResult> {
   try {
-    const result = await publicRpc<Omit<PortalResolveResult, "theme" | "error">>("portal_resolve", { _token: token });
+    const result = await publicRpc<Omit<PortalResolveResult, "theme" | "error">>("portal_resolve", {
+      _token: token,
+    });
     return resolvedTheme(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : "portal_unavailable";
     if (!isBusinessTokenError(message)) throw error;
-    return { clientId: null, brandId: null, client: null, brand: null, theme: null, error: message };
+    return {
+      clientId: null,
+      brandId: null,
+      client: null,
+      brand: null,
+      theme: null,
+      error: message,
+    };
   }
 }
 
-export async function resolveSessionPortal(context: SessionContext, clientId?: string): Promise<PortalResolveResult> {
+export async function resolveSessionPortal(
+  context: SessionContext,
+  clientId?: string,
+): Promise<PortalResolveResult> {
   // Cliente obrigatório: sem ele o banco cairia no "último cliente visto".
   if (!clientId) throw new Error("portal_client_context_required");
-  const result = await sessionRpc<Omit<PortalResolveResult, "theme" | "error">>(context, "portal_resolve", {
-    _client_id: clientId,
-  });
-  if (result.clientId && result.clientId !== clientId) throw new Error("portal_client_context_mismatch");
+  const result = await sessionRpc<Omit<PortalResolveResult, "theme" | "error">>(
+    context,
+    "portal_resolve",
+    {
+      _client_id: clientId,
+    },
+  );
+  if (result.clientId && result.clientId !== clientId)
+    throw new Error("portal_client_context_mismatch");
   return resolvedTheme(result);
 }
 
@@ -210,9 +250,14 @@ export async function tokenMetrics(token: string): Promise<PortalMetrics> {
   return { ...basic, sla: await slaSummary(scope.clientId, scope.brandId) };
 }
 
-export async function sessionMetrics(context: SessionContext, clientId?: string): Promise<PortalMetrics> {
+export async function sessionMetrics(
+  context: SessionContext,
+  clientId?: string,
+): Promise<PortalMetrics> {
   const scope = await sessionScope(context, clientId);
-  const basic = await sessionRpc<BasicMetrics>(context, "portal_metrics", { _client_id: scope.clientId });
+  const basic = await sessionRpc<BasicMetrics>(context, "portal_metrics", {
+    _client_id: scope.clientId,
+  });
   return { ...basic, sla: await slaSummary(scope.clientId, scope.brandId) };
 }
 
@@ -225,14 +270,25 @@ export async function tokenApprovals(token: string, status: string): Promise<Por
   return enrichSla(rows ?? [], scope.clientId, scope.brandId);
 }
 
-export async function sessionApprovals(context: SessionContext, clientId: string | undefined, status: string): Promise<PortalPost[]> {
+export async function sessionApprovals(
+  context: SessionContext,
+  clientId: string | undefined,
+  status: string,
+): Promise<PortalPost[]> {
   const scope = await sessionScope(context, clientId);
-  const rows = await sessionRpc<PortalPost[]>(context, "portal_approvals", { _client_id: scope.clientId, _status: status });
+  const rows = await sessionRpc<PortalPost[]>(context, "portal_approvals", {
+    _client_id: scope.clientId,
+    _status: status,
+  });
   await fillPortalCovers(rows ?? []);
   return enrichSla(rows ?? [], scope.clientId, scope.brandId);
 }
 
-async function postResult(result: { post: PortalPost; approval: PortalApproval | null }, clientId: string, brandId: string) {
+async function postResult(
+  result: { post: PortalPost; approval: PortalApproval | null },
+  clientId: string,
+  brandId: string,
+) {
   const posts = await enrichSla([result.post], clientId, brandId);
   const post = posts[0] ?? result.post;
   const media = await signPortalRefs(post.reference_media);
@@ -242,18 +298,29 @@ async function postResult(result: { post: PortalPost; approval: PortalApproval |
 
 export async function tokenPost(token: string, postId: string) {
   const [result, scope] = await Promise.all([
-    publicRpc<{ post: PortalPost; approval: PortalApproval | null }>("portal_post", { _token: token, _post_id: postId }),
+    publicRpc<{ post: PortalPost; approval: PortalApproval | null }>("portal_post", {
+      _token: token,
+      _post_id: postId,
+    }),
     tokenScope(token),
   ]);
   return postResult(result, scope.clientId, scope.brandId);
 }
 
-export async function sessionPost(context: SessionContext, clientId: string | undefined, postId: string) {
+export async function sessionPost(
+  context: SessionContext,
+  clientId: string | undefined,
+  postId: string,
+) {
   const scope = await sessionScope(context, clientId);
-  const result = await sessionRpc<{ post: PortalPost; approval: PortalApproval | null }>(context, "portal_post", {
-    _client_id: scope.clientId,
-    _post_id: postId,
-  });
+  const result = await sessionRpc<{ post: PortalPost; approval: PortalApproval | null }>(
+    context,
+    "portal_post",
+    {
+      _client_id: scope.clientId,
+      _post_id: postId,
+    },
+  );
   return postResult(result, scope.clientId, scope.brandId);
 }
 
@@ -270,7 +337,13 @@ export async function tokenDecide(token: string, postId: string, decision: strin
   });
 }
 
-export async function sessionDecide(context: SessionContext, clientId: string | undefined, postId: string, decision: string, note?: string) {
+export async function sessionDecide(
+  context: SessionContext,
+  clientId: string | undefined,
+  postId: string,
+  decision: string,
+  note?: string,
+) {
   const scope = await sessionScope(context, clientId);
   return sessionRpc<{ ok: boolean }>(context, "portal_decide", {
     _client_id: scope.clientId,
@@ -288,21 +361,48 @@ export async function tokenCalendar(token: string, month?: string): Promise<Port
   return enrichSla(rows ?? [], scope.clientId, scope.brandId);
 }
 
-export async function sessionCalendar(context: SessionContext, clientId: string | undefined, month?: string): Promise<PortalPost[]> {
+export async function sessionCalendar(
+  context: SessionContext,
+  clientId: string | undefined,
+  month?: string,
+): Promise<PortalPost[]> {
   const scope = await sessionScope(context, clientId);
-  const rows = await sessionRpc<PortalPost[]>(context, "portal_calendar", { _client_id: scope.clientId, _month: month ?? null });
+  const rows = await sessionRpc<PortalPost[]>(context, "portal_calendar", {
+    _client_id: scope.clientId,
+    _month: month ?? null,
+  });
   return enrichSla(rows ?? [], scope.clientId, scope.brandId);
 }
 
 export async function tokenFiles(token: string, search?: string) {
-  const rows = await publicRpc<PortalFile[]>("portal_files", { _token: token, _search: search?.trim() || null });
-  return Promise.all((rows ?? []).map(async (file) => ({ ...file, url: await signPortalDocument(file.storage_path) })));
+  const rows = await publicRpc<PortalFile[]>("portal_files", {
+    _token: token,
+    _search: search?.trim() || null,
+  });
+  return Promise.all(
+    (rows ?? []).map(async (file) => ({
+      ...file,
+      url: await signPortalDocument(file.storage_path),
+    })),
+  );
 }
 
-export async function sessionFiles(context: SessionContext, clientId: string | undefined, search?: string) {
+export async function sessionFiles(
+  context: SessionContext,
+  clientId: string | undefined,
+  search?: string,
+) {
   const scope = await sessionScope(context, clientId);
-  const rows = await sessionRpc<PortalFile[]>(context, "portal_files", { _client_id: scope.clientId, _search: search?.trim() || null });
-  return Promise.all((rows ?? []).map(async (file) => ({ ...file, url: await signPortalDocument(file.storage_path) })));
+  const rows = await sessionRpc<PortalFile[]>(context, "portal_files", {
+    _client_id: scope.clientId,
+    _search: search?.trim() || null,
+  });
+  return Promise.all(
+    (rows ?? []).map(async (file) => ({
+      ...file,
+      url: await signPortalDocument(file.storage_path),
+    })),
+  );
 }
 
 export function tokenBriefings(token: string) {

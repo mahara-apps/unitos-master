@@ -83,18 +83,13 @@ async function loadConnection(
     instagram_business_id: string | null;
     access_token_ciphertext: string;
   } | null;
-
 }
 
 export const inspectMetaConnectionFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => Input.parse(i))
   .handler(async ({ data, context }): Promise<InspectResult> => {
-    const row = await loadConnection(
-      context.supabase as never,
-      data.connectionId,
-      data.brandId,
-    );
+    const row = await loadConnection(context.supabase as never, data.connectionId, data.brandId);
     if (!row) {
       return {
         ok: false,
@@ -108,8 +103,7 @@ export const inspectMetaConnectionFn = createServerFn({ method: "POST" })
         found: null,
         message: {
           title: "Canal não encontrado",
-          description:
-            "Esta conexão não existe mais neste workspace. Conecte o canal novamente.",
+          description: "Esta conexão não existe mais neste workspace. Conecte o canal novamente.",
         },
       };
     }
@@ -173,11 +167,7 @@ export const applyMetaReconnectFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => ApplyInput.parse(i))
   .handler(async ({ data, context }) => {
-    const row = await loadConnection(
-      context.supabase as never,
-      data.connectionId,
-      data.brandId,
-    );
+    const row = await loadConnection(context.supabase as never, data.connectionId, data.brandId);
     if (!row) {
       return {
         ok: false,
@@ -229,7 +219,6 @@ export const applyMetaReconnectFn = createServerFn({ method: "POST" })
         last_error: null,
         last_synced_at: nowIso,
       };
-
 
       const igChanged =
         (row.instagram_business_id ?? row.account_id ?? "") !==

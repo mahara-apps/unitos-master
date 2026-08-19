@@ -11,7 +11,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * são deduplicados de forma DETERMINÍSTICA: vence a PRIMEIRA ocorrência.
  */
 
-
 export type PlacementFormatEnum = "feed" | "stories" | "reels" | "carrossel";
 
 export type PlacementDestination = {
@@ -64,9 +63,9 @@ export async function syncPostPlacements(
     .eq("status", "published");
   if (pubErr) throw new Error(pubErr.message);
   const publishedKeys = new Set(
-    (
-      (publishedRows ?? []) as Array<{ format: string; connection_id: string | null }>
-    ).map((r) => `${r.connection_id ?? "none"}::${r.format}`),
+    ((publishedRows ?? []) as Array<{ format: string; connection_id: string | null }>).map(
+      (r) => `${r.connection_id ?? "none"}::${r.format}`,
+    ),
   );
 
   const { error: delErr } = await supabase
@@ -89,9 +88,7 @@ export async function syncPostPlacements(
     byDestination.set(key, d);
   }
 
-
   const rows = Array.from(byDestination.values()).map((d, i) => ({
-
     post_id: postId,
     brand_id: brandId,
     client_id: clientId,
@@ -115,11 +112,9 @@ export async function syncPostPlacements(
     is_primary: i === 0,
   }));
 
-
   if (!rows.length) return;
   const { error: insErr } = await supabase.from("post_placements").insert(rows);
   if (insErr) throw new Error(insErr.message);
-
 }
 
 /**
@@ -136,13 +131,7 @@ export const POST_CHANNEL_ENUM = new Set([
   "blog",
 ]);
 
-export type PostChannelEnum =
-  | "instagram"
-  | "tiktok"
-  | "linkedin"
-  | "x"
-  | "youtube"
-  | "blog";
+export type PostChannelEnum = "instagram" | "tiktok" | "linkedin" | "x" | "youtube" | "blog";
 
 export function deriveChannelsFromDestinations(
   destinations: Array<{ channel: string }>,
@@ -152,8 +141,6 @@ export function deriveChannelsFromDestinations(
   ) as PostChannelEnum[];
 }
 
-export function deriveTargetConnectionIds(
-  destinations: Array<{ connectionId: string }>,
-): string[] {
+export function deriveTargetConnectionIds(destinations: Array<{ connectionId: string }>): string[] {
   return Array.from(new Set(destinations.map((d) => d.connectionId)));
 }

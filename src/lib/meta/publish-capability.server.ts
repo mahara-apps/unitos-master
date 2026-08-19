@@ -169,8 +169,7 @@ export async function evaluateConnectionCapability(
 ): Promise<PublishCapability> {
   const clientBinding = opts?.clientBindingValid ?? true;
   const channel = conn.channel;
-  const targetId =
-    channel === "instagram" ? (conn.account_id ?? null) : (conn.external_id ?? null);
+  const targetId = channel === "instagram" ? (conn.account_id ?? null) : (conn.external_id ?? null);
 
   if (conn.status !== "active") {
     return block("disconnected", "Conta desconectada. Reconecte esta conta para publicar.", {
@@ -182,7 +181,10 @@ export async function evaluateConnectionCapability(
     return block(
       "token_missing",
       "Conexão sem autorização válida. Reconecte esta conta para publicar.",
-      { checks: { connected: true, client_binding_valid: clientBinding }, externalAccountId: targetId },
+      {
+        checks: { connected: true, client_binding_valid: clientBinding },
+        externalAccountId: targetId,
+      },
     );
   }
   if (channel === "instagram" && !conn.account_id) {
@@ -229,7 +231,11 @@ export async function evaluateConnectionCapability(
       ),
       publishReady: false,
       ...(err instanceof MetaGraphError && err.graph?.code === 190
-        ? { code: "token_invalid" as CapabilityCode, deterministic: true, action: "reconnect" as const }
+        ? {
+            code: "token_invalid" as CapabilityCode,
+            deterministic: true,
+            action: "reconnect" as const,
+          }
         : {}),
     };
   }
@@ -242,8 +248,7 @@ export async function evaluateConnectionCapability(
   }
   checks.token_valid = true;
 
-  const scope =
-    channel === "instagram" ? "instagram_content_publish" : "pages_manage_posts";
+  const scope = channel === "instagram" ? "instagram_content_publish" : "pages_manage_posts";
   const granular = scopeAuthorizedForTarget(info, scope, targetId);
   if (!granular.ok) {
     return block(
@@ -298,9 +303,7 @@ export async function evaluateConnectionCapability(
   return {
     publishReady: ready,
     code: ready ? "ready" : "not_linked_to_client",
-    message: ready
-      ? "Pronto para publicar"
-      : "Este canal não está vinculado a este cliente.",
+    message: ready ? "Pronto para publicar" : "Este canal não está vinculado a este cliente.",
     deterministic: !ready,
     action: ready ? "none" : "relink",
     checks,
@@ -314,9 +317,7 @@ export async function evaluateConnectionCapability(
 // Cache em metadata + resolução do destino (cadeia completa)
 // ---------------------------------------------------------------------------
 
-function readCached(
-  conn: MetaConnectionCapabilityRow,
-): PublishCapability | null {
+function readCached(conn: MetaConnectionCapabilityRow): PublishCapability | null {
   const meta = (conn.metadata ?? {}) as Record<string, unknown>;
   const cap = meta.publish_capability as PublishCapability | undefined;
   if (!cap || typeof cap !== "object" || !cap.checkedAt) return null;

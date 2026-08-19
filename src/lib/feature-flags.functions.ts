@@ -62,15 +62,20 @@ const SetFeatureInput = z.object({
   notes: z.string().max(500).optional().nullable(),
 });
 
-async function assertSuperAdmin(supabase: {
-  rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
-}, userId: string) {
+async function assertSuperAdmin(
+  supabase: {
+    rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
+  },
+  userId: string,
+) {
   const isSuper = await resolveIsSuperAdmin(supabase, userId);
   if (!isSuper) throw new Error("Forbidden: super admin required");
 }
 
 async function resolveIsSuperAdmin(
-  supabase: { rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }> },
+  supabase: {
+    rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
+  },
   userId: string,
 ): Promise<boolean> {
   // Two overloads exist: is_super_admin() (email allowlist via JWT) and
@@ -89,20 +94,18 @@ export const setBrandFeature = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await assertSuperAdmin(context.supabase as never, context.userId);
     const now = new Date().toISOString();
-    const { error } = await context.supabase
-      .from("brand_features")
-      .upsert(
-        {
-          brand_id: data.brandId,
-          feature_key: data.featureKey,
-          enabled: data.enabled,
-          enabled_at: data.enabled ? now : null,
-          enabled_by: data.enabled ? context.userId : null,
-          notes: data.notes ?? null,
-          updated_at: now,
-        },
-        { onConflict: "brand_id,feature_key" },
-      );
+    const { error } = await context.supabase.from("brand_features").upsert(
+      {
+        brand_id: data.brandId,
+        feature_key: data.featureKey,
+        enabled: data.enabled,
+        enabled_at: data.enabled ? now : null,
+        enabled_by: data.enabled ? context.userId : null,
+        notes: data.notes ?? null,
+        updated_at: now,
+      },
+      { onConflict: "brand_id,feature_key" },
+    );
     if (error) throw error;
     return { ok: true };
   });
@@ -163,7 +166,7 @@ export const requireFeatureAccess = createServerFn({ method: "POST" })
       .eq("feature_key", data.featureKey)
       .maybeSingle();
     if (error) throw error;
-    return { enabled: !!row?.enabled, reason: row?.enabled ? "granted" : "denied" as const };
+    return { enabled: !!row?.enabled, reason: row?.enabled ? "granted" : ("denied" as const) };
   });
 
 export const amISuperAdmin = createServerFn({ method: "GET" })

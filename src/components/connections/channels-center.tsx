@@ -75,10 +75,7 @@ import {
   type DiscoveredAccountsResult,
 } from "@/lib/meta/discovery.functions";
 import { linkMetaAccount } from "@/lib/meta/portfolio.functions";
-import {
-  listChannelHistoryFn,
-  recordChannelEventFn,
-} from "@/lib/channels-center.functions";
+import { listChannelHistoryFn, recordChannelEventFn } from "@/lib/channels-center.functions";
 import { cn } from "@/lib/utils";
 
 /**
@@ -95,10 +92,7 @@ import { cn } from "@/lib/utils";
 
 type ChannelState = "ready" | "auth" | "unavailable" | "disconnected";
 
-const STATE_META: Record<
-  ChannelState,
-  { label: string; hint: string; className: string }
-> = {
+const STATE_META: Record<ChannelState, { label: string; hint: string; className: string }> = {
   ready: {
     label: "Pronto",
     hint: "Autorizado para publicar",
@@ -107,14 +101,12 @@ const STATE_META: Record<
   auth: {
     label: "Atenção",
     hint: "Autorização precisa ser renovada",
-    className:
-      "border-severity-warning/30 bg-severity-warning/10 text-severity-warning",
+    className: "border-severity-warning/30 bg-severity-warning/10 text-severity-warning",
   },
   unavailable: {
     label: "Não disponível",
     hint: "A Meta não está aceitando esta conta agora",
-    className:
-      "border-severity-critical/30 bg-severity-critical/10 text-severity-critical",
+    className: "border-severity-critical/30 bg-severity-critical/10 text-severity-critical",
   },
   disconnected: {
     label: "Desconectado",
@@ -192,9 +184,7 @@ export function ChannelsCenter({
   const [connecting, setConnecting] = useState<null | "facebook" | "instagram">(null);
   const [portfolioSessionId, setPortfolioSessionId] = useState<string | null>(null);
   const [portfolioOpen, setPortfolioOpen] = useState(false);
-  const [portfolioChannel, setPortfolioChannel] = useState<
-    "facebook" | "instagram" | null
-  >(null);
+  const [portfolioChannel, setPortfolioChannel] = useState<"facebook" | "instagram" | null>(null);
   const [manage, setManage] = useState<WorkspaceChannel | null>(null);
   const [linkTarget, setLinkTarget] = useState<WorkspaceChannel | null>(null);
   const [reconnectTarget, setReconnectTarget] = useState<WorkspaceChannel | null>(null);
@@ -267,7 +257,6 @@ export function ChannelsCenter({
         }),
       );
   }
-
 
   useEffect(() => {
     function onMessage(ev: MessageEvent) {
@@ -350,10 +339,7 @@ export function ChannelsCenter({
    * atual e ainda não salvas neste workspace. Nunca derivado do histórico.
    */
   const available = useMemo(() => discovery?.accounts ?? [], [discovery]);
-  const attention = useMemo(
-    () => channels.filter((c) => channelState(c) !== "ready"),
-    [channels],
-  );
+  const attention = useMemo(() => channels.filter((c) => channelState(c) !== "ready"), [channels]);
   const servedClients = useMemo(() => {
     const ids = new Set<string>();
     for (const c of channels) for (const cl of c.clients) ids.add(cl.id);
@@ -387,8 +373,8 @@ export function ChannelsCenter({
         <div className="min-w-0">
           <h2 className="text-sm font-semibold">Central de canais</h2>
           <p className="text-xs text-muted-foreground">
-            As contas são autorizadas no workspace e cada canal atende um cliente
-            específico. Nenhuma publicação usa uma conta sem vínculo.
+            As contas são autorizadas no workspace e cada canal atende um cliente específico.
+            Nenhuma publicação usa uma conta sem vínculo.
           </p>
         </div>
         {canManage ? (
@@ -450,9 +436,7 @@ export function ChannelsCenter({
           <TabsTrigger value="accounts" className="h-6 text-xs">
             Contas disponíveis
             {available.length ? (
-              <span className="ml-1.5 text-[10px] text-muted-foreground">
-                {available.length}
-              </span>
+              <span className="ml-1.5 text-[10px] text-muted-foreground">{available.length}</span>
             ) : null}
           </TabsTrigger>
           <TabsTrigger value="history" className="h-6 text-xs">
@@ -520,12 +504,10 @@ export function ChannelsCenter({
         {/* ---------------------------- contas disponíveis --------------------------- */}
         <TabsContent value="accounts" className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Contas que a Meta devolveu na autorização atual e que ainda não
-            existem neste workspace. Cada conta atende apenas um cliente.
+            Contas que a Meta devolveu na autorização atual e que ainda não existem neste workspace.
+            Cada conta atende apenas um cliente.
             {discovery?.discoveredAt ? (
-              <span className="ml-1">
-                Verificado {formatRelative(discovery.discoveredAt)}.
-              </span>
+              <span className="ml-1">Verificado {formatRelative(discovery.discoveredAt)}.</span>
             ) : null}
           </p>
 
@@ -555,8 +537,8 @@ export function ChannelsCenter({
             <Card className="flex flex-col items-start gap-2 border-dashed p-5">
               <div className="text-sm font-medium">Autorize a Meta para listar contas</div>
               <p className="text-xs text-muted-foreground">
-                Nenhuma autorização válida encontrada neste workspace. Faça o login
-                na Meta mantendo todas as Páginas e contas do Instagram marcadas.
+                Nenhuma autorização válida encontrada neste workspace. Faça o login na Meta mantendo
+                todas as Páginas e contas do Instagram marcadas.
               </p>
               {canManage ? (
                 <Button
@@ -607,19 +589,18 @@ export function ChannelsCenter({
           )}
         </TabsContent>
 
-
         {/* -------------------------------- histórico ------------------------------- */}
         <TabsContent value="history" className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            Vínculos, reconexões e remoções registrados neste workspace, além de
-            contas que a Meta deixou de aceitar.
+            Vínculos, reconexões e remoções registrados neste workspace, além de contas que a Meta
+            deixou de aceitar.
           </p>
           {loadingHistory ? (
             <Skeleton className="h-40 w-full rounded-xl" />
           ) : history.length === 0 ? (
             <Card className="border-dashed p-5 text-xs text-muted-foreground">
-              Ainda não há eventos registrados. Vínculos, reconexões e remoções
-              feitos a partir de agora aparecem aqui.
+              Ainda não há eventos registrados. Vínculos, reconexões e remoções feitos a partir de
+              agora aparecem aqui.
             </Card>
           ) : (
             <Card className="overflow-hidden">
@@ -639,9 +620,7 @@ export function ChannelsCenter({
                       <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                         {new Date(h.at).toLocaleString("pt-BR")}
                       </TableCell>
-                      <TableCell className="text-xs font-medium">
-                        {h.actionLabel}
-                      </TableCell>
+                      <TableCell className="text-xs font-medium">{h.actionLabel}</TableCell>
                       <TableCell className="text-xs">
                         {h.accountLabel}
                         {h.externalId ? (
@@ -672,8 +651,8 @@ export function ChannelsCenter({
           <DialogHeader>
             <DialogTitle className="text-base">Conectar canal</DialogTitle>
             <DialogDescription className="text-xs">
-              A autorização é feita na tela oficial da Meta. Depois você escolhe
-              quais contas conectar e a qual cliente cada uma atende.
+              A autorização é feita na tela oficial da Meta. Depois você escolhe quais contas
+              conectar e a qual cliente cada uma atende.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5">
@@ -700,9 +679,7 @@ export function ChannelsCenter({
             })}
           </div>
           <div className="space-y-1.5 border-t pt-3">
-            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-              Em breve
-            </p>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Em breve</p>
             <div className="flex flex-wrap gap-1.5">
               {UPCOMING_CHANNELS.map((def) => (
                 <Badge
@@ -886,12 +863,7 @@ function ChannelCard({
         </span>
         <div className="flex shrink-0 items-center gap-1">
           {canManage && !client ? (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 gap-1.5 px-2 text-xs"
-              onClick={onLink}
-            >
+            <Button size="sm" variant="ghost" className="h-7 gap-1.5 px-2 text-xs" onClick={onLink}>
               <Link2 className="h-3.5 w-3.5" />
               Vincular
             </Button>
@@ -907,12 +879,7 @@ function ChannelCard({
               Reconectar
             </Button>
           ) : null}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-7 gap-1.5 px-2 text-xs"
-            onClick={onManage}
-          >
+          <Button size="sm" variant="ghost" className="h-7 gap-1.5 px-2 text-xs" onClick={onManage}>
             <Settings2 className="h-3.5 w-3.5" />
             Gerenciar
           </Button>
@@ -972,9 +939,7 @@ function LinkClientDialog({
     },
     onError: (e) =>
       toast.error(
-        e instanceof Error
-          ? e.message
-          : "Não foi possível vincular esta conta ao cliente.",
+        e instanceof Error ? e.message : "Não foi possível vincular esta conta ao cliente.",
       ),
   });
 
@@ -987,8 +952,8 @@ function LinkClientDialog({
         <DialogHeader>
           <DialogTitle className="text-base">Vincular a um cliente</DialogTitle>
           <DialogDescription className="text-xs">
-            {def.label} · {row.accountLabel}. Uma conta atende apenas um cliente por
-            vez — isso garante o isolamento de dados e de publicações.
+            {def.label} · {row.accountLabel}. Uma conta atende apenas um cliente por vez — isso
+            garante o isolamento de dados e de publicações.
           </DialogDescription>
         </DialogHeader>
 
@@ -1061,11 +1026,9 @@ function ReconnectDialog({
   }, [row?.connectionId]);
 
   const inspectMut = useMutation({
-    mutationFn: () =>
-      inspectFn({ data: { brandId: brandId!, connectionId: row!.connectionId } }),
+    mutationFn: () => inspectFn({ data: { brandId: brandId!, connectionId: row!.connectionId } }),
     onSuccess: (r) => setResult(r),
-    onError: () =>
-      toast.error("Não foi possível verificar esta conexão agora. Tente novamente."),
+    onError: () => toast.error("Não foi possível verificar esta conexão agora. Tente novamente."),
   });
 
   useEffect(() => {
@@ -1103,9 +1066,7 @@ function ReconnectDialog({
     },
     onSuccess: (res) => {
       if (!res.ok) {
-        toast.error(
-          res.message?.description ?? "Não foi possível atualizar a conexão.",
-        );
+        toast.error(res.message?.description ?? "Não foi possível atualizar a conexão.");
         return;
       }
       toast.success("Conexão atualizada.");
@@ -1211,8 +1172,8 @@ function ReconnectDialog({
         <DialogHeader>
           <DialogTitle className="text-base">Reconectar canal</DialogTitle>
           <DialogDescription className="text-xs">
-            {def.label} · {row.accountLabel}. Verificamos a conta antes de gravar
-            qualquer alteração — nenhuma conta é substituída sem a sua confirmação.
+            {def.label} · {row.accountLabel}. Verificamos a conta antes de gravar qualquer alteração
+            — nenhuma conta é substituída sem a sua confirmação.
           </DialogDescription>
         </DialogHeader>
 
@@ -1234,9 +1195,8 @@ function ReconnectDialog({
         ) : result.changed ? (
           <div className="space-y-3">
             <div className="rounded-lg border border-severity-warning/30 bg-severity-warning/10 p-3 text-xs text-severity-warning">
-              A Meta está devolvendo uma conta diferente da que está configurada.
-              Confirme antes de trocar — a troca afeta publicações e métricas do
-              cliente vinculado.
+              A Meta está devolvendo uma conta diferente da que está configurada. Confirme antes de
+              trocar — a troca afeta publicações e métricas do cliente vinculado.
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               <AccountBox title="Conta atual" snap={result.current} />
@@ -1245,8 +1205,7 @@ function ReconnectDialog({
           </div>
         ) : (
           <div className="rounded-lg border p-3 text-xs text-muted-foreground">
-            A conta continua a mesma. Podemos revalidar a autorização e reativar o
-            canal.
+            A conta continua a mesma. Podemos revalidar a autorização e reativar o canal.
           </div>
         )}
 
@@ -1290,9 +1249,7 @@ function ReconnectDialog({
                 disabled={applyMut.isPending}
                 onClick={() => applyMut.mutate(true)}
               >
-                {applyMut.isPending ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : null}
+                {applyMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                 Usar a nova conta
               </Button>
             </>
@@ -1317,18 +1274,10 @@ function ReconnectDialog({
   );
 }
 
-function AccountBox({
-  title,
-  snap,
-}: {
-  title: string;
-  snap: InspectResult["current"] | null;
-}) {
+function AccountBox({ title, snap }: { title: string; snap: InspectResult["current"] | null }) {
   return (
     <div className="space-y-1 rounded-lg border p-3">
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-        {title}
-      </p>
+      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{title}</p>
       <p className="truncate text-sm font-medium">{snap?.pageName ?? "—"}</p>
       <p className="truncate font-mono text-[11px] text-muted-foreground">
         Page {snap?.pageId ?? "—"}
@@ -1457,8 +1406,7 @@ function ManageChannelDialog({
             <div className="min-w-0 space-y-1">
               <StatusBadge state={state} />
               <p className="text-[11px] text-muted-foreground">
-                {STATE_META[state].hint} · sincronizado{" "}
-                {formatRelative(row.lastSyncedAt)}
+                {STATE_META[state].hint} · sincronizado {formatRelative(row.lastSyncedAt)}
               </p>
             </div>
           </div>
@@ -1543,8 +1491,7 @@ function ManageChannelDialog({
 
           {row.lastError ? (
             <div className="rounded-lg border border-severity-warning/30 bg-severity-warning/10 p-3 text-xs text-severity-warning">
-              A Meta recusou a última operação desta conta. Reconecte para renovar a
-              autorização.
+              A Meta recusou a última operação desta conta. Reconecte para renovar a autorização.
             </div>
           ) : null}
         </div>
@@ -1630,9 +1577,7 @@ function LinkDiscoveredDialog({
           targetId: account.externalId,
           clientId,
           linkPair:
-            account.channel === "facebook" && !!account.instagramBusinessId
-              ? linkPair
-              : false,
+            account.channel === "facebook" && !!account.instagramBusinessId ? linkPair : false,
         },
       });
     },
@@ -1658,22 +1603,21 @@ function LinkDiscoveredDialog({
         <DialogHeader>
           <DialogTitle className="text-base">Conectar e vincular</DialogTitle>
           <DialogDescription className="text-xs">
-            {def.label} · {account.label} · ID {account.externalId}. A conta é salva
-            no workspace e passa a atender apenas o cliente escolhido.
+            {def.label} · {account.label} · ID {account.externalId}. A conta é salva no workspace e
+            passa a atender apenas o cliente escolhido.
           </DialogDescription>
         </DialogHeader>
 
         {!sessionId ? (
           <div className="rounded-lg border border-severity-warning/30 bg-severity-warning/10 p-3 text-xs text-severity-warning">
-            A autorização da Meta expirou. Autorize novamente para conectar esta
-            conta.
+            A autorização da Meta expirou. Autorize novamente para conectar esta conta.
           </div>
         ) : null}
 
         {account.status !== "ready" ? (
           <div className="rounded-lg border border-severity-warning/30 bg-severity-warning/10 p-3 text-[11px] text-severity-warning">
-            A Meta ainda não liberou publicação para esta conta. Você pode vinculá-la
-            agora, mas será necessário refazer a autorização marcando esta conta.
+            A Meta ainda não liberou publicação para esta conta. Você pode vinculá-la agora, mas
+            será necessário refazer a autorização marcando esta conta.
           </div>
         ) : null}
 

@@ -4,10 +4,7 @@ import type { BrainContext, SemanticMemoryHit, BrainStats } from "../core";
 import { withCache } from "../cache";
 
 /** Cria embedding com a chave de API da marca. Retorna null em falha. */
-export async function embed(
-  ctx: BrainContext,
-  text: string,
-): Promise<number[] | null> {
+export async function embed(ctx: BrainContext, text: string): Promise<number[] | null> {
   if (!ctx.brandId) return null;
   const { embedText } = await import("../legacy/brain-embed.server");
   return embedText(ctx.supabase, ctx.brandId, text);

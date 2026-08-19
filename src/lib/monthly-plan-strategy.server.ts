@@ -32,11 +32,7 @@ export type StrategyContext = {
 const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const asStr = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
 const list = (v: unknown, max = 6): string =>
-  asArray(v)
-    .map(asStr)
-    .filter(Boolean)
-    .slice(0, max)
-    .join(", ");
+  asArray(v).map(asStr).filter(Boolean).slice(0, max).join(", ");
 
 export async function loadStrategyContext(
   supabase: SupabaseClient,
@@ -71,8 +67,13 @@ export async function loadStrategyContext(
   );
 
   const found = results.filter(
-    (r): r is { block: StrategyBlockName; created_at: string | null; data: Record<string, unknown> | null } =>
-      !!r && !!r.data,
+    (
+      r,
+    ): r is {
+      block: StrategyBlockName;
+      created_at: string | null;
+      data: Record<string, unknown> | null;
+    } => !!r && !!r.data,
   );
   if (found.length === 0) {
     return { markdown: "", blocks: [], generatedAt: null, personaNames: [], cohortNames: [] };
@@ -92,9 +93,11 @@ export async function loadStrategyContext(
         list(vc.tone_characteristics) && `- Traços de tom: ${list(vc.tone_characteristics)}`,
         list(vocab.words_to_use, 10) && `- Usar: ${list(vocab.words_to_use, 10)}`,
         list(vocab.words_to_avoid, 10) && `- Evitar: ${list(vocab.words_to_avoid, 10)}`,
-        list(vc.brand_phrases_examples, 5) && `- Frases-modelo: ${list(vc.brand_phrases_examples, 5)}`,
+        list(vc.brand_phrases_examples, 5) &&
+          `- Frases-modelo: ${list(vc.brand_phrases_examples, 5)}`,
       ].filter(Boolean);
-      if (lines.length) sections.push(`### Voice card (obrigatório respeitar)\n${lines.join("\n")}`);
+      if (lines.length)
+        sections.push(`### Voice card (obrigatório respeitar)\n${lines.join("\n")}`);
     }
 
     if (entry.block === "personas") {
@@ -147,17 +150,16 @@ export async function loadStrategyContext(
         })
         .filter(Boolean);
       if (lines.length || matrixLines.length) {
-        sections.push(
-          `### SWOT e diferenciação\n${[...lines, ...matrixLines].join("\n")}`,
-        );
+        sections.push(`### SWOT e diferenciação\n${[...lines, ...matrixLines].join("\n")}`);
       }
     }
   }
 
-  const generatedAt = found
-    .map((f) => f.created_at)
-    .filter((v): v is string => !!v)
-    .sort()[0] ?? null;
+  const generatedAt =
+    found
+      .map((f) => f.created_at)
+      .filter((v): v is string => !!v)
+      .sort()[0] ?? null;
 
   const maxChars = opts.maxChars ?? 4000;
   const markdown = sections.length

@@ -27,9 +27,9 @@ export const resolveAgentVariablesFn = createServerFn({ method: "POST" })
       { data: clientRow },
       { data: competitorsRow },
     ] = await Promise.all([
-      buildBrandContextBlueprint(supabase as never, brandId, clientId).catch(
-        () => ({ blueprint: "" }),
-      ),
+      buildBrandContextBlueprint(supabase as never, brandId, clientId).catch(() => ({
+        blueprint: "",
+      })),
       supabase
         .from("brand_personas")
         .select("data")
@@ -44,11 +44,7 @@ export const resolveAgentVariablesFn = createServerFn({ method: "POST" })
         .eq("client_id", clientId)
         .eq("is_active", true)
         .maybeSingle(),
-      supabase
-        .from("clients")
-        .select("brand_hub, tone_of_voice")
-        .eq("id", clientId)
-        .maybeSingle(),
+      supabase.from("clients").select("brand_hub, tone_of_voice").eq("id", clientId).maybeSingle(),
       supabase
         .from("brand_competitors")
         .select("handle")
@@ -70,19 +66,11 @@ export const resolveAgentVariablesFn = createServerFn({ method: "POST" })
     const brandContextText = [mission, description].filter(Boolean).join(" — ");
     const logoUrl = typeof hub.logo_url === "string" ? hub.logo_url : "";
 
-    const competitorsStr = (competitorsRow ?? [])
-      .map((c) => `- @${c.handle}`)
-      .join("\n");
+    const competitorsStr = (competitorsRow ?? []).map((c) => `- @${c.handle}`).join("\n");
 
-    const personasStr = personasRow?.data
-      ? JSON.stringify(personasRow.data).slice(0, 4000)
-      : "";
-    const personaFirst = personasRow?.data
-      ? JSON.stringify(personasRow.data).slice(0, 1800)
-      : "";
-    const voiceStr = voiceRow?.data
-      ? JSON.stringify(voiceRow.data).slice(0, 2500)
-      : "";
+    const personasStr = personasRow?.data ? JSON.stringify(personasRow.data).slice(0, 4000) : "";
+    const personaFirst = personasRow?.data ? JSON.stringify(personasRow.data).slice(0, 1800) : "";
+    const voiceStr = voiceRow?.data ? JSON.stringify(voiceRow.data).slice(0, 2500) : "";
 
     const values: Record<string, string> = {
       CONTEXT: blueprintResult.blueprint,

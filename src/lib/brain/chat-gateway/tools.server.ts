@@ -81,8 +81,7 @@ export function buildChatTools(
     }),
 
     list_overdue_tasks: tool({
-      description:
-        "Lista tarefas em atraso (due_at < agora, não concluídas) do workspace ativo.",
+      description: "Lista tarefas em atraso (due_at < agora, não concluídas) do workspace ativo.",
       inputSchema: z.object({
         limit: z.number().int().min(1).max(50).default(20),
       }),
@@ -96,7 +95,9 @@ export function buildChatTools(
           .limit(limit);
         if (brandId) qb = qb.eq("brand_id", brandId);
         const { data, error } = await qb;
-        const out = error ? { error: error.message } : { tasks: data ?? [], count: data?.length ?? 0 };
+        const out = error
+          ? { error: error.message }
+          : { tasks: data ?? [], count: data?.length ?? 0 };
         record("list_overdue_tasks", { limit }, out, !error);
         return out;
       },
@@ -153,7 +154,13 @@ export function buildChatTools(
       execute: async ({ query: q, limit }) => {
         try {
           const hits = await query.semantic(ctx, { query: q, matchCount: limit });
-          const out = { hits: hits.map((h) => ({ summary: h.content_summary, similarity: h.similarity, type: h.event_type })) };
+          const out = {
+            hits: hits.map((h) => ({
+              summary: h.content_summary,
+              similarity: h.similarity,
+              type: h.event_type,
+            })),
+          };
           record("brain_recall", { query: q, limit }, out, true);
           return out;
         } catch (err) {

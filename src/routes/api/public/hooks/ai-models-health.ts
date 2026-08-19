@@ -14,7 +14,6 @@ export const Route = createFileRoute("/api/public/hooks/ai-models-health")({
         const cronDenied = assertCronRequest(request);
         if (cronDenied) return cronDenied;
 
-
         try {
           const result = await runAiModelHealthCheck();
           return Response.json(result);

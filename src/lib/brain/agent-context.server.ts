@@ -7,10 +7,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 /** Perfis de contexto por agente: categorias úteis e orçamento. */
-export const AGENT_PROFILES: Record<
-  string,
-  { categories: string[]; budgetChars: number }
-> = {
+export const AGENT_PROFILES: Record<string, { categories: string[]; budgetChars: number }> = {
   copywriter_senior: {
     categories: [
       "tom_de_voz",

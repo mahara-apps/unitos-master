@@ -57,13 +57,7 @@ const FORMAT_LABEL: Record<string, string> = {
  * destino histórico o usuário escolhe EXPLICITAMENTE uma conta atual do mesmo
  * canal (nunca casamento por username) e só então republicamos aquele destino.
  */
-export function PublicationStatusPanel({
-  postId,
-  brandId,
-}: {
-  postId: string;
-  brandId: string;
-}) {
+export function PublicationStatusPanel({ postId, brandId }: { postId: string; brandId: string }) {
   const qc = useQueryClient();
   const listState = useServerFn(listPostPublicationStateFn);
   const retryFn = useServerFn(retryFailedPlacementFn);
@@ -86,9 +80,7 @@ export function PublicationStatusPanel({
   // Só interessa quando houve tentativa real de publicação.
   const relevant =
     !!state &&
-    state.destinations.some((d) =>
-      ["published", "failed", "publishing"].includes(d.status),
-    );
+    state.destinations.some((d) => ["published", "failed", "publishing"].includes(d.status));
   if (!relevant) return null;
 
   async function refresh() {
@@ -164,10 +156,7 @@ export function PublicationStatusPanel({
             onClick={async () => {
               // Reutiliza exatamente a ação individual, um destino por vez.
               for (const d of failed) {
-                await handleRetry(
-                  d.placementId,
-                  CHANNEL_LABEL[d.channel] ?? d.channel,
-                );
+                await handleRetry(d.placementId, CHANNEL_LABEL[d.channel] ?? d.channel);
               }
             }}
           >
@@ -180,8 +169,8 @@ export function PublicationStatusPanel({
       {recoverable.length ? (
         <p className="mb-2 flex items-start gap-1.5 rounded-md border border-orange-500/40 bg-orange-500/5 px-2.5 py-2 text-[11px] leading-snug text-orange-700 dark:text-orange-300">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-          Esta publicação possui destinos históricos que não estão mais conectados.
-          Escolha a conta atual do cliente para recuperar cada destino pendente.
+          Esta publicação possui destinos históricos que não estão mais conectados. Escolha a conta
+          atual do cliente para recuperar cada destino pendente.
         </p>
       ) : null}
 
@@ -218,11 +207,7 @@ export function PublicationStatusPanel({
                     {label} · {fmt}
                   </span>
                   <span className="truncate text-[11px] text-muted-foreground">
-                    {d.historical
-                      ? "Conta removida"
-                      : d.accountLabel
-                        ? `@${d.accountLabel}`
-                        : ""}
+                    {d.historical ? "Conta removida" : d.accountLabel ? `@${d.accountLabel}` : ""}
                   </span>
                   {d.status === "published" ? (
                     <Badge variant="outline" className="h-5 shrink-0 text-[10px]">
@@ -315,9 +300,7 @@ export function PublicationStatusPanel({
               ) : null}
 
               {d.status === "failed" && d.error ? (
-                <p className="mt-1 pl-5 text-[11px] leading-snug text-destructive">
-                  {d.error}
-                </p>
+                <p className="mt-1 pl-5 text-[11px] leading-snug text-destructive">{d.error}</p>
               ) : null}
               {d.status === "published" && d.publishedAt ? (
                 <p className="mt-1 pl-5 text-[11px] text-muted-foreground">
@@ -346,9 +329,7 @@ export function PublicationStatusPanel({
               className="flex items-center gap-2 rounded-md border border-border/60 bg-background px-2.5 py-1.5 text-[11px]"
             >
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-              <span className="font-medium">
-                {CHANNEL_LABEL[t.channel] ?? t.channel}
-              </span>
+              <span className="font-medium">{CHANNEL_LABEL[t.channel] ?? t.channel}</span>
               <span className="truncate text-muted-foreground">
                 {t.handle ? `@${t.handle}` : t.accountLabel}
                 {t.externalId ? ` · ID ${t.externalId}` : ""}
@@ -361,8 +342,7 @@ export function PublicationStatusPanel({
         </ul>
       ) : (
         <p className="rounded-md border border-dashed border-border/70 px-2.5 py-2 text-[11px] text-muted-foreground">
-          Nenhuma conta vinculada a este cliente. Vincule em Perfil do cliente &gt;
-          Canais.
+          Nenhuma conta vinculada a este cliente. Vincule em Perfil do cliente &gt; Canais.
         </p>
       )}
     </section>

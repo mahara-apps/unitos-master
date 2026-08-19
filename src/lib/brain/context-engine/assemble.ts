@@ -110,8 +110,9 @@ async function buildUncached(
   const activeRecs = recB.data;
   const semantic = semB.data;
   const stats = statsB.data;
-  const failures = [memB.failure, insB.failure, recB.failure, semB.failure, statsB.failure]
-    .filter((f): f is string => !!f);
+  const failures = [memB.failure, insB.failure, recB.failure, semB.failure, statsB.failure].filter(
+    (f): f is string => !!f,
+  );
 
   const items: ContextItem[] = [];
   let candidateCount = 0;

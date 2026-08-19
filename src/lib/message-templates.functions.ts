@@ -53,9 +53,7 @@ export const upsertTemplate = createServerFn({ method: "POST" })
     if (!event) throw new Error("evento_desconhecido");
     if (!event.channels.includes(data.channel)) throw new Error("canal_invalido_para_evento");
     const variablesUsed = Array.from(
-      new Set(
-        [...data.body.matchAll(/\{\{\s*([a-zA-Z0-9._-]+)\s*\}\}/g)].map((m) => m[1]),
-      ),
+      new Set([...data.body.matchAll(/\{\{\s*([a-zA-Z0-9._-]+)\s*\}\}/g)].map((m) => m[1])),
     );
     const { data: row, error } = await context.supabase
       .from("message_templates")

@@ -18,10 +18,7 @@ import {
 export type { ProviderName, ProviderRole, ProviderKind };
 export { PROVIDER_CAPABILITIES };
 
-export const MODEL_CATALOG: Record<
-  ProviderName,
-  Record<ProviderRole, string | null>
-> = {
+export const MODEL_CATALOG: Record<ProviderName, Record<ProviderRole, string | null>> = {
   openai: {
     strategic: "gpt-5",
     operational: "gpt-5-mini",
@@ -54,10 +51,7 @@ export const MODEL_CATALOG: Record<
  * (descontinuado / indisponível para a conta), tentamos o próximo da lista e
  * gravamos o override para as próximas execuções.
  */
-export const MODEL_FALLBACKS: Record<
-  ProviderName,
-  Record<ProviderRole, string[]>
-> = {
+export const MODEL_FALLBACKS: Record<ProviderName, Record<ProviderRole, string[]>> = {
   openai: {
     strategic: ["gpt-5", "gpt-5.1", "gpt-4.1"],
     operational: ["gpt-5-mini", "gpt-4.1-mini", "gpt-4o-mini"],
@@ -74,7 +68,11 @@ export const MODEL_FALLBACKS: Record<
     image: ["imagen-4.0-generate-001", "imagen-4.0-fast-generate-001"],
   },
   groq: {
-    strategic: ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "moonshotai/kimi-k2-instruct-0905"],
+    strategic: [
+      "openai/gpt-oss-120b",
+      "llama-3.3-70b-versatile",
+      "moonshotai/kimi-k2-instruct-0905",
+    ],
     operational: ["llama-3.3-70b-versatile", "openai/gpt-oss-20b", "llama-3.1-8b-instant"],
     image: [],
   },
@@ -87,7 +85,6 @@ export const DEFAULT_TEXT_MODEL: Record<ProviderName, string> = {
   gemini: MODEL_CATALOG.gemini.operational!,
   groq: MODEL_CATALOG.groq.operational!,
 };
-
 
 /** Compiled default (sem overrides). */
 export function getModel(
@@ -216,4 +213,3 @@ export function isModelUnavailableError(message: string): boolean {
     "404",
   ].some((p) => m.includes(p));
 }
-

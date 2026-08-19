@@ -44,10 +44,7 @@ export function AgencyOpsSection({
   range: DateRange | undefined;
 }) {
   const fn = useServerFn(getAgencyOpsDashboardFn);
-  const rangeKey = [
-    range?.from?.getTime() ?? null,
-    range?.to?.getTime() ?? null,
-  ] as const;
+  const rangeKey = [range?.from?.getTime() ?? null, range?.to?.getTime() ?? null] as const;
 
   const q = useQuery({
     queryKey: ["agency-ops", brandId, ...rangeKey],
@@ -220,9 +217,7 @@ function PendingRow({ p }: { p: PendingApprovalLite }) {
       <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-medium">{p.title}</div>
         {p.client_name && (
-          <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-            {p.client_name}
-          </div>
+          <div className="mt-0.5 truncate text-[11px] text-muted-foreground">{p.client_name}</div>
         )}
       </div>
       <span
@@ -288,9 +283,7 @@ function StageBar({ s, max }: { s: StageCount; max: number }) {
           style={{ width: `${Math.max(4, pct)}%`, background: color }}
         />
       </div>
-      <div className="w-8 shrink-0 text-right font-mono text-[11px] tabular-nums">
-        {s.count}
-      </div>
+      <div className="w-8 shrink-0 text-right font-mono text-[11px] tabular-nums">{s.count}</div>
     </li>
   );
 }
@@ -367,9 +360,7 @@ function SlaStat({
   return (
     <div className="rounded-lg border border-border/50 bg-card px-2 py-2">
       <div className={cn("font-mono text-lg tabular-nums", toneMap[tone])}>{value}</div>
-      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-        {label}
-      </div>
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</div>
     </div>
   );
 }
@@ -495,11 +486,7 @@ function TeamRow({ r }: { r: TeamThroughputRow }) {
       <td className="px-4 py-2">
         <div className="flex items-center gap-2">
           {r.avatar ? (
-            <img
-              src={r.avatar}
-              alt=""
-              className="h-6 w-6 rounded-full object-cover"
-            />
+            <img src={r.avatar} alt="" className="h-6 w-6 rounded-full object-cover" />
           ) : (
             <div className="grid h-6 w-6 place-items-center rounded-full bg-muted text-[10px] font-medium">
               {initials || "?"}
@@ -508,15 +495,9 @@ function TeamRow({ r }: { r: TeamThroughputRow }) {
           <span className="truncate text-sm">{r.name}</span>
         </div>
       </td>
-      <td className="px-2 py-2 text-right font-mono tabular-nums">
-        {r.tasks_done}
-      </td>
-      <td className="px-2 py-2 text-right font-mono tabular-nums">
-        {r.posts_approved}
-      </td>
-      <td className="px-4 py-2 text-right font-mono tabular-nums">
-        {r.hours_logged.toFixed(1)}
-      </td>
+      <td className="px-2 py-2 text-right font-mono tabular-nums">{r.tasks_done}</td>
+      <td className="px-2 py-2 text-right font-mono tabular-nums">{r.posts_approved}</td>
+      <td className="px-4 py-2 text-right font-mono tabular-nums">{r.hours_logged.toFixed(1)}</td>
     </tr>
   );
 }

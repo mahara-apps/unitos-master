@@ -4,10 +4,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getBrandAiModel } from "./ai-provider.server";
 import type { Json } from "@/integrations/supabase/types";
-import {
-  loadCanonicalBriefing,
-  projectCanonicalBriefingRow,
-} from "@/lib/briefing-source.server";
+import { loadCanonicalBriefing, projectCanonicalBriefingRow } from "@/lib/briefing-source.server";
 
 import { brain } from "@/lib/brain/api";
 
@@ -47,7 +44,6 @@ const AGENT_MODEL: Record<AgentName, { model: string; structuredOutputs: boolean
 
 // ---------- Helpers ----------
 
-
 /**
  * BRAND CONTEXT BLUEPRINT — unified corporate strategic memory
  *
@@ -82,9 +78,7 @@ export async function buildBrandContextBlueprint(
   const [{ data: client }, { data: docs }] = await Promise.all([
     supabase
       .from("clients")
-      .select(
-        "name, niche, color, tone_of_voice, socials, brand_hub" as never,
-      )
+      .select("name, niche, color, tone_of_voice, socials, brand_hub" as never)
       .eq("id", clientId)
       .eq("brand_id", brandId)
       .maybeSingle(),
@@ -106,7 +100,7 @@ export async function buildBrandContextBlueprint(
     brand_hub?: Record<string, unknown> | null;
   };
   const hub = (row.brand_hub ?? {}) as Record<string, unknown>;
-  const documents = ((docs ?? []) as unknown) as Array<{
+  const documents = (docs ?? []) as unknown as Array<{
     name: string;
     mime_type: string;
     size_bytes: number;
@@ -114,8 +108,7 @@ export async function buildBrandContextBlueprint(
 
   const arr = (v: unknown): string[] =>
     Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && !!x.trim()) : [];
-  const str = (v: unknown): string | null =>
-    typeof v === "string" && v.trim() ? v.trim() : null;
+  const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v.trim() : null);
 
   const toneTags = arr(hub.tone_tags);
   const painPoints = (str(hub.pain_points) ?? "")
@@ -145,9 +138,7 @@ export async function buildBrandContextBlueprint(
     ["Brand color", row.color ?? null],
     ["Default tone", row.tone_of_voice ?? null],
   ];
-  const identityLines = identity
-    .filter(([, v]) => v)
-    .map(([k, v]) => `- ${k}: ${v}`);
+  const identityLines = identity.filter(([, v]) => v).map(([k, v]) => `- ${k}: ${v}`);
   if (identityLines.length) sections.push(`## Client identity\n${identityLines.join("\n")}`);
   if (palette.length) {
     sections.push(
@@ -179,7 +170,10 @@ export async function buildBrandContextBlueprint(
   if (toneTags.length) briefingLines.push(`**Tone tags:** ${toneTags.join(", ")}`);
   if (painPoints.length) {
     briefingLines.push(
-      `**Pain points:**\n${painPoints.slice(0, 12).map((p) => `  - ${p}`).join("\n")}`,
+      `**Pain points:**\n${painPoints
+        .slice(0, 12)
+        .map((p) => `  - ${p}`)
+        .join("\n")}`,
     );
   }
   if (hashtags.length)
@@ -187,16 +181,13 @@ export async function buildBrandContextBlueprint(
   const doDont = (hub.do_dont ?? {}) as { do?: string; dont?: string };
   if (doDont.do) briefingLines.push(`**Do:** ${doDont.do}`);
   if (doDont.dont) briefingLines.push(`**Don't:** ${doDont.dont}`);
-  if (briefingLines.length)
-    sections.push(`## [Briefing & Tone]\n${briefingLines.join("\n")}`);
+  if (briefingLines.length) sections.push(`## [Briefing & Tone]\n${briefingLines.join("\n")}`);
 
   if (competitors.length) {
     const summary = competitors.slice(0, 15).map((c) => {
       const m = (c.last_metrics ?? {}) as Record<string, unknown>;
       const engagement =
-        typeof m.engagement_rate === "number"
-          ? `${(m.engagement_rate * 100).toFixed(2)}%`
-          : "n/a";
+        typeof m.engagement_rate === "number" ? `${(m.engagement_rate * 100).toFixed(2)}%` : "n/a";
       const hooks = Array.isArray(m.recurring_hooks)
         ? (m.recurring_hooks as string[]).slice(0, 3)
         : [];
@@ -361,18 +352,14 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
     }
   }
 
-  const finalSystem = brandBlueprint
-    ? `${brandBlueprint}\n\n---\n\n${opts.system}`
-    : opts.system;
+  const finalSystem = brandBlueprint ? `${brandBlueprint}\n\n---\n\n${opts.system}` : opts.system;
 
   // O provider já mede tokens/custo e aplica o teto mensal para toda chamada.
-  const { model } = await getBrandAiModel(
-    opts.supabase,
-    opts.brandId,
-    "text",
-    "operational",
-    { agent: opts.agent, clientId: opts.clientId, userId: opts.userId },
-  );
+  const { model } = await getBrandAiModel(opts.supabase, opts.brandId, "text", "operational", {
+    agent: opts.agent,
+    clientId: opts.clientId,
+    userId: opts.userId,
+  });
   // structuredOutputs kept for backwards-compat but ignored (each provider
   // enforces its own structured-output flow via the ai-sdk Output helper).
   void AGENT_MODEL[opts.agent];
@@ -392,7 +379,10 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
       const raw = error.text ?? "";
       try {
         // Tentativa de parse defensiva: modelos às vezes vêm com markdown.
-        const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "").trim();
+        const cleaned = raw
+          .replace(/^```(?:json)?\s*/i, "")
+          .replace(/```\s*$/i, "")
+          .trim();
         output = JSON.parse(cleaned);
       } catch {
         output = { __raw: raw };
@@ -404,7 +394,6 @@ async function runAgent<T extends z.ZodTypeAny>(opts: {
 
   return output as z.infer<T>;
 }
-
 
 // ---------- Schemas ----------
 
@@ -495,9 +484,7 @@ const CompetitorSchema = z.object({
     formatos_observados: z.array(z.string()),
     frequencia_estimada: z.string().nullable(),
   }),
-  pautas_inspiradas: z.array(
-    z.object({ titulo: z.string(), angulo_diferenciado: z.string() }),
-  ),
+  pautas_inspiradas: z.array(z.object({ titulo: z.string(), angulo_diferenciado: z.string() })),
 });
 
 // ---------- Prompts ----------
@@ -621,9 +608,8 @@ export const briefingParseFn = createServerFn({ method: "POST" })
 
     // FASE 2: escrita canônica em clients.brand_hub + versão de auditoria.
     const { writeCanonicalBriefing } = await import("@/lib/briefing-write.server");
-    const { legacyToHubPatch, loadCanonicalBriefing, projectCanonicalBriefingRow } = await import(
-      "@/lib/briefing-source.server"
-    );
+    const { legacyToHubPatch, loadCanonicalBriefing, projectCanonicalBriefingRow } =
+      await import("@/lib/briefing-source.server");
     await writeCanonicalBriefing(context.supabase, {
       brandId: data.brandId,
       clientId: data.clientId,
@@ -871,9 +857,12 @@ export const pautaSuggestFn = createServerFn({ method: "POST" })
           brand_id: data.brandId,
           client_id: data.clientId,
           titulo: p.titulo,
-          pilar: p.pilar_type, pilar_type: p.pilar_type, status: "backlog",
+          pilar: p.pilar_type,
+          pilar_type: p.pilar_type,
+          status: "backlog",
           cohort_alvo: p.cohort_alvo,
-          formato_recomendado: p.formato, formato: p.formato,
+          formato_recomendado: p.formato,
+          formato: p.formato,
           plataforma: p.plataforma,
           gancho: p.gancho,
           data: p,
@@ -996,9 +985,7 @@ export const saveArtifactVersionFn = createServerFn({ method: "POST" })
 export const loadClientContextFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z
-      .object({ brandId: z.string().uuid(), clientId: z.string().uuid() })
-      .parse(i),
+    z.object({ brandId: z.string().uuid(), clientId: z.string().uuid() }).parse(i),
   )
   .handler(async ({ data, context }) => {
     const [voice, personas, cohorts, swot, usage] = await Promise.all([
@@ -1326,17 +1313,12 @@ export const listStrategyRunsFn = createServerFn({ method: "POST" })
 
     const authorIds = [...new Set(runs.map((r) => r.created_by).filter(Boolean))] as string[];
     const profiles = authorIds.length
-      ? (
-          await context.supabase
-            .from("user_profiles")
-            .select("id,full_name")
-            .in("id", authorIds)
-        ).data
+      ? (await context.supabase.from("user_profiles").select("id,full_name").in("id", authorIds))
+          .data
       : [];
     const nameById = new Map(
       (profiles ?? []).map((p) => [p.id, (p.full_name as string | null) || null]),
     );
-
 
     return runs.map((run) => {
       const t = Date.parse(run.created_at);
@@ -1346,7 +1328,9 @@ export const listStrategyRunsFn = createServerFn({ method: "POST" })
       });
       const models =
         job && job.result && typeof job.result === "object"
-          ? ((job.result as Record<string, unknown>)["models"] as Record<string, string> | undefined)
+          ? ((job.result as Record<string, unknown>)["models"] as
+              | Record<string, string>
+              | undefined)
           : undefined;
       return {
         key: run.key,
@@ -1395,7 +1379,6 @@ export const getStrategyRunFn = createServerFn({ method: "POST" })
       out[block] = (rows[idx].data?.data as Json | null) ?? null;
     });
     return out;
-
   });
 
 export const restoreStrategyRunFn = createServerFn({ method: "POST" })

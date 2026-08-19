@@ -50,9 +50,7 @@ export function buildConfirmationCode(prefix: string, metaUserId: string): strin
 }
 
 export function confirmationUrl(code: string): string {
-  const base =
-    process.env.PUBLIC_APP_URL?.replace(/\/$/, "") ||
-    "https://unitos.sejaumpartner.com";
+  const base = process.env.PUBLIC_APP_URL?.replace(/\/$/, "") || "https://unitos.sejaumpartner.com";
   return `${base}/api/public/meta/deletion-status?code=${encodeURIComponent(code)}`;
 }
 

@@ -20,11 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Stepper } from "@/components/ui/stepper";
-import {
-  PLAN_CHANNELS,
-  PLAN_CHANNEL_LABEL,
-  type PlanChannel,
-} from "@/lib/monthly-plan-fields";
+import { PLAN_CHANNELS, PLAN_CHANNEL_LABEL, type PlanChannel } from "@/lib/monthly-plan-fields";
 import {
   CONTENT_FORMATS,
   CONTENT_FORMAT_LABEL,
@@ -84,9 +80,7 @@ export function GeneratePlanWizard({
   const [briefingId, setBriefingId] = useState("__none");
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
   /** Fonte de verdade da seleção: canal → formato → quantidade. */
-  const [fmtQty, setFmtQty] = useState<
-    Record<string, Partial<Record<ContentFormat, number>>>
-  >({});
+  const [fmtQty, setFmtQty] = useState<Record<string, Partial<Record<ContentFormat, number>>>>({});
   const [justification, setJustification] = useState("");
 
   const channels = useMemo(
@@ -335,8 +329,8 @@ export function GeneratePlanWizard({
                         <ul className="mt-1 space-y-0.5 tabular-nums">
                           {overageItems.map((it) => (
                             <li key={it.channel}>
-                              {PLAN_CHANNEL_LABEL[it.channel]}: {it.requested} pedidas ·{" "}
-                              {it.quota} disponíveis · +{it.overage} excedente
+                              {PLAN_CHANNEL_LABEL[it.channel]}: {it.requested} pedidas · {it.quota}{" "}
+                              disponíveis · +{it.overage} excedente
                             </li>
                           ))}
                         </ul>
@@ -355,9 +349,7 @@ export function GeneratePlanWizard({
                       onClick={() => onRequestOverage?.(overageItems, justification.trim())}
                       className="gap-1.5"
                     >
-                      {requestingOverage ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : null}
+                      {requestingOverage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                       Solicitar liberação
                     </Button>
                   </div>
@@ -380,7 +372,9 @@ export function GeneratePlanWizard({
                 onClick={() => (step === 0 ? onOpenChange(false) : setStep(step - 1))}
                 className="gap-1"
               >
-                {step === 0 ? "Cancelar" : (
+                {step === 0 ? (
+                  "Cancelar"
+                ) : (
                   <>
                     <ArrowLeft className="h-4 w-4" /> Voltar
                   </>

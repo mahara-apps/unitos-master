@@ -98,7 +98,9 @@ export const getPortalPlanFn = createServerFn({ method: "POST" })
   });
 
 export const decidePortalPlanFn = createServerFn({ method: "POST" })
-  .inputValidator((i: unknown) => tokenIn.extend({ planId: z.string().uuid(), ...decisionShape }).parse(i))
+  .inputValidator((i: unknown) =>
+    tokenIn.extend({ planId: z.string().uuid(), ...decisionShape }).parse(i),
+  )
   .handler(async ({ data }): Promise<PublicPlanDecisionResult> => {
     const { resolveTokenScope, scopedAdmin } = await import("@/lib/portal-scope.server");
     const { decidePlanAsClient } = await import("@/lib/monthly-plan-decision.server");

@@ -52,9 +52,7 @@ export const listBrandMediaPlans = createServerFn({ method: "GET" })
         .select("plan_id,budget_pct,budget_amount")
         .in("plan_id", planIds),
     ]);
-    const clientMap = new Map(
-      (clients ?? []).map((c) => [c.id as string, c.name as string]),
-    );
+    const clientMap = new Map((clients ?? []).map((c) => [c.id as string, c.name as string]));
     const agg = new Map<string, { count: number; pct: number; amount: number }>();
     for (const it of items ?? []) {
       const key = it.plan_id as string;

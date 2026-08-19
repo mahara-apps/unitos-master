@@ -38,46 +38,44 @@ function redirectToLoginWithoutThrowing() {
 // refreshes an expired/near-expiry session so long-lived tabs don't start
 // failing with "Unauthorized: No authorization header provided" after the
 // access token silently expires.
-const attachSupabaseAuth = createMiddleware({ type: "function" }).client(
-  async ({ next }) => {
-    let { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
-    let token = data.session?.access_token;
-    const expiresAt = data.session?.expires_at;
-    const nearExpiry = expiresAt ? expiresAt * 1000 - Date.now() < 60_000 : false;
-    const expired = expiresAt ? expiresAt * 1000 <= Date.now() : false;
-    if (!token || nearExpiry) {
-      const refreshed = await supabase.auth.refreshSession().catch(() => null);
-      const refreshedToken = refreshed?.data.session?.access_token ?? null;
-      // Se o refresh falhou e o token atual já expirou, não envie um bearer
-      // inválido — o servidor responderia "Unauthorized: Invalid token".
-      token = refreshedToken ?? (expired ? undefined : token);
-      if (!refreshedToken && expired) {
-        await clearInvalidSession();
+const attachSupabaseAuth = createMiddleware({ type: "function" }).client(async ({ next }) => {
+  const { data } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+  let token = data.session?.access_token;
+  const expiresAt = data.session?.expires_at;
+  const nearExpiry = expiresAt ? expiresAt * 1000 - Date.now() < 60_000 : false;
+  const expired = expiresAt ? expiresAt * 1000 <= Date.now() : false;
+  if (!token || nearExpiry) {
+    const refreshed = await supabase.auth.refreshSession().catch(() => null);
+    const refreshedToken = refreshed?.data.session?.access_token ?? null;
+    // Se o refresh falhou e o token atual já expirou, não envie um bearer
+    // inválido — o servidor responderia "Unauthorized: Invalid token".
+    token = refreshedToken ?? (expired ? undefined : token);
+    if (!refreshedToken && expired) {
+      await clearInvalidSession();
+    }
+  }
+
+  // Global middleware must be best-effort: public server functions should
+  // still work without a session. Protected functions will be rejected by
+  // requireSupabaseAuth and handled below.
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  try {
+    return await next({ headers });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Token rejeitado pelo servidor (ex.: sessão de outro projeto no
+    // localStorage, token revogado). Limpa e força re-login.
+    if (AUTH_ERROR_RE.test(msg)) {
+      await clearInvalidSession();
+      redirectToLoginWithoutThrowing();
+      if (typeof window !== "undefined") {
+        return await new Promise<never>(() => undefined);
       }
     }
-
-    // Global middleware must be best-effort: public server functions should
-    // still work without a session. Protected functions will be rejected by
-    // requireSupabaseAuth and handled below.
-    const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
-
-    try {
-      return await next({ headers });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      // Token rejeitado pelo servidor (ex.: sessão de outro projeto no
-      // localStorage, token revogado). Limpa e força re-login.
-      if (AUTH_ERROR_RE.test(msg)) {
-        await clearInvalidSession();
-        redirectToLoginWithoutThrowing();
-        if (typeof window !== "undefined") {
-          return await new Promise<never>(() => undefined);
-        }
-      }
-      throw err;
-    }
-  },
-);
+    throw err;
+  }
+});
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {

@@ -133,8 +133,15 @@ export const listAgencyContentFn = createServerFn({ method: "POST" })
       supabase.from("clients").select("id, name").eq("brand_id", data.brandId),
     ]);
     const stages = (stagesRes.data ?? []) as Array<{
-      id: string; pipeline_id: string; key: string; label: string; color: string | null;
-      position: number; is_terminal: boolean; sla_hours: number | null; sla_days: number | null;
+      id: string;
+      pipeline_id: string;
+      key: string;
+      label: string;
+      color: string | null;
+      position: number;
+      is_terminal: boolean;
+      sla_hours: number | null;
+      sla_days: number | null;
     }>;
     const stageMap = new Map(stages.map((s) => [s.id, s]));
     const nonTerminalIds = stages.filter((s) => !s.is_terminal).map((s) => s.id);
@@ -168,11 +175,19 @@ export const listAgencyContentFn = createServerFn({ method: "POST" })
     const { data: postsData, error } = await postsQ;
     if (error) throw error;
     const posts = (postsData ?? []) as Array<{
-      id: string; title: string | null; cover_url: string | null;
-      stage_id: string | null; pipeline_id: string | null; client_id: string;
-      scheduled_at: string | null; updated_at: string; created_at: string;
-      stage_entered_at: string | null; assignee_id: string | null;
-      priority: string | null; channels: string[] | null;
+      id: string;
+      title: string | null;
+      cover_url: string | null;
+      stage_id: string | null;
+      pipeline_id: string | null;
+      client_id: string;
+      scheduled_at: string | null;
+      updated_at: string;
+      created_at: string;
+      stage_entered_at: string | null;
+      assignee_id: string | null;
+      priority: string | null;
+      channels: string[] | null;
     }>;
 
     // 4. Perfis dos responsáveis
@@ -186,7 +201,9 @@ export const listAgencyContentFn = createServerFn({ method: "POST" })
         .select("id, full_name, avatar_url")
         .in("id", assigneeIds);
       for (const p of (profs ?? []) as Array<{
-        id: string; full_name: string | null; avatar_url: string | null;
+        id: string;
+        full_name: string | null;
+        avatar_url: string | null;
       }>) {
         profMap.set(p.id, { full_name: p.full_name, avatar_url: p.avatar_url });
       }
@@ -290,7 +307,8 @@ export const listAgencyContentFn = createServerFn({ method: "POST" })
     const kpis = {
       inProduction: rows.length,
       awaitingApproval: rows.filter(
-        (r) => normalizeLabel(r.stage_label).includes("aprova") ||
+        (r) =>
+          normalizeLabel(r.stage_label).includes("aprova") ||
           normalizeLabel(r.stage_label).includes("revis"),
       ).length,
       overdue: rows.filter((r) => r.sla_status === "overdue").length,

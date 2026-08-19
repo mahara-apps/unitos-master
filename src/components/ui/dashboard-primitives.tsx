@@ -10,26 +10,23 @@ export function DashboardPageShell({
   className?: string;
 }) {
   return (
-    <div className={cn("w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8", className)}>
-      {children}
-    </div>
+    <div className={cn("w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8", className)}>{children}</div>
   );
 }
 
-export const DashboardPanelSurface = forwardRef<
-  HTMLDivElement,
-  ComponentPropsWithoutRef<"div">
->(function DashboardPanelSurface({ children, className, ...props }, ref) {
-  return (
-    <div
-      ref={ref}
-      className={cn("overflow-hidden rounded-xl border border-border/60 bg-card", className)}
-      {...props}
-    >
-      {children}
-    </div>
-  );
-});
+export const DashboardPanelSurface = forwardRef<HTMLDivElement, ComponentPropsWithoutRef<"div">>(
+  function DashboardPanelSurface({ children, className, ...props }, ref) {
+    return (
+      <div
+        ref={ref}
+        className={cn("overflow-hidden rounded-xl border border-border/60 bg-card", className)}
+        {...props}
+      >
+        {children}
+      </div>
+    );
+  },
+);
 
 export function DashboardIconFrame({
   children,

@@ -64,7 +64,13 @@ async function runAnalysis(params: { token: string; input: z.infer<typeof BodySc
   const supabase = buildUserClient(token);
 
   const patch = (fields: Record<string, unknown>) =>
-    (supabase as unknown as { from: (t: string) => { update: (v: unknown) => { eq: (k: string, v: string) => Promise<unknown> } } })
+    (
+      supabase as unknown as {
+        from: (t: string) => {
+          update: (v: unknown) => { eq: (k: string, v: string) => Promise<unknown> };
+        };
+      }
+    )
       .from("client_documents")
       .update(fields)
       .eq("id", input.documentId);
@@ -72,19 +78,33 @@ async function runAnalysis(params: { token: string; input: z.infer<typeof BodySc
   try {
     await patch({ ai_status: "running", ai_error: null });
 
-    const { data: doc, error: docErr } = await (supabase as unknown as {
-      from: (t: string) => {
-        select: (c: string) => {
-          eq: (k: string, v: string) => {
-            eq: (k: string, v: string) => {
-              eq: (k: string, v: string) => {
-                maybeSingle: () => Promise<{ data: { storage_path: string; mime_type: string | null; name: string } | null; error: unknown }>;
+    const { data: doc, error: docErr } = await (
+      supabase as unknown as {
+        from: (t: string) => {
+          select: (c: string) => {
+            eq: (
+              k: string,
+              v: string,
+            ) => {
+              eq: (
+                k: string,
+                v: string,
+              ) => {
+                eq: (
+                  k: string,
+                  v: string,
+                ) => {
+                  maybeSingle: () => Promise<{
+                    data: { storage_path: string; mime_type: string | null; name: string } | null;
+                    error: unknown;
+                  }>;
+                };
               };
             };
           };
         };
-      };
-    })
+      }
+    )
       .from("client_documents")
       .select("storage_path, mime_type, name")
       .eq("id", input.documentId)
@@ -130,7 +150,9 @@ async function runAnalysis(params: { token: string; input: z.infer<typeof BodySc
       summary = output;
     } catch (err) {
       if (NoObjectGeneratedError.isInstance(err)) {
-        throw new Error("A IA não conseguiu estruturar o documento. Tente novamente ou envie um arquivo mais legível.");
+        throw new Error(
+          "A IA não conseguiu estruturar o documento. Tente novamente ou envie um arquivo mais legível.",
+        );
       }
       throw err;
     }
@@ -169,7 +191,13 @@ export const Route = createFileRoute("/api/jobs/analyze-document")({
         const { data: claims } = await supabase.auth.getClaims(token);
         if (!claims?.claims?.sub) return new Response("Unauthorized", { status: 401 });
 
-        await (supabase as unknown as { from: (t: string) => { update: (v: unknown) => { eq: (k: string, v: string) => Promise<unknown> } } })
+        await (
+          supabase as unknown as {
+            from: (t: string) => {
+              update: (v: unknown) => { eq: (k: string, v: string) => Promise<unknown> };
+            };
+          }
+        )
           .from("client_documents")
           .update({ ai_status: "queued", ai_error: null })
           .eq("id", parsed.data.documentId);

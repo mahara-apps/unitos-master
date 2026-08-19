@@ -9,9 +9,7 @@ export const Route = createFileRoute("/api/public/hooks/social-metrics-sync")({
       POST: async ({ request }) => {
         const cronDenied = assertCronRequest(request);
         if (cronDenied) return cronDenied;
-        const { runSocialMetricsSync } = await import(
-          "@/lib/brain/social-metrics-sync.server"
-        );
+        const { runSocialMetricsSync } = await import("@/lib/brain/social-metrics-sync.server");
         try {
           const report = await runSocialMetricsSync();
           return Response.json({ ok: true, report });

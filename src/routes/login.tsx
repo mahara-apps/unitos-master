@@ -14,8 +14,7 @@ export const Route = createFileRoute("/login")({
       { title: "Entrar — Acesse sua conta" },
       {
         name: "description",
-        content:
-          "Faça login com o email e a senha enviados no seu convite para acessar o painel.",
+        content: "Faça login com o email e a senha enviados no seu convite para acessar o painel.",
       },
       { property: "og:title", content: "Entrar — Acesse sua conta" },
       {
@@ -59,26 +58,29 @@ function LoginPage() {
 
   useEffect(() => {
     let cancelled = false;
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (cancelled) return;
-      if (data.session?.user) {
-        const { data: userData, error } = await supabase.auth.getUser();
+    supabase.auth
+      .getSession()
+      .then(async ({ data }) => {
         if (cancelled) return;
-        if (error || !userData.user) {
-          await clearStoredSupabaseSession();
+        if (data.session?.user) {
+          const { data: userData, error } = await supabase.auth.getUser();
+          if (cancelled) return;
+          if (error || !userData.user) {
+            await clearStoredSupabaseSession();
+            setChecked(true);
+            return;
+          }
+          const target = sanitizeNext(next) ?? "/dashboard";
+          navigate({ to: target, replace: true });
+        } else {
           setChecked(true);
-          return;
         }
-        const target = sanitizeNext(next) ?? "/dashboard";
-        navigate({ to: target, replace: true });
-      } else {
+      })
+      .catch(async () => {
+        if (cancelled) return;
+        await clearStoredSupabaseSession();
         setChecked(true);
-      }
-    }).catch(async () => {
-      if (cancelled) return;
-      await clearStoredSupabaseSession();
-      setChecked(true);
-    });
+      });
     return () => {
       cancelled = true;
     };
@@ -122,8 +124,6 @@ function BrandPanel() {
         className="pointer-events-none absolute -top-28 right-[-12%] -z-10 h-80 w-80 rotate-12 rounded-[38%] border border-white/10 bg-white/[0.03]"
       />
 
-
-
       <div className="max-w-md">
         <p className="text-3xl font-semibold leading-tight tracking-tight xl:text-4xl">
           Tudo o que sua equipe precisa para organizar, aprovar e acompanhar sua operação.
@@ -160,7 +160,8 @@ function sanitizeNext(next: string | undefined): string | null {
       decoded.startsWith("/") &&
       !decoded.startsWith("//") &&
       !/^\/(auth|login)(\/|\?|#|$)/.test(decoded)
-    ) return decoded;
+    )
+      return decoded;
   } catch {}
   return null;
 }

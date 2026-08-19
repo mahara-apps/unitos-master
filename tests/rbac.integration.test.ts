@@ -64,10 +64,13 @@ type Ctx = {
 let cx: Ctx;
 
 async function roleOf(a: Actor, brandId: string | null) {
-  const { data, error } = await a.client.rpc("app_access_role" as never, {
-    _user_id: a.id,
-    _brand_id: brandId,
-  } as never);
+  const { data, error } = await a.client.rpc(
+    "app_access_role" as never,
+    {
+      _user_id: a.id,
+      _brand_id: brandId,
+    } as never,
+  );
   if (error) throw error;
   return data as string | null;
 }
@@ -178,7 +181,11 @@ afterAll(async () => {
   await cx.owner.client.from("tasks").delete().eq("brand_id", cx.brandId);
   await cx.owner.client.from("client_members").delete().eq("brand_id", cx.brandId);
   await cx.owner.client.from("clients").delete().eq("brand_id", cx.brandId);
-  await cx.owner.client.from("brand_members").delete().eq("brand_id", cx.brandId).neq("user_id", cx.owner.id);
+  await cx.owner.client
+    .from("brand_members")
+    .delete()
+    .eq("brand_id", cx.brandId)
+    .neq("user_id", cx.owner.id);
   await cx.outsider.client.from("clients").delete().eq("brand_id", cx.otherBrandId);
 });
 
@@ -235,7 +242,9 @@ describe("escopo de leitura (SELECT via RLS)", () => {
   it("SUPER ADMIN lê as duas marcas", async () => {
     if (!cx.superIsFlagged) return;
     expect(await visibleClients(cx.superAdmin.client, cx.brandId)).toHaveLength(3);
-    expect(await visibleClients(cx.superAdmin.client, cx.otherBrandId)).toEqual([cx.otherBrandClient]);
+    expect(await visibleClients(cx.superAdmin.client, cx.otherBrandId)).toEqual([
+      cx.otherBrandClient,
+    ]);
   });
 });
 
@@ -268,7 +277,11 @@ describe("escrita: INSERT / UPDATE / DELETE via RLS", () => {
   });
 
   it("USER não exclui cliente do próprio escopo", async () => {
-    const del = await cx.user.client.from("clients").delete().eq("id", cx.clientOfUser).select("id");
+    const del = await cx.user.client
+      .from("clients")
+      .delete()
+      .eq("id", cx.clientOfUser)
+      .select("id");
     expect(del.data ?? []).toHaveLength(0);
   });
 
@@ -383,9 +396,12 @@ describe("escrita: INSERT / UPDATE / DELETE via RLS", () => {
 describe("contrato das funções de servidor (mesmas usadas por access-guard)", () => {
   it("my_access devolve papel + escopo idênticos à RLS", async () => {
     for (const a of [cx.owner, cx.manager, cx.user]) {
-      const { data, error } = await a.client.rpc("my_access" as never, {
-        _brand_id: cx.brandId,
-      } as never);
+      const { data, error } = await a.client.rpc(
+        "my_access" as never,
+        {
+          _brand_id: cx.brandId,
+        } as never,
+      );
       if (error) throw error;
       const payload = data as { role: string; client_ids: string[] };
       expect(payload.role).toBe(await roleOf(a, cx.brandId));
@@ -394,20 +410,29 @@ describe("contrato das funções de servidor (mesmas usadas por access-guard)", 
   });
 
   it("can_access_client nega cliente fora do escopo e de outra marca", async () => {
-    const deny = await cx.user.client.rpc("can_access_client" as never, {
-      _client_id: cx.clientOfManager,
-      _user_id: cx.user.id,
-    } as never);
+    const deny = await cx.user.client.rpc(
+      "can_access_client" as never,
+      {
+        _client_id: cx.clientOfManager,
+        _user_id: cx.user.id,
+      } as never,
+    );
     expect(deny.data).toBe(false);
-    const allow = await cx.user.client.rpc("can_access_client" as never, {
-      _client_id: cx.clientOfUser,
-      _user_id: cx.user.id,
-    } as never);
+    const allow = await cx.user.client.rpc(
+      "can_access_client" as never,
+      {
+        _client_id: cx.clientOfUser,
+        _user_id: cx.user.id,
+      } as never,
+    );
     expect(allow.data).toBe(true);
-    const cross = await cx.user.client.rpc("can_access_client" as never, {
-      _client_id: cx.otherBrandClient,
-      _user_id: cx.user.id,
-    } as never);
+    const cross = await cx.user.client.rpc(
+      "can_access_client" as never,
+      {
+        _client_id: cx.otherBrandClient,
+        _user_id: cx.user.id,
+      } as never,
+    );
     expect(cross.data).toBe(false);
   });
 });
@@ -451,10 +476,13 @@ describe("papéis legados convergem para USER (sem papel operacional duplicado)"
 
 describe("escopo do USER depende de vínculo explícito", () => {
   it("USER sem vínculo é negado; com vínculo em client_members é permitido", async () => {
-    const denied = await cx.user.client.rpc("can_access_client" as never, {
-      _client_id: cx.clientFree,
-      _user_id: cx.user.id,
-    } as never);
+    const denied = await cx.user.client.rpc(
+      "can_access_client" as never,
+      {
+        _client_id: cx.clientFree,
+        _user_id: cx.user.id,
+      } as never,
+    );
     expect(denied.data, "cliente sem responsável/vínculo deve ser negado").toBe(false);
 
     const link = await cx.owner.client.from("client_members").insert({
@@ -465,10 +493,13 @@ describe("escopo do USER depende de vínculo explícito", () => {
     });
     expect(link.error, link.error?.message).toBeNull();
 
-    const allowed = await cx.user.client.rpc("can_access_client" as never, {
-      _client_id: cx.clientFree,
-      _user_id: cx.user.id,
-    } as never);
+    const allowed = await cx.user.client.rpc(
+      "can_access_client" as never,
+      {
+        _client_id: cx.clientFree,
+        _user_id: cx.user.id,
+      } as never,
+    );
     expect(allowed.data, "vínculo explícito concede acesso").toBe(true);
     expect(await visibleClients(cx.user.client, cx.brandId)).toContain(cx.clientFree);
 
@@ -482,27 +513,36 @@ describe("escopo do USER depende de vínculo explícito", () => {
   it("ADMIN e MANAGER cobrem a marca inteira, mas MANAGER não atravessa marcas", async () => {
     for (const a of [cx.owner, cx.manager]) {
       for (const id of [cx.clientFree, cx.clientOfUser, cx.clientOfManager]) {
-        const r = await a.client.rpc("can_access_client" as never, {
-          _client_id: id,
-          _user_id: a.id,
-        } as never);
+        const r = await a.client.rpc(
+          "can_access_client" as never,
+          {
+            _client_id: id,
+            _user_id: a.id,
+          } as never,
+        );
         expect(r.data, `${a.email} deveria acessar ${id}`).toBe(true);
       }
     }
-    const cross = await cx.manager.client.rpc("can_access_client" as never, {
-      _client_id: cx.otherBrandClient,
-      _user_id: cx.manager.id,
-    } as never);
+    const cross = await cx.manager.client.rpc(
+      "can_access_client" as never,
+      {
+        _client_id: cx.otherBrandClient,
+        _user_id: cx.manager.id,
+      } as never,
+    );
     expect(cross.data, "MANAGER não acessa outra marca").toBe(false);
     expect(await roleOf(cx.manager, cx.otherBrandId)).toBeNull();
   });
 
   it("SUPER ADMIN é global no escopo de clientes", async () => {
     if (!cx.superIsFlagged) return;
-    const r = await cx.superAdmin.client.rpc("can_access_client" as never, {
-      _client_id: cx.otherBrandClient,
-      _user_id: cx.superAdmin.id,
-    } as never);
+    const r = await cx.superAdmin.client.rpc(
+      "can_access_client" as never,
+      {
+        _client_id: cx.otherBrandClient,
+        _user_id: cx.superAdmin.id,
+      } as never,
+    );
     expect(r.data).toBe(true);
   });
 });

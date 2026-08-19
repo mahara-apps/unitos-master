@@ -1,10 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type {
-  PublicPlanDecisionResult,
-  PublicPlanResolve,
-} from "@/lib/monthly-plan-client.types";
+import type { PublicPlanDecisionResult, PublicPlanResolve } from "@/lib/monthly-plan-client.types";
 
 export type {
   PublicPlanDecisionResult,

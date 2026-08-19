@@ -104,10 +104,7 @@ export const upsertCalendarEventFn = createServerFn({ method: "POST" })
     // (a) super admin required for is_global=true, and (b) the caller
     // has access to the informed brand.
     if (data.isGlobal) {
-      const isSuper = await resolveIsSuperAdmin(
-        context.supabase as never,
-        context.userId,
-      );
+      const isSuper = await resolveIsSuperAdmin(context.supabase as never, context.userId);
       if (!isSuper) throw new Error("Apenas super admins podem criar datas globais.");
     } else if (data.brandId) {
       await assertBrandAccess(context.supabase as never, data.brandId);
@@ -124,7 +121,7 @@ export const upsertCalendarEventFn = createServerFn({ method: "POST" })
     }
     const payload = {
       brand_id: data.isGlobal ? null : data.brandId,
-      client_id: data.isGlobal ? null : data.clientId ?? null,
+      client_id: data.isGlobal ? null : (data.clientId ?? null),
       type: data.type,
       title: data.title,
       description: data.description ?? null,
@@ -170,16 +167,10 @@ export const deleteCalendarEventFn = createServerFn({ method: "POST" })
     if (exErr) throw exErr;
     if (!existing) throw new Error("Evento não encontrado ou sem permissão.");
     if (existing.is_global) {
-      const isSuper = await resolveIsSuperAdmin(
-        context.supabase as never,
-        context.userId,
-      );
+      const isSuper = await resolveIsSuperAdmin(context.supabase as never, context.userId);
       if (!isSuper) throw new Error("Apenas super admins podem excluir datas globais.");
     }
-    const { error } = await context.supabase
-      .from("calendar_events")
-      .delete()
-      .eq("id", data.id);
+    const { error } = await context.supabase.from("calendar_events").delete().eq("id", data.id);
     if (error) throw error;
     return { ok: true };
   });

@@ -7,10 +7,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import type { DateRange, Metric, SocialPost } from "@/lib/social/types";
-import {
-  SocialAnalyticsService,
-  SOCIAL_CACHE_TTL_MS,
-} from "@/lib/social-analytics/service.server";
+import { SocialAnalyticsService, SOCIAL_CACHE_TTL_MS } from "@/lib/social-analytics/service.server";
 
 const QuerySchema = z.object({
   period: z
@@ -54,10 +51,7 @@ function computeEngagementRate(
   return round2((interactions / base) * 100);
 }
 
-function computeGrowth(
-  totals: Metric[],
-  followers: number | null,
-): number | null {
+function computeGrowth(totals: Metric[], followers: number | null): number | null {
   const gained = metricValue(totals, "followers_gained") ?? 0;
   const lost = metricValue(totals, "followers_lost") ?? 0;
   if (!followers || followers <= 0) return null;
@@ -100,8 +94,10 @@ export const Route = createFileRoute("/api/social/dashboard/$connectionId")({
           const followers = dashboard.profile?.followers ?? null;
           const handle = dashboard.profile?.handle ?? null;
           const account = handle
-            ? handle.startsWith("@") ? handle : `@${handle}`
-            : dashboard.profile?.name ?? conn.externalName ?? null;
+            ? handle.startsWith("@")
+              ? handle
+              : `@${handle}`
+            : (dashboard.profile?.name ?? conn.externalName ?? null);
 
           return Response.json(
             {

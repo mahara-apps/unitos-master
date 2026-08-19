@@ -5,10 +5,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import type { Metric, SocialPost } from "@/lib/social/types";
-import {
-  SocialAnalyticsService,
-  SOCIAL_CACHE_TTL_MS,
-} from "@/lib/social-analytics/service.server";
+import { SocialAnalyticsService, SOCIAL_CACHE_TTL_MS } from "@/lib/social-analytics/service.server";
 
 const QuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(10),
@@ -47,8 +44,7 @@ function performanceScore(post: SocialPost): number {
   const comments = metricValue(post.metrics, "comments") ?? 0;
   const shares = metricValue(post.metrics, "shares") ?? 0;
   const saves = metricValue(post.metrics, "saves") ?? 0;
-  const reach =
-    metricValue(post.metrics, "reach") ?? metricValue(post.metrics, "impressions") ?? 0;
+  const reach = metricValue(post.metrics, "reach") ?? metricValue(post.metrics, "impressions") ?? 0;
   const interactions = likes * 1 + comments * 2 + shares * 3 + saves * 3;
   const reachBoost = reach > 0 ? Math.log10(reach + 1) : 0;
   return interactions * (1 + reachBoost / 10);
@@ -109,9 +105,7 @@ export const Route = createFileRoute("/api/social/top-posts/$connectionId")({
               comments: metricValue(p.metrics, "comments"),
               shares: metricValue(p.metrics, "shares"),
               saves: metricValue(p.metrics, "saves"),
-              views:
-                metricValue(p.metrics, "video_views") ??
-                metricValue(p.metrics, "views"),
+              views: metricValue(p.metrics, "video_views") ?? metricValue(p.metrics, "views"),
             },
           }));
 

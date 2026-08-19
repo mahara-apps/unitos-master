@@ -51,8 +51,7 @@ function fakeClient() {
         insert: async (rows: NotificationInsert[]) => {
           calls.push(rows.length);
           const keys = rows.map((r) => `${r.user_id}:${r.kind}:${r.dedupe_key}`);
-          const dup =
-            keys.some((k) => pending.has(k)) || new Set(keys).size !== keys.length;
+          const dup = keys.some((k) => pending.has(k)) || new Set(keys).size !== keys.length;
           if (dup) return { error: { code: "23505", message: "duplicate key" } };
           for (const k of keys) pending.add(k);
           return { error: null };

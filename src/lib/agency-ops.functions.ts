@@ -83,9 +83,7 @@ export type AgencyOpsDashboard = {
 function resolveRange(input?: { from?: string; to?: string }) {
   const now = Date.now();
   const toMs = input?.to ? new Date(input.to).getTime() : now;
-  const fromMs = input?.from
-    ? new Date(input.from).getTime()
-    : toMs - 30 * 86_400_000;
+  const fromMs = input?.from ? new Date(input.from).getTime() : toMs - 30 * 86_400_000;
   const safeFrom = Math.min(fromMs, toMs);
   return {
     fromIso: new Date(safeFrom).toISOString(),
@@ -157,10 +155,7 @@ export const getAgencyOpsDashboardFn = createServerFn({ method: "POST" })
       supabase
         .from("content_pipeline_stages")
         .select("id, pipeline_id, label, color, sla_days, sla_hours, is_terminal, position"),
-      supabase
-        .from("content_pipelines")
-        .select("id")
-        .eq("brand_id", brandId),
+      supabase.from("content_pipelines").select("id").eq("brand_id", brandId),
       // Tarefas concluídas no período (por responsável)
       supabase
         .from("tasks")
@@ -192,9 +187,7 @@ export const getAgencyOpsDashboardFn = createServerFn({ method: "POST" })
     ]);
 
     const clientMap = new Map(
-      ((clientsRes.data ?? []) as Array<{ id: string; name: string }>).map(
-        (c) => [c.id, c.name],
-      ),
+      ((clientsRes.data ?? []) as Array<{ id: string; name: string }>).map((c) => [c.id, c.name]),
     );
 
     // ---------------- OVERDUE TASKS ----------------
@@ -216,9 +209,9 @@ export const getAgencyOpsDashboardFn = createServerFn({ method: "POST" })
           .in("id", assigneeIds)
       : { data: [] as Array<{ id: string; full_name: string | null; avatar_url: string | null }> };
     const profMap = new Map(
-      ((profs ?? []) as Array<{ id: string; full_name: string | null; avatar_url: string | null }>).map(
-        (p) => [p.id, p],
-      ),
+      (
+        (profs ?? []) as Array<{ id: string; full_name: string | null; avatar_url: string | null }>
+      ).map((p) => [p.id, p]),
     );
     const overdueItems: OverdueTaskLite[] = overdueRows.slice(0, 10).map((t) => {
       const dueMs = t.due_at ? new Date(t.due_at).getTime() : nowMs;
@@ -230,7 +223,7 @@ export const getAgencyOpsDashboardFn = createServerFn({ method: "POST" })
         hours_overdue: Math.max(0, (nowMs - dueMs) / 3_600_000),
         priority: t.priority,
         client_id: t.client_id,
-        client_name: t.client_id ? clientMap.get(t.client_id) ?? null : null,
+        client_name: t.client_id ? (clientMap.get(t.client_id) ?? null) : null,
         assignee_id: t.assignee_id,
         assignee_name: p?.full_name ?? null,
         assignee_avatar: p?.avatar_url ?? null,
@@ -238,19 +231,19 @@ export const getAgencyOpsDashboardFn = createServerFn({ method: "POST" })
     });
 
     // ---------------- STAGES / PRODUCTION / SLA / BOTTLENECKS ----------------
-    const pipeIds = new Set(
-      ((pipelinesRes.data ?? []) as Array<{ id: string }>).map((p) => p.id),
-    );
-    const allStages = ((stagesRes.data ?? []) as Array<{
-      id: string;
-      pipeline_id: string | null;
-      label: string;
-      color: string | null;
-      sla_days: number | null;
-      sla_hours: number | null;
-      is_terminal: boolean;
-      position: number;
-    }>).filter((s) => s.pipeline_id && pipeIds.has(s.pipeline_id));
+    const pipeIds = new Set(((pipelinesRes.data ?? []) as Array<{ id: string }>).map((p) => p.id));
+    const allStages = (
+      (stagesRes.data ?? []) as Array<{
+        id: string;
+        pipeline_id: string | null;
+        label: string;
+        color: string | null;
+        sla_days: number | null;
+        sla_hours: number | null;
+        is_terminal: boolean;
+        position: number;
+      }>
+    ).filter((s) => s.pipeline_id && pipeIds.has(s.pipeline_id));
     const stageMap = new Map(allStages.map((s) => [s.id, s]));
 
     const productionPosts = (productionPostsRes.data ?? []) as Array<{
@@ -264,10 +257,7 @@ export const getAgencyOpsDashboardFn = createServerFn({ method: "POST" })
     let atRisk = 0;
     let overdue = 0;
     let productionTotal = 0;
-    const stageStats = new Map<
-      string,
-      { hoursSum: number; count: number; overdue: number }
-    >();
+    const stageStats = new Map<string, { hoursSum: number; count: number; overdue: number }>();
 
     for (const p of productionPosts) {
       if (!p.stage_id) continue;
@@ -355,9 +345,7 @@ export const getAgencyOpsDashboardFn = createServerFn({ method: "POST" })
           post_id: a.post_id,
           title: a.posts?.title ?? "Sem título",
           client_id: a.posts?.client_id ?? null,
-          client_name: a.posts?.client_id
-            ? clientMap.get(a.posts.client_id) ?? null
-            : null,
+          client_name: a.posts?.client_id ? (clientMap.get(a.posts.client_id) ?? null) : null,
           waiting_hours: Math.max(0, waitMs / 3_600_000),
           created_at: a.created_at,
         };
@@ -387,18 +375,11 @@ export const getAgencyOpsDashboardFn = createServerFn({ method: "POST" })
       user_id: string;
       minutes: number | null;
     }>) {
-      minutesByUser.set(
-        e.user_id,
-        (minutesByUser.get(e.user_id) ?? 0) + (e.minutes ?? 0),
-      );
+      minutesByUser.set(e.user_id, (minutesByUser.get(e.user_id) ?? 0) + (e.minutes ?? 0));
     }
 
     const teamUserIds = Array.from(
-      new Set<string>([
-        ...tasksByUser.keys(),
-        ...approvedByUser.keys(),
-        ...minutesByUser.keys(),
-      ]),
+      new Set<string>([...tasksByUser.keys(), ...approvedByUser.keys(), ...minutesByUser.keys()]),
     );
     const { data: teamProfs } = teamUserIds.length
       ? await supabase
@@ -407,9 +388,13 @@ export const getAgencyOpsDashboardFn = createServerFn({ method: "POST" })
           .in("id", teamUserIds)
       : { data: [] as Array<{ id: string; full_name: string | null; avatar_url: string | null }> };
     const teamProfMap = new Map(
-      ((teamProfs ?? []) as Array<{ id: string; full_name: string | null; avatar_url: string | null }>).map(
-        (p) => [p.id, p],
-      ),
+      (
+        (teamProfs ?? []) as Array<{
+          id: string;
+          full_name: string | null;
+          avatar_url: string | null;
+        }>
+      ).map((p) => [p.id, p]),
     );
     const teamThroughput: TeamThroughputRow[] = teamUserIds
       .map((uid) => {

@@ -33,11 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toggle } from "@/components/ui/toggle";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 /**
@@ -62,10 +58,25 @@ const LEVEL_META: Record<
     badgeVariant: "destructive" | "default" | "secondary" | "outline";
   }
 > = {
-  error: { label: "Erro", icon: AlertCircle, className: "text-rose-500", badgeVariant: "destructive" },
-  warn: { label: "Aviso", icon: AlertTriangle, className: "text-amber-500", badgeVariant: "default" },
+  error: {
+    label: "Erro",
+    icon: AlertCircle,
+    className: "text-rose-500",
+    badgeVariant: "destructive",
+  },
+  warn: {
+    label: "Aviso",
+    icon: AlertTriangle,
+    className: "text-amber-500",
+    badgeVariant: "default",
+  },
   info: { label: "Info", icon: Info, className: "text-sky-500", badgeVariant: "secondary" },
-  success: { label: "Sucesso", icon: CheckCircle2, className: "text-emerald-500", badgeVariant: "outline" },
+  success: {
+    label: "Sucesso",
+    icon: CheckCircle2,
+    className: "text-emerald-500",
+    badgeVariant: "outline",
+  },
 };
 
 export function LogViewer({
@@ -92,7 +103,9 @@ export function LogViewer({
   const [scopeToClient, setScopeToClient] = useState(false);
 
   const sources: LogSource[] =
-    tab === "all" || !allowedSources.includes(tab as LogSource) ? allowedSources : [tab as LogSource];
+    tab === "all" || !allowedSources.includes(tab as LogSource)
+      ? allowedSources
+      : [tab as LogSource];
 
   const q = useQuery({
     queryKey: [
@@ -280,7 +293,9 @@ function LogRow({ entry }: { entry: SystemLogEntry }) {
             {hasDetails ? (
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-6 gap-1 px-2 text-[11px]">
-                  <ChevronDown className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`} />
+                  <ChevronDown
+                    className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`}
+                  />
                   Detalhes
                 </Button>
               </CollapsibleTrigger>

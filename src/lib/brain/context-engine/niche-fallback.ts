@@ -25,7 +25,15 @@ const CATALOG: NichePractice[] = [
     ],
   },
   {
-    keywords: ["restaurante", "restaurant", "gastronomia", "bar", "bistrô", "hamburgueria", "pizzaria"],
+    keywords: [
+      "restaurante",
+      "restaurant",
+      "gastronomia",
+      "bar",
+      "bistrô",
+      "hamburgueria",
+      "pizzaria",
+    ],
     label: "Restaurantes & F&B",
     practices: [
       "Vídeos de prato sendo montado (top-down, 15-25s) são o formato de maior engajamento em IG/TikTok.",
@@ -77,7 +85,16 @@ const CATALOG: NichePractice[] = [
     ],
   },
   {
-    keywords: ["clínica", "clinica", "estética", "estetica", "odontológica", "dermato", "saúde", "medicina"],
+    keywords: [
+      "clínica",
+      "clinica",
+      "estética",
+      "estetica",
+      "odontológica",
+      "dermato",
+      "saúde",
+      "medicina",
+    ],
     label: "Clínicas & Estética/Saúde",
     practices: [
       "Antes/depois exige autorização documentada — quando usado, é o post de maior conversão do nicho.",

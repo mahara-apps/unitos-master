@@ -62,7 +62,10 @@ beforeAll(async () => {
   // owner é adicionado por trigger; operator entra como membro comum da marca.
   await admin
     .from("brand_members")
-    .upsert({ brand_id: brandId, user_id: operator.id, role: "user" }, { onConflict: "brand_id,user_id" });
+    .upsert(
+      { brand_id: brandId, user_id: operator.id, role: "user" },
+      { onConflict: "brand_id,user_id" },
+    );
 
   const clientA = await insert("clients", {
     brand_id: brandId,
@@ -182,7 +185,10 @@ describe("portal_resolve — superfície de dados", () => {
 
 describe("CLIENTE — leitura restrita ao liberado", () => {
   it("vê apenas posts visible_in_portal dos próprios clientes", async () => {
-    const { data, error } = await cx.portal.client.from("posts").select("id").eq("brand_id", cx.brandId);
+    const { data, error } = await cx.portal.client
+      .from("posts")
+      .select("id")
+      .eq("brand_id", cx.brandId);
     expect(error).toBeNull();
     const ids = (data ?? []).map((r) => r.id as string);
     expect(ids).toContain(cx.postVisible);
@@ -202,7 +208,10 @@ describe("CLIENTE — leitura restrita ao liberado", () => {
   });
 
   it("agência continua vendo conteúdo interno", async () => {
-    const { data, error } = await cx.operator.client.from("posts").select("id").eq("id", cx.postHidden);
+    const { data, error } = await cx.operator.client
+      .from("posts")
+      .select("id")
+      .eq("id", cx.postHidden);
     expect(error).toBeNull();
     expect((data ?? []).map((r) => r.id)).toEqual([cx.postHidden]);
   });
@@ -216,12 +225,20 @@ describe("CLIENTE — ausência de escrita", () => {
       .eq("id", cx.postVisible)
       .select("id");
     expect(error === null ? (data ?? []).length : 0).toBe(0);
-    const { data: check } = await admin.from("posts").select("title").eq("id", cx.postVisible).single();
+    const { data: check } = await admin
+      .from("posts")
+      .select("title")
+      .eq("id", cx.postVisible)
+      .single();
     expect((check as { title: string }).title).toBe("Peça liberada");
   });
 
   it("não apaga posts", async () => {
-    const { data } = await cx.portal.client.from("posts").delete().eq("id", cx.postVisible).select("id");
+    const { data } = await cx.portal.client
+      .from("posts")
+      .delete()
+      .eq("id", cx.postVisible)
+      .select("id");
     expect(data ?? []).toHaveLength(0);
     const { count } = await admin
       .from("posts")
@@ -264,46 +281,58 @@ describe("CLIENTE — ausência de escrita", () => {
 describe("portal_decide — trava de estado", () => {
   it("bloqueia decisão em conteúdo já publicado", async () => {
     const c = anonClient();
-    const { error } = await c.rpc("portal_decide" as never, {
-      _token: cx.tokenA,
-      _post_id: cx.postPublished,
-      _decision: "approved",
-      _identity: "QA",
-    } as never);
+    const { error } = await c.rpc(
+      "portal_decide" as never,
+      {
+        _token: cx.tokenA,
+        _post_id: cx.postPublished,
+        _decision: "approved",
+        _identity: "QA",
+      } as never,
+    );
     expect(error?.message ?? "").toContain("post_already_published");
   });
 
   it("permite comentário em conteúdo publicado", async () => {
     const c = anonClient();
-    const { error } = await c.rpc("portal_decide" as never, {
-      _token: cx.tokenA,
-      _post_id: cx.postPublished,
-      _decision: "comment",
-      _note: "só um comentário",
-      _identity: "QA",
-    } as never);
+    const { error } = await c.rpc(
+      "portal_decide" as never,
+      {
+        _token: cx.tokenA,
+        _post_id: cx.postPublished,
+        _decision: "comment",
+        _note: "só um comentário",
+        _identity: "QA",
+      } as never,
+    );
     expect(error).toBeNull();
   });
 
   it("rejeita conteúdo não liberado ao portal", async () => {
     const c = anonClient();
-    const { error } = await c.rpc("portal_decide" as never, {
-      _token: cx.tokenA,
-      _post_id: cx.postHidden,
-      _decision: "approved",
-      _identity: "QA",
-    } as never);
+    const { error } = await c.rpc(
+      "portal_decide" as never,
+      {
+        _token: cx.tokenA,
+        _post_id: cx.postHidden,
+        _decision: "approved",
+        _identity: "QA",
+      } as never,
+    );
     expect(error?.message ?? "").toContain("post_not_found");
   });
 
   it("aprova conteúdo liberado e registra decisão", async () => {
     const c = anonClient();
-    const { error } = await c.rpc("portal_decide" as never, {
-      _token: cx.tokenA,
-      _post_id: cx.postVisible,
-      _decision: "approved",
-      _identity: "QA Cliente",
-    } as never);
+    const { error } = await c.rpc(
+      "portal_decide" as never,
+      {
+        _token: cx.tokenA,
+        _post_id: cx.postVisible,
+        _decision: "approved",
+        _identity: "QA Cliente",
+      } as never,
+    );
     expect(error).toBeNull();
     const { data } = await admin
       .from("post_approvals")
@@ -315,23 +344,29 @@ describe("portal_decide — trava de estado", () => {
 
   it("recusa ajuste sem nota e preserva a nota anterior", async () => {
     const c = anonClient();
-    const ok = await c.rpc("portal_decide" as never, {
-      _token: cx.tokenA,
-      _post_id: cx.postVisible,
-      _decision: "adjust",
-      _note: "trocar a foto de capa",
-      _identity: "QA Cliente",
-    } as never);
-    expect(ok.error).toBeNull();
-
-    for (const note of [undefined, null, "   "]) {
-      const { error } = await c.rpc("portal_decide" as never, {
+    const ok = await c.rpc(
+      "portal_decide" as never,
+      {
         _token: cx.tokenA,
         _post_id: cx.postVisible,
         _decision: "adjust",
-        _note: note,
+        _note: "trocar a foto de capa",
         _identity: "QA Cliente",
-      } as never);
+      } as never,
+    );
+    expect(ok.error).toBeNull();
+
+    for (const note of [undefined, null, "   "]) {
+      const { error } = await c.rpc(
+        "portal_decide" as never,
+        {
+          _token: cx.tokenA,
+          _post_id: cx.postVisible,
+          _decision: "adjust",
+          _note: note,
+          _identity: "QA Cliente",
+        } as never,
+      );
       expect(error?.message ?? "").toContain("note_required");
     }
 
@@ -352,7 +387,6 @@ describe("portal_decide — trava de estado", () => {
   });
 });
 
-
 describe("Portal autenticado — escopo multi-cliente", () => {
   it("lista os vínculos do usuário", async () => {
     const { data, error } = await cx.portal.client.rpc("portal_my_clients" as never, {} as never);
@@ -362,17 +396,23 @@ describe("Portal autenticado — escopo multi-cliente", () => {
   });
 
   it("resolve o segundo cliente vinculado", async () => {
-    const { data, error } = await cx.portal.client.rpc("portal_resolve" as never, {
-      _client_id: cx.clientB,
-    } as never);
+    const { data, error } = await cx.portal.client.rpc(
+      "portal_resolve" as never,
+      {
+        _client_id: cx.clientB,
+      } as never,
+    );
     expect(error).toBeNull();
     expect((data as { clientId: string }).clientId).toBe(cx.clientB);
   });
 
   it("recusa cliente não vinculado", async () => {
-    const { error } = await cx.portal.client.rpc("portal_resolve" as never, {
-      _client_id: cx.clientOther,
-    } as never);
+    const { error } = await cx.portal.client.rpc(
+      "portal_resolve" as never,
+      {
+        _client_id: cx.clientOther,
+      } as never,
+    );
     expect(error?.message ?? "").toContain("client_not_allowed");
   });
 

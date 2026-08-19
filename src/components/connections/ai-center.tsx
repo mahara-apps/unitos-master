@@ -41,11 +41,7 @@ import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import { supportsKind, type ProviderName as AiProviderName } from "@/lib/ai-capabilities";
 import { getAiModelStatus, runAiModelHealthNow } from "@/lib/ai-models.functions";
-import {
-  saveProviderKey,
-  testProviderKey,
-  removeProviderKey,
-} from "@/lib/connections.functions";
+import { saveProviderKey, testProviderKey, removeProviderKey } from "@/lib/connections.functions";
 import { cn } from "@/lib/utils";
 
 export type AiProviderId = "openai" | "anthropic" | "gemini" | "groq";
@@ -219,9 +215,7 @@ export function AiCenter({
             icon={<Activity />}
             label="Chamadas de IA"
             value={isLoading ? "—" : totalCalls.toLocaleString("pt-BR")}
-            description={
-              noUsage ? "Aguardando a primeira geração" : `${successCalls} com sucesso`
-            }
+            description={noUsage ? "Aguardando a primeira geração" : `${successCalls} com sucesso`}
             status={noUsage ? "neutral" : "info"}
           />
           <PageKpi
@@ -387,12 +381,8 @@ function ConfigForm({
     setLimit(String(budget));
   }, [textProvider, imageProvider, fallback, budget]);
 
-  const textOptions = AI_PROVIDERS.filter((p) =>
-    supportsKind(p.id as AiProviderName, "text"),
-  );
-  const imageOptions = AI_PROVIDERS.filter((p) =>
-    supportsKind(p.id as AiProviderName, "image"),
-  );
+  const textOptions = AI_PROVIDERS.filter((p) => supportsKind(p.id as AiProviderName, "text"));
+  const imageOptions = AI_PROVIDERS.filter((p) => supportsKind(p.id as AiProviderName, "image"));
   const fallbackOptions = textOptions.filter((p) => p.id !== text);
 
   return (
@@ -435,10 +425,7 @@ function ConfigForm({
           </Select>
         </Field>
 
-        <Field
-          label="Modelo de fallback"
-          hint="Usado apenas quando o provedor principal falha."
-        >
+        <Field label="Modelo de fallback" hint="Usado apenas quando o provedor principal falha.">
           <Select value={fb} onValueChange={(v) => setFb(v as AiProviderId | "none")}>
             <SelectTrigger className="h-9">
               <SelectValue />
@@ -487,15 +474,7 @@ function ConfigForm({
   );
 }
 
-function Field({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children: ReactNode;
-}) {
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <div className="space-y-1.5">
       <Label className="text-xs">{label}</Label>
@@ -566,9 +545,7 @@ function HealthPanel({
       </div>
 
       {connectedProviders.length === 0 ? (
-        <p className="mt-3 text-xs text-muted-foreground">
-          Nenhum provedor conectado ainda.
-        </p>
+        <p className="mt-3 text-xs text-muted-foreground">Nenhum provedor conectado ainda.</p>
       ) : (
         <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
           {connectedProviders.map((p) => {
@@ -596,9 +573,7 @@ function HealthPanel({
                   </div>
                   <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
                     {ok ? "Chave válida" : bad ? "Chave inválida" : "Chave não verificada"}
-                    {c?.verifiedAt
-                      ? ` · ${new Date(c.verifiedAt).toLocaleString("pt-BR")}`
-                      : ""}
+                    {c?.verifiedAt ? ` · ${new Date(c.verifiedAt).toLocaleString("pt-BR")}` : ""}
                   </div>
                 </div>
               </div>
@@ -649,8 +624,7 @@ function ProviderCard({
   const testFn = useServerFn(testProviderKey);
 
   const saveMut = useMutation({
-    mutationFn: () =>
-      saveFn({ data: { brandId, provider: provider.id, apiKey: apiKey.trim() } }),
+    mutationFn: () => saveFn({ data: { brandId, provider: provider.id, apiKey: apiKey.trim() } }),
     onSuccess: (res) => {
       if (res.verified === "valid") toast.success(`${provider.name} conectado — chave válida`);
       else toast.warning(res.message);
@@ -786,9 +760,7 @@ function ProviderCard({
               onClick={() => testMut.mutate()}
               disabled={testMut.isPending}
             >
-              <RefreshCw
-                className={cn("mr-2 h-3.5 w-3.5", testMut.isPending && "animate-spin")}
-              />
+              <RefreshCw className={cn("mr-2 h-3.5 w-3.5", testMut.isPending && "animate-spin")} />
               Testar
             </Button>
             <Button size="sm" variant="outline" className="flex-1" onClick={() => setOpen(true)}>
@@ -817,8 +789,8 @@ function ProviderCard({
           <DialogHeader>
             <DialogTitle>Conectar {provider.name}</DialogTitle>
             <DialogDescription>
-              A chave é testada antes de ser salva e fica armazenada de forma cifrada. Apenas
-              os últimos 4 caracteres ficam visíveis.
+              A chave é testada antes de ser salva e fica armazenada de forma cifrada. Apenas os
+              últimos 4 caracteres ficam visíveis.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">

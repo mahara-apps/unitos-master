@@ -1,7 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { resolveSessionScope, resolveTokenScope, scopedAdmin, type PortalScope } from "@/lib/portal-scope.server";
+import {
+  resolveSessionScope,
+  resolveTokenScope,
+  scopedAdmin,
+  type PortalScope,
+} from "@/lib/portal-scope.server";
 import { sanitizeProposalPayload } from "@/lib/briefing-fields";
 
 /**
@@ -66,7 +71,9 @@ async function listRequests(scope: PortalScope): Promise<PortalBriefingRequest[]
   if (error) throw new Error(error.message);
 
   return ((data ?? []) as Array<Record<string, unknown>>).map((r) => {
-    const proposals = (Array.isArray(r.brand_briefing_proposals) ? r.brand_briefing_proposals : []) as Array<{
+    const proposals = (
+      Array.isArray(r.brand_briefing_proposals) ? r.brand_briefing_proposals : []
+    ) as Array<{
       payload: Record<string, string | string[]>;
       created_at: string;
     }>;
@@ -90,7 +97,8 @@ async function listRequests(scope: PortalScope): Promise<PortalBriefingRequest[]
 }
 
 function decodeBase64(value: string): Uint8Array {
-  const raw = value.includes(",") && value.startsWith("data:") ? value.slice(value.indexOf(",") + 1) : value;
+  const raw =
+    value.includes(",") && value.startsWith("data:") ? value.slice(value.indexOf(",") + 1) : value;
   const bin = atob(raw);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
@@ -126,7 +134,10 @@ async function submitProposal(
   if (!row) throw new Error("request_not_found");
   if (row.canceled_at) throw new Error("request_canceled");
 
-  const payload = sanitizeProposalPayload(input.answers as Record<string, unknown>, row.requested_fields ?? []);
+  const payload = sanitizeProposalPayload(
+    input.answers as Record<string, unknown>,
+    row.requested_fields ?? [],
+  );
   if (!Object.keys(payload).length) throw new Error("empty_answers");
 
   const attachments: Array<{ name: string; path: string; mime: string | null; size: number }> = [];
@@ -177,8 +188,9 @@ async function submitProposal(
 
 export const listPortalBriefingRequestsFn = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => z.object({ token: z.string().min(10) }).parse(i))
-  .handler(async ({ data }): Promise<PortalBriefingRequest[]> =>
-    listRequests(await resolveTokenScope(data.token)),
+  .handler(
+    async ({ data }): Promise<PortalBriefingRequest[]> =>
+      listRequests(await resolveTokenScope(data.token)),
   );
 
 export const submitPortalBriefingProposalFn = createServerFn({ method: "POST" })
@@ -192,8 +204,9 @@ export const submitPortalBriefingProposalFn = createServerFn({ method: "POST" })
 export const listPortalSessionBriefingRequestsFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ clientId: z.string().uuid() }).parse(i ?? {}))
-  .handler(async ({ context, data }): Promise<PortalBriefingRequest[]> =>
-    listRequests(await resolveSessionScope(context.supabase, data.clientId)),
+  .handler(
+    async ({ context, data }): Promise<PortalBriefingRequest[]> =>
+      listRequests(await resolveSessionScope(context.supabase, data.clientId)),
   );
 
 export const submitPortalSessionBriefingProposalFn = createServerFn({ method: "POST" })

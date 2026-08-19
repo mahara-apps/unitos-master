@@ -31,9 +31,12 @@ export const getMyAccessFn = createServerFn({ method: "GET" })
   )
   .handler(async ({ data, context }): Promise<MyAccess> => {
     const { supabase, userId } = context;
-    const { data: raw, error } = await supabase.rpc("my_access" as never, {
-      _brand_id: data.brandId ?? null,
-    } as never);
+    const { data: raw, error } = await supabase.rpc(
+      "my_access" as never,
+      {
+        _brand_id: data.brandId ?? null,
+      } as never,
+    );
     if (error) throw error;
 
     const row = (raw ?? {}) as Record<string, unknown>;

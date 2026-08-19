@@ -22,7 +22,6 @@ import {
   type NotificationBucket,
 } from "@/lib/notifications-format";
 
-
 export const Route = createFileRoute("/_authenticated/notifications")({
   component: NotificationsPage,
 });
@@ -58,24 +57,26 @@ function NotificationsPage() {
     return { unread: unreadTotal, mentions, approvals, deadlines, today };
   }, [items, unreadTotal]);
 
-
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return items.filter((n) => {
       if (tab === "unread" && n.read_at) return false;
       if (tab === "mention" && n.kind !== "mention") return false;
-      if (tab === "approvals" && n.kind !== "approval_requested" && n.kind !== "approval_decision") return false;
+      if (tab === "approvals" && n.kind !== "approval_requested" && n.kind !== "approval_decision")
+        return false;
       if (tab === "system" && n.kind !== "system" && n.kind !== "deadline") return false;
       if (!term) return true;
-      return (
-        n.title.toLowerCase().includes(term) ||
-        (n.body ?? "").toLowerCase().includes(term)
-      );
+      return n.title.toLowerCase().includes(term) || (n.body ?? "").toLowerCase().includes(term);
     });
   }, [items, tab, search]);
 
   const grouped = useMemo(() => {
-    const map: Record<NotificationBucket, NotificationRow[]> = { today: [], yesterday: [], week: [], older: [] };
+    const map: Record<NotificationBucket, NotificationRow[]> = {
+      today: [],
+      yesterday: [],
+      week: [],
+      older: [],
+    };
     for (const n of filtered) map[bucketFor(n.created_at)].push(n);
     return map;
   }, [filtered]);
@@ -197,22 +198,31 @@ function NotificationRow({
     if (isUnread) onMarkRead(n.id);
   };
   const content = (
-    <div className={`group flex items-start gap-3 px-4 py-3 transition-colors ${isUnread ? "bg-muted/20" : ""}`}>
+    <div
+      className={`group flex items-start gap-3 px-4 py-3 transition-colors ${isUnread ? "bg-muted/20" : ""}`}
+    >
       <div className={`mt-0.5 shrink-0 ${colorFor(n.kind)}`}>
         <Icon className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-2">
-          <span className="flex-1 text-[13px] font-medium leading-snug text-foreground">{n.title}</span>
+          <span className="flex-1 text-[13px] font-medium leading-snug text-foreground">
+            {n.title}
+          </span>
           <span className="mt-0.5 shrink-0 rounded-full border border-border/60 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
             {labelFor(n.kind)}
           </span>
           {isUnread ? (
-            <span aria-label="Não lida" className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
+            <span
+              aria-label="Não lida"
+              className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500"
+            />
           ) : null}
         </div>
         {n.body ? (
-          <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-muted-foreground">{n.body}</p>
+          <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-muted-foreground">
+            {n.body}
+          </p>
         ) : null}
         <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground/80">
           <span>{relativeTimePtBr(n.created_at)}</span>

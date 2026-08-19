@@ -95,7 +95,9 @@ export const createChatConversationFn = createServerFn({ method: "POST" })
 // ============ rename / delete ============
 export const renameChatConversationFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) => z.object({ id: z.string().uuid(), title: z.string().min(1).max(200) }).parse(i))
+  .inputValidator((i: unknown) =>
+    z.object({ id: z.string().uuid(), title: z.string().min(1).max(200) }).parse(i),
+  )
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
       .from("chat_conversations")
@@ -121,7 +123,9 @@ export const listChatMessagesFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<ChatMessageRow[]> => {
     const { data: rows, error } = await context.supabase
       .from("chat_messages")
-      .select("id, conversation_id, role, content, attachments, brain_context, used_llm, model, tool_calls, created_at")
+      .select(
+        "id, conversation_id, role, content, attachments, brain_context, used_llm, model, tool_calls, created_at",
+      )
       .eq("conversation_id", data.conversationId)
       .order("created_at", { ascending: true })
       .limit(500);
@@ -173,14 +177,19 @@ export const sendChatMessageFn = createServerFn({ method: "POST" })
           content: question,
           attachments: data.attachments,
         })
-        .select("id, conversation_id, role, content, attachments, brain_context, used_llm, model, created_at")
+        .select(
+          "id, conversation_id, role, content, attachments, brain_context, used_llm, model, created_at",
+        )
         .single();
       if (userErr || !userRow) throw new Error(userErr?.message ?? "insert user msg failed");
 
       // Auto-title on first message
       if (convo.title === "Nova conversa" && question) {
         const short = question.slice(0, 60);
-        await context.supabase.from("chat_conversations").update({ title: short }).eq("id", convo.id);
+        await context.supabase
+          .from("chat_conversations")
+          .update({ title: short })
+          .eq("id", convo.id);
       }
 
       // 3) BRAIN FIRST — via Brain API (consolida memory + insights + query.stats)
@@ -200,13 +209,25 @@ export const sendChatMessageFn = createServerFn({ method: "POST" })
       const brainKnowledge = {
         memories: contextPack.items
           .filter((i) => i.kind === "semantic")
-          .map((i) => ({ content_summary: i.detail, similarity: i.confidence ?? i.score, event_type: i.label })),
+          .map((i) => ({
+            content_summary: i.detail,
+            similarity: i.confidence ?? i.score,
+            event_type: i.label,
+          })),
         insights: contextPack.items
           .filter((i) => i.kind === "insight")
-          .map((i) => ({ insight_type: i.label, description: i.detail, confidence: i.confidence ?? null })),
+          .map((i) => ({
+            insight_type: i.label,
+            description: i.detail,
+            confidence: i.confidence ?? null,
+          })),
         memoryRows: contextPack.items
           .filter((i) => i.kind === "memory")
-          .map((i) => ({ title: i.label, description: i.detail, confidence: i.confidence ?? null })),
+          .map((i) => ({
+            title: i.label,
+            description: i.detail,
+            confidence: i.confidence ?? null,
+          })),
         stats: contextPack.stats,
         markdown: contextPack.markdown,
       };
@@ -272,7 +293,9 @@ export const sendChatMessageFn = createServerFn({ method: "POST" })
           used_llm: usedLlm,
           model,
         })
-        .select("id, conversation_id, role, content, attachments, brain_context, used_llm, model, created_at")
+        .select(
+          "id, conversation_id, role, content, attachments, brain_context, used_llm, model, created_at",
+        )
         .single();
       if (asstErr || !asstRow) throw new Error(asstErr?.message ?? "insert assistant failed");
 

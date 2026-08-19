@@ -10,10 +10,19 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { saveTeamMemberFn, type BrandRole, type TeamMember } from "@/lib/team-admin.functions";
-import { ROLE_LABEL, ROLE_ACCESS, ASSIGNABLE_ROLES, memberInitials } from "@/components/settings/team-shared";
+import {
+  ROLE_LABEL,
+  ROLE_ACCESS,
+  ASSIGNABLE_ROLES,
+  memberInitials,
+} from "@/components/settings/team-shared";
 
 /**
  * Edição completa de um membro da marca ativa: perfil (nome, telefone, cargo),
@@ -83,7 +92,9 @@ export function MemberEditModal({
       description="Dados do colaborador, papel na marca e status de acesso."
       footer={
         <div className="flex w-full items-center justify-end gap-2">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
           <Button onClick={() => mut.mutate()} disabled={mut.isPending}>
             {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Salvar alterações
@@ -95,36 +106,56 @@ export function MemberEditModal({
         <div className="flex items-center gap-3">
           <Avatar className="h-14 w-14">
             {member.avatarUrl ? <AvatarImage src={member.avatarUrl} alt="" /> : null}
-            <AvatarFallback className="text-sm">{memberInitials(member.fullName, member.email)}</AvatarFallback>
+            <AvatarFallback className="text-sm">
+              {memberInitials(member.fullName, member.email)}
+            </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
             <div className="truncate text-sm font-medium">{member.fullName || "Sem nome"}</div>
-            <div className="truncate text-xs text-muted-foreground">{member.email ?? "e-mail indisponível"}</div>
+            <div className="truncate text-xs text-muted-foreground">
+              {member.email ?? "e-mail indisponível"}
+            </div>
           </div>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Nome completo">
-            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Nome e sobrenome" />
+            <Input
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Nome e sobrenome"
+            />
           </Field>
           <Field label="E-mail (login)">
             <Input value={member.email ?? ""} readOnly disabled />
           </Field>
           <Field label="Telefone (opcional)">
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+55 11 90000-0000" />
+            <Input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+55 11 90000-0000"
+            />
           </Field>
           <Field label="Cargo (opcional)">
-            <Input value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} placeholder="Ex.: Social Media" />
+            <Input
+              value={jobTitle}
+              onChange={(e) => setJobTitle(e.target.value)}
+              placeholder="Ex.: Social Media"
+            />
           </Field>
         </div>
 
         <div className="space-y-2">
           <Label className="text-xs">Papel na marca</Label>
           <Select value={role} onValueChange={(v) => setRole(v as BrandRole)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               {roles.map((r) => (
-                <SelectItem key={r} value={r}>{ROLE_LABEL[r]}</SelectItem>
+                <SelectItem key={r} value={r}>
+                  {ROLE_LABEL[r]}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>

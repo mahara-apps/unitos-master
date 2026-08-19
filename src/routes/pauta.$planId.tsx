@@ -73,9 +73,18 @@ function channelLabel(channel: string) {
 
 function StatusPill({ status }: { status: PublicTopicClientStatus }) {
   const map = {
-    pending: { label: "Aguardando você", cls: "border-border/60 bg-muted/40 text-muted-foreground" },
-    approved: { label: "Aprovado", cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400" },
-    changes: { label: "Ajuste solicitado", cls: "border-amber-500/30 bg-amber-500/10 text-amber-400" },
+    pending: {
+      label: "Aguardando você",
+      cls: "border-border/60 bg-muted/40 text-muted-foreground",
+    },
+    approved: {
+      label: "Aprovado",
+      cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+    },
+    changes: {
+      label: "Ajuste solicitado",
+      cls: "border-amber-500/30 bg-amber-500/10 text-amber-400",
+    },
     rejected: { label: "Rejeitado", cls: "border-rose-500/30 bg-rose-500/10 text-rose-400" },
   } as const;
   const m = map[status] ?? map.pending;
@@ -296,7 +305,9 @@ function PublicMonthlyPlanPage() {
                     <span className="text-[10px] font-medium tabular-nums text-muted-foreground">
                       {String(i + 1).padStart(2, "0")}
                     </span>
-                    <StatusPill status={(local?.decision ?? t.client_status) as PublicTopicClientStatus} />
+                    <StatusPill
+                      status={(local?.decision ?? t.client_status) as PublicTopicClientStatus}
+                    />
                   </div>
 
                   <p className="text-sm font-semibold text-foreground">{t.topic_title}</p>
@@ -313,7 +324,9 @@ function PublicMonthlyPlanPage() {
                       </span>
                     ) : null}
                     {t.content_format ? (
-                      <span className={`${PILL} border-violet-500/30 bg-violet-500/10 text-violet-400`}>
+                      <span
+                        className={`${PILL} border-violet-500/30 bg-violet-500/10 text-violet-400`}
+                      >
                         {contentFormatLabel(t.content_format)}
                       </span>
                     ) : null}

@@ -67,9 +67,7 @@ export const Route = createFileRoute("/api/public/meta/webhook")({
         // 3) Resolve each entry's `id` (Page ID or IG Business ID) to a
         //    social_connections row so we know which brand it belongs to.
         const externalIds = Array.from(new Set(entries.map((e) => String(e.id))));
-        const { supabaseAdmin } = await import(
-          "@/integrations/supabase/client.server"
-        );
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data: matches, error } = await supabaseAdmin
           .from("social_connections")
           .select("id, brand_id, channel, external_id")
@@ -82,9 +80,7 @@ export const Route = createFileRoute("/api/public/meta/webhook")({
           return new Response("ok", { status: 200 });
         }
 
-        const byExternalId = new Map(
-          (matches ?? []).map((m) => [m.external_id, m]),
-        );
+        const byExternalId = new Map((matches ?? []).map((m) => [m.external_id, m]));
 
         // 4) Enqueue each matched entry as a brain_event for async processing.
         const rows = entries

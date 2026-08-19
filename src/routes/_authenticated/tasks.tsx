@@ -17,21 +17,14 @@ import { useActiveContext } from "@/hooks/use-active-context";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  DashboardPageShell,
-  DashboardPanelSurface,
-} from "@/components/ui/dashboard-primitives";
+import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { PageKpi, PageKpiGrid, type KpiStatus } from "@/components/ui/page-kpi";
 import { listTasksFn, listProjectsFn } from "@/lib/tasks.functions";
 import { listBrandAssigneesFn } from "@/lib/content.functions";
 import { listClients } from "@/lib/workspace.functions";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  CreateTaskDialog,
-  TaskDrawer,
-  isOverdue,
-} from "@/components/tasks/shared";
+import { CreateTaskDialog, TaskDrawer, isOverdue } from "@/components/tasks/shared";
 import {
   DEFAULT_VISIBLE_COLUMNS,
   TaskTable,
@@ -50,12 +43,7 @@ import {
 } from "@/components/tasks/task-toolbar";
 import { Plus } from "lucide-react";
 
-import {
-  VIEWS,
-  VIEW_META,
-  searchSchema,
-  type View,
-} from "@/components/tasks/task-views";
+import { VIEWS, VIEW_META, searchSchema, type View } from "@/components/tasks/task-views";
 
 export { searchSchema };
 
@@ -63,7 +51,6 @@ export const Route = createFileRoute("/_authenticated/tasks")({
   component: TasksPage,
   validateSearch: searchSchema,
 });
-
 
 // ---------- Style maps ----------
 
@@ -390,7 +377,11 @@ function TasksPage() {
           </div>
         </div>
       ) : view === "kanban" ? (
-        <TaskKanban tasks={filtered} onOpenTask={(id) => setSearch({ taskId: id })} onChanged={invalidate} />
+        <TaskKanban
+          tasks={filtered}
+          onOpenTask={(id) => setSearch({ taskId: id })}
+          onChanged={invalidate}
+        />
       ) : view === "calendar" ? (
         <TaskCalendar tasks={filtered} onOpenTask={(id) => setSearch({ taskId: id })} />
       ) : (
@@ -440,4 +431,3 @@ function TasksPage() {
 }
 
 // ---------- Row ----------
-

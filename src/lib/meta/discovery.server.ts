@@ -77,13 +77,10 @@ export async function runMetaDiscovery(
     };
   }
 
-  let publishAuthorization: PublishAuthorizationInfo | null =
-    known.publishAuthorization ?? null;
+  let publishAuthorization: PublishAuthorizationInfo | null = known.publishAuthorization ?? null;
   try {
     const { getPublishAuthorization } = await import("./granular-scopes.server");
-    publishAuthorization = (await getPublishAuthorization(
-      userToken,
-    )) as PublishAuthorizationInfo;
+    publishAuthorization = (await getPublishAuthorization(userToken)) as PublishAuthorizationInfo;
   } catch {
     /* granularidade indisponível não invalida a descoberta */
   }
@@ -121,9 +118,7 @@ export async function runMetaDiscovery(
         pages: payload as unknown as Record<string, unknown>,
         portfolio_loaded_at: loadedAt,
         portfolio_load_status:
-          payload.pages.length + payload.standaloneInstagram.length > 0
-            ? "loaded"
-            : "empty",
+          payload.pages.length + payload.standaloneInstagram.length > 0 ? "loaded" : "empty",
         portfolio_error: null,
         portfolio_rate_limited_until: null,
       })
@@ -178,8 +173,9 @@ async function revokeUndiscoveredConnections(
     .eq("provider", "meta")
     .eq("owner_external_id", metaUserId)
     .in("channel", ["facebook", "instagram"]);
-  const stale = ((existing ?? []) as Array<{ id: string; external_id: string; status: string }>)
-    .filter((c) => c.status === "active" && !ids.has(c.external_id));
+  const stale = (
+    (existing ?? []) as Array<{ id: string; external_id: string; status: string }>
+  ).filter((c) => c.status === "active" && !ids.has(c.external_id));
   for (const c of stale) {
     await supabase
       .from("social_connections")
@@ -193,9 +189,7 @@ async function revokeUndiscoveredConnections(
 }
 
 /** Converte o portfólio bruto em contas apresentáveis (identidade = ID Meta). */
-export function toDiscoveredAccounts(
-  payload: CachedPagesPayload,
-): DiscoveredAccount[] {
+export function toDiscoveredAccounts(payload: CachedPagesPayload): DiscoveredAccount[] {
   const auth = payload.publishAuthorization ?? null;
   const out: DiscoveredAccount[] = [];
   for (const p of payload.pages) {

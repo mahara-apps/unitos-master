@@ -22,7 +22,9 @@ export const listJobsFn = createServerFn({ method: "GET" })
   .handler(async ({ data, context }): Promise<ProjectJob[]> => {
     const { data: rows, error } = await context.supabase
       .from("project_jobs")
-      .select("id, project_id, brand_id, name, description, color, position, created_at, updated_at")
+      .select(
+        "id, project_id, brand_id, name, description, color, position, created_at, updated_at",
+      )
       .eq("brand_id", data.brandId)
       .eq("project_id", data.projectId)
       .order("position", { ascending: true });

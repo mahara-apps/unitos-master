@@ -22,9 +22,7 @@ export function AgentCard({ agent, onOpen }: Props) {
       className="group relative flex h-full cursor-pointer flex-col overflow-hidden p-5 transition-all hover:border-foreground/20 hover:shadow-sm"
     >
       <div className="flex items-start justify-between gap-3">
-        <div
-          className={`flex h-10 w-10 items-center justify-center rounded-xl ${meta.iconClass}`}
-        >
+        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${meta.iconClass}`}>
           <Icon className="h-5 w-5" />
         </div>
         <Badge
@@ -36,12 +34,8 @@ export function AgentCard({ agent, onOpen }: Props) {
       </div>
 
       <div className="mt-4 flex-1">
-        <h3 className="text-sm font-semibold leading-tight tracking-tight">
-          {title}
-        </h3>
-        <p className="mt-1.5 line-clamp-3 text-sm text-muted-foreground">
-          {synopsis}
-        </p>
+        <h3 className="text-sm font-semibold leading-tight tracking-tight">{title}</h3>
+        <p className="mt-1.5 line-clamp-3 text-sm text-muted-foreground">{synopsis}</p>
       </div>
 
       <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3">

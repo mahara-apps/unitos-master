@@ -47,13 +47,17 @@ export class MetaAnalyticsProvider implements SocialAnalyticsProvider {
     const warnings: string[] = [];
     const { since, until } = toEpochRange(opts.range);
 
-    const followers = await this.safe(async () => {
-      const r = await this.meta.graph<{ followers_count?: number }>(
-        `/${ctx.accountId}`,
-        { accessToken: ctx.accessToken, query: { fields: "followers_count,username,name" } },
-      );
-      return r.followers_count ?? null;
-    }, warnings, "followers_count");
+    const followers = await this.safe(
+      async () => {
+        const r = await this.meta.graph<{ followers_count?: number }>(`/${ctx.accountId}`, {
+          accessToken: ctx.accessToken,
+          query: { fields: "followers_count,username,name" },
+        });
+        return r.followers_count ?? null;
+      },
+      warnings,
+      "followers_count",
+    );
 
     const IG_ACCOUNT_MAP = metricMapFor("instagram", "account");
 
@@ -63,18 +67,15 @@ export class MetaAnalyticsProvider implements SocialAnalyticsProvider {
     // accounts_engaged, total_interactions) MUST use metric_type=total_value.
     const series = await this.safe(
       async () => {
-        const r = await this.meta.graph<InsightsResponse>(
-          `/${ctx.accountId}/insights`,
-          {
-            accessToken: ctx.accessToken,
-            query: {
-              metric: "follower_count",
-              period: "day",
-              since: String(since),
-              until: String(until),
-            },
+        const r = await this.meta.graph<InsightsResponse>(`/${ctx.accountId}/insights`, {
+          accessToken: ctx.accessToken,
+          query: {
+            metric: "follower_count",
+            period: "day",
+            since: String(since),
+            until: String(until),
           },
-        );
+        });
         return toSeries(r.data ?? [], IG_ACCOUNT_MAP);
       },
       warnings,
@@ -150,13 +151,17 @@ export class MetaAnalyticsProvider implements SocialAnalyticsProvider {
     const warnings: string[] = [];
     const { since, until } = toEpochRange(opts.range);
 
-    const fans = await this.safe(async () => {
-      const r = await this.meta.graph<{ fan_count?: number; followers_count?: number }>(
-        `/${ctx.externalId}`,
-        { accessToken: ctx.accessToken, query: { fields: "fan_count,followers_count,name" } },
-      );
-      return r.followers_count ?? r.fan_count ?? null;
-    }, warnings, "page_followers");
+    const fans = await this.safe(
+      async () => {
+        const r = await this.meta.graph<{ fan_count?: number; followers_count?: number }>(
+          `/${ctx.externalId}`,
+          { accessToken: ctx.accessToken, query: { fields: "fan_count,followers_count,name" } },
+        );
+        return r.followers_count ?? r.fan_count ?? null;
+      },
+      warnings,
+      "page_followers",
+    );
 
     const FB_ACCOUNT_MAP = metricMapFor("facebook", "account");
     // Only page-level native metrics that Graph v22 still returns as a
@@ -355,9 +360,7 @@ export class MetaAnalyticsProvider implements SocialAnalyticsProvider {
       );
       const ids = (res?.data ?? []).map((m) => m.id);
       const all = await Promise.all(
-        ids.map((id) =>
-          this.fetchInstagramPost(ctx, { network: "instagram", externalPostId: id }),
-        ),
+        ids.map((id) => this.fetchInstagramPost(ctx, { network: "instagram", externalPostId: id })),
       );
       return { ok: true, data: all.filter((r) => r.ok).map((r) => (r as any).data) };
     }
@@ -374,9 +377,7 @@ export class MetaAnalyticsProvider implements SocialAnalyticsProvider {
       );
       const ids = (res?.data ?? []).map((m) => m.id);
       const all = await Promise.all(
-        ids.map((id) =>
-          this.fetchFacebookPost(ctx, { network: "facebook", externalPostId: id }),
-        ),
+        ids.map((id) => this.fetchFacebookPost(ctx, { network: "facebook", externalPostId: id })),
       );
       return { ok: true, data: all.filter((r) => r.ok).map((r) => (r as any).data) };
     }
@@ -496,11 +497,15 @@ function toPostMetrics(
 
 function mapIgMediaType(t: string | null): PostAnalytics["mediaType"] {
   switch (t) {
-    case "IMAGE": return "image";
+    case "IMAGE":
+      return "image";
     case "VIDEO":
-    case "REELS": return "video";
-    case "CAROUSEL_ALBUM": return "carousel";
-    default: return t ? "other" : null;
+    case "REELS":
+      return "video";
+    case "CAROUSEL_ALBUM":
+      return "carousel";
+    default:
+      return t ? "other" : null;
   }
 }
 

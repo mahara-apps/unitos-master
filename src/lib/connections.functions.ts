@@ -14,7 +14,6 @@ export type ProviderConfig = {
   verifyMessage?: string;
 };
 
-
 export type ChannelConfig = {
   connected: boolean;
   handle?: string;
@@ -51,7 +50,6 @@ function providerFromModel(model: string | null): string {
     return "openai";
   return "outros";
 }
-
 
 function maskKey(key: string): string {
   if (!key) return "";
@@ -104,23 +102,19 @@ export const getConnections = createServerFn({ method: "GET" })
       textProvider: (row?.text_provider as ConnectionsSettings["textProvider"]) ?? "openai",
       textFallbackProvider:
         (row?.text_fallback_provider as ConnectionsSettings["textFallbackProvider"]) ?? null,
-      imageProvider:
-        row?.image_provider === "openai" ? "openai" : "gemini",
+      imageProvider: row?.image_provider === "openai" ? "openai" : "gemini",
       providers: (row?.providers as Record<string, ProviderConfig>) ?? {},
       channels: (row?.channels as Record<string, ChannelConfig>) ?? {},
       usage: { monthUsd, monthTokens, totalCalls, successCalls, byProvider },
     };
   });
 
-
 const UpsertInput = z.object({
   brandId: z.string().uuid(),
   monthlyBudgetUsd: z.number().min(0).max(1_000_000).optional(),
   textProvider: z.enum(["openai", "anthropic", "gemini", "groq"]).optional(),
   /** "none" limpa o fallback. */
-  textFallbackProvider: z
-    .enum(["openai", "anthropic", "gemini", "groq", "none"])
-    .optional(),
+  textFallbackProvider: z.enum(["openai", "anthropic", "gemini", "groq", "none"]).optional(),
   // Anthropic não gera imagem — não pode ser selecionada como provedor de imagem.
   imageProvider: z.enum(["openai", "gemini"]).optional(),
 });
@@ -159,9 +153,7 @@ export const saveProviderKey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => ProviderKeyInput.parse(input))
   .handler(async ({ data, context }) => {
-    const { encryptCredential, maskCredential } = await import(
-      "./credentials-crypto.server"
-    );
+    const { encryptCredential, maskCredential } = await import("./credentials-crypto.server");
     const { verifyProviderKey } = await import("./ai-provider-verify.server");
 
     // Testa a chave contra o provedor ANTES de gravar qualquer coisa.
@@ -172,18 +164,16 @@ export const saveProviderKey = createServerFn({ method: "POST" })
     const masked = maskCredential(data.apiKey);
 
     // Persist the encrypted secret in brand_api_credentials (server-only read).
-    const { error: credErr } = await context.supabase
-      .from("brand_api_credentials")
-      .upsert(
-        {
-          brand_id: data.brandId,
-          provider: data.provider,
-          ciphertext,
-          masked,
-          updated_by: context.userId,
-        },
-        { onConflict: "brand_id,provider" },
-      );
+    const { error: credErr } = await context.supabase.from("brand_api_credentials").upsert(
+      {
+        brand_id: data.brandId,
+        provider: data.provider,
+        ciphertext,
+        masked,
+        updated_by: context.userId,
+      },
+      { onConflict: "brand_id,provider" },
+    );
     if (credErr) throw credErr;
 
     const { data: existing } = await context.supabase
@@ -206,10 +196,7 @@ export const saveProviderKey = createServerFn({ method: "POST" })
     };
     const { error } = await context.supabase
       .from("brand_connections")
-      .upsert(
-        { brand_id: data.brandId, providers },
-        { onConflict: "brand_id" },
-      );
+      .upsert({ brand_id: data.brandId, providers }, { onConflict: "brand_id" });
     if (error) throw error;
     return {
       ok: true,
@@ -271,7 +258,6 @@ export const testProviderKey = createServerFn({ method: "POST" })
     return { status: check.status, message: check.message, models: check.models.length };
   });
 
-
 const RemoveProviderInput = z.object({
   brandId: z.string().uuid(),
   provider: z.enum(["openai", "anthropic", "gemini", "groq"]),
@@ -299,10 +285,7 @@ export const removeProviderKey = createServerFn({ method: "POST" })
     delete providers[data.provider];
     const { error } = await context.supabase
       .from("brand_connections")
-      .upsert(
-        { brand_id: data.brandId, providers },
-        { onConflict: "brand_id" },
-      );
+      .upsert({ brand_id: data.brandId, providers }, { onConflict: "brand_id" });
     if (error) throw error;
     return { ok: true };
   });
@@ -350,10 +333,7 @@ export const upsertChannel = createServerFn({ method: "POST" })
     }
     const { error } = await context.supabase
       .from("brand_connections")
-      .upsert(
-        { brand_id: data.brandId, channels },
-        { onConflict: "brand_id" },
-      );
+      .upsert({ brand_id: data.brandId, channels }, { onConflict: "brand_id" });
     if (error) throw error;
     return { ok: true };
   });
@@ -363,11 +343,7 @@ export const upsertChannel = createServerFn({ method: "POST" })
 // Uses the same AES-256-GCM store; metadata carries non-secret fields.
 // -----------------------------------------------------------------------------
 
-const ToolProvider = z.enum([
-  "resend",
-  "whatsapp_evolution",
-  "whatsapp_cloud",
-]);
+const ToolProvider = z.enum(["resend", "whatsapp_evolution", "whatsapp_cloud"]);
 
 const SaveToolCredentialInput = z.object({
   brandId: z.string().uuid(),
@@ -380,25 +356,21 @@ export const saveToolCredential = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => SaveToolCredentialInput.parse(input))
   .handler(async ({ data, context }) => {
-    const { encryptCredential, maskCredential } = await import(
-      "./credentials-crypto.server"
-    );
+    const { encryptCredential, maskCredential } = await import("./credentials-crypto.server");
     const ciphertext = await encryptCredential(data.apiKey);
     const masked = maskCredential(data.apiKey);
 
-    const { error: credErr } = await context.supabase
-      .from("brand_api_credentials")
-      .upsert(
-        {
-          brand_id: data.brandId,
-          provider: data.provider,
-          ciphertext,
-          masked,
-          metadata: data.metadata ?? {},
-          updated_by: context.userId,
-        },
-        { onConflict: "brand_id,provider" },
-      );
+    const { error: credErr } = await context.supabase.from("brand_api_credentials").upsert(
+      {
+        brand_id: data.brandId,
+        provider: data.provider,
+        ciphertext,
+        masked,
+        metadata: data.metadata ?? {},
+        updated_by: context.userId,
+      },
+      { onConflict: "brand_id,provider" },
+    );
     if (credErr) throw credErr;
 
     // Mirror connection status in brand_connections.channels for the UI.
@@ -418,10 +390,7 @@ export const saveToolCredential = createServerFn({ method: "POST" })
     };
     const { error } = await context.supabase
       .from("brand_connections")
-      .upsert(
-        { brand_id: data.brandId, channels },
-        { onConflict: "brand_id" },
-      );
+      .upsert({ brand_id: data.brandId, channels }, { onConflict: "brand_id" });
     if (error) throw error;
     return { ok: true, masked };
   });
@@ -453,10 +422,7 @@ export const removeToolCredential = createServerFn({ method: "POST" })
     delete channels[data.provider];
     const { error } = await context.supabase
       .from("brand_connections")
-      .upsert(
-        { brand_id: data.brandId, channels },
-        { onConflict: "brand_id" },
-      );
+      .upsert({ brand_id: data.brandId, channels }, { onConflict: "brand_id" });
     if (error) throw error;
     return { ok: true };
   });

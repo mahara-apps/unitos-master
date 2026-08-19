@@ -79,8 +79,7 @@ export function PautaBoard({
           brandId,
           clientId,
           archive,
-          projectId:
-            projectFilter === "all" || projectFilter === "none" ? null : projectFilter,
+          projectId: projectFilter === "all" || projectFilter === "none" ? null : projectFilter,
           withoutProject: projectFilter === "none",
           q: q.trim() || undefined,
         },
@@ -269,15 +268,7 @@ export function PautaBoard({
   );
 }
 
-function SummaryCell({
-  label,
-  value,
-  muted,
-}: {
-  label: string;
-  value: number;
-  muted?: boolean;
-}) {
+function SummaryCell({ label, value, muted }: { label: string; value: number; muted?: boolean }) {
   return (
     <div className="rounded-lg border border-border/60 bg-card px-3 py-2">
       <div className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">

@@ -34,7 +34,10 @@ export function assertCronRequest(request: Request): Response | null {
 
   const provided =
     request.headers.get("x-cron-secret")?.trim() ??
-    request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim() ??
+    request.headers
+      .get("authorization")
+      ?.replace(/^Bearer\s+/i, "")
+      .trim() ??
     "";
 
   if (!provided || !timingSafeEqual(provided, expected)) {

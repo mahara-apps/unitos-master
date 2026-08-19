@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Copy, ImageIcon, Loader2, Palette as PaletteIcon, Plus, Trash2, Upload } from "lucide-react";
+import {
+  Copy,
+  ImageIcon,
+  Loader2,
+  Palette as PaletteIcon,
+  Plus,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,7 +78,14 @@ function AssetSlot({
     try {
       const base64 = await fileToBase64(file);
       await upload({
-        data: { brandId, clientId, kind, filename: file.name, contentType: file.type || "application/octet-stream", base64 },
+        data: {
+          brandId,
+          clientId,
+          kind,
+          filename: file.name,
+          contentType: file.type || "application/octet-stream",
+          base64,
+        },
       });
       toast.success(`${label} uploaded`);
       onChange();
@@ -92,7 +107,8 @@ function AssetSlot({
   };
 
   const removeAsset = async () => {
-    const col = kind === "logo" ? "logo_url" : kind === "favicon" ? "favicon_url" : "logo_secondary_url";
+    const col =
+      kind === "logo" ? "logo_url" : kind === "favicon" ? "favicon_url" : "logo_secondary_url";
     await clear({ data: { brandId, clientId, patch: { [col]: null } as never } });
     toast.success(`${label} removed`);
     onChange();
@@ -206,8 +222,7 @@ export function VisualIdentityTab({
   }, [client.brand_hub.palette]);
 
   const savePalette = useMutation({
-    mutationFn: () =>
-      saveHub({ data: { brandId, clientId, patch: { palette } } }),
+    mutationFn: () => saveHub({ data: { brandId, clientId, patch: { palette } } }),
     onSuccess: () => {
       toast.success("Palette saved");
       qc.invalidateQueries({ queryKey: ["brand-hub", brandId, clientId] });
@@ -251,7 +266,8 @@ export function VisualIdentityTab({
         <header className="mb-3">
           <h3 className="text-sm font-semibold">Logo Asset Manager</h3>
           <p className="text-xs text-muted-foreground">
-            Drag and drop or upload corporate assets. Files are stored securely and served via signed URLs.
+            Drag and drop or upload corporate assets. Files are stored securely and served via
+            signed URLs.
           </p>
         </header>
         <div className="grid gap-4 md:grid-cols-3">
@@ -283,14 +299,19 @@ export function VisualIdentityTab({
             size="sm"
             variant="outline"
             className="gap-1.5"
-            onClick={() => setPalette((p) => [...p, { label: `Color ${p.length + 1}`, hex: "#000000" }])}
+            onClick={() =>
+              setPalette((p) => [...p, { label: `Color ${p.length + 1}`, hex: "#000000" }])
+            }
           >
             <Plus className="h-3.5 w-3.5" /> Add color
           </Button>
         </header>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {palette.map((c, i) => (
-            <div key={i} className="flex items-center gap-3 rounded-lg border border-border bg-background p-3">
+            <div
+              key={i}
+              className="flex items-center gap-3 rounded-lg border border-border bg-background p-3"
+            >
               <button
                 type="button"
                 onClick={() => {
@@ -307,7 +328,9 @@ export function VisualIdentityTab({
                   <Input
                     value={c.label}
                     onChange={(e) =>
-                      setPalette((p) => p.map((x, j) => (i === j ? { ...x, label: e.target.value } : x)))
+                      setPalette((p) =>
+                        p.map((x, j) => (i === j ? { ...x, label: e.target.value } : x)),
+                      )
                     }
                     className="h-8 bg-card text-xs"
                   />
@@ -317,7 +340,9 @@ export function VisualIdentityTab({
                   <Input
                     value={c.hex}
                     onChange={(e) => {
-                      const v = e.target.value.startsWith("#") ? e.target.value : `#${e.target.value}`;
+                      const v = e.target.value.startsWith("#")
+                        ? e.target.value
+                        : `#${e.target.value}`;
                       setPalette((p) => p.map((x, j) => (i === j ? { ...x, hex: v } : x)));
                     }}
                     className="h-8 bg-card font-mono text-xs uppercase"
@@ -337,7 +362,11 @@ export function VisualIdentityTab({
           ))}
         </div>
         <div className="mt-4 flex justify-end">
-          <Button onClick={() => savePalette.mutate()} disabled={savePalette.isPending} className="gap-2">
+          <Button
+            onClick={() => savePalette.mutate()}
+            disabled={savePalette.isPending}
+            className="gap-2"
+          >
             {savePalette.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             Save palette
           </Button>
@@ -351,7 +380,8 @@ export function VisualIdentityTab({
               <PaletteIcon className="h-4 w-4" /> Cores detectadas na logo
             </DialogTitle>
             <DialogDescription>
-              Extraímos as cores dominantes da logo. Selecione quais adicionar ao Brand Color Palette.
+              Extraímos as cores dominantes da logo. Selecione quais adicionar ao Brand Color
+              Palette.
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-3 gap-3 py-2">
@@ -364,7 +394,9 @@ export function VisualIdentityTab({
                   onClick={() => setPicked((p) => ({ ...p, [hex]: !p[hex] }))}
                   className={
                     "group flex flex-col items-center gap-1.5 rounded-lg border p-2 text-[11px] transition " +
-                    (on ? "border-primary ring-2 ring-primary/30" : "border-border opacity-60 hover:opacity-100")
+                    (on
+                      ? "border-primary ring-2 ring-primary/30"
+                      : "border-border opacity-60 hover:opacity-100")
                   }
                 >
                   <span

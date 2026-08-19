@@ -9,10 +9,7 @@ import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/approval/$token")({
   head: () => ({
-    meta: [
-      { title: "Aprovação de conteúdo" },
-      { name: "robots", content: "noindex, nofollow" },
-    ],
+    meta: [{ title: "Aprovação de conteúdo" }, { name: "robots", content: "noindex, nofollow" }],
   }),
   component: ApprovalPage,
 });

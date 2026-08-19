@@ -40,7 +40,6 @@ export function getSocialProvider(network: SocialNetwork): SocialAnalyticsProvid
   return STUBS[network];
 }
 
-
 export function listSocialProviders(): Array<{
   network: SocialNetwork;
   label: string;
@@ -52,4 +51,3 @@ export function listSocialProviders(): Array<{
     implemented: network === "facebook" || network === "instagram",
   }));
 }
-

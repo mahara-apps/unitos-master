@@ -9,9 +9,7 @@ export function BrandFavicon() {
   useEffect(() => {
     if (typeof document === "undefined") return;
     if (!iconCustom) return; // keep default favicon when no custom icon
-    const links = Array.from(
-      document.querySelectorAll<HTMLLinkElement>('link[rel~="icon"]'),
-    );
+    const links = Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel~="icon"]'));
     const previous = links.map((l) => ({ el: l, href: l.href }));
     links.forEach((l) => {
       l.href = icon;

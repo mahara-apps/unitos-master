@@ -160,13 +160,7 @@ export function BrainWidget({
 
   return (
     <Card className={cn("border-primary/10 bg-primary/[0.02]", className)}>
-      <CardHeader
-        className={cn(
-          "pb-2",
-          compact && "pb-1 pt-3",
-          collapsed && "pb-3",
-        )}
-      >
+      <CardHeader className={cn("pb-2", compact && "pb-1 pt-3", collapsed && "pb-3")}>
         <div className="flex items-center justify-between gap-2">
           <button
             type="button"
@@ -176,9 +170,7 @@ export function BrainWidget({
             aria-label={collapsed ? "Expandir" : "Recolher"}
           >
             <Brain className="h-4 w-4 shrink-0 text-primary" />
-            <CardTitle className="truncate text-sm font-medium">
-              {displayTitle}
-            </CardTitle>
+            <CardTitle className="truncate text-sm font-medium">{displayTitle}</CardTitle>
             {collapsed && query.data?.headline ? (
               <span className="truncate text-xs text-muted-foreground">
                 — {query.data.headline}
@@ -202,51 +194,48 @@ export function BrainWidget({
               aria-label={collapsed ? "Expandir" : "Recolher"}
             >
               <ChevronDown
-                className={cn(
-                  "h-4 w-4 transition-transform",
-                  collapsed && "-rotate-90",
-                )}
+                className={cn("h-4 w-4 transition-transform", collapsed && "-rotate-90")}
               />
             </Button>
           </div>
         </div>
       </CardHeader>
       {collapsed ? null : (
-      <CardContent className={cn("pt-1", compact && "pb-3")}>
-        {!brandId ? (
-          <EmptyState text="Selecione um workspace para ativar o Brain." />
-        ) : query.isLoading ? (
-          <div className="space-y-2">
-            <Skeleton className="h-3 w-4/5" />
-            <Skeleton className="h-3 w-3/5" />
-            <Skeleton className="h-3 w-2/5" />
-          </div>
-        ) : query.error ? (
-          <EmptyState text="Não foi possível consultar o Brain agora." />
-        ) : !query.data?.hasData ? (
-          <EmptyState text={query.data?.headline ?? spec.hint} />
-        ) : (
-          <div className="space-y-2.5">
-            <p className="text-sm leading-snug text-foreground">{query.data.headline}</p>
-            <ul className="space-y-1.5">
-              {query.data.items.map((item, idx) => (
-                <li key={`${item.kind}-${idx}`} className="flex items-start gap-2">
-                  <KindIcon kind={item.kind} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-medium text-foreground">{item.label}</p>
-                    {item.detail && (
-                      <p className="line-clamp-2 text-xs text-muted-foreground">{item.detail}</p>
-                    )}
-                  </div>
-                  <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
-                    {Math.round(item.score * 100)}%
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </CardContent>
+        <CardContent className={cn("pt-1", compact && "pb-3")}>
+          {!brandId ? (
+            <EmptyState text="Selecione um workspace para ativar o Brain." />
+          ) : query.isLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-3 w-4/5" />
+              <Skeleton className="h-3 w-3/5" />
+              <Skeleton className="h-3 w-2/5" />
+            </div>
+          ) : query.error ? (
+            <EmptyState text="Não foi possível consultar o Brain agora." />
+          ) : !query.data?.hasData ? (
+            <EmptyState text={query.data?.headline ?? spec.hint} />
+          ) : (
+            <div className="space-y-2.5">
+              <p className="text-sm leading-snug text-foreground">{query.data.headline}</p>
+              <ul className="space-y-1.5">
+                {query.data.items.map((item, idx) => (
+                  <li key={`${item.kind}-${idx}`} className="flex items-start gap-2">
+                    <KindIcon kind={item.kind} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-medium text-foreground">{item.label}</p>
+                      {item.detail && (
+                        <p className="line-clamp-2 text-xs text-muted-foreground">{item.detail}</p>
+                      )}
+                    </div>
+                    <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                      {Math.round(item.score * 100)}%
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </CardContent>
       )}
     </Card>
   );

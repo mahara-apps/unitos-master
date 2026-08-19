@@ -6,11 +6,7 @@ import { Activity, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useActiveContext } from "@/hooks/use-active-context";
-import {
-  listAgentPromptsFn,
-  listAgentJobsFn,
-  type AgentPromptRow,
-} from "@/lib/agents.functions";
+import { listAgentPromptsFn, listAgentJobsFn, type AgentPromptRow } from "@/lib/agents.functions";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { AgentCard } from "@/components/agents/agent-card";
 import { AgentDrawer } from "@/components/agents/agent-drawer";
@@ -88,7 +84,11 @@ function AgentsPage() {
   return (
     <div className="flex h-full flex-col gap-8 p-6">
       <section>
-        <Tabs value={tab} onValueChange={(v) => setTab(v as AgentCategory | "all")} className="mb-5">
+        <Tabs
+          value={tab}
+          onValueChange={(v) => setTab(v as AgentCategory | "all")}
+          className="mb-5"
+        >
           <TabsList className="flex-wrap gap-1">
             <TabsTrigger value="all">
               Todos
@@ -112,16 +112,11 @@ function AgentsPage() {
         {prompts.isLoading ? (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-40 animate-pulse rounded-lg border bg-muted/30"
-              />
+              <div key={i} className="h-40 animate-pulse rounded-lg border bg-muted/30" />
             ))}
           </div>
         ) : filteredAgents.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Nenhum agente nesta categoria.
-          </p>
+          <p className="text-sm text-muted-foreground">Nenhum agente nesta categoria.</p>
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {filteredAgents.map((a) => (

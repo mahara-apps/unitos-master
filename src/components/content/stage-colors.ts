@@ -91,17 +91,12 @@ export const CHANNEL_STYLES: Record<string, string> = {
     "border-transparent bg-gradient-to-r from-[#F58529] via-[#DD2A7B] to-[#515BD4] text-white",
   tiktok:
     "border-zinc-900/30 bg-zinc-900/10 text-zinc-900 dark:border-zinc-100/20 dark:bg-zinc-100/10 dark:text-zinc-100",
-  youtube:
-    "border-red-600/30 bg-red-600/10 text-red-600 dark:text-red-400",
-  linkedin:
-    "border-[#0A66C2]/30 bg-[#0A66C2]/10 text-[#0A66C2] dark:text-sky-300",
+  youtube: "border-red-600/30 bg-red-600/10 text-red-600 dark:text-red-400",
+  linkedin: "border-[#0A66C2]/30 bg-[#0A66C2]/10 text-[#0A66C2] dark:text-sky-300",
   x: "border-zinc-900/30 bg-zinc-900/10 text-zinc-900 dark:border-zinc-100/20 dark:bg-zinc-100/10 dark:text-zinc-100",
-  facebook:
-    "border-[#1877F2]/30 bg-[#1877F2]/10 text-[#1877F2] dark:text-blue-300",
+  facebook: "border-[#1877F2]/30 bg-[#1877F2]/10 text-[#1877F2] dark:text-blue-300",
   threads:
     "border-zinc-900/30 bg-zinc-900/10 text-zinc-900 dark:border-zinc-100/20 dark:bg-zinc-100/10 dark:text-zinc-100",
   blog: "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
-  graphic:
-    "border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300",
+  graphic: "border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300",
 };
-

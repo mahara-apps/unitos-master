@@ -24,9 +24,7 @@ export type OrganizationDraft =
 export const emptyOrganization: OrganizationDraft = { mode: "none" };
 
 /** Converte o rascunho da UI no payload do servidor; null = ainda inválido. */
-export function toOrganizationInput(
-  draft: OrganizationDraft,
-): PlanOrganizationInput | null {
+export function toOrganizationInput(draft: OrganizationDraft): PlanOrganizationInput | null {
   if (draft.mode === "none") return { mode: "none" };
   if (draft.mode === "existing")
     return draft.projectId ? { mode: "existing", projectId: draft.projectId } : null;

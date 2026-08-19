@@ -13,14 +13,7 @@ export type EventDef = {
   key: string;
   name: string;
   description: string;
-  category:
-    | "Time"
-    | "Cliente"
-    | "Portal"
-    | "Aprovação"
-    | "Produção"
-    | "Relatórios"
-    | "Financeiro";
+  category: "Time" | "Cliente" | "Portal" | "Aprovação" | "Produção" | "Relatórios" | "Financeiro";
   channels: Channel[];
   variables: VariableDef[];
   defaults: Partial<Record<Channel, { subject?: string; body: string }>>;
@@ -336,9 +329,10 @@ export function getEvent(key: string): EventDef | undefined {
   return EVENTS.find((e) => e.key === key);
 }
 
-export function getDefault(eventKey: string, channel: Channel):
-  | { subject?: string; body: string }
-  | undefined {
+export function getDefault(
+  eventKey: string,
+  channel: Channel,
+): { subject?: string; body: string } | undefined {
   return getEvent(eventKey)?.defaults[channel];
 }
 

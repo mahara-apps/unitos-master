@@ -10,15 +10,11 @@ export const Route = createFileRoute("/api/public/media/prune")({
         const cronDenied = assertCronRequest(request);
         if (cronDenied) return cronDenied;
 
-        const { supabaseAdmin } = await import(
-          "@/integrations/supabase/client.server"
-        );
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
         // Find posts with published/archived state whose scheduled_at is
         // older than 30 days and that still have un-pruned reference_media.
-        const cutoff = new Date(
-          Date.now() - 30 * 24 * 60 * 60 * 1000,
-        ).toISOString();
+        const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
         const { data: posts, error } = await supabaseAdmin
           .from("posts")
@@ -29,10 +25,10 @@ export const Route = createFileRoute("/api/public/media/prune")({
 
         if (error) {
           console.error("[prune] fetch error", error);
-          return new Response(
-            JSON.stringify({ error: error.message }),
-            { status: 500, headers: { "Content-Type": "application/json" } },
-          );
+          return new Response(JSON.stringify({ error: error.message }), {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          });
         }
 
         let filesRemoved = 0;
@@ -47,8 +43,7 @@ export const Route = createFileRoute("/api/public/media/prune")({
           const toRemove: string[] = [];
           const nextRefs = refs.map((r) => {
             const path = typeof r.path === "string" ? r.path : null;
-            const thumb =
-              typeof r.thumb_path === "string" ? r.thumb_path : null;
+            const thumb = typeof r.thumb_path === "string" ? r.thumb_path : null;
             const pruned = r.pruned === true;
             // Only prune originals that still exist AND we have a thumb
             // (never lose the last visual reference).

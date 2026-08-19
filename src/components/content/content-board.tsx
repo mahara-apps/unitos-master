@@ -14,7 +14,18 @@ import {
 } from "@dnd-kit/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowDown, ArrowUp, ArrowUpDown, CalendarPlus, Check, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  CalendarPlus,
+  Check,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  Trash2,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Paperclip, ImageIcon, CalendarDays, UserCircle2, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,11 +38,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   createStageFn,
   updateStageFn,
@@ -45,15 +52,23 @@ import {
   type PipelineStage,
   type StageColor,
 } from "@/lib/content.functions";
-import { STAGE_GRADIENT, PRIORITY_STYLES, PRIORITY_LABEL, FORMAT_STYLES, CHANNELS, CHANNEL_STYLES } from "./stage-colors";
-import { CONTENT_FORMAT_LABEL, normalizeContentFormat, type ContentFormat } from "@/lib/content-formats";
+import {
+  STAGE_GRADIENT,
+  PRIORITY_STYLES,
+  PRIORITY_LABEL,
+  FORMAT_STYLES,
+  CHANNELS,
+  CHANNEL_STYLES,
+} from "./stage-colors";
+import {
+  CONTENT_FORMAT_LABEL,
+  normalizeContentFormat,
+  type ContentFormat,
+} from "@/lib/content-formats";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Settings2, AlarmClock } from "lucide-react";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
-import {
-  DashboardCountBadge,
-  DashboardPanelSurface,
-} from "@/components/ui/dashboard-primitives";
+import { DashboardCountBadge, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { describeError } from "@/lib/errors";
 
 // Dot de cor da coluna — segue paleta semântica do DESIGN_SYSTEM.
@@ -79,7 +94,10 @@ function AssigneeChip({ brandId, assigneeId }: { brandId: string; assigneeId: st
   });
   if (!assigneeId) {
     return (
-      <span className="inline-flex items-center gap-1 text-muted-foreground/70" title="Sem responsável">
+      <span
+        className="inline-flex items-center gap-1 text-muted-foreground/70"
+        title="Sem responsável"
+      >
         <UserCircle2 className="h-3.5 w-3.5 opacity-60" />
       </span>
     );
@@ -128,7 +146,15 @@ type PropsExt = Props & {
   onCycleSort?: (stageId: string, by: Exclude<SortBy, "position">) => void;
 };
 
-export function ContentBoard({ board, boardQueryKey, onOpenPost, onConfigureColumns, onNewTask, sortByStage, onCycleSort }: PropsExt) {
+export function ContentBoard({
+  board,
+  boardQueryKey,
+  onOpenPost,
+  onConfigureColumns,
+  onNewTask,
+  sortByStage,
+  onCycleSort,
+}: PropsExt) {
   const qc = useQueryClient();
   const movePost = useServerFn(movePostFn);
   const createStage = useServerFn(createStageFn);
@@ -173,7 +199,7 @@ export function ContentBoard({ board, boardQueryKey, onOpenPost, onConfigureColu
   }, [board, sortByStage]);
 
   const activePost = useMemo(
-    () => (activeId ? board.posts.find((p) => p.id === activeId) ?? null : null),
+    () => (activeId ? (board.posts.find((p) => p.id === activeId) ?? null) : null),
     [activeId, board.posts],
   );
 
@@ -199,9 +225,10 @@ export function ContentBoard({ board, boardQueryKey, onOpenPost, onConfigureColu
     const overId = e.over ? String(e.over.id) : null;
     if (!overId) return;
     // Over can be a stage id or a post id — resolve to stage
-    const targetStageId = board.stages.find((s) => s.id === overId)?.id
-      ?? board.posts.find((p) => p.id === overId)?.stage_id
-      ?? null;
+    const targetStageId =
+      board.stages.find((s) => s.id === overId)?.id ??
+      board.posts.find((p) => p.id === overId)?.stage_id ??
+      null;
     if (!targetStageId) return;
 
     const list = [...(postsByStage.get(targetStageId) ?? [])];
@@ -229,7 +256,10 @@ export function ContentBoard({ board, boardQueryKey, onOpenPost, onConfigureColu
   }
 
   const addStage = useMutation({
-    mutationFn: () => createStage({ data: { pipelineId: board.pipeline.id, label: "Nova coluna", color: "muted" } }),
+    mutationFn: () =>
+      createStage({
+        data: { pipelineId: board.pipeline.id, label: "Nova coluna", color: "muted" },
+      }),
     onSuccess: () => qc.invalidateQueries({ queryKey: boardQueryKey }),
     onError: (e: Error) => toast.error(describeError(e)),
   });
@@ -264,38 +294,46 @@ export function ContentBoard({ board, boardQueryKey, onOpenPost, onConfigureColu
     >
       <DashboardPanelSurface className="flex min-h-0 flex-1">
         <div className="flex min-h-0 flex-1 gap-4 overflow-x-auto overflow-y-hidden p-4">
-        {board.stages.map((stage) => (
-          <Column
-            key={stage.id}
-            stage={stage}
-            posts={postsByStage.get(stage.id) ?? []}
-            onOpenPost={onOpenPost}
-            onRename={(label) => updateStage({ data: { stageId: stage.id, patch: { label } } })
-              .then(() => qc.invalidateQueries({ queryKey: boardQueryKey }))}
-            onRecolor={(color) => updateStage({ data: { stageId: stage.id, patch: { color } } })
-              .then(() => qc.invalidateQueries({ queryKey: boardQueryKey }))}
-            onDelete={() => deleteStage({ data: { stageId: stage.id } })
-              .then(() => qc.invalidateQueries({ queryKey: boardQueryKey }))
-              .catch((e: Error) => toast.error(describeError(e)))}
-            creating={creatingIn === stage.id}
-            onStartCreate={() => setCreatingIn(stage.id)}
-            onCancelCreate={() => setCreatingIn(null)}
-            onConfirmCreate={(title) => addPost.mutate({ stageId: stage.id, title })}
-            adding={addPost.isPending}
-            onOpenRichCreate={onNewTask ? () => onNewTask(stage.id) : undefined}
-            onConfigure={onConfigureColumns}
-            sort={sortByStage?.[stage.id]}
-            onCycleSort={onCycleSort ? (by) => onCycleSort(stage.id, by) : undefined}
-          />
-        ))}
-        <button
-          type="button"
-          className="flex h-full min-w-[304px] shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 bg-background/40 px-3 py-3 text-xs font-medium text-muted-foreground transition hover:border-border hover:bg-background/60 hover:text-foreground"
-          onClick={() => addStage.mutate()}
-          disabled={addStage.isPending}
-        >
-          <Plus className="h-4 w-4" /> Adicionar coluna
-        </button>
+          {board.stages.map((stage) => (
+            <Column
+              key={stage.id}
+              stage={stage}
+              posts={postsByStage.get(stage.id) ?? []}
+              onOpenPost={onOpenPost}
+              onRename={(label) =>
+                updateStage({ data: { stageId: stage.id, patch: { label } } }).then(() =>
+                  qc.invalidateQueries({ queryKey: boardQueryKey }),
+                )
+              }
+              onRecolor={(color) =>
+                updateStage({ data: { stageId: stage.id, patch: { color } } }).then(() =>
+                  qc.invalidateQueries({ queryKey: boardQueryKey }),
+                )
+              }
+              onDelete={() =>
+                deleteStage({ data: { stageId: stage.id } })
+                  .then(() => qc.invalidateQueries({ queryKey: boardQueryKey }))
+                  .catch((e: Error) => toast.error(describeError(e)))
+              }
+              creating={creatingIn === stage.id}
+              onStartCreate={() => setCreatingIn(stage.id)}
+              onCancelCreate={() => setCreatingIn(null)}
+              onConfirmCreate={(title) => addPost.mutate({ stageId: stage.id, title })}
+              adding={addPost.isPending}
+              onOpenRichCreate={onNewTask ? () => onNewTask(stage.id) : undefined}
+              onConfigure={onConfigureColumns}
+              sort={sortByStage?.[stage.id]}
+              onCycleSort={onCycleSort ? (by) => onCycleSort(stage.id, by) : undefined}
+            />
+          ))}
+          <button
+            type="button"
+            className="flex h-full min-w-[304px] shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed border-border/60 bg-background/40 px-3 py-3 text-xs font-medium text-muted-foreground transition hover:border-border hover:bg-background/60 hover:text-foreground"
+            onClick={() => addStage.mutate()}
+            disabled={addStage.isPending}
+          >
+            <Plus className="h-4 w-4" /> Adicionar coluna
+          </button>
         </div>
       </DashboardPanelSurface>
       <DragOverlay>
@@ -354,7 +392,9 @@ function Column({
         isOver ? "border-primary/60 bg-primary/5" : "border-border/60 bg-background/60"
       }`}
     >
-      <div className={`pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-linear-to-r ${STAGE_GRADIENT[stage.color] ?? STAGE_GRADIENT.muted}`} />
+      <div
+        className={`pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-linear-to-r ${STAGE_GRADIENT[stage.color] ?? STAGE_GRADIENT.muted}`}
+      />
       <div className="mb-3 flex items-center justify-between gap-2 border-b border-border/40 pb-3">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <Popover>
@@ -417,54 +457,62 @@ function Column({
               {stage.label}
             </button>
           )}
-          <Badge variant="secondary" className="h-5 shrink-0 rounded-md border border-border/60 bg-background/60 px-1.5 text-xs font-normal tabular-nums">
+          <Badge
+            variant="secondary"
+            className="h-5 shrink-0 rounded-md border border-border/60 bg-background/60 px-1.5 text-xs font-normal tabular-nums"
+          >
             {posts.length}
           </Badge>
-        {(() => {
-          const overdueCount = posts.filter((p) => p.sla_status === "overdue").length;
-          const atRiskCount = posts.filter((p) => p.sla_status === "at_risk").length;
-          const slaH = stage.sla_hours ?? (stage.sla_days ? stage.sla_days * 24 : null);
-          const slaLabel = slaH == null ? null : slaH < 24 ? `${slaH}h` : `${Math.round(slaH / 24)}d`;
-          const tooltipCopy = slaLabel
-            ? `Cada card pode permanecer no máximo ${slaLabel} nesta etapa. As tarefas atrasadas ultrapassaram esse prazo.`
-            : `Nenhum SLA configurado para esta etapa. Defina em Configurações → SLA.`;
-          return (
-            <>
-              {overdueCount > 0 ? (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex h-5 items-center gap-1 rounded-md border border-rose-500/30 bg-rose-500/10 px-1.5 text-[10px] font-semibold text-rose-600 dark:text-rose-400">
-                    <AlarmClock className="h-2.5 w-2.5" /> {overdueCount}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent className="max-w-[240px] border border-border bg-popover text-xs leading-snug text-popover-foreground">
-                  <div className="font-semibold text-rose-600 dark:text-rose-400">{overdueCount} tarefa(s) atrasada(s)</div>
-                  <div className="mt-0.5 text-muted-foreground">{tooltipCopy}</div>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-              ) : null}
-              {atRiskCount > 0 ? (
-                <TooltipProvider delayDuration={200}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="inline-flex h-5 items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
-                        <AlarmClock className="h-2.5 w-2.5" /> {atRiskCount}
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent className="max-w-[240px] border border-border bg-popover text-xs leading-snug text-popover-foreground">
-                      <div className="font-semibold text-amber-600 dark:text-amber-400">{atRiskCount} próxima(s) de vencer</div>
-                      <div className="mt-0.5 text-muted-foreground">
-                        Já consumiram 80% do SLA{slaLabel ? ` de ${slaLabel}` : ""}.
-                      </div>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              ) : null}
-            </>
-          );
-        })()}
+          {(() => {
+            const overdueCount = posts.filter((p) => p.sla_status === "overdue").length;
+            const atRiskCount = posts.filter((p) => p.sla_status === "at_risk").length;
+            const slaH = stage.sla_hours ?? (stage.sla_days ? stage.sla_days * 24 : null);
+            const slaLabel =
+              slaH == null ? null : slaH < 24 ? `${slaH}h` : `${Math.round(slaH / 24)}d`;
+            const tooltipCopy = slaLabel
+              ? `Cada card pode permanecer no máximo ${slaLabel} nesta etapa. As tarefas atrasadas ultrapassaram esse prazo.`
+              : `Nenhum SLA configurado para esta etapa. Defina em Configurações → SLA.`;
+            return (
+              <>
+                {overdueCount > 0 ? (
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex h-5 items-center gap-1 rounded-md border border-rose-500/30 bg-rose-500/10 px-1.5 text-[10px] font-semibold text-rose-600 dark:text-rose-400">
+                          <AlarmClock className="h-2.5 w-2.5" /> {overdueCount}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-[240px] border border-border bg-popover text-xs leading-snug text-popover-foreground">
+                        <div className="font-semibold text-rose-600 dark:text-rose-400">
+                          {overdueCount} tarefa(s) atrasada(s)
+                        </div>
+                        <div className="mt-0.5 text-muted-foreground">{tooltipCopy}</div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : null}
+                {atRiskCount > 0 ? (
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex h-5 items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400">
+                          <AlarmClock className="h-2.5 w-2.5" /> {atRiskCount}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-[240px] border border-border bg-popover text-xs leading-snug text-popover-foreground">
+                        <div className="font-semibold text-amber-600 dark:text-amber-400">
+                          {atRiskCount} próxima(s) de vencer
+                        </div>
+                        <div className="mt-0.5 text-muted-foreground">
+                          Já consumiram 80% do SLA{slaLabel ? ` de ${slaLabel}` : ""}.
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : null}
+              </>
+            );
+          })()}
         </div>
         {onCycleSort ? (
           <div className="flex shrink-0 items-center gap-0.5">
@@ -479,7 +527,11 @@ function Column({
         ) : null}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0 opacity-60 hover:opacity-100">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 shrink-0 opacity-60 hover:opacity-100"
+            >
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -571,9 +623,7 @@ function Column({
 }
 
 function DraggablePostCard({ post, onOpen }: { post: BoardPost; onOpen: (id: string) => void }) {
-  return (
-    <DraggablePostCardInner post={post} onOpen={onOpen} />
-  );
+  return <DraggablePostCardInner post={post} onOpen={onOpen} />;
 }
 
 function SortChip({
@@ -624,7 +674,13 @@ function SortChip({
   );
 }
 
-function DraggablePostCardInner({ post, onOpen }: { post: BoardPost; onOpen: (id: string) => void }) {
+function DraggablePostCardInner({
+  post,
+  onOpen,
+}: {
+  post: BoardPost;
+  onOpen: (id: string) => void;
+}) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: post.id });
   return (
     <div
@@ -697,7 +753,11 @@ function PostCard({
       </div>
 
       <div className="p-3">
-        {(post.sla_status === "overdue" || post.sla_status === "at_risk" || priority || formatKeys.length > 0 || channelDefs.length > 0) ? (
+        {post.sla_status === "overdue" ||
+        post.sla_status === "at_risk" ||
+        priority ||
+        formatKeys.length > 0 ||
+        channelDefs.length > 0 ? (
           <div className="mb-1 flex flex-wrap items-center gap-1">
             {post.sla_status === "overdue" ? (
               <span
@@ -744,7 +804,9 @@ function PostCard({
               </span>
             ))}
             {priority ? (
-              <span className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[8px] font-semibold uppercase tracking-wider ${PRIORITY_STYLES[priority] ?? ""}`}>
+              <span
+                className={`inline-flex items-center rounded-full border px-1.5 py-0 text-[8px] font-semibold uppercase tracking-wider ${PRIORITY_STYLES[priority] ?? ""}`}
+              >
                 {PRIORITY_LABEL[priority] ?? priority}
               </span>
             ) : null}
@@ -778,7 +840,10 @@ function PostCard({
           </div>
           <div className="flex items-center gap-2">
             {refCount > 0 ? (
-              <DashboardCountBadge className="inline-flex items-center gap-0.5 px-1.5 py-0 text-[11px] text-muted-foreground" title={`${refCount} anexo(s)`}>
+              <DashboardCountBadge
+                className="inline-flex items-center gap-0.5 px-1.5 py-0 text-[11px] text-muted-foreground"
+                title={`${refCount} anexo(s)`}
+              >
                 <Paperclip className="h-3 w-3" /> {refCount}
               </DashboardCountBadge>
             ) : null}

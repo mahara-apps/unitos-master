@@ -64,8 +64,7 @@ export function CompetitorsTab({
   competitors: BrandHubCompetitor[];
 }) {
   const qc = useQueryClient();
-  const invalidate = () =>
-    qc.invalidateQueries({ queryKey: ["brand-hub", brandId, clientId] });
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["brand-hub", brandId, clientId] });
 
   const [handle, setHandle] = useState("");
   const [platform, setPlatform] = useState<BrandHubCompetitor["platform"]>("instagram");
@@ -88,8 +87,7 @@ export function CompetitorsTab({
   });
 
   const removeMut = useMutation({
-    mutationFn: (competitorId: string) =>
-      removeFn({ data: { brandId, clientId, competitorId } }),
+    mutationFn: (competitorId: string) => removeFn({ data: { brandId, clientId, competitorId } }),
     onSuccess: () => {
       toast.success("Competitor removed");
       invalidate();
@@ -98,8 +96,7 @@ export function CompetitorsTab({
   });
 
   const scrapeMut = useMutation({
-    mutationFn: (competitorId: string) =>
-      scrapeFn({ data: { brandId, clientId, competitorId } }),
+    mutationFn: (competitorId: string) => scrapeFn({ data: { brandId, clientId, competitorId } }),
     onSuccess: (res) => {
       if (res.ok) toast.success("Metrics refreshed");
       else toast.warning(res.competitor.last_error ?? "Scrape returned no data");
@@ -118,8 +115,9 @@ export function CompetitorsTab({
               <h3 className="text-sm font-semibold">Competitor Benchmarking</h3>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Register competitor social handles to enrich SWOT, market research, and copywriting prompts
-              with real engagement patterns. Instagram scraping runs via Apify in the background.
+              Register competitor social handles to enrich SWOT, market research, and copywriting
+              prompts with real engagement patterns. Instagram scraping runs via Apify in the
+              background.
             </p>
           </div>
           <Badge variant="outline" className="font-mono text-[10px] uppercase tracking-wider">
@@ -150,7 +148,10 @@ export function CompetitorsTab({
             <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
               Platform
             </Label>
-            <Select value={platform} onValueChange={(v) => setPlatform(v as BrandHubCompetitor["platform"])}>
+            <Select
+              value={platform}
+              onValueChange={(v) => setPlatform(v as BrandHubCompetitor["platform"])}
+            >
               <SelectTrigger className="mt-1 bg-background text-xs">
                 <SelectValue />
               </SelectTrigger>

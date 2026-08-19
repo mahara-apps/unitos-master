@@ -100,9 +100,7 @@ export const listChannelHistoryFn = createServerFn({ method: "GET" })
       source: "connection",
     }));
 
-    return [...fromEvents, ...fromConnections].sort((a, b) =>
-      a.at < b.at ? 1 : -1,
-    );
+    return [...fromEvents, ...fromConnections].sort((a, b) => (a.at < b.at ? 1 : -1));
   });
 
 const RecordInput = z.object({

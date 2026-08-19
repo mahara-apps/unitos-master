@@ -34,9 +34,24 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Play, Circle, RotateCcw, Save, Eye, Pencil, CheckCircle2, AlertTriangle, HelpCircle } from "lucide-react";
+import {
+  Loader2,
+  Play,
+  Circle,
+  RotateCcw,
+  Save,
+  Eye,
+  Pencil,
+  CheckCircle2,
+  AlertTriangle,
+  HelpCircle,
+} from "lucide-react";
 import type { AgentPromptRow } from "@/lib/agents.functions";
-import { updateAgentPromptFn, resetAgentPromptFn, runAgentPlaygroundFn } from "@/lib/agents.functions";
+import {
+  updateAgentPromptFn,
+  resetAgentPromptFn,
+  runAgentPlaygroundFn,
+} from "@/lib/agents.functions";
 import { getAgentMeta, toTitleCase } from "./agent-meta";
 import {
   AGENT_VARIABLE_CATALOG,
@@ -79,17 +94,14 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
   const resolvedQuery = useQuery({
     enabled: open && !!brandId && !!clientId,
     queryKey: ["agent-variables", brandId, clientId],
-    queryFn: () =>
-      resolveFn({ data: { brandId: brandId!, clientId: clientId! } }),
+    queryFn: () => resolveFn({ data: { brandId: brandId!, clientId: clientId! } }),
     staleTime: 60_000,
   });
   const resolved: ResolvedVariableMap = resolvedQuery.data ?? {};
 
   const vars = useMemo(
     () =>
-      agent
-        ? extractPromptVariables(editing ? draftPrompt : agent.override_prompt ?? "")
-        : [],
+      agent ? extractPromptVariables(editing ? draftPrompt : (agent.override_prompt ?? "")) : [],
     [agent, editing, draftPrompt],
   );
 
@@ -151,9 +163,7 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
     },
     onSuccess: (res) => {
       if (!res) return;
-      setTestOutput(
-        `// ${res.model} · ${res.ms}ms\n\n${res.output || "(sem resposta)"}`,
-      );
+      setTestOutput(`// ${res.model} · ${res.ms}ms\n\n${res.output || "(sem resposta)"}`);
     },
     onError: (e: Error) => {
       setTestOutput(`// erro\n${e.message}`);
@@ -203,7 +213,9 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
             >
               <Circle
                 className={`h-2 w-2 ${
-                  active ? "fill-emerald-500 text-emerald-500" : "fill-muted-foreground text-muted-foreground"
+                  active
+                    ? "fill-emerald-500 text-emerald-500"
+                    : "fill-muted-foreground text-muted-foreground"
                 }`}
               />
               {active ? "Ativo" : "Inativo"}
@@ -249,7 +261,10 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
                 <Label className="text-xs text-muted-foreground">
                   Prompt customizado da marca · variáveis em <code>{"{{VAR}}"}</code> são destacadas
                   {isCustomized ? (
-                    <Badge variant="outline" className="ml-2 h-5 rounded-md px-1.5 text-[10px] border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300">
+                    <Badge
+                      variant="outline"
+                      className="ml-2 h-5 rounded-md px-1.5 text-[10px] border-violet-500/30 bg-violet-500/10 text-violet-600 dark:text-violet-300"
+                    >
                       ativo
                     </Badge>
                   ) : (
@@ -295,7 +310,9 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
                             variant="ghost"
                             className="h-7 gap-1.5 text-xs"
                             disabled={!isCustomized || resetMutation.isPending}
-                            title={isCustomized ? "Remover prompt customizado" : "Sem prompt customizado"}
+                            title={
+                              isCustomized ? "Remover prompt customizado" : "Sem prompt customizado"
+                            }
                           >
                             {resetMutation.isPending ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -310,8 +327,8 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
                             <AlertDialogTitle>Remover prompt customizado?</AlertDialogTitle>
                             <AlertDialogDescription>
                               O prompt customizado desta marca para o agente{" "}
-                              <strong>{toTitleCase(agent.agent_name)}</strong> será apagado.
-                              O agente voltará a usar o prompt padrão privado da Unitos.
+                              <strong>{toTitleCase(agent.agent_name)}</strong> será apagado. O
+                              agente voltará a usar o prompt padrão privado da Unitos.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
@@ -328,7 +345,8 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
                         className="h-7 gap-1.5 text-xs"
                         onClick={() => setEditing(true)}
                       >
-                        <Pencil className="h-3.5 w-3.5" /> {isCustomized ? "Editar" : "Criar prompt"}
+                        <Pencil className="h-3.5 w-3.5" />{" "}
+                        {isCustomized ? "Editar" : "Criar prompt"}
                       </Button>
                     </>
                   )}
@@ -354,9 +372,9 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
                         que não é exibido por questões de propriedade intelectual.
                       </p>
                       <p>
-                        Você pode criar um prompt totalmente customizado para esta marca —
-                        ele terá prioridade sobre o padrão em toda execução do agente
-                        (playground, planejamento e pipelines).
+                        Você pode criar um prompt totalmente customizado para esta marca — ele terá
+                        prioridade sobre o padrão em toda execução do agente (playground,
+                        planejamento e pipelines).
                       </p>
                     </div>
                   )}
@@ -416,9 +434,7 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
                     {testOutput}
                   </pre>
                 ) : (
-                  <p className="p-4 font-mono text-xs text-zinc-500">
-                    // aguardando execução…
-                  </p>
+                  <p className="p-4 font-mono text-xs text-zinc-500">// aguardando execução…</p>
                 )}
               </ScrollArea>
             </div>
@@ -462,9 +478,7 @@ function VariablesPanel({
 }) {
   if (vars.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Este prompt não declara variáveis dinâmicas.
-      </p>
+      <p className="text-sm text-muted-foreground">Este prompt não declara variáveis dinâmicas.</p>
     );
   }
   return (
@@ -535,12 +549,13 @@ function VariablesPanel({
             </div>
             {spec && !isRuntime && (
               <div className="mt-2">
-                <Label className="text-[10px] uppercase text-muted-foreground">
-                  Valor atual
-                </Label>
+                <Label className="text-[10px] uppercase text-muted-foreground">Valor atual</Label>
                 <div className="mt-1 max-h-24 overflow-auto rounded border bg-background p-2 font-mono text-[11px] leading-relaxed">
                   {r?.value ? (
-                    <span>{r.value.slice(0, 600)}{r.value.length > 600 ? "…" : ""}</span>
+                    <span>
+                      {r.value.slice(0, 600)}
+                      {r.value.length > 600 ? "…" : ""}
+                    </span>
                   ) : (
                     <span className="text-amber-600 dark:text-amber-400">
                       (vazio — preencha no briefing/brand hub)
@@ -556,9 +571,7 @@ function VariablesPanel({
               <Input
                 className="mt-1 h-8 text-xs"
                 value={overrides[v] ?? ""}
-                onChange={(e) =>
-                  setOverrides((s) => ({ ...s, [v]: e.target.value }))
-                }
+                onChange={(e) => setOverrides((s) => ({ ...s, [v]: e.target.value }))}
                 placeholder={
                   isRuntime ? "Informe um valor para testar" : "Sobrescrever valor resolvido"
                 }

@@ -29,9 +29,11 @@ export const Route = createFileRoute("/plano/$planId")({
 });
 
 const CURRENCY = (n: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(
-    Number.isFinite(n) ? n : 0,
-  );
+  new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 0,
+  }).format(Number.isFinite(n) ? n : 0);
 const PCT = (n: number) => `${(Number.isFinite(n) ? n : 0).toFixed(1)}%`;
 
 const STAGE_LABEL: Record<string, string> = {
@@ -102,10 +104,7 @@ function Presentation({
     () => items.reduce((s, i) => s + Number(i.budget_amount || 0), 0),
     [items],
   );
-  const totalPct = useMemo(
-    () => items.reduce((s, i) => s + Number(i.budget_pct || 0), 0),
-    [items],
-  );
+  const totalPct = useMemo(() => items.reduce((s, i) => s + Number(i.budget_pct || 0), 0), [items]);
   const byStage = useMemo(() => {
     const g: Record<string, MediaPlanPublicItem[]> = { topo: [], meio: [], fundo: [] };
     for (const i of items) {
@@ -215,7 +214,9 @@ function Presentation({
                 <div className="mt-5 space-y-2">
                   {rows.slice(0, 4).map((r) => (
                     <div key={r.id} className="flex items-center justify-between gap-3 text-sm">
-                      <div className="truncate">{r.product_service || r.campaign_type || "Iniciativa"}</div>
+                      <div className="truncate">
+                        {r.product_service || r.campaign_type || "Iniciativa"}
+                      </div>
                       <div className="whitespace-nowrap text-xs text-muted-foreground">
                         {r.channel || "—"}
                       </div>
@@ -244,7 +245,9 @@ function Presentation({
               hoverIndex={donutHover}
             />
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Total</div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Total
+              </div>
               <div className="text-2xl font-semibold tracking-tight">{CURRENCY(totalAmount)}</div>
             </div>
           </div>

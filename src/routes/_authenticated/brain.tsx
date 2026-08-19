@@ -18,7 +18,5 @@ function BrainRoute() {
     [],
   );
   const { brandId, clientId } = useActiveContext();
-  return (
-    <BrainIntelligencePanel brandId={brandId} clientId={clientId} lockClient={!!clientId} />
-  );
+  return <BrainIntelligencePanel brandId={brandId} clientId={clientId} lockClient={!!clientId} />;
 }

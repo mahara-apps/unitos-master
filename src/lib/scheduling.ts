@@ -19,9 +19,10 @@ export function buildSlotScheduler(
   total: number,
   bestHoursBRT?: number[] | null,
 ): SlotScheduler {
-  const rawHours = Array.isArray(bestHoursBRT) && bestHoursBRT.length > 0
-    ? bestHoursBRT.filter((h) => Number.isFinite(h) && h >= 0 && h <= 23)
-    : DEFAULT_SPACED_HOURS_BRT;
+  const rawHours =
+    Array.isArray(bestHoursBRT) && bestHoursBRT.length > 0
+      ? bestHoursBRT.filter((h) => Number.isFinite(h) && h >= 0 && h <= 23)
+      : DEFAULT_SPACED_HOURS_BRT;
   const hoursBRT = Array.from(new Set(rawHours)).sort((a, b) => a - b);
   // BRT (UTC-3) → UTC: soma 3 horas, com carry para o dia seguinte se passar de 23h.
   const slots = hoursBRT.map((h) => ({ utcHour: (h + 3) % 24, nextDay: h + 3 >= 24 }));

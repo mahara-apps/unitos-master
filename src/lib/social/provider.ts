@@ -95,10 +95,7 @@ export interface SocialProvider {
     opts: GetPostsOptions,
   ): Promise<ProviderResult<SocialPost[]>>;
 
-  getPost(
-    ctx: SocialProviderContext,
-    opts: GetPostOptions,
-  ): Promise<ProviderResult<SocialPost>>;
+  getPost(ctx: SocialProviderContext, opts: GetPostOptions): Promise<ProviderResult<SocialPost>>;
 
   getTopPosts(
     ctx: SocialProviderContext,

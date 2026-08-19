@@ -1,5 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { parseMetaSignedRequest, buildConfirmationCode, confirmationUrl } from "@/lib/meta/signed-request.server";
+import {
+  parseMetaSignedRequest,
+  buildConfirmationCode,
+  confirmationUrl,
+} from "@/lib/meta/signed-request.server";
 
 /**
  * Meta Deauthorize Callback.
@@ -28,9 +32,7 @@ export const Route = createFileRoute("/api/public/meta/deauthorize")({
         const metaUserId = String(parsed.user_id ?? "");
         if (!metaUserId) return jsonResp({ error: "missing_user_id" }, 400);
 
-        const { supabaseAdmin } = await import(
-          "@/integrations/supabase/client.server"
-        );
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
         // Revoke every Meta connection owned by this Meta user.
         const { data: affected } = await supabaseAdmin
@@ -47,10 +49,7 @@ export const Route = createFileRoute("/api/public/meta/deauthorize")({
           .select("id");
 
         // Also drop any pending OAuth session rows for this Meta user.
-        await supabaseAdmin
-          .from("meta_oauth_sessions")
-          .delete()
-          .eq("meta_user_id", metaUserId);
+        await supabaseAdmin.from("meta_oauth_sessions").delete().eq("meta_user_id", metaUserId);
 
         const confirmationCode = buildConfirmationCode("deauth", metaUserId);
         await supabaseAdmin.from("meta_compliance_events").insert({

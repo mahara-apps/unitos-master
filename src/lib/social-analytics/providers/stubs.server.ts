@@ -1,7 +1,4 @@
-import type {
-  ProviderResult,
-  SocialNetwork,
-} from "../types";
+import type { ProviderResult, SocialNetwork } from "../types";
 import type {
   AccountAnalyticsOptions,
   PostAnalyticsOptions,

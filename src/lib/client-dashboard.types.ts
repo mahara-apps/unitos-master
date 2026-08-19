@@ -66,7 +66,6 @@ export type ClientDashboard = {
   /** Conteúdos sem movimentação há muitos dias (gargalo silencioso). */
   stalled: { count: number; days: number; stageLabel: string | null } | null;
 
-
   upcoming: ClientUpcomingItem[];
   attention: ClientAttentionItem[];
   activity: ClientActivityItem[];

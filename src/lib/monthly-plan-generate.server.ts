@@ -37,7 +37,6 @@ import type {
   MonthlyPlanTopic,
 } from "@/lib/monthly-plans.functions";
 
-
 /**
  * Núcleo ÚNICO de geração de pauta (canal + formato + quantidade).
  * Extraído de `monthly-plans.functions.ts` para permitir a trava contra
@@ -118,7 +117,6 @@ export async function runPlanGeneration(args: {
       weeksPerMonth: input.weeksPerMonth,
     }),
   ]);
-
 
   // Volumetria é obrigatória — sem ela não há como definir quantas peças gerar.
   if (briefingCtx.totalTarget <= 0) throw new Error("volumetry_required");
@@ -267,7 +265,6 @@ export async function runPlanGeneration(args: {
   if (overageItems.length) {
     return { ok: false, code: "overage_not_authorized", overage: overageItems };
   }
-
 
   // Estratégia IA ativa + desempenho real das contas conectadas (por canal).
   await setPlanJobStep(supabase, jobId, "estrategia");
@@ -613,4 +610,3 @@ export async function runPlanGeneration(args: {
 
   return { ok: true, ...(resume ? { resumed: true } : {}), data: { plan, topics } };
 }
-

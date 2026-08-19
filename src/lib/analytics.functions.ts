@@ -83,7 +83,7 @@ function isoWeek(d: Date): string {
   const dayNum = t.getUTCDay() || 7;
   t.setUTCDate(t.getUTCDate() + 4 - dayNum);
   const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
-  const week = Math.ceil((((t.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  const week = Math.ceil(((t.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
   return `${t.getUTCFullYear()}-W${String(week).padStart(2, "0")}`;
 }
 
@@ -104,23 +104,12 @@ export const getAnalytics = createServerFn({ method: "POST" })
         .eq("brand_id", brand_id)
         .eq("user_id", userId)
         .maybeSingle(),
-      supabase
-        .from("brands")
-        .select("owner_id")
-        .eq("id", brand_id)
-        .maybeSingle(),
-      supabase
-        .from("user_profiles")
-        .select("is_super_admin")
-        .eq("id", userId)
-        .maybeSingle(),
+      supabase.from("brands").select("owner_id").eq("id", brand_id).maybeSingle(),
+      supabase.from("user_profiles").select("is_super_admin").eq("id", userId).maybeSingle(),
     ]);
     const isMember = Boolean(memberRes.data);
-    const isOwner =
-      (brandRes.data as { owner_id?: string } | null)?.owner_id === userId;
-    const isSuper = Boolean(
-      (adminRes.data as { is_super_admin?: boolean } | null)?.is_super_admin,
-    );
+    const isOwner = (brandRes.data as { owner_id?: string } | null)?.owner_id === userId;
+    const isSuper = Boolean((adminRes.data as { is_super_admin?: boolean } | null)?.is_super_admin);
     if (!isMember && !isOwner && !isSuper) throw new Error("forbidden");
 
     // -------- Posts ---------
@@ -147,7 +136,9 @@ export const getAnalytics = createServerFn({ method: "POST" })
     // -------- Tasks ---------
     let tasksQ = supabase
       .from("tasks")
-      .select("id,brand_id,client_id,assignee_id,status,priority,due_at,done,done_at,created_at,updated_at,project_id")
+      .select(
+        "id,brand_id,client_id,assignee_id,status,priority,due_at,done,done_at,created_at,updated_at,project_id",
+      )
       .eq("brand_id", brand_id)
       .gte("created_at", start)
       .lte("created_at", end);
@@ -187,10 +178,7 @@ export const getAnalytics = createServerFn({ method: "POST" })
     const teamRows = teamRowsData ?? [];
     const userIds = teamRows.map((m) => m.user_id);
     const profilesRes = userIds.length
-      ? await supabase
-          .from("user_profiles")
-          .select("id,full_name,avatar_url")
-          .in("id", userIds)
+      ? await supabase.from("user_profiles").select("id,full_name,avatar_url").in("id", userIds)
       : { data: [] as Array<{ id: string; full_name: string; avatar_url: string | null }> };
     const profiles = profilesRes.data ?? [];
     const profileMap = new Map(profiles.map((p) => [p.id, p]));
@@ -376,7 +364,8 @@ export const getAnalytics = createServerFn({ method: "POST" })
       if (agg.posts === 0) health = 60;
       agg.health = Math.max(0, Math.min(100, health));
       if (agg.overdue > 0) agg.alerts.push(`${agg.overdue} atrasado(s)`);
-      if (agg.pendingApprovals > 0) agg.alerts.push(`${agg.pendingApprovals} aprovação(ões) pendentes`);
+      if (agg.pendingApprovals > 0)
+        agg.alerts.push(`${agg.pendingApprovals} aprovação(ões) pendentes`);
       if (agg.posts === 0) agg.alerts.push("Sem produção no período");
     }
     const clientItems = Array.from(clientMap.values())

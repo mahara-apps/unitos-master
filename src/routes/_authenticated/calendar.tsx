@@ -35,22 +35,13 @@ import {
   DashboardPanelSurface,
   DashboardIconFrame,
 } from "@/components/ui/dashboard-primitives";
-import {
-  listPublicationBoardFn,
-  type PublicationItem,
-} from "@/lib/calendar-board.functions";
+import { listPublicationBoardFn, type PublicationItem } from "@/lib/calendar-board.functions";
 import { listCalendarEventsFn, type CalendarEvent } from "@/lib/calendar-events.functions";
-import {
-  listDraftsFn,
-  type PendingSchedulePost,
-} from "@/lib/scheduling-wizard.functions";
+import { listDraftsFn, type PendingSchedulePost } from "@/lib/scheduling-wizard.functions";
 import { ScheduleWizard, type WizardSeed } from "@/components/calendar/schedule-wizard";
 import { EventDialog } from "@/components/calendar/event-dialog";
 import { EventChip } from "@/components/calendar/event-chip";
-import {
-  PublicationCard,
-  PublicationRow,
-} from "@/components/calendar/board/publication-card";
+import { PublicationCard, PublicationRow } from "@/components/calendar/board/publication-card";
 import { OperationsPanel } from "@/components/calendar/board/operations-panel";
 import { PublicationDetailModal } from "@/components/calendar/board/publication-detail";
 import {
@@ -124,9 +115,10 @@ function CalendarPage() {
   const [wizardDate, setWizardDate] = useState<Date | null>(null);
   const [detail, setDetail] = useState<PublicationItem | null>(null);
   const [openEvent, setOpenEvent] = useState<CalendarEvent | null>(null);
-  const [newEventCtx, setNewEventCtx] = useState<
-    { type: "appointment" | "seasonal"; date: Date | null } | null
-  >(null);
+  const [newEventCtx, setNewEventCtx] = useState<{
+    type: "appointment" | "seasonal";
+    date: Date | null;
+  } | null>(null);
 
   // Janela consultada — somente o período visível (nada de histórico inteiro).
   const { from, to, days } = useMemo(() => {
@@ -156,8 +148,7 @@ function CalendarPage() {
   const boardQ = useQuery({
     enabled: !!brandId,
     queryKey: ["publication-board", brandId, clientId, from, to],
-    queryFn: () =>
-      loadBoard({ data: { brandId: brandId!, clientId: clientId ?? null, from, to } }),
+    queryFn: () => loadBoard({ data: { brandId: brandId!, clientId: clientId ?? null, from, to } }),
     staleTime: 30_000,
   });
 
@@ -249,10 +240,7 @@ function CalendarPage() {
   const byDay = useMemo(() => {
     const map = new Map<
       string,
-      Array<
-        | { kind: "post"; data: PublicationItem }
-        | { kind: "event"; data: CalendarEvent }
-      >
+      Array<{ kind: "post"; data: PublicationItem } | { kind: "event"; data: CalendarEvent }>
     >();
     for (const it of filtered) {
       if (!it.when) continue;
@@ -282,8 +270,7 @@ function CalendarPage() {
       items
         .filter(
           (i) =>
-            (i.overall === "scheduled" || i.overall === "publishing") &&
-            (i.when ?? "") >= nowIso,
+            (i.overall === "scheduled" || i.overall === "publishing") && (i.when ?? "") >= nowIso,
         )
         .sort((a, b) => (a.when ?? "").localeCompare(b.when ?? "")),
     [items, nowIso],
@@ -300,11 +287,7 @@ function CalendarPage() {
   const attention = useMemo(() => {
     const seen = new Set<string>();
     const out: PublicationItem[] = [];
-    for (const it of [
-      ...failures,
-      ...awaiting,
-      ...items.filter((i) => i.overall === "ready"),
-    ]) {
+    for (const it of [...failures, ...awaiting, ...items.filter((i) => i.overall === "ready")]) {
       if (seen.has(it.postId)) continue;
       seen.add(it.postId);
       out.push(it);
@@ -792,17 +775,19 @@ function MonthView({
                 >
                   <DayHeader date={d} count={items.length} />
                   <div className="space-y-1 px-1.5 pt-1">
-                    {items.slice(0, 2).map((it) =>
-                      it.kind === "post" ? (
-                        <PublicationCard key={it.data.postId} item={it.data} onOpen={onOpen} />
-                      ) : (
-                        <EventChip
-                          key={"e" + it.data.id}
-                          item={{ kind: "event", data: it.data }}
-                          onOpen={(x) => x.kind === "event" && onOpenEvent(x.data)}
-                        />
-                      ),
-                    )}
+                    {items
+                      .slice(0, 2)
+                      .map((it) =>
+                        it.kind === "post" ? (
+                          <PublicationCard key={it.data.postId} item={it.data} onOpen={onOpen} />
+                        ) : (
+                          <EventChip
+                            key={"e" + it.data.id}
+                            item={{ kind: "event", data: it.data }}
+                            onOpen={(x) => x.kind === "event" && onOpenEvent(x.data)}
+                          />
+                        ),
+                      )}
                     {items.length > 2 ? (
                       <Popover>
                         <PopoverTrigger asChild>
@@ -906,7 +891,6 @@ function ListView({
             </Button>
           ) : null}
         </div>
-
       ) : (
         <div>
           {drafts.length ? (

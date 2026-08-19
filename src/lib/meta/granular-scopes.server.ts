@@ -58,9 +58,7 @@ function readChannel(
 }
 
 /** Consulta `debug_token` e extrai a autorização granular por canal. */
-export async function getPublishAuthorization(
-  userToken: string,
-): Promise<PublishAuthorization> {
+export async function getPublishAuthorization(userToken: string): Promise<PublishAuthorization> {
   const appId = process.env.META_APP_ID;
   const appSecret = process.env.META_APP_SECRET;
   if (!appId || !appSecret) return unknownAuthorization();

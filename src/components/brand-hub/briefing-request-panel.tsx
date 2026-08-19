@@ -61,11 +61,14 @@ export function BriefingRequestPanel({ brandId, clientId }: { brandId: string; c
     queryFn: () => list({ data: { brandId, clientId } }),
   });
 
-  const invalidate = () => void qc.invalidateQueries({ queryKey: ["briefing-requests", brandId, clientId] });
+  const invalidate = () =>
+    void qc.invalidateQueries({ queryKey: ["briefing-requests", brandId, clientId] });
 
   const send = useMutation({
     mutationFn: () =>
-      create({ data: { brandId, clientId, fields: selected, message: message.trim() || undefined } }),
+      create({
+        data: { brandId, clientId, fields: selected, message: message.trim() || undefined },
+      }),
     onSuccess: () => {
       toast.success("Solicitação enviada ao cliente");
       setSelected([]);
@@ -85,7 +88,8 @@ export function BriefingRequestPanel({ brandId, clientId }: { brandId: string; c
       <div>
         <h3 className="text-sm font-semibold">Solicitar briefing ao cliente</h3>
         <p className="text-xs text-muted-foreground">
-          Escolha o que o cliente precisa responder. A resposta chega como proposta, sem alterar o briefing oficial.
+          Escolha o que o cliente precisa responder. A resposta chega como proposta, sem alterar o
+          briefing oficial.
         </p>
       </div>
 
@@ -99,7 +103,10 @@ export function BriefingRequestPanel({ brandId, clientId }: { brandId: string; c
               <div className="space-y-1.5">
                 {BRIEFING_FIELDS.filter((f) => f.block === block.id).map((f) => (
                   <label key={f.key} className="flex cursor-pointer items-center gap-2 text-xs">
-                    <Checkbox checked={selected.includes(f.key)} onCheckedChange={() => toggle(f.key)} />
+                    <Checkbox
+                      checked={selected.includes(f.key)}
+                      onCheckedChange={() => toggle(f.key)}
+                    />
                     {f.label}
                   </label>
                 ))}
@@ -116,8 +123,14 @@ export function BriefingRequestPanel({ brandId, clientId }: { brandId: string; c
         />
 
         <div className="flex items-center justify-between gap-3">
-          <div className="text-[11px] text-muted-foreground">{selected.length} campo(s) selecionado(s)</div>
-          <Button size="sm" disabled={!selected.length || send.isPending} onClick={() => send.mutate()}>
+          <div className="text-[11px] text-muted-foreground">
+            {selected.length} campo(s) selecionado(s)
+          </div>
+          <Button
+            size="sm"
+            disabled={!selected.length || send.isPending}
+            onClick={() => send.mutate()}
+          >
             {send.isPending ? (
               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
             ) : (
@@ -138,7 +151,9 @@ export function BriefingRequestPanel({ brandId, clientId }: { brandId: string; c
             <Skeleton className="h-8 w-full" />
           </div>
         ) : rows.length === 0 ? (
-          <div className="p-4 text-xs text-muted-foreground">Nenhuma solicitação enviada ainda.</div>
+          <div className="p-4 text-xs text-muted-foreground">
+            Nenhuma solicitação enviada ainda.
+          </div>
         ) : (
           <div className="divide-y divide-border/60">
             {rows.map((r) => (
@@ -175,7 +190,12 @@ export function BriefingRequestPanel({ brandId, clientId }: { brandId: string; c
                   {BRIEFING_REQUEST_STATUS_LABEL[r.status] ?? r.status}
                 </Badge>
                 {r.proposals > 0 ? (
-                  <Button size="sm" variant="ghost" className="h-7 gap-1 px-2 text-[11px]" onClick={() => setViewing(r.id)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 gap-1 px-2 text-[11px]"
+                    onClick={() => setViewing(r.id)}
+                  >
                     <Eye className="h-3.5 w-3.5" /> Ver resposta
                   </Button>
                 ) : null}
@@ -268,7 +288,9 @@ function ProposalDialog({ requestId, onClose }: { requestId: string | null; onCl
                   </div>
                 ))}
                 {p.note ? (
-                  <div className="rounded-md bg-muted/40 p-2 text-xs text-muted-foreground">{p.note}</div>
+                  <div className="rounded-md bg-muted/40 p-2 text-xs text-muted-foreground">
+                    {p.note}
+                  </div>
                 ) : null}
                 {p.attachments.length > 0 ? (
                   <div className="space-y-1">
@@ -385,8 +407,8 @@ function ReviewDialog({
         ) : (
           <div className="space-y-4">
             <p className="text-xs text-muted-foreground">
-              Marque o que deve entrar no briefing oficial. Nada é sobrescrito sem sua confirmação — o valor
-              anterior permanece registrado no histórico de versões.
+              Marque o que deve entrar no briefing oficial. Nada é sobrescrito sem sua confirmação —
+              o valor anterior permanece registrado no histórico de versões.
             </p>
 
             <div className="max-h-[46vh] space-y-2 overflow-y-auto pr-1">
@@ -438,7 +460,9 @@ function ReviewDialog({
                           <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
                             proposta do cliente
                           </div>
-                          <div className="whitespace-pre-wrap text-xs">{formatValue(f.proposed) || "—"}</div>
+                          <div className="whitespace-pre-wrap text-xs">
+                            {formatValue(f.proposed) || "—"}
+                          </div>
                         </div>
                       </div>
                     </div>

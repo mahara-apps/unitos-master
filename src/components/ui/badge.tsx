@@ -27,14 +27,7 @@ const badgeVariants = cva(
  * `border-{c}-500/20 bg-{c}-500/10 text-{c}-600 dark:text-{c}-300`.
  * Combine com `variant="outline"` e opcionalmente `h-5 rounded-full px-2 text-[10px]`.
  */
-export type BadgeTone =
-  | "emerald"
-  | "amber"
-  | "red"
-  | "blue"
-  | "violet"
-  | "slate"
-  | "orange";
+export type BadgeTone = "emerald" | "amber" | "red" | "blue" | "violet" | "slate" | "orange";
 
 export const BADGE_TONE: Record<BadgeTone, string> = {
   emerald: "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
@@ -51,8 +44,7 @@ export function badgeTone(tone: BadgeTone): string {
 }
 
 export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeVariants> {
+  extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {
   /** Aplica um tom semântico (emerald/amber/etc.). Force `variant="outline"` para melhor render. */
   tone?: BadgeTone;
 }

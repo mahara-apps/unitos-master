@@ -98,10 +98,7 @@ async function windowStats(
   const [ev, mc, mu, rel, emb, ins, rec] = await Promise.all([
     since(scope(sb.from("brain_events").select("id", head)), "created_at"),
     since(scope(sb.from("brain_memory").select("id", head)), "created_at"),
-    since(
-      scope(sb.from("brain_memory_versions").select("id", head)),
-      "created_at",
-    ),
+    since(scope(sb.from("brain_memory_versions").select("id", head)), "created_at"),
     since(scope(sb.from("brain_relationships").select("id", head)), "created_at"),
     since(scope(sb.from("brain_embeddings").select("id", head)), "created_at"),
     since(scope(sb.from("brain_insights").select("id", head)), "created_at"),
@@ -136,52 +133,51 @@ export const brainDiagnosticsFn = createServerFn({ method: "POST" })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const scope = (q: any) => (brandId ? q.eq("brand_id", brandId) : q);
 
-    const [pendingQ, runningQ, failedQ, processedQ, oldestPendingQ, timingsQ] =
-      await Promise.all([
-        scope(
-          sb
-            .from("brain_learning_queue")
-            .select("id", { count: "exact", head: true })
-            .eq("status", "queued"),
-        ),
-        scope(
-          sb
-            .from("brain_learning_queue")
-            .select("id", { count: "exact", head: true })
-            .eq("status", "running"),
-        ),
-        scope(
-          sb
-            .from("brain_learning_queue")
-            .select("id", { count: "exact", head: true })
-            .eq("status", "failed"),
-        ),
-        scope(
-          sb
-            .from("brain_learning_queue")
-            .select("id", { count: "exact", head: true })
-            .eq("status", "done")
-            .gte("processed_at", isoAgo(3_600_000)),
-        ),
-        scope(
-          sb
-            .from("brain_learning_queue")
-            .select("enqueued_at")
-            .eq("status", "queued")
-            .order("enqueued_at", { ascending: true })
-            .limit(1),
-        ),
-        scope(
-          sb
-            .from("brain_learning_queue")
-            .select("started_at,processed_at")
-            .eq("status", "done")
-            .gte("processed_at", isoAgo(3_600_000))
-            .not("started_at", "is", null)
-            .not("processed_at", "is", null)
-            .limit(500),
-        ),
-      ]);
+    const [pendingQ, runningQ, failedQ, processedQ, oldestPendingQ, timingsQ] = await Promise.all([
+      scope(
+        sb
+          .from("brain_learning_queue")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "queued"),
+      ),
+      scope(
+        sb
+          .from("brain_learning_queue")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "running"),
+      ),
+      scope(
+        sb
+          .from("brain_learning_queue")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "failed"),
+      ),
+      scope(
+        sb
+          .from("brain_learning_queue")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "done")
+          .gte("processed_at", isoAgo(3_600_000)),
+      ),
+      scope(
+        sb
+          .from("brain_learning_queue")
+          .select("enqueued_at")
+          .eq("status", "queued")
+          .order("enqueued_at", { ascending: true })
+          .limit(1),
+      ),
+      scope(
+        sb
+          .from("brain_learning_queue")
+          .select("started_at,processed_at")
+          .eq("status", "done")
+          .gte("processed_at", isoAgo(3_600_000))
+          .not("started_at", "is", null)
+          .not("processed_at", "is", null)
+          .limit(500),
+      ),
+    ]);
 
     const durations: number[] = (timingsQ.data ?? [])
       .map((r: { started_at: string | null; processed_at: string | null }) => {
@@ -199,9 +195,7 @@ export const brainDiagnosticsFn = createServerFn({ method: "POST" })
       p95 = sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))];
     }
 
-    const oldestRow = (oldestPendingQ.data ?? [])[0] as
-      | { enqueued_at: string | null }
-      | undefined;
+    const oldestRow = (oldestPendingQ.data ?? [])[0] as { enqueued_at: string | null } | undefined;
     const oldestPendingAgeSec = oldestRow?.enqueued_at
       ? Math.round((Date.now() - new Date(oldestRow.enqueued_at).getTime()) / 1000)
       : null;
@@ -210,7 +204,9 @@ export const brainDiagnosticsFn = createServerFn({ method: "POST" })
     const [lastRunQ, runs24hQ] = await Promise.all([
       sb
         .from("brain_worker_runs")
-        .select("started_at,finished_at,status,duration_ms,error,processed,discarded,failed,memories_created,memories_updated")
+        .select(
+          "started_at,finished_at,status,duration_ms,error,processed,discarded,failed,memories_created,memories_updated",
+        )
         .order("started_at", { ascending: false })
         .limit(1),
       sb
@@ -245,8 +241,7 @@ export const brainDiagnosticsFn = createServerFn({ method: "POST" })
       lastError: lastRun?.error ?? null,
       minutesSinceLastRun,
       // O cron roda a cada minuto; acima de 10min sem execução é falha.
-      healthy:
-        !!lastRun && lastRun.status !== "error" && (minutesSinceLastRun ?? 999) <= 10,
+      healthy: !!lastRun && lastRun.status !== "error" && (minutesSinceLastRun ?? 999) <= 10,
       runs24h: runs.length,
       failures24h: runs.filter((r) => r.status === "error").length,
       discarded24h: sum("discarded"),
@@ -266,7 +261,9 @@ export const brainDiagnosticsFn = createServerFn({ method: "POST" })
       scope(
         sb
           .from("brain_memory")
-          .select("id,memory_type,key,title,category,scope,version,confidence,updated_at,reinforcement_count")
+          .select(
+            "id,memory_type,key,title,category,scope,version,confidence,updated_at,reinforcement_count",
+          )
           .eq("status", "active")
           .order("updated_at", { ascending: false })
           .limit(10),

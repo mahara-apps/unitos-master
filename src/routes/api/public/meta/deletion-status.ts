@@ -12,9 +12,7 @@ export const Route = createFileRoute("/api/public/meta/deletion-status")({
         const code = url.searchParams.get("code")?.trim();
         if (!code) return html(renderPage("missing", null), 400);
 
-        const { supabaseAdmin } = await import(
-          "@/integrations/supabase/client.server"
-        );
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { data: row } = await supabaseAdmin
           .from("meta_compliance_events")
           .select("event_type, status, created_at, affected_connections")
@@ -37,15 +35,13 @@ function html(body: string, status: number): Response {
 
 function renderPage(
   state: "ok" | "missing" | "not_found",
-  data:
-    | {
-        confirmation_code: string;
-        event_type: string;
-        status: string;
-        created_at: string;
-        affected_connections: number;
-      }
-    | null,
+  data: {
+    confirmation_code: string;
+    event_type: string;
+    status: string;
+    created_at: string;
+    affected_connections: number;
+  } | null,
 ): string {
   const title =
     state === "ok"
@@ -76,5 +72,9 @@ function renderPage(
 }
 
 function escapeHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }

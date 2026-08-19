@@ -34,7 +34,6 @@ export type TaskRow = {
   time_spent_seconds?: number;
   subtasks_total?: number;
   subtasks_done?: number;
-
 };
 
 export type TaskComment = {
@@ -88,53 +87,51 @@ export const listTasksFn = createServerFn({ method: "GET" })
       new Set(tasks.map((t) => t.project_id).filter(Boolean) as string[]),
     );
 
-    const [profilesRes, clientsRes, projectsRes, commentsRes, timeRes, subtasksRes] = await Promise.all([
-      userIds.length
-        ? context.supabase
-            .from("user_profiles")
-            .select("id, full_name, avatar_url")
-            .in("id", userIds)
-        : Promise.resolve({ data: [], error: null } as never),
-      clientIds.length
-        ? context.supabase
-            .from("clients")
-            .select("id, name")
-            .in("id", clientIds)
-        : Promise.resolve({ data: [], error: null } as never),
-      projectIds.length
-        ? context.supabase
-            .from("projects")
-            .select("id, name")
-            .in("id", projectIds)
-        : Promise.resolve({ data: [], error: null } as never),
-      context.supabase
-        .from("task_comments")
-        .select("task_id")
-        .in(
-          "task_id",
-          tasks.map((t) => t.id),
-        ),
-      context.supabase
-        .from("task_time_entries")
-        .select("task_id, seconds, minutes")
-        .in(
-          "task_id",
-          tasks.map((t) => t.id),
-        ),
-      context.supabase
-        .from("task_subtasks")
-        .select("task_id, done")
-        .in(
-          "task_id",
-          tasks.map((t) => t.id),
-        ),
-    ]);
-
+    const [profilesRes, clientsRes, projectsRes, commentsRes, timeRes, subtasksRes] =
+      await Promise.all([
+        userIds.length
+          ? context.supabase
+              .from("user_profiles")
+              .select("id, full_name, avatar_url")
+              .in("id", userIds)
+          : Promise.resolve({ data: [], error: null } as never),
+        clientIds.length
+          ? context.supabase.from("clients").select("id, name").in("id", clientIds)
+          : Promise.resolve({ data: [], error: null } as never),
+        projectIds.length
+          ? context.supabase.from("projects").select("id, name").in("id", projectIds)
+          : Promise.resolve({ data: [], error: null } as never),
+        context.supabase
+          .from("task_comments")
+          .select("task_id")
+          .in(
+            "task_id",
+            tasks.map((t) => t.id),
+          ),
+        context.supabase
+          .from("task_time_entries")
+          .select("task_id, seconds, minutes")
+          .in(
+            "task_id",
+            tasks.map((t) => t.id),
+          ),
+        context.supabase
+          .from("task_subtasks")
+          .select("task_id, done")
+          .in(
+            "task_id",
+            tasks.map((t) => t.id),
+          ),
+      ]);
 
     const profMap = new Map(
-      ((profilesRes.data ?? []) as Array<{ id: string; full_name: string | null; avatar_url: string | null }>).map(
-        (p) => [p.id, p],
-      ),
+      (
+        (profilesRes.data ?? []) as Array<{
+          id: string;
+          full_name: string | null;
+          avatar_url: string | null;
+        }>
+      ).map((p) => [p.id, p]),
     );
     const clientMap = new Map(
       ((clientsRes.data ?? []) as Array<{ id: string; name: string }>).map((c) => [c.id, c.name]),
@@ -171,13 +168,12 @@ export const listTasksFn = createServerFn({ method: "GET" })
         priority: t.priority as TaskPriority,
         assignee_name: p?.full_name ?? null,
         assignee_avatar: p?.avatar_url ?? null,
-        client_name: t.client_id ? clientMap.get(t.client_id) ?? null : null,
-        project_name: t.project_id ? projectMap.get(t.project_id) ?? null : null,
+        client_name: t.client_id ? (clientMap.get(t.client_id) ?? null) : null,
+        project_name: t.project_id ? (projectMap.get(t.project_id) ?? null) : null,
         comments_count: commentCounts.get(t.id) ?? 0,
         time_spent_seconds: timeSeconds.get(t.id) ?? 0,
         subtasks_total: subTotal.get(t.id) ?? 0,
         subtasks_done: subDone.get(t.id) ?? 0,
-
       } as TaskRow;
     });
   });
@@ -235,7 +231,6 @@ export const countMyPendingTasksFn = createServerFn({ method: "GET" })
     if (error) throw error;
     return { count: count ?? 0 };
   });
-
 
 /**
  * Garante a hierarquia Projeto → Tarefa: o projeto precisa ser da mesma workspace
@@ -367,10 +362,7 @@ export const updateTaskFn = createServerFn({ method: "POST" })
     } else if (patch.done === false) {
       patch.done_at = null;
     }
-    const { error } = await context.supabase
-      .from("tasks")
-      .update(patch)
-      .eq("id", data.taskId);
+    const { error } = await context.supabase.from("tasks").update(patch).eq("id", data.taskId);
     if (error) throw error;
     return { ok: true };
   });
@@ -379,10 +371,7 @@ export const deleteTaskFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ taskId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
-      .from("tasks")
-      .delete()
-      .eq("id", data.taskId);
+    const { error } = await context.supabase.from("tasks").delete().eq("id", data.taskId);
     if (error) throw error;
     return { ok: true };
   });
@@ -420,9 +409,9 @@ export const listTaskCommentsFn = createServerFn({ method: "GET" })
       .select("id, full_name, avatar_url")
       .in("id", authorIds);
     const map = new Map(
-      ((profs ?? []) as Array<{ id: string; full_name: string | null; avatar_url: string | null }>).map(
-        (p) => [p.id, p],
-      ),
+      (
+        (profs ?? []) as Array<{ id: string; full_name: string | null; avatar_url: string | null }>
+      ).map((p) => [p.id, p]),
     );
     return list.map((c) => {
       const p = map.get(c.author_id as string);
@@ -508,7 +497,10 @@ async function assertTaskScope(
   });
   if (rpcErr) throw rpcErr;
   if (allowed !== true) throw new Error("Sem acesso a esta tarefa.");
-  return { brand_id: task.brand_id as string, client_id: (task.client_id ?? null) as string | null };
+  return {
+    brand_id: task.brand_id as string,
+    client_id: (task.client_id ?? null) as string | null,
+  };
 }
 
 async function assertSubtaskScope(

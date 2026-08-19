@@ -5,7 +5,12 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const BrandInput = z.object({ brandId: z.string().uuid() });
 
 export type UsageOverview = {
-  brand: { spent: number; limit: number | null; hard_stop: boolean | null; notify_at_pct: number | null };
+  brand: {
+    spent: number;
+    limit: number | null;
+    hard_stop: boolean | null;
+    notify_at_pct: number | null;
+  };
   clients: Array<{
     client_id: string;
     client_name: string;
@@ -82,8 +87,8 @@ export const upsertAiUsageLimitFn = createServerFn({ method: "POST" })
     const row = {
       brand_id: data.brandId,
       scope: data.scope,
-      client_id: data.scope === "brand" ? null : data.clientId ?? null,
-      user_id: data.scope === "user" ? data.userId ?? null : null,
+      client_id: data.scope === "brand" ? null : (data.clientId ?? null),
+      user_id: data.scope === "user" ? (data.userId ?? null) : null,
       limit_usd: data.limitUsd,
       hard_stop: data.hardStop,
       notify_at_pct: data.notifyAtPct,

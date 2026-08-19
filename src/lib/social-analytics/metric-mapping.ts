@@ -218,9 +218,6 @@ export function toCanonicalMetric(
 }
 
 /** Whole scoped table (useful for `toSeries` / `toPostMetrics` helpers). */
-export function metricMapFor(
-  network: SocialNetwork,
-  scope: MetricScope,
-): NativeMetricMap {
+export function metricMapFor(network: SocialNetwork, scope: MetricScope): NativeMetricMap {
   return METRIC_MAP[network]?.[scope] ?? {};
 }

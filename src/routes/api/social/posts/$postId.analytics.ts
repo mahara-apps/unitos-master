@@ -55,10 +55,8 @@ export const Route = createFileRoute("/api/social/posts/$postId/analytics")({
             )
             .eq("id", postId)
             .maybeSingle();
-          if (postErr)
-            throw new SocialServiceError("db_error", postErr.message, 500);
-          if (!post)
-            throw new SocialServiceError("not_found", "Post não encontrado", 404);
+          if (postErr) throw new SocialServiceError("db_error", postErr.message, 500);
+          if (!post) throw new SocialServiceError("not_found", "Post não encontrado", 404);
           if (!post.external_post_id)
             throw new SocialServiceError(
               "connection_missing_token",
@@ -91,9 +89,7 @@ export const Route = createFileRoute("/api/social/posts/$postId/analytics")({
               saves: metricValue(p.metrics, "saves"),
               reach: metricValue(p.metrics, "reach"),
               impressions: metricValue(p.metrics, "impressions"),
-              views:
-                metricValue(p.metrics, "video_views") ??
-                metricValue(p.metrics, "views"),
+              views: metricValue(p.metrics, "video_views") ?? metricValue(p.metrics, "views"),
               engagementRate: computeEngagementRate(p),
               warnings: p.warnings,
             },

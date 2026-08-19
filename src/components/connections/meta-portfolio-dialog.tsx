@@ -27,15 +27,10 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   getMetaPortfolio,
   SESSION_INVALID_PREFIX,
-
   linkMetaAccount,
   unlinkMetaAccount,
   type PortfolioPage,
@@ -51,7 +46,6 @@ import {
 } from "@/lib/meta/portfolio-shared";
 import { humanizeMetaError } from "@/lib/meta/error-messages";
 import { DiscoveryProgress } from "./discovery-progress";
-
 
 /**
  * Status canônico por conta descoberta: 🟢 Pronto · 🟠 Autorização necessária
@@ -181,7 +175,6 @@ export function MetaPortfolioDialog({
       console.log("[MetaPortfolio] oauth redirect_uri", redirectUri);
       if (popup) popup.location.href = authorizeUrl;
       else window.location.href = authorizeUrl;
-
     } catch (err) {
       if (timeoutId) window.clearTimeout(timeoutId);
       window.removeEventListener("message", onOAuthMessage);
@@ -190,13 +183,7 @@ export function MetaPortfolioDialog({
     }
   }
 
-  const {
-    data,
-    isLoading,
-    error,
-    refetch,
-    isFetching,
-  } = useQuery({
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey,
     queryFn: async () => {
       const refresh = refreshNextRef.current;
@@ -233,9 +220,7 @@ export function MetaPortfolioDialog({
           toast.info("Sua sessão da Meta expirou. Abrindo login novamente…", {
             duration: 6000,
           });
-          void reauthorize(
-            channel === "ads" || !channel ? "facebook" : channel,
-          );
+          void reauthorize(channel === "ads" || !channel ? "facebook" : channel);
         } else {
           const friendly = humanizeMetaError(msg);
           toast.error(
@@ -244,7 +229,6 @@ export function MetaPortfolioDialog({
               : `${friendly.title} ${friendly.description}`,
             { duration: 9000 },
           );
-
         }
         refreshNextRef.current = false;
         throw err instanceof Error ? err : new Error(msg);
@@ -261,16 +245,13 @@ export function MetaPortfolioDialog({
     retry: false,
   });
 
-  const isRateLimited =
-    !!error && (error as Error).message.startsWith("RATE_LIMIT:");
-  const isSessionInvalid =
-    !!error && (error as Error).message.startsWith(SESSION_INVALID_PREFIX);
+  const isRateLimited = !!error && (error as Error).message.startsWith("RATE_LIMIT:");
+  const isSessionInvalid = !!error && (error as Error).message.startsWith(SESSION_INVALID_PREFIX);
 
   const handleResync = () => {
     refreshNextRef.current = true;
     void refetch();
   };
-
 
   const [pending, setPending] = useState<Set<string>>(new Set());
 
@@ -280,9 +261,7 @@ export function MetaPortfolioDialog({
     qc.invalidateQueries({ queryKey: ["meta-connections", brandId] });
     qc.invalidateQueries({ queryKey: ["channels-kpis", brandId] });
     qc.invalidateQueries({
-      queryKey: clientId
-        ? ["client-channels", brandId, clientId]
-        : ["client-channels", brandId],
+      queryKey: clientId ? ["client-channels", brandId, clientId] : ["client-channels", brandId],
     });
     if (clientId) {
       qc.invalidateQueries({ queryKey: ["wizard-connections", brandId, clientId] });
@@ -342,18 +321,13 @@ export function MetaPortfolioDialog({
         }
         return { ...old, connected };
       });
-      toast.success(
-        vars.connect
-          ? "Conta vinculada"
-          : "Conta desvinculada",
-      );
+      toast.success(vars.connect ? "Conta vinculada" : "Conta desvinculada");
       invalidate();
     },
     onError: (e: Error) => {
       const friendly = humanizeMetaError(e);
       toast.error(`${friendly.title} ${friendly.description}`, { duration: 9000 });
     },
-
   });
 
   async function handleToggle(
@@ -401,8 +375,7 @@ export function MetaPortfolioDialog({
     }));
     return [...fromPages, ...standalone];
   }, [data]);
-  const publishAuth: PublishAuthorizationInfo | null =
-    data?.publishAuthorization ?? null;
+  const publishAuth: PublishAuthorizationInfo | null = data?.publishAuthorization ?? null;
   const threadsAccounts: PortfolioThreadsAccount[] = data?.threadsAccounts ?? [];
   const adAccounts: PortfolioAdAccount[] = data?.adAccounts ?? [];
   const missingScopes = data?.missingScopes ?? [];
@@ -436,7 +409,16 @@ export function MetaPortfolioDialog({
         toast.error("Nenhuma Conta de Anúncios encontrada (requer permissão ads_read).");
       }
     }
-  }, [open, channel, data, sessionId, fbPages.length, igPages.length, threadsAccounts.length, adAccounts.length]);
+  }, [
+    open,
+    channel,
+    data,
+    sessionId,
+    fbPages.length,
+    igPages.length,
+    threadsAccounts.length,
+    adAccounts.length,
+  ]);
 
   const showNotLoadedState = data?.portfolioStatus === "not_loaded";
   const showStoredRateLimitState = data?.portfolioStatus === "rate_limited";
@@ -466,9 +448,7 @@ export function MetaPortfolioDialog({
             )}
           </div>
           <DialogDescription className="text-xs">
-            {data?.metaUser.name
-              ? `Logado como ${data.metaUser.name}. `
-              : ""}
+            {data?.metaUser.name ? `Logado como ${data.metaUser.name}. ` : ""}
             {channel === "instagram"
               ? "Escolha quais contas do Instagram Business você deseja vincular a este projeto."
               : channel === "facebook"
@@ -498,8 +478,7 @@ export function MetaPortfolioDialog({
               </Badge>
               {data.businessCount ? (
                 <span>
-                  em {data.businessCount}{" "}
-                  {data.businessCount === 1 ? "portfólio" : "portfólios"}
+                  em {data.businessCount} {data.businessCount === 1 ? "portfólio" : "portfólios"}
                 </span>
               ) : null}
             </div>
@@ -508,10 +487,16 @@ export function MetaPortfolioDialog({
                 <div className="flex items-center gap-2 p-3">
                   <AlertTriangle className="h-4 w-4 shrink-0" />
                   <p className="min-w-0 flex-1 font-medium">
-                    {fbPages.length + igPages.length} contas carregadas; algumas leituras foram restringidas pela Meta.
+                    {fbPages.length + igPages.length} contas carregadas; algumas leituras foram
+                    restringidas pela Meta.
                   </p>
                   <CollapsibleTrigger asChild>
-                    <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" title="Ver detalhes técnicos">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 shrink-0"
+                      title="Ver detalhes técnicos"
+                    >
                       <ChevronDown className="h-3.5 w-3.5" />
                     </Button>
                   </CollapsibleTrigger>
@@ -523,14 +508,15 @@ export function MetaPortfolioDialog({
                     ))}
                   </ul>
                   {data.scanWarnings.length > 8 ? (
-                    <p className="mt-2 text-[11px]">Mais {data.scanWarnings.length - 8} diagnósticos semelhantes foram ocultados.</p>
+                    <p className="mt-2 text-[11px]">
+                      Mais {data.scanWarnings.length - 8} diagnósticos semelhantes foram ocultados.
+                    </p>
                   ) : null}
                 </CollapsibleContent>
               </Collapsible>
             ) : null}
           </div>
         ) : null}
-
 
         {missingScopes.length > 0 && (
           <div className="flex gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
@@ -539,9 +525,8 @@ export function MetaPortfolioDialog({
               <p className="font-medium">Algumas permissões não foram concedidas.</p>
               <p className="text-amber-700/80 dark:text-amber-300/80">
                 As funcionalidades ligadas a estas permissões ficarão limitadas:{" "}
-                <code className="text-[10px]">{missingScopes.join(", ")}</code>.
-                Refaça o login e mantenha todas as permissões marcadas para liberar
-                publicação, insights e Ads.
+                <code className="text-[10px]">{missingScopes.join(", ")}</code>. Refaça o login e
+                mantenha todas as permissões marcadas para liberar publicação, insights e Ads.
               </p>
             </div>
           </div>
@@ -549,7 +534,6 @@ export function MetaPortfolioDialog({
 
         {isLoading ? (
           <DiscoveryProgress active={isLoading} />
-
         ) : showNotLoadedState ? (
           <PortfolioActionState
             title="Portfólio ainda não carregado"
@@ -592,7 +576,6 @@ export function MetaPortfolioDialog({
                       ? "Faça login na Meta novamente para recarregar suas contas."
                       : humanizeMetaError(error).description}
                 </p>
-
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -601,9 +584,7 @@ export function MetaPortfolioDialog({
                   size="sm"
                   variant="outline"
                   onClick={() =>
-                    void reauthorize(
-                      channel === "ads" || !channel ? "facebook" : channel,
-                    )
+                    void reauthorize(channel === "ads" || !channel ? "facebook" : channel)
                   }
                 >
                   <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
@@ -628,7 +609,6 @@ export function MetaPortfolioDialog({
                 Fechar
               </Button>
             </div>
-
           </div>
         ) : (
           <Tabs defaultValue={channel ?? "facebook"} className="w-full">
@@ -639,37 +619,36 @@ export function MetaPortfolioDialog({
               </p>
             )}
             {!channel && (
-
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="facebook" className="gap-2 text-xs">
-                <Facebook className="h-3.5 w-3.5" />
-                Facebook
-                <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
-                  {fbPages.length}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="instagram" className="gap-2 text-xs">
-                <Instagram className="h-3.5 w-3.5" />
-                Instagram
-                <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
-                  {igPages.length}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="threads" className="gap-2 text-xs">
-                <AtSign className="h-3.5 w-3.5" />
-                Threads
-                <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
-                  {threadsAccounts.length}
-                </Badge>
-              </TabsTrigger>
-              <TabsTrigger value="ads" className="gap-2 text-xs">
-                <BarChart3 className="h-3.5 w-3.5" />
-                Ads
-                <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
-                  {adAccounts.length}
-                </Badge>
-              </TabsTrigger>
-            </TabsList>
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="facebook" className="gap-2 text-xs">
+                  <Facebook className="h-3.5 w-3.5" />
+                  Facebook
+                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                    {fbPages.length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="instagram" className="gap-2 text-xs">
+                  <Instagram className="h-3.5 w-3.5" />
+                  Instagram
+                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                    {igPages.length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="threads" className="gap-2 text-xs">
+                  <AtSign className="h-3.5 w-3.5" />
+                  Threads
+                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                    {threadsAccounts.length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="ads" className="gap-2 text-xs">
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  Ads
+                  <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">
+                    {adAccounts.length}
+                  </Badge>
+                </TabsTrigger>
+              </TabsList>
             )}
 
             <TabsContent value="facebook" className="mt-3">
@@ -711,11 +690,7 @@ export function MetaPortfolioDialog({
                             </p>
                             <div className="mt-1">
                               <AccountStatusBadge
-                                status={accountDiscoveryStatus(
-                                  publishAuth,
-                                  "facebook",
-                                  p.pageId,
-                                )}
+                                status={accountDiscoveryStatus(publishAuth, "facebook", p.pageId)}
                               />
                             </div>
                           </div>
@@ -744,12 +719,8 @@ export function MetaPortfolioDialog({
                 <InstagramEmptyDiagnostic
                   pagesCount={data?.pagesCount ?? fbPages.length}
                   pages={fbPages}
-                  missingInstagramScope={(data?.missingScopes ?? []).includes(
-                    "instagram_basic",
-                  )}
-                  missingPagesScope={(data?.missingScopes ?? []).includes(
-                    "pages_show_list",
-                  )}
+                  missingInstagramScope={(data?.missingScopes ?? []).includes("instagram_basic")}
+                  missingPagesScope={(data?.missingScopes ?? []).includes("pages_show_list")}
                   onReauthorize={() => reauthorize("instagram")}
                 />
               ) : (
@@ -814,12 +785,7 @@ export function MetaPortfolioDialog({
                               checked={isConnected}
                               disabled={isPending}
                               onCheckedChange={(v) =>
-                                handleToggle(
-                                  "instagram",
-                                  p.pageId,
-                                  p.instagramBusinessId,
-                                  v,
-                                )
+                                handleToggle("instagram", p.pageId, p.instagramBusinessId, v)
                               }
                             />
                           </div>
@@ -841,15 +807,11 @@ export function MetaPortfolioDialog({
                   ) : (
                     threadsAccounts.map((t) => {
                       const key = `threads:${t.threadsUserId}`;
-                      const connectionId =
-                        data?.connected.threads[t.threadsUserId] ?? null;
+                      const connectionId = data?.connected.threads[t.threadsUserId] ?? null;
                       const isConnected = !!connectionId;
                       const isPending = pending.has(key);
                       return (
-                        <li
-                          key={t.threadsUserId}
-                          className="flex items-center gap-3 p-3"
-                        >
+                        <li key={t.threadsUserId} className="flex items-center gap-3 p-3">
                           <Avatar className="h-10 w-10">
                             <AvatarImage
                               src={t.pictureUrl ?? undefined}
@@ -886,12 +848,7 @@ export function MetaPortfolioDialog({
                               checked={isConnected}
                               disabled={isPending}
                               onCheckedChange={(v) =>
-                                handleToggle(
-                                  "threads",
-                                  t.threadsUserId,
-                                  t.threadsUserId,
-                                  v,
-                                )
+                                handleToggle("threads", t.threadsUserId, t.threadsUserId, v)
                               }
                             />
                           </div>
@@ -914,15 +871,11 @@ export function MetaPortfolioDialog({
                   ) : (
                     adAccounts.map((a) => {
                       const key = `ads:${a.adAccountId}`;
-                      const connectionId =
-                        data?.connected.ads[a.adAccountId] ?? null;
+                      const connectionId = data?.connected.ads[a.adAccountId] ?? null;
                       const isConnected = !!connectionId;
                       const isPending = pending.has(key);
                       return (
-                        <li
-                          key={a.adAccountId}
-                          className="flex items-center gap-3 p-3"
-                        >
+                        <li key={a.adAccountId} className="flex items-center gap-3 p-3">
                           <Avatar className="h-10 w-10">
                             <AvatarFallback className="bg-blue-500/10 text-blue-500">
                               <BarChart3 className="h-4 w-4" />
@@ -956,12 +909,7 @@ export function MetaPortfolioDialog({
                               checked={isConnected}
                               disabled={isPending}
                               onCheckedChange={(v) =>
-                                handleToggle(
-                                  "ads",
-                                  a.adAccountId,
-                                  a.adAccountId,
-                                  v,
-                                )
+                                handleToggle("ads", a.adAccountId, a.adAccountId, v)
                               }
                             />
                           </div>
@@ -1007,7 +955,11 @@ function PortfolioActionState({
       </div>
       <div className="flex flex-wrap gap-2">
         <Button size="sm" onClick={onAction} disabled={disabled || loading} className="gap-2">
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          {loading ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5" />
+          )}
           {actionLabel}
         </Button>
         <Button size="sm" variant="ghost" onClick={onClose}>
@@ -1036,12 +988,10 @@ function InstagramEmptyDiagnostic({
       <div className="flex items-start gap-2">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
         <div className="space-y-1">
-          <p className="text-sm font-medium">
-            Nenhuma conta do Instagram Business foi encontrada.
-          </p>
+          <p className="text-sm font-medium">Nenhuma conta do Instagram Business foi encontrada.</p>
           <p className="text-xs text-muted-foreground">
-            O Graph API só devolve IGs que estejam <b>vinculados a uma Página do Facebook</b>{" "}
-            e que você tenha <b>marcado</b> na tela de permissões da Meta.
+            O Graph API só devolve IGs que estejam <b>vinculados a uma Página do Facebook</b> e que
+            você tenha <b>marcado</b> na tela de permissões da Meta.
           </p>
         </div>
       </div>
@@ -1060,16 +1010,15 @@ function InstagramEmptyDiagnostic({
 
       <div className="rounded-md border border-border/60 bg-muted/30 p-3 text-xs">
         <p className="mb-2 font-medium">
-          A Meta devolveu{" "}
-          <span className="font-mono">{pagesCount}</span>{" "}
+          A Meta devolveu <span className="font-mono">{pagesCount}</span>{" "}
           {pagesCount === 1 ? "Página" : "Páginas"} nesta autorização
           {pagesCount > 0 ? " — nenhuma com Instagram Business vinculado:" : "."}
         </p>
         {pagesCount === 0 ? (
           <p className="text-muted-foreground">
-            Você provavelmente não marcou nenhuma Página na tela &ldquo;Choose what you allow&rdquo;.
-            Refaça o login e escolha <b>Opt in to all current and future Pages</b> (ou selecione
-            manualmente todas as Páginas que administram seus IGs).
+            Você provavelmente não marcou nenhuma Página na tela &ldquo;Choose what you
+            allow&rdquo;. Refaça o login e escolha <b>Opt in to all current and future Pages</b> (ou
+            selecione manualmente todas as Páginas que administram seus IGs).
           </p>
         ) : (
           <ScrollArea className="max-h-32">

@@ -19,7 +19,10 @@ import {
 } from "@/components/ui/form";
 
 const emailSchema = z.string().trim().min(1, "Informe seu email").email("Email inválido").max(255);
-const passwordSchema = z.string().min(8, "Mínimo de 8 caracteres").max(72, "Máximo de 72 caracteres");
+const passwordSchema = z
+  .string()
+  .min(8, "Mínimo de 8 caracteres")
+  .max(72, "Máximo de 72 caracteres");
 
 const signInSchema = z.object({ email: emailSchema, password: passwordSchema });
 

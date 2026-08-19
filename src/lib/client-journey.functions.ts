@@ -82,7 +82,9 @@ export const getClientAccountFn = createServerFn({ method: "GET" })
 
     const { data: events, error: evErr } = await supabase
       .from("client_journey_events")
-      .select("id, brand_id, client_id, from_stage, to_stage, note, project_id, moved_by, created_at")
+      .select(
+        "id, brand_id, client_id, from_stage, to_stage, note, project_id, moved_by, created_at",
+      )
       .eq("client_id", data.clientId)
       .order("created_at", { ascending: false })
       .limit(50);
@@ -122,14 +124,12 @@ export const getClientAccountFn = createServerFn({ method: "GET" })
 
     const timeline: JourneyEvent[] = (events ?? []).map((e) => ({
       ...e,
-      moved_by_name: e.moved_by ? nameById.get(e.moved_by) ?? null : null,
-      project_name: e.project_id ? projById.get(e.project_id) ?? null : null,
+      moved_by_name: e.moved_by ? (nameById.get(e.moved_by) ?? null) : null,
+      project_name: e.project_id ? (projById.get(e.project_id) ?? null) : null,
     }));
 
     const mappings: StageTemplateMapping[] = JOURNEY_STAGES.map((s) => {
-      const row = (mappingsRes.data ?? []).find(
-        (r: { stage: string }) => r.stage === s,
-      ) as
+      const row = (mappingsRes.data ?? []).find((r: { stage: string }) => r.stage === s) as
         | {
             stage: string;
             project_template_id: string;
@@ -254,15 +254,12 @@ export const moveClientJourneyStageFn = createServerFn({ method: "POST" })
             renovacao: "Renovação",
           }[data.toStage]
         }`;
-        const { data: pid, error: rpcErr } = await supabase.rpc(
-          "instantiate_project_template",
-          {
-            _template_id: tplId,
-            _brand_id: data.brandId,
-            _client_id: data.clientId,
-            _project_name: projectName,
-          },
-        );
+        const { data: pid, error: rpcErr } = await supabase.rpc("instantiate_project_template", {
+          _template_id: tplId,
+          _brand_id: data.brandId,
+          _client_id: data.clientId,
+          _project_name: projectName,
+        });
         if (rpcErr) throw rpcErr;
         projectId = (pid as unknown as string) ?? null;
       }
@@ -328,16 +325,14 @@ export const setStageTemplateMappingFn = createServerFn({ method: "POST" })
       if (error) throw error;
       return { ok: true };
     }
-    const { error } = await context.supabase
-      .from("brand_journey_stage_templates")
-      .upsert(
-        {
-          brand_id: data.brandId,
-          stage: data.stage,
-          project_template_id: data.projectTemplateId,
-        },
-        { onConflict: "brand_id,stage" },
-      );
+    const { error } = await context.supabase.from("brand_journey_stage_templates").upsert(
+      {
+        brand_id: data.brandId,
+        stage: data.stage,
+        project_template_id: data.projectTemplateId,
+      },
+      { onConflict: "brand_id,stage" },
+    );
     if (error) throw error;
     return { ok: true };
   });

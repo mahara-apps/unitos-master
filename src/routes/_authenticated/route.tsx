@@ -15,7 +15,6 @@ import { AiJobsIndicator } from "@/components/ai-jobs/ai-jobs-indicator";
 import { BrandFavicon } from "@/components/brand/brand-favicon";
 import { getMyPortalAccessFn } from "@/lib/portal-access.functions";
 
-
 const fallbackTitles: Record<string, string> = {
   "/dashboard": "Painel",
   "/content": "Conteúdo",
@@ -42,7 +41,10 @@ export const Route = createFileRoute("/_authenticated")({
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) {
       await supabase.auth.signOut().catch(() => null);
-      const next = location.href.startsWith("/") && !location.href.startsWith("/login") ? location.href : "/dashboard";
+      const next =
+        location.href.startsWith("/") && !location.href.startsWith("/login")
+          ? location.href
+          : "/dashboard";
       throw redirect({ to: "/login", search: { next } });
     }
     // Cliente final (client_members.role = 'portal_client') sem vínculo de
@@ -62,20 +64,20 @@ function AppShell() {
     <ActiveContextProvider>
       <PageHeaderProvider>
         <AiJobsProvider>
-        <SidebarProvider>
-          <div className="flex min-h-screen w-full bg-background">
-            <AppSidebar />
-            <div className="flex min-w-0 flex-1 flex-col">
-              <ShellHeader />
-              <main className="min-w-0 flex-1">
-                <Outlet />
-              </main>
+          <SidebarProvider>
+            <div className="flex min-h-screen w-full bg-background">
+              <AppSidebar />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <ShellHeader />
+                <main className="min-w-0 flex-1">
+                  <Outlet />
+                </main>
+              </div>
             </div>
-          </div>
-          <CommandMenu />
-          <MandatoryPasswordReset />
-          <BrandFavicon />
-        </SidebarProvider>
+            <CommandMenu />
+            <MandatoryPasswordReset />
+            <BrandFavicon />
+          </SidebarProvider>
         </AiJobsProvider>
       </PageHeaderProvider>
     </ActiveContextProvider>
@@ -107,7 +109,9 @@ function ShellHeader() {
           }}
         >
           <Command className="h-3 w-3" /> Buscar
-          <kbd className="ml-2 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">⌘K</kbd>
+          <kbd className="ml-2 rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+            ⌘K
+          </kbd>
         </Button>
         {actions}
         <AiJobsIndicator />

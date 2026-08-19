@@ -45,9 +45,7 @@ export class MetaProvider implements SocialProvider {
   ) {}
 
   // ================================ Lifecycle ================================
-  async connect(
-    opts: ConnectOptions,
-  ): Promise<ProviderResult<SocialConnectStart>> {
+  async connect(opts: ConnectOptions): Promise<ProviderResult<SocialConnectStart>> {
     if (!this.supports(opts.network)) return this.unsupported(opts.network);
     try {
       // Signed state: brandId + userId + optional returnUrl.
@@ -259,7 +257,10 @@ export class MetaProvider implements SocialProvider {
   ): Promise<ProviderResult<SocialPost[]>> {
     const limit = Math.min(Math.max(opts.limit ?? 5, 1), 25);
     const sortBy = opts.sortBy ?? "engagement";
-    const list = await this.getPosts(ctx, { network: opts.network, limit: Math.max(limit * 2, 10) });
+    const list = await this.getPosts(ctx, {
+      network: opts.network,
+      limit: Math.max(limit * 2, 10),
+    });
     if (!list.ok) return list;
     const scored = list.data
       .map((p) => ({ p, score: scoreOf(p, sortBy) }))
@@ -339,13 +340,17 @@ export class MetaProvider implements SocialProvider {
     const warnings: string[] = [];
     const { since, until } = toEpochRange(opts.range);
 
-    const followers = await this.safe(async () => {
-      const r = await this.graph.graph<{ followers_count?: number }>(`/${ctx.accountId}`, {
-        accessToken: ctx.accessToken,
-        query: { fields: "followers_count" },
-      });
-      return r.followers_count ?? null;
-    }, warnings, "followers_count");
+    const followers = await this.safe(
+      async () => {
+        const r = await this.graph.graph<{ followers_count?: number }>(`/${ctx.accountId}`, {
+          accessToken: ctx.accessToken,
+          query: { fields: "followers_count" },
+        });
+        return r.followers_count ?? null;
+      },
+      warnings,
+      "followers_count",
+    );
 
     const growth = await this.safe(
       () =>
@@ -432,10 +437,7 @@ export class MetaProvider implements SocialProvider {
         avatarUrl: data?.picture?.data?.url ?? null,
         bio: data?.about ?? null,
         website: data?.link ?? null,
-        verified:
-          data?.verification_status
-            ? data.verification_status !== "not_verified"
-            : null,
+        verified: data?.verification_status ? data.verification_status !== "not_verified" : null,
         followers: data?.followers_count ?? data?.fan_count ?? null,
         following: null,
         postsCount: null,
@@ -451,13 +453,17 @@ export class MetaProvider implements SocialProvider {
     const warnings: string[] = [];
     const { since, until } = toEpochRange(opts.range);
 
-    const totalFollowers = await this.safe(async () => {
-      const r = await this.graph.graph<{ fan_count?: number; followers_count?: number }>(
-        `/${ctx.externalId}`,
-        { accessToken: ctx.accessToken, query: { fields: "fan_count,followers_count" } },
-      );
-      return r.followers_count ?? r.fan_count ?? null;
-    }, warnings, "fb_followers");
+    const totalFollowers = await this.safe(
+      async () => {
+        const r = await this.graph.graph<{ fan_count?: number; followers_count?: number }>(
+          `/${ctx.externalId}`,
+          { accessToken: ctx.accessToken, query: { fields: "fan_count,followers_count" } },
+        );
+        return r.followers_count ?? r.fan_count ?? null;
+      },
+      warnings,
+      "fb_followers",
+    );
 
     const growth = await this.safe(
       () =>
@@ -568,10 +574,10 @@ export class MetaProvider implements SocialProvider {
         );
         thumbnailUrl = r.thumbnail_url ?? r.media_url ?? null;
       } else if (network === "facebook") {
-        const r = await this.graph.graph<{ full_picture?: string }>(
-          `/${post.externalPostId}`,
-          { accessToken: ctx.accessToken, query: { fields: "full_picture" } },
-        );
+        const r = await this.graph.graph<{ full_picture?: string }>(`/${post.externalPostId}`, {
+          accessToken: ctx.accessToken,
+          query: { fields: "full_picture" },
+        });
         thumbnailUrl = r.full_picture ?? null;
       }
     } catch (err) {
@@ -653,10 +659,7 @@ function toEpochRange(range: { since: string; until: string }) {
   };
 }
 
-function toSeries(
-  rows: InsightsResponse["data"],
-  map: Record<string, string>,
-): TimeSeriesPoint[] {
+function toSeries(rows: InsightsResponse["data"], map: Record<string, string>): TimeSeriesPoint[] {
   const byDate = new Map<string, Metric[]>();
   for (const row of rows) {
     const key = map[row.name];

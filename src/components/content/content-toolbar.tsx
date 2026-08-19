@@ -1,5 +1,14 @@
 import { useMemo } from "react";
-import { AlarmClock, CalendarClock, CalendarPlus, Filter, Image as ImageIcon, LayoutGrid, List, X } from "lucide-react";
+import {
+  AlarmClock,
+  CalendarClock,
+  CalendarPlus,
+  Filter,
+  Image as ImageIcon,
+  LayoutGrid,
+  List,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -12,7 +21,11 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CHANNELS } from "./stage-colors";
-import { CONTENT_FORMATS, CONTENT_FORMAT_LABEL, normalizeContentFormat } from "@/lib/content-formats";
+import {
+  CONTENT_FORMATS,
+  CONTENT_FORMAT_LABEL,
+  normalizeContentFormat,
+} from "@/lib/content-formats";
 
 export type CreatedRange = "any" | "today" | "7d" | "30d";
 export type ScheduledRange = "any" | "today" | "7d";
@@ -109,7 +122,10 @@ export function ContentToolbar({
             ) : null}
           </div>
           <div className="grid gap-2">
-            <Select value={filters.createdRange} onValueChange={(v) => set("createdRange", v as CreatedRange)}>
+            <Select
+              value={filters.createdRange}
+              onValueChange={(v) => set("createdRange", v as CreatedRange)}
+            >
               <SelectTrigger className="h-8 w-full text-xs">
                 <CalendarPlus className="h-3.5 w-3.5 text-muted-foreground" />
                 <SelectValue placeholder="Data de criação" />
@@ -122,7 +138,10 @@ export function ContentToolbar({
               </SelectContent>
             </Select>
 
-            <Select value={filters.scheduledRange} onValueChange={(v) => set("scheduledRange", v as ScheduledRange)}>
+            <Select
+              value={filters.scheduledRange}
+              onValueChange={(v) => set("scheduledRange", v as ScheduledRange)}
+            >
               <SelectTrigger className="h-8 w-full text-xs">
                 <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
                 <SelectValue placeholder="Data de postagem" />
@@ -265,8 +284,7 @@ export function applyContentFilters<
     }
     if (f.media !== "any") {
       const hasCover =
-        !!p.cover_url ||
-        (p.reference_media ?? []).some((m) => (m.type ?? "").startsWith("image"));
+        !!p.cover_url || (p.reference_media ?? []).some((m) => (m.type ?? "").startsWith("image"));
       if (f.media === "with" && !hasCover) return false;
       if (f.media === "without" && hasCover) return false;
     }

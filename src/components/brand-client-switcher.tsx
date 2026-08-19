@@ -12,11 +12,7 @@ import {
 } from "@/lib/workspace.functions";
 import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Command,
   CommandEmpty,
@@ -74,11 +70,23 @@ export function ContextSwitcher() {
     if (customerMatch) {
       const sub = currentCustomerSub;
       if (sub === "/brain") {
-        await navigate({ to: "/customers/$customerId/brain", params: { customerId: id }, replace: true });
+        await navigate({
+          to: "/customers/$customerId/brain",
+          params: { customerId: id },
+          replace: true,
+        });
       } else if (sub === "/briefing") {
-        await navigate({ to: "/customers/$customerId/briefing", params: { customerId: id }, replace: true });
+        await navigate({
+          to: "/customers/$customerId/briefing",
+          params: { customerId: id },
+          replace: true,
+        });
       } else if (sub === "/media-plan") {
-        await navigate({ to: "/customers/$customerId/media-plan", params: { customerId: id }, replace: true });
+        await navigate({
+          to: "/customers/$customerId/media-plan",
+          params: { customerId: id },
+          replace: true,
+        });
       } else {
         await navigate({ to: "/customers/$customerId", params: { customerId: id }, replace: true });
       }
@@ -110,7 +118,9 @@ export function ContextSwitcher() {
       await qc.invalidateQueries({ queryKey: ["brands"] });
       setBrandId(b.id);
       await qc.invalidateQueries();
-      toast.success("Workspace criado", { description: "Cadastre seu primeiro cliente para começar." });
+      toast.success("Workspace criado", {
+        description: "Cadastre seu primeiro cliente para começar.",
+      });
       setDialogOpen(false);
       setName("");
     },
@@ -151,7 +161,9 @@ export function ContextSwitcher() {
             ) : (
               <div
                 className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-white shadow-sm"
-                style={{ background: activeBrand?.color ?? "linear-gradient(135deg,#8b5cf6,#6366f1)" }}
+                style={{
+                  background: activeBrand?.color ?? "linear-gradient(135deg,#8b5cf6,#6366f1)",
+                }}
               >
                 <Sparkles className="h-3 w-3" />
               </div>
@@ -172,11 +184,13 @@ export function ContextSwitcher() {
             <CommandInput placeholder="Buscar workspace ou cliente…" className="h-9" />
             <CommandList className="max-h-80">
               <CommandEmpty>Nenhum resultado.</CommandEmpty>
-              <CommandGroup heading={
-                <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                  <Building2 className="h-3 w-3" /> WORKSPACES
-                </span>
-              }>
+              <CommandGroup
+                heading={
+                  <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <Building2 className="h-3 w-3" /> WORKSPACES
+                  </span>
+                }
+              >
                 {brandsQ.data?.map((b) => (
                   <CommandItem
                     key={b.id}
@@ -204,15 +218,14 @@ export function ContextSwitcher() {
                 </CommandItem>
               </CommandGroup>
               <CommandSeparator />
-              <CommandGroup heading={
-                <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                  <Users className="h-3 w-3" /> CLIENTES
-                </span>
-              }>
-                <CommandItem
-                  value="all accounts"
-                  onSelect={() => void handleSelectAllClients()}
-                >
+              <CommandGroup
+                heading={
+                  <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                    <Users className="h-3 w-3" /> CLIENTES
+                  </span>
+                }
+              >
+                <CommandItem value="all accounts" onSelect={() => void handleSelectAllClients()}>
                   <div className="h-3 w-3 rounded-full border border-dashed border-muted-foreground" />
                   <span className="flex-1">Todos os clientes</span>
                   {!clientId && <Check className="h-3.5 w-3.5" />}
@@ -267,11 +280,20 @@ export function ContextSwitcher() {
           </DialogHeader>
           <div className="space-y-2">
             <Label>Nome</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Minha agência" />
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Minha agência"
+            />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={() => createMut.mutate(name)} disabled={name.trim().length < 2 || createMut.isPending}>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => createMut.mutate(name)}
+              disabled={name.trim().length < 2 || createMut.isPending}
+            >
               Criar workspace
             </Button>
           </DialogFooter>

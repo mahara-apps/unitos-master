@@ -41,7 +41,10 @@ async function assertPlanAccess(supabase: unknown, planId: string) {
   const sb = supabase as {
     from: (t: string) => {
       select: (c: string) => {
-        eq: (col: string, val: string) => {
+        eq: (
+          col: string,
+          val: string,
+        ) => {
           maybeSingle: () => Promise<{ data: unknown; error: { message: string } | null }>;
         };
       };
@@ -158,10 +161,7 @@ export const deleteMediaPlan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ planId: uuid }).parse(d))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
-      .from("media_plans")
-      .delete()
-      .eq("id", data.planId);
+    const { error } = await context.supabase.from("media_plans").delete().eq("id", data.planId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -184,9 +184,7 @@ const itemSchema = z.object({
 
 export const upsertMediaPlanItem = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
-    z.object({ planId: uuid, item: itemSchema }).parse(d),
-  )
+  .inputValidator((d: unknown) => z.object({ planId: uuid, item: itemSchema }).parse(d))
   .handler(async ({ data, context }) => {
     await assertPlanAccess(context.supabase as never, data.planId);
     const payload = { plan_id: data.planId, ...data.item };
@@ -273,9 +271,7 @@ export const issueMediaPlanShareToken = createServerFn({ method: "POST" })
     const expires =
       data.expiresInDays == null
         ? null
-        : new Date(
-            Date.now() + data.expiresInDays * 24 * 60 * 60 * 1000,
-          ).toISOString();
+        : new Date(Date.now() + data.expiresInDays * 24 * 60 * 60 * 1000).toISOString();
     const { data: row, error } = await context.supabase
       .from("media_plans")
       .update({ share_token: token, share_expires_at: expires })

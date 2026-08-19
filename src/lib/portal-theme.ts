@@ -89,8 +89,7 @@ export function resolvePortalTheme(
     bg: custom?.bg ?? null,
     dark: custom?.dark ?? false,
     footerLabel:
-      custom?.footer_label ||
-      (fallback.agencyName ? `por ${fallback.agencyName}` : null),
+      custom?.footer_label || (fallback.agencyName ? `por ${fallback.agencyName}` : null),
     showAgencyCredit: custom?.show_agency_credit ?? true,
   };
 }

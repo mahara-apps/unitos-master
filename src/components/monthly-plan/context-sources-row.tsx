@@ -6,11 +6,7 @@ import type { MonthlyPlan } from "@/lib/monthly-plans.functions";
  * Selos de rastreabilidade: mostram quais fontes a IA cruzou para gerar a pauta
  * (estratégia IA ativa, métricas reais por canal, contexto do Brain/briefing).
  */
-export function ContextSourcesRow({
-  sources,
-}: {
-  sources: MonthlyPlan["context_sources"];
-}) {
+export function ContextSourcesRow({ sources }: { sources: MonthlyPlan["context_sources"] }) {
   if (!sources) return null;
 
   const strategyBlocks = sources.strategy_blocks ?? [];
@@ -18,7 +14,12 @@ export function ContextSourcesRow({
   const missing = (sources.channels_without_account ?? []) as PlanChannel[];
   const label = (c: PlanChannel) => PLAN_CHANNEL_LABEL[c] ?? c;
 
-  const chips: Array<{ icon: React.ReactNode; text: string; tone: "ok" | "warn"; kind: "strategy" | "metrics" | "brain" }> = [];
+  const chips: Array<{
+    icon: React.ReactNode;
+    text: string;
+    tone: "ok" | "warn";
+    kind: "strategy" | "metrics" | "brain";
+  }> = [];
 
   chips.push(
     strategyBlocks.length

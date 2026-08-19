@@ -80,7 +80,10 @@ export async function buildMultimodalContent(
       const bytes = await downloadBase64(url);
       if (bytes) {
         const asText = new TextDecoder().decode(bytes).slice(0, 20_000);
-        blocks.push({ type: "text", text: `\n\n--- Anexo: ${att.name} ---\n${asText}\n--- fim ---` });
+        blocks.push({
+          type: "text",
+          text: `\n\n--- Anexo: ${att.name} ---\n${asText}\n--- fim ---`,
+        });
         continue;
       }
     }

@@ -39,13 +39,51 @@ export type ChannelDef = {
 };
 
 export const CHANNEL_DEFS: ChannelDef[] = [
-  { key: "instagram", label: "Instagram", icon: Instagram, tone: "text-pink-500", available: true, provider: "meta" },
-  { key: "facebook", label: "Facebook", icon: Facebook, tone: "text-sky-600", available: true, provider: "meta" },
+  {
+    key: "instagram",
+    label: "Instagram",
+    icon: Instagram,
+    tone: "text-pink-500",
+    available: true,
+    provider: "meta",
+  },
+  {
+    key: "facebook",
+    label: "Facebook",
+    icon: Facebook,
+    tone: "text-sky-600",
+    available: true,
+    provider: "meta",
+  },
   { key: "tiktok", label: "TikTok", icon: Music2, tone: "text-muted-foreground", available: false },
-  { key: "linkedin", label: "LinkedIn", icon: Linkedin, tone: "text-muted-foreground", available: false },
-  { key: "youtube", label: "YouTube", icon: Youtube, tone: "text-muted-foreground", available: false },
-  { key: "threads", label: "Threads", icon: AtSign, tone: "text-muted-foreground", available: false },
-  { key: "twitter", label: "X / Twitter", icon: Twitter, tone: "text-muted-foreground", available: false },
+  {
+    key: "linkedin",
+    label: "LinkedIn",
+    icon: Linkedin,
+    tone: "text-muted-foreground",
+    available: false,
+  },
+  {
+    key: "youtube",
+    label: "YouTube",
+    icon: Youtube,
+    tone: "text-muted-foreground",
+    available: false,
+  },
+  {
+    key: "threads",
+    label: "Threads",
+    icon: AtSign,
+    tone: "text-muted-foreground",
+    available: false,
+  },
+  {
+    key: "twitter",
+    label: "X / Twitter",
+    icon: Twitter,
+    tone: "text-muted-foreground",
+    available: false,
+  },
 ];
 
 export const CHANNEL_BY_KEY = new Map(CHANNEL_DEFS.map((c) => [c.key, c]));
@@ -104,10 +142,7 @@ export function StatusDot({
 }) {
   return (
     <span
-      className={cn(
-        "inline-flex items-center gap-1.5 text-xs text-muted-foreground",
-        className,
-      )}
+      className={cn("inline-flex items-center gap-1.5 text-xs text-muted-foreground", className)}
     >
       <span className={cn("h-1.5 w-1.5 rounded-full", STATUS_DOT[status])} />
       {label ?? STATUS_LABEL[status]}

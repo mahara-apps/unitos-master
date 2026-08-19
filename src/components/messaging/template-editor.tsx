@@ -322,7 +322,7 @@ function EventEditor({
   });
 
   const currentBody = () =>
-    channel === "email" ? editor?.getHTML() ?? "" : editor?.getText() ?? "";
+    channel === "email" ? (editor?.getHTML() ?? "") : (editor?.getText() ?? "");
 
   const saveMut = useMutation({
     mutationFn: async () => {
@@ -525,9 +525,7 @@ function EventEditor({
             <div className="overflow-hidden rounded-lg border border-border/60">
               <div className="border-b border-border/60 bg-muted/40 px-4 py-2 text-xs">
                 <div className="text-muted-foreground">Assunto</div>
-                <div className="font-medium">
-                  {renderTemplateString(subject, sampleCtx) || "—"}
-                </div>
+                <div className="font-medium">{renderTemplateString(subject, sampleCtx) || "—"}</div>
               </div>
               <div
                 className="prose prose-sm dark:prose-invert max-h-[50vh] max-w-none overflow-auto p-4"

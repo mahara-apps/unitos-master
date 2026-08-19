@@ -3,7 +3,6 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { loadStageMap, effectiveStage } from "@/lib/post-stage.server";
 
-
 const ProjectStatus = z.enum(["planning", "active", "in_progress", "paused", "done", "archived"]);
 
 export type ProjectPlanRef = { id: string; title: string | null; status: string };
@@ -151,7 +150,6 @@ export const getProject = createServerFn({ method: "GET" })
         : null,
     };
 
-
     const { data: postRows } = await context.supabase
       .from("posts")
       .select(
@@ -177,7 +175,6 @@ export const getProject = createServerFn({ method: "GET" })
       if (review === "approved" || stage === "approved") stats.approved += 1;
       if (!published && review !== "approved" && stage !== "approved") stats.pending += 1;
     }
-
 
     // Itens da pauta vinculada (inclui os que ainda não viraram peça).
     const items: ProjectPlanItem[] = [];
@@ -222,8 +219,12 @@ export const getProject = createServerFn({ method: "GET" })
         }>;
         for (const t of tasks) {
           if (!t.post_id) continue;
-          const cur =
-            tasksByPost.get(t.post_id) ?? { count: 0, open: 0, assignee_id: null, due_at: null };
+          const cur = tasksByPost.get(t.post_id) ?? {
+            count: 0,
+            open: 0,
+            assignee_id: null,
+            due_at: null,
+          };
           cur.count += 1;
           if (String(t.status ?? "") !== "done") cur.open += 1;
           if (!cur.assignee_id && t.assignee_id) cur.assignee_id = t.assignee_id;
@@ -231,7 +232,11 @@ export const getProject = createServerFn({ method: "GET" })
           tasksByPost.set(t.post_id, cur);
         }
         const ids = Array.from(
-          new Set(Array.from(tasksByPost.values()).map((v) => v.assignee_id).filter(Boolean)),
+          new Set(
+            Array.from(tasksByPost.values())
+              .map((v) => v.assignee_id)
+              .filter(Boolean),
+          ),
         ) as string[];
         if (ids.length > 0) {
           const { data: profiles } = await context.supabase
@@ -249,7 +254,7 @@ export const getProject = createServerFn({ method: "GET" })
 
       for (const t of topics) {
         const post = byTopic.get(t.id) ?? null;
-        const agg = post ? tasksByPost.get(post.id as string) ?? null : null;
+        const agg = post ? (tasksByPost.get(post.id as string) ?? null) : null;
         items.push({
           topic_id: t.id,
           title: t.topic_title,
@@ -272,7 +277,7 @@ export const getProject = createServerFn({ method: "GET" })
             count: agg?.count ?? 0,
             open: agg?.open ?? 0,
             assignee_id: agg?.assignee_id ?? null,
-            assignee_name: agg?.assignee_id ? assigneeNames.get(agg.assignee_id) ?? null : null,
+            assignee_name: agg?.assignee_id ? (assigneeNames.get(agg.assignee_id) ?? null) : null,
             due_at: agg?.due_at ?? null,
           },
         });

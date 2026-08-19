@@ -191,10 +191,10 @@ export async function buildClientDashboard(
   }));
   const avgPerWeek = publishedInRange > 0 ? publishedInRange / (rangeDays / 7) : null;
   const bestDay = publishTrend.reduce<{ day: string; count: number } | null>(
-    (acc, d) => (d.count > 0 && (!acc || d.count > acc.count) ? { day: d.day, count: d.count } : acc),
+    (acc, d) =>
+      d.count > 0 && (!acc || d.count > acc.count) ? { day: d.day, count: d.count } : acc,
     null,
   );
-
 
   // ── Canais (providers realmente publicados no período) ────
   const channelMap = new Map<string, number>();
@@ -290,8 +290,7 @@ export async function buildClientDashboard(
       null;
     if (label) stalledStageCount.set(label, (stalledStageCount.get(label) ?? 0) + 1);
   }
-  const topStalledStage =
-    Array.from(stalledStageCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  const topStalledStage = Array.from(stalledStageCount).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
   const stalled = stalledPosts.length
     ? { count: stalledPosts.length, days: STALL_DAYS, stageLabel: topStalledStage }
     : null;
@@ -455,7 +454,6 @@ function describeEvent(
       description: "Falha ao gerar estratégia com IA",
       tone: "attention",
     };
-
 
   return null;
 }

@@ -22,7 +22,12 @@ beforeAll(async () => {
     .from("content_pipelines")
     .insert([
       { brand_id: fx.brandId, client_id: fx.clientA, name: "QA Pipeline", slug: "qa-pipeline" },
-      { brand_id: fx.otherBrandId, client_id: fx.otherBrandClient, name: "QA Pipeline Outra", slug: "qa-pipeline-outra" },
+      {
+        brand_id: fx.otherBrandId,
+        client_id: fx.otherBrandClient,
+        name: "QA Pipeline Outra",
+        slug: "qa-pipeline-outra",
+      },
     ])
     .select("id, brand_id");
   if (p.error) throw new Error(`pipelines: ${p.error.message}`);
@@ -33,7 +38,13 @@ beforeAll(async () => {
     .from("content_pipeline_stages")
     .insert([
       { pipeline_id: pipelineId, key: "qa", label: "Etapa QA", color: "#888888", position: 1 },
-      { pipeline_id: otherPipelineId, key: "qa", label: "Etapa QA Outra", color: "#888888", position: 1 },
+      {
+        pipeline_id: otherPipelineId,
+        key: "qa",
+        label: "Etapa QA Outra",
+        color: "#888888",
+        position: 1,
+      },
     ])
     .select("id, pipeline_id");
   if (s.error) throw new Error(`stages: ${s.error.message}`);
@@ -51,9 +62,9 @@ afterAll(async () => {
 
 describe("Auditoria (logs) — enforcement de papel no servidor", () => {
   it("USER é bloqueado", async () => {
-    await expect(
-      assertAdminAuthority(fx!.userA.client, fx!.userA.id, fx!.brandId),
-    ).rejects.toThrow(/Forbidden/);
+    await expect(assertAdminAuthority(fx!.userA.client, fx!.userA.id, fx!.brandId)).rejects.toThrow(
+      /Forbidden/,
+    );
   });
 
   it("user sem vínculo também é bloqueado", async () => {
@@ -114,7 +125,13 @@ describe("SLA de etapa (content_pipeline_stages)", () => {
   it("user não cria nem remove etapa", async () => {
     const ins = await fx!.userA.client
       .from("content_pipeline_stages")
-      .insert({ pipeline_id: pipelineId, key: "nova", label: "Nova User", color: "#888888", position: 9 })
+      .insert({
+        pipeline_id: pipelineId,
+        key: "nova",
+        label: "Nova User",
+        color: "#888888",
+        position: 9,
+      })
       .select("id");
     expect(ins.error).not.toBeNull();
 

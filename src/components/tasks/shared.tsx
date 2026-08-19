@@ -57,11 +57,7 @@ import { ExpandedModal } from "@/components/ui/expanded-modal";
 
 import { Separator } from "@/components/ui/separator";
 import { TaskTimerWidget } from "@/components/tasks/task-timer-widget";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Command,
   CommandEmpty,
@@ -118,24 +114,21 @@ export const STATUS_META: Record<
   in_progress: {
     label: "Em andamento",
     icon: Clock,
-    badge:
-      "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+    badge: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
     dot: "bg-sky-500",
     hex: "text-sky-500",
   },
   review: {
     label: "Revisão",
     icon: AlertTriangle,
-    badge:
-      "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+    badge: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
     dot: "bg-amber-500",
     hex: "text-amber-500",
   },
   done: {
     label: "Concluída",
     icon: CheckCircle2,
-    badge:
-      "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    badge: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
     dot: "bg-emerald-500",
     hex: "text-emerald-500",
   },
@@ -187,7 +180,9 @@ export function initials(name: string | null | undefined) {
   );
 }
 
-export function relativeDue(iso: string | null): { label: string; tone: string; overdue: boolean } | null {
+export function relativeDue(
+  iso: string | null,
+): { label: string; tone: string; overdue: boolean } | null {
   if (!iso) return null;
   const now = new Date();
   const d = new Date(iso);
@@ -195,7 +190,8 @@ export function relativeDue(iso: string | null): { label: string; tone: string; 
   const days = Math.round(diffMs / 86_400_000);
   const label = format(d, "d 'de' MMM", { locale: ptBR });
   if (days < 0) return { label, tone: "text-rose-600 dark:text-rose-400", overdue: true };
-  if (days === 0) return { label: `${label} · hoje`, tone: "text-amber-600 dark:text-amber-400", overdue: false };
+  if (days === 0)
+    return { label: `${label} · hoje`, tone: "text-amber-600 dark:text-amber-400", overdue: false };
   if (days <= 3) return { label, tone: "text-amber-600 dark:text-amber-400", overdue: false };
   return { label, tone: "text-muted-foreground", overdue: false };
 }
@@ -344,7 +340,10 @@ export function ClientPicker({
   });
   const items = data ?? [];
   return (
-    <Select value={value ?? "__none__"} onValueChange={(v) => onChange(v === "__none__" ? null : v)}>
+    <Select
+      value={value ?? "__none__"}
+      onValueChange={(v) => onChange(v === "__none__" ? null : v)}
+    >
       <SelectTrigger className={compact ? "h-7 text-xs" : undefined}>
         <SelectValue placeholder="Nenhuma" />
       </SelectTrigger>
@@ -472,7 +471,6 @@ export function ProjectPicker({
   );
 }
 
-
 // ---------- Create Dialog ----------
 
 export function CreateTaskDialog({
@@ -540,74 +538,73 @@ export function CreateTaskDialog({
       }
     >
       <>
-
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Título</label>
+          <Input
+            autoFocus
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Ex: Aprovar copy do post de sexta"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Descrição</label>
+          <Textarea
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Contexto, checklist rápido, links..."
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Título</label>
-            <Input
-              autoFocus
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ex: Aprovar copy do post de sexta"
+            <label className="text-xs font-medium text-muted-foreground">Prioridade</label>
+            <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TASK_PRIORITIES.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {PRIORITY_META[p].label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Prazo</label>
+            <Input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Responsável</label>
+            <AssigneePicker brandId={brandId} value={assigneeId} onChange={setAssigneeId} />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Conta / Cliente</label>
+            <ClientPicker
+              brandId={brandId}
+              value={taskClientId}
+              onChange={(id) => {
+                setTaskClientId(id);
+                setProjectId(null);
+              }}
             />
           </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Descrição</label>
-            <Textarea
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Contexto, checklist rápido, links..."
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Prioridade</label>
-              <Select value={priority} onValueChange={(v) => setPriority(v as TaskPriority)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {TASK_PRIORITIES.map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {PRIORITY_META[p].label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Prazo</label>
-              <Input
-                type="datetime-local"
-                value={dueAt}
-                onChange={(e) => setDueAt(e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Responsável</label>
-              <AssigneePicker brandId={brandId} value={assigneeId} onChange={setAssigneeId} />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Conta / Cliente</label>
-              <ClientPicker
-                brandId={brandId}
-                value={taskClientId}
-                onChange={(id) => {
-                  setTaskClientId(id);
-                  setProjectId(null);
-                }}
-              />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Projeto</label>
-            <ProjectPicker brandId={brandId} clientId={taskClientId} value={projectId} onChange={setProjectId} />
-          </div>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">Projeto</label>
+          <ProjectPicker
+            brandId={brandId}
+            clientId={taskClientId}
+            value={projectId}
+            onChange={setProjectId}
+          />
+        </div>
       </>
     </ExpandedModal>
-
   );
 }
 
@@ -636,7 +633,8 @@ function MentionList({
   onPick: (u: { id: string; name: string }) => void;
 }) {
   const filtered = members.filter((m) => m.name.toLowerCase().includes(query.toLowerCase()));
-  if (filtered.length === 0) return <p className="p-3 text-xs text-muted-foreground">Nenhum membro</p>;
+  if (filtered.length === 0)
+    return <p className="p-3 text-xs text-muted-foreground">Nenhum membro</p>;
   return (
     <ul className="max-h-56 overflow-y-auto py-1">
       {filtered.slice(0, 8).map((m) => (
@@ -848,9 +846,7 @@ export function TaskDrawer({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() => archiveMutation.mutate(!task.archived_at)}
-                  >
+                  <DropdownMenuItem onClick={() => archiveMutation.mutate(!task.archived_at)}>
                     <Archive className="mr-2 h-4 w-4" />
                     {task.archived_at ? "Restaurar tarefa" : "Arquivar tarefa"}
                   </DropdownMenuItem>
@@ -918,236 +914,232 @@ export function TaskDrawer({
         ) : null
       }
     >
-        {!task ? (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando...
-          </div>
-        ) : (
-          <>
-
-
-            {/* Body (scrollable) */}
-            <div className="flex-1 overflow-y-auto">
-              {/* Title */}
-              <div className="px-6 pb-3 pt-5">
-                <Input
-                  value={draft.title ?? task.title}
-                  onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
-                  onBlur={() => {
-                    if (draft.title && draft.title !== task.title) {
-                      patchMutation.mutate({ taskId, patch: { title: draft.title.trim() } });
-                    }
-                  }}
-                  className={cn(
-                    "h-auto border-0 bg-transparent px-0 py-1 text-xl font-semibold leading-tight shadow-none focus-visible:ring-0",
-                    isDone && "text-muted-foreground line-through",
-                  )}
-                />
-              </div>
-
-              {/* Metadata grid */}
-              <div className="px-6 pb-6">
-                <dl className="grid grid-cols-[120px_1fr] items-center gap-x-4 gap-y-1 text-sm">
-                  <MetaRow label="Responsável">
-                    <AssigneePicker
-                      brandId={brandId}
-                      value={task.assignee_id}
-                      onChange={(id) => patchMutation.mutate({ taskId, patch: { assignee_id: id } })}
-                      compact
-                    />
-                  </MetaRow>
-
-                  <MetaRow label="Prazo">
-                    <DuePicker
-                      value={task.due_at}
-                      onChange={(iso) =>
-                        patchMutation.mutate({ taskId, patch: { due_at: iso } })
-                      }
-                    />
-                  </MetaRow>
-
-                  <MetaRow label="Status">
-                    <Select
-                      value={task.status}
-                      onValueChange={(v) =>
-                        patchMutation.mutate({
-                          taskId,
-                          patch: { status: v as TaskStatus, done: v === "done" },
-                        })
-                      }
-                    >
-                      <SelectTrigger
-                        className={cn(
-                          "h-7 w-auto gap-1.5 border px-2.5 text-xs font-medium",
-                          statusMeta?.badge,
-                        )}
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TASK_STATUSES.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {STATUS_META[s].label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </MetaRow>
-
-                  <MetaRow label="Prioridade">
-                    <Select
-                      value={task.priority}
-                      onValueChange={(v) =>
-                        patchMutation.mutate({ taskId, patch: { priority: v as TaskPriority } })
-                      }
-                    >
-                      <SelectTrigger
-                        className={cn(
-                          "h-7 w-auto gap-1.5 border px-2.5 text-xs font-medium",
-                          priorityMeta?.badge,
-                        )}
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TASK_PRIORITIES.map((p) => (
-                          <SelectItem key={p} value={p}>
-                            {PRIORITY_META[p].label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </MetaRow>
-
-                  <MetaRow label="Conta">
-                    <ClientPicker
-                      brandId={brandId}
-                      value={task.client_id}
-                      onChange={(id) =>
-                        patchMutation.mutate({
-                          taskId,
-                          patch: { client_id: id, project_id: null },
-                        })
-                      }
-                    />
-                  </MetaRow>
-
-                  <MetaRow label="Projeto">
-                    <ProjectPicker
-                      brandId={brandId}
-                      clientId={task.client_id}
-                      value={task.project_id}
-                      onChange={(id) => patchMutation.mutate({ taskId, patch: { project_id: id } })}
-                    />
-                  </MetaRow>
-                </dl>
-              </div>
-
-              <Separator />
-
-              {/* Timesheet · Play / Pause / Stop */}
-              <div className="space-y-2 px-6 py-4">
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="text-sm font-semibold">Timesheet</h3>
-                </div>
-                <TaskTimerWidget brandId={brandId} taskId={task.id} />
-              </div>
-
-              <Separator />
-
-              {/* Subtasks */}
-              <div className="px-6 py-5">
-                <SubtasksSection taskId={task.id} />
-              </div>
-
-              <Separator />
-
-
-              {/* Description */}
-              <div className="space-y-1.5 px-6 py-5">
-                <label className="text-xs font-medium text-muted-foreground">Descrição</label>
-                <Textarea
-                  rows={4}
-                  placeholder="Adicione contexto, checklist e links..."
-                  value={draft.description ?? task.description ?? ""}
-                  onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
-                  onBlur={() => {
-                    const val = (draft.description ?? "").trim();
-                    if ((task.description ?? "") !== val) {
-                      patchMutation.mutate({ taskId, patch: { description: val || null } });
-                    }
-                  }}
-                  className="resize-none border-transparent bg-transparent px-2 text-sm shadow-none hover:border-border focus-visible:border-border focus-visible:bg-background"
-                />
-              </div>
-
-              <Separator />
-
-              {/* Comments */}
-              <div className="space-y-3 px-6 py-5">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                  <h3 className="text-sm font-semibold">Discussão</h3>
-                  <Badge variant="secondary" className="text-[10px]">
-                    {commentsQ.data?.length ?? 0}
-                  </Badge>
-                </div>
-                {commentsQ.isLoading ? (
-                  <div className="text-xs text-muted-foreground">Carregando comentários...</div>
-                ) : (commentsQ.data ?? []).length === 0 ? (
-                  <p className="rounded border border-dashed p-3 text-center text-xs text-muted-foreground">
-                    Sem comentários. Use @ para mencionar alguém do time.
-                  </p>
-                ) : (
-                  <ul className="space-y-3">
-                    {(commentsQ.data ?? []).map((c) => (
-                      <li key={c.id} className="flex gap-3">
-                        <TaskAssignee name={c.author_name} avatarUrl={c.author_avatar} size={28} />
-                        <div className="flex-1 rounded-md border bg-muted/30 px-3 py-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-medium">{c.author_name ?? "Alguém"}</span>
-                            <span className="text-[10px] text-muted-foreground">
-                              {format(new Date(c.created_at), "d 'de' MMM · HH:mm", { locale: ptBR })}
-                              {c.author_id === currentUserId ? (
-                                <button
-                                  className="ml-2 text-muted-foreground hover:text-destructive"
-                                  onClick={() => removeComment.mutate(c.id)}
-                                  aria-label="Excluir comentário"
-                                >
-                                  <Trash2 className="inline h-3 w-3" />
-                                </button>
-                              ) : null}
-                            </span>
-                          </div>
-                          <p className="mt-1 whitespace-pre-wrap text-sm">{renderMentions(c.body)}</p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
+      {!task ? (
+        <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando...
+        </div>
+      ) : (
+        <>
+          {/* Body (scrollable) */}
+          <div className="flex-1 overflow-y-auto">
+            {/* Title */}
+            <div className="px-6 pb-3 pt-5">
+              <Input
+                value={draft.title ?? task.title}
+                onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
+                onBlur={() => {
+                  if (draft.title && draft.title !== task.title) {
+                    patchMutation.mutate({ taskId, patch: { title: draft.title.trim() } });
+                  }
+                }}
+                className={cn(
+                  "h-auto border-0 bg-transparent px-0 py-1 text-xl font-semibold leading-tight shadow-none focus-visible:ring-0",
+                  isDone && "text-muted-foreground line-through",
                 )}
-                {mentionUserIds.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
-                    {mentionUserIds.map((id) => {
-                      const u = members.find((m) => m.id === id);
-                      if (!u) return null;
-                      return (
-                        <Badge key={id} variant="secondary" className="gap-1">
-                          @{u.name}
-                          <button onClick={() => setMentionUserIds((prev) => prev.filter((x) => x !== id))}>
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      );
-                    })}
-                  </div>
-                ) : null}
-              </div>
+              />
             </div>
-          </>
-        )}
-    </ExpandedModal>
 
+            {/* Metadata grid */}
+            <div className="px-6 pb-6">
+              <dl className="grid grid-cols-[120px_1fr] items-center gap-x-4 gap-y-1 text-sm">
+                <MetaRow label="Responsável">
+                  <AssigneePicker
+                    brandId={brandId}
+                    value={task.assignee_id}
+                    onChange={(id) => patchMutation.mutate({ taskId, patch: { assignee_id: id } })}
+                    compact
+                  />
+                </MetaRow>
+
+                <MetaRow label="Prazo">
+                  <DuePicker
+                    value={task.due_at}
+                    onChange={(iso) => patchMutation.mutate({ taskId, patch: { due_at: iso } })}
+                  />
+                </MetaRow>
+
+                <MetaRow label="Status">
+                  <Select
+                    value={task.status}
+                    onValueChange={(v) =>
+                      patchMutation.mutate({
+                        taskId,
+                        patch: { status: v as TaskStatus, done: v === "done" },
+                      })
+                    }
+                  >
+                    <SelectTrigger
+                      className={cn(
+                        "h-7 w-auto gap-1.5 border px-2.5 text-xs font-medium",
+                        statusMeta?.badge,
+                      )}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TASK_STATUSES.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {STATUS_META[s].label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </MetaRow>
+
+                <MetaRow label="Prioridade">
+                  <Select
+                    value={task.priority}
+                    onValueChange={(v) =>
+                      patchMutation.mutate({ taskId, patch: { priority: v as TaskPriority } })
+                    }
+                  >
+                    <SelectTrigger
+                      className={cn(
+                        "h-7 w-auto gap-1.5 border px-2.5 text-xs font-medium",
+                        priorityMeta?.badge,
+                      )}
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TASK_PRIORITIES.map((p) => (
+                        <SelectItem key={p} value={p}>
+                          {PRIORITY_META[p].label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </MetaRow>
+
+                <MetaRow label="Conta">
+                  <ClientPicker
+                    brandId={brandId}
+                    value={task.client_id}
+                    onChange={(id) =>
+                      patchMutation.mutate({
+                        taskId,
+                        patch: { client_id: id, project_id: null },
+                      })
+                    }
+                  />
+                </MetaRow>
+
+                <MetaRow label="Projeto">
+                  <ProjectPicker
+                    brandId={brandId}
+                    clientId={task.client_id}
+                    value={task.project_id}
+                    onChange={(id) => patchMutation.mutate({ taskId, patch: { project_id: id } })}
+                  />
+                </MetaRow>
+              </dl>
+            </div>
+
+            <Separator />
+
+            {/* Timesheet · Play / Pause / Stop */}
+            <div className="space-y-2 px-6 py-4">
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold">Timesheet</h3>
+              </div>
+              <TaskTimerWidget brandId={brandId} taskId={task.id} />
+            </div>
+
+            <Separator />
+
+            {/* Subtasks */}
+            <div className="px-6 py-5">
+              <SubtasksSection taskId={task.id} />
+            </div>
+
+            <Separator />
+
+            {/* Description */}
+            <div className="space-y-1.5 px-6 py-5">
+              <label className="text-xs font-medium text-muted-foreground">Descrição</label>
+              <Textarea
+                rows={4}
+                placeholder="Adicione contexto, checklist e links..."
+                value={draft.description ?? task.description ?? ""}
+                onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
+                onBlur={() => {
+                  const val = (draft.description ?? "").trim();
+                  if ((task.description ?? "") !== val) {
+                    patchMutation.mutate({ taskId, patch: { description: val || null } });
+                  }
+                }}
+                className="resize-none border-transparent bg-transparent px-2 text-sm shadow-none hover:border-border focus-visible:border-border focus-visible:bg-background"
+              />
+            </div>
+
+            <Separator />
+
+            {/* Comments */}
+            <div className="space-y-3 px-6 py-5">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                <h3 className="text-sm font-semibold">Discussão</h3>
+                <Badge variant="secondary" className="text-[10px]">
+                  {commentsQ.data?.length ?? 0}
+                </Badge>
+              </div>
+              {commentsQ.isLoading ? (
+                <div className="text-xs text-muted-foreground">Carregando comentários...</div>
+              ) : (commentsQ.data ?? []).length === 0 ? (
+                <p className="rounded border border-dashed p-3 text-center text-xs text-muted-foreground">
+                  Sem comentários. Use @ para mencionar alguém do time.
+                </p>
+              ) : (
+                <ul className="space-y-3">
+                  {(commentsQ.data ?? []).map((c) => (
+                    <li key={c.id} className="flex gap-3">
+                      <TaskAssignee name={c.author_name} avatarUrl={c.author_avatar} size={28} />
+                      <div className="flex-1 rounded-md border bg-muted/30 px-3 py-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium">{c.author_name ?? "Alguém"}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {format(new Date(c.created_at), "d 'de' MMM · HH:mm", { locale: ptBR })}
+                            {c.author_id === currentUserId ? (
+                              <button
+                                className="ml-2 text-muted-foreground hover:text-destructive"
+                                onClick={() => removeComment.mutate(c.id)}
+                                aria-label="Excluir comentário"
+                              >
+                                <Trash2 className="inline h-3 w-3" />
+                              </button>
+                            ) : null}
+                          </span>
+                        </div>
+                        <p className="mt-1 whitespace-pre-wrap text-sm">{renderMentions(c.body)}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {mentionUserIds.length > 0 ? (
+                <div className="flex flex-wrap gap-1">
+                  {mentionUserIds.map((id) => {
+                    const u = members.find((m) => m.id === id);
+                    if (!u) return null;
+                    return (
+                      <Badge key={id} variant="secondary" className="gap-1">
+                        @{u.name}
+                        <button
+                          onClick={() => setMentionUserIds((prev) => prev.filter((x) => x !== id))}
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </>
+      )}
+    </ExpandedModal>
   );
 }
 
@@ -1169,9 +1161,7 @@ function DuePicker({
 }) {
   const [open, setOpen] = useState(false);
   const local = value ? new Date(value) : null;
-  const label = local
-    ? format(local, "d 'de' MMM · HH:mm", { locale: ptBR })
-    : "Sem prazo";
+  const label = local ? format(local, "d 'de' MMM · HH:mm", { locale: ptBR }) : "Sem prazo";
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -1304,7 +1294,10 @@ export function SubtasksSection({ taskId }: { taskId: string }) {
       ) : (
         <ul className="space-y-1">
           {items.map((s) => (
-            <li key={s.id} className="group flex items-center gap-2 rounded px-1 py-1 hover:bg-muted/50">
+            <li
+              key={s.id}
+              className="group flex items-center gap-2 rounded px-1 py-1 hover:bg-muted/50"
+            >
               <Checkbox
                 checked={s.done}
                 onCheckedChange={(v) => toggle.mutate({ subtaskId: s.id, done: v === true })}
@@ -1374,7 +1367,11 @@ export function SubtasksSection({ taskId }: { taskId: string }) {
           variant="secondary"
           disabled={!title.trim() || create.isPending}
         >
-          {create.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+          {create.isPending ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Plus className="h-3.5 w-3.5" />
+          )}
         </Button>
       </form>
     </div>

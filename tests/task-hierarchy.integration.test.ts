@@ -49,10 +49,7 @@ async function createProject(
   return data;
 }
 
-async function createTask(
-  c: SupabaseClient,
-  payload: Record<string, unknown>,
-) {
+async function createTask(c: SupabaseClient, payload: Record<string, unknown>) {
   return c
     .from("tasks")
     .insert({ brand_id: fx.brandId, status: "todo", priority: "medium", ...payload })
@@ -126,9 +123,7 @@ describe("1. Criação de tarefa", () => {
   });
 
   it("trocar o cliente de uma tarefa com projeto incompatível é bloqueado no banco", async () => {
-    const r = await A.from("tasks")
-      .update({ client_id: fx.clientB })
-      .eq("id", ids.taskWithProject);
+    const r = await A.from("tasks").update({ client_id: fx.clientB }).eq("id", ids.taskWithProject);
     expect(r.error, "deveria falhar sem desvincular o projeto").not.toBeNull();
   });
 
@@ -263,9 +258,7 @@ describe("3 & 4. Subtarefas e progresso", () => {
   });
 
   it("3/3 (100%)", async () => {
-    await A.from("task_subtasks")
-      .update({ done: true })
-      .in("id", [ids.sub1, ids.sub2, ids.sub3]);
+    await A.from("task_subtasks").update({ done: true }).in("id", [ids.sub1, ids.sub2, ids.sub3]);
     const t = (await listTasks(A, fx.brandId, { clientId: fx.clientA })).find(
       (r) => r.id === ids.taskWithProject,
     )!;
@@ -392,9 +385,7 @@ describe("6b. Matriz de papéis (isolamento por cliente)", () => {
   it("ADMIN (owner da marca) acessa todos os clientes da própria marca", async () => {
     const c = fx.userOwner.client;
     const clients = await c.from("clients").select("id").in("id", [fx.clientA, fx.clientB]);
-    expect((clients.data ?? []).map((r) => r.id).sort()).toEqual(
-      [fx.clientA, fx.clientB].sort(),
-    );
+    expect((clients.data ?? []).map((r) => r.id).sort()).toEqual([fx.clientA, fx.clientB].sort());
     const projA = await c.from("projects").select("id").eq("id", ids.projectA);
     const projB = await c.from("projects").select("id").eq("id", ids.projectB);
     expect(projA.data ?? []).toHaveLength(1);
@@ -416,10 +407,7 @@ describe("6b. Matriz de papéis (isolamento por cliente)", () => {
   it("ADMIN/MANAGER não atravessam a fronteira de marca", async () => {
     for (const u of [fx.userOwner, fx.userManager]) {
       const other = await u.client.from("clients").select("id").eq("id", fx.otherBrandClient);
-      const otherProj = await u.client
-        .from("projects")
-        .select("id")
-        .eq("id", fx.otherBrandProject);
+      const otherProj = await u.client.from("projects").select("id").eq("id", fx.otherBrandProject);
       if (u.id === fx.userOwner.id) {
         // userOwner criou as duas brands de QA: é owner de ambas (esperado).
         expect(other.data ?? []).toHaveLength(1);
@@ -488,7 +476,10 @@ describe("6b. Matriz de papéis (isolamento por cliente)", () => {
     const c = fx.userPortal.client;
     const own = await c.from("clients").select("id").eq("id", fx.clientA);
     expect(own.data ?? []).toHaveLength(1);
-    const foreign = await c.from("clients").select("id").in("id", [fx.clientB, fx.otherBrandClient]);
+    const foreign = await c
+      .from("clients")
+      .select("id")
+      .in("id", [fx.clientB, fx.otherBrandClient]);
     expect(foreign.data ?? []).toHaveLength(0);
 
     const projB = await c.from("projects").select("id").eq("id", ids.projectB);
@@ -531,14 +522,12 @@ describe("6b. Matriz de papéis (isolamento por cliente)", () => {
     expect(portal.data ?? []).toHaveLength(0);
 
     // Ao ganhar vínculo explícito, o USER passa a acessar.
-    await admin
-      .from("client_members")
-      .insert({
-        brand_id: fx.brandId,
-        client_id: fx.clientOrphan,
-        user_id: fx.userA.id,
-        role: "user",
-      });
+    await admin.from("client_members").insert({
+      brand_id: fx.brandId,
+      client_id: fx.clientOrphan,
+      user_id: fx.userA.id,
+      role: "user",
+    });
     const noLinkAfter = await fx.userNoLink.client
       .from("clients")
       .select("id")
@@ -548,8 +537,6 @@ describe("6b. Matriz de papéis (isolamento por cliente)", () => {
     expect(linkedAfter.data ?? []).toHaveLength(1);
   });
 });
-
-
 
 describe("7 & 8. Integridade e E2E", () => {
   it("E2E: projeto → tarefa → 3 subtarefas → 33% → 66% → 33% → arquivar/restaurar", async () => {
@@ -601,10 +588,7 @@ describe("7 & 8. Integridade e E2E", () => {
     expect(all.map((r) => r.id)).toContain(taskId);
 
     // Subtarefas sobrevivem ao arquivamento
-    const subsAfterArchive = await admin
-      .from("task_subtasks")
-      .select("id")
-      .eq("task_id", taskId);
+    const subsAfterArchive = await admin.from("task_subtasks").select("id").eq("task_id", taskId);
     expect(subsAfterArchive.data).toHaveLength(3);
 
     // Restaurar
@@ -650,8 +634,6 @@ describe("7 & 8. Integridade e E2E", () => {
     );
     expect(divergentes.map((s) => s.id)).toEqual([]);
   });
-
-
 
   it("integridade: nenhuma subtarefa órfã após exclusão da tarefa (cascade)", async () => {
     const t = await createTask(A, { title: `T descartável ${testTag}`, client_id: fx.clientA });

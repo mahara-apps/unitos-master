@@ -23,9 +23,14 @@ export const Route = createFileRoute("/p/briefing/$token")({
     if (!info.ok && info.reason === "not_found") throw notFound();
     return { info };
   },
-  errorComponent: () => <ShellError title="Something went wrong" body="Please try refreshing the page." />,
+  errorComponent: () => (
+    <ShellError title="Something went wrong" body="Please try refreshing the page." />
+  ),
   notFoundComponent: () => (
-    <ShellError title="This briefing link is no longer active." body="The link you followed does not exist." />
+    <ShellError
+      title="This briefing link is no longer active."
+      body="The link you followed does not exist."
+    />
   ),
   component: BriefingPage,
 });
@@ -66,9 +71,11 @@ function BriefingPage() {
       info.reason === "revoked"
         ? "This briefing link has been revoked."
         : info.reason === "expired"
-        ? "This briefing link has expired."
-        : "This briefing link is no longer active.";
-    return <ShellError title={title} body="Contact your account manager to request a new invitation." />;
+          ? "This briefing link has expired."
+          : "This briefing link is no longer active.";
+    return (
+      <ShellError title={title} body="Contact your account manager to request a new invitation." />
+    );
   }
 
   if (info.alreadySubmitted) {
@@ -79,11 +86,27 @@ function BriefingPage() {
 }
 
 const TONE_SUGGESTIONS = [
-  "Professional", "Playful", "Bold", "Minimal", "Warm", "Technical",
-  "Aspirational", "Friendly", "Confident", "Educational",
+  "Professional",
+  "Playful",
+  "Bold",
+  "Minimal",
+  "Warm",
+  "Technical",
+  "Aspirational",
+  "Friendly",
+  "Confident",
+  "Educational",
 ];
 
-function BriefingForm({ token, clientName, brandName }: { token: string; clientName: string; brandName: string }) {
+function BriefingForm({
+  token,
+  clientName,
+  brandName,
+}: {
+  token: string;
+  clientName: string;
+  brandName: string;
+}) {
   const submit = useServerFn(submitPublicBriefing);
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -145,7 +168,10 @@ function BriefingForm({ token, clientName, brandName }: { token: string; clientN
               <span className="font-mono">{brandName}</span> · brand briefing
             </div>
           </div>
-          <Badge variant="outline" className="border-white/10 bg-white/[0.03] font-mono text-[10px] text-zinc-400">
+          <Badge
+            variant="outline"
+            className="border-white/10 bg-white/[0.03] font-mono text-[10px] text-zinc-400"
+          >
             secure link
           </Badge>
         </header>
@@ -155,7 +181,8 @@ function BriefingForm({ token, clientName, brandName }: { token: string; clientN
             Welcome, <span className="text-emerald-300">{clientName}</span>
           </h1>
           <p className="mt-1 text-sm text-zinc-400">
-            Answer three quick questions so the team can start building content aligned with your brand.
+            Answer three quick questions so the team can start building content aligned with your
+            brand.
           </p>
         </div>
 
@@ -353,8 +380,8 @@ function ThankYou({ brandName }: { brandName: string }) {
           </div>
           <h1 className="text-xl font-semibold tracking-tight">Thank you</h1>
           <p className="mt-2 text-sm text-zinc-400">
-            Your briefing has been delivered to <span className="text-zinc-200">{brandName}</span>. The team will
-            be in touch shortly.
+            Your briefing has been delivered to <span className="text-zinc-200">{brandName}</span>.
+            The team will be in touch shortly.
           </p>
         </div>
       </div>

@@ -89,7 +89,6 @@ export type MetaPortfolioScan = {
   deep: boolean;
 };
 
-
 /**
  * Rate limits and expired tokens must abort the whole scan; permission errors
  * on a single portfolio edge are recorded as warnings instead.
@@ -100,7 +99,6 @@ export function isFatalScanError(err: unknown): boolean {
   const code = err.graph?.code;
   return code === 4 || code === 17 || code === 32 || code === 613 || code === 190;
 }
-
 
 export type MetaUser = { id: string; name?: string; email?: string };
 
@@ -202,10 +200,8 @@ export class MetaProvider {
   }) {
     this.appId = opts?.appId ?? requireEnv("META_APP_ID");
     this.appSecret = opts?.appSecret ?? requireEnv("META_APP_SECRET");
-    this.redirectUri =
-      opts?.redirectUri ?? resolveMetaRedirectUri(opts?.origin ?? null);
+    this.redirectUri = opts?.redirectUri ?? resolveMetaRedirectUri(opts?.origin ?? null);
   }
-
 
   // --------------------------------------------------------------- OAuth ---
   buildAuthorizeUrl(params: {
@@ -292,9 +288,7 @@ export class MetaProvider {
     const res = await this.graph<{ data: PermRow[] }>("/me/permissions", {
       accessToken: userAccessToken,
     });
-    return (res.data ?? [])
-      .filter((p) => p.status === "granted")
-      .map((p) => p.permission);
+    return (res.data ?? []).filter((p) => p.status === "granted").map((p) => p.permission);
   }
 
   /**
@@ -543,7 +537,6 @@ export class MetaProvider {
     };
   }
 
-
   /**
    * Fetches a Page access token on demand. Pages discovered through a Business
    * Portfolio edge do not always include `access_token`, and we only need the
@@ -567,7 +560,12 @@ export class MetaProvider {
   async getInstagramAccount(
     userAccessToken: string,
     instagramId: string,
-  ): Promise<{ id: string; username: string | null; name: string | null; pictureUrl: string | null }> {
+  ): Promise<{
+    id: string;
+    username: string | null;
+    name: string | null;
+    pictureUrl: string | null;
+  }> {
     const res = await this.graph<{
       id: string;
       username?: string;
@@ -584,7 +582,6 @@ export class MetaProvider {
       pictureUrl: res.profile_picture_url ?? null,
     };
   }
-
 
   /**
    * Lists Meta Ads accounts the user has access to. Requires `ads_read`.
@@ -697,17 +694,11 @@ export class MetaProvider {
       url.searchParams.set("access_token", opts.accessToken);
     }
     // App-secret proof hardens calls against leaked tokens.
-    url.searchParams.set(
-      "appsecret_proof",
-      await hmacSha256Hex(this.appSecret, opts.accessToken),
-    );
+    url.searchParams.set("appsecret_proof", await hmacSha256Hex(this.appSecret, opts.accessToken));
     return this.doFetch<T>(url.toString(), opts.method ?? "GET", opts.body);
   }
 
-  private async graphAbsolute<T>(
-    absoluteUrl: string,
-    accessToken?: string,
-  ): Promise<T> {
+  private async graphAbsolute<T>(absoluteUrl: string, accessToken?: string): Promise<T> {
     // Meta's `paging.next` URL keeps the original `access_token` but does NOT
     // re-sign with `appsecret_proof`. When the app requires proof, following
     // that URL as-is returns 400 and pagination silently truncates. Rebuild
@@ -719,10 +710,7 @@ export class MetaProvider {
         if (!url.searchParams.get("access_token")) {
           url.searchParams.set("access_token", token);
         }
-        url.searchParams.set(
-          "appsecret_proof",
-          await hmacSha256Hex(this.appSecret, token),
-        );
+        url.searchParams.set("appsecret_proof", await hmacSha256Hex(this.appSecret, token));
       }
       return this.doFetch<T>(url.toString(), "GET");
     } catch {
@@ -780,9 +768,7 @@ export class MetaProvider {
       token_type?: string;
       expires_in?: number;
     }>(url, "GET");
-    const expiresAt = data.expires_in
-      ? new Date(Date.now() + data.expires_in * 1000)
-      : undefined;
+    const expiresAt = data.expires_in ? new Date(Date.now() + data.expires_in * 1000) : undefined;
     return {
       accessToken: data.access_token,
       tokenType: data.token_type ?? "bearer",
@@ -842,7 +828,9 @@ async function stateSecret(): Promise<string> {
   return process.env.META_APP_SECRET ?? requireEnv("META_APP_SECRET");
 }
 
-export async function signOAuthState(payload: Omit<MetaStatePayload, "nonce" | "exp"> & { ttlSeconds?: number }): Promise<string> {
+export async function signOAuthState(
+  payload: Omit<MetaStatePayload, "nonce" | "exp"> & { ttlSeconds?: number },
+): Promise<string> {
   const nonceBytes = new Uint8Array(16);
   crypto.getRandomValues(nonceBytes);
   const nonce = b64urlEncode(nonceBytes);
