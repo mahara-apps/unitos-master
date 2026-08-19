@@ -411,3 +411,97 @@ describe("contrato das funções de servidor (mesmas usadas por access-guard)", 
     expect(cross.data).toBe(false);
   });
 });
+
+describe("papéis legados convergem para USER (sem papel operacional duplicado)", () => {
+  it("gravação legada 'editor'/'designer' em brand_members é normalizada para 'user'", async () => {
+    for (const legacy of ["editor", "designer"] as const) {
+      const up = await cx.owner.client
+        .from("brand_members")
+        .update({ role: legacy })
+        .eq("brand_id", cx.brandId)
+        .eq("user_id", cx.user.id);
+      expect(up.error, `update ${legacy}`).toBeNull();
+
+      const row = await cx.owner.client
+        .from("brand_members")
+        .select("role")
+        .eq("brand_id", cx.brandId)
+        .eq("user_id", cx.user.id)
+        .single();
+      expect(row.error).toBeNull();
+      expect(row.data!.role, `${legacy} deve ser armazenado como user`).toBe("user");
+      // Autoridade continua sendo exatamente USER (nunca capacidade distinta).
+      expect(await roleOf(cx.user, cx.brandId)).toBe("user");
+    }
+  });
+
+  it("nenhum papel legado permanece na marca de teste", async () => {
+    const rows = await cx.owner.client
+      .from("brand_members")
+      .select("role")
+      .eq("brand_id", cx.brandId);
+    expect(rows.error).toBeNull();
+    const roles = (rows.data ?? []).map((r) => r.role as string);
+    expect(roles).not.toContain("editor");
+    expect(roles).not.toContain("designer");
+    for (const r of roles) expect(["owner", "manager", "user", "client"]).toContain(r);
+  });
+});
+
+describe("escopo do USER depende de vínculo explícito", () => {
+  it("USER sem vínculo é negado; com vínculo em client_members é permitido", async () => {
+    const denied = await cx.user.client.rpc("can_access_client" as never, {
+      _client_id: cx.clientFree,
+      _user_id: cx.user.id,
+    } as never);
+    expect(denied.data, "cliente sem responsável/vínculo deve ser negado").toBe(false);
+
+    const link = await cx.owner.client.from("client_members").insert({
+      brand_id: cx.brandId,
+      client_id: cx.clientFree,
+      user_id: cx.user.id,
+      role: "user",
+    });
+    expect(link.error, link.error?.message).toBeNull();
+
+    const allowed = await cx.user.client.rpc("can_access_client" as never, {
+      _client_id: cx.clientFree,
+      _user_id: cx.user.id,
+    } as never);
+    expect(allowed.data, "vínculo explícito concede acesso").toBe(true);
+    expect(await visibleClients(cx.user.client, cx.brandId)).toContain(cx.clientFree);
+
+    await cx.owner.client
+      .from("client_members")
+      .delete()
+      .eq("client_id", cx.clientFree)
+      .eq("user_id", cx.user.id);
+  });
+
+  it("ADMIN e MANAGER cobrem a marca inteira, mas MANAGER não atravessa marcas", async () => {
+    for (const a of [cx.owner, cx.manager]) {
+      for (const id of [cx.clientFree, cx.clientOfUser, cx.clientOfManager]) {
+        const r = await a.client.rpc("can_access_client" as never, {
+          _client_id: id,
+          _user_id: a.id,
+        } as never);
+        expect(r.data, `${a.email} deveria acessar ${id}`).toBe(true);
+      }
+    }
+    const cross = await cx.manager.client.rpc("can_access_client" as never, {
+      _client_id: cx.otherBrandClient,
+      _user_id: cx.manager.id,
+    } as never);
+    expect(cross.data, "MANAGER não acessa outra marca").toBe(false);
+    expect(await roleOf(cx.manager, cx.otherBrandId)).toBeNull();
+  });
+
+  it("SUPER ADMIN é global no escopo de clientes", async () => {
+    if (!cx.superIsFlagged) return;
+    const r = await cx.superAdmin.client.rpc("can_access_client" as never, {
+      _client_id: cx.otherBrandClient,
+      _user_id: cx.superAdmin.id,
+    } as never);
+    expect(r.data).toBe(true);
+  });
+});
