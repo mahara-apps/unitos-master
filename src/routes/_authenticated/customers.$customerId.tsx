@@ -126,6 +126,19 @@ function CustomerDetail() {
     );
   }
 
+  // Nada de dado protegido é montado antes da validação de escopo terminar.
+  if (!isReady) return <HeaderFallback />;
+  if (denied) {
+    return (
+      <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+        <div className="flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <AlertTriangle className="mt-0.5 h-4 w-4" />
+          Você não é responsável por este cliente. Redirecionando…
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Suspense fallback={<HeaderFallback />}>
       <CustomerDetailReady
