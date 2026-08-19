@@ -46,8 +46,9 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
             "estrategia",
             "pauta",
             "producao",
-            "brain",
             "channels",
+            "conta",
+            // Aliases legados de links internos → resolvidos para "conta".
             "cadastro",
             "gestao",
           ])
@@ -63,10 +64,19 @@ type CustomerTab =
   | "estrategia"
   | "pauta"
   | "producao"
-  | "brain"
   | "channels"
+  | "conta"
   | "cadastro"
   | "gestao";
+
+/** Abas legadas que hoje vivem dentro da aba única "Conta". */
+const TAB_ALIASES: Partial<Record<CustomerTab, CustomerTab>> = {
+  cadastro: "conta",
+  gestao: "conta",
+};
+
+const resolveTab = (tab?: string): string =>
+  (tab && TAB_ALIASES[tab as CustomerTab]) || tab || "overview";
 
 const ALL_TABS = [
   { value: "overview", label: "Visão geral" },
@@ -75,9 +85,9 @@ const ALL_TABS = [
   { value: "pauta", label: "Pauta" },
   { value: "producao", label: "Produção" },
   { value: "channels", label: "Canais" },
-  { value: "gestao", label: "Gestão da conta" },
-  { value: "cadastro", label: "Cadastro" },
+  { value: "conta", label: "Conta" },
 ] as const;
+
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const isUuid = (v: string | null | undefined): v is string => !!v && UUID_RE.test(v);
