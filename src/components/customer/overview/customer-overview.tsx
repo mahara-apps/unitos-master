@@ -5,7 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { OverviewSkeleton } from "@/components/ai-agents/tab-skeletons";
 import { isValidScope } from "@/lib/customer-queries";
 import { loadCustomerDashboardFn } from "@/lib/customer-dashboard.functions";
@@ -222,7 +224,7 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
         contactEmail={client?.contact_email ?? null}
         niche={client?.niche ?? null}
         socials={(client?.socials ?? {}) as Record<string, string | undefined>}
-        onOpenCadastro={() => (onOpenTab ? onOpenTab("cadastro") : onOpenBriefing?.())}
+        onOpenCadastro={() => (onOpenTab ? onOpenTab("conta") : onOpenBriefing?.())}
       />
 
       {newAppointment ? (
