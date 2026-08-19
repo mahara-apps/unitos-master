@@ -729,7 +729,7 @@ function ApprovalDialog({
                     Previsto para {formatDate(post.scheduled_at as string)}
                   </span>
                 )}
-                {sla?.status !== "none" ? <SlaBadge sla={sla} /> : null}
+                {sla && sla.status !== "none" ? <SlaBadge sla={sla} /> : null}
               </div>
             </DialogHeader>
 
@@ -858,7 +858,7 @@ function ApprovalDialog({
                 <div className="flex flex-col gap-2">
                   <Button
                     size="sm"
-                    className="w-full bg-emerald-600 text-white hover:bg-emerald-600/90"
+                    className="w-full"
                     disabled={m.isPending}
                     onClick={() => m.mutate({ decision: "approved" })}
                   >

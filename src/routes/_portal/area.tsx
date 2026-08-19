@@ -81,7 +81,7 @@ function PortalAreaLayout() {
   const client = sessionQ.data.client;
   const brand = sessionQ.data.brand;
   const theme = sessionQ.data.theme;
-  const accent = theme?.accent || client.color || "#6366F1";
+  const accent = theme?.accent || client.color || "var(--primary)";
   const links = linksQ.data ?? [];
   const activeTab = activePortalTab(pathname, "/area");
 

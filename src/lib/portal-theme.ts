@@ -84,7 +84,7 @@ export function resolvePortalTheme(
 } {
   const custom = theme?.mode === "custom" ? theme : null;
   return {
-    accent: custom?.accent || fallback.color || "#6366F1",
+    accent: custom?.accent || fallback.color || "var(--primary)",
     logoUrl: custom?.logo_url ?? null,
     bg: custom?.bg ?? null,
     dark: custom?.dark ?? false,

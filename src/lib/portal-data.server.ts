@@ -18,7 +18,7 @@ type RpcError = { message: string } | null;
 type RpcClient = {
   rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: RpcError }>;
 };
-type SessionContext = { supabase: RpcClient };
+export type SessionContext = { supabase: RpcClient };
 type BasicMetrics = Omit<PortalMetrics, "sla">;
 
 function publicClient(): SupabaseClient {

@@ -17,7 +17,7 @@ export type PortalClient = {
   contact_name: string | null;
   contact_email: string | null;
   logo_url: string | null;
-  portal_theme?: Parameters<typeof normalizePortalTheme>[0];
+  portal_theme?: PortalJson;
 };
 
 export type PortalBrand = { id: string; name: string };

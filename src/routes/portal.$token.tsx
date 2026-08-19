@@ -12,7 +12,7 @@ import { activePortalTab } from "@/components/portal/portal-nav";
 
 /**
  * Portal por link (token) — mesma casca do portal por login (`PortalShell`) e a
- * mesma navegação única. Só a identidade digitada é exclusiva deste modo.
+ * mesma navegação única. A identidade das decisões é resolvida no servidor.
  */
 export const Route = createFileRoute("/portal/$token")({
   component: PortalShellRoute,
@@ -42,7 +42,7 @@ function PortalShellRoute() {
   const client = sessionQ.data.client;
   const brand = sessionQ.data.brand;
   const theme = sessionQ.data.theme;
-  const accent = theme?.accent || client.color || "#6366F1";
+  const accent = theme?.accent || client.color || "var(--primary)";
 
   return (
     <PortalModeProvider value={{ kind: "token", token }}>
