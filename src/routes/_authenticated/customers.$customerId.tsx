@@ -422,12 +422,13 @@ function CustomerDetailReady({
                 <ProductionTab brandId={brandId} clientId={customerId} />
               </TabsContent>
 
-              <TabsContent value="cadastro">
+              {/* Aba única "Conta": cadastro (identidade/contato/redes) +
+                  gestão (contrato/jornada). Cada informação tem uma só fonte. */}
+              <TabsContent value="conta" className="space-y-6">
                 <BasicInfoTab brandId={brandId} clientId={customerId} />
-              </TabsContent>
-              <TabsContent value="gestao">
                 <AccountManagementTab brandId={brandId} clientId={customerId} />
               </TabsContent>
+
               <TabsContent value="channels">
                 <ChannelsTab brandId={brandId} clientId={customerId} />
               </TabsContent>
