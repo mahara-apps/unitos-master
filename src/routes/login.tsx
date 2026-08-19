@@ -125,6 +125,13 @@ function BrandPanel() {
         className="pointer-events-none absolute -top-28 right-[-12%] -z-10 h-80 w-80 rotate-12 rounded-[38%] border border-white/10 bg-white/[0.03]"
       />
 
+      <img
+        src={logoLight.url}
+        alt="Unitos"
+        draggable={false}
+        className="mb-10 h-9 w-auto select-none object-contain"
+      />
+
       <div className="max-w-md">
         <p className="text-3xl font-semibold leading-tight tracking-tight xl:text-4xl">
           Tudo o que sua equipe precisa para organizar, aprovar e acompanhar sua operação.
