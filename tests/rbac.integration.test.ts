@@ -47,7 +47,7 @@ async function actor(slot: string): Promise<Actor> {
 type Ctx = {
   brandId: string;
   otherBrandId: string;
-  clientFree: string; // sem responsável → visível a toda a equipe da marca
+  clientFree: string; // sem responsável e sem vínculo → invisível para USER
   clientOfUser: string; // owner_user_id = USER
   clientOfManager: string; // fora do escopo do USER
   otherBrandClient: string;
@@ -115,7 +115,7 @@ beforeAll(async () => {
 
   const bm = await owner.client.from("brand_members").insert([
     { brand_id: brandId, user_id: manager.id, role: "manager" },
-    { brand_id: brandId, user_id: user.id, role: "designer" },
+    { brand_id: brandId, user_id: user.id, role: "user" },
   ]);
   if (bm.error) throw new Error(`brand_members: ${bm.error.message}`);
 
@@ -303,7 +303,7 @@ describe("escrita: INSERT / UPDATE / DELETE via RLS", () => {
 
   // Regra canônica (Fase 1 — blindagem do Settings): identidade/dados da marca
   // são administráveis por super_admin / admin (owner) / manager.
-  it("MANAGER e ADMIN editam a marca; EDITOR não", async () => {
+  it("MANAGER e ADMIN editam a marca; USER não", async () => {
     const m = await cx.manager.client
       .from("brands")
       .update({ name: `RBAC Manager ${TAG}` })
