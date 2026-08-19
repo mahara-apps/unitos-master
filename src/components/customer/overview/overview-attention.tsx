@@ -2,6 +2,7 @@ import { AlertTriangle, CheckCircle2, ShieldCheck } from "lucide-react";
 import { formatDistanceToNow, isPast } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { OverviewCard, OverviewEmpty } from "./overview-shared";
 
 export type AttentionAlert = {
@@ -23,7 +24,9 @@ export function OverviewAttention({
   alerts,
   overdue,
   onOpenTasks,
+  className,
 }: {
+  className?: string;
   alerts: AttentionAlert[];
   overdue: OverdueTask[];
   onOpenTasks?: () => void;
@@ -38,8 +41,13 @@ export function OverviewAttention({
 
   return (
     <OverviewCard
-      title="Atenção"
-      subtitle={ordered.length > 0 ? `${ordered.length} ponto(s) de atenção` : "Sem pendências"}
+      className={cn(className)}
+      title="Precisa da sua atenção"
+      subtitle={
+        ordered.length > 0
+          ? `${ordered.length} ${ordered.length === 1 ? "ponto pendente" : "pontos pendentes"}`
+          : "Nada pendente agora"
+      }
       icon={<ShieldCheck className="h-4 w-4" />}
     >
       {ordered.length === 0 && overdue.length === 0 ? (

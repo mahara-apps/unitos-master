@@ -28,7 +28,7 @@ import {
   relativeDue,
 } from "@/components/tasks/shared";
 import { ProductionTab } from "@/components/customer/production/production-tab";
-import { OverviewCard } from "@/components/customer/overview/overview-shared";
+import { PanelError, PanelSection } from "@/components/customer/ui/panel-section";
 
 export function WorkTab({ brandId, clientId }: { brandId: string; clientId: string }) {
   const qc = useQueryClient();
@@ -83,44 +83,51 @@ export function WorkTab({ brandId, clientId }: { brandId: string; clientId: stri
           icon={<FolderKanban />}
           label="Projetos"
           value={projectsQ.isPending ? "—" : counters.projects}
-          description="Do cliente neste workspace"
+          description="Entregas deste cliente"
         />
         <PageKpi
           icon={<ListTodo />}
           label="Tarefas abertas"
           value={tasksQ.isPending ? "—" : counters.open}
           status="info"
-          description="Não concluídas"
+          description="Ainda em andamento"
         />
         <PageKpi
           icon={<AlertTriangle />}
           label="Atrasadas"
           value={tasksQ.isPending ? "—" : counters.overdue}
           status={counters.overdue > 0 ? "danger" : "neutral"}
-          description="Prazo vencido"
+          description="Passaram do prazo"
         />
         <PageKpi
           icon={<CheckCircle2 />}
           label="Concluídas"
           value={tasksQ.isPending ? "—" : counters.done}
           status="success"
-          description="Total ativo"
+          description="Já finalizadas"
         />
       </PageKpiGrid>
 
-      <OverviewCard
-        title="Projetos"
-        subtitle="Mesma base de /projects, filtrada por este cliente."
+      <PanelSection
+        padded={false}
+        icon={<FolderKanban />}
+        title="Projetos do cliente"
+        description="Entregas em andamento, com progresso de publicação."
         action={
           <Button asChild size="sm" variant="outline" className="h-8 gap-1.5">
             <Link to="/projects" search={{} as never}>
-              Abrir projetos
+              Ver todos
               <ExternalLink className="h-3.5 w-3.5" />
             </Link>
           </Button>
         }
       >
-        {projectsQ.isPending ? (
+        {projectsQ.isError ? (
+          <PanelError
+            message="Não foi possível carregar os projetos deste cliente."
+            onRetry={() => projectsQ.refetch()}
+          />
+        ) : projectsQ.isPending ? (
           <div className="space-y-2 p-4">
             <Skeleton className="h-12 w-full rounded-lg" />
             <Skeleton className="h-12 w-full rounded-lg" />
@@ -128,7 +135,7 @@ export function WorkTab({ brandId, clientId }: { brandId: string; clientId: stri
         ) : projects.length === 0 ? (
           <PanelEmptyState
             icon={<FolderKanban className="h-4 w-4" />}
-            text="Nenhum projeto ainda — projetos nascem da aprovação da pauta ou de /projetos."
+            text="Nenhum projeto ainda. Aprove uma pauta para gerar as entregas automaticamente."
           />
         ) : (
           <ul className="divide-y divide-border/60">
@@ -164,21 +171,28 @@ export function WorkTab({ brandId, clientId }: { brandId: string; clientId: stri
             })}
           </ul>
         )}
-      </OverviewCard>
+      </PanelSection>
 
-      <OverviewCard
-        title="Tarefas abertas"
-        subtitle="Mesma base de /tarefas — abre o painel completo da tarefa."
+      <PanelSection
+        padded={false}
+        icon={<ListTodo />}
+        title="Tarefas em aberto"
+        description="Prazos, responsáveis e subtarefas. Clique para abrir a tarefa."
         action={
           <Button asChild size="sm" variant="outline" className="h-8 gap-1.5">
             <Link to="/tasks" search={{ view: "list", groupBy: "status" } as never}>
-              Abrir tarefas
+              Ver todas
               <ExternalLink className="h-3.5 w-3.5" />
             </Link>
           </Button>
         }
       >
-        {tasksQ.isPending ? (
+        {tasksQ.isError ? (
+          <PanelError
+            message="Não foi possível carregar as tarefas deste cliente."
+            onRetry={() => tasksQ.refetch()}
+          />
+        ) : tasksQ.isPending ? (
           <div className="space-y-2 p-4">
             <Skeleton className="h-10 w-full rounded-lg" />
             <Skeleton className="h-10 w-full rounded-lg" />
@@ -186,7 +200,7 @@ export function WorkTab({ brandId, clientId }: { brandId: string; clientId: stri
         ) : openTasks.length === 0 ? (
           <PanelEmptyState
             icon={<ListTodo className="h-4 w-4" />}
-            text="Nenhuma tarefa aberta para este cliente."
+            text="Nenhuma tarefa em aberto. Tudo o que estava previsto já foi concluído."
           />
         ) : (
           <ul className="divide-y divide-border/60">
@@ -225,7 +239,7 @@ export function WorkTab({ brandId, clientId }: { brandId: string; clientId: stri
             })}
           </ul>
         )}
-      </OverviewCard>
+      </PanelSection>
 
       {/* Produção/volumetria: componente já existente, sem duplicação. */}
       <ProductionTab brandId={brandId} clientId={clientId} />

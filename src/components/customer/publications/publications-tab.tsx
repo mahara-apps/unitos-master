@@ -24,7 +24,7 @@ import { listPublicationBoardFn, type PublicationItem } from "@/lib/calendar-boa
 import { PublicationRow } from "@/components/calendar/board/publication-card";
 import { PublicationDetailModal } from "@/components/calendar/board/publication-detail";
 import { ChannelsTab } from "@/components/customer/channels-tab";
-import { OverviewCard } from "@/components/customer/overview/overview-shared";
+import { PanelError, PanelSection } from "@/components/customer/ui/panel-section";
 
 const DAY = 86_400_000;
 
@@ -78,34 +78,36 @@ export function PublicationsTab({ brandId, clientId }: { brandId: string; client
           label="Agendadas"
           value={boardQ.isPending ? "—" : counters.scheduled}
           status="info"
-          description="Próximos 60 dias"
+          description="Com data marcada"
         />
         <PageKpi
           icon={<CheckCircle2 />}
           label="Publicadas"
           value={boardQ.isPending ? "—" : counters.published}
           status="success"
-          description="Últimos 30 dias"
+          description="Nos últimos 30 dias"
         />
         <PageKpi
           icon={<TriangleAlert />}
           label="Com falha"
           value={boardQ.isPending ? "—" : counters.problems}
           status={counters.problems > 0 ? "danger" : "neutral"}
-          description="Falha total ou parcial"
+          description="Precisam de nova tentativa"
         />
         <PageKpi
           icon={<Megaphone />}
           label="Aguardando aprovação"
           value={boardQ.isPending ? "—" : counters.awaiting}
           status={counters.awaiting > 0 ? "warning" : "neutral"}
-          description="Fila de aprovação"
+          description="Esperando resposta do cliente"
         />
       </PageKpiGrid>
 
-      <OverviewCard
-        title="Publicações do cliente"
-        subtitle="Mesma base da Central de Publicação — 30 dias atrás até 60 dias à frente."
+      <PanelSection
+        padded={false}
+        icon={<Megaphone />}
+        title="Próximas publicações e histórico"
+        description="Últimos 30 dias e próximos 60 dias, em ordem de data."
         action={
           <Button asChild size="sm" variant="outline" className="h-8 gap-1.5">
             <Link to="/calendar">
@@ -115,22 +117,20 @@ export function PublicationsTab({ brandId, clientId }: { brandId: string; client
           </Button>
         }
       >
-        {boardQ.isPending ? (
+        {boardQ.isError ? (
+          <PanelError
+            message="Não foi possível carregar as publicações deste cliente."
+            onRetry={() => boardQ.refetch()}
+          />
+        ) : boardQ.isPending ? (
           <div className="space-y-2 p-4">
             <Skeleton className="h-12 w-full rounded-lg" />
             <Skeleton className="h-12 w-full rounded-lg" />
           </div>
-        ) : boardQ.isError ? (
-          <div className="space-y-3 px-5 py-6 text-sm text-destructive">
-            <p>Não foi possível carregar as publicações deste cliente.</p>
-            <Button size="sm" variant="outline" className="h-8" onClick={() => boardQ.refetch()}>
-              Tentar novamente
-            </Button>
-          </div>
         ) : ordered.length === 0 ? (
           <PanelEmptyState
             icon={<Megaphone className="h-4 w-4" />}
-            text="Nenhuma publicação nesta janela — agende pelo calendário."
+            text="Nenhuma publicação neste período. Agende uma pelo calendário para começar."
           />
         ) : (
           <div className="divide-y divide-border/60">
@@ -139,7 +139,7 @@ export function PublicationsTab({ brandId, clientId }: { brandId: string; client
             ))}
           </div>
         )}
-      </OverviewCard>
+      </PanelSection>
 
       {/* Destinos de publicação (contas sociais vinculadas a este cliente). */}
       <ChannelsTab brandId={brandId} clientId={clientId} />

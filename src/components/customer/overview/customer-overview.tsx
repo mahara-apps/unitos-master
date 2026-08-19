@@ -3,7 +3,6 @@
 // Consome apenas server functions já existentes; nenhum dado mockado.
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
@@ -11,12 +10,11 @@ import { Button } from "@/components/ui/button";
 import { OverviewSkeleton } from "@/components/ai-agents/tab-skeletons";
 import { isValidScope } from "@/lib/customer-queries";
 import { loadCustomerDashboardFn } from "@/lib/customer-dashboard.functions";
-import { getBrandHub } from "@/lib/brand-hub.functions";
-import { computeBriefingCompletion } from "@/lib/briefing-progress";
 import { listTasksFn } from "@/lib/tasks.functions";
 import { listScheduledPostsFn } from "@/lib/calendar.functions";
 import { listCalendarEventsFn } from "@/lib/calendar-events.functions";
 import { EventDialog } from "@/components/calendar/event-dialog";
+import { OverviewKpis } from "./overview-kpis";
 import { OverviewSummary } from "./overview-summary";
 import { OverviewAttention } from "./overview-attention";
 import { OverviewPipeline } from "./overview-pipeline";
@@ -35,11 +33,9 @@ type Props = {
 
 export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab }: Props) {
   const loadFn = useServerFn(loadCustomerDashboardFn);
-  const fetchHub = useServerFn(getBrandHub);
   const listTasks = useServerFn(listTasksFn);
   const listScheduled = useServerFn(listScheduledPostsFn);
   const listEvents = useServerFn(listCalendarEventsFn);
-  const navigate = useNavigate();
   const [newAppointment, setNewAppointment] = useState(false);
   const scopeValid = isValidScope({ brandId, clientId });
 
@@ -53,13 +49,6 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
       if (/row-level security|permission denied|unauthorized|forbidden/i.test(msg)) return false;
       return failureCount < 2;
     },
-  });
-
-  const hubQ = useQuery({
-    queryKey: ["brand-hub", brandId, clientId],
-    queryFn: () => fetchHub({ data: { brandId, clientId } }),
-    staleTime: 30_000,
-    enabled: scopeValid,
   });
 
   const tasksQ = useQuery({
@@ -140,9 +129,6 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
   const data = q.data;
   const m = data.metrics;
   const client = data.client;
-  const briefingCompletion = hubQ.data
-    ? computeBriefingCompletion(hubQ.data.brand_hub ?? {}, hubQ.data)
-    : null;
 
   const tasks = tasksQ.data ?? [];
   const now = Date.now();
@@ -171,59 +157,65 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
   ].sort((a, b) => new Date(a.when).getTime() - new Date(b.when).getTime());
 
   return (
-    <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
-      {/* Linha 1 — o que está acontecendo agora */}
-      <OverviewSummary
+    <div className="space-y-6">
+      {/* Primeiro o que importa: números-chave da conta. */}
+      <OverviewKpis
         health={m.health.score}
-        breakdown={m.health.breakdown}
-        totalTasks={tasks.length || m.openTasks + m.doneTasks}
-        overdueTasks={overdue.length}
-        contentTotal={data.pipeline.total}
-        briefingCompletion={briefingCompletion}
-      />
-      <OverviewAttention
-        alerts={data.alerts ?? []}
-        overdue={overdue}
-        // Tarefas do cliente vivem na aba "Trabalho" do próprio painel.
-        onOpenTasks={() => onOpenTab?.("trabalho")}
-      />
-
-      {/* Linha 2 — o que precisa ser feito */}
-      <OverviewPipeline
-        stages={data.pipeline.stages.map((s) => ({
-          key: s.key,
-          label: s.label,
-          count: s.count,
-          color: s.color,
-        }))}
-        total={data.pipeline.total}
-        pipelineName={data.pipeline.pipelineName}
-      />
-      <OverviewUpcoming items={upcoming} onNewAppointment={() => setNewAppointment(true)} />
-
-      {/* Linha 3 — como está a operação */}
-      <OverviewPerformance
-        published={m.published}
-        scheduled={m.scheduled}
         pendingApprovals={m.pendingApprovals}
-        totalApprovals={m.totalApprovals}
-        decidedApprovals={m.decidedApprovals}
-        aiJobs={m.aiJobsCount}
-        aiCost30d={m.costTotal30d}
-        costSpark={m.costSpark}
-        onOpenChannels={() => onOpenTab?.("publicacoes")}
+        overdueTasks={overdue.length}
+        scheduled={m.scheduled}
+        contentTotal={data.pipeline.total}
+        loading={tasksQ.isPending}
+        onOpenTab={onOpenTab}
       />
-      <OverviewBrain brandId={brandId} clientId={clientId} />
 
-      {/* Linha 4 — o que o sistema percebeu */}
-      <OverviewActivity activity={data.activity ?? []} />
-      <OverviewClientInfo
-        contactName={client?.contact_name ?? null}
-        contactEmail={client?.contact_email ?? null}
-        niche={client?.niche ?? null}
-        socials={(client?.socials ?? {}) as Record<string, string | undefined>}
-        onOpenCadastro={() => (onOpenTab ? onOpenTab("conta") : onOpenBriefing?.())}
-      />
+      {/* Depois o que precisa de atenção e o que vem a seguir. */}
+      <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3">
+        <OverviewAttention
+          className="lg:col-span-2"
+          alerts={data.alerts ?? []}
+          overdue={overdue}
+          // Tarefas do cliente vivem na aba "Trabalho" do próprio painel.
+          onOpenTasks={() => onOpenTab?.("trabalho")}
+        />
+        <OverviewUpcoming items={upcoming} onNewAppointment={() => setNewAppointment(true)} />
+      </div>
+
+      <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3">
+        <OverviewSummary health={m.health.score} breakdown={m.health.breakdown} />
+        <OverviewPipeline
+          stages={data.pipeline.stages.map((s) => ({
+            key: s.key,
+            label: s.label,
+            count: s.count,
+            color: s.color,
+          }))}
+          total={data.pipeline.total}
+          pipelineName={data.pipeline.pipelineName}
+        />
+        <OverviewPerformance
+          published={m.published}
+          scheduled={m.scheduled}
+          pendingApprovals={m.pendingApprovals}
+          totalApprovals={m.totalApprovals}
+          decidedApprovals={m.decidedApprovals}
+          onOpenChannels={() => onOpenTab?.("publicacoes")}
+        />
+      </div>
+
+      {/* Por último o histórico e os dados de contato. */}
+      <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3">
+        <OverviewActivity className="lg:col-span-2" activity={data.activity ?? []} />
+        <OverviewClientInfo
+          contactName={client?.contact_name ?? null}
+          contactEmail={client?.contact_email ?? null}
+          niche={client?.niche ?? null}
+          socials={(client?.socials ?? {}) as Record<string, string | undefined>}
+          onOpenCadastro={() => (onOpenTab ? onOpenTab("conta") : onOpenBriefing?.())}
+        />
+      </div>
+
+      <OverviewBrain brandId={brandId} clientId={clientId} />
 
       {newAppointment ? (
         <EventDialog
