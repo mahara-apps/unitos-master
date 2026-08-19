@@ -182,9 +182,12 @@ export async function resolveTokenPortal(token: string): Promise<PortalResolveRe
 }
 
 export async function resolveSessionPortal(context: SessionContext, clientId?: string): Promise<PortalResolveResult> {
+  // Cliente obrigatório: sem ele o banco cairia no "último cliente visto".
+  if (!clientId) throw new Error("portal_client_context_required");
   const result = await sessionRpc<Omit<PortalResolveResult, "theme" | "error">>(context, "portal_resolve", {
-    _client_id: clientId ?? null,
+    _client_id: clientId,
   });
+  if (result.clientId && result.clientId !== clientId) throw new Error("portal_client_context_mismatch");
   return resolvedTheme(result);
 }
 
@@ -193,7 +196,7 @@ async function tokenScope(token: string) {
 }
 
 async function sessionScope(context: SessionContext, clientId?: string) {
-  return resolveSessionScope(context.supabase, clientId ?? null);
+  return resolveSessionScope(context.supabase, clientId);
 }
 
 export async function tokenMetrics(token: string): Promise<PortalMetrics> {
@@ -294,7 +297,8 @@ export async function tokenFiles(token: string, search?: string) {
 }
 
 export async function sessionFiles(context: SessionContext, clientId: string | undefined, search?: string) {
-  const rows = await sessionRpc<PortalFile[]>(context, "portal_files", { _client_id: clientId ?? null, _search: search?.trim() || null });
+  const scope = await sessionScope(context, clientId);
+  const rows = await sessionRpc<PortalFile[]>(context, "portal_files", { _client_id: scope.clientId, _search: search?.trim() || null });
   return Promise.all((rows ?? []).map(async (file) => ({ ...file, url: await signPortalDocument(file.storage_path) })));
 }
 
@@ -302,6 +306,7 @@ export function tokenBriefings(token: string) {
   return publicRpc<PortalBriefing[]>("portal_briefings", { _token: token });
 }
 
-export function sessionBriefings(context: SessionContext, clientId?: string) {
-  return sessionRpc<PortalBriefing[]>(context, "portal_briefings", { _client_id: clientId ?? null });
+export async function sessionBriefings(context: SessionContext, clientId?: string) {
+  const scope = await sessionScope(context, clientId);
+  return sessionRpc<PortalBriefing[]>(context, "portal_briefings", { _client_id: scope.clientId });
 }

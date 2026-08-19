@@ -19,7 +19,7 @@ import type {
  */
 
 const tokenIn = z.object({ token: z.string().min(8) });
-const scopeIn = z.object({ clientId: z.string().uuid().optional() });
+const scopeIn = z.object({ clientId: z.string().uuid() });
 
 const decisionShape = {
   decision: z.enum(["approve", "reject", "changes", "per_item"]),
@@ -44,7 +44,7 @@ export const listPortalSessionPlansFn = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<PortalPlanSummary[]> => {
     const { resolveSessionScope, scopedAdmin } = await import("@/lib/portal-scope.server");
     const { listPlansForClient } = await import("@/lib/monthly-plan-decision.server");
-    const scope = await resolveSessionScope(context.supabase, data.clientId ?? null);
+    const scope = await resolveSessionScope(context.supabase, data.clientId);
     return listPlansForClient(await scopedAdmin(), scope.clientId);
   });
 
@@ -54,7 +54,7 @@ export const getPortalSessionPlanFn = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<PublicPlanResolve> => {
     const { resolveSessionScope, scopedAdmin } = await import("@/lib/portal-scope.server");
     const { loadPlanForClient } = await import("@/lib/monthly-plan-decision.server");
-    const scope = await resolveSessionScope(context.supabase, data.clientId ?? null);
+    const scope = await resolveSessionScope(context.supabase, data.clientId);
     return loadPlanForClient(await scopedAdmin(), data.planId, scope.clientId);
   });
 
@@ -66,7 +66,7 @@ export const decidePortalSessionPlanFn = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<PublicPlanDecisionResult> => {
     const { resolveSessionScope, scopedAdmin } = await import("@/lib/portal-scope.server");
     const { decidePlanAsClient } = await import("@/lib/monthly-plan-decision.server");
-    const scope = await resolveSessionScope(context.supabase, data.clientId ?? null);
+    const scope = await resolveSessionScope(context.supabase, data.clientId);
     return decidePlanAsClient(await scopedAdmin(), {
       planId: data.planId,
       clientId: scope.clientId,

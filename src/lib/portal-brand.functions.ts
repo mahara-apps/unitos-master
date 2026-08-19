@@ -60,12 +60,12 @@ export const getPortalBrandHubFn = createServerFn({ method: "POST" })
 export const getPortalSessionBrandHubFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z.object({ clientId: z.string().uuid().optional() }).parse(i ?? {}),
+    z.object({ clientId: z.string().uuid() }).parse(i ?? {}),
   )
   .handler(async ({ context, data }): Promise<PortalBrandHub> => {
     const scope = await resolveSessionScope(
       (context as { supabase: unknown }).supabase,
-      data.clientId ?? null,
+      data.clientId,
     );
     return readBrandHub(scope.clientId, scope.brandId);
   });

@@ -48,9 +48,14 @@ import { sessionTabPath, tokenTabRoute, type PortalTabId } from "./portal-nav";
 
 export type PortalMode =
   | { kind: "token"; token: string }
-  | { kind: "session"; clientId?: string | null };
+  | { kind: "session"; clientId: string };
 
-const ModeContext = createContext<PortalMode>({ kind: "session", clientId: null });
+/**
+ * Não existe modo "sessão sem cliente": o cliente do contexto é obrigatório e
+ * resolvido/validado antes de montar o provider. Sem provider, qualquer consulta
+ * falha explicitamente em vez de cair em outro cliente.
+ */
+const ModeContext = createContext<PortalMode | null>(null);
 
 export function PortalModeProvider({
   value,
@@ -62,14 +67,17 @@ export function PortalModeProvider({
   return <ModeContext.Provider value={value}>{children}</ModeContext.Provider>;
 }
 
-export function usePortalMode() {
-  return useContext(ModeContext);
+export function usePortalMode(): PortalMode {
+  const mode = useContext(ModeContext);
+  if (!mode) throw new Error("portal_context_missing");
+  return mode;
 }
 
 /** Chave estável para o react-query, isolando cliente/token. */
 export function portalScopeKey(mode: PortalMode): string {
-  return mode.kind === "token" ? `t:${mode.token}` : `s:${mode.clientId ?? "default"}`;
+  return mode.kind === "token" ? `t:${mode.token}` : `s:${mode.clientId}`;
 }
+
 
 type ApprovalStatus = "all" | "pending" | "approved" | "adjust";
 type PostDecision = "approved" | "rejected" | "adjust" | "comment";
@@ -114,8 +122,10 @@ export function usePortalApi() {
   return useMemo(() => {
     const isToken = mode.kind === "token";
     const token = mode.kind === "token" ? mode.token : "";
-    const clientId = mode.kind === "session" ? (mode.clientId ?? undefined) : undefined;
-    const base = isToken ? { token } : clientId ? { clientId } : {};
+    // Modo sessão SEMPRE viaja com o cliente do contexto: nunca vazio/omitido.
+    const base = { clientId: mode.kind === "session" ? mode.clientId : "" };
+
+
 
     return {
       isToken,
@@ -210,8 +220,13 @@ export function PortalLink({
     );
   }
   return (
-    <Link to={sessionTabPath(tab) as "/area/inicio"} {...shared}>
+    <Link
+      to={sessionTabPath(tab) as "/area/inicio"}
+      search={{ cliente: mode.clientId }}
+      {...shared}
+    >
       {children}
     </Link>
+
   );
 }
