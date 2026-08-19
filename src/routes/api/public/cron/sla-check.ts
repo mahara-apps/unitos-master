@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { insertNotificationsDeduped } from "@/lib/notifications-dedupe";
+import { assertCronRequest } from "@/lib/cron-auth.server";
 
 
 /**
@@ -18,14 +19,8 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apikey = request.headers.get("apikey") ?? request.headers.get("x-api-key");
-        const expected = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY;
-        if (!apikey || !expected || apikey !== expected) {
-          return new Response(JSON.stringify({ error: "unauthorized" }), {
-            status: 401,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
+        const cronDenied = assertCronRequest(request);
+        if (cronDenied) return cronDenied;
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 

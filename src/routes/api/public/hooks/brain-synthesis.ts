@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { assertCronRequest } from "@/lib/cron-auth.server";
 
 // Cron endpoint: sintetiza feedbacks de rework em insights consolidados.
 // Chamado por pg_cron 1×/dia; gate por apikey (SUPABASE_PUBLISHABLE_KEY).
@@ -6,11 +7,8 @@ export const Route = createFileRoute("/api/public/hooks/brain-synthesis")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apiKey = request.headers.get("apikey") ?? "";
-        const expected = process.env.SUPABASE_PUBLISHABLE_KEY ?? "";
-        if (!expected || apiKey !== expected) {
-          return new Response("unauthorized", { status: 401 });
-        }
+        const cronDenied = assertCronRequest(request);
+        if (cronDenied) return cronDenied;
         const { runBrainSynthesis } = await import(
           "@/lib/brain/learning/synthesize.server"
         );
