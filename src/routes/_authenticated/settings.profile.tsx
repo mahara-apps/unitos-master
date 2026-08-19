@@ -3,7 +3,17 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Bell, Clock, Globe, KeyRound, Loader2, MessageCircle, Save, ShieldCheck, User } from "lucide-react";
+import {
+  Bell,
+  Clock,
+  Globe,
+  KeyRound,
+  Loader2,
+  MessageCircle,
+  Save,
+  ShieldCheck,
+  User,
+} from "lucide-react";
 
 import { getMyProfile, updateMyProfile, changeMyPassword } from "@/lib/profile.functions";
 import { Input } from "@/components/ui/input";
@@ -111,7 +121,14 @@ function ProfilePage() {
 
   const initials = useMemo(() => {
     const n = form?.full_name ?? data?.full_name ?? data?.email ?? "?";
-    return n.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("") || "U";
+    return (
+      n
+        .split(" ")
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((p) => p[0]?.toUpperCase() ?? "")
+        .join("") || "U"
+    );
   }, [form?.full_name, data?.full_name, data?.email]);
 
   const baseline = useMemo(() => (data ? toForm(data) : null), [data]);
@@ -220,9 +237,17 @@ function ProfilePage() {
 
       <div className="mt-4 border-t border-border/50 pt-4">
         <SettingsMetaList>
-          <SettingsMetaItem label="Função" icon={<User className="h-3.5 w-3.5" />} value={<span className="capitalize">{roleLabel}</span>} />
+          <SettingsMetaItem
+            label="Função"
+            icon={<User className="h-3.5 w-3.5" />}
+            value={<span className="capitalize">{roleLabel}</span>}
+          />
           <SettingsMetaItem label="Fuso" icon={<Clock className="h-3.5 w-3.5" />} value={tzShort} />
-          <SettingsMetaItem label="Idioma" icon={<Globe className="h-3.5 w-3.5" />} value={localeLabel} />
+          <SettingsMetaItem
+            label="Idioma"
+            icon={<Globe className="h-3.5 w-3.5" />}
+            value={localeLabel}
+          />
           <SettingsMetaItem
             label="WhatsApp"
             icon={<MessageCircle className="h-3.5 w-3.5" />}
@@ -425,10 +450,7 @@ function ProfilePage() {
             </SettingsFieldGrid>
           </SettingsBlock>
 
-          <SettingsBlock
-            title="Sessão"
-            description="Informações de acesso vinculadas à sua conta."
-          >
+          <SettingsBlock title="Sessão" description="Informações de acesso vinculadas à sua conta.">
             <SettingsRow
               icon={<ShieldCheck className="h-4 w-4" />}
               title={data?.email ?? "—"}

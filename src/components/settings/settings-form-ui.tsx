@@ -104,9 +104,7 @@ export function SettingsRow({
 
 /** Metadados compactos da conta (função, fuso, idioma, WhatsApp…). */
 export function SettingsMetaList({ children }: { children: ReactNode }) {
-  return (
-    <dl className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[12px]">{children}</dl>
-  );
+  return <dl className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[12px]">{children}</dl>;
 }
 
 export function SettingsMetaItem({
