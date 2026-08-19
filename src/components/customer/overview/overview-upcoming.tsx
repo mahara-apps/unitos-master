@@ -70,8 +70,9 @@ export function OverviewUpcoming({
                   <div className="truncate text-[13px] font-medium">{it.title}</div>
                   <div className="text-[11px] capitalize text-muted-foreground">
                     {dayLabel(it.when)}
-                    {it.allDay ? " · dia inteiro" : ` · ${format(new Date(it.when), "HH:mm")}`} ·{" "}
-                    {meta.label}
+                    {it.allDay
+                      ? " · dia inteiro"
+                      : ` · ${format(new Date(it.when), "HH:mm")}`} · {meta.label}
                   </div>
                 </div>
               </li>

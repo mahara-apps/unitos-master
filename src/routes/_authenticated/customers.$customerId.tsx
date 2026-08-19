@@ -46,8 +46,9 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
             "estrategia",
             "pauta",
             "producao",
-            "brain",
             "channels",
+            "conta",
+            // Aliases legados de links internos → resolvidos para "conta".
             "cadastro",
             "gestao",
           ])
@@ -63,10 +64,19 @@ type CustomerTab =
   | "estrategia"
   | "pauta"
   | "producao"
-  | "brain"
   | "channels"
+  | "conta"
   | "cadastro"
   | "gestao";
+
+/** Abas legadas que hoje vivem dentro da aba única "Conta". */
+const TAB_ALIASES: Partial<Record<CustomerTab, CustomerTab>> = {
+  cadastro: "conta",
+  gestao: "conta",
+};
+
+const resolveTab = (tab?: string): string =>
+  (tab && TAB_ALIASES[tab as CustomerTab]) || tab || "overview";
 
 const ALL_TABS = [
   { value: "overview", label: "Visão geral" },
@@ -75,8 +85,7 @@ const ALL_TABS = [
   { value: "pauta", label: "Pauta" },
   { value: "producao", label: "Produção" },
   { value: "channels", label: "Canais" },
-  { value: "gestao", label: "Gestão da conta" },
-  { value: "cadastro", label: "Cadastro" },
+  { value: "conta", label: "Conta" },
 ] as const;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -200,28 +209,25 @@ function CustomerDetailReady({
   const fetchHub = useServerFn(getBrandHub);
   const qc = useQueryClient();
   const TABS = ALL_TABS;
-  const [activeTab, setActiveTab] = useState<string>(initialTab ?? "overview");
+  const [activeTab, setActiveTab] = useState<string>(resolveTab(initialTab));
   const [wizardOpen, setWizardOpen] = useState(false);
   const [planId, setPlanIdState] = useState<string | null>(initialPlanId ?? null);
   const navigate = useNavigate();
   const { pathname } = useLocation();
 
-  useEffect(() => {
-    if (activeTab === "brain") setActiveTab("briefing");
-  }, [activeTab]);
-
   // Sincroniza com ?tab=... (links internos como "Editar em Cadastro").
   useEffect(() => {
-    if (initialTab && initialTab !== "brain") setActiveTab(initialTab);
+    if (initialTab) setActiveTab(resolveTab(initialTab));
   }, [initialTab]);
 
   // Troca de aba mantém a URL compartilhável (?tab=...).
   const goToTab = (value: string) => {
-    setActiveTab(value);
+    const next = resolveTab(value);
+    setActiveTab(next);
     navigate({
       to: "/customers/$customerId",
       params: { customerId },
-      search: { tab: value, ...(value === "pauta" && planId ? { planId } : {}) } as never,
+      search: { tab: next, ...(next === "pauta" && planId ? { planId } : {}) } as never,
       replace: true,
     });
   };
@@ -283,15 +289,8 @@ function CustomerDetailReady({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openOnboarding, customerId]);
 
-  // Bridge from "Editar em Cadastro" link inside Cérebro tab.
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const detail = (e as CustomEvent<string>).detail;
-      if (typeof detail === "string") setActiveTab(detail);
-    };
-    window.addEventListener("nx:switch-customer-tab", handler);
-    return () => window.removeEventListener("nx:switch-customer-tab", handler);
-  }, []);
+  // Troca de aba interna acontece por prop (`onOpenTab`) ou por `?tab=` na URL —
+  // não existe mais ponte global via window/CustomEvent.
 
   usePageHeader(
     {
@@ -310,7 +309,7 @@ function CustomerDetailReady({
     qc.invalidateQueries({ queryKey: CUSTOMER_QUERY_KEYS.legacyContext(scope) });
   };
 
-  // Sub-rotas do painel (brain, media-plan) renderizam sozinhas.
+  // Sub-rotas do painel (ex.: /media-plan) renderizam sozinhas.
   const isChildRoute = pathname.replace(/\/+$/, "") !== `/customers/${customerId}`;
   if (isChildRoute) return <Outlet />;
 
@@ -419,12 +418,13 @@ function CustomerDetailReady({
                 <ProductionTab brandId={brandId} clientId={customerId} />
               </TabsContent>
 
-              <TabsContent value="cadastro">
+              {/* Aba única "Conta": cadastro (identidade/contato/redes) +
+                  gestão (contrato/jornada). Cada informação tem uma só fonte. */}
+              <TabsContent value="conta" className="space-y-6">
                 <BasicInfoTab brandId={brandId} clientId={customerId} />
-              </TabsContent>
-              <TabsContent value="gestao">
                 <AccountManagementTab brandId={brandId} clientId={customerId} />
               </TabsContent>
+
               <TabsContent value="channels">
                 <ChannelsTab brandId={brandId} clientId={customerId} />
               </TabsContent>

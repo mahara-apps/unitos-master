@@ -5,7 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { OverviewSkeleton } from "@/components/ai-agents/tab-skeletons";
 import { isValidScope } from "@/lib/customer-queries";
 import { loadCustomerDashboardFn } from "@/lib/customer-dashboard.functions";
@@ -94,7 +96,46 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
     }
   }, [q.error]);
 
-  if (!scopeValid || q.isLoading || !q.data) return <OverviewSkeleton />;
+  // Escopo inválido → nada a carregar (não é loading nem erro).
+  if (!scopeValid) {
+    return (
+      <div className="rounded-xl border border-border/60 bg-card px-4 py-6 text-sm text-muted-foreground">
+        Selecione um workspace e um cliente para ver a visão geral.
+      </div>
+    );
+  }
+
+  // Erro real: estado explícito com ação de tentar novamente (nunca skeleton infinito).
+  if (q.isError) {
+    return (
+      <div className="space-y-3 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-5">
+        <div className="flex items-start gap-2.5 text-sm text-destructive">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <div className="min-w-0">
+            <p className="font-medium">Não foi possível carregar a visão geral.</p>
+            <p className="mt-0.5 text-[12px] opacity-80">
+              {(q.error as Error)?.message ?? "Erro inesperado ao consultar os dados da conta."}
+            </p>
+          </div>
+        </div>
+        <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => q.refetch()}>
+          <RefreshCw className="h-3.5 w-3.5" />
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
+
+  if (q.isPending) return <OverviewSkeleton />;
+
+  // Sucesso sem payload: estado vazio explícito.
+  if (!q.data) {
+    return (
+      <div className="rounded-xl border border-border/60 bg-card px-4 py-6 text-sm text-muted-foreground">
+        Nenhum dado disponível para este cliente ainda.
+      </div>
+    );
+  }
 
   const data = q.data;
   const m = data.metrics;
@@ -182,7 +223,7 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
         contactEmail={client?.contact_email ?? null}
         niche={client?.niche ?? null}
         socials={(client?.socials ?? {}) as Record<string, string | undefined>}
-        onOpenCadastro={() => (onOpenTab ? onOpenTab("cadastro") : onOpenBriefing?.())}
+        onOpenCadastro={() => (onOpenTab ? onOpenTab("conta") : onOpenBriefing?.())}
       />
 
       {newAppointment ? (

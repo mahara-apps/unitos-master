@@ -151,7 +151,11 @@ export function PortalThemeForm({ clientId }: { clientId: string }) {
             <div className="flex items-center gap-3">
               <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border border-border/60 bg-background">
                 {theme.logo_url ? (
-                  <img src={theme.logo_url} alt="Logo do portal" className="h-full w-full object-contain" />
+                  <img
+                    src={theme.logo_url}
+                    alt="Logo do portal"
+                    className="h-full w-full object-contain"
+                  />
                 ) : (
                   <ImageUp className="h-4 w-4 text-muted-foreground" />
                 )}

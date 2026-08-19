@@ -34,7 +34,6 @@ import {
 import { PortalThemeForm } from "@/components/customer/portal-theme-form";
 import { PortalAccessSection } from "@/components/customer/portal-access-section";
 
-
 const EXPIRY_OPTIONS = [
   { value: "never", label: "Sem expiração" },
   { value: "7", label: "7 dias" },
@@ -272,8 +271,6 @@ export function PortalLinkCard({
       </CardContent>
 
       <PortalAccessSection clientId={clientId} />
-
-
 
       {active && (
         <CustomizeModal

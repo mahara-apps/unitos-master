@@ -1,6 +1,7 @@
 import { BarChart3, Plug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sparkline } from "@/components/dashboard/sparkline";
+import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import { OverviewCard, OverviewEmpty, OverviewLink } from "./overview-shared";
 
 export function OverviewPerformance({
@@ -26,9 +27,7 @@ export function OverviewPerformance({
 }) {
   const hasData =
     published > 0 || scheduled > 0 || totalApprovals > 0 || aiJobs > 0 || aiCost30d > 0;
-  const approvalPct = totalApprovals
-    ? Math.round((decidedApprovals / totalApprovals) * 100)
-    : 0;
+  const approvalPct = totalApprovals ? Math.round((decidedApprovals / totalApprovals) * 100) : 0;
 
   return (
     <OverviewCard
@@ -50,17 +49,17 @@ export function OverviewPerformance({
         />
       ) : (
         <div className="flex h-full flex-col justify-between gap-4">
-          <div className="grid grid-cols-2 gap-3">
-            <Metric label="Publicações" value={published} />
-            <Metric label="Agendadas" value={scheduled} />
-            <Metric
+          <PageKpiGrid columns={2}>
+            <PageKpi label="Publicações" value={published} />
+            <PageKpi label="Agendadas" value={scheduled} />
+            <PageKpi
               label="Aprovações pendentes"
               value={pendingApprovals}
-              hint={totalApprovals ? `${approvalPct}% resolvidas` : undefined}
-              alert={pendingApprovals > 0}
+              status={pendingApprovals > 0 ? "warning" : "neutral"}
+              description={totalApprovals ? `${approvalPct}% resolvidas` : undefined}
             />
-            <Metric label="Execuções de IA" value={aiJobs} />
-          </div>
+            <PageKpi label="Execuções de IA" value={aiJobs} />
+          </PageKpiGrid>
           <div className="flex items-end justify-between gap-3 rounded-xl bg-muted/30 px-3 py-2.5">
             <div>
               <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -80,29 +79,5 @@ export function OverviewPerformance({
         </div>
       )}
     </OverviewCard>
-  );
-}
-
-function Metric({
-  label,
-  value,
-  hint,
-  alert,
-}: {
-  label: string;
-  value: number | string;
-  hint?: string;
-  alert?: boolean;
-}) {
-  return (
-    <div className="rounded-xl bg-muted/30 px-3 py-2.5">
-      <div className="truncate text-[10px] uppercase tracking-wider text-muted-foreground">
-        {label}
-      </div>
-      <div className={`mt-0.5 text-xl font-semibold tabular-nums ${alert ? "text-amber-400" : ""}`}>
-        {value}
-      </div>
-      {hint ? <div className="text-[11px] text-muted-foreground">{hint}</div> : null}
-    </div>
   );
 }

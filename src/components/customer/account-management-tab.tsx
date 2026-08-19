@@ -65,13 +65,7 @@ import {
 const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const DATE_FMT = new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium" });
 
-export function AccountManagementTab({
-  brandId,
-  clientId,
-}: {
-  brandId: string;
-  clientId: string;
-}) {
+export function AccountManagementTab({ brandId, clientId }: { brandId: string; clientId: string }) {
   const qc = useQueryClient();
   const fetchAccount = useServerFn(getClientAccountFn);
   const fetchTeam = useServerFn(listBrandTeam);
@@ -121,7 +115,8 @@ export function AccountManagementTab({
         toast.success("Estágio atualizado.");
       }
     },
-    onError: (e: Error) => toast.error("Não foi possível mover o estágio", { description: e.message }),
+    onError: (e: Error) =>
+      toast.error("Não foi possível mover o estágio", { description: e.message }),
   });
 
   const [moveDialog, setMoveDialog] = useState<{ open: boolean; stage: JourneyStage | null }>({
@@ -189,13 +184,12 @@ export function AccountManagementTab({
         <JourneyHistory timeline={timeline} />
       </div>
 
-
       <MoveDialog
         open={moveDialog.open}
         onOpenChange={(o) => setMoveDialog((s) => ({ ...s, open: o }))}
         currentStage={currentStage}
         toStage={moveDialog.stage}
-        mapping={moveDialog.stage ? mappingByStage.get(moveDialog.stage) ?? null : null}
+        mapping={moveDialog.stage ? (mappingByStage.get(moveDialog.stage) ?? null) : null}
         templates={templatesQ.data ?? []}
         isSubmitting={moveMut.isPending}
         onConfirm={(payload) => {
@@ -253,30 +247,28 @@ function AccountInfoCard({
 
   const mrr = account.monthly_contract_value ?? 0;
   const daysToRenewal = account.contract_renewal_date
-    ? Math.round(
-        (new Date(account.contract_renewal_date).getTime() - Date.now()) / 86_400_000,
-      )
+    ? Math.round((new Date(account.contract_renewal_date).getTime() - Date.now()) / 86_400_000)
     : null;
   const tenureMonths = account.contract_start_date
     ? Math.max(
         0,
         Math.round(
-          (Date.now() - new Date(account.contract_start_date).getTime()) /
-            (30 * 86_400_000),
+          (Date.now() - new Date(account.contract_start_date).getTime()) / (30 * 86_400_000),
         ),
       )
     : null;
 
-  const dirty = useMemo(() => JSON.stringify(form) !== JSON.stringify(toForm(account)), [form, account]);
+  const dirty = useMemo(
+    () => JSON.stringify(form) !== JSON.stringify(toForm(account)),
+    [form, account],
+  );
 
   const submit = () => {
     onSubmit({
       monthly_contract_value: form.monthly_contract_value
         ? Number(form.monthly_contract_value.replace(",", "."))
         : null,
-      margin_percent: form.margin_percent
-        ? Number(form.margin_percent.replace(",", "."))
-        : null,
+      margin_percent: form.margin_percent ? Number(form.margin_percent.replace(",", ".")) : null,
       contract_start_date: form.contract_start_date || null,
       contract_renewal_date: form.contract_renewal_date || null,
       contract_status: form.contract_status,
@@ -395,9 +387,7 @@ function AccountInfoCard({
                 placeholder="0,00"
                 disabled={!canEdit}
                 value={form.monthly_contract_value}
-                onChange={(e) =>
-                  setForm((s) => ({ ...s, monthly_contract_value: e.target.value }))
-                }
+                onChange={(e) => setForm((s) => ({ ...s, monthly_contract_value: e.target.value }))}
               />
             </ProfileField>
             <ProfileField label="Margem (%)">
@@ -414,9 +404,7 @@ function AccountInfoCard({
                 type="date"
                 disabled={!canEdit}
                 value={form.contract_start_date}
-                onChange={(e) =>
-                  setForm((s) => ({ ...s, contract_start_date: e.target.value }))
-                }
+                onChange={(e) => setForm((s) => ({ ...s, contract_start_date: e.target.value }))}
               />
             </ProfileField>
             <ProfileField label="Renovação prevista">
@@ -424,9 +412,7 @@ function AccountInfoCard({
                 type="date"
                 disabled={!canEdit}
                 value={form.contract_renewal_date}
-                onChange={(e) =>
-                  setForm((s) => ({ ...s, contract_renewal_date: e.target.value }))
-                }
+                onChange={(e) => setForm((s) => ({ ...s, contract_renewal_date: e.target.value }))}
               />
             </ProfileField>
             <ProfileField label="Notas internas" full>
@@ -477,7 +463,6 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </div>
   );
 }
-
 
 /* -------------------------------------------------------------------------- */
 /*  Pipeline                                                                  */
@@ -560,7 +545,6 @@ function JourneyPipeline({
       </div>
     </ProfileSection>
   );
-
 }
 
 /* -------------------------------------------------------------------------- */
@@ -602,10 +586,9 @@ function JourneyHistory({
         <ol className="divide-y divide-border/40">
           {timeline.map((ev) => {
             const from = ev.from_stage
-              ? JOURNEY_STAGE_LABEL[ev.from_stage as JourneyStage] ?? ev.from_stage
+              ? (JOURNEY_STAGE_LABEL[ev.from_stage as JourneyStage] ?? ev.from_stage)
               : null;
-            const to =
-              JOURNEY_STAGE_LABEL[ev.to_stage as JourneyStage] ?? ev.to_stage;
+            const to = JOURNEY_STAGE_LABEL[ev.to_stage as JourneyStage] ?? ev.to_stage;
             return (
               <li key={ev.id} className="flex items-start gap-3 px-5 py-3 text-sm">
                 <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
@@ -629,9 +612,7 @@ function JourneyHistory({
                       </span>
                     )}
                   </div>
-                  {ev.note && (
-                    <div className="mt-1 text-xs text-muted-foreground">{ev.note}</div>
-                  )}
+                  {ev.note && <div className="mt-1 text-xs text-muted-foreground">{ev.note}</div>}
                   <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
                     <Clock className="h-3 w-3" />
                     {DATE_FMT.format(new Date(ev.created_at))}
@@ -645,7 +626,6 @@ function JourneyHistory({
       )}
     </ProfileSection>
   );
-
 }
 
 /* -------------------------------------------------------------------------- */
@@ -736,7 +716,10 @@ function MoveDialog({
             </label>
             {createProject && (
               <div className="mt-3">
-                <Select value={tplId || "__none"} onValueChange={(v) => setTplId(v === "__none" ? "" : v)}>
+                <Select
+                  value={tplId || "__none"}
+                  onValueChange={(v) => setTplId(v === "__none" ? "" : v)}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Selecionar template" />
                   </SelectTrigger>

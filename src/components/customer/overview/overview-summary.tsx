@@ -1,5 +1,6 @@
 import { Activity } from "lucide-react";
 import { HealthBar } from "@/components/dashboard/health-bar";
+import { PageKpi, PageKpiGrid, type KpiStatus } from "@/components/ui/page-kpi";
 import { OverviewCard } from "./overview-shared";
 
 export function OverviewSummary({
@@ -18,19 +19,16 @@ export function OverviewSummary({
   briefingCompletion: number | null;
 }) {
   const tone =
-    health >= 75
-      ? "text-emerald-400"
-      : health >= 50
-        ? "text-amber-400"
-        : "text-destructive";
+    health >= 75 ? "text-emerald-400" : health >= 50 ? "text-amber-400" : "text-destructive";
 
-  const stats = [
-    { label: "Tarefas", value: totalTasks },
-    { label: "Atrasadas", value: overdueTasks, alert: overdueTasks > 0 },
-    { label: "Conteúdos", value: contentTotal },
+  const stats: Array<{ label: string; value: number | string; status: KpiStatus }> = [
+    { label: "Tarefas", value: totalTasks, status: "neutral" },
+    { label: "Atrasadas", value: overdueTasks, status: overdueTasks > 0 ? "warning" : "neutral" },
+    { label: "Conteúdos", value: contentTotal, status: "neutral" },
     {
       label: "Briefing",
       value: briefingCompletion === null ? "—" : `${briefingCompletion}%`,
+      status: "neutral",
     },
   ];
 
@@ -59,22 +57,11 @@ export function OverviewSummary({
           <HealthBar score={health} className="mt-3" />
         </div>
 
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <PageKpiGrid columns={4}>
           {stats.map((s) => (
-            <div key={s.label} className="rounded-xl bg-muted/30 px-3 py-2.5">
-              <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                {s.label}
-              </div>
-              <div
-                className={`mt-0.5 text-xl font-semibold tabular-nums ${
-                  s.alert ? "text-amber-400" : ""
-                }`}
-              >
-                {s.value}
-              </div>
-            </div>
+            <PageKpi key={s.label} label={s.label} value={s.value} status={s.status} />
           ))}
-        </div>
+        </PageKpiGrid>
       </div>
     </OverviewCard>
   );

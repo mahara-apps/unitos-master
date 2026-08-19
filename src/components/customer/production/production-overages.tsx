@@ -36,13 +36,7 @@ function formatDate(v: string) {
   return new Date(v).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 }
 
-export function ProductionOverages({
-  brandId,
-  clientId,
-}: {
-  brandId: string;
-  clientId: string;
-}) {
+export function ProductionOverages({ brandId, clientId }: { brandId: string; clientId: string }) {
   const [status, setStatus] = useState<"pending" | "approved" | "rejected" | "all">("pending");
   const qc = useQueryClient();
   const { role } = useAccessRole();
@@ -110,7 +104,10 @@ export function ProductionOverages({
                   <Badge variant="outline" className="text-[10px]">
                     {PLAN_CHANNEL_LABEL[r.channel as PlanChannel] ?? r.channel}
                   </Badge>
-                  <Badge variant="outline" className={`text-[10px] ${STATUS_CLASS[r.status] ?? ""}`}>
+                  <Badge
+                    variant="outline"
+                    className={`text-[10px] ${STATUS_CLASS[r.status] ?? ""}`}
+                  >
                     {STATUS_LABEL[r.status] ?? r.status}
                   </Badge>
                 </div>

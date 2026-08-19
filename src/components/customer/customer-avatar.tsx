@@ -48,10 +48,7 @@ export function CustomerAvatar({
         />
       ) : null}
       <AvatarFallback
-        className={cn(
-          "rounded-md text-[10px] font-semibold text-white",
-          textClassName,
-        )}
+        className={cn("rounded-md text-[10px] font-semibold text-white", textClassName)}
         style={{ background: gradientFromName(name) }}
       >
         {initials}

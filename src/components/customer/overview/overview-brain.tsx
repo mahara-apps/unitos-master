@@ -7,13 +7,7 @@ import { OverviewCard, OverviewEmpty, OverviewLink } from "./overview-shared";
 
 const TOPIC = "comportamento do cliente, engajamento e histórico recente";
 
-export function OverviewBrain({
-  brandId,
-  clientId,
-}: {
-  brandId: string;
-  clientId: string;
-}) {
+export function OverviewBrain({ brandId, clientId }: { brandId: string; clientId: string }) {
   const load = useServerFn(loadBrainWidget);
   const q = useQuery({
     queryKey: ["overview-brain", brandId, clientId],
@@ -30,9 +24,7 @@ export function OverviewBrain({
     <OverviewCard
       title="Brain"
       subtitle={
-        q.data?.hasData
-          ? `${q.data.candidateCount} sinais identificados`
-          : "Inteligência da conta"
+        q.data?.hasData ? `${q.data.candidateCount} sinais identificados` : "Inteligência da conta"
       }
       icon={<Brain className="h-4 w-4" />}
       footer={<OverviewLink label="Ver insights" href="/brain" />}
