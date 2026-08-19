@@ -15,6 +15,8 @@ export async function publish(ctx: BrainContext, event: BrainEventInput): Promis
         source_module: event.source_module,
         event_type: event.event_type,
         actor_id: event.actor_id ?? ctx.userId,
+        entity_type: event.entity_type ?? null,
+        entity_id: event.entity_id ?? null,
         payload: event.payload,
       });
       if (error) console.error("[brain.events.publish]", error.message);
