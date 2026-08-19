@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import {
@@ -326,7 +326,7 @@ function ProjectsIndexPage() {
     color: string | null;
   }>;
 
-  const clientName = React.useCallback(
+  const clientName = useCallback(
     (id: string | null) => clients.find((c) => c.id === id)?.name ?? "",
     [clients],
   );
