@@ -112,17 +112,6 @@ function CustomerDetail() {
       </div>
     );
   }
-  if (!isUuid(customerId)) {
-    return (
-      <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-        <div className="flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          <AlertTriangle className="mt-0.5 h-4 w-4" />
-          Cliente inválido.
-        </div>
-      </div>
-    );
-  }
-
   // Nada de dado protegido é montado antes da validação de escopo terminar.
   if (!isReady) return <HeaderFallback />;
   if (denied) {
@@ -151,7 +140,7 @@ function CustomerDetail() {
 
 function HeaderFallback() {
   return (
-    <ScrollArea className="h-[calc(100vh-3.5rem)] bg-background">
+    <ScrollArea className="h-[calc(100dvh-3.5rem)] bg-background">
       <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -196,8 +185,7 @@ function CustomerDetailReady({
   const list = useServerFn(listClients);
   const fetchHub = useServerFn(getBrandHub);
   const qc = useQueryClient();
-  const TABS = ALL_TABS;
-  const [activeTab, setActiveTab] = useState<string>(resolveTab(initialTab));
+  const [activeTab, setActiveTab] = useState<CustomerTab>(resolveCustomerTab(initialTab));
   const [wizardOpen, setWizardOpen] = useState(false);
   const [planId, setPlanIdState] = useState<string | null>(initialPlanId ?? null);
   const navigate = useNavigate();
@@ -205,12 +193,12 @@ function CustomerDetailReady({
 
   // Sincroniza com ?tab=... (links internos como "Editar em Cadastro").
   useEffect(() => {
-    if (initialTab) setActiveTab(resolveTab(initialTab));
+    if (initialTab) setActiveTab(resolveCustomerTab(initialTab));
   }, [initialTab]);
 
   // Troca de aba mantém a URL compartilhável (?tab=...).
   const goToTab = (value: string) => {
-    const next = resolveTab(value);
+    const next = resolveCustomerTab(value);
     setActiveTab(next);
     navigate({
       to: "/customers/$customerId",
@@ -309,7 +297,7 @@ function CustomerDetailReady({
     .join("");
 
   return (
-    <ScrollArea className="h-[calc(100vh-3.5rem)] bg-background">
+    <ScrollArea className="h-[calc(100dvh-3.5rem)] bg-background">
       <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         {customer === undefined && !customersQ.isLoading ? (
           <div className="rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
@@ -348,12 +336,15 @@ function CustomerDetailReady({
             </header>
 
             <Tabs value={activeTab} onValueChange={goToTab} className="space-y-4">
-              <TabsList variant="bordered" className="flex-wrap">
-                {TABS.map((t) => (
+              <TabsList
+                variant="bordered"
+                className="w-full flex-nowrap justify-start gap-1 overflow-x-auto"
+              >
+                {CUSTOMER_TABS.map((t) => (
                   <TabsTrigger
                     key={t.value}
                     value={t.value}
-                    className="gap-1.5 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
+                    className="shrink-0 gap-1.5 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
                   >
                     {t.label}
                     {t.value === "briefing" && needsOnboarding && (
@@ -371,7 +362,7 @@ function CustomerDetailReady({
                 />
               </TabsContent>
 
-              <TabsContent value="briefing">
+              <TabsContent value="briefing" className="space-y-6">
                 <BriefingWorkspace
                   brandId={brandId}
                   clientId={customerId}
@@ -384,8 +375,7 @@ function CustomerDetailReady({
                     });
                   }}
                 />
-              </TabsContent>
-              <TabsContent value="estrategia">
+                {/* Estratégia IA vive junto do briefing que a gera (alias ?tab=estrategia). */}
                 <StrategyResults
                   brandId={brandId}
                   clientId={customerId}
@@ -402,8 +392,8 @@ function CustomerDetailReady({
                 />
               </TabsContent>
 
-              <TabsContent value="producao">
-                <ProductionTab brandId={brandId} clientId={customerId} />
+              <TabsContent value="trabalho">
+                <WorkTab brandId={brandId} clientId={customerId} />
               </TabsContent>
 
               {/* Aba única "Conta": cadastro (identidade/contato/redes) +
@@ -413,8 +403,8 @@ function CustomerDetailReady({
                 <AccountManagementTab brandId={brandId} clientId={customerId} />
               </TabsContent>
 
-              <TabsContent value="channels">
-                <ChannelsTab brandId={brandId} clientId={customerId} />
+              <TabsContent value="publicacoes">
+                <PublicationsTab brandId={brandId} clientId={customerId} />
               </TabsContent>
             </Tabs>
           </>
