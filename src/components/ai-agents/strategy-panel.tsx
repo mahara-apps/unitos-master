@@ -65,7 +65,7 @@ type Scope = { brandId: string; clientId: string };
 
 function tryParseJson(input: string): unknown {
   // Strip markdown fences
-  let s = input
+  const s = input
     .trim()
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/```\s*$/i, "")
