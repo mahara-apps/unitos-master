@@ -106,7 +106,7 @@ function slugifyMediaName(name: string) {
   return name
     .toLowerCase()
     .normalize("NFKD")
-    .replace(/[^\w.\-]+/g, "-")
+    .replace(/[^\w.-]+/g, "-")
     .replace(/-+/g, "-")
     .slice(0, 120);
 }

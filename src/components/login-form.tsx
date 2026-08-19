@@ -41,7 +41,9 @@ export function LoginForm() {
     try {
       const decoded = decodeURIComponent(raw);
       if (decoded.startsWith("/") && !decoded.startsWith("//")) return decoded;
-    } catch {}
+    } catch {
+      /* querystring inválida — usa destino padrão */
+    }
     return "/dashboard";
   }
 

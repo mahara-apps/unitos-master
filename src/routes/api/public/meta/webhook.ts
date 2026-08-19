@@ -82,15 +82,16 @@ export const Route = createFileRoute("/api/public/meta/webhook")({
 
         const byExternalId = new Map((matches ?? []).map((m) => [m.external_id, m]));
 
-        // 4) Enqueue each matched entry as a brain_event for async processing.
-        const rows = entries
+        // 4) Enqueue each matched entry no Event Bus do Brain (regra Brain-First:
+        //    nenhum acesso direto a tabelas brain_* fora de src/lib/brain/**).
+        const events = entries
           .map((entry) => {
             const match = byExternalId.get(String(entry.id));
             if (!match) return null;
             return {
+              brand_id: match.brand_id,
               source_module: "meta_webhook",
               event_type: `meta.${channel}.${detectEventType(entry)}`,
-              brand_id: match.brand_id,
               entity_type: "social_connection",
               entity_id: match.id,
               payload: {
@@ -99,14 +100,17 @@ export const Route = createFileRoute("/api/public/meta/webhook")({
                 external_id: String(entry.id),
                 connection_id: match.id,
                 entry,
-              } as import("@/integrations/supabase/types").Json,
+              } as Record<string, unknown>,
             };
           })
           .filter((r): r is NonNullable<typeof r> => r !== null);
 
-        if (rows.length > 0) {
-          const { error: insErr } = await supabaseAdmin.from("brain_events").insert(rows);
-          if (insErr) console.error("[meta.webhook] enqueue failed", insErr);
+        if (events.length > 0) {
+          const { brain } = await import("@/lib/brain/api");
+          const ctx = { supabase: supabaseAdmin, brandId: null, userId: null };
+          for (const ev of events) {
+            await brain.events.publish(ctx, ev);
+          }
         } else {
           console.warn(
             `[meta.webhook] no matching connection for channel=${channel} ids=${externalIds.join(",")}`,
