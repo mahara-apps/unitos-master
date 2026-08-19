@@ -167,3 +167,38 @@ Cada fase é fechada e testável isoladamente; nenhuma depende da seguinte.
 - Reorganização final em 6 abas (Trabalho e Publicações ainda não existem).
 - Guarda de acesso em `beforeLoad`.
 - Layout mobile / `ScrollArea` com `100vh` fixo.
+
+## Fase 3 — resultado (executada)
+
+Estrutura final (`/customers/$customerId?tab=`):
+`overview` Visão geral · `conta` Conta · `briefing` Briefing (inclui Estratégia IA)
+· `pauta` Pauta · `trabalho` Trabalho · `publicacoes` Publicações.
+
+- **Fonte única de navegação:** `src/lib/customer-tabs.ts` (abas, labels, ordem,
+  aliases, rota canônica, `customerPanelLink`, `customerBreadcrumbs`). Nenhum
+  outro arquivo declara mapa de abas do cliente.
+- **Guard de rota:** `beforeLoad` valida o `customerId` (UUID) → redirect para
+  `/customers`, e normaliza aliases de `?tab=` por redirect antes de montar a
+  tela. O gate de responsabilidade por cliente (`my_access`) continua bloqueando
+  a renderização antes de qualquer dado protegido. RLS segue como camada
+  definitiva de autorização.
+- **Aliases mantidos** (apenas para URLs/bookmarks antigos; links internos já
+  usam os valores canônicos): `cadastro`/`gestao`→`conta`,
+  `estrategia`→`briefing`, `producao`→`trabalho`, `channels`→`publicacoes`.
+- **Trabalho** = reúso de `listProjects`, `listTasksFn`, `TaskDrawer`/badges de
+  `components/tasks/shared` e `ProductionTab`.
+- **Publicações** = reúso de `listPublicationBoardFn`, `PublicationRow`,
+  `PublicationDetailModal` e `ChannelsTab`. O `ScheduleWizard` NÃO foi
+  incorporado (depende do contexto/estado da Central de Publicação) — a edição
+  continua em `/calendario`, sem duplicação.
+- **Sub-rotas preservadas (têm consumidor real):** `/customers/$id/brain`
+  (brand-client-switcher, new-customer-wizard), `/customers/$id/media-plan`
+  (/media-plans, create-media-plan-dialog), e os redirects `/briefing` e
+  `/pauta`.
+- **Mobile:** `100vh` → `100dvh`; tablist deixou de usar `flex-wrap` e agora é
+  uma faixa horizontal rolável (`flex-nowrap overflow-x-auto`, triggers
+  `shrink-0`), sem quebrar em 3 linhas e sem scroll duplo.
+
+### Fica para a Fase 4 (redesign visual)
+- Redesign de cards/hierarquia visual do painel e do header do cliente.
+- Reavaliar se "Estratégia IA" merece bloco colapsável dentro de Briefing.
