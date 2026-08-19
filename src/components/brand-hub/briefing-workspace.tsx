@@ -561,7 +561,7 @@ function IdentidadeTab({
             <Link
               to="/customers/$customerId"
               params={{ customerId: clientId }}
-              search={{ tab: "cadastro" } as never}
+              search={{ tab: "conta" } as never}
             >
               Editar em Cadastro
             </Link>

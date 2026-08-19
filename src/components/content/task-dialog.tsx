@@ -1169,7 +1169,7 @@ function TaskLayout({
               <Link
                 to="/customers/$customerId"
                 params={{ customerId: clientId }}
-                search={{ tab: "channels" }}
+                search={{ tab: "publicacoes" }}
                 className="text-xs font-medium text-primary underline-offset-4 hover:underline"
               >
                 Vincular canal

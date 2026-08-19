@@ -334,7 +334,7 @@ function NoChannelsEmpty({ clientId }: { clientId: string | null }) {
               <Link
                 to="/customers/$customerId"
                 params={{ customerId: clientId }}
-                search={{ tab: "channels" } as never}
+                search={{ tab: "publicacoes" } as never}
               >
                 Ir para Canais
               </Link>
