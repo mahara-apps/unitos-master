@@ -119,8 +119,6 @@ export function usePortalApi() {
 
     return {
       isToken,
-      /** Identidade é digitada no modo token; no login vem do usuário logado. */
-      requiresIdentity: isToken,
       scopeKey: portalScopeKey(mode),
       metrics: () => (isToken ? tMetrics({ data: { token } }) : sMetrics({ data: base })),
       approvals: (status: ApprovalStatus) =>
@@ -133,7 +131,6 @@ export function usePortalApi() {
         postId: string;
         decision: PostDecision;
         note?: string;
-        identity: string;
       }) =>
         isToken
           ? tDecide({ data: { token, ...input } })
