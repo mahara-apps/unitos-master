@@ -2,7 +2,6 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { CalendarDays, CheckCircle2, FileText, LayoutGrid } from "lucide-react";
 import { LoginForm } from "@/components/login-form";
-import { useBrandBranding } from "@/hooks/use-brand-branding";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/login")({
@@ -104,7 +103,6 @@ function LoginPage() {
 }
 
 function BrandPanel() {
-  const branding = useBrandBranding(null);
   return (
     <aside className="relative isolate hidden min-w-0 overflow-hidden bg-[linear-gradient(150deg,oklch(0.22_0.03_260)_0%,oklch(0.18_0.02_260)_55%,oklch(0.13_0.02_260)_100%)] text-primary-foreground lg:flex lg:flex-col lg:justify-between lg:p-14">
       <div
@@ -124,12 +122,6 @@ function BrandPanel() {
         className="pointer-events-none absolute -top-28 right-[-12%] -z-10 h-80 w-80 rotate-12 rounded-[38%] border border-white/10 bg-white/[0.03]"
       />
 
-      <img
-        src={branding.logoDark}
-        alt="Logo da agência"
-        draggable={false}
-        className="h-11 w-auto max-w-[190px] select-none self-start object-contain"
-      />
 
 
       <div className="max-w-md">
