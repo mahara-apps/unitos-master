@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Download,
@@ -69,11 +69,16 @@ function fileExt(name: string): string {
 export function PortalFiles() {
   const api = usePortalApi();
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [kind, setKind] = useState<FileKind>("all");
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => window.clearTimeout(timeout);
+  }, [search]);
 
   const q = useQuery({
-    queryKey: ["portal", "files", api.scopeKey, search],
-    queryFn: () => api.files(search),
+    queryKey: ["portal", "files", api.scopeKey, debouncedSearch],
+    queryFn: () => api.files(debouncedSearch),
   });
 
   const rows = useMemo(

@@ -44,6 +44,16 @@ export const PORTAL_TAB_LABEL: Record<PortalTabId, string> = PORTAL_TABS.reduce(
   {} as Record<PortalTabId, string>,
 );
 
+export const PORTAL_TAB_DESCRIPTION: Record<PortalTabId, string> = {
+  home: "Seu resumo, próximos passos e prazos em um só lugar.",
+  approvals: "Revise conteúdos e registre suas decisões com segurança.",
+  pauta: "Acompanhe e aprove o planejamento de conteúdo do mês.",
+  calendar: "Veja publicações, compromissos e datas importantes.",
+  briefing: "Responda solicitações e acompanhe a revisão da equipe.",
+  files: "Acesse os documentos liberados para sua marca.",
+  brand: "Consulte as informações que orientam a criação da sua marca.",
+};
+
 const SEGMENT = PORTAL_TABS.reduce(
   (acc, t) => ({ ...acc, [t.id]: t.segment }),
   {} as Record<PortalTabId, string>,

@@ -17,9 +17,9 @@ import {
   CheckCircle2,
   ArrowRight,
   Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -40,7 +40,6 @@ import {
   GridSkeleton,
   ListSkeleton,
   formatDate,
-  usePortalIdentity,
 } from "./portal-shared";
 
 /* ---------------------------------- HOME ---------------------------------- */
@@ -146,7 +145,7 @@ export function HomeTab() {
     return items.sort((a, b) => (a.when < b.when ? 1 : -1)).slice(0, 6);
   }, [calendarQ.data, plansQ.data, briefingQ.data]);
 
-  const failed = metricsQ.isError && plansQ.isError && briefingQ.isError && calendarQ.isError;
+  const failed = metricsQ.isError && pendingQ.isError && plansQ.isError && briefingQ.isError && calendarQ.isError;
   const loadingKpis = metricsQ.isLoading || plansQ.isLoading || briefingQ.isLoading;
   const kpiValue = (v: number) => (loadingKpis ? <Skeleton className="h-6 w-10" /> : v);
 
@@ -158,6 +157,7 @@ export function HomeTab() {
         description="Não conseguimos carregar seu resumo agora."
         onRetry={() => {
           metricsQ.refetch();
+          pendingQ.refetch();
           plansQ.refetch();
           briefingQ.refetch();
           calendarQ.refetch();
@@ -167,7 +167,7 @@ export function HomeTab() {
 
   return (
     <div className="space-y-6">
-      <PageKpiGrid columns={4}>
+      <PageKpiGrid columns={5}>
         <PortalLink tab="approvals" className="block">
           <PageKpi
             label="Aguardando aprovação"
@@ -208,6 +208,13 @@ export function HomeTab() {
             description="Publicações já com data"
           />
         </PortalLink>
+        <PageKpi
+          label="Prazos de produção"
+          value={metricsQ.isLoading ? <Skeleton className="h-6 w-10" /> : (metricsQ.data?.sla.overdue ?? 0)}
+          icon={<ShieldCheck />}
+          status={(metricsQ.data?.sla.overdue ?? 0) > 0 ? "danger" : (metricsQ.data?.sla.atRisk ?? 0) > 0 ? "warning" : "success"}
+          description={(metricsQ.data?.sla.overdue ?? 0) > 0 ? "Conteúdos fora do prazo" : (metricsQ.data?.sla.tracked ?? 0) > 0 ? "Produção dentro do prazo" : "Sem prazo em acompanhamento"}
+        />
       </PageKpiGrid>
 
       {/* Pendências */}
@@ -449,7 +456,6 @@ const EMPTY_BY_FILTER: Record<ApprovalFilter, { title: string; description: stri
 };
 
 export function ApprovalsTab() {
-  const identity = usePortalIdentity();
   const api = usePortalApi();
   const [filter, setFilter] = useState<ApprovalFilter>("pending");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -527,8 +533,6 @@ export function ApprovalsTab() {
       {openId && (
         <ApprovalDialog
           postId={openId}
-          identity={identity.value}
-          onIdentityChange={identity.save}
           onClose={() => setOpenId(null)}
         />
       )}
@@ -540,6 +544,7 @@ function ApprovalCard({ post, onOpen }: { post: Record<string, unknown>; onOpen:
   const status = ((post.approval as { status: string } | undefined)?.status ?? "pending") as string;
   const tone = decisionTone(status);
   const channels = Array.isArray(post.channels) ? (post.channels as string[]) : [];
+  const sla = post.sla as { status?: string; hoursRemaining?: number; hoursOverdue?: number } | undefined;
   return (
     <button
       onClick={onOpen}
@@ -593,6 +598,9 @@ function ApprovalCard({ post, onOpen }: { post: Record<string, unknown>; onOpen:
             {formatDate(post.scheduled_at as string)}
           </div>
         ) : null}
+        {sla?.status && sla.status !== "none" ? (
+          <SlaBadge sla={sla} />
+        ) : null}
       </div>
     </button>
   );
@@ -600,13 +608,9 @@ function ApprovalCard({ post, onOpen }: { post: Record<string, unknown>; onOpen:
 
 function ApprovalDialog({
   postId,
-  identity,
-  onIdentityChange,
   onClose,
 }: {
   postId: string;
-  identity: string;
-  onIdentityChange: (v: string) => void;
   onClose: () => void;
 }) {
   const qc = useQueryClient();
@@ -622,7 +626,7 @@ function ApprovalDialog({
     mutationFn: (payload: {
       decision: "approved" | "rejected" | "adjust" | "comment";
       note?: string;
-    }) => api.decidePost({ postId, identity, ...payload }),
+    }) => api.decidePost({ postId, ...payload }),
     onSuccess: (_r, vars) => {
       toast.success(
         vars.decision === "approved"
@@ -644,7 +648,6 @@ function ApprovalDialog({
     },
     onError: (e: Error) => toast.error(e.message),
   });
-  const disabled = api.requiresIdentity && !identity.trim();
   const post = q.data?.post;
   const approval = q.data?.approval;
   const media = q.data?.media ?? [];
@@ -658,6 +661,7 @@ function ApprovalDialog({
   }, [post?.cover_url, media]);
   const current = gallery[activeMedia] ?? gallery[0];
   const currentStatus = approval?.status ?? "pending";
+  const sla = post?.sla;
   const tone = decisionTone(currentStatus);
   const decided = Boolean(approval && approval.status !== "pending");
 
@@ -725,6 +729,7 @@ function ApprovalDialog({
                     Previsto para {formatDate(post.scheduled_at as string)}
                   </span>
                 )}
+                {sla && sla.status !== "none" ? <SlaBadge sla={sla} /> : null}
               </div>
             </DialogHeader>
 
@@ -734,6 +739,8 @@ function ApprovalDialog({
                   <Skeleton className="h-4 w-24" />
                   <Skeleton className="h-32 w-full" />
                 </>
+              ) : q.isError ? (
+                <ErrorState description="Não conseguimos carregar este conteúdo." onRetry={() => void q.refetch()} />
               ) : (
                 <>
                   {decided && approval && (
@@ -811,20 +818,6 @@ function ApprovalDialog({
 
             {/* Ações */}
             <div className="space-y-3 border-t border-border/60 bg-card/70 px-5 py-4">
-              {disabled && (
-                <div className="space-y-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 p-3">
-                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
-                    <User2 className="h-3 w-3" /> Identifique-se para decidir
-                  </div>
-                  <Input
-                    autoFocus
-                    value={identity}
-                    onChange={(e) => onIdentityChange(e.target.value)}
-                    placeholder="Seu nome"
-                    className="h-8 text-sm"
-                  />
-                </div>
-              )}
               {mode ? (
                 <div className="flex gap-2">
                   <Button
@@ -842,7 +835,7 @@ function ApprovalDialog({
                     size="sm"
                     className="flex-1"
                     variant={mode === "reject" ? "destructive" : "default"}
-                    disabled={disabled || m.isPending || (mode !== "comment" && !note.trim())}
+                    disabled={m.isPending || (mode !== "comment" && !note.trim())}
                     onClick={() =>
                       m.mutate({
                         decision: mode === "reject" ? "rejected" : mode,
@@ -865,8 +858,8 @@ function ApprovalDialog({
                 <div className="flex flex-col gap-2">
                   <Button
                     size="sm"
-                    className="w-full bg-emerald-600 text-white hover:bg-emerald-600/90"
-                    disabled={disabled || m.isPending}
+                    className="w-full"
+                    disabled={m.isPending}
                     onClick={() => m.mutate({ decision: "approved" })}
                   >
                     {m.isPending ? (
@@ -880,7 +873,6 @@ function ApprovalDialog({
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={disabled}
                       onClick={() => setMode("adjust")}
                     >
                       <MessageSquareWarning className="mr-1 h-4 w-4" /> Ajustes
@@ -888,7 +880,6 @@ function ApprovalDialog({
                     <Button
                       size="sm"
                       variant="outline"
-                      disabled={disabled}
                       onClick={() => setMode("reject")}
                     >
                       <X className="mr-1 h-4 w-4" /> Recusar
@@ -896,7 +887,6 @@ function ApprovalDialog({
                     <Button
                       size="sm"
                       variant="ghost"
-                      disabled={disabled}
                       onClick={() => setMode("comment")}
                     >
                       <MessageCircle className="mr-1 h-4 w-4" /> Comentar
@@ -913,6 +903,18 @@ function ApprovalDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function SlaBadge({ sla }: { sla: { status?: string; hoursRemaining?: number; hoursOverdue?: number } }) {
+  const hours = sla.status === "overdue" ? (sla.hoursOverdue ?? 0) : (sla.hoursRemaining ?? 0);
+  const duration = hours >= 24 ? `${Math.ceil(hours / 24)}d` : `${Math.ceil(hours)}h`;
+  if (sla.status === "overdue") {
+    return <Badge variant="outline" className="border-severity-critical/30 text-severity-critical">Prazo excedido · {duration}</Badge>;
+  }
+  if (sla.status === "at_risk") {
+    return <Badge variant="outline" className="border-severity-warning/30 text-severity-warning">Prazo próximo · {duration}</Badge>;
+  }
+  return <Badge variant="outline" className="border-health-good/30 text-health-good">No prazo · {duration}</Badge>;
 }
 
 /* -------------------------------- CALENDAR -------------------------------- */

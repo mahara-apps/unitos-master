@@ -1,19 +1,6 @@
-import { createContext, useContext } from "react";
-import { AlertTriangle, Home, Loader2 } from "lucide-react";
+import { AlertTriangle, Home, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-
-/* ------------------------------- identidade ------------------------------- */
-
-export type PortalIdentity = { value: string; save: (v: string) => void };
-
-const PortalIdentityContext = createContext<PortalIdentity>({ value: "", save: () => {} });
-
-export const PortalIdentityProvider = PortalIdentityContext.Provider;
-
-export function usePortalIdentity() {
-  return useContext(PortalIdentityContext);
-}
 
 /* --------------------------------- UI base -------------------------------- */
 
@@ -29,18 +16,29 @@ export function FullScreenLoader() {
   );
 }
 
-export function TokenError({ message }: { message?: string }) {
+export function PortalAccessError({ message, mode, onRetry }: { message?: string; mode: "token" | "session"; onRetry?: () => void }) {
+  const tokenMessage = message?.includes("token_expired")
+    ? "Este acesso expirou. Peça um novo link à equipe."
+    : message?.includes("token_revoked")
+      ? "Este acesso foi encerrado pela equipe."
+      : message?.includes("portal_rate_limited")
+        ? "Houve muitas tentativas. Aguarde alguns minutos e tente novamente."
+        : "Este acesso não está disponível. Peça um novo link à equipe.";
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background p-6">
-      <div className="max-w-md rounded-xl border border-border/60 bg-card p-6 text-center">
-        <h1 className="text-lg font-semibold">Link indisponível</h1>
+      <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-sm">
+        <AlertTriangle className="mx-auto h-7 w-7 text-severity-warning" />
+        <h1 className="mt-4 text-lg font-semibold">Acesso indisponível</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          {message === "token_expired"
-            ? "Este link expirou."
-            : message === "token_revoked"
-              ? "Este link foi revogado."
-              : "Este link não é válido. Peça um novo para sua equipe."}
+          {mode === "token"
+            ? tokenMessage
+            : "Não foi possível abrir sua área do cliente. Tente novamente ou entre novamente na sua conta."}
         </p>
+        {onRetry ? (
+          <Button size="sm" className="mt-5 gap-2" onClick={onRetry}>
+            <RefreshCw className="h-4 w-4" /> Tentar novamente
+          </Button>
+        ) : null}
       </div>
     </div>
   );

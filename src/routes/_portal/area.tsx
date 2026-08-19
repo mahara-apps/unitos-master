@@ -1,13 +1,12 @@
 import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { listMyPortalClientsFn, resolvePortalSessionFn } from "@/lib/portal-session.functions";
 import {
   FullScreenLoader,
-  PortalIdentityProvider,
-  TokenError,
+  PortalAccessError,
 } from "@/components/portal/portal-shared";
 import { PortalModeProvider } from "@/components/portal/portal-context";
 import { PortalShell } from "@/components/portal/portal-shell";
@@ -38,9 +37,7 @@ function PortalAreaLayout() {
   const listClients = useServerFn(listMyPortalClientsFn);
 
   const [clientId, setClientId] = useState<string | null>(null);
-  useEffect(() => {
-    setClientId(localStorage.getItem(STORAGE_KEY));
-  }, []);
+  const [scopeReady, setScopeReady] = useState(false);
   const pickClient = (id: string) => {
     setClientId(id);
     localStorage.setItem(STORAGE_KEY, id);
@@ -51,23 +48,40 @@ function PortalAreaLayout() {
     queryFn: () => listClients(),
     staleTime: 5 * 60_000,
   });
+  useEffect(() => {
+    if (!linksQ.data) return;
+    const saved = localStorage.getItem(STORAGE_KEY);
+    const validSaved = linksQ.data.some((link) => link.client_id === saved) ? saved : null;
+    const next = validSaved ?? linksQ.data[0]?.client_id ?? null;
+    if (next) localStorage.setItem(STORAGE_KEY, next);
+    else localStorage.removeItem(STORAGE_KEY);
+    setClientId(next);
+    setScopeReady(true);
+  }, [linksQ.data]);
   const sessionQ = useQuery({
     queryKey: ["portal", "session", clientId ?? "default"],
     queryFn: () => resolve({ data: clientId ? { clientId } : {} }),
-    retry: false,
+    enabled: scopeReady,
+    retry: 1,
     staleTime: 60_000,
   });
 
-  const identity = useMemo(() => ({ value: "", save: () => {} }), []);
-
-  if (sessionQ.isLoading) return <FullScreenLoader />;
-  if (sessionQ.error || !sessionQ.data?.client)
-    return <TokenError message={sessionQ.data?.error ?? (sessionQ.error as Error)?.message} />;
+  if (linksQ.isLoading || !scopeReady || sessionQ.isLoading) return <FullScreenLoader />;
+  if (linksQ.isError || sessionQ.isError)
+    return (
+      <PortalAccessError
+        mode="session"
+        message={((linksQ.error ?? sessionQ.error) as Error)?.message}
+        onRetry={() => { void linksQ.refetch(); void sessionQ.refetch(); }}
+      />
+    );
+  if (!sessionQ.data?.client)
+    return <PortalAccessError mode="session" message={sessionQ.data?.error} onRetry={() => void sessionQ.refetch()} />;
 
   const client = sessionQ.data.client;
   const brand = sessionQ.data.brand;
   const theme = sessionQ.data.theme;
-  const accent = theme?.accent || client.color || "#6366F1";
+  const accent = theme?.accent || client.color || "var(--primary)";
   const links = linksQ.data ?? [];
   const activeTab = activePortalTab(pathname, "/area");
 
@@ -78,8 +92,7 @@ function PortalAreaLayout() {
 
   return (
     <PortalModeProvider value={{ kind: "session", clientId: sessionQ.data.clientId }}>
-      <PortalIdentityProvider value={identity}>
-        <PortalShell
+      <PortalShell
           clientName={client.name}
           activeTab={activeTab}
           accent={accent}
@@ -114,8 +127,7 @@ function PortalAreaLayout() {
           }
         >
           <Outlet />
-        </PortalShell>
-      </PortalIdentityProvider>
+      </PortalShell>
     </PortalModeProvider>
   );
 }

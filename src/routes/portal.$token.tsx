@@ -1,13 +1,10 @@
 import { createFileRoute, Outlet, useRouterState } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { Input } from "@/components/ui/input";
 import { resolvePortalTokenFn } from "@/lib/portal-public.functions";
 import {
   FullScreenLoader,
-  PortalIdentityProvider,
-  TokenError,
+  PortalAccessError,
 } from "@/components/portal/portal-shared";
 import { PortalModeProvider } from "@/components/portal/portal-context";
 import { PortalShell } from "@/components/portal/portal-shell";
@@ -15,7 +12,7 @@ import { activePortalTab } from "@/components/portal/portal-nav";
 
 /**
  * Portal por link (token) — mesma casca do portal por login (`PortalShell`) e a
- * mesma navegação única. Só a identidade digitada é exclusiva deste modo.
+ * mesma navegação única. A identidade das decisões é resolvida no servidor.
  */
 export const Route = createFileRoute("/portal/$token")({
   component: PortalShellRoute,
@@ -24,20 +21,6 @@ export const Route = createFileRoute("/portal/$token")({
   }),
 });
 
-function useIdentity(clientId: string | null) {
-  const key = clientId ? `portal.identity.${clientId}` : null;
-  const [value, setValue] = useState("");
-  useEffect(() => {
-    if (!key) return;
-    setValue(localStorage.getItem(key) ?? "");
-  }, [key]);
-  const save = (v: string) => {
-    setValue(v);
-    if (key) localStorage.setItem(key, v);
-  };
-  return { value, save };
-}
-
 function PortalShellRoute() {
   const { token } = Route.useParams();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -45,25 +28,25 @@ function PortalShellRoute() {
   const sessionQ = useQuery({
     queryKey: ["portal", "session", token],
     queryFn: () => resolve({ data: { token } }),
-    retry: false,
+    retry: 1,
     staleTime: 5 * 60_000,
   });
-  const identity = useIdentity(sessionQ.data?.clientId ?? null);
   const activeTab = activePortalTab(pathname, `/portal/${token}`);
 
   if (sessionQ.isLoading) return <FullScreenLoader />;
-  if (sessionQ.error || !sessionQ.data?.client)
-    return <TokenError message={sessionQ.data?.error ?? (sessionQ.error as Error)?.message} />;
+  if (sessionQ.isError)
+    return <PortalAccessError mode="token" message={(sessionQ.error as Error)?.message} onRetry={() => void sessionQ.refetch()} />;
+  if (!sessionQ.data?.client)
+    return <PortalAccessError mode="token" message={sessionQ.data?.error} />;
 
   const client = sessionQ.data.client;
   const brand = sessionQ.data.brand;
   const theme = sessionQ.data.theme;
-  const accent = theme?.accent || client.color || "#6366F1";
+  const accent = theme?.accent || client.color || "var(--primary)";
 
   return (
     <PortalModeProvider value={{ kind: "token", token }}>
-      <PortalIdentityProvider value={identity}>
-        <PortalShell
+      <PortalShell
           clientName={client.name}
           activeTab={activeTab}
           accent={accent}
@@ -75,19 +58,9 @@ function PortalShellRoute() {
               ? (theme?.footerLabel ?? "")
               : (theme?.footerLabel ?? (brand?.name ? `por ${brand.name}` : ""))
           }
-          headerActions={
-            <Input
-              value={identity.value}
-              onChange={(e) => identity.save(e.target.value)}
-              aria-label="Seu nome, usado para registrar suas decisões"
-              placeholder="Seu nome (para registrar decisões)"
-              className="h-9 w-64"
-            />
-          }
         >
           <Outlet />
-        </PortalShell>
-      </PortalIdentityProvider>
+      </PortalShell>
     </PortalModeProvider>
   );
 }
