@@ -395,11 +395,14 @@ function CustomersIndexPage() {
           <PanelEmptyState
             icon={<Users className="h-4 w-4" />}
             text={
-              all.length === 0
-                ? "Nenhum cliente cadastrado ainda. Clique em “Novo cliente” para começar."
-                : "Nenhum cliente corresponde aos filtros aplicados."
+              all.length > 0
+                ? "Nenhum cliente corresponde aos filtros aplicados."
+                : accessRole === "admin"
+                  ? "Nenhum cliente cadastrado ainda. Clique em “Novo cliente” para começar."
+                  : "Nenhum cliente atribuído a você. Peça a um administrador para definir você como responsável ou vincular você ao cliente."
             }
           />
+
         ) : (
           <Table>
             <TableHeader>
