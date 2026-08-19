@@ -158,12 +158,17 @@ function toForm(client: BrandHubClient): FormState {
     >(
       (acc, c) => {
         const normalized = normalizeVolumetryBreakdown(hub.volumetry_breakdown)[c];
-        const legacyTotal = Number((hub.volumetry as Record<string, number> | undefined)?.[c] ?? 0) || 0;
+        const legacyTotal =
+          Number((hub.volumetry as Record<string, number> | undefined)?.[c] ?? 0) || 0;
         // Cliente legado (sem breakdown): deriva do total + formatos preferidos.
         acc[c] =
           normalized && Object.keys(normalized).length
             ? normalized
-            : breakdownFromTotal(c, legacyTotal, (hub.formats as Record<string, string[]> | undefined)?.[c] ?? []);
+            : breakdownFromTotal(
+                c,
+                legacyTotal,
+                (hub.formats as Record<string, string[]> | undefined)?.[c] ?? [],
+              );
         return acc;
       },
       {} as Record<SocialKey, Partial<Record<ContentFormat, number>>>,
@@ -282,17 +287,45 @@ export function BriefingWorkspace({
     queryKey: ["strategy-gate", brandId, clientId],
     queryFn: async () => {
       const [v, p, c, s] = await Promise.all([
-        supabase.from("brand_voice_cards").select("id").eq("brand_id", brandId).eq("client_id", clientId).eq("is_active", true).maybeSingle(),
-        supabase.from("brand_personas").select("id").eq("brand_id", brandId).eq("client_id", clientId).eq("is_active", true).maybeSingle(),
-        supabase.from("brand_cohorts").select("id").eq("brand_id", brandId).eq("client_id", clientId).eq("is_active", true).maybeSingle(),
-        supabase.from("brand_swot").select("id").eq("brand_id", brandId).eq("client_id", clientId).eq("is_active", true).maybeSingle(),
+        supabase
+          .from("brand_voice_cards")
+          .select("id")
+          .eq("brand_id", brandId)
+          .eq("client_id", clientId)
+          .eq("is_active", true)
+          .maybeSingle(),
+        supabase
+          .from("brand_personas")
+          .select("id")
+          .eq("brand_id", brandId)
+          .eq("client_id", clientId)
+          .eq("is_active", true)
+          .maybeSingle(),
+        supabase
+          .from("brand_cohorts")
+          .select("id")
+          .eq("brand_id", brandId)
+          .eq("client_id", clientId)
+          .eq("is_active", true)
+          .maybeSingle(),
+        supabase
+          .from("brand_swot")
+          .select("id")
+          .eq("brand_id", brandId)
+          .eq("client_id", clientId)
+          .eq("is_active", true)
+          .maybeSingle(),
       ]);
       return { voice: !!v.data, personas: !!p.data, cohorts: !!c.data, swot: !!s.data };
     },
     refetchOnWindowFocus: true,
   });
   const strategyReady =
-    !!strategyQ.data && strategyQ.data.voice && strategyQ.data.personas && strategyQ.data.cohorts && strategyQ.data.swot;
+    !!strategyQ.data &&
+    strategyQ.data.voice &&
+    strategyQ.data.personas &&
+    strategyQ.data.cohorts &&
+    strategyQ.data.swot;
 
   const runIdeas = async () => {
     setGenIdeas(true);
@@ -340,7 +373,9 @@ export function BriefingWorkspace({
         }),
       });
       if (!res.ok) throw new Error(await readApiError(res, "Falha ao iniciar a estratégia."));
-      toast.success("Estratégia rodando em segundo plano — acompanhe pelo indicador de IA no topo.");
+      toast.success(
+        "Estratégia rodando em segundo plano — acompanhe pelo indicador de IA no topo.",
+      );
       qc.invalidateQueries({ queryKey: ["ai-jobs", "active"] });
       qc.invalidateQueries({ queryKey: ["brand-hub", brandId, clientId] });
       setRegenOpen(false);
@@ -356,9 +391,7 @@ export function BriefingWorkspace({
     mutationFn: async () => {
       if (!form) return;
       const existing = hubQ.data?.brand_hub?.competitors ?? [];
-      const byHandle = new Map(
-        existing.map((c) => [c.handle.replace(/^@/, "").toLowerCase(), c]),
-      );
+      const byHandle = new Map(existing.map((c) => [c.handle.replace(/^@/, "").toLowerCase(), c]));
       const competitors = form.competitor_handles.map((raw) => {
         const handle = raw.replace(/^@/, "");
         const prev = byHandle.get(handle.toLowerCase());
@@ -398,10 +431,7 @@ export function BriefingWorkspace({
             volumetry: form.volumetry,
             volumetry_basis: form.volumetry_basis,
             // Fonte de verdade: o servidor recalcula `volumetry` a partir daqui.
-            volumetry_breakdown: form.volumetry_breakdown as Record<
-              string,
-              Record<string, number>
-            >,
+            volumetry_breakdown: form.volumetry_breakdown as Record<string, Record<string, number>>,
             formats: form.formats,
             goals: form.goals,
             competitors,
@@ -540,9 +570,15 @@ function IdentidadeTab({
 }) {
   const socials = (client.socials ?? {}) as Record<string, string | undefined>;
   const igRaw = (socials.instagram ?? "").trim();
-  const igHandle = igRaw ? igRaw.replace(/^@+/, "").replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/\/+$/, "") : "";
+  const igHandle = igRaw
+    ? igRaw
+        .replace(/^@+/, "")
+        .replace(/^https?:\/\/(www\.)?instagram\.com\//i, "")
+        .replace(/\/+$/, "")
+    : "";
   const color = (client.color ?? "").trim();
-  const paletteHasColor = !!color && form.palette.some((p) => p.hex.toLowerCase() === color.toLowerCase());
+  const paletteHasColor =
+    !!color && form.palette.some((p) => p.hex.toLowerCase() === color.toLowerCase());
   const addColorToPalette = () => {
     if (!color || paletteHasColor) return;
     setForm({
@@ -561,7 +597,7 @@ function IdentidadeTab({
             <Link
               to="/customers/$customerId"
               params={{ customerId: clientId }}
-              search={{ tab: "cadastro" } as never}
+              search={{ tab: "conta" } as never}
             >
               Editar em Cadastro
             </Link>
@@ -766,8 +802,7 @@ function AssetSlot({
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const invalidate = () =>
-    qc.invalidateQueries({ queryKey: ["brand-hub", brandId, clientId] });
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["brand-hub", brandId, clientId] });
 
   const handleFile = async (file: File) => {
     if (file.size > 5 * 1024 * 1024) return toast.error("Arquivo deve ter até 5 MB");
@@ -825,7 +860,13 @@ function AssetSlot({
           <div className="truncate text-[11px] text-muted-foreground">{hint}</div>
         </div>
         {currentUrl ? (
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={removeAsset} title="Remover">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-7 w-7"
+            onClick={removeAsset}
+            title="Remover"
+          >
             <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
           </Button>
         ) : null}
@@ -875,13 +916,7 @@ function AssetSlot({
 
 /* --- Produto / Público --- */
 
-function ProdutoTab({
-  form,
-  setForm,
-}: {
-  form: FormState;
-  setForm: (f: FormState) => void;
-}) {
+function ProdutoTab({ form, setForm }: { form: FormState; setForm: (f: FormState) => void }) {
   return (
     <SectionCard title="Produto e oferta" hint="Detalhe o que a marca vende e como se diferencia.">
       <div className="grid gap-4 md:grid-cols-2">
@@ -918,13 +953,7 @@ function ProdutoTab({
   );
 }
 
-function PublicoTab({
-  form,
-  setForm,
-}: {
-  form: FormState;
-  setForm: (f: FormState) => void;
-}) {
+function PublicoTab({ form, setForm }: { form: FormState; setForm: (f: FormState) => void }) {
   return (
     <SectionCard title="Público-alvo" hint="Quem compra, o que sente e como decide.">
       <div className="grid gap-4 md:grid-cols-2">
@@ -963,13 +992,7 @@ function PublicoTab({
 
 /* --- Concorrentes / Estética --- */
 
-function ConcorrentesTab({
-  form,
-  setForm,
-}: {
-  form: FormState;
-  setForm: (f: FormState) => void;
-}) {
+function ConcorrentesTab({ form, setForm }: { form: FormState; setForm: (f: FormState) => void }) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <SectionCard title="Concorrentes" hint="@handles ou nomes para monitoramento.">
@@ -992,16 +1015,13 @@ function ConcorrentesTab({
   );
 }
 
-function HashtagsTab({
-  form,
-  setForm,
-}: {
-  form: FormState;
-  setForm: (f: FormState) => void;
-}) {
+function HashtagsTab({ form, setForm }: { form: FormState; setForm: (f: FormState) => void }) {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <SectionCard title="Hashtags estratégicas" hint="Pressione Enter para adicionar cada hashtag.">
+      <SectionCard
+        title="Hashtags estratégicas"
+        hint="Pressione Enter para adicionar cada hashtag."
+      >
         <TagInput
           value={form.hashtags}
           onChange={(v) =>
@@ -1115,13 +1135,7 @@ function HashtagsTab({
 
 /* --- Volumetria --- */
 
-function VolumetriaTab({
-  form,
-  setForm,
-}: {
-  form: FormState;
-  setForm: (f: FormState) => void;
-}) {
+function VolumetriaTab({ form, setForm }: { form: FormState; setForm: (f: FormState) => void }) {
   const [extra, setExtra] = useState<SocialKey[]>([]);
   const basis = form.volumetry_basis;
   const maxQty = volumetryMax(basis);
@@ -1285,7 +1299,6 @@ function VolumetriaTab({
         </div>
       </SectionCard>
 
-
       <SectionCard title="Metas & restrições" hint="Objetivos de negócio e limitações.">
         <LabeledTextarea
           label="Metas e restrições"
@@ -1311,7 +1324,11 @@ const BRAIN_SECTIONS = [
   { id: "documentos", label: "Documentos & Contexto IA" },
 ] as const;
 
-type EssentialField = { key: "tone_text" | "mission" | "positioning" | "offer" | "audience"; label: string; sectionId: string };
+type EssentialField = {
+  key: "tone_text" | "mission" | "positioning" | "offer" | "audience";
+  label: string;
+  sectionId: string;
+};
 
 const ESSENTIAL_FIELDS: EssentialField[] = [
   { key: "tone_text", label: "Tom de voz", sectionId: "identidade" },
@@ -1322,7 +1339,9 @@ const ESSENTIAL_FIELDS: EssentialField[] = [
 ];
 
 function getMissingEssentials(form: FormState): EssentialField[] {
-  return ESSENTIAL_FIELDS.filter((f) => !((form as unknown as Record<string, string | undefined>)[f.key] ?? "").trim());
+  return ESSENTIAL_FIELDS.filter(
+    (f) => !((form as unknown as Record<string, string | undefined>)[f.key] ?? "").trim(),
+  );
 }
 
 function GenerateIntelligenceButton({
@@ -1366,8 +1385,17 @@ function GenerateIntelligenceButton({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={handleClick} disabled={generating}>
-          {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+        <Button
+          size="sm"
+          className="h-8 gap-1.5 text-xs"
+          onClick={handleClick}
+          disabled={generating}
+        >
+          {generating ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Sparkles className="h-3.5 w-3.5" />
+          )}
           {label}
         </Button>
       </PopoverTrigger>
@@ -1375,7 +1403,8 @@ function GenerateIntelligenceButton({
         <div className="space-y-1">
           <div className="text-sm font-medium">Preencha para um resultado melhor</div>
           <p className="text-xs text-muted-foreground">
-            Estes campos ajudam a IA a gerar uma estratégia mais precisa. Você pode gerar mesmo assim.
+            Estes campos ajudam a IA a gerar uma estratégia mais precisa. Você pode gerar mesmo
+            assim.
           </p>
         </div>
         <ul className="space-y-1">
@@ -1438,23 +1467,43 @@ type StackedProps = {
 
 function StackedBrainLayout(props: StackedProps) {
   const {
-    brandId, clientId, client, form, setForm, completion,
-    onSave, saving, savedAt, onGenerateStrategy, onGenerateIdeas, onImportText,
-    strategyReady, generating, appendSlot,
-    regenOpen, setRegenOpen, runStrategy,
-    ideasOpen, setIdeasOpen, ideasTheme, setIdeasTheme,
-    genIdeas, runIdeas,
+    brandId,
+    clientId,
+    client,
+    form,
+    setForm,
+    completion,
+    onSave,
+    saving,
+    savedAt,
+    onGenerateStrategy,
+    onGenerateIdeas,
+    onImportText,
+    strategyReady,
+    generating,
+    appendSlot,
+    regenOpen,
+    setRegenOpen,
+    runStrategy,
+    ideasOpen,
+    setIdeasOpen,
+    ideasTheme,
+    setIdeasTheme,
+    genIdeas,
+    runIdeas,
   } = props;
   const [active, setActive] = useState<string>(BRAIN_SECTIONS[0].id);
 
   useEffect(() => {
-    const els = BRAIN_SECTIONS.map((s) => document.getElementById(s.id)).filter(Boolean) as HTMLElement[];
+    const els = BRAIN_SECTIONS.map((s) => document.getElementById(s.id)).filter(
+      Boolean,
+    ) as HTMLElement[];
     if (!els.length) return;
     const obs = new IntersectionObserver(
       (entries) => {
         const visible = entries
           .filter((e) => e.isIntersecting)
-          .sort((a, b) => (a.boundingClientRect.top - b.boundingClientRect.top))[0];
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
         if (visible?.target?.id) setActive(visible.target.id);
       },
       { rootMargin: "-30% 0px -60% 0px", threshold: 0 },
@@ -1494,12 +1543,7 @@ function StackedBrainLayout(props: StackedProps) {
               </span>
             ) : null}
           </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-8 gap-1.5 text-xs"
-            onClick={onImportText}
-          >
+          <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-xs" onClick={onImportText}>
             <FileUp className="h-3.5 w-3.5" /> Importar .docx / texto
           </Button>
           <Button
@@ -1508,7 +1552,9 @@ function StackedBrainLayout(props: StackedProps) {
             className="h-8 gap-1.5 text-xs"
             onClick={onGenerateIdeas}
             disabled={!strategyReady || genIdeas}
-            title={strategyReady ? "Gerar ideias de conteúdo" : "Gere e revise a estratégia primeiro"}
+            title={
+              strategyReady ? "Gerar ideias de conteúdo" : "Gere e revise a estratégia primeiro"
+            }
           >
             {genIdeas ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1524,7 +1570,11 @@ function StackedBrainLayout(props: StackedProps) {
             onClick={onSave}
             disabled={saving}
           >
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
             Salvar
           </Button>
           <GenerateIntelligenceButton
@@ -1608,14 +1658,17 @@ function StackedBrainLayout(props: StackedProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Gerar inteligência com IA?</AlertDialogTitle>
             <AlertDialogDescription>
-              Os agentes vão ler o briefing e gerar Voice Card, Personas, Cohorts e SWOT.
-              O processo roda em segundo plano.
+              Os agentes vão ler o briefing e gerar Voice Card, Personas, Cohorts e SWOT. O processo
+              roda em segundo plano.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={generating}>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); void runStrategy(); }}
+              onClick={(e) => {
+                e.preventDefault();
+                void runStrategy();
+              }}
               disabled={generating}
             >
               {generating ? "Iniciando…" : "Gerar"}
@@ -1629,8 +1682,8 @@ function StackedBrainLayout(props: StackedProps) {
           <DialogHeader>
             <DialogTitle>Gerar ideias de conteúdo</DialogTitle>
             <DialogDescription>
-              Pautas geradas a partir da estratégia revisada, distribuídas por canal e agendadas no calendário
-              respeitando a volumetria do briefing (canal + formato + quantidade).
+              Pautas geradas a partir da estratégia revisada, distribuídas por canal e agendadas no
+              calendário respeitando a volumetria do briefing (canal + formato + quantidade).
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 py-2">
@@ -1649,7 +1702,11 @@ function StackedBrainLayout(props: StackedProps) {
               Cancelar
             </Button>
             <Button onClick={() => void runIdeas()} disabled={genIdeas} className="gap-1.5">
-              {genIdeas ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Lightbulb className="h-3.5 w-3.5" />}
+              {genIdeas ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Lightbulb className="h-3.5 w-3.5" />
+              )}
               {genIdeas ? "Iniciando…" : "Gerar ideias"}
             </Button>
           </DialogFooter>

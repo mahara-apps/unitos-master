@@ -66,10 +66,7 @@ import {
   type SocialTimePoint,
 } from "@/lib/social-analytics/brand-dashboard.functions";
 
-const NETWORK_META: Record<
-  string,
-  { label: string; Icon: typeof Instagram; tone: string }
-> = {
+const NETWORK_META: Record<string, { label: string; Icon: typeof Instagram; tone: string }> = {
   instagram: { label: "Instagram", Icon: Instagram, tone: "text-pink-500" },
   facebook: { label: "Facebook", Icon: Facebook, tone: "text-sky-500" },
   linkedin: { label: "LinkedIn", Icon: Linkedin, tone: "text-sky-600" },
@@ -160,9 +157,7 @@ function FreshnessBar({
             Atualizando métricas…
           </>
         ) : error ? (
-          <span className="text-rose-500">
-            Falha ao atualizar — exibindo últimos dados salvos
-          </span>
+          <span className="text-rose-500">Falha ao atualizar — exibindo últimos dados salvos</span>
         ) : (
           <>
             <Activity className="h-3.5 w-3.5" />
@@ -189,7 +184,6 @@ function FreshnessBar({
     </div>
   );
 }
-
 
 export function SocialAnalyticsDashboard({
   brandId,
@@ -239,7 +233,6 @@ export function SocialAnalyticsDashboard({
     void queryClient.invalidateQueries({ queryKey: ["social-analytics-top", ...baseKey] });
   }
 
-
   // Skeleton apenas no primeiro acesso real (sem snapshot em cache).
   if (!data && q.isPending) return <LoadingSkeleton />;
   if (!data && q.error)
@@ -250,13 +243,7 @@ export function SocialAnalyticsDashboard({
         </CardContent>
       </Card>
     );
-  if (!data)
-    return (
-      <PanelEmptyState
-        icon={<BarChart3 className="h-5 w-5" />}
-        text="Sem dados."
-      />
-    );
+  if (!data) return <PanelEmptyState icon={<BarChart3 className="h-5 w-5" />} text="Sem dados." />;
 
   if (data.connectionsTotal === 0) {
     return <NoChannelsEmpty clientId={clientId ?? null} />;
@@ -287,7 +274,6 @@ export function SocialAnalyticsDashboard({
         onRefresh={handleRefresh}
         error={q.error ? (q.error as Error).message : null}
         cooldownSeconds={cooldown.remainingSeconds}
-
       />
       <WarningsBanner warnings={merged.warnings} />
       <ResumoSection data={merged} />
@@ -324,9 +310,9 @@ function NoChannelsEmpty({ clientId }: { clientId: string | null }) {
           <div className="max-w-md space-y-1.5">
             <p className="text-sm font-medium">Nenhum canal atribuído a este cliente</p>
             <p className="text-sm text-muted-foreground">
-              As contas conectadas à marca ainda não foram vinculadas a este cliente.
-              Abra <b>Perfil → Canais</b> para atribuir Instagram, Facebook e outras
-              redes já autorizadas.
+              As contas conectadas à marca ainda não foram vinculadas a este cliente. Abra{" "}
+              <b>Perfil → Canais</b> para atribuir Instagram, Facebook e outras redes já
+              autorizadas.
             </p>
           </div>
           <div className="flex flex-wrap justify-center gap-2">
@@ -334,7 +320,7 @@ function NoChannelsEmpty({ clientId }: { clientId: string | null }) {
               <Link
                 to="/customers/$customerId"
                 params={{ customerId: clientId }}
-                search={{ tab: "channels" } as never}
+                search={{ tab: "publicacoes" } as never}
               >
                 Ir para Canais
               </Link>
@@ -352,8 +338,8 @@ function NoChannelsEmpty({ clientId }: { clientId: string | null }) {
       <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
         <Sparkles className="h-8 w-8 text-muted-foreground" />
         <p className="max-w-md text-sm text-muted-foreground">
-          Esta marca ainda não tem canais sociais conectados. Vá em{" "}
-          <b>Integrações</b> para conectar Instagram, Facebook e outras redes.
+          Esta marca ainda não tem canais sociais conectados. Vá em <b>Integrações</b> para conectar
+          Instagram, Facebook e outras redes.
         </p>
         <Button asChild size="sm">
           <Link to="/connections">Abrir Integrações</Link>
@@ -390,13 +376,20 @@ function _WarningsBanner({ warnings }: { warnings: string[] }) {
 function ResumoSection({ data }: { data: BrandSocialDashboard }) {
   const iconFor = (key: string) => {
     switch (key) {
-      case "followers": return Users;
-      case "reach": return Eye;
-      case "impressions": return Activity;
-      case "engagement": return Zap;
-      case "posts": return Layers;
-      case "growth": return TrendingUp;
-      default: return Sparkles;
+      case "followers":
+        return Users;
+      case "reach":
+        return Eye;
+      case "impressions":
+        return Activity;
+      case "engagement":
+        return Zap;
+      case "posts":
+        return Layers;
+      case "growth":
+        return TrendingUp;
+      default:
+        return Sparkles;
     }
   };
   const tones: Record<string, "neutral" | "emerald" | "sky" | "violet" | "amber" | "rose"> = {
@@ -409,7 +402,11 @@ function ResumoSection({ data }: { data: BrandSocialDashboard }) {
   };
   return (
     <section className="space-y-3">
-      <SectionTitle icon={<BarChart3 className="h-4 w-4" />} title="Resumo" subtitle={`${data.connectionsActive}/${data.connectionsTotal} contas · ${data.networks.length} rede(s)`} />
+      <SectionTitle
+        icon={<BarChart3 className="h-4 w-4" />}
+        title="Resumo"
+        subtitle={`${data.connectionsActive}/${data.connectionsTotal} contas · ${data.networks.length} rede(s)`}
+      />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {data.summary.map((k) => {
           const Icon = iconFor(k.key);
@@ -529,10 +526,25 @@ function FormatPerformanceCard({ formats }: { formats: FormatPerformance[] }) {
           <div className="grid gap-4 lg:grid-cols-[1fr_auto]">
             <div className="h-52">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={rows} layout="vertical" margin={{ left: 8, right: 16, top: 4, bottom: 4 }}>
+                <BarChart
+                  data={rows}
+                  layout="vertical"
+                  margin={{ left: 8, right: 16, top: 4, bottom: 4 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" opacity={0.2} horizontal={false} />
-                  <XAxis type="number" fontSize={11} stroke="hsl(var(--muted-foreground))" tickFormatter={(v) => fmt(v as number)} />
-                  <YAxis type="category" dataKey="label" fontSize={11} stroke="hsl(var(--muted-foreground))" width={78} />
+                  <XAxis
+                    type="number"
+                    fontSize={11}
+                    stroke="hsl(var(--muted-foreground))"
+                    tickFormatter={(v) => fmt(v as number)}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="label"
+                    fontSize={11}
+                    stroke="hsl(var(--muted-foreground))"
+                    width={78}
+                  />
                   <Tooltip
                     cursor={{ fill: "hsl(var(--muted) / 0.4)" }}
                     contentStyle={{
@@ -579,7 +591,10 @@ function TimeSeriesCard({ series }: { series: SocialTimePoint[] }) {
       </CardHeader>
       <CardContent className="h-72">
         {series.length === 0 ? (
-          <PanelEmptyState icon={<Activity className="h-4 w-4" />} text="Sem série temporal disponível para o período." />
+          <PanelEmptyState
+            icon={<Activity className="h-4 w-4" />}
+            text="Sem série temporal disponível para o período."
+          />
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
@@ -608,9 +623,33 @@ function TimeSeriesCard({ series }: { series: SocialTimePoint[] }) {
                 formatter={(v: number, name: string) => [fmt(v), name]}
               />
               <Legend wrapperStyle={{ fontSize: 11 }} />
-              <Line type="monotone" dataKey="reach" name="Alcance" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-              <Line type="monotone" dataKey="impressions" name="Impressões" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
-              <Line type="monotone" dataKey="engagement" name="Engajamento" stroke="#f59e0b" strokeWidth={2} dot={{ r: 2 }} activeDot={{ r: 4 }} />
+              <Line
+                type="monotone"
+                dataKey="reach"
+                name="Alcance"
+                stroke="hsl(var(--primary))"
+                strokeWidth={2}
+                dot={{ r: 2 }}
+                activeDot={{ r: 4 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="impressions"
+                name="Impressões"
+                stroke="#8b5cf6"
+                strokeWidth={2}
+                dot={{ r: 2 }}
+                activeDot={{ r: 4 }}
+              />
+              <Line
+                type="monotone"
+                dataKey="engagement"
+                name="Engajamento"
+                stroke="#f59e0b"
+                strokeWidth={2}
+                dot={{ r: 2 }}
+                activeDot={{ r: 4 }}
+              />
             </LineChart>
           </ResponsiveContainer>
         )}
@@ -620,14 +659,9 @@ function TimeSeriesCard({ series }: { series: SocialTimePoint[] }) {
 }
 
 function TopPostsSection({ posts }: { posts: UnifiedTopPost[] }) {
-  const networks = useMemo(
-    () => Array.from(new Set(posts.map((p) => p.network))),
-    [posts],
-  );
+  const networks = useMemo(() => Array.from(new Set(posts.map((p) => p.network))), [posts]);
   const [network, setNetwork] = useState<string>("all");
-  const [sort, setSort] = useState<"engagement" | "reach" | "recent">(
-    "engagement",
-  );
+  const [sort, setSort] = useState<"engagement" | "reach" | "recent">("engagement");
 
   const filtered = useMemo(() => {
     let arr = network === "all" ? posts : posts.filter((p) => p.network === network);
@@ -648,9 +682,7 @@ function TopPostsSection({ posts }: { posts: UnifiedTopPost[] }) {
           icon={<Trophy className="h-4 w-4" />}
           title="Top publicações"
           subtitle={
-            filtered.length
-              ? `${filtered.length} post(s) no período`
-              : "Ranqueadas por engajamento"
+            filtered.length ? `${filtered.length} post(s) no período` : "Ranqueadas por engajamento"
           }
         />
         {posts.length > 0 && (
@@ -824,7 +856,11 @@ function FeedTile({ post: p }: { post: UnifiedTopPost }) {
 function TimingSection({ data }: { data: BrandSocialDashboard }) {
   return (
     <section className="space-y-3">
-      <SectionTitle icon={<Clock className="h-4 w-4" />} title="Timing" subtitle="Melhor horário e melhor dia para publicar" />
+      <SectionTitle
+        icon={<Clock className="h-4 w-4" />}
+        title="Timing"
+        subtitle="Melhor horário e melhor dia para publicar"
+      />
       <div className="grid gap-4 lg:grid-cols-2">
         <BestHoursCard data={data} />
         <BestDaysCard data={data} />
@@ -881,7 +917,10 @@ function BestDaysCard({ data }: { data: BrandSocialDashboard }) {
       </CardHeader>
       <CardContent>
         {data.bestDays.length === 0 ? (
-          <PanelEmptyState icon={<CalendarDays className="h-4 w-4" />} text="Sem histórico suficiente." />
+          <PanelEmptyState
+            icon={<CalendarDays className="h-4 w-4" />}
+            text="Sem histórico suficiente."
+          />
         ) : (
           <div className="space-y-2">
             {WEEKDAY_LABELS.map((label, weekday) => {
@@ -958,9 +997,7 @@ function SectionTitle({
       <div className="rounded-md bg-muted p-1.5 text-muted-foreground">{icon}</div>
       <div>
         <div className="text-sm font-semibold tracking-tight">{title}</div>
-        {subtitle ? (
-          <div className="text-[11px] text-muted-foreground">{subtitle}</div>
-        ) : null}
+        {subtitle ? <div className="text-[11px] text-muted-foreground">{subtitle}</div> : null}
       </div>
     </div>
   );
@@ -983,7 +1020,11 @@ function LoadingSkeleton() {
 function SectionSkeleton({ title, height }: { title: string; height: number }) {
   return (
     <section className="space-y-3">
-      <SectionTitle icon={<Loader2 className="h-4 w-4 animate-spin" />} title={title} subtitle="Carregando…" />
+      <SectionTitle
+        icon={<Loader2 className="h-4 w-4 animate-spin" />}
+        title={title}
+        subtitle="Carregando…"
+      />
       <Skeleton className="w-full" style={{ height }} />
     </section>
   );

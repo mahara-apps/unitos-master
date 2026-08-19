@@ -184,9 +184,8 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
       <OverviewAttention
         alerts={data.alerts ?? []}
         overdue={overdue}
-        onOpenTasks={() =>
-          navigate({ to: "/tasks", search: { view: "list", groupBy: "status" } as never })
-        }
+        // Tarefas do cliente vivem na aba "Trabalho" do próprio painel.
+        onOpenTasks={() => onOpenTab?.("trabalho")}
       />
 
       {/* Linha 2 — o que precisa ser feito */}
@@ -212,7 +211,7 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
         aiJobs={m.aiJobsCount}
         aiCost30d={m.costTotal30d}
         costSpark={m.costSpark}
-        onOpenChannels={() => onOpenTab?.("channels")}
+        onOpenChannels={() => onOpenTab?.("publicacoes")}
       />
       <OverviewBrain brandId={brandId} clientId={clientId} />
 

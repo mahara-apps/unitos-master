@@ -1,4 +1,10 @@
-import { createFileRoute, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  useLocation,
+  useNavigate,
+} from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { Suspense, useEffect, useState } from "react";
@@ -16,15 +22,22 @@ import { toast } from "sonner";
 import { listClients } from "@/lib/workspace.functions";
 import { StrategyResults } from "@/components/ai-agents/strategy-results";
 import { CustomerOverview } from "@/components/customer/overview/customer-overview";
-import { ProductionTab } from "@/components/customer/production/production-tab";
+import { WorkTab } from "@/components/customer/work/work-tab";
+import { PublicationsTab } from "@/components/customer/publications/publications-tab";
 import { BasicInfoTab } from "@/components/customer/basic-info-tab";
-import { ChannelsTab } from "@/components/customer/channels-tab";
 import { AccountManagementTab } from "@/components/customer/account-management-tab";
 import { BriefingWorkspace } from "@/components/brand-hub/briefing-workspace";
 import { QuickOnboardingWizard } from "@/components/brand-hub/quick-onboarding-wizard";
 import { getBrandHub } from "@/lib/brand-hub.functions";
 import { computeBriefingCompletion } from "@/lib/briefing-progress";
 import { usePageHeader } from "@/hooks/use-page-header";
+import {
+  CUSTOMER_TABS,
+  CUSTOMER_TAB_SEARCH_VALUES,
+  isCustomerTabAlias,
+  resolveCustomerTab,
+  type CustomerTab,
+} from "@/lib/customer-tabs";
 import {
   CUSTOMER_QUERY_KEYS,
   customerCoreQuery,
@@ -33,63 +46,37 @@ import {
   customerTargetQuery,
 } from "@/lib/customer-queries";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUuid = (v: string | null | undefined): v is string => !!v && UUID_RE.test(v);
+
 export const Route = createFileRoute("/_authenticated/customers/$customerId")({
   validateSearch: (s) =>
     z
       .object({
         onboarding: z.union([z.literal("1"), z.literal(1), z.boolean()]).optional(),
         planId: z.string().uuid().optional(),
-        tab: z
-          .enum([
-            "overview",
-            "briefing",
-            "estrategia",
-            "pauta",
-            "producao",
-            "channels",
-            "conta",
-            // Aliases legados de links internos → resolvidos para "conta".
-            "cadastro",
-            "gestao",
-          ])
-          .optional(),
+        // Aceita as 6 abas canônicas + aliases legados (normalizados no guard).
+        tab: z.enum(CUSTOMER_TAB_SEARCH_VALUES).optional(),
       })
       .parse(s),
+  // Guard de rota: valida o customerId e normaliza a aba ANTES de montar
+  // qualquer conteúdo protegido. A autorização definitiva continua na RLS
+  // (server functions) — este guard é apenas de rota/navegação.
+  beforeLoad: ({ params, search }) => {
+    if (!isUuid(params.customerId)) {
+      throw redirect({ to: "/customers", replace: true });
+    }
+    if (isCustomerTabAlias(search.tab)) {
+      throw redirect({
+        to: "/customers/$customerId",
+        params: { customerId: params.customerId },
+        search: { ...search, tab: resolveCustomerTab(search.tab) },
+        replace: true,
+      });
+    }
+  },
   component: CustomerDetail,
 });
-
-type CustomerTab =
-  | "overview"
-  | "briefing"
-  | "estrategia"
-  | "pauta"
-  | "producao"
-  | "channels"
-  | "conta"
-  | "cadastro"
-  | "gestao";
-
-/** Abas legadas que hoje vivem dentro da aba única "Conta". */
-const TAB_ALIASES: Partial<Record<CustomerTab, CustomerTab>> = {
-  cadastro: "conta",
-  gestao: "conta",
-};
-
-const resolveTab = (tab?: string): string =>
-  (tab && TAB_ALIASES[tab as CustomerTab]) || tab || "overview";
-
-const ALL_TABS = [
-  { value: "overview", label: "Visão geral" },
-  { value: "briefing", label: "Briefing" },
-  { value: "estrategia", label: "Estratégia IA" },
-  { value: "pauta", label: "Pauta" },
-  { value: "producao", label: "Produção" },
-  { value: "channels", label: "Canais" },
-  { value: "conta", label: "Conta" },
-] as const;
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const isUuid = (v: string | null | undefined): v is string => !!v && UUID_RE.test(v);
 
 function CustomerDetail() {
   const { customerId } = Route.useParams();
@@ -124,17 +111,6 @@ function CustomerDetail() {
       </div>
     );
   }
-  if (!isUuid(customerId)) {
-    return (
-      <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-        <div className="flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-          <AlertTriangle className="mt-0.5 h-4 w-4" />
-          Cliente inválido.
-        </div>
-      </div>
-    );
-  }
-
   // Nada de dado protegido é montado antes da validação de escopo terminar.
   if (!isReady) return <HeaderFallback />;
   if (denied) {
@@ -163,7 +139,7 @@ function CustomerDetail() {
 
 function HeaderFallback() {
   return (
-    <ScrollArea className="h-[calc(100vh-3.5rem)] bg-background">
+    <ScrollArea className="h-[calc(100dvh-3.5rem)] bg-background">
       <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -202,14 +178,13 @@ function CustomerDetailReady({
   brandId: string;
   customerId: string;
   openOnboarding: boolean;
-  initialTab?: CustomerTab;
+  initialTab?: string;
   initialPlanId?: string;
 }) {
   const list = useServerFn(listClients);
   const fetchHub = useServerFn(getBrandHub);
   const qc = useQueryClient();
-  const TABS = ALL_TABS;
-  const [activeTab, setActiveTab] = useState<string>(resolveTab(initialTab));
+  const [activeTab, setActiveTab] = useState<CustomerTab>(resolveCustomerTab(initialTab));
   const [wizardOpen, setWizardOpen] = useState(false);
   const [planId, setPlanIdState] = useState<string | null>(initialPlanId ?? null);
   const navigate = useNavigate();
@@ -217,12 +192,12 @@ function CustomerDetailReady({
 
   // Sincroniza com ?tab=... (links internos como "Editar em Cadastro").
   useEffect(() => {
-    if (initialTab) setActiveTab(resolveTab(initialTab));
+    if (initialTab) setActiveTab(resolveCustomerTab(initialTab));
   }, [initialTab]);
 
   // Troca de aba mantém a URL compartilhável (?tab=...).
   const goToTab = (value: string) => {
-    const next = resolveTab(value);
+    const next = resolveCustomerTab(value);
     setActiveTab(next);
     navigate({
       to: "/customers/$customerId",
@@ -321,7 +296,7 @@ function CustomerDetailReady({
     .join("");
 
   return (
-    <ScrollArea className="h-[calc(100vh-3.5rem)] bg-background">
+    <ScrollArea className="h-[calc(100dvh-3.5rem)] bg-background">
       <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         {customer === undefined && !customersQ.isLoading ? (
           <div className="rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
@@ -360,12 +335,15 @@ function CustomerDetailReady({
             </header>
 
             <Tabs value={activeTab} onValueChange={goToTab} className="space-y-4">
-              <TabsList variant="bordered" className="flex-wrap">
-                {TABS.map((t) => (
+              <TabsList
+                variant="bordered"
+                className="w-full flex-nowrap justify-start gap-1 overflow-x-auto"
+              >
+                {CUSTOMER_TABS.map((t) => (
                   <TabsTrigger
                     key={t.value}
                     value={t.value}
-                    className="gap-1.5 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
+                    className="shrink-0 gap-1.5 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
                   >
                     {t.label}
                     {t.value === "briefing" && needsOnboarding && (
@@ -383,7 +361,7 @@ function CustomerDetailReady({
                 />
               </TabsContent>
 
-              <TabsContent value="briefing">
+              <TabsContent value="briefing" className="space-y-6">
                 <BriefingWorkspace
                   brandId={brandId}
                   clientId={customerId}
@@ -396,8 +374,7 @@ function CustomerDetailReady({
                     });
                   }}
                 />
-              </TabsContent>
-              <TabsContent value="estrategia">
+                {/* Estratégia IA vive junto do briefing que a gera (alias ?tab=estrategia). */}
                 <StrategyResults
                   brandId={brandId}
                   clientId={customerId}
@@ -414,8 +391,8 @@ function CustomerDetailReady({
                 />
               </TabsContent>
 
-              <TabsContent value="producao">
-                <ProductionTab brandId={brandId} clientId={customerId} />
+              <TabsContent value="trabalho">
+                <WorkTab brandId={brandId} clientId={customerId} />
               </TabsContent>
 
               {/* Aba única "Conta": cadastro (identidade/contato/redes) +
@@ -425,8 +402,8 @@ function CustomerDetailReady({
                 <AccountManagementTab brandId={brandId} clientId={customerId} />
               </TabsContent>
 
-              <TabsContent value="channels">
-                <ChannelsTab brandId={brandId} clientId={customerId} />
+              <TabsContent value="publicacoes">
+                <PublicationsTab brandId={brandId} clientId={customerId} />
               </TabsContent>
             </Tabs>
           </>
