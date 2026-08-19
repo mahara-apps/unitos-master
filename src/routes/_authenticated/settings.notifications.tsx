@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { usePageHeader } from "@/hooks/use-page-header";
-import { SettingsStatCard } from "@/components/settings/settings-stat-card";
+import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import {
   DEFAULT_NOTIFICATION_PREFS,
   NOTIFICATION_PREF_KEYS,
