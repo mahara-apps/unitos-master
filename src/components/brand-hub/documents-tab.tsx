@@ -243,12 +243,18 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-4">
-        <KpiCard label="Documentos" value={kpis.total} />
-        <KpiCard label="Interpretados" value={kpis.analyzed} />
-        <KpiCard label="Campos sugeridos" value={kpis.suggested} />
-        <KpiCard label="Aplicados ao briefing" value={kpis.applied} />
-      </div>
+      <PageKpiGrid columns={4}>
+        <PageKpi icon={<FileText />} label="Documentos" value={kpis.total} />
+        <PageKpi icon={<BrainCircuit />} label="Interpretados" value={kpis.analyzed} status="info" />
+        <PageKpi icon={<Sparkles />} label="Campos sugeridos" value={kpis.suggested} />
+        <PageKpi
+          icon={<CheckCircle2 />}
+          label="Aplicados ao briefing"
+          value={kpis.applied}
+          status={kpis.applied > 0 ? "success" : "neutral"}
+        />
+      </PageKpiGrid>
+
 
       <section
         className={
