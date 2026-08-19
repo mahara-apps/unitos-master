@@ -49,8 +49,8 @@ export function PublicationsTab({ brandId, clientId }: { brandId: string; client
     staleTime: 30_000,
   });
 
-  const items = boardQ.data?.items ?? [];
-  const awaiting = boardQ.data?.awaitingApproval ?? [];
+  const items = useMemo(() => boardQ.data?.items ?? [], [boardQ.data]);
+  const awaiting = useMemo(() => boardQ.data?.awaitingApproval ?? [], [boardQ.data]);
 
   const counters = useMemo(() => {
     const nowIso = new Date().toISOString();

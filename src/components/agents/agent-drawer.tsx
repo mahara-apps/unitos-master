@@ -111,7 +111,6 @@ export function AgentDrawer({ agent, open, onOpenChange, brandId, clientId }: Pr
     setEditing(false);
     setDraftPrompt(agent?.override_prompt ?? "");
     setOverrides({});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agent]);
 
   const saveMutation = useMutation({

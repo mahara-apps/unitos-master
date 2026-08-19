@@ -162,7 +162,9 @@ function sanitizeNext(next: string | undefined): string | null {
       !/^\/(auth|login)(\/|\?|#|$)/.test(decoded)
     )
       return decoded;
-  } catch {}
+  } catch {
+    /* querystring inválida — ignora destino */
+  }
   return null;
 }
 

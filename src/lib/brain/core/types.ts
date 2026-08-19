@@ -29,6 +29,9 @@ export interface BrainEventInput {
   source_module: string;
   event_type: string;
   actor_id?: string | null;
+  /** Entidade de origem do evento (opcional). */
+  entity_type?: string | null;
+  entity_id?: string | null;
   payload: Record<string, unknown>;
 }
 

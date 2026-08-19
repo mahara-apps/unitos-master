@@ -1033,6 +1033,8 @@ function ReconnectDialog({
 
   useEffect(() => {
     if (row && brandId && !result && !inspectMut.isPending) inspectMut.mutate();
+
+    // Handler do popup OAuth: religado apenas quando a conexão/marca muda.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [row?.connectionId, brandId]);
 

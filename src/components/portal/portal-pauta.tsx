@@ -145,7 +145,7 @@ function PautaDetail({ planId, onBack }: { planId: string; onBack: () => void })
   const [filter, setFilter] = useState<Filter>("awaiting");
   const [detailId, setDetailId] = useState<string | null>(null);
 
-  const topics = q.data?.topics ?? [];
+  const topics = useMemo(() => q.data?.topics ?? [], [q.data]);
   const editable = q.data?.plan.status === PLAN_PENDING_CLIENT_STATUS;
 
   type Row = {

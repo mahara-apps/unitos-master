@@ -106,7 +106,7 @@ function decodeBase64(value: string): Uint8Array {
 }
 
 function safeName(name: string): string {
-  return name.replace(/[^\w.\-]+/g, "_").slice(-120) || "anexo";
+  return name.replace(/[^\w.-]+/g, "_").slice(-120) || "anexo";
 }
 
 async function submitProposal(

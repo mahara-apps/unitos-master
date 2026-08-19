@@ -49,8 +49,8 @@ export function WorkTab({ brandId, clientId }: { brandId: string; clientId: stri
     staleTime: 30_000,
   });
 
-  const tasks = tasksQ.data ?? [];
-  const projects = projectsQ.data?.projects ?? [];
+  const tasks = useMemo(() => tasksQ.data ?? [], [tasksQ.data]);
+  const projects = useMemo(() => projectsQ.data?.projects ?? [], [projectsQ.data]);
   const stats = projectsQ.data?.stats ?? {};
 
   const counters = useMemo(() => {

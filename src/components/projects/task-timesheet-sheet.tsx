@@ -100,7 +100,7 @@ export function TaskTimesheetSheet({ open, onOpenChange, brandId, task }: Props)
     onSuccess: () => qc.invalidateQueries({ queryKey: ["job-tasks"] }),
   });
 
-  const entries: TimeEntry[] = entriesQ.data ?? [];
+  const entries: TimeEntry[] = useMemo(() => entriesQ.data ?? [], [entriesQ.data]);
   const reworkSeconds = useMemo(
     () => entries.reduce((sum, e) => sum + (e.is_rework ? entryDurationSeconds(e) : 0), 0),
     [entries],

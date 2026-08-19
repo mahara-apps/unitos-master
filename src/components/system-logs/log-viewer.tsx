@@ -130,7 +130,7 @@ export function LogViewer({
     refetchOnWindowFocus: false,
   });
 
-  const entries = q.data ?? [];
+  const entries = useMemo(() => q.data ?? [], [q.data]);
 
   const counts = useMemo(() => {
     const c = { total: entries.length, error: 0, warn: 0, info: 0, success: 0 };

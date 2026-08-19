@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import {
@@ -326,7 +326,10 @@ function ProjectsIndexPage() {
     color: string | null;
   }>;
 
-  const clientName = (id: string | null) => clients.find((c) => c.id === id)?.name ?? "";
+  const clientName = useCallback(
+    (id: string | null) => clients.find((c) => c.id === id)?.name ?? "",
+    [clients],
+  );
 
   const rows = useMemo(() => {
     const all = projectsQ.data?.projects ?? [];
@@ -364,7 +367,7 @@ function ProjectsIndexPage() {
       if (va === vb) return a.name.localeCompare(b.name);
       return va > vb ? dir : -dir;
     });
-  }, [projectsQ.data, q, sortKey, sortDir, clients, statusFilter]);
+  }, [projectsQ.data, q, sortKey, sortDir, clients, statusFilter, clientName]);
 
   function onSort(k: SortKey) {
     if (k === sortKey) {

@@ -59,7 +59,7 @@ function MediaPlansIndex() {
     mode: "manual",
   });
 
-  const plans = q.data?.plans ?? [];
+  const plans = useMemo(() => q.data?.plans ?? [], [q.data]);
 
   const kpis = useMemo(() => {
     const totalBudget = plans.reduce((s, p) => s + p.monthly_budget, 0);

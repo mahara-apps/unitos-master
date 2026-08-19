@@ -112,7 +112,7 @@ function TasksPage() {
     enabled: !!brandId,
   });
 
-  const tasks = tasksQ.data ?? [];
+  const tasks = useMemo(() => tasksQ.data ?? [], [tasksQ.data]);
 
   const assigneesQ = useQuery({
     queryKey: ["brand-assignees", brandId],

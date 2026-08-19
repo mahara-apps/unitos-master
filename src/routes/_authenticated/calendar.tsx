@@ -167,8 +167,8 @@ function CalendarPage() {
     staleTime: 60_000,
   });
 
-  const items = boardQ.data?.items ?? [];
-  const awaiting = boardQ.data?.awaitingApproval ?? [];
+  const items = useMemo(() => boardQ.data?.items ?? [], [boardQ.data]);
+  const awaiting = useMemo(() => boardQ.data?.awaitingApproval ?? [], [boardQ.data]);
   const drafts = draftsQ.data ?? [];
 
   // ----------------------------------------------------------------- filtros

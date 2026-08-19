@@ -242,7 +242,7 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
     }
   };
 
-  const docs = docsQ.data ?? [];
+  const docs = useMemo(() => docsQ.data ?? [], [docsQ.data]);
   const kpis = useMemo(() => {
     const analyzed = docs.filter((d) => d.ai_status === "done").length;
     const applied = docs.filter((d) => d.applied_to_briefing_at).length;

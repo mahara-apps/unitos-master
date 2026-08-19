@@ -127,7 +127,7 @@ export function ChannelsTab({ brandId, clientId }: { brandId: string; clientId: 
     qc.invalidateQueries({ queryKey: ["social-analytics", brandId, clientId] });
   };
 
-  const rows = linkedQ.data ?? [];
+  const rows = useMemo(() => linkedQ.data ?? [], [linkedQ.data]);
 
   // Capacidade REAL de publicação (não apenas `status = active`): valida
   // vínculo, token e escopo granular da Meta para cada conta do cliente.
