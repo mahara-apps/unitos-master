@@ -74,9 +74,7 @@ export function NewPautaDialog({
       qc.invalidateQueries({ queryKey: ["monthly-plans", "list", brandId, clientId] });
       qc.invalidateQueries({ queryKey: ["plan-project-options", brandId, clientId] });
       qc.invalidateQueries({ queryKey: ["projects"] });
-      toast.success(
-        res.projectId ? "Pauta criada e vinculada ao projeto." : "Pauta criada.",
-      );
+      toast.success(res.projectId ? "Pauta criada e vinculada ao projeto." : "Pauta criada.");
       onOpenChange(false);
       onCreated?.(res.planId);
     },

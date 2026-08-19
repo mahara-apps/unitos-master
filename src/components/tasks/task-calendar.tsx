@@ -33,7 +33,10 @@ export function TaskCalendar({
   const monthEnd = endOfMonth(cursor);
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 0 });
   const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
-  const days = useMemo(() => eachDayOfInterval({ start: gridStart, end: gridEnd }), [gridStart, gridEnd]);
+  const days = useMemo(
+    () => eachDayOfInterval({ start: gridStart, end: gridEnd }),
+    [gridStart, gridEnd],
+  );
 
   const byDay = useMemo(() => {
     const map = new Map<string, TaskRow[]>();
@@ -62,10 +65,20 @@ export function TaskCalendar({
           <Button variant="outline" size="sm" onClick={() => setCursor(new Date())}>
             Hoje
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCursor((c) => subMonths(c, 1))}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setCursor((c) => subMonths(c, 1))}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setCursor((c) => addMonths(c, 1))}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => setCursor((c) => addMonths(c, 1))}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
@@ -91,7 +104,12 @@ export function TaskCalendar({
                 !inMonth && "bg-muted/30",
               )}
             >
-              <div className={cn("mb-1 flex items-center justify-between text-[11px]", !inMonth && "text-muted-foreground")}>
+              <div
+                className={cn(
+                  "mb-1 flex items-center justify-between text-[11px]",
+                  !inMonth && "text-muted-foreground",
+                )}
+              >
                 <span
                   className={cn(
                     "grid h-5 w-5 place-items-center rounded",
@@ -118,13 +136,20 @@ export function TaskCalendar({
                         overdue && "ring-1 ring-rose-500/40",
                       )}
                     >
-                      <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", STATUS_META[t.status].dot)} />
+                      <span
+                        className={cn(
+                          "h-1.5 w-1.5 shrink-0 rounded-full",
+                          STATUS_META[t.status].dot,
+                        )}
+                      />
                       <span className="truncate">{t.title}</span>
                     </button>
                   );
                 })}
                 {list.length > 3 && (
-                  <span className="text-[10px] text-muted-foreground">+{list.length - 3} tarefas</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    +{list.length - 3} tarefas
+                  </span>
                 )}
               </div>
             </div>

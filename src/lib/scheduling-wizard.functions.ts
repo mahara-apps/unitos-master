@@ -9,7 +9,6 @@ import {
 import { resolveStageIdByKey } from "@/lib/post-stage.server";
 import { assertScheduleLead } from "@/lib/schedule-rules";
 
-
 /**
  * Server functions do wizard de agendamento (/calendar).
  * Reaproveita `posts` + `post_placements` + `social_connections`.
@@ -79,16 +78,12 @@ export const listClientSocialConnectionsFn = createServerFn({ method: "GET" })
       const meta = (r.metadata ?? {}) as Record<string, unknown>;
       const avatar =
         r.channel === "instagram"
-          ? ((meta.instagram_picture_url ?? meta.page_picture_url ?? null) as
-              | string
-              | null)
+          ? ((meta.instagram_picture_url ?? meta.page_picture_url ?? null) as string | null)
           : r.channel === "facebook"
             ? ((meta.page_picture_url ?? null) as string | null)
             : null;
       const handle =
-        r.channel === "instagram"
-          ? (r.account_username ?? null)
-          : (r.external_name ?? null);
+        r.channel === "instagram" ? (r.account_username ?? null) : (r.external_name ?? null);
       return {
         connectionId: r.id as string,
         channel: r.channel as string,
@@ -128,10 +123,7 @@ export const listApprovedUnscheduledFn = createServerFn({ method: "GET" })
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
     const postIds = (rows ?? []).map((r) => r.id as string);
-    const placementsByPost = new Map<
-      string,
-      Array<{ channel: string; format: string }>
-    >();
+    const placementsByPost = new Map<string, Array<{ channel: string; format: string }>>();
     if (postIds.length) {
       const { data: pls, error: plErr } = await context.supabase
         .from("post_placements")
@@ -257,9 +249,7 @@ export type WizardPostState = {
 export const loadPostStateFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z
-      .object({ postId: z.string().uuid(), brandId: z.string().uuid() })
-      .parse(i),
+    z.object({ postId: z.string().uuid(), brandId: z.string().uuid() }).parse(i),
   )
   .handler(async ({ data, context }): Promise<WizardPostState> => {
     const { data: post, error: pErr } = await context.supabase
@@ -273,9 +263,7 @@ export const loadPostStateFn = createServerFn({ method: "POST" })
 
     const { data: pls, error: plErr } = await context.supabase
       .from("post_placements")
-      .select(
-        "format, connection_id, copy_override, media, scheduled_at, status, client_id",
-      )
+      .select("format, connection_id, copy_override, media, scheduled_at, status, client_id")
       .eq("post_id", data.postId);
     if (plErr) throw new Error(plErr.message);
 
@@ -321,17 +309,14 @@ export const loadPostStateFn = createServerFn({ method: "POST" })
       }
 
       if (Array.isArray(co.hashtags) && !hashtags.length) {
-        hashtags = (co.hashtags as unknown[]).filter(
-          (h): h is string => typeof h === "string",
-        );
+        hashtags = (co.hashtags as unknown[]).filter((h): h is string => typeof h === "string");
       }
       if (typeof co.first_comment === "string" && !firstComment)
         firstComment = co.first_comment as string;
       if (typeof co.link === "string" && !linkUrl) linkUrl = co.link as string;
       if (typeof co.location_name === "string" && !locationName)
         locationName = co.location_name as string;
-      if (typeof co.location_id === "string" && !locationId)
-        locationId = co.location_id as string;
+      if (typeof co.location_id === "string" && !locationId) locationId = co.location_id as string;
       for (const m of Array.isArray(pl.media) ? pl.media : []) {
         const rec = m as Record<string, unknown>;
         if (typeof rec?.storagePath === "string") placementPaths.push(rec.storagePath);
@@ -353,9 +338,7 @@ export const loadPostStateFn = createServerFn({ method: "POST" })
         .eq("brand_id", data.brandId)
         .in("storage_path", paths);
       if (aErr) throw new Error(aErr.message);
-      const byPath = new Map(
-        (assets ?? []).map((a) => [a.storage_path as string, a]),
-      );
+      const byPath = new Map((assets ?? []).map((a) => [a.storage_path as string, a]));
       media = await Promise.all(
         paths.map(async (path) => {
           const a = byPath.get(path);
@@ -394,49 +377,42 @@ export const loadPostStateFn = createServerFn({ method: "POST" })
     };
   });
 
-
 const DestinationSchema = z.object({
   connectionId: z.string().uuid(),
-  channel: z.enum([
-    "instagram",
-    "facebook",
-    "linkedin",
-    "tiktok",
-    "youtube",
-    "x",
-    "threads",
-  ]),
+  channel: z.enum(["instagram", "facebook", "linkedin", "tiktok", "youtube", "x", "threads"]),
   format: z.enum(["feed", "stories", "reels", "carrossel"]),
   copyOverride: z.string().nullable().optional(),
 });
 
-const SaveInput = z.object({
-  postId: z.string().uuid().nullable().optional(),
-  brandId: z.string().uuid(),
-  clientId: z.string().uuid(),
-  title: z.string().min(1).max(160),
-  copy: z.string().default(""),
-  mediaPaths: z.array(z.string()).default([]),
-  // IDs de brand_media_assets na MESMA ordem de mediaPaths (opcional).
-  mediaAssetIds: z.array(z.string()).default([]),
+const SaveInput = z
+  .object({
+    postId: z.string().uuid().nullable().optional(),
+    brandId: z.string().uuid(),
+    clientId: z.string().uuid(),
+    title: z.string().min(1).max(160),
+    copy: z.string().default(""),
+    mediaPaths: z.array(z.string()).default([]),
+    // IDs de brand_media_assets na MESMA ordem de mediaPaths (opcional).
+    mediaAssetIds: z.array(z.string()).default([]),
 
-  hashtags: z.array(z.string()).default([]),
-  firstComment: z.string().max(2200).nullable().optional(),
-  linkUrl: z.string().url().nullable().optional(),
-  locationName: z.string().max(120).nullable().optional(),
-  locationId: z.string().max(64).nullable().optional(),
-  destinations: z.array(DestinationSchema).default([]),
-  scheduledAt: z.string().nullable().optional(), // ISO
-  action: z.enum(["draft", "publish", "schedule", "save_draft"]),
-}).superRefine((v, ctx) => {
-  if (v.action !== "save_draft" && v.destinations.length < 1) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["destinations"],
-      message: "Selecione ao menos um canal.",
-    });
-  }
-});
+    hashtags: z.array(z.string()).default([]),
+    firstComment: z.string().max(2200).nullable().optional(),
+    linkUrl: z.string().url().nullable().optional(),
+    locationName: z.string().max(120).nullable().optional(),
+    locationId: z.string().max(64).nullable().optional(),
+    destinations: z.array(DestinationSchema).default([]),
+    scheduledAt: z.string().nullable().optional(), // ISO
+    action: z.enum(["draft", "publish", "schedule", "save_draft"]),
+  })
+  .superRefine((v, ctx) => {
+    if (v.action !== "save_draft" && v.destinations.length < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["destinations"],
+        message: "Selecione ao menos um canal.",
+      });
+    }
+  });
 
 export const saveScheduledPostFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -456,7 +432,6 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       scheduledIso = scheduled.toISOString();
     }
 
-
     // Pré-validação de agendamento: antes de gravar o post como "scheduled",
     // conferimos que cada destino suportado tem conexão ativa, token presente
     // e vínculo com o cliente. Sem isso, o Kanban ficaria marcado como
@@ -475,9 +450,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         .eq("brand_id", data.brandId)
         .in("id", connIds);
       if (connsErr) throw new Error(connsErr.message);
-      const connMap = new Map(
-        (conns ?? []).map((c) => [c.id as string, c]),
-      );
+      const connMap = new Map((conns ?? []).map((c) => [c.id as string, c]));
       // Vínculo canal ↔ cliente: única fonte de verdade.
       const { data: links, error: linksErr } = await supabase
         .from("client_social_accounts")
@@ -491,8 +464,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       for (const d of data.destinations) {
         // Suportado hoje: Feed IG/FB e Stories no IG (multi-frame automático).
         const supported =
-          (d.format === "feed" &&
-            (d.channel === "instagram" || d.channel === "facebook")) ||
+          (d.format === "feed" && (d.channel === "instagram" || d.channel === "facebook")) ||
           (d.format === "stories" && d.channel === "instagram");
         if (!supported) {
           scheduleWarnings.push({
@@ -509,9 +481,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           );
         }
         if (!conn.access_token_ciphertext) {
-          throw new Error(
-            `Conexão ${d.channel} sem token — reconecte a página antes de agendar.`,
-          );
+          throw new Error(`Conexão ${d.channel} sem token — reconecte a página antes de agendar.`);
         }
         if (!linkedIds.has(d.connectionId)) {
           throw new Error(
@@ -526,15 +496,11 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           );
         }
         if (conn.status !== "active") {
-          throw new Error(
-            `Conexão ${d.channel} não está ativa — reconecte antes de agendar.`,
-          );
+          throw new Error(`Conexão ${d.channel} não está ativa — reconecte antes de agendar.`);
         }
         // PRÉ-FLIGHT de autorização granular da Meta: só agenda se a Meta
         // autorizou a publicação PARA ESTA conta (target_id). Fail closed.
-        const { resolvePublishTarget } = await import(
-          "@/lib/meta/publish-capability.server"
-        );
+        const { resolvePublishTarget } = await import("@/lib/meta/publish-capability.server");
         const { capability } = await resolvePublishTarget(supabase, {
           brandId: data.brandId,
           clientId: data.clientId,
@@ -552,7 +518,6 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             provider: conn.provider as string,
           },
         });
-
       }
       if (validatedScheduleTargets.length === 0) {
         throw new Error(
@@ -561,7 +526,6 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         );
       }
     }
-
 
     // Canais únicos (post.channels usa enum post_channel — filtra os aceitos)
     const channels = deriveChannelsFromDestinations(data.destinations);
@@ -623,7 +587,6 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
     }
 
-
     // ---- Estágio operacional (stage_id) acompanha a ação ----
     // O wizard historicamente escrevia só o campo legado `posts.stage`, o que
     // deixava a peça parada na coluna antiga do Kanban. Aqui movemos a coluna
@@ -663,13 +626,9 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         .eq("client_id", data.clientId);
       if (scopeErr) throw new Error(scopeErr.message);
       const scopedIds = new Set(
-        ((scopeLinks ?? []) as Array<{ connection_id: string }>).map(
-          (l) => l.connection_id,
-        ),
+        ((scopeLinks ?? []) as Array<{ connection_id: string }>).map((l) => l.connection_id),
       );
-      const orphan = data.destinations.filter(
-        (d) => !scopedIds.has(d.connectionId),
-      );
+      const orphan = data.destinations.filter((d) => !scopedIds.has(d.connectionId));
       if (orphan.length > 0) {
         const labels = Array.from(new Set(orphan.map((d) => d.channel))).join(", ");
         throw new Error(
@@ -720,16 +679,15 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         // Stories NUNCA carrega caption (Meta API ignora / retorna erro).
         const caption = isStory
           ? null
-          :
-          [
-            d.copyOverride ?? data.copy,
-            ...(data.hashtags.length
-              ? [data.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")]
-              : []),
-          ]
-            .filter(Boolean)
-            .join("\n\n")
-            .trim() || null;
+          : [
+              d.copyOverride ?? data.copy,
+              ...(data.hashtags.length
+                ? [data.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")]
+                : []),
+            ]
+              .filter(Boolean)
+              .join("\n\n")
+              .trim() || null;
 
         // Stories multi-frame: 1 social_posts por mídia, +1 minuto por frame.
         // Feed/Reels: 1 linha (usa a primeira mídia).
@@ -742,15 +700,14 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
         let frameErr: string | null = null;
         for (let i = 0; i < frames.length; i++) {
           const path = frames[i];
-          const media =
-            path
-              ? {
-                  storagePath: path,
-                  ...(isStory ? {} : data.linkUrl ? { link: data.linkUrl } : {}),
-                }
-              : !isStory && data.linkUrl
-                ? { link: data.linkUrl }
-                : {};
+          const media = path
+            ? {
+                storagePath: path,
+                ...(isStory ? {} : data.linkUrl ? { link: data.linkUrl } : {}),
+              }
+            : !isStory && data.linkUrl
+              ? { link: data.linkUrl }
+              : {};
           const frameIso = new Date(baseMs + i * 60_000).toISOString();
           const { error: spErr } = await supabase.from("social_posts").insert({
             brand_id: data.brandId,
@@ -766,7 +723,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             status: "scheduled",
             scheduled_at: frameIso,
             created_by: context.userId,
-            location_id: isStory ? null : data.locationId ?? null,
+            location_id: isStory ? null : (data.locationId ?? null),
           });
           if (spErr) {
             frameErr = spErr.message;
@@ -787,9 +744,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             .update({ stage: "approved", scheduled_at: null })
             .eq("id", postId)
             .eq("brand_id", data.brandId);
-          throw new Error(
-            `Falha ao agendar ${d.channel}: ${frameErr}`,
-          );
+          throw new Error(`Falha ao agendar ${d.channel}: ${frameErr}`);
         }
         enqueueResults.push({ channel: d.channel, format: d.format, ok: true });
       }
@@ -804,9 +759,8 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
 
     // ---- Publicar agora: dispara Meta para cada destino suportado ----
     if (data.action === "publish") {
-      const { MetaPublishingService, formatPublishError } = await import(
-        "@/lib/meta/publishing.server"
-      );
+      const { MetaPublishingService, formatPublishError } =
+        await import("@/lib/meta/publishing.server");
       const svc = new MetaPublishingService();
       // Vínculo canal ↔ cliente (client_social_accounts) = fonte de verdade.
       const { data: pubLinks, error: pubLinksErr } = await supabase
@@ -818,26 +772,36 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
       const publishLinkedIds = new Set(
         ((pubLinks ?? []) as Array<{ connection_id: string }>).map((l) => l.connection_id),
       );
-      const results: Array<{ channel: string; format: string; ok: boolean; error?: string; permalink?: string | null; connectionId?: string }> = [];
+      const results: Array<{
+        channel: string;
+        format: string;
+        ok: boolean;
+        error?: string;
+        permalink?: string | null;
+        connectionId?: string;
+      }> = [];
       for (const d of data.destinations) {
         // Publicação direta: Feed IG/FB e Stories no IG (multi-frame automático).
         const supported =
-          (d.format === "feed" &&
-            (d.channel === "instagram" || d.channel === "facebook")) ||
+          (d.format === "feed" && (d.channel === "instagram" || d.channel === "facebook")) ||
           (d.format === "stories" && d.channel === "instagram");
         if (!supported) {
-          results.push({ channel: d.channel, format: d.format, ok: false, error: "Formato ainda não publicável (Feed IG/FB ou Stories IG)" });
+          results.push({
+            channel: d.channel,
+            format: d.format,
+            ok: false,
+            error: "Formato ainda não publicável (Feed IG/FB ou Stories IG)",
+          });
           continue;
         }
         const isStory = d.format === "stories";
         // Valor persistido em social_posts.placement (CHECK constraint) e enviado
         // ao provider como identificador de superfície.
-        const providerPlacement: "instagram_feed" | "facebook_feed" | "instagram_story" =
-          isStory
-            ? "instagram_story"
-            : d.channel === "instagram"
-              ? "instagram_feed"
-              : "facebook_feed";
+        const providerPlacement: "instagram_feed" | "facebook_feed" | "instagram_story" = isStory
+          ? "instagram_story"
+          : d.channel === "instagram"
+            ? "instagram_feed"
+            : "facebook_feed";
         const dbPlacement: "feed" | "story" = isStory ? "story" : "feed";
         try {
           // Carrega conexão do workspace (a marca é a dona do canal)
@@ -853,7 +817,8 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           if (!conn) {
             throw new Error("CONNECTION_SCOPE_MISMATCH: conexão não pertence a esta marca");
           }
-          if (!conn.access_token_ciphertext) throw new Error("Conexão sem token — reconecte a página");
+          if (!conn.access_token_ciphertext)
+            throw new Error("Conexão sem token — reconecte a página");
           if (!publishLinkedIds.has(d.connectionId)) {
             throw new Error("CONNECTION_SCOPE_MISMATCH: canal não vinculado a este cliente");
           }
@@ -873,9 +838,7 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
           }
           // PRÉ-FLIGHT: autorização granular da Meta para ESTA conta.
           {
-            const { resolvePublishTarget } = await import(
-              "@/lib/meta/publish-capability.server"
-            );
+            const { resolvePublishTarget } = await import("@/lib/meta/publish-capability.server");
             const { capability } = await resolvePublishTarget(supabase, {
               brandId: data.brandId,
               clientId: data.clientId,
@@ -886,14 +849,12 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             if (!capability.publishReady) throw new Error(capability.message);
           }
 
-
-
-
           // Stories multi-frame: publica cada mídia como um Story separado.
           // Feed/Reels: 1 chamada, primeira mídia.
-          const frames = isStory && data.mediaPaths.length > 0
-            ? data.mediaPaths
-            : [data.mediaPaths[0] as string | undefined];
+          const frames =
+            isStory && data.mediaPaths.length > 0
+              ? data.mediaPaths
+              : [data.mediaPaths[0] as string | undefined];
 
           const caption = isStory
             ? undefined
@@ -913,7 +874,8 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             const mediaOut: { imageUrl?: string; videoUrl?: string; link?: string } = {};
             if (!isStory && data.linkUrl) mediaOut.link = data.linkUrl;
             if (path) {
-              if (!path.startsWith(`${data.brandId}/`)) throw new Error("Mídia fora do escopo da marca");
+              if (!path.startsWith(`${data.brandId}/`))
+                throw new Error("Mídia fora do escopo da marca");
               const { data: signed, error: sErr } = await supabase.storage
                 .from("brand-media")
                 .createSignedUrl(path, 3600);
@@ -924,7 +886,11 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             if (providerPlacement === "instagram_feed" && !mediaOut.imageUrl) {
               throw new Error("Feed do Instagram exige uma imagem");
             }
-            if (providerPlacement === "instagram_story" && !mediaOut.imageUrl && !mediaOut.videoUrl) {
+            if (
+              providerPlacement === "instagram_story" &&
+              !mediaOut.imageUrl &&
+              !mediaOut.videoUrl
+            ) {
               throw new Error("Stories exige imagem ou vídeo");
             }
 
@@ -941,19 +907,28 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
                 hashtags: isStory ? [] : data.hashtags,
                 mentions: [],
                 media: path
-                  ? { storagePath: path, ...(!isStory && data.linkUrl ? { link: data.linkUrl } : {}) }
-                  : (!isStory && data.linkUrl ? { link: data.linkUrl } : {}),
+                  ? {
+                      storagePath: path,
+                      ...(!isStory && data.linkUrl ? { link: data.linkUrl } : {}),
+                    }
+                  : !isStory && data.linkUrl
+                    ? { link: data.linkUrl }
+                    : {},
                 post_id: postId,
                 status: "publishing",
                 created_by: context.userId,
-                location_id: isStory ? null : data.locationId ?? null,
+                location_id: isStory ? null : (data.locationId ?? null),
               })
               .select("id")
               .single();
             if (spErr) throw new Error(spErr.message);
 
             try {
-              const result = await svc.publish(conn as any, { placement: providerPlacement, caption, media: mediaOut });
+              const result = await svc.publish(conn as any, {
+                placement: providerPlacement,
+                caption,
+                media: mediaOut,
+              });
               await supabase
                 .from("social_posts")
                 .update({
@@ -975,9 +950,21 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
               throw new Error(msg);
             }
           }
-          results.push({ channel: d.channel, format: d.format, ok: true, permalink: lastPermalink, connectionId: d.connectionId });
+          results.push({
+            channel: d.channel,
+            format: d.format,
+            ok: true,
+            permalink: lastPermalink,
+            connectionId: d.connectionId,
+          });
         } catch (err) {
-          results.push({ channel: d.channel, format: d.format, ok: false, error: (err as Error).message, connectionId: d.connectionId });
+          results.push({
+            channel: d.channel,
+            format: d.format,
+            ok: false,
+            error: (err as Error).message,
+            connectionId: d.connectionId,
+          });
         }
       }
       const okCount = results.filter((r) => r.ok).length;
@@ -1013,7 +1000,6 @@ export const saveScheduledPostFn = createServerFn({ method: "POST" })
             .eq("brand_id", data.brandId);
         }
       }
-
 
       return { ok: okCount > 0, postId, published: okCount, results };
     }
@@ -1088,23 +1074,13 @@ export const deleteApprovedPostFn = createServerFn({ method: "POST" })
       .select("id, status")
       .eq("post_id", data.postId);
     if (spErr) throw new Error(spErr.message);
-    const blocking = (spRows ?? []).filter(
-      (r) => r.status && r.status !== "scheduled",
-    );
+    const blocking = (spRows ?? []).filter((r) => r.status && r.status !== "scheduled");
     if (blocking.length > 0) {
-      throw new Error(
-        "Não é possível excluir: já existem publicações em andamento ou publicadas.",
-      );
+      throw new Error("Não é possível excluir: já existem publicações em andamento ou publicadas.");
     }
     // Ordem: social_posts (scheduled) → placements → posts
-    await context.supabase
-      .from("social_posts")
-      .delete()
-      .eq("post_id", data.postId);
-    await context.supabase
-      .from("post_placements")
-      .delete()
-      .eq("post_id", data.postId);
+    await context.supabase.from("social_posts").delete().eq("post_id", data.postId);
+    await context.supabase.from("post_placements").delete().eq("post_id", data.postId);
     const { error } = await context.supabase
       .from("posts")
       .delete()
@@ -1126,9 +1102,7 @@ export const deleteApprovedPostFn = createServerFn({ method: "POST" })
 export const cancelPostScheduleFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z
-      .object({ postId: z.string().uuid(), brandId: z.string().uuid() })
-      .parse(i),
+    z.object({ postId: z.string().uuid(), brandId: z.string().uuid() }).parse(i),
   )
   .handler(async ({ data, context }) => {
     const supabase = context.supabase;
@@ -1150,13 +1124,9 @@ export const cancelPostScheduleFn = createServerFn({ method: "POST" })
     const rows = spRows ?? [];
 
     if (rows.some((r) => r.status === "published")) {
-      throw new Error(
-        "Esta peça já foi publicada — não é possível cancelar o agendamento.",
-      );
+      throw new Error("Esta peça já foi publicada — não é possível cancelar o agendamento.");
     }
-    const inFlight = rows.filter(
-      (r) => r.status === "publishing" || !!r.publish_locked_at,
-    );
+    const inFlight = rows.filter((r) => r.status === "publishing" || !!r.publish_locked_at);
     if (inFlight.length > 0) {
       throw new Error(
         "A publicação já está em processamento pelo worker. Aguarde a conclusão antes de cancelar.",
@@ -1164,9 +1134,7 @@ export const cancelPostScheduleFn = createServerFn({ method: "POST" })
     }
 
     // 1) Fila: scheduled/failed → cancelled (só se ainda não reivindicado).
-    const cancellable = rows.filter(
-      (r) => r.status === "scheduled" || r.status === "failed",
-    );
+    const cancellable = rows.filter((r) => r.status === "scheduled" || r.status === "failed");
     let cancelledCount = 0;
     if (cancellable.length > 0) {
       const { data: updated, error: uErr } = await supabase

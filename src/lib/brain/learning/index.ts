@@ -21,14 +21,12 @@ export const QUEUE_STATUS = {
 export async function requeueEvent(ctx: BrainContext, eventId: string): Promise<void> {
   waitUntil(
     (async () => {
-      const { error } = await ctx.supabase
-        .from("brain_learning_queue")
-        .insert({
-          brand_id: ctx.brandId ?? null,
-          event_id: eventId,
-          status: QUEUE_STATUS.queued,
-          attempts: 0,
-        });
+      const { error } = await ctx.supabase.from("brain_learning_queue").insert({
+        brand_id: ctx.brandId ?? null,
+        event_id: eventId,
+        status: QUEUE_STATUS.queued,
+        attempts: 0,
+      });
       if (error) console.error("[brain.learning.requeue]", error.message);
     })(),
   );

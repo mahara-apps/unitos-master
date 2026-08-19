@@ -72,7 +72,8 @@ export function EventChip({
         <TooltipContent side="top" className="max-w-xs text-xs">
           <div className="font-medium">{p.title}</div>
           <div className="mt-0.5 text-muted-foreground">
-            {SOCIAL_NETWORKS[netKey].label}{isStory ? " · Story" : ""} · {t} · {statusLabel}
+            {SOCIAL_NETWORKS[netKey].label}
+            {isStory ? " · Story" : ""} · {t} · {statusLabel}
             {p.author?.name ? ` · ${p.author.name}` : ""}
           </div>
         </TooltipContent>
@@ -100,9 +101,7 @@ export function EventChip({
           )}
         >
           <span className={cn("h-1.5 w-1.5 shrink-0 rounded-full", style.dot)} />
-          {!e.all_day ? (
-            <span className="tabular-nums font-semibold opacity-70">{t}</span>
-          ) : null}
+          {!e.all_day ? <span className="tabular-nums font-semibold opacity-70">{t}</span> : null}
           <span className="truncate flex-1">{e.title}</span>
         </button>
       </TooltipTrigger>

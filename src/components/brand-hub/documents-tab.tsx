@@ -92,20 +92,29 @@ function statusBadge(s: ClientDocumentAi["ai_status"]) {
   switch (s) {
     case "done":
       return (
-        <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+        <Badge
+          variant="outline"
+          className="border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+        >
           <CheckCircle2 className="mr-1 h-3 w-3" /> Interpretado
         </Badge>
       );
     case "queued":
     case "running":
       return (
-        <Badge variant="outline" className="border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-400">
+        <Badge
+          variant="outline"
+          className="border-blue-500/40 bg-blue-500/10 text-blue-600 dark:text-blue-400"
+        >
           <Loader2 className="mr-1 h-3 w-3 animate-spin" /> Analisando
         </Badge>
       );
     case "failed":
       return (
-        <Badge variant="outline" className="border-destructive/40 bg-destructive/10 text-destructive">
+        <Badge
+          variant="outline"
+          className="border-destructive/40 bg-destructive/10 text-destructive"
+        >
           <XCircle className="mr-1 h-3 w-3" /> Falhou
         </Badge>
       );
@@ -224,8 +233,6 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
     onError: () => toast.error("Falha ao atualizar visibilidade"),
   });
 
-
-
   const download = async (id: string) => {
     try {
       const { url } = await sign({ data: { brandId, clientId, documentId: id } });
@@ -241,7 +248,12 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
     const applied = docs.filter((d) => d.applied_to_briefing_at).length;
     const suggested = docs.reduce((acc, d) => {
       if (!d.ai_summary?.briefing) return acc;
-      return acc + Object.values(d.ai_summary.briefing).filter((v) => v != null && (Array.isArray(v) ? v.length > 0 : String(v).trim().length > 0)).length;
+      return (
+        acc +
+        Object.values(d.ai_summary.briefing).filter(
+          (v) => v != null && (Array.isArray(v) ? v.length > 0 : String(v).trim().length > 0),
+        ).length
+      );
     }, 0);
     return { total: docs.length, analyzed, applied, suggested };
   }, [docs]);
@@ -311,7 +323,12 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
   const renderActions = (d: ClientDocumentAi) => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0" aria-label="Ações do documento">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-9 w-9 shrink-0"
+          aria-label="Ações do documento"
+        >
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
@@ -333,12 +350,16 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
     </DropdownMenu>
   );
 
-
   return (
     <div className="space-y-4">
       <PageKpiGrid columns={4}>
         <PageKpi icon={<FileText />} label="Documentos" value={kpis.total} />
-        <PageKpi icon={<BrainCircuit />} label="Interpretados" value={kpis.analyzed} status="info" />
+        <PageKpi
+          icon={<BrainCircuit />}
+          label="Interpretados"
+          value={kpis.analyzed}
+          status="info"
+        />
         <PageKpi icon={<Sparkles />} label="Campos sugeridos" value={kpis.suggested} />
         <PageKpi
           icon={<CheckCircle2 />}
@@ -347,7 +368,6 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
           status={kpis.applied > 0 ? "success" : "neutral"}
         />
       </PageKpiGrid>
-
 
       <section
         className={
@@ -372,10 +392,13 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
         )}
         <div className="text-sm font-medium">Central de documentos & contexto</div>
         <p className="mt-1 max-w-md text-center text-xs text-muted-foreground">
-          Envie brandbooks, manuais de marca, pesquisas ou decks. A IA lê cada documento, interpreta em nível sênior e sugere melhorias para o briefing. Máx. 25 MB por arquivo.
+          Envie brandbooks, manuais de marca, pesquisas ou decks. A IA lê cada documento, interpreta
+          em nível sênior e sugere melhorias para o briefing. Máx. 25 MB por arquivo.
         </p>
         <p className="mt-2 flex items-center gap-1.5 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-          <EyeOff className="h-3 w-3" /> Todo documento novo entra como <span className="underline">não visível</span> ao cliente. Libere manualmente na lista abaixo.
+          <EyeOff className="h-3 w-3" /> Todo documento novo entra como{" "}
+          <span className="underline">não visível</span> ao cliente. Libere manualmente na lista
+          abaixo.
         </p>
         <Button
           size="sm"
@@ -457,7 +480,9 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
                       <TableCell className="text-xs text-muted-foreground">
                         {fmtDate(d.created_at)}
                       </TableCell>
-                      <TableCell className="text-xs tabular-nums">{fmtSize(d.size_bytes)}</TableCell>
+                      <TableCell className="text-xs tabular-nums">
+                        {fmtSize(d.size_bytes)}
+                      </TableCell>
                       <TableCell className="text-right">{renderActions(d)}</TableCell>
                     </TableRow>
                   ))}
@@ -467,7 +492,6 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
           </>
         )}
       </section>
-
 
       <AiReadingDrawer
         doc={openDoc}
@@ -485,8 +509,12 @@ export function DocumentsTab({ brandId, clientId }: { brandId: string; clientId:
   );
 }
 
-type ApplyFn = (args: { data: { brandId: string; clientId: string; documentId: string; fields: string[] } }) => Promise<{ ok: boolean; appliedFields: string[] }>;
-type SnapshotFn = (args: { data: { brandId: string; clientId: string } }) => Promise<Partial<DocumentBriefingSummary>>;
+type ApplyFn = (args: {
+  data: { brandId: string; clientId: string; documentId: string; fields: string[] };
+}) => Promise<{ ok: boolean; appliedFields: string[] }>;
+type SnapshotFn = (args: {
+  data: { brandId: string; clientId: string };
+}) => Promise<Partial<DocumentBriefingSummary>>;
 
 function AiReadingDrawer({
   doc,
@@ -516,14 +544,24 @@ function AiReadingDrawer({
 
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const suggestions = useMemo(() => {
-    if (!briefing) return [] as Array<{ key: keyof DocumentBriefingSummary; label: string; suggested: string; current: string }>;
+    if (!briefing)
+      return [] as Array<{
+        key: keyof DocumentBriefingSummary;
+        label: string;
+        suggested: string;
+        current: string;
+      }>;
     const current = (snapQ.data ?? {}) as Partial<DocumentBriefingSummary>;
     return (Object.keys(FIELD_LABELS) as Array<keyof DocumentBriefingSummary>)
       .map((k) => {
         const raw = briefing[k];
-        const suggested = Array.isArray(raw) ? raw.join(", ") : (raw as string | null | undefined) ?? "";
+        const suggested = Array.isArray(raw)
+          ? raw.join(", ")
+          : ((raw as string | null | undefined) ?? "");
         const curRaw = current[k];
-        const currentText = Array.isArray(curRaw) ? curRaw.join(", ") : (curRaw as string | null | undefined) ?? "";
+        const currentText = Array.isArray(curRaw)
+          ? curRaw.join(", ")
+          : ((curRaw as string | null | undefined) ?? "");
         return { key: k, label: FIELD_LABELS[k], suggested, current: currentText };
       })
       .filter((r) => r.suggested.trim().length > 0);
@@ -532,7 +570,9 @@ function AiReadingDrawer({
   const [saving, setSaving] = useState(false);
   const apply = async () => {
     if (!doc) return;
-    const fields = Object.entries(selected).filter(([, v]) => v).map(([k]) => k);
+    const fields = Object.entries(selected)
+      .filter(([, v]) => v)
+      .map(([k]) => k);
     if (!fields.length) {
       toast.error("Selecione pelo menos um campo.");
       return;
@@ -567,56 +607,72 @@ function AiReadingDrawer({
       }
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={saving}>Cancelar</Button>
-          <Button onClick={() => void apply()} disabled={saving || suggestions.length === 0} className="gap-1.5">
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          <Button variant="ghost" onClick={onClose} disabled={saving}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={() => void apply()}
+            disabled={saving || suggestions.length === 0}
+            className="gap-1.5"
+          >
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
+            )}
             Aplicar ao briefing
           </Button>
         </>
       }
     >
       <div className="space-y-3">
-            {suggestions.length === 0 ? (
-              <div className="rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
-                A IA não encontrou campos suficientes neste documento.
-              </div>
-            ) : (
-              suggestions.map((s) => {
-                const changed = (s.current ?? "").trim() !== (s.suggested ?? "").trim();
-                return (
-                  <div key={s.key} className="rounded-lg border border-border bg-card p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <label className="flex flex-1 items-start gap-2 text-sm">
-                        <Checkbox
-                          checked={!!selected[s.key]}
-                          onCheckedChange={(v) => setSelected((prev) => ({ ...prev, [s.key]: !!v }))}
-                        />
-                        <div>
-                          <div className="font-medium">{s.label}</div>
-                          {!changed && s.current ? (
-                            <div className="text-[11px] text-muted-foreground">Sem diferença relevante</div>
-                          ) : null}
+        {suggestions.length === 0 ? (
+          <div className="rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground">
+            A IA não encontrou campos suficientes neste documento.
+          </div>
+        ) : (
+          suggestions.map((s) => {
+            const changed = (s.current ?? "").trim() !== (s.suggested ?? "").trim();
+            return (
+              <div key={s.key} className="rounded-lg border border-border bg-card p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <label className="flex flex-1 items-start gap-2 text-sm">
+                    <Checkbox
+                      checked={!!selected[s.key]}
+                      onCheckedChange={(v) => setSelected((prev) => ({ ...prev, [s.key]: !!v }))}
+                    />
+                    <div>
+                      <div className="font-medium">{s.label}</div>
+                      {!changed && s.current ? (
+                        <div className="text-[11px] text-muted-foreground">
+                          Sem diferença relevante
                         </div>
-                      </label>
+                      ) : null}
                     </div>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                      <div>
-                        <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">Antes</div>
-                        <div className="min-h-[52px] whitespace-pre-wrap rounded-md border border-border/60 bg-muted/40 p-2 text-xs">
-                          {s.current || <span className="text-muted-foreground">— vazio —</span>}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="mb-1 text-[10px] uppercase tracking-wide text-primary">Depois (sugerido)</div>
-                        <div className="min-h-[52px] whitespace-pre-wrap rounded-md border border-primary/30 bg-primary/5 p-2 text-xs">
-                          {s.suggested}
-                        </div>
-                      </div>
+                  </label>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <div>
+                    <div className="mb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Antes
+                    </div>
+                    <div className="min-h-[52px] whitespace-pre-wrap rounded-md border border-border/60 bg-muted/40 p-2 text-xs">
+                      {s.current || <span className="text-muted-foreground">— vazio —</span>}
                     </div>
                   </div>
-                );
-              })
-            )}
+                  <div>
+                    <div className="mb-1 text-[10px] uppercase tracking-wide text-primary">
+                      Depois (sugerido)
+                    </div>
+                    <div className="min-h-[52px] whitespace-pre-wrap rounded-md border border-primary/30 bg-primary/5 p-2 text-xs">
+                      {s.suggested}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
       </div>
     </ExpandedModal>
   );

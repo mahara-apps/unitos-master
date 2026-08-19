@@ -31,7 +31,9 @@ export const ALL_PERMISSION_IDS: PermissionId[] = [
 export function normalizePermissions(input: unknown): PermissionId[] {
   if (!Array.isArray(input)) return [];
   const valid = new Set<PermissionId>(ALL_PERMISSION_IDS);
-  return input.filter((v): v is PermissionId => typeof v === "string" && valid.has(v as PermissionId));
+  return input.filter(
+    (v): v is PermissionId => typeof v === "string" && valid.has(v as PermissionId),
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -57,16 +59,34 @@ export const isAdminRole = (role: AccessRole | null | undefined) => role === "ad
 /** URLs permitidas na sidebar por nível de acesso. */
 export const SIDEBAR_ALLOWED_URLS: Record<AccessRole, ReadonlySet<string>> = {
   admin: new Set([
-    "/dashboard", "/tasks", "/calendar", "/projects", "/customers",
-    "/analytics", "/media-plans",
-    "/connections", "/agents",
-    "/content", "/monthly-plan", "/brain", "/chat",
-    "/settings/team", "/notifications",
+    "/dashboard",
+    "/tasks",
+    "/calendar",
+    "/projects",
+    "/customers",
+    "/analytics",
+    "/media-plans",
+    "/connections",
+    "/agents",
+    "/content",
+    "/monthly-plan",
+    "/brain",
+    "/chat",
+    "/settings/team",
+    "/notifications",
     "/settings",
   ]),
   user: new Set([
-    "/dashboard", "/tasks", "/calendar", "/projects", "/customers",
-    "/content", "/monthly-plan", "/media-plans", "/brain", "/chat",
+    "/dashboard",
+    "/tasks",
+    "/calendar",
+    "/projects",
+    "/customers",
+    "/content",
+    "/monthly-plan",
+    "/media-plans",
+    "/brain",
+    "/chat",
     "/notifications",
   ]),
 };

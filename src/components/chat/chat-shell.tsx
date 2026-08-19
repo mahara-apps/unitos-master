@@ -64,8 +64,7 @@ export function ChatShell({ children }: { children: ReactNode }) {
   }, [conversations.data, query, clientId]);
 
   const newChat = useMutation({
-    mutationFn: () =>
-      create({ data: { brandId: brandId ?? null, clientId: clientId ?? null } }),
+    mutationFn: () => create({ data: { brandId: brandId ?? null, clientId: clientId ?? null } }),
     onSuccess: (row) => {
       qc.invalidateQueries({ queryKey: ["chat", "conversations"] });
       navigate({ to: "/chat/$conversationId", params: { conversationId: row.id } });

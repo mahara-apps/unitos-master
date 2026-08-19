@@ -20,7 +20,6 @@ import { recordAiUsage, type AiUsageContext } from "./ai-usage.server";
 
 export type { AiUsageContext };
 
-
 export type { ProviderName, ProviderRole };
 export type ProviderKind = "text" | "image";
 
@@ -47,9 +46,7 @@ export type BrandAiModel = {
 
 /** Resumo curto (sem segredos) para gravar em ai_jobs. */
 export function describeProviderAttempts(attempts: ProviderAttempt[]): string {
-  return attempts
-    .map((a) => `${a.provider}/${a.model}#${a.attempt}:${a.result}`)
-    .join(" → ");
+  return attempts.map((a) => `${a.provider}/${a.model}#${a.attempt}:${a.result}`).join(" → ");
 }
 
 export type BrandProviderKey = {
@@ -75,23 +72,19 @@ export async function getBrandProviderKey(
     .maybeSingle();
   if (connErr) throw connErr;
 
-  const selected = (
-    kind === "image" ? conn?.image_provider : conn?.text_provider
-  ) as ProviderName | undefined;
+  const selected = (kind === "image" ? conn?.image_provider : conn?.text_provider) as
+    | ProviderName
+    | undefined;
 
-  const providers = (conn?.providers ?? {}) as Record<
-    string,
-    { connected?: boolean } | undefined
-  >;
-  const allowed = (p: string): p is ProviderName =>
-    !only || (only as string[]).includes(p);
+  const providers = (conn?.providers ?? {}) as Record<string, { connected?: boolean } | undefined>;
+  const allowed = (p: string): p is ProviderName => !only || (only as string[]).includes(p);
 
   const provider: ProviderName | undefined =
     selected && providers[selected]?.connected && allowed(selected)
       ? selected
-      : (Object.entries(providers).find(
-          ([k, v]) => v?.connected && allowed(k),
-        )?.[0] as ProviderName | undefined);
+      : (Object.entries(providers).find(([k, v]) => v?.connected && allowed(k))?.[0] as
+          | ProviderName
+          | undefined);
 
   if (!provider) {
     throw new Error(
@@ -149,7 +142,10 @@ export async function getBrandFallbackProviderKey(
     const fallback = (conn as { text_fallback_provider?: string | null } | null)
       ?.text_fallback_provider as ProviderName | null | undefined;
     if (!fallback || fallback === primary) return null;
-    const providers = (conn?.providers ?? {}) as Record<string, { connected?: boolean } | undefined>;
+    const providers = (conn?.providers ?? {}) as Record<
+      string,
+      { connected?: boolean } | undefined
+    >;
     if (!providers[fallback]?.connected) return null;
     if (!supportsKind(fallback, "text")) return null;
 
@@ -240,8 +236,6 @@ function readUsage(usage: UsageLike): { inTok: number; outTok: number } {
   return { inTok, outTok };
 }
 
-
-
 /**
  * Envolve o modelo com duas responsabilidades:
  * 1. fallback: se o provedor rejeitar por modelo descontinuado/indisponível,
@@ -314,7 +308,7 @@ function withModelInstrumentation(
     } as Awaited<ReturnType<ModelV2["doStream"]>>;
   };
 
-  const attempt = async <T,>(
+  const attempt = async <T>(
     op: "doGenerate" | "doStream",
     options: Parameters<ModelV2["doGenerate"]>[0],
   ): Promise<T> => {
@@ -330,10 +324,7 @@ function withModelInstrumentation(
       try {
         const out = (await (current[op] as (o: unknown) => Promise<unknown>)(options)) as T;
         if (op === "doStream") {
-          return instrumentStream(
-            out as Awaited<ReturnType<ModelV2["doStream"]>>,
-            modelId,
-          ) as T;
+          return instrumentStream(out as Awaited<ReturnType<ModelV2["doStream"]>>, modelId) as T;
         }
         const raw = out as {
           usage?: UsageLike;
@@ -447,9 +438,12 @@ async function assertBudget(
       _client_id: usage?.clientId ?? null,
       _user_id: usage?.userId ?? null,
     });
-    const b = data as
-      | { allowed?: boolean; blocked_by?: string; limit_usd?: number; spent_usd?: number }
-      | null;
+    const b = data as {
+      allowed?: boolean;
+      blocked_by?: string;
+      limit_usd?: number;
+      spent_usd?: number;
+    } | null;
     if (b && b.allowed === false) {
       throw new Error(
         `ai_budget_exceeded:${b.blocked_by ?? "brand"}:${b.spent_usd ?? 0}:${b.limit_usd ?? 0}`,
@@ -514,8 +508,6 @@ export async function getBrandAiModel(
   };
 }
 
-
-
 /* ------------------------------------------------------------------ */
 /* Embeddings (1536 dims — matches the brain_embeddings vector column) */
 /* ------------------------------------------------------------------ */
@@ -537,10 +529,7 @@ export async function embedTextWithBrandKey(
 
   let creds: BrandProviderKey;
   try {
-    creds = await getBrandProviderKey(supabase, brandId, "text", [
-      "openai",
-      "gemini",
-    ]);
+    creds = await getBrandProviderKey(supabase, brandId, "text", ["openai", "gemini"]);
   } catch (err) {
     console.error("[ai-provider] embedding sem chave configurada", err);
     return null;
@@ -561,7 +550,11 @@ export async function embedTextWithBrandKey(
         }),
       });
       if (!res.ok) {
-        console.error("[ai-provider] openai embeddings", res.status, await res.text().catch(() => ""));
+        console.error(
+          "[ai-provider] openai embeddings",
+          res.status,
+          await res.text().catch(() => ""),
+        );
         return null;
       }
       const json = (await res.json()) as { data?: Array<{ embedding: number[] }> };
@@ -583,7 +576,11 @@ export async function embedTextWithBrandKey(
       },
     );
     if (!res.ok) {
-      console.error("[ai-provider] gemini embeddings", res.status, await res.text().catch(() => ""));
+      console.error(
+        "[ai-provider] gemini embeddings",
+        res.status,
+        await res.text().catch(() => ""),
+      );
       return null;
     }
     const json = (await res.json()) as { embedding?: { values?: number[] } };
@@ -613,12 +610,7 @@ export async function generateBrandImage(
   brandId: string,
   prompt: string,
 ): Promise<BrandGeneratedImage> {
-  const creds = await getBrandProviderKey(
-    supabase,
-    brandId,
-    "image",
-    IMAGE_PROVIDERS,
-  );
+  const creds = await getBrandProviderKey(supabase, brandId, "image", IMAGE_PROVIDERS);
   if (!supportsKind(creds.provider, "image")) {
     throw new Error(
       `ai_image_unsupported:${creds.provider}: este provedor não gera imagens. Selecione OpenAI ou Gemini em Conexões.`,
@@ -700,14 +692,10 @@ export async function getBrandAiModelAdmin(
 ): Promise<BrandAiModel> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return getBrandAiModel(supabaseAdmin, brandId, kind, role, usage);
-
 }
 
 /** Embedding com a chave da marca usando o client admin. */
-export async function embedTextAdmin(
-  brandId: string,
-  text: string,
-): Promise<number[] | null> {
+export async function embedTextAdmin(brandId: string, text: string): Promise<number[] | null> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return embedTextWithBrandKey(supabaseAdmin, brandId, text);
 }

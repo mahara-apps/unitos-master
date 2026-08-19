@@ -80,8 +80,6 @@ import {
 export { classifyAiError };
 export type { FailureKind };
 
-
-
 type RunTrace = {
   provider: string | null;
   model: string | null;
@@ -122,16 +120,28 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
   system: string;
   prompt: string;
   schema: T;
-  onAttempt?: (attempt: number, kind: FailureKind, message: string, trace: RunTrace) => Promise<void> | void;
+  onAttempt?: (
+    attempt: number,
+    kind: FailureKind,
+    message: string,
+    trace: RunTrace,
+  ) => Promise<void> | void;
 }): Promise<{ output: z.infer<T>; attempts: number; trace: RunTrace }> {
   const maxAttempts = BACKOFF_MS.length + 1;
   let lastErr: unknown = null;
-  let trace: RunTrace = { provider: null, model: null, fallbackProvider: null, providerTrace: null };
+  let trace: RunTrace = {
+    provider: null,
+    model: null,
+    fallbackProvider: null,
+    providerTrace: null,
+  };
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     let handle: Awaited<ReturnType<typeof getBrandAiModelAdmin>> | null = null;
     try {
-      handle = await getBrandAiModelAdmin(opts.brandId, "text", "operational", { agent: "post.agent" });
+      handle = await getBrandAiModelAdmin(opts.brandId, "text", "operational", {
+        agent: "post.agent",
+      });
       trace = {
         provider: handle.provider,
         model: handle.modelId,
@@ -175,7 +185,6 @@ async function runStructured<T extends z.ZodTypeAny>(opts: {
   }
   throw lastErr ?? new Error("ai_unknown_error");
 }
-
 
 async function logAttempt(
   admin: import("@supabase/supabase-js").SupabaseClient,
@@ -240,8 +249,6 @@ async function logAttempt(
   }
 }
 
-
-
 export type GeneratePostResult =
   | { status: "generated"; agents: string[] }
   | { status: "skipped"; reason: string }
@@ -263,12 +270,7 @@ export const AI_PHASE = {
 } as const;
 
 /** Fases que podem ser retomadas pelo pipeline oficial. */
-export const RESUMABLE_AI_PHASES = [
-  "idea",
-  "copy_failed",
-  "copy_failed_retryable",
-] as const;
-
+export const RESUMABLE_AI_PHASES = ["idea", "copy_failed", "copy_failed_retryable"] as const;
 
 /**
  * Gera o conteúdo de uma peça. Idempotente: se a legenda já existe e
@@ -322,7 +324,9 @@ export async function generatePostContent(
   if (post.monthly_plan_topic_id) {
     const { data: t } = await admin
       .from("monthly_plan_topics")
-      .select("topic_title, angle, target_audience, rationale, channel, content_format, monthly_plan_id")
+      .select(
+        "topic_title, angle, target_audience, rationale, channel, content_format, monthly_plan_id",
+      )
       .eq("id", post.monthly_plan_topic_id)
       .maybeSingle();
     topic = (t as unknown as TopicRow | null) ?? null;
@@ -332,7 +336,10 @@ export async function generatePostContent(
         .select("title, input_briefing_id")
         .eq("id", topic.monthly_plan_id)
         .maybeSingle();
-      const p = plan as unknown as { title: string | null; input_briefing_id: string | null } | null;
+      const p = plan as unknown as {
+        title: string | null;
+        input_briefing_id: string | null;
+      } | null;
       planTitle = p?.title ?? null;
       planBriefingId = p?.input_briefing_id ?? null;
     }
@@ -348,7 +355,9 @@ export async function generatePostContent(
   };
 
   const [blueprintRes, briefingRes, strategyRes, brainRes] = await Promise.all([
-    buildBrandContextBlueprint(admin, post.brand_id, post.client_id).catch(noteDegraded("blueprint")),
+    buildBrandContextBlueprint(admin, post.brand_id, post.client_id).catch(
+      noteDegraded("blueprint"),
+    ),
     loadBriefingContext(admin, post.client_id, { briefingId: planBriefingId }).catch(
       noteDegraded("briefing"),
     ),
@@ -364,7 +373,6 @@ export async function generatePostContent(
   if (strategyRes && strategyRes.blocks.length === 0) {
     degraded.push("strategy:sem blocos ativos de Estratégia IA para este cliente");
   }
-
 
   const channel = (post.channels ?? [])[0] ?? topic?.channel ?? "instagram";
   // Prompt recebe o LABEL derivado da chave canônica (nunca rótulo legado).
@@ -385,7 +393,8 @@ export async function generatePostContent(
     topic?.angle ? `Ângulo/estratégia do tópico: ${topic.angle}` : "",
     topic?.target_audience ? `Público-alvo do tópico: ${topic.target_audience}` : "",
     topic?.rationale ? `Racional estratégico: ${topic.rationale}` : "",
-    pieceBriefing || "Briefing específico da peça: (vazio — use o contexto da pauta e da marca, sem inventar fatos)",
+    pieceBriefing ||
+      "Briefing específico da peça: (vazio — use o contexto da pauta e da marca, sem inventar fatos)",
   ]
     .filter(Boolean)
     .join("\n");
@@ -405,11 +414,12 @@ export async function generatePostContent(
     blueprintRes?.blueprint ? "brand_blueprint" : "",
     briefingRes?.text ? "briefing" : "",
     strategyRes?.markdown ? `strategy(${strategyRes.blocks.join("+")})` : "",
-    brainRes?.used ? `brain(${brainRes.used}/${brainRes.candidates}:${brainRes.scopes.join("+")})` : "",
+    brainRes?.used
+      ? `brain(${brainRes.used}/${brainRes.candidates}:${brainRes.scopes.join("+")})`
+      : "",
     topic ? "plan_topic" : "",
     pieceBriefing ? "piece_briefing" : "",
   ].filter(Boolean);
-
 
   const needsScript = isVideoFormat(format, post.channels);
   const needsVisual = !needsScript && !(post.design_brief ?? "").trim();
@@ -453,10 +463,9 @@ export async function generatePostContent(
     PLATAFORMA: String(channel),
     OBJETIVO: topic?.angle ?? "",
     // Personas reais da Estratégia IA; público do tópico como segunda fonte.
-    PERSONAS:
-      strategyRes?.personaNames?.length
-        ? strategyRes.personaNames.join(", ")
-        : (topic?.target_audience ?? ""),
+    PERSONAS: strategyRes?.personaNames?.length
+      ? strategyRes.personaNames.join(", ")
+      : (topic?.target_audience ?? ""),
     COHORTS: strategyRes?.cohortNames?.length ? strategyRes.cohortNames.join(", ") : "",
     MARCA: briefingRes?.clientName ?? "",
   });
@@ -483,7 +492,6 @@ export async function generatePostContent(
         degraded,
       });
     };
-
 
   // 1) Roteirista (somente vídeo) — o roteiro alimenta a legenda depois.
   let scriptText = "";
@@ -568,7 +576,6 @@ export async function generatePostContent(
     }
   }
 
-
   // 3) Copywriter — LEGENDA final, campo único e pronto para publicação.
   const copyPrompt = prompts.get("copywriter_senior");
   if (!copyPrompt) {
@@ -644,7 +651,10 @@ export async function generatePostContent(
     // Persiste o que já foi produzido (roteiro/visual) — nunca legenda genérica.
     delete patch.copy;
     if (Object.keys(patch).length > 0) {
-      await admin.from("posts").update(patch as never).eq("id", post.id);
+      await admin
+        .from("posts")
+        .update(patch as never)
+        .eq("id", post.id);
     }
     await admin
       .from("posts")
@@ -658,7 +668,10 @@ export async function generatePostContent(
 
   patch.ai_phase = AI_PHASE.ready;
   patch.ai_phase_at = new Date().toISOString();
-  const { error: updErr } = await admin.from("posts").update(patch as never).eq("id", post.id);
+  const { error: updErr } = await admin
+    .from("posts")
+    .update(patch as never)
+    .eq("id", post.id);
   if (updErr) {
     await logAttempt(admin, post, {
       agent: "persist",
@@ -711,7 +724,6 @@ export async function generatePostContent(
     // auditoria não crítica
   }
 
-
   return { status: "generated", agents: used };
 }
 
@@ -762,7 +774,13 @@ export async function resumePendingPostContent(args: {
   planId?: string | null;
   limit?: number;
   userId?: string | null;
-}): Promise<{ candidates: number; generated: number; retryable: number; permanent: number; stopped: boolean }> {
+}): Promise<{
+  candidates: number;
+  generated: number;
+  retryable: number;
+  permanent: number;
+  stopped: boolean;
+}> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const admin = supabaseAdmin as unknown as import("@supabase/supabase-js").SupabaseClient;
 
@@ -801,4 +819,3 @@ export async function resumePendingPostContent(args: {
   const res = await generatePostsContentSequential(ids, { userId: args.userId ?? null });
   return { candidates: ids.length, ...res };
 }
-

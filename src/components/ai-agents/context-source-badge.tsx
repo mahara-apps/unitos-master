@@ -11,16 +11,9 @@ import { cn } from "@/lib/utils";
  * Adaptive to light/dark modes via semantic tokens: `bg-muted/40`,
  * `border-border/60`, `text-muted-foreground`.
  */
-export type ContextSource =
-  | "persona"
-  | "competitors"
-  | "knowledge"
-  | "full";
+export type ContextSource = "persona" | "competitors" | "knowledge" | "full";
 
-const SOURCES: Record<
-  ContextSource,
-  { icon: typeof Dna; label: string; tooltip: string }
-> = {
+const SOURCES: Record<ContextSource, { icon: typeof Dna; label: string; tooltip: string }> = {
   persona: {
     icon: Dna,
     label: "Context source · Persona & Briefing",

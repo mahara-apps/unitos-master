@@ -89,7 +89,13 @@ function BrandPicker({
   onChange,
   loading,
 }: {
-  brands: Array<{ id: string; name: string; slug: string; color: string | null; active_features: number }>;
+  brands: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    color: string | null;
+    active_features: number;
+  }>;
   value: string | null;
   onChange: (id: string) => void;
   loading: boolean;
@@ -121,7 +127,9 @@ function BrandPicker({
                       setOpen(false);
                     }}
                   >
-                    <Check className={cn("mr-2 h-4 w-4", value === b.id ? "opacity-100" : "opacity-0")} />
+                    <Check
+                      className={cn("mr-2 h-4 w-4", value === b.id ? "opacity-100" : "opacity-0")}
+                    />
                     <span className="flex-1 truncate">{b.name}</span>
                     <Badge variant="secondary" className="ml-2">
                       {b.active_features}

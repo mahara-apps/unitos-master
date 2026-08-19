@@ -27,9 +27,6 @@ import {
  * `monthly-plans.functions.ts` sem arrastar código de servidor pro bundle.
  */
 
-
-
-
 function tryParseFallback(text: string | undefined) {
   if (!text) return null;
   try {
@@ -179,5 +176,3 @@ export async function runPlanAgent<T extends z.ZodTypeAny>(opts: {
   err.cause = lastErr;
   throw err;
 }
-
-

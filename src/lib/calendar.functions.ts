@@ -96,9 +96,7 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
         seen.add(pl.id as string);
         (placements ?? []).push(pl as never);
         const post = (datedPosts ?? []).find((p) => p.id === pl.post_id);
-        const when =
-          (post?.scheduled_at as string | null) ??
-          (post?.published_at as string | null);
+        const when = (post?.scheduled_at as string | null) ?? (post?.published_at as string | null);
         if (when) extraByPost.set(pl.id as string, when);
         placementPostIds.push(pl.post_id as string);
       }
@@ -107,7 +105,6 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
     const orphanPosts = (datedPosts ?? []).filter(
       (p) => !placementPostIds.includes(p.id as string),
     );
-
 
     const postIds = Array.from(
       new Set([...placementPostIds, ...orphanPosts.map((p) => p.id as string)]),
@@ -124,11 +121,13 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
     if (error) throw error;
     const postById = new Map((postsData ?? []).map((p) => [p.id as string, p]));
 
-
     // Count placements per post to flag multi-placement
     const placementCountByPost = new Map<string, number>();
     (placements ?? []).forEach((pl) => {
-      placementCountByPost.set(pl.post_id as string, (placementCountByPost.get(pl.post_id as string) ?? 0) + 1);
+      placementCountByPost.set(
+        pl.post_id as string,
+        (placementCountByPost.get(pl.post_id as string) ?? 0) + 1,
+      );
     });
 
     const userIds = Array.from(
@@ -172,7 +171,7 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
           status: (pl.status as string | null) ?? null,
           published_at: (pl.published_at as string | null) ?? null,
           is_multi_placement: (placementCountByPost.get(pl.post_id as string) ?? 1) > 1,
-          author: post.created_by ? authors.get(post.created_by as string) ?? null : null,
+          author: post.created_by ? (authors.get(post.created_by as string) ?? null) : null,
         } as CalendarPost;
       })
       .filter((v): v is CalendarPost => v !== null);
@@ -181,25 +180,25 @@ export const listScheduledPostsFn = createServerFn({ method: "POST" })
     const fromPosts = orphanPosts
       .filter((p) => p.scheduled_at || p.published_at)
       .map((p) => ({
-      id: `post:${p.id as string}`,
-      placement_id: null,
-      post_id: p.id as string,
-      title: p.title as string,
-      scheduled_at: (p.scheduled_at as string | null) ?? (p.published_at as string),
-      channels: (p.channels as string[]) ?? [],
-      cover_url: (p.cover_url as string | null) ?? null,
-      client_id: p.client_id as string,
-      brand_id: p.brand_id as string,
-      pipeline_id: (p.pipeline_id as string | null) ?? null,
-      stage_id: (p.stage_id as string | null) ?? null,
-      review_status: (p.review_status as string | null) ?? null,
-      ai_phase: (p.ai_phase as string | null) ?? null,
-      format: null,
-      status: p.published_at ? "published" : "scheduled",
-      published_at: (p.published_at as string | null) ?? null,
-      is_multi_placement: false,
-      author: p.created_by ? authors.get(p.created_by as string) ?? null : null,
-    })) as CalendarPost[];
+        id: `post:${p.id as string}`,
+        placement_id: null,
+        post_id: p.id as string,
+        title: p.title as string,
+        scheduled_at: (p.scheduled_at as string | null) ?? (p.published_at as string),
+        channels: (p.channels as string[]) ?? [],
+        cover_url: (p.cover_url as string | null) ?? null,
+        client_id: p.client_id as string,
+        brand_id: p.brand_id as string,
+        pipeline_id: (p.pipeline_id as string | null) ?? null,
+        stage_id: (p.stage_id as string | null) ?? null,
+        review_status: (p.review_status as string | null) ?? null,
+        ai_phase: (p.ai_phase as string | null) ?? null,
+        format: null,
+        status: p.published_at ? "published" : "scheduled",
+        published_at: (p.published_at as string | null) ?? null,
+        is_multi_placement: false,
+        author: p.created_by ? (authors.get(p.created_by as string) ?? null) : null,
+      })) as CalendarPost[];
 
     return [...fromPlacements, ...fromPosts].sort((a, b) =>
       a.scheduled_at.localeCompare(b.scheduled_at),

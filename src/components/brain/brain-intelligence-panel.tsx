@@ -5,12 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import {
-  Activity,
-  ChevronRight,
-  Lightbulb,
-  Target,
-} from "lucide-react";
+import { Activity, ChevronRight, Lightbulb, Target } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -33,12 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { brainOverviewFn } from "@/lib/brain/api";
 import type { BrainScopeFilter } from "@/lib/brain/overview.types";
 import {
@@ -303,7 +293,12 @@ export function BrainIntelligencePanel({
                     tick={{ fontSize: 10 }}
                     stroke="var(--muted-foreground)"
                   />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 10 }} width={22} stroke="var(--muted-foreground)" />
+                  <YAxis
+                    allowDecimals={false}
+                    tick={{ fontSize: 10 }}
+                    width={22}
+                    stroke="var(--muted-foreground)"
+                  />
                   <Tooltip
                     contentStyle={{
                       background: "var(--card)",
@@ -313,8 +308,20 @@ export function BrainIntelligencePanel({
                     }}
                     labelFormatter={(v) => formatDay(String(v))}
                   />
-                  <Bar dataKey="created" name="Novos" stackId="a" fill="var(--primary)" radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="updated" name="Atualizações" stackId="a" fill="var(--chart-4)" radius={[3, 3, 0, 0]} />
+                  <Bar
+                    dataKey="created"
+                    name="Novos"
+                    stackId="a"
+                    fill="var(--primary)"
+                    radius={[3, 3, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="updated"
+                    name="Atualizações"
+                    stackId="a"
+                    fill="var(--chart-4)"
+                    radius={[3, 3, 0, 0]}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -393,7 +400,12 @@ export function BrainIntelligencePanel({
             </div>
             <ResponsiveContainer width="100%" height={140}>
               <BarChart data={evidenceChart} layout="vertical" margin={{ left: 8 }}>
-                <XAxis type="number" allowDecimals={false} tick={{ fontSize: 10 }} stroke="var(--muted-foreground)" />
+                <XAxis
+                  type="number"
+                  allowDecimals={false}
+                  tick={{ fontSize: 10 }}
+                  stroke="var(--muted-foreground)"
+                />
                 <YAxis
                   type="category"
                   dataKey="name"
@@ -440,7 +452,11 @@ export function BrainIntelligencePanel({
                   </div>
                   <p className="mt-1.5 text-sm leading-snug">{i.description}</p>
                   <div className="mt-2 flex items-center gap-3">
-                    <ConfidenceMeter value={i.confidence} showLabel={false} className="max-w-[140px]" />
+                    <ConfidenceMeter
+                      value={i.confidence}
+                      showLabel={false}
+                      className="max-w-[140px]"
+                    />
                     {i.basedOnEvents > 0 && <MetaChip>{i.basedOnEvents} eventos</MetaChip>}
                   </div>
                 </li>

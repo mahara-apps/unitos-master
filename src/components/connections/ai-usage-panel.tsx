@@ -148,7 +148,9 @@ function ScopeRow({
         <span className="text-muted-foreground">{icon}</span>
         <div className="min-w-0">
           <div className="truncate text-sm font-medium">{title}</div>
-          {subtitle ? <div className="truncate text-xs text-muted-foreground">{subtitle}</div> : null}
+          {subtitle ? (
+            <div className="truncate text-xs text-muted-foreground">{subtitle}</div>
+          ) : null}
         </div>
       </div>
       <div className="text-right text-sm tabular-nums">{money(spent)}</div>

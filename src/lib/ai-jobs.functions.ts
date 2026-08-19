@@ -37,7 +37,9 @@ export const listMyAiJobs = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<AiJobRow[]> => {
     const { data, error } = await context.supabase
       .from("ai_jobs")
-      .select("id, brand_id, client_id, user_id, kind, title, subtitle, status, progress, step_label, error, target_route, result, created_at, updated_at, started_at, finished_at")
+      .select(
+        "id, brand_id, client_id, user_id, kind, title, subtitle, status, progress, step_label, error, target_route, result, created_at, updated_at, started_at, finished_at",
+      )
       .eq("user_id", context.userId)
       .order("created_at", { ascending: false })
       .limit(25);

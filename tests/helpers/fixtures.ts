@@ -103,10 +103,7 @@ export async function seed(): Promise<Fixture> {
   }
 
   // Garantia explícita: nenhum papel foi promovido por trigger.
-  const roles = await admin
-    .from("brand_members")
-    .select("user_id, role")
-    .eq("brand_id", brandId);
+  const roles = await admin.from("brand_members").select("user_id, role").eq("brand_id", brandId);
   if (roles.error) throw new Error(`brand_members read: ${roles.error.message}`);
   for (const m of memberships) {
     const found = roles.data!.find((r) => r.user_id === m.user.id);
@@ -128,7 +125,8 @@ export async function seed(): Promise<Fixture> {
   const clientA = clients.data.find((c) => c.name.startsWith("Cliente A"))!.id as string;
   const clientB = clients.data.find((c) => c.name.startsWith("Cliente B"))!.id as string;
   const clientOrphan = clients.data.find((c) => c.name.startsWith("Cliente Orfao"))!.id as string;
-  const otherBrandClient = clients.data.find((c) => c.name.startsWith("Cliente Outro"))!.id as string;
+  const otherBrandClient = clients.data.find((c) => c.name.startsWith("Cliente Outro"))!
+    .id as string;
 
   // Vínculos internos ativam o modo restritivo por cliente (can_access_client).
   const cm = await admin.from("client_members").insert([
@@ -189,12 +187,12 @@ export async function cleanup(fx: Fixture | null) {
 }
 
 /** Espelha listProjectsFn: mesma workspace, sem arquivados/concluídos por padrão. */
-export async function listProjects(
-  c: SupabaseClient,
-  brandId: string,
-  includeInactive = false,
-) {
-  let q = c.from("projects").select("id, name, client_id, status").eq("brand_id", brandId).order("name");
+export async function listProjects(c: SupabaseClient, brandId: string, includeInactive = false) {
+  let q = c
+    .from("projects")
+    .select("id, name, client_id, status")
+    .eq("brand_id", brandId)
+    .order("name");
   if (!includeInactive) q = q.not("status", "in", "(archived,done)");
   const { data, error } = await q;
   if (error) throw error;
@@ -224,7 +222,10 @@ export async function listTasks(
   const subs = await c
     .from("task_subtasks")
     .select("task_id, done")
-    .in("task_id", tasks.map((t) => t.id));
+    .in(
+      "task_id",
+      tasks.map((t) => t.id),
+    );
   const total = new Map<string, number>();
   const done = new Map<string, number>();
   for (const s of subs.data ?? []) {

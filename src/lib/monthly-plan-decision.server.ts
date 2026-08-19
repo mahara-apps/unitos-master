@@ -53,13 +53,15 @@ export async function listPlansForClient(
     .limit(50);
   if (error) throw new Error("plan_list_failed");
 
-  const rows = ((plans ?? []) as Array<{
-    id: string;
-    title: string;
-    status: string;
-    created_at: string;
-    client_decision_at: string | null;
-  }>).filter(hasClientHistory);
+  const rows = (
+    (plans ?? []) as Array<{
+      id: string;
+      title: string;
+      status: string;
+      created_at: string;
+      client_decision_at: string | null;
+    }>
+  ).filter(hasClientHistory);
   if (rows.length === 0) return [];
 
   const { data: topics } = await sb
@@ -72,7 +74,10 @@ export async function listPlansForClient(
     .eq("status", "approved");
 
   const counts = new Map<string, { topics: number; pending: number }>();
-  for (const t of (topics ?? []) as Array<{ monthly_plan_id: string; client_status: string | null }>) {
+  for (const t of (topics ?? []) as Array<{
+    monthly_plan_id: string;
+    client_status: string | null;
+  }>) {
     const c = counts.get(t.monthly_plan_id) ?? { topics: 0, pending: 0 };
     c.topics += 1;
     if (!t.client_status || t.client_status === "pending") c.pending += 1;
@@ -176,7 +181,10 @@ export async function decidePlanAsClient(
   if (topics.length === 0) throw new Error("plan_has_no_topics");
 
   const now = new Date().toISOString();
-  const perItem = new Map<string, { decision: "approved" | "rejected" | "changes"; comment: string }>();
+  const perItem = new Map<
+    string,
+    { decision: "approved" | "rejected" | "changes"; comment: string }
+  >();
 
   if (input.decision === "per_item") {
     const valid = new Set(topics.map((t) => t.id));
@@ -189,7 +197,11 @@ export async function decidePlanAsClient(
     if (perItem.size !== topics.length) throw new Error("items_incomplete");
   } else {
     const mapped =
-      input.decision === "approve" ? "approved" : input.decision === "reject" ? "rejected" : "changes";
+      input.decision === "approve"
+        ? "approved"
+        : input.decision === "reject"
+          ? "rejected"
+          : "changes";
     for (const t of topics) perItem.set(t.id, { decision: mapped, comment: "" });
   }
 
@@ -208,7 +220,9 @@ export async function decidePlanAsClient(
   );
 
   const decisions = [...perItem.values()];
-  const approvedIds = [...perItem.entries()].filter(([, v]) => v.decision === "approved").map(([id]) => id);
+  const approvedIds = [...perItem.entries()]
+    .filter(([, v]) => v.decision === "approved")
+    .map(([id]) => id);
   const counts = {
     approved: approvedIds.length,
     changes: decisions.filter((d) => d.decision === "changes").length,

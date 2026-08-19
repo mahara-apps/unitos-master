@@ -11,7 +11,6 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
  * O campo legado `social_connections.client_id` NUNCA é consultado aqui.
  */
 
-
 export type ClientChannelRow = {
   connectionId: string;
   channel: string;
@@ -35,9 +34,7 @@ export const listClientChannelAssignmentsFn = createServerFn({ method: "GET" })
     const [connsRes, assignsRes] = await Promise.all([
       context.supabase
         .from("social_connections")
-        .select(
-          "id, provider, channel, external_name, account_username, status, metadata",
-        )
+        .select("id, provider, channel, external_name, account_username, status, metadata")
         .eq("brand_id", data.brandId)
         .in("status", ["active", "attention"])
         .order("channel", { ascending: true }),
@@ -55,16 +52,12 @@ export const listClientChannelAssignmentsFn = createServerFn({ method: "GET" })
       const meta = (r.metadata ?? {}) as Record<string, unknown>;
       const avatar =
         r.channel === "instagram"
-          ? ((meta.instagram_picture_url ?? meta.page_picture_url ?? null) as
-              | string
-              | null)
+          ? ((meta.instagram_picture_url ?? meta.page_picture_url ?? null) as string | null)
           : r.channel === "facebook"
             ? ((meta.page_picture_url ?? null) as string | null)
             : null;
       const handle =
-        r.channel === "instagram"
-          ? (r.account_username ?? null)
-          : (r.external_name ?? null);
+        r.channel === "instagram" ? (r.account_username ?? null) : (r.external_name ?? null);
       return {
         connectionId: r.id as string,
         channel: r.channel as string,
@@ -109,25 +102,21 @@ export const toggleClientChannelFn = createServerFn({ method: "POST" })
       if (exErr) throw new Error(exErr.message);
       if (existing?.length) {
         const owner =
-          (existing[0] as { clients?: { name: string } | null }).clients?.name ??
-          "outro cliente";
+          (existing[0] as { clients?: { name: string } | null }).clients?.name ?? "outro cliente";
         throw new Error(
           `Esta conta já está vinculada ao cliente ${owner}. Desvincule-a antes de atribuir a outro cliente.`,
         );
       }
 
-
-      const { error } = await context.supabase
-        .from("client_social_accounts")
-        .upsert(
-          {
-            brand_id: data.brandId,
-            client_id: data.clientId,
-            connection_id: data.connectionId,
-            created_by: context.userId,
-          },
-          { onConflict: "client_id,connection_id" },
-        );
+      const { error } = await context.supabase.from("client_social_accounts").upsert(
+        {
+          brand_id: data.brandId,
+          client_id: data.clientId,
+          connection_id: data.connectionId,
+          created_by: context.userId,
+        },
+        { onConflict: "client_id,connection_id" },
+      );
       if (error) throw new Error(error.message);
     } else {
       const { error } = await context.supabase

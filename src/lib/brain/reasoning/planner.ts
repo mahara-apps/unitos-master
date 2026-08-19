@@ -44,7 +44,11 @@ export function buildPlan(intent: ReasoningIntent, question: string): ReasoningP
         steps.push({ tool: "tasks.count", description: "contar tarefas por status" });
         steps.push({ tool: "tasks.recent", description: "listar tarefas recentes" });
       }
-      steps.push({ tool: "brain.insights", description: "insights sobre entregas", args: { topic: "tasks" } });
+      steps.push({
+        tool: "brain.insights",
+        description: "insights sobre entregas",
+        args: { topic: "tasks" },
+      });
       return { intent, steps, needsLlm: "no" };
     }
     case "consulta_projeto":
@@ -60,7 +64,10 @@ export function buildPlan(intent: ReasoningIntent, question: string): ReasoningP
       steps.push({ tool: "clients.summary", description: "sumarizar atividades por cliente" });
       return { intent, steps, needsLlm: "maybe" };
     case "consulta_calendario":
-      steps.push({ tool: "calendar.upcoming", description: "listar próximos posts/tarefas agendados" });
+      steps.push({
+        tool: "calendar.upcoming",
+        description: "listar próximos posts/tarefas agendados",
+      });
       return { intent, steps, needsLlm: "no" };
     case "consulta_metrica":
     case "consulta_status":
@@ -82,18 +89,30 @@ export function buildPlan(intent: ReasoningIntent, question: string): ReasoningP
     case "diagnostico":
     case "comparacao":
     case "previsao":
-      steps.push({ tool: "brain.semantic", description: "recuperar memórias relacionadas", args: { query: question } });
+      steps.push({
+        tool: "brain.semantic",
+        description: "recuperar memórias relacionadas",
+        args: { query: question },
+      });
       steps.push({ tool: "brain.insights", description: "insights relacionados" });
       steps.push({ tool: "analytics.stats", description: "estatísticas de suporte" });
       return { intent, steps, needsLlm: "yes" };
     case "consulta_financeiro":
     case "consulta_midia_paga":
     case "consulta_usuario":
-      steps.push({ tool: "brain.semantic", description: "recuperar memórias relacionadas", args: { query: question } });
+      steps.push({
+        tool: "brain.semantic",
+        description: "recuperar memórias relacionadas",
+        args: { query: question },
+      });
       steps.push({ tool: "brain.insights", description: "insights relacionados" });
       return { intent, steps, needsLlm: "yes" };
     default:
-      steps.push({ tool: "brain.semantic", description: "recall semântico", args: { query: question } });
+      steps.push({
+        tool: "brain.semantic",
+        description: "recall semântico",
+        args: { query: question },
+      });
       steps.push({ tool: "brain.memory", description: "memórias recentes" });
       return { intent, steps, needsLlm: "yes" };
   }

@@ -36,7 +36,8 @@ function isNewKey(k: string) {
 function makeFetch(key: string, token: string): typeof fetch {
   return (input, init) => {
     const headers = new Headers(init?.headers);
-    if (isNewKey(key) && headers.get("Authorization") === `Bearer ${key}`) headers.delete("Authorization");
+    if (isNewKey(key) && headers.get("Authorization") === `Bearer ${key}`)
+      headers.delete("Authorization");
     headers.set("apikey", key);
     headers.set("Authorization", `Bearer ${token}`);
     return fetch(input, { ...init, headers });
@@ -57,7 +58,10 @@ export const Route = createFileRoute("/api/chat/stream")({
         if (!url || !pubKey) return new Response("Missing Supabase env", { status: 500 });
 
         const supabase = createClient<Database>(url, pubKey, {
-          global: { fetch: makeFetch(pubKey, token), headers: { Authorization: `Bearer ${token}` } },
+          global: {
+            fetch: makeFetch(pubKey, token),
+            headers: { Authorization: `Bearer ${token}` },
+          },
           auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
         });
 
@@ -95,11 +99,13 @@ export const Route = createFileRoute("/api/chat/stream")({
             user_id: userId,
             role: "user",
             content: question,
-            attachments: attachments as unknown as Database["public"]["Tables"]["chat_messages"]["Insert"]["attachments"],
+            attachments:
+              attachments as unknown as Database["public"]["Tables"]["chat_messages"]["Insert"]["attachments"],
           })
           .select("id")
           .single();
-        if (userErr || !userRow) return new Response(userErr?.message ?? "insert failed", { status: 500 });
+        if (userErr || !userRow)
+          return new Response(userErr?.message ?? "insert failed", { status: 500 });
 
         // Auto-title
         if (convo.title === "Nova conversa" && question) {
@@ -143,13 +149,25 @@ export const Route = createFileRoute("/api/chat/stream")({
         const brainKnowledge = {
           memories: contextPack.items
             .filter((i) => i.kind === "semantic")
-            .map((i) => ({ content_summary: i.detail, similarity: i.confidence ?? i.score, event_type: i.label })),
+            .map((i) => ({
+              content_summary: i.detail,
+              similarity: i.confidence ?? i.score,
+              event_type: i.label,
+            })),
           insights: contextPack.items
             .filter((i) => i.kind === "insight")
-            .map((i) => ({ insight_type: i.label, description: i.detail, confidence: i.confidence ?? null })),
+            .map((i) => ({
+              insight_type: i.label,
+              description: i.detail,
+              confidence: i.confidence ?? null,
+            })),
           memoryRows: contextPack.items
             .filter((i) => i.kind === "memory")
-            .map((i) => ({ title: i.label, description: i.detail, confidence: i.confidence ?? null })),
+            .map((i) => ({
+              title: i.label,
+              description: i.detail,
+              confidence: i.confidence ?? null,
+            })),
           stats: contextPack.stats,
           markdown: reasoning?.llmContextMarkdown
             ? `${contextPack.markdown}\n\n${reasoning.llmContextMarkdown}`
@@ -181,10 +199,12 @@ export const Route = createFileRoute("/api/chat/stream")({
               role: "assistant",
               content: answer,
               attachments: [],
-              brain_context: brainSummary as unknown as Database["public"]["Tables"]["chat_messages"]["Insert"]["brain_context"],
+              brain_context:
+                brainSummary as unknown as Database["public"]["Tables"]["chat_messages"]["Insert"]["brain_context"],
               used_llm: false,
               model: "brain.reasoning.v1",
-              tool_calls: [] as unknown as Database["public"]["Tables"]["chat_messages"]["Insert"]["tool_calls"],
+              tool_calls:
+                [] as unknown as Database["public"]["Tables"]["chat_messages"]["Insert"]["tool_calls"],
             })
             .select("id")
             .single();
@@ -290,7 +310,8 @@ export const Route = createFileRoute("/api/chat/stream")({
               brain_context: brainSummary,
               used_llm: true,
               model: stream.model,
-              tool_calls: toolCallLog as unknown as Database["public"]["Tables"]["chat_messages"]["Insert"]["tool_calls"],
+              tool_calls:
+                toolCallLog as unknown as Database["public"]["Tables"]["chat_messages"]["Insert"]["tool_calls"],
             })
             .select("id")
             .single();

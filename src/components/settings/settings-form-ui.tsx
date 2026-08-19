@@ -70,9 +70,7 @@ export function SettingsField({
         {label}
       </Label>
       {children}
-      {hint ? (
-        <p className="text-[11.5px] leading-relaxed text-muted-foreground">{hint}</p>
-      ) : null}
+      {hint ? <p className="text-[11.5px] leading-relaxed text-muted-foreground">{hint}</p> : null}
     </div>
   );
 }

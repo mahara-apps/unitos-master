@@ -12,28 +12,24 @@ import {
 
 export type EventTypeKey = "post" | "appointment" | "seasonal";
 
-export const EVENT_TYPE_STYLES: Record<
-  EventTypeKey,
-  { chip: string; dot: string; label: string }
-> = {
-  post: {
-    chip: "border-border/70 bg-muted/60 text-foreground/90 dark:bg-muted/40",
-    dot: "bg-foreground/60",
-    label: "Publicação",
-  },
-  appointment: {
-    chip:
-      "border-blue-500/25 bg-blue-500/10 text-blue-700 dark:text-blue-300",
-    dot: "bg-blue-500",
-    label: "Compromisso",
-  },
-  seasonal: {
-    chip:
-      "border-orange-500/25 bg-orange-500/10 text-orange-700 dark:text-orange-300",
-    dot: "bg-orange-500",
-    label: "Data sazonal",
-  },
-};
+export const EVENT_TYPE_STYLES: Record<EventTypeKey, { chip: string; dot: string; label: string }> =
+  {
+    post: {
+      chip: "border-border/70 bg-muted/60 text-foreground/90 dark:bg-muted/40",
+      dot: "bg-foreground/60",
+      label: "Publicação",
+    },
+    appointment: {
+      chip: "border-blue-500/25 bg-blue-500/10 text-blue-700 dark:text-blue-300",
+      dot: "bg-blue-500",
+      label: "Compromisso",
+    },
+    seasonal: {
+      chip: "border-orange-500/25 bg-orange-500/10 text-orange-700 dark:text-orange-300",
+      dot: "bg-orange-500",
+      label: "Data sazonal",
+    },
+  };
 
 export type SocialNetworkKey =
   | "instagram"

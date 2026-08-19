@@ -20,18 +20,12 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { ExpandedModal } from "@/components/ui/expanded-modal";
 
-
 import { DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-import {
-  disconnectMeta,
-  refreshMetaConnection,
-  startMetaOAuth,
-  
-} from "@/lib/meta/meta.functions";
+import { disconnectMeta, refreshMetaConnection, startMetaOAuth } from "@/lib/meta/meta.functions";
 import { upsertChannel } from "@/lib/connections.functions";
 
 export type SocialAccount = {
@@ -46,14 +40,7 @@ export type SocialAccount = {
 };
 
 export type SocialChannelDef = {
-  id:
-    | "instagram"
-    | "facebook"
-    | "tiktok"
-    | "youtube"
-    | "linkedin"
-    | "twitter"
-    | "threads";
+  id: "instagram" | "facebook" | "tiktok" | "youtube" | "linkedin" | "twitter" | "threads";
   name: string;
   hint: string;
   icon: ComponentType<{ className?: string }>;
@@ -93,8 +80,7 @@ function fmtSync(iso: string | null | undefined): string {
 type Health = "active" | "expired" | "attention";
 
 function accountHealth(acc: SocialAccount): Health {
-  const expired =
-    acc.tokenExpiresAt && new Date(acc.tokenExpiresAt).getTime() < Date.now();
+  const expired = acc.tokenExpiresAt && new Date(acc.tokenExpiresAt).getTime() < Date.now();
   const errText = (acc.lastError ?? "").toLowerCase();
   const looksExpired = expired || /expired|invalid|revok|oauth/.test(errText);
   if (acc.status && acc.status !== "active") {
@@ -215,11 +201,7 @@ export function SocialChannelCard({
         <StatusPill status={status} count={accounts.length} />
       </div>
 
-      <AccountsSummary
-        accounts={accounts}
-        channel={channel}
-        brandLabel={brandLabel}
-      />
+      <AccountsSummary accounts={accounts} channel={channel} brandLabel={brandLabel} />
 
       <Separator className="my-4" />
 
@@ -334,10 +316,7 @@ function AccountsSummary({
     <div className="mt-4 flex items-center gap-3 rounded-lg border border-border/60 bg-background/60 p-3">
       <div className="flex -space-x-2">
         {preview.map((acc) => (
-          <Avatar
-            key={acc.id}
-            className="h-8 w-8 border-2 border-background ring-0"
-          >
+          <Avatar key={acc.id} className="h-8 w-8 border-2 border-background ring-0">
             <AvatarImage src={acc.avatarUrl ?? undefined} alt={acc.name} />
             <AvatarFallback className={cn("text-[10px]", channel.tone)}>
               <Icon className="h-3.5 w-3.5" />
@@ -348,9 +327,7 @@ function AccountsSummary({
       <div className="min-w-0 flex-1">
         <div className="text-xs font-medium">
           {accounts.length} contas conectadas
-          {extra > 0 && (
-            <span className="ml-1 text-muted-foreground">· +{extra} além destas</span>
-          )}
+          {extra > 0 && <span className="ml-1 text-muted-foreground">· +{extra} além destas</span>}
         </div>
         <div className="truncate font-mono text-[10px] text-muted-foreground">
           {brandLabel} · sync {fmtSync(accounts[0]?.updatedAt)}
@@ -497,8 +474,8 @@ function ConnectButton({
             <DialogTitle>Substituir conexão de {channel.name}?</DialogTitle>
             <DialogDescription>
               Já existe uma conta ativa deste canal para esta marca
-              {existingLabel ? ` (${existingLabel})` : ""}. Continuar irá
-              substituir a conexão existente pela nova conta autorizada.
+              {existingLabel ? ` (${existingLabel})` : ""}. Continuar irá substituir a conexão
+              existente pela nova conta autorizada.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -618,8 +595,7 @@ function ManageSheet({
   const disconnectMetaFn = useServerFn(disconnectMeta);
   const upsertFn = useServerFn(upsertChannel);
 
-  const invalidateMeta = () =>
-    qc.invalidateQueries({ queryKey: ["meta-connections", brandId] });
+  const invalidateMeta = () => qc.invalidateQueries({ queryKey: ["meta-connections", brandId] });
 
   const refreshMut = useMutation({
     mutationFn: (id: string) => refreshFn({ data: { connectionId: id, brandId } }),
@@ -661,9 +637,6 @@ function ManageSheet({
     // O popup precisa ser criado sincronamente no clique, senão o navegador
     // bloqueia a janela depois de qualquer `await`.
     const popup = window.open("", "meta-oauth", metaPopupFeatures());
-
-
-
 
     let completed = false;
     let timeoutId: number | undefined;
@@ -725,7 +698,8 @@ function ManageSheet({
       }
       description={
         <>
-          {accounts.length} {accounts.length === 1 ? "conta vinculada" : "contas vinculadas"} ao workspace <b>{brandLabel}</b>.
+          {accounts.length} {accounts.length === 1 ? "conta vinculada" : "contas vinculadas"} ao
+          workspace <b>{brandLabel}</b>.
         </>
       }
       footer={
@@ -768,7 +742,6 @@ function ManageSheet({
         )}
 
         <div className="mt-3 space-y-1">
-
           {accounts.length === 0 ? (
             <p className="rounded-md border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
               Nenhuma conta conectada.
@@ -781,7 +754,8 @@ function ManageSheet({
             filtered.map((acc) => {
               const isRefreshing = refreshMut.isPending && refreshMut.variables === acc.id;
               const isDisconnecting =
-                disconnectMut.isPending && (disconnectMut.variables as SocialAccount)?.id === acc.id;
+                disconnectMut.isPending &&
+                (disconnectMut.variables as SocialAccount)?.id === acc.id;
               const health = accountHealth(acc);
               const needsReconnect = health !== "active" && kind === "meta";
               return (
@@ -804,10 +778,7 @@ function ManageSheet({
                       {acc.handle ?? acc.id} · sync {fmtSync(acc.updatedAt)}
                     </div>
                     {acc.lastError && (
-                      <p
-                        className="truncate text-[10px] text-destructive"
-                        title={acc.lastError}
-                      >
+                      <p className="truncate text-[10px] text-destructive" title={acc.lastError}>
                         {acc.lastError}
                       </p>
                     )}
@@ -833,9 +804,7 @@ function ManageSheet({
                         onClick={() => refreshMut.mutate(acc.id)}
                         title="Revalidar token"
                       >
-                        <RefreshCw
-                          className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")}
-                        />
+                        <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
                       </Button>
                     ) : null}
                     <Button
@@ -856,6 +825,5 @@ function ManageSheet({
         </div>
       </>
     </ExpandedModal>
-
   );
 }

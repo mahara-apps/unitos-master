@@ -112,7 +112,10 @@ export type BrandSocialDashboard = {
 const Input = z.object({
   brandId: z.string().uuid(),
   /** Ex.: "7d", "30d", "90d". */
-  period: z.string().regex(/^\d{1,3}d$/).default("30d"),
+  period: z
+    .string()
+    .regex(/^\d{1,3}d$/)
+    .default("30d"),
   /** Início explícito (ISO). Sobrepõe o cálculo por `period`. */
   since: z.string().datetime().optional(),
   /** Fim explícito (ISO). Sobrepõe o cálculo por `period`. */
@@ -161,9 +164,7 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
     // 1) Descobre TODAS as conexões da marca
     let connQ = context.supabase
       .from("social_connections")
-      .select(
-        "id, provider, external_name, account_id, account_username, status, metadata",
-      )
+      .select("id, provider, external_name, account_id, account_username, status, metadata")
       .eq("brand_id", data.brandId);
     if (allowedConnIds) {
       if (allowedConnIds.size === 0) {
@@ -214,9 +215,7 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
         (resolved as any).network = t.network;
         const [dashboard, prevDashboard] = await Promise.all([
           svc.getDashboard(resolved, { period: data.period, range }),
-          svc
-            .getDashboard(resolved, { period: data.period, range: prevRange })
-            .catch(() => null),
+          svc.getDashboard(resolved, { period: data.period, range: prevRange }).catch(() => null),
         ]);
         return { target: t, dashboard, prevDashboard };
       }),
@@ -263,9 +262,7 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
       const gained = mv(totals, "followers_gained") ?? 0;
       const lost = mv(totals, "followers_lost") ?? 0;
       const posts =
-        mv(totals, "posts") ??
-        mv(totals, "posts_count") ??
-        (dashboard.series?.length ?? 0);
+        mv(totals, "posts") ?? mv(totals, "posts_count") ?? dashboard.series?.length ?? 0;
 
       totalReach += reach;
       totalImpressions += impressions;
@@ -282,10 +279,7 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
         prevEngagement += mv(pt, "engagement") ?? 0;
         prevGained += mv(pt, "followers_gained") ?? 0;
         prevLost += mv(pt, "followers_lost") ?? 0;
-        prevPosts +=
-          mv(pt, "posts") ??
-          mv(pt, "posts_count") ??
-          (prevDashboard.series?.length ?? 0);
+        prevPosts += mv(pt, "posts") ?? mv(pt, "posts_count") ?? prevDashboard.series?.length ?? 0;
         const pf = prevDashboard.profile?.followers;
         if (pf) prevFollowers += pf;
       }
@@ -315,14 +309,13 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
 
       // Séries diárias
       for (const p of dashboard.series ?? []) {
-        const bucket =
-          seriesAgg.get(p.date) ?? {
-            date: p.date,
-            reach: 0,
-            impressions: 0,
-            engagement: 0,
-            followers: null,
-          };
+        const bucket = seriesAgg.get(p.date) ?? {
+          date: p.date,
+          reach: 0,
+          impressions: 0,
+          engagement: 0,
+          followers: null,
+        };
         bucket.reach += mv(p.metrics, "reach") ?? 0;
         bucket.impressions += mv(p.metrics, "impressions") ?? 0;
         bucket.engagement += mv(p.metrics, "engagement") ?? 0;
@@ -335,22 +328,43 @@ export const getBrandSocialDashboardFn = createServerFn({ method: "POST" })
     }
 
     // Séries: ordena por data
-    const series = Array.from(seriesAgg.values()).sort((a, b) =>
-      a.date.localeCompare(b.date),
-    );
+    const series = Array.from(seriesAgg.values()).sort((a, b) => a.date.localeCompare(b.date));
 
     const growthPct =
-      totalFollowers > 0
-        ? round2(((totalGained - totalLost) / totalFollowers) * 100)
-        : null;
+      totalFollowers > 0 ? round2(((totalGained - totalLost) / totalFollowers) * 100) : null;
 
     const summary: SocialKpi[] = [
-      { key: "followers", label: "Seguidores", value: totalFollowers, deltaPct: delta(totalFollowers, prevFollowers) },
+      {
+        key: "followers",
+        label: "Seguidores",
+        value: totalFollowers,
+        deltaPct: delta(totalFollowers, prevFollowers),
+      },
       { key: "reach", label: "Alcance", value: totalReach, deltaPct: delta(totalReach, prevReach) },
-      { key: "impressions", label: "Impressões", value: totalImpressions, deltaPct: delta(totalImpressions, prevImpressions) },
-      { key: "engagement", label: "Engajamento", value: totalEngagement, deltaPct: delta(totalEngagement, prevEngagement) },
-      { key: "posts", label: "Publicações", value: totalPosts, deltaPct: delta(totalPosts, prevPosts) },
-      { key: "growth", label: "Crescimento", value: totalGained - totalLost, deltaPct: growthPct ?? delta(totalGained - totalLost, prevGained - prevLost) },
+      {
+        key: "impressions",
+        label: "Impressões",
+        value: totalImpressions,
+        deltaPct: delta(totalImpressions, prevImpressions),
+      },
+      {
+        key: "engagement",
+        label: "Engajamento",
+        value: totalEngagement,
+        deltaPct: delta(totalEngagement, prevEngagement),
+      },
+      {
+        key: "posts",
+        label: "Publicações",
+        value: totalPosts,
+        deltaPct: delta(totalPosts, prevPosts),
+      },
+      {
+        key: "growth",
+        label: "Crescimento",
+        value: totalGained - totalLost,
+        deltaPct: growthPct ?? delta(totalGained - totalLost, prevGained - prevLost),
+      },
     ];
 
     return {
@@ -408,9 +422,7 @@ export const getBrandSocialTopPayloadFn = createServerFn({ method: "POST" })
 
     let connQ = context.supabase
       .from("social_connections")
-      .select(
-        "id, provider, external_name, account_id, account_username, status, metadata",
-      )
+      .select("id, provider, external_name, account_id, account_username, status, metadata")
       .eq("brand_id", data.brandId);
     if (allowedConnIds) connQ = connQ.in("id", Array.from(allowedConnIds));
     const { data: conns, error: connErr } = await connQ;
@@ -430,12 +442,10 @@ export const getBrandSocialTopPayloadFn = createServerFn({ method: "POST" })
         // Coletamos até 30 posts para melhorar as agregações de formato/timing,
         // mas exibimos apenas os 12 melhores no grid.
         const topWarnings: string[] = [];
-        const top = await svc
-          .getTopPosts(resolved, { limit: 30, range })
-          .catch((err: Error) => {
-            topWarnings.push(`[${t.network}] top-posts: ${err.message}`);
-            return [] as any[];
-          });
+        const top = await svc.getTopPosts(resolved, { limit: 30, range }).catch((err: Error) => {
+          topWarnings.push(`[${t.network}] top-posts: ${err.message}`);
+          return [] as any[];
+        });
         // Filtro por publishedAt dentro do range (garantia caso o provider ignore).
         const sinceMs = new Date(range.since).getTime();
         const untilMs = new Date(range.until).getTime();
@@ -486,8 +496,13 @@ export const getBrandSocialTopPayloadFn = createServerFn({ method: "POST" })
         });
 
         const fmt = (post.mediaType ?? "other") as FormatPerformance["format"];
-        const bucket =
-          formatAgg.get(fmt) ?? { format: fmt, posts: 0, engagement: 0, reach: 0, avgEngagement: 0 };
+        const bucket = formatAgg.get(fmt) ?? {
+          format: fmt,
+          posts: 0,
+          engagement: 0,
+          reach: 0,
+          avgEngagement: 0,
+        };
         bucket.posts += 1;
         bucket.engagement += eng;
         bucket.reach += postReach;
@@ -516,7 +531,9 @@ export const getBrandSocialTopPayloadFn = createServerFn({ method: "POST" })
       .sort((a, b) => b.engagement - a.engagement);
 
     const topPosts = topPostsAll.sort((a, b) => b.score - a.score).slice(0, 10);
-    const bestHours = Array.from(slotAgg.values()).sort((a, b) => b.score - a.score).slice(0, 5);
+    const bestHours = Array.from(slotAgg.values())
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
     const bestDays = Array.from(weekdayAgg.values()).sort((a, b) => b.score - a.score);
 
     let insights: BrainSocialInsight[] = [];
@@ -647,9 +664,7 @@ function expandConnections(rows: any[]): Target[] {
       continue;
     }
     // Redes single-account (linkedin, tiktok, youtube, x, threads)
-    const single = ["linkedin", "tiktok", "youtube", "x", "threads"].find(
-      (k) => prov === k,
-    );
+    const single = ["linkedin", "tiktok", "youtube", "x", "threads"].find((k) => prov === k);
     if (single) {
       out.push({
         connectionId: r.id,

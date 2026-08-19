@@ -37,7 +37,13 @@ export type BriefingProposalRow = {
   id: string;
   request_id: string;
   payload: Record<string, string | string[]>;
-  attachments: Array<{ name: string; path: string; mime: string | null; size: number | null; url?: string | null }>;
+  attachments: Array<{
+    name: string;
+    path: string;
+    mime: string | null;
+    size: number | null;
+    url?: string | null;
+  }>;
   note: string | null;
   submitted_via: "portal_session" | "portal_token";
   created_at: string;
@@ -161,7 +167,9 @@ export const getBriefingProposalsFn = createServerFn({ method: "POST" })
     const { signPortalDocument } = await import("@/lib/portal-media.server");
     return await Promise.all(
       ((rows ?? []) as Array<Record<string, unknown>>).map(async (r) => {
-        const atts = (Array.isArray(r.attachments) ? r.attachments : []) as BriefingProposalRow["attachments"];
+        const atts = (
+          Array.isArray(r.attachments) ? r.attachments : []
+        ) as BriefingProposalRow["attachments"];
         const signed = await Promise.all(
           atts.map(async (a) => ({ ...a, url: a.path ? await signPortalDocument(a.path) : null })),
         );
@@ -185,7 +193,11 @@ export const markBriefingRequestInReviewFn = createServerFn({ method: "POST" })
   .handler(async ({ context, data }): Promise<{ ok: true }> => {
     const { error } = await context.supabase
       .from("brand_briefing_requests")
-      .update({ status: "in_review", reviewed_at: new Date().toISOString(), reviewed_by: context.userId } as never)
+      .update({
+        status: "in_review",
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: context.userId,
+      } as never)
       .eq("id", data.requestId)
       .eq("status", "submitted");
     if (error) throw new Error(error.message);
@@ -211,7 +223,11 @@ export const getBriefingReviewDiffFn = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => Scope.extend({ requestId: z.string().uuid() }).parse(i))
   .handler(async ({ context, data }) => {
     const { buildBriefingReviewDiff } = await import("@/lib/briefing-review.server");
-    return buildBriefingReviewDiff(context.supabase, { brandId: data.brandId, clientId: data.clientId }, data.requestId);
+    return buildBriefingReviewDiff(
+      context.supabase,
+      { brandId: data.brandId, clientId: data.clientId },
+      data.requestId,
+    );
   });
 
 /** Aprovar, aprovar parcialmente ou solicitar complementação. */

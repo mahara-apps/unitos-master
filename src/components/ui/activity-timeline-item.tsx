@@ -70,10 +70,7 @@ export function ActivityTimelineItem({
   return (
     <div className={cn("flex items-center gap-3 px-4 py-2.5", className)}>
       <span
-        className={cn(
-          "grid h-7 w-7 shrink-0 place-items-center rounded-md border",
-          TONE[tone],
-        )}
+        className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-md border", TONE[tone])}
       >
         <Icon className="h-3.5 w-3.5" />
       </span>

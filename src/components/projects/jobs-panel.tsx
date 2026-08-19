@@ -141,8 +141,15 @@ export function JobsPanel({ brandId, projectId }: Props) {
         {/* Coluna Jobs */}
         <div className="border-b border-border/60 md:border-b-0 md:border-r">
           <div className="flex items-center justify-between border-b border-border/60 bg-background/40 px-4 py-2.5">
-            <div className="text-[11px] font-mono uppercase tracking-widest text-foreground">Jobs</div>
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setAddingJob((v) => !v)}>
+            <div className="text-[11px] font-mono uppercase tracking-widest text-foreground">
+              Jobs
+            </div>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              onClick={() => setAddingJob((v) => !v)}
+            >
               <Plus className="h-4 w-4" />
             </Button>
           </div>
@@ -159,7 +166,12 @@ export function JobsPanel({ brandId, projectId }: Props) {
                 placeholder="Nome do job"
                 className="h-8"
               />
-              <Button size="sm" className="h-8" onClick={() => createJobMut.mutate()} disabled={!newJobName.trim()}>
+              <Button
+                size="sm"
+                className="h-8"
+                onClick={() => createJobMut.mutate()}
+                disabled={!newJobName.trim()}
+              >
                 Ok
               </Button>
             </div>
@@ -190,7 +202,9 @@ export function JobsPanel({ brandId, projectId }: Props) {
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium">{j.name}</div>
                     <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
-                      <span>{c.done}/{c.total}</span>
+                      <span>
+                        {c.done}/{c.total}
+                      </span>
                       {c.minutes > 0 && (
                         <span className="font-mono tabular-nums">{formatMinutes(c.minutes)}</span>
                       )}
@@ -206,7 +220,8 @@ export function JobsPanel({ brandId, projectId }: Props) {
                       <DropdownMenuItem
                         onSelect={() => {
                           const name = window.prompt("Renomear job", j.name);
-                          if (name && name.trim()) renameJobMut.mutate({ jobId: j.id, name: name.trim() });
+                          if (name && name.trim())
+                            renameJobMut.mutate({ jobId: j.id, name: name.trim() });
                         }}
                       >
                         Renomear
@@ -214,7 +229,11 @@ export function JobsPanel({ brandId, projectId }: Props) {
                       <DropdownMenuItem
                         className="text-destructive"
                         onSelect={() => {
-                          if (window.confirm(`Excluir job "${j.name}"? As tarefas serão desvinculadas.`)) {
+                          if (
+                            window.confirm(
+                              `Excluir job "${j.name}"? As tarefas serão desvinculadas.`,
+                            )
+                          ) {
                             deleteJobMut.mutate(j.id);
                           }
                         }}
@@ -275,11 +294,10 @@ export function JobsPanel({ brandId, projectId }: Props) {
                     onChange={() => toggleDoneMut.mutate(t)}
                     className="h-4 w-4 shrink-0 rounded border-border"
                   />
-                  <button
-                    onClick={() => setOpenTask(t)}
-                    className="min-w-0 flex-1 text-left"
-                  >
-                    <div className={`truncate text-sm ${t.status === "done" ? "text-muted-foreground line-through" : ""}`}>
+                  <button onClick={() => setOpenTask(t)} className="min-w-0 flex-1 text-left">
+                    <div
+                      className={`truncate text-sm ${t.status === "done" ? "text-muted-foreground line-through" : ""}`}
+                    >
                       {t.title}
                     </div>
                     <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
@@ -291,7 +309,9 @@ export function JobsPanel({ brandId, projectId }: Props) {
                     </div>
                   </button>
                   {t.priority && t.priority !== "medium" && (
-                    <Badge variant="outline" className="text-[10px]">{t.priority}</Badge>
+                    <Badge variant="outline" className="text-[10px]">
+                      {t.priority}
+                    </Badge>
                   )}
                   <Button
                     size="icon"
@@ -313,12 +333,16 @@ export function JobsPanel({ brandId, projectId }: Props) {
         open={!!openTask}
         onOpenChange={(v) => !v && setOpenTask(null)}
         brandId={brandId}
-        task={openTask ? {
-          id: openTask.id,
-          title: openTask.title,
-          estimated_minutes: openTask.estimated_minutes,
-          total_minutes: openTask.total_minutes,
-        } : null}
+        task={
+          openTask
+            ? {
+                id: openTask.id,
+                title: openTask.title,
+                estimated_minutes: openTask.estimated_minutes,
+                total_minutes: openTask.total_minutes,
+              }
+            : null
+        }
       />
     </DashboardPanelSurface>
   );

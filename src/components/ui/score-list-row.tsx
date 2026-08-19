@@ -64,9 +64,7 @@ export function ScoreListRow({
               style={{ width: `${Math.max(4, pct)}%` }}
             />
           </div>
-          {meta ? (
-            <span className="shrink-0 text-[10px] text-muted-foreground">{meta}</span>
-          ) : null}
+          {meta ? <span className="shrink-0 text-[10px] text-muted-foreground">{meta}</span> : null}
         </div>
       </div>
     </div>

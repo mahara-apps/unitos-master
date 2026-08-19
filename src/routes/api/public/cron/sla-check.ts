@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { insertNotificationsDeduped } from "@/lib/notifications-dedupe";
 import { assertCronRequest } from "@/lib/cron-auth.server";
 
-
 /**
  * SLA overdue notifier.
  * Called by pg_cron once per hour. Autenticado pelo segredo dedicado
@@ -71,7 +70,8 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
             .lt("stage_entered_at", cutoff.sinceIso);
           if (pErr) throw pErr;
           for (const r of rows ?? []) {
-            const hoursIn = (Date.now() - new Date(r.stage_entered_at as string).getTime()) / 3_600_000;
+            const hoursIn =
+              (Date.now() - new Date(r.stage_entered_at as string).getTime()) / 3_600_000;
             overdue.push({
               post_id: r.id as string,
               title: (r.title as string) ?? "Sem título",
@@ -121,22 +121,23 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
                 o.hours_overdue >= 24
                   ? `${Math.floor(o.hours_overdue / 24)}d`
                   : `${Math.round(o.hours_overdue)}h`;
-              const slaLabel = o.sla_hours >= 24 ? `${Math.round(o.sla_hours / 24)}d` : `${o.sla_hours}h`;
+              const slaLabel =
+                o.sla_hours >= 24 ? `${Math.round(o.sla_hours / 24)}d` : `${o.sla_hours}h`;
               return {
-              user_id: o.assignee_id as string,
-              brand_id: o.brand_id,
-              kind: "sla_overdue" as const,
-              title: `SLA vencido em "${o.stage_label}"`,
-              body: `${o.title} • atrasado há ${overdueLabel} (SLA ${slaLabel})`,
-              href: `/content`,
-              dedupe_key: `sla_overdue:${o.post_id}`,
-              payload: {
-                post_id: o.post_id,
-                stage_id: o.stage_id,
-                stage_label: o.stage_label,
-                hours_overdue: o.hours_overdue,
-                sla_hours: o.sla_hours,
-              },
+                user_id: o.assignee_id as string,
+                brand_id: o.brand_id,
+                kind: "sla_overdue" as const,
+                title: `SLA vencido em "${o.stage_label}"`,
+                body: `${o.title} • atrasado há ${overdueLabel} (SLA ${slaLabel})`,
+                href: `/content`,
+                dedupe_key: `sla_overdue:${o.post_id}`,
+                payload: {
+                  post_id: o.post_id,
+                  stage_id: o.stage_id,
+                  stage_label: o.stage_label,
+                  hours_overdue: o.hours_overdue,
+                  sla_hours: o.sla_hours,
+                },
               };
             });
           notifiedAssignees = await insertNotificationsDeduped(
@@ -144,7 +145,6 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
             toInsert as never,
           );
         }
-
 
         // 4. Notify managers per brand (aggregated: one per manager per brand)
         const brandIds = Array.from(new Set(overdue.map((o) => o.brand_id)));
@@ -193,7 +193,10 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
             brand_id: m.brand_id as string,
             kind: "sla_overdue_manager",
             title: `${list.length} tarefa(s) atrasada(s) no workspace`,
-            body: `${list.slice(0, 3).map((l) => l.title).join(", ")}${list.length > 3 ? "…" : ""}`,
+            body: `${list
+              .slice(0, 3)
+              .map((l) => l.title)
+              .join(", ")}${list.length > 3 ? "…" : ""}`,
             href: `/content`,
             dedupe_key: dedupeKey,
             payload: {
@@ -207,7 +210,6 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
           supabaseAdmin as never,
           mgrInserts as never,
         );
-
 
         return Response.json({
           ok: true,

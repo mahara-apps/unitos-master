@@ -1,24 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  Check,
-  ChevronLeft,
-  ChevronRight,
-  Copy,
-  Link2,
-  ListFilter,
-  Search,
-  X,
-} from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Copy, Link2, ListFilter, Search, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -94,9 +81,7 @@ function AccountIdCell({ label, value }: { label: string; value: string }) {
         window.setTimeout(() => setCopied(false), 1200);
       }}
     >
-      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide">
-        {label}
-      </span>
+      <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide">{label}</span>
       <span className="truncate font-mono">{value}</span>
       {copied ? (
         <Check className="h-3.5 w-3.5 shrink-0 text-health-good" />
@@ -353,12 +338,7 @@ export function AvailableAccountsTable({
         </Select>
 
         {hasQuery ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-9 gap-1.5 text-xs"
-            onClick={clearAll}
-          >
+          <Button variant="ghost" size="sm" className="h-9 gap-1.5 text-xs" onClick={clearAll}>
             <X className="h-3.5 w-3.5" />
             Limpar
           </Button>
@@ -375,16 +355,12 @@ export function AvailableAccountsTable({
       {/* ------------------------------- tabela ------------------------------- */}
       {accounts.length === 0 ? (
         <Card className="border-dashed p-5 text-sm text-muted-foreground">
-          <div className="font-medium text-foreground">
-            Não encontramos contas disponíveis.
-          </div>
+          <div className="font-medium text-foreground">Não encontramos contas disponíveis.</div>
           <p className="mt-1 text-xs">{emptyDescription}</p>
         </Card>
       ) : total === 0 ? (
         <Card className="flex flex-col items-start gap-2 border-dashed p-5">
-          <div className="text-sm font-medium">
-            Nenhuma conta corresponde aos filtros.
-          </div>
+          <div className="text-sm font-medium">Nenhuma conta corresponde aos filtros.</div>
           <Button size="sm" variant="outline" className="h-8 text-xs" onClick={clearAll}>
             Limpar filtros
           </Button>
@@ -469,10 +445,7 @@ export function AvailableAccountsTable({
           <div className="flex flex-wrap items-center justify-between gap-2 border-t px-3 py-2">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <span>Itens por página</span>
-              <Select
-                value={String(pageSize)}
-                onValueChange={(v) => setPageSize(Number(v))}
-              >
+              <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
                 <SelectTrigger className="h-8 w-[76px] text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -485,8 +458,7 @@ export function AvailableAccountsTable({
                 </SelectContent>
               </Select>
               <span>
-                {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, total)} de{" "}
-                {total}
+                {(safePage - 1) * pageSize + 1}–{Math.min(safePage * pageSize, total)} de {total}
               </span>
             </div>
             <div className="flex items-center gap-1.5">

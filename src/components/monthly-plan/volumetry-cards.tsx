@@ -1,4 +1,12 @@
-import { AlertTriangle, Facebook, Instagram, Layers, Linkedin, Music2, Youtube } from "lucide-react";
+import {
+  AlertTriangle,
+  Facebook,
+  Instagram,
+  Layers,
+  Linkedin,
+  Music2,
+  Youtube,
+} from "lucide-react";
 
 import { PageKpi, PageKpiGrid, type KpiStatus } from "@/components/ui/page-kpi";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,12 +16,7 @@ import {
   type PlanChannel,
   type VolumetryBasis,
 } from "@/lib/monthly-plan-fields";
-import {
-  CONTENT_FORMATS,
-  CONTENT_FORMAT_LABEL,
-  type ContentFormat,
-} from "@/lib/content-formats";
-
+import { CONTENT_FORMATS, CONTENT_FORMAT_LABEL, type ContentFormat } from "@/lib/content-formats";
 
 export type PlanVolumetry = {
   weekly: Record<string, number>;
@@ -64,9 +67,7 @@ function MetricCard({
       : generated > 0
         ? "info"
         : "neutral";
-  const formats = breakdown
-    ? CONTENT_FORMATS.filter((f) => (breakdown[f] ?? 0) > 0)
-    : [];
+  const formats = breakdown ? CONTENT_FORMATS.filter((f) => (breakdown[f] ?? 0) > 0) : [];
 
   return (
     <PageKpi
@@ -115,7 +116,6 @@ function MetricCard({
   );
 }
 
-
 export function VolumetryCards({
   volumetry,
   loading,
@@ -142,8 +142,8 @@ export function VolumetryCards({
         <div>
           <p className="font-medium">Volumetria não definida.</p>
           <p className="mt-0.5 text-muted-foreground">
-            Defina quantas peças por semana (ou por mês) em cada canal no briefing do cliente (aba Briefing →
-            Metas de publicação) para gerar a pauta.
+            Defina quantas peças por semana (ou por mês) em cada canal no briefing do cliente (aba
+            Briefing → Metas de publicação) para gerar a pauta.
           </p>
         </div>
       </div>
@@ -190,4 +190,3 @@ export function VolumetryCards({
     </PageKpiGrid>
   );
 }
-

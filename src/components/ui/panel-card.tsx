@@ -21,7 +21,9 @@ export function PanelCard({
   className?: string;
 }) {
   return (
-    <div className={`flex h-full flex-col overflow-hidden rounded-xl border border-border/60 bg-card ${className}`}>
+    <div
+      className={`flex h-full flex-col overflow-hidden rounded-xl border border-border/60 bg-card ${className}`}
+    >
       <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
           {icon && <span className="text-muted-foreground">{icon}</span>}

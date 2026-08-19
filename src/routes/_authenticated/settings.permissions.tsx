@@ -157,11 +157,14 @@ function PermissionsPage() {
         <div>
           <p className="font-medium">Esta tela é somente leitura</p>
           <p className="text-muted-foreground">
-            O acesso é decidido exclusivamente pelo <strong>papel</strong> do usuário
-            (<code className="text-xs">brand_members.role</code> e a flag de super admin), aplicado no
-            banco por RLS e nas server functions. Não existem permissões individuais para configurar:
-            para mudar o acesso de alguém, altere o papel dele em{" "}
-            <Link to="/settings/team" className="font-medium text-primary underline-offset-4 hover:underline">
+            O acesso é decidido exclusivamente pelo <strong>papel</strong> do usuário (
+            <code className="text-xs">brand_members.role</code> e a flag de super admin), aplicado
+            no banco por RLS e nas server functions. Não existem permissões individuais para
+            configurar: para mudar o acesso de alguém, altere o papel dele em{" "}
+            <Link
+              to="/settings/team"
+              className="font-medium text-primary underline-offset-4 hover:underline"
+            >
               Equipe &amp; Acesso
             </Link>
             .
@@ -217,7 +220,9 @@ function PermissionsPage() {
                       </div>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
-                      <Badge variant="secondary" className="text-[10px]">{r.badge}</Badge>
+                      <Badge variant="secondary" className="text-[10px]">
+                        {r.badge}
+                      </Badge>
                       {count !== null ? (
                         <span className="text-[11px] text-muted-foreground">
                           {count} {count === 1 ? "membro" : "membros"}
@@ -258,7 +263,9 @@ function PermissionsPage() {
 
       <div className="flex justify-end">
         <Link to="/settings/team">
-          <Button variant="outline" size="sm">Gerenciar equipe</Button>
+          <Button variant="outline" size="sm">
+            Gerenciar equipe
+          </Button>
         </Link>
       </div>
     </div>

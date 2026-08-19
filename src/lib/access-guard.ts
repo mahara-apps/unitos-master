@@ -35,10 +35,9 @@ async function callRpc(
   fn: string,
   args: Record<string, unknown>,
 ): Promise<RpcResult> {
-  const res = await (supabase.rpc as unknown as (
-    f: string,
-    a: Record<string, unknown>,
-  ) => Promise<RpcResult>)(fn, args);
+  const res = await (
+    supabase.rpc as unknown as (f: string, a: Record<string, unknown>) => Promise<RpcResult>
+  )(fn, args);
   return res;
 }
 

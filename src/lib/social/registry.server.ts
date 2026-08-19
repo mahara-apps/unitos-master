@@ -35,13 +35,10 @@ export function listSocialProviders(): readonly SocialProvider[] {
   return cached;
 }
 
-export function getSocialProviderForNetwork(
-  network: SocialNetwork,
-): SocialProvider | null {
+export function getSocialProviderForNetwork(network: SocialNetwork): SocialProvider | null {
   return (
-    listSocialProviders().find((p) =>
-      (p.networks as readonly SocialNetwork[]).includes(network),
-    ) ?? null
+    listSocialProviders().find((p) => (p.networks as readonly SocialNetwork[]).includes(network)) ??
+    null
   );
 }
 

@@ -16,14 +16,19 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 export type PortalScope = { clientId: string; brandId: string };
 
 type RpcClient = {
-  rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+  rpc: (
+    fn: string,
+    args?: Record<string, unknown>,
+  ) => Promise<{ data: unknown; error: { message: string } | null }>;
 };
 
 function publishableClient(): SupabaseClient {
   const url = process.env["SUPABASE_URL"];
   const key = process.env["SUPABASE_PUBLISHABLE_KEY"];
   if (!url || !key) {
-    throw new Error("Missing Supabase environment variable(s): SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY.");
+    throw new Error(
+      "Missing Supabase environment variable(s): SUPABASE_URL / SUPABASE_PUBLISHABLE_KEY.",
+    );
   }
   const isOpaque = key.startsWith("sb_publishable_") || key.startsWith("sb_secret_");
   return createClient(url, key, {
@@ -31,7 +36,8 @@ function publishableClient(): SupabaseClient {
     global: {
       fetch: (input, init) => {
         const headers = new Headers(init?.headers);
-        if (isOpaque && headers.get("Authorization") === `Bearer ${key}`) headers.delete("Authorization");
+        if (isOpaque && headers.get("Authorization") === `Bearer ${key}`)
+          headers.delete("Authorization");
         headers.set("apikey", key);
         return fetch(input, { ...init, headers });
       },
@@ -68,12 +74,10 @@ export async function resolveSessionScope(
   return scope;
 }
 
-
 /** True quando a chave de serviço está configurada no ambiente. */
 export function hasServiceKey(): boolean {
   return Boolean(
-    process.env["SUPABASE_SERVICE_ROLE_KEY"]?.trim() ||
-      process.env["SB_SERVICE_ROLE_KEY"]?.trim(),
+    process.env["SUPABASE_SERVICE_ROLE_KEY"]?.trim() || process.env["SB_SERVICE_ROLE_KEY"]?.trim(),
   );
 }
 

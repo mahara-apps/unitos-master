@@ -48,22 +48,9 @@ import {
   type TaskRow,
   type TaskStatus,
 } from "@/lib/tasks.functions";
-import {
-  PRIORITY_META,
-  STATUS_META,
-  TaskAssignee,
-  isOverdue,
-  relativeDue,
-} from "./shared";
+import { PRIORITY_META, STATUS_META, TaskAssignee, isOverdue, relativeDue } from "./shared";
 
-export type GroupBy =
-  | "none"
-  | "status"
-  | "priority"
-  | "project"
-  | "client"
-  | "assignee"
-  | "due";
+export type GroupBy = "none" | "status" | "priority" | "project" | "client" | "assignee" | "due";
 export type SortKey =
   | "title"
   | "assignee"
@@ -262,7 +249,7 @@ function Th({
           onClick={() => onSort(sortKey)}
         >
           {children}
-          <SortIcon dir={isCurrent ? currentDir ?? "asc" : null} />
+          <SortIcon dir={isCurrent ? (currentDir ?? "asc") : null} />
         </button>
       ) : (
         children
@@ -334,8 +321,7 @@ export function TaskTable({
     onSelectionChange(n);
   }
 
-  const colCount =
-    3 + Object.values(columns).filter(Boolean).length; // checkbox + tarefa + ações
+  const colCount = 3 + Object.values(columns).filter(Boolean).length; // checkbox + tarefa + ações
 
   return (
     <div className="overflow-hidden rounded-xl border border-border/60 bg-card">
@@ -545,8 +531,7 @@ function TaskGroup({
 
 function DueCell({ task }: { task: TaskRow }) {
   const overdue = isOverdue(task);
-  if (!task.due_at)
-    return <span className="text-xs text-muted-foreground/70">Sem prazo</span>;
+  if (!task.due_at) return <span className="text-xs text-muted-foreground/70">Sem prazo</span>;
   const d = new Date(task.due_at);
   const now = new Date();
   const isToday = d.toDateString() === now.toDateString();
@@ -565,20 +550,12 @@ function DueCell({ task }: { task: TaskRow }) {
       >
         {overdue ? "Atrasada" : isToday ? "Hoje" : short}
       </div>
-      {(overdue || isToday) && (
-        <div className="text-[10px] text-muted-foreground">{short}</div>
-      )}
+      {(overdue || isToday) && <div className="text-[10px] text-muted-foreground">{short}</div>}
     </div>
   );
 }
 
-function StatusCell({
-  task,
-  onChange,
-}: {
-  task: TaskRow;
-  onChange: (s: TaskStatus) => void;
-}) {
+function StatusCell({ task, onChange }: { task: TaskRow; onChange: (s: TaskStatus) => void }) {
   const meta = STATUS_META[task.status];
   return (
     <DropdownMenu>
@@ -595,7 +572,10 @@ function StatusCell({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
         <DropdownMenuLabel className="text-xs">Status</DropdownMenuLabel>
-        <DropdownMenuRadioGroup value={task.status} onValueChange={(v) => onChange(v as TaskStatus)}>
+        <DropdownMenuRadioGroup
+          value={task.status}
+          onValueChange={(v) => onChange(v as TaskStatus)}
+        >
           {TASK_STATUSES.map((s) => (
             <DropdownMenuRadioItem key={s} value={s}>
               {STATUS_META[s].label}
@@ -607,13 +587,7 @@ function StatusCell({
   );
 }
 
-function SubtaskRows({
-  taskId,
-  colCount,
-}: {
-  taskId: string;
-  colCount: number;
-}) {
+function SubtaskRows({ taskId, colCount }: { taskId: string; colCount: number }) {
   const list = useServerFn(listSubtasksFn);
   const q = useQuery({
     queryKey: ["task-subtasks", taskId],
@@ -832,7 +806,11 @@ function TaskTableRow({
           <td className="hidden px-3 py-2 align-top lg:table-cell">
             {task.assignee_id ? (
               <div className="flex min-w-0 items-center gap-2 text-xs">
-                <TaskAssignee name={task.assignee_name} avatarUrl={task.assignee_avatar} size={20} />
+                <TaskAssignee
+                  name={task.assignee_name}
+                  avatarUrl={task.assignee_avatar}
+                  size={20}
+                />
                 <span className="truncate">
                   {(task.assignee_name ?? "").split(/\s+/)[0] || "—"}
                 </span>
@@ -859,7 +837,10 @@ function TaskTableRow({
         )}
 
         {columns.priority && (
-          <td className="hidden px-3 py-2 align-top xl:table-cell" onClick={(e) => e.stopPropagation()}>
+          <td
+            className="hidden px-3 py-2 align-top xl:table-cell"
+            onClick={(e) => e.stopPropagation()}
+          >
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button

@@ -51,7 +51,10 @@ const PRICE_PER_MTOK: Record<string, { input: number; output: number }> = {
 const DEFAULT_PRICE = { input: 0.3, output: 2.5 };
 
 export function normalizeModelId(model: string): string {
-  return model.trim().toLowerCase().replace(/^[a-z0-9-]+\//, "");
+  return model
+    .trim()
+    .toLowerCase()
+    .replace(/^[a-z0-9-]+\//, "");
 }
 
 export function estimateCost(model: string, inTok: number, outTok: number): number {

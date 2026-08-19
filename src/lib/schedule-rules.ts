@@ -23,10 +23,7 @@ export function earliestScheduleDate(now: Date = new Date()): Date {
 }
 
 /** O horário respeita a janela mínima? */
-export function isScheduleLeadValid(
-  value: string | Date,
-  now: Date = new Date(),
-): boolean {
+export function isScheduleLeadValid(value: string | Date, now: Date = new Date()): boolean {
   const t = value instanceof Date ? value.getTime() : new Date(value).getTime();
   if (!Number.isFinite(t)) return false;
   return t >= now.getTime() + MIN_SCHEDULE_LEAD_MS;

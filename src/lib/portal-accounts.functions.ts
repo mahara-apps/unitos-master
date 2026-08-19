@@ -29,7 +29,13 @@ function randomPassword(length = 16): string {
 
 const ClientInput = z.object({ clientId: z.string().uuid() });
 
-type ClientRow = { id: string; brand_id: string; name: string; contact_email: string | null; contact_name: string | null };
+type ClientRow = {
+  id: string;
+  brand_id: string;
+  name: string;
+  contact_email: string | null;
+  contact_name: string | null;
+};
 
 async function loadClient(
   supabase: { from: (t: string) => never },
@@ -37,7 +43,12 @@ async function loadClient(
 ): Promise<ClientRow> {
   const q = supabase.from("clients") as unknown as {
     select: (c: string) => {
-      eq: (k: string, v: string) => { maybeSingle: () => Promise<{ data: ClientRow | null; error: { message: string } | null }> };
+      eq: (
+        k: string,
+        v: string,
+      ) => {
+        maybeSingle: () => Promise<{ data: ClientRow | null; error: { message: string } | null }>;
+      };
     };
   };
   const { data, error } = await q
@@ -50,16 +61,28 @@ async function loadClient(
 }
 
 async function assertCanManage(
-  context: { supabase: { rpc: (fn: string, a: Record<string, unknown>) => Promise<{ data: unknown }> } },
+  context: {
+    supabase: { rpc: (fn: string, a: Record<string, unknown>) => Promise<{ data: unknown }> };
+  },
   brandId: string,
   userId: string,
 ): Promise<void> {
   const [owner, manager] = await Promise.all([
-    context.supabase.rpc("has_brand_role", { _brand_id: brandId, _user_id: userId, _role: "owner" }),
-    context.supabase.rpc("has_brand_role", { _brand_id: brandId, _user_id: userId, _role: "manager" }),
+    context.supabase.rpc("has_brand_role", {
+      _brand_id: brandId,
+      _user_id: userId,
+      _role: "owner",
+    }),
+    context.supabase.rpc("has_brand_role", {
+      _brand_id: brandId,
+      _user_id: userId,
+      _role: "manager",
+    }),
   ]);
   if (owner.data !== true && manager.data !== true) {
-    throw new Error("forbidden: só owner ou manager do workspace pode gerenciar o acesso do cliente.");
+    throw new Error(
+      "forbidden: só owner ou manager do workspace pode gerenciar o acesso do cliente.",
+    );
   }
 }
 
@@ -81,7 +104,6 @@ function isUsableEmail(email: string | null): boolean {
   return z.string().email().safeParse(email.trim()).success;
 }
 
-
 export const getPortalAccountFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => ClientInput.parse(i))
@@ -91,8 +113,21 @@ export const getPortalAccountFn = createServerFn({ method: "POST" })
 
     const members = supabase.from("client_members") as unknown as {
       select: (c: string) => {
-        eq: (k: string, v: string) => {
-          eq: (k: string, v: string) => Promise<{ data: Array<{ user_id: string; last_seen_at: string | null; created_at: string }> | null; error: { message: string } | null }>;
+        eq: (
+          k: string,
+          v: string,
+        ) => {
+          eq: (
+            k: string,
+            v: string,
+          ) => Promise<{
+            data: Array<{
+              user_id: string;
+              last_seen_at: string | null;
+              created_at: string;
+            }> | null;
+            error: { message: string } | null;
+          }>;
         };
       };
     };
@@ -102,7 +137,9 @@ export const getPortalAccountFn = createServerFn({ method: "POST" })
       .eq("role", PORTAL_ROLE);
     if (error) throw new Error(error.message);
 
-    const suggestedEmail = isUsableEmail(client.contact_email) ? client.contact_email!.trim() : null;
+    const suggestedEmail = isUsableEmail(client.contact_email)
+      ? client.contact_email!.trim()
+      : null;
     const row = (rows ?? [])[0];
     if (!row) {
       return {
@@ -124,7 +161,10 @@ export const getPortalAccountFn = createServerFn({ method: "POST" })
       .select("full_name, requires_password_change")
       .eq("id", row.user_id)
       .maybeSingle();
-    const p = profile as { full_name: string | null; requires_password_change: boolean | null } | null;
+    const p = profile as {
+      full_name: string | null;
+      requires_password_change: boolean | null;
+    } | null;
 
     return {
       state: p?.requires_password_change ? "pending_password" : "active",
@@ -146,82 +186,94 @@ export const createPortalAccountFn = createServerFn({ method: "POST" })
       fullName: z.string().trim().min(1).max(160).optional(),
     }).parse(i),
   )
-  .handler(async ({ data, context }): Promise<{ email: string; tempPassword: string; userId: string }> => {
-    const { supabase, userId } = context;
-    const client = await loadClient(supabase as never, data.clientId);
-    await assertCanManage(context as never, client.brand_id, userId);
+  .handler(
+    async ({ data, context }): Promise<{ email: string; tempPassword: string; userId: string }> => {
+      const { supabase, userId } = context;
+      const client = await loadClient(supabase as never, data.clientId);
+      await assertCanManage(context as never, client.brand_id, userId);
 
-    const email = (data.email ?? client.contact_email ?? "").trim().toLowerCase();
-    if (!isUsableEmail(email)) {
-      throw new Error("invalid_email: informe um e-mail válido para o contato do cliente.");
-    }
-
-    const fullName = data.fullName?.trim() || client.contact_name?.trim() || client.name;
-
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-    // Já existe acesso de portal para este cliente?
-    const existing = (await (
-      supabaseAdmin.from("client_members") as unknown as {
-        select: (c: string) => {
-          eq: (k: string, v: string) => { eq: (k: string, v: string) => Promise<{ data: Array<{ user_id: string }> | null }> };
-        };
+      const email = (data.email ?? client.contact_email ?? "").trim().toLowerCase();
+      if (!isUsableEmail(email)) {
+        throw new Error("invalid_email: informe um e-mail válido para o contato do cliente.");
       }
-    )
-      .select("user_id")
-      .eq("client_id", data.clientId)
-      .eq("role", PORTAL_ROLE)).data;
-    if ((existing ?? []).length > 0) {
-      throw new Error("portal_account_exists: este cliente já tem acesso por login.");
-    }
 
-    // E-mail já usado em qualquer conta do sistema (equipe ou outro cliente)
-    for (let page = 1; page <= 20; page++) {
-      const { data: list, error: lErr } = await supabaseAdmin.auth.admin.listUsers({ page, perPage: 200 });
-      if (lErr) throw new Error(lErr.message);
-      const users = list?.users ?? [];
-      if (users.some((u) => (u.email ?? "").toLowerCase() === email)) {
-        throw new Error("user_exists: já existe conta com este e-mail no sistema.");
+      const fullName = data.fullName?.trim() || client.contact_name?.trim() || client.name;
+
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+      // Já existe acesso de portal para este cliente?
+      const existing = (
+        await (
+          supabaseAdmin.from("client_members") as unknown as {
+            select: (c: string) => {
+              eq: (
+                k: string,
+                v: string,
+              ) => {
+                eq: (k: string, v: string) => Promise<{ data: Array<{ user_id: string }> | null }>;
+              };
+            };
+          }
+        )
+          .select("user_id")
+          .eq("client_id", data.clientId)
+          .eq("role", PORTAL_ROLE)
+      ).data;
+      if ((existing ?? []).length > 0) {
+        throw new Error("portal_account_exists: este cliente já tem acesso por login.");
       }
-      if (users.length < 200) break;
-    }
 
-    const tempPassword = randomPassword(16);
-    const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: tempPassword,
-      email_confirm: true,
-      user_metadata: { full_name: fullName, portal_client_id: data.clientId },
-    });
-    if (createErr || !created?.user?.id) {
-      throw new Error(`provision_failed: ${createErr?.message ?? "sem id de usuário"}`);
-    }
-    const newUserId = created.user.id;
-
-    await supabaseAdmin
-      .from("user_profiles")
-      .update({ requires_password_change: true, full_name: fullName } as never)
-      .eq("id", newUserId);
-
-    const { error: cmErr } = await (
-      supabaseAdmin.from as unknown as (t: string) => {
-        insert: (v: unknown) => Promise<{ error: { message: string } | null }>;
+      // E-mail já usado em qualquer conta do sistema (equipe ou outro cliente)
+      for (let page = 1; page <= 20; page++) {
+        const { data: list, error: lErr } = await supabaseAdmin.auth.admin.listUsers({
+          page,
+          perPage: 200,
+        });
+        if (lErr) throw new Error(lErr.message);
+        const users = list?.users ?? [];
+        if (users.some((u) => (u.email ?? "").toLowerCase() === email)) {
+          throw new Error("user_exists: já existe conta com este e-mail no sistema.");
+        }
+        if (users.length < 200) break;
       }
-    )("client_members").insert({
-      brand_id: client.brand_id,
-      client_id: data.clientId,
-      user_id: newUserId,
-      role: PORTAL_ROLE,
-      created_by: userId,
-    });
-    if (cmErr) {
-      // rollback: sem vínculo a conta não serve para nada
-      await supabaseAdmin.auth.admin.deleteUser(newUserId);
-      throw new Error(`link_failed: ${cmErr.message}`);
-    }
 
-    return { email, tempPassword, userId: newUserId };
-  });
+      const tempPassword = randomPassword(16);
+      const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: { full_name: fullName, portal_client_id: data.clientId },
+      });
+      if (createErr || !created?.user?.id) {
+        throw new Error(`provision_failed: ${createErr?.message ?? "sem id de usuário"}`);
+      }
+      const newUserId = created.user.id;
+
+      await supabaseAdmin
+        .from("user_profiles")
+        .update({ requires_password_change: true, full_name: fullName } as never)
+        .eq("id", newUserId);
+
+      const { error: cmErr } = await (
+        supabaseAdmin.from as unknown as (t: string) => {
+          insert: (v: unknown) => Promise<{ error: { message: string } | null }>;
+        }
+      )("client_members").insert({
+        brand_id: client.brand_id,
+        client_id: data.clientId,
+        user_id: newUserId,
+        role: PORTAL_ROLE,
+        created_by: userId,
+      });
+      if (cmErr) {
+        // rollback: sem vínculo a conta não serve para nada
+        await supabaseAdmin.auth.admin.deleteUser(newUserId);
+        throw new Error(`link_failed: ${cmErr.message}`);
+      }
+
+      return { email, tempPassword, userId: newUserId };
+    },
+  );
 
 export const resetPortalAccountPasswordFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -235,7 +287,12 @@ export const resetPortalAccountPasswordFn = createServerFn({ method: "POST" })
     const { data: rows } = await (
       supabaseAdmin.from("client_members") as unknown as {
         select: (c: string) => {
-          eq: (k: string, v: string) => { eq: (k: string, v: string) => Promise<{ data: Array<{ user_id: string }> | null }> };
+          eq: (
+            k: string,
+            v: string,
+          ) => {
+            eq: (k: string, v: string) => Promise<{ data: Array<{ user_id: string }> | null }>;
+          };
         };
       }
     )
@@ -243,7 +300,8 @@ export const resetPortalAccountPasswordFn = createServerFn({ method: "POST" })
       .eq("client_id", data.clientId)
       .eq("role", PORTAL_ROLE);
     const target = (rows ?? [])[0];
-    if (!target) throw new Error("portal_account_missing: este cliente ainda não tem acesso por login.");
+    if (!target)
+      throw new Error("portal_account_missing: este cliente ainda não tem acesso por login.");
 
     const tempPassword = randomPassword(16);
     const { data: updated, error } = await supabaseAdmin.auth.admin.updateUserById(target.user_id, {

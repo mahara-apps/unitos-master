@@ -48,9 +48,7 @@ function endpointFor(provider: ProviderName, apiKey: string): Endpoint {
 function parseModels(provider: ProviderName, json: unknown): string[] {
   if (provider === "gemini") {
     const models = (json as { models?: Array<{ name?: string }> }).models ?? [];
-    return models
-      .map((m) => (m.name ?? "").replace(/^models\//, ""))
-      .filter(Boolean);
+    return models.map((m) => (m.name ?? "").replace(/^models\//, "")).filter(Boolean);
   }
   const data = (json as { data?: Array<{ id?: string }> }).data ?? [];
   return data.map((m) => m.id ?? "").filter(Boolean);

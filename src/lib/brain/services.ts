@@ -130,9 +130,7 @@ export async function getContext(
   const pack = await chatGw.consolidate(ctx, { query: args.topic });
   const isColdStart =
     !pack.markdown ||
-    (pack.memoryRows.length === 0 &&
-      pack.insights.length === 0 &&
-      pack.memories.length === 0);
+    (pack.memoryRows.length === 0 && pack.insights.length === 0 && pack.memories.length === 0);
   if (isColdStart) {
     const fb = getNicheFallbackMarkdown(args.nicheHint ?? null);
     return { ...pack, markdown: fb };

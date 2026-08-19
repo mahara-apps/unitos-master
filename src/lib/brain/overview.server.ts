@@ -74,8 +74,7 @@ function toLearning(row: MemoryRow, clientNames: Map<string, string>): BrainLear
     title: row.title ?? row.category ?? "Aprendizado",
     conclusion: row.description ?? "",
     confidence: num(row.confidence),
-    previousConfidence:
-      row.previous_confidence == null ? null : num(row.previous_confidence),
+    previousConfidence: row.previous_confidence == null ? null : num(row.previous_confidence),
     scope: normalizeScope(row.scope),
     category: row.category,
     clientName: row.client_id ? (clientNames.get(row.client_id) ?? null) : null,
@@ -94,11 +93,7 @@ function toLearning(row: MemoryRow, clientNames: Map<string, string>): BrainLear
 }
 
 /** Filtro de escopo — preserva o isolamento existente (global/marca/cliente). */
-function scopeOr(
-  scope: BrainScopeFilter,
-  brandId: string | null,
-  clientId: string | null,
-): string {
+function scopeOr(scope: BrainScopeFilter, brandId: string | null, clientId: string | null): string {
   const parts: string[] = ["and(scope.eq.global,brand_id.is.null)"];
   if (scope === "global") return parts[0]!;
   if (brandId) parts.push(`and(scope.eq.brand,brand_id.eq.${brandId})`);
@@ -136,7 +131,9 @@ export async function buildBrainOverview(
   const insightsQ = brandScoped(
     sb
       .from("brain_insights")
-      .select("id, insight_type, description, confidence, based_on_events, scope, client_id, created_at, expires_at")
+      .select(
+        "id, insight_type, description, confidence, based_on_events, scope, client_id, created_at, expires_at",
+      )
       .order("confidence", { ascending: false })
       .limit(40),
   );
@@ -144,7 +141,9 @@ export async function buildBrainOverview(
   const recsQ = brandScoped(
     sb
       .from("brain_recommendations")
-      .select("id, recommendation_type, title, description, confidence, priority, status, client_id, created_at, expires_at")
+      .select(
+        "id, recommendation_type, title, description, confidence, priority, status, client_id, created_at, expires_at",
+      )
       .order("created_at", { ascending: false })
       .limit(30),
   );
@@ -152,7 +151,9 @@ export async function buildBrainOverview(
   const versionsQ = brandScoped(
     sb
       .from("brain_memory_versions")
-      .select("memory_id, version, confidence, previous_confidence, change_reason, title, created_at")
+      .select(
+        "memory_id, version, confidence, previous_confidence, change_reason, title, created_at",
+      )
       .gte("created_at", sinceIso)
       .order("created_at", { ascending: false })
       .limit(400),
@@ -245,7 +246,9 @@ export async function buildBrainOverview(
   const now = Date.now();
   const insights = ((insightsR.data ?? []) as any[])
     .filter((r) => !r.expires_at || new Date(r.expires_at).getTime() > now)
-    .filter((r) => (scope === "client" && clientId ? !r.client_id || r.client_id === clientId : true))
+    .filter((r) =>
+      scope === "client" && clientId ? !r.client_id || r.client_id === clientId : true,
+    )
     .slice(0, 8)
     .map((r) => ({
       id: r.id as string,
@@ -261,7 +264,9 @@ export async function buildBrainOverview(
   const recommendations = ((recsR.data ?? []) as any[])
     .filter((r) => !r.status || r.status === "pending" || r.status === "active")
     .filter((r) => !r.expires_at || new Date(r.expires_at).getTime() > now)
-    .filter((r) => (scope === "client" && clientId ? !r.client_id || r.client_id === clientId : true))
+    .filter((r) =>
+      scope === "client" && clientId ? !r.client_id || r.client_id === clientId : true,
+    )
     .slice(0, 8)
     .map((r) => ({
       id: r.id as string,
@@ -385,15 +390,13 @@ export async function buildBrainOverview(
   if (lastRun && (minutesSinceWorkerRun ?? 0) > 30)
     reasons.push(`Worker sem execução há ${minutesSinceWorkerRun} min.`);
   if (failures24h > 0) reasons.push(`${failures24h} falha(s) do worker em 24h.`);
-  if ((queueFailed.count ?? 0) > 0) reasons.push(`${queueFailed.count} item(ns) na fila com falha.`);
+  if ((queueFailed.count ?? 0) > 0)
+    reasons.push(`${queueFailed.count} item(ns) na fila com falha.`);
   if ((queuePending.count ?? 0) > 50)
     reasons.push(`${queuePending.count} eventos aguardando processamento.`);
 
-  const status: BrainHealth["status"] = !lastRun || failures24h > 3
-    ? "critical"
-    : reasons.length
-      ? "warning"
-      : "healthy";
+  const status: BrainHealth["status"] =
+    !lastRun || failures24h > 3 ? "critical" : reasons.length ? "warning" : "healthy";
 
   const health: BrainHealth = {
     status,

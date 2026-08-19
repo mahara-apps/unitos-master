@@ -16,7 +16,14 @@ export const listMyBrands = createServerFn({ method: "GET" })
       .eq("user_id", userId);
     if (memErr) throw memErr;
     const ids = (memberships ?? []).map((m) => m.brand_id);
-    if (ids.length === 0) return [] as Array<{ id: string; name: string; slug: string; color: string | null; role: string }>;
+    if (ids.length === 0)
+      return [] as Array<{
+        id: string;
+        name: string;
+        slug: string;
+        color: string | null;
+        role: string;
+      }>;
     const { data: brands, error } = await supabase
       .from("brands")
       .select("id, name, slug, color")
@@ -39,18 +46,19 @@ export const createBrand = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => CreateBrandInput.parse(input))
   .handler(async ({ data, context }) => {
     const id = crypto.randomUUID();
-    const slugBase = data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const slugBase = data.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
     const slug = `${slugBase}-${Math.random().toString(36).slice(2, 6)}`;
     const color = data.color ?? "#8b5cf6";
-    const { error } = await context.supabase
-      .from("brands")
-      .insert({
-        id,
-        name: data.name,
-        slug,
-        color,
-        created_by: context.userId,
-      });
+    const { error } = await context.supabase.from("brands").insert({
+      id,
+      name: data.name,
+      slug,
+      color,
+      created_by: context.userId,
+    });
     if (error) throw error;
     return { id, name: data.name, slug, color, created_by: context.userId };
   });
@@ -61,7 +69,9 @@ export const listClients = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { data: clients, error } = await context.supabase
       .from("clients")
-      .select("id, name, legal_name, cnpj, description, niche, color, logo_url, contact_name, contact_email, contact_phone, website, address, tone_of_voice, palette, socials, is_active, owner_user_id, created_at, updated_at, brand_hub")
+      .select(
+        "id, name, legal_name, cnpj, description, niche, color, logo_url, contact_name, contact_email, contact_phone, website, address, tone_of_voice, palette, socials, is_active, owner_user_id, created_at, updated_at, brand_hub",
+      )
       .eq("brand_id", data.brandId)
       .is("archived_at", null)
       .order("name");
@@ -71,10 +81,9 @@ export const listClients = createServerFn({ method: "GET" })
     // Fonte única do briefing: clients.brand_hub.
     return list.map((c) => {
       const { brand_hub, ...rest } = c as typeof c & { brand_hub?: unknown };
-      const completion = computeBriefingCompletion(
-        (brand_hub ?? {}) as BrandHubData,
-        { tone_of_voice: rest.tone_of_voice ?? null },
-      );
+      const completion = computeBriefingCompletion((brand_hub ?? {}) as BrandHubData, {
+        tone_of_voice: rest.tone_of_voice ?? null,
+      });
       return {
         ...rest,
         has_briefing: completion > 0,
@@ -153,7 +162,13 @@ const UploadCustomerLogoInput = z.object({
   filename: z.string().min(1).max(200),
   contentType: z
     .string()
-    .refine((v) => ["image/png", "image/jpeg", "image/jpg", "image/svg+xml", "image/webp"].includes(v.toLowerCase()), "Formato não suportado"),
+    .refine(
+      (v) =>
+        ["image/png", "image/jpeg", "image/jpg", "image/svg+xml", "image/webp"].includes(
+          v.toLowerCase(),
+        ),
+      "Formato não suportado",
+    ),
   base64: z.string().min(1),
 });
 
@@ -285,16 +300,26 @@ export const getBrandCompany = createServerFn({ method: "GET" })
     const { data: row, error } = await context.supabase
       .from("brands")
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .select("id, name, cpf, cnpj, nome_fantasia, razao_social, cep, rua, numero, complemento, bairro, cidade, estado" as any)
+      .select(
+        "id, name, cpf, cnpj, nome_fantasia, razao_social, cep, rua, numero, complemento, bairro, cidade, estado" as any,
+      )
       .eq("id", data.brandId)
       .maybeSingle();
     if (error) throw error;
     return (row ?? null) as null | {
-      id: string; name: string;
-      cpf: string | null; cnpj: string | null;
-      nome_fantasia: string | null; razao_social: string | null;
-      cep: string | null; rua: string | null; numero: string | null;
-      complemento: string | null; bairro: string | null; cidade: string | null; estado: string | null;
+      id: string;
+      name: string;
+      cpf: string | null;
+      cnpj: string | null;
+      nome_fantasia: string | null;
+      razao_social: string | null;
+      cep: string | null;
+      rua: string | null;
+      numero: string | null;
+      complemento: string | null;
+      bairro: string | null;
+      cidade: string | null;
+      estado: string | null;
     };
   });
 

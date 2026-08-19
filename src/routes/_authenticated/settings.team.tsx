@@ -5,7 +5,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { listBrandTeam, revokeBrandInvite } from "@/lib/team.functions";
 import {
-  listTeamMembersFn, removeTeamMemberFn, saveTeamMemberFn, type TeamMember,
+  listTeamMembersFn,
+  removeTeamMemberFn,
+  saveTeamMemberFn,
+  type TeamMember,
 } from "@/lib/team-admin.functions";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { Button } from "@/components/ui/button";
@@ -13,23 +16,51 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
-  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import {
-  MoreHorizontal, UserPlus, Copy, X, Loader2, Users, Mail as MailIcon, Link as LinkIcon, Crown,
-  Power, PowerOff, Trash2, Pencil,
+  MoreHorizontal,
+  UserPlus,
+  Copy,
+  X,
+  Loader2,
+  Users,
+  Mail as MailIcon,
+  Link as LinkIcon,
+  Crown,
+  Power,
+  PowerOff,
+  Trash2,
+  Pencil,
 } from "lucide-react";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { AddMemberDrawer } from "@/components/settings/add-member-drawer";
 import { MemberEditModal } from "@/components/settings/member-edit-modal";
 import { PortalAccessManager } from "@/components/settings/portal-access-manager";
-import { ROLE_ACCESS, ROLE_SHORT, StatusBadge, fmtDate, fmtDateTime, memberInitials } from "@/components/settings/team-shared";
+import {
+  ROLE_ACCESS,
+  ROLE_SHORT,
+  StatusBadge,
+  fmtDate,
+  fmtDateTime,
+  memberInitials,
+} from "@/components/settings/team-shared";
 
 export const Route = createFileRoute("/_authenticated/settings/team")({
   component: TeamSettingsPage,
@@ -109,14 +140,24 @@ function TeamSettingsPage() {
       />
 
       <PageKpiGrid>
-        <PageKpi label="Membros ativos" value={activeMembers} icon={<Users className="h-4 w-4" />} status="info" />
+        <PageKpi
+          label="Membros ativos"
+          value={activeMembers}
+          icon={<Users className="h-4 w-4" />}
+          status="info"
+        />
         <PageKpi
           label="Convites pendentes"
           value={pendingInvites.length}
           icon={<MailIcon className="h-4 w-4" />}
           status={pendingInvites.length > 0 ? "warning" : "neutral"}
         />
-        <PageKpi label="Portais ativos" value={activePortals} icon={<LinkIcon className="h-4 w-4" />} status="info" />
+        <PageKpi
+          label="Portais ativos"
+          value={activePortals}
+          icon={<LinkIcon className="h-4 w-4" />}
+          status="info"
+        />
         <PageKpi
           label="Owners ativos"
           value={owners}
@@ -148,14 +189,18 @@ function TeamSettingsPage() {
           </div>
           {membersQ.isLoading ? (
             <div className="space-y-2 p-6">
-              {[0, 1, 2].map((i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
+              {[0, 1, 2].map((i) => (
+                <Skeleton key={i} className="h-14 w-full rounded-lg" />
+              ))}
             </div>
           ) : membersQ.isError ? (
             <div className="p-8 text-center text-sm text-destructive">
               Não foi possível carregar os membros. {(membersQ.error as Error)?.message}
             </div>
           ) : members.length === 0 ? (
-            <div className="p-8 text-center text-sm text-muted-foreground">Nenhum membro nesta marca.</div>
+            <div className="p-8 text-center text-sm text-muted-foreground">
+              Nenhum membro nesta marca.
+            </div>
           ) : (
             <ul>
               {members.map((m) => (
@@ -178,7 +223,9 @@ function TeamSettingsPage() {
         </CardHeader>
         <CardContent className="p-0">
           {pendingInvites.length === 0 ? (
-            <div className="p-6 text-center text-sm text-muted-foreground">Nenhum convite pendente.</div>
+            <div className="p-6 text-center text-sm text-muted-foreground">
+              Nenhum convite pendente.
+            </div>
           ) : (
             <ul>
               {pendingInvites.map((i) => (
@@ -213,7 +260,9 @@ function TeamSettingsPage() {
 }
 
 function MemberRow({
-  brandId, member, canManageOwners,
+  brandId,
+  member,
+  canManageOwners,
 }: {
   brandId: string;
   member: TeamMember;
@@ -231,17 +280,23 @@ function MemberRow({
   };
 
   const toggleMut = useMutation({
-    mutationFn: () => save({ data: { brandId, userId: member.userId, isActive: !member.isActive } }),
+    mutationFn: () =>
+      save({ data: { brandId, userId: member.userId, isActive: !member.isActive } }),
     onSuccess: () => {
       toast.success(member.isActive ? "Membro desativado." : "Membro reativado.");
       invalidate();
     },
-    onError: (e: Error) => toast.error("Não foi possível alterar o status", { description: e.message }),
+    onError: (e: Error) =>
+      toast.error("Não foi possível alterar o status", { description: e.message }),
   });
 
   const removeMut = useMutation({
     mutationFn: () => remove({ data: { brandId, userId: member.userId } }),
-    onSuccess: () => { toast.success("Membro removido da marca."); setConfirmRemove(false); invalidate(); },
+    onSuccess: () => {
+      toast.success("Membro removido da marca.");
+      setConfirmRemove(false);
+      invalidate();
+    },
     onError: (e: Error) => toast.error("Não foi possível remover", { description: e.message }),
   });
 
@@ -257,7 +312,11 @@ function MemberRow({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="truncate text-sm font-medium">{member.fullName || "Sem nome"}</span>
-            {member.isSuperAdmin && <Badge variant="secondary" className="text-[10px]">Super admin</Badge>}
+            {member.isSuperAdmin && (
+              <Badge variant="secondary" className="text-[10px]">
+                Super admin
+              </Badge>
+            )}
           </div>
           <div className="truncate text-xs text-muted-foreground">
             {member.email ?? "e-mail indisponível"}
@@ -275,8 +334,12 @@ function MemberRow({
       <div className="hidden lg:block">
         <Badge variant="secondary">{ROLE_SHORT[member.role]}</Badge>
       </div>
-      <div className="hidden lg:block"><StatusBadge status={member.status} /></div>
-      <div className="hidden text-xs text-muted-foreground lg:block">{ROLE_ACCESS[member.role]}</div>
+      <div className="hidden lg:block">
+        <StatusBadge status={member.status} />
+      </div>
+      <div className="hidden text-xs text-muted-foreground lg:block">
+        {ROLE_ACCESS[member.role]}
+      </div>
 
       <div className="flex justify-end">
         <DropdownMenu>
@@ -319,16 +382,20 @@ function MemberRow({
             <AlertDialogHeader>
               <AlertDialogTitle>Remover membro da marca?</AlertDialogTitle>
               <AlertDialogDescription>
-                <strong>{member.fullName || member.email}</strong> perde o acesso a esta marca e a todos os clientes
-                dela, incluindo os vínculos por cliente. A conta de login continua existindo, mas sem acesso aqui.
-                Para suspender temporariamente, use “Desativar acesso”.
+                <strong>{member.fullName || member.email}</strong> perde o acesso a esta marca e a
+                todos os clientes dela, incluindo os vínculos por cliente. A conta de login continua
+                existindo, mas sem acesso aqui. Para suspender temporariamente, use “Desativar
+                acesso”.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                onClick={(e) => { e.preventDefault(); removeMut.mutate(); }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  removeMut.mutate();
+                }}
               >
                 {removeMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Remover membro
@@ -341,16 +408,25 @@ function MemberRow({
   );
 }
 
-function InviteRow({ brandId, invite }: {
+function InviteRow({
+  brandId,
+  invite,
+}: {
   brandId: string;
   invite: {
-    id: string; email: string; role: string; token: string; expires_at: string;
-    revoked_at?: string | null; temp_password_sent?: boolean;
+    id: string;
+    email: string;
+    role: string;
+    token: string;
+    expires_at: string;
+    revoked_at?: string | null;
+    temp_password_sent?: boolean;
   };
 }) {
   const qc = useQueryClient();
   const revoke = useServerFn(revokeBrandInvite);
-  const link = typeof window !== "undefined" ? `${window.location.origin}/invite/${invite.token}` : "";
+  const link =
+    typeof window !== "undefined" ? `${window.location.origin}/invite/${invite.token}` : "";
   const revokeMut = useMutation({
     mutationFn: () => revoke({ data: { brandId, inviteId: invite.id } }),
     onSuccess: () => {
@@ -375,7 +451,8 @@ function InviteRow({ brandId, invite }: {
           )}
         </div>
         <div className="text-xs text-muted-foreground">
-          Papel: <span className="capitalize">{invite.role}</span> · Expira em {fmtDate(invite.expires_at)}
+          Papel: <span className="capitalize">{invite.role}</span> · Expira em{" "}
+          {fmtDate(invite.expires_at)}
           {invite.temp_password_sent ? " · senha temporária enviada" : ""}
         </div>
       </div>
@@ -384,9 +461,13 @@ function InviteRow({ brandId, invite }: {
           size="sm"
           variant="outline"
           disabled={isRevoked}
-          onClick={() => { navigator.clipboard.writeText(link); toast.success("Link copiado"); }}
+          onClick={() => {
+            navigator.clipboard.writeText(link);
+            toast.success("Link copiado");
+          }}
         >
-          <Copy className="mr-1.5 h-3.5 w-3.5" />Copiar link
+          <Copy className="mr-1.5 h-3.5 w-3.5" />
+          Copiar link
         </Button>
         <Button
           size="icon"

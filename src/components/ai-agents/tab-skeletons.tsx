@@ -1,11 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
 function Shell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border border-white/10 bg-neutral-950/60 p-5">
-      {children}
-    </div>
-  );
+  return <div className="rounded-xl border border-white/10 bg-neutral-950/60 p-5">{children}</div>;
 }
 
 export function OverviewSkeleton() {

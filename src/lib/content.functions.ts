@@ -14,7 +14,6 @@ import {
 import { resolveLegacyStage } from "@/lib/post-stage.server";
 import { assertScheduleLead } from "@/lib/schedule-rules";
 
-
 const DestinationSchema = z.object({
   connectionId: z.string().uuid(),
   channel: z.string().min(1).max(40),
@@ -56,7 +55,8 @@ export const listBrandAssigneesFn = createServerFn({ method: "GET" })
       .eq("brand_id", data.brandId);
     if (error) throw error;
     const ids = (members ?? []).map((m) => m.user_id as string);
-    if (ids.length === 0) return [] as Array<{ id: string; name: string; avatar_url: string | null; role: string }>;
+    if (ids.length === 0)
+      return [] as Array<{ id: string; name: string; avatar_url: string | null; role: string }>;
     const { data: profiles } = await context.supabase
       .from("user_profiles")
       .select("id, full_name, avatar_url")
@@ -75,7 +75,12 @@ export const listBrandAssigneesFn = createServerFn({ method: "GET" })
       .sort((a, b) => a.name.localeCompare(b.name));
   });
 
-const DEFAULT_STAGES: Array<{ key: string; label: string; color: StageColor; is_terminal?: boolean }> = [
+const DEFAULT_STAGES: Array<{
+  key: string;
+  label: string;
+  color: StageColor;
+  is_terminal?: boolean;
+}> = [
   { key: "briefing", label: "Ideia", color: "muted" },
   { key: "writing", label: "Produção", color: "indigo" },
   { key: "design", label: "Design", color: "violet" },
@@ -279,9 +284,7 @@ export const slaSnapshotFn = createServerFn({ method: "POST" })
     if (withSla.length === 0) return { activeOverdue: 0, byUser: [], byStage: [] };
 
     // Escopo: cliente ativo tem prioridade sobre a lista de clientes do filtro.
-    const clientIds = data.clientId
-      ? [data.clientId]
-      : (data.clientIds ?? []).filter(Boolean);
+    const clientIds = data.clientId ? [data.clientId] : (data.clientIds ?? []).filter(Boolean);
     const assigneeIds = data.assigneeIds ?? [];
     const projectIds = data.projectIds ?? [];
     const channels = (data.channels ?? []).filter(Boolean);
@@ -321,7 +324,6 @@ export const slaSnapshotFn = createServerFn({ method: "POST" })
       }
     }
 
-
     const userIds = Array.from(byUserMap.keys()).filter((u) => u !== "__unassigned__");
     const profMap = new Map<string, { full_name: string; avatar_url: string | null }>();
     if (userIds.length > 0) {
@@ -342,7 +344,8 @@ export const slaSnapshotFn = createServerFn({ method: "POST" })
         const p = profMap.get(user_id);
         return {
           user_id,
-          full_name: user_id === "__unassigned__" ? "Sem responsável" : p?.full_name ?? "Sem nome",
+          full_name:
+            user_id === "__unassigned__" ? "Sem responsável" : (p?.full_name ?? "Sem nome"),
           avatar_url: p?.avatar_url ?? null,
           overdue,
         };
@@ -377,7 +380,10 @@ export const listPipelinesFn = createServerFn({ method: "POST" })
     const { data: counts } = await context.supabase
       .from("posts")
       .select("pipeline_id")
-      .in("pipeline_id", pipes.map((p) => p.id));
+      .in(
+        "pipeline_id",
+        pipes.map((p) => p.id),
+      );
     const countMap = new Map<string, number>();
     (counts ?? []).forEach((r: { pipeline_id: string | null }) => {
       if (!r.pipeline_id) return;
@@ -514,29 +520,34 @@ export const loadBoardFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }): Promise<Board> => {
-    const [{ data: pipe, error: pErr }, { data: stages, error: sErr }, { data: posts, error: poErr }] =
-      await Promise.all([
-        context.supabase
-          .from("content_pipelines")
-          .select("id,brand_id,client_id,name,slug,is_default,position")
-          .eq("id", data.pipelineId)
-          .single(),
-        context.supabase
-          .from("content_pipeline_stages")
-          .select("id,pipeline_id,key,label,color,position,is_terminal,hide_in_portal,enables_approval_link,sla_days,sla_hours")
-          .eq("pipeline_id", data.pipelineId)
-          .order("position", { ascending: true }),
-        context.supabase
-          .from("posts")
-          .select(
-            "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes,priority,format,tags,visible_in_portal,project_id,remind_at,assignees,reference_media,stage_entered_at,target_connection_ids",
-          )
-          .eq("brand_id", data.brandId)
-          .eq("client_id", data.clientId)
-          .eq("pipeline_id", data.pipelineId)
-          .is("deleted_at", null)
-          .order("position", { ascending: true }),
-      ]);
+    const [
+      { data: pipe, error: pErr },
+      { data: stages, error: sErr },
+      { data: posts, error: poErr },
+    ] = await Promise.all([
+      context.supabase
+        .from("content_pipelines")
+        .select("id,brand_id,client_id,name,slug,is_default,position")
+        .eq("id", data.pipelineId)
+        .single(),
+      context.supabase
+        .from("content_pipeline_stages")
+        .select(
+          "id,pipeline_id,key,label,color,position,is_terminal,hide_in_portal,enables_approval_link,sla_days,sla_hours",
+        )
+        .eq("pipeline_id", data.pipelineId)
+        .order("position", { ascending: true }),
+      context.supabase
+        .from("posts")
+        .select(
+          "id,title,copy,channels,scheduled_at,published_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,ai_phase,rework_notes,priority,format,tags,visible_in_portal,project_id,remind_at,assignees,reference_media,stage_entered_at,target_connection_ids",
+        )
+        .eq("brand_id", data.brandId)
+        .eq("client_id", data.clientId)
+        .eq("pipeline_id", data.pipelineId)
+        .is("deleted_at", null)
+        .order("position", { ascending: true }),
+    ]);
     if (pErr) throw pErr;
     if (sErr) throw sErr;
     if (poErr) throw poErr;
@@ -552,7 +563,10 @@ export const loadBoardFn = createServerFn({ method: "POST" })
       const byPost = new Map<string, Array<{ format: string; is_primary: boolean | null }>>();
       for (const pl of placements ?? []) {
         const arr = byPost.get(pl.post_id as string) ?? [];
-        arr.push({ format: pl.format as string, is_primary: (pl.is_primary as boolean | null) ?? false });
+        arr.push({
+          format: pl.format as string,
+          is_primary: (pl.is_primary as boolean | null) ?? false,
+        });
         byPost.set(pl.post_id as string, arr);
       }
       for (const p of posts ?? []) {
@@ -603,8 +617,7 @@ export const loadBoardFn = createServerFn({ method: "POST" })
         });
         const thumbPath =
           typeof firstImg?.thumb_path === "string" ? (firstImg.thumb_path as string) : null;
-        const originalPath =
-          typeof firstImg?.path === "string" ? (firstImg.path as string) : null;
+        const originalPath = typeof firstImg?.path === "string" ? (firstImg.path as string) : null;
         const target = thumbPath ?? originalPath;
         if (!target) continue;
         const bucket =
@@ -673,11 +686,17 @@ export const movePostFn = createServerFn({ method: "POST" })
       .eq("id", data.postId);
     if (error) throw error;
     if (before?.brand_id && before.stage_id !== data.toStageId) {
-      ingestBrainQuiet(context.supabase, before.brand_id as string, "content_stage_changed", "editorial", {
-        title: before.title,
-        from_stage_id: before.stage_id,
-        to_stage_id: data.toStageId,
-      });
+      ingestBrainQuiet(
+        context.supabase,
+        before.brand_id as string,
+        "content_stage_changed",
+        "editorial",
+        {
+          title: before.title,
+          from_stage_id: before.stage_id,
+          to_stage_id: data.toStageId,
+        },
+      );
     }
     return { ok: true };
   });
@@ -714,7 +733,9 @@ export const createStageFn = createServerFn({ method: "POST" })
         color: data.color,
         position: nextPos,
       })
-      .select("id,pipeline_id,key,label,color,position,is_terminal,hide_in_portal,enables_approval_link")
+      .select(
+        "id,pipeline_id,key,label,color,position,is_terminal,hide_in_portal,enables_approval_link",
+      )
       .single();
     if (error) throw error;
     return st as PipelineStage;
@@ -734,7 +755,13 @@ export const updateStageFn = createServerFn({ method: "POST" })
             hide_in_portal: z.boolean().optional(),
             enables_approval_link: z.boolean().optional(),
             sla_days: z.number().int().min(0).max(365).nullable().optional(),
-            sla_hours: z.number().int().min(0).max(24 * 365).nullable().optional(),
+            sla_hours: z
+              .number()
+              .int()
+              .min(0)
+              .max(24 * 365)
+              .nullable()
+              .optional(),
             position: z.number().int().optional(),
           })
           .strict(),
@@ -771,7 +798,10 @@ export const deleteStageFn = createServerFn({ method: "POST" })
     if (!siblings || siblings.length === 0) {
       throw new Error("Não é possível excluir a única coluna do pipeline.");
     }
-    await context.supabase.from("posts").update({ stage_id: siblings[0].id }).eq("stage_id", data.stageId);
+    await context.supabase
+      .from("posts")
+      .update({ stage_id: siblings[0].id })
+      .eq("stage_id", data.stageId);
     const { error } = await context.supabase
       .from("content_pipeline_stages")
       .delete()
@@ -821,7 +851,8 @@ export const createPostFn = createServerFn({ method: "POST" })
     const nextPos = ((maxRow?.[0]?.position ?? -1) as number) + 1024;
 
     // stage legado derivado da coluna do pipeline (fonte operacional)
-    const legacyStage = (await resolveLegacyStage(context.supabase, data.stageId, "idea")) ?? "idea";
+    const legacyStage =
+      (await resolveLegacyStage(context.supabase, data.stageId, "idea")) ?? "idea";
 
     const insertRow: Record<string, unknown> = {
       brand_id: data.brandId,
@@ -835,9 +866,21 @@ export const createPostFn = createServerFn({ method: "POST" })
     };
 
     const optional: Array<keyof typeof data> = [
-      "copy", "channels", "target_connection_ids", "format", "priority", "tags", "scheduled_at",
-      "remind_at", "internal_briefing", "client_briefing", "script",
-      "assignees", "project_id", "visible_in_portal", "recurrence",
+      "copy",
+      "channels",
+      "target_connection_ids",
+      "format",
+      "priority",
+      "tags",
+      "scheduled_at",
+      "remind_at",
+      "internal_briefing",
+      "client_briefing",
+      "script",
+      "assignees",
+      "project_id",
+      "visible_in_portal",
+      "recurrence",
     ];
     for (const k of optional) {
       if (data[k] !== undefined) insertRow[k as string] = data[k];
@@ -1017,7 +1060,6 @@ export const updatePostFn = createServerFn({ method: "POST" })
       }
     }
 
-
     if (data.destinations !== undefined) {
       const { data: row, error: rErr } = await context.supabase
         .from("posts")
@@ -1087,7 +1129,6 @@ export const regeneratePostContentFn = createServerFn({ method: "POST" })
     return res;
   });
 
-
 // ---------- Rework: reset status, move card back to review stage ----------
 
 export const reworkPostFn = createServerFn({ method: "POST" })
@@ -1119,9 +1160,7 @@ export const reworkPostFn = createServerFn({ method: "POST" })
         .order("position", { ascending: true });
       const list = stages ?? [];
       const review = list.find(
-        (s) =>
-          s.key?.toLowerCase() === "review" ||
-          /revis|reason|rewrit/i.test(s.label ?? ""),
+        (s) => s.key?.toLowerCase() === "review" || /revis|reason|rewrit/i.test(s.label ?? ""),
       );
       targetStageId = review?.id ?? list[0]?.id ?? post.stage_id ?? null;
     }
@@ -1138,7 +1177,6 @@ export const reworkPostFn = createServerFn({ method: "POST" })
       const legacy = await resolveLegacyStage(context.supabase, targetStageId);
       if (legacy) patch.stage = legacy;
     }
-
 
     const { error } = await context.supabase
       .from("posts")
@@ -1188,117 +1226,131 @@ export type PostTimelineEvent = {
 export const getPostDetailFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ postId: z.string().uuid() }).parse(i))
-  .handler(async ({ data, context }): Promise<{
-    post: BoardPost;
-    timeline: PostTimelineEvent[];
-    destinations: Array<{ connectionId: string; channel: string; format: "feed" | "stories" | "reels" | "carrossel" }>;
-    project: { id: string; name: string; color: string | null } | null;
-  }> => {
-    const [{ data: post, error }, { data: events }, { data: placements }] = await Promise.all([
-      context.supabase
-        .from("posts")
-        .select(
-          "id,title,copy,channels,scheduled_at,published_at,remind_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,reference_media,design_brief,ai_phase,approved_at,approved_by,rework_notes,priority,format,tags,visible_in_portal,internal_briefing,client_briefing,script,references,target_connection_ids,project_id,monthly_plan_topic_id,projects:project_id(id,name,color)",
-        )
-        .eq("id", data.postId)
-        .single(),
-      context.supabase
-        .from("activity_events")
-        .select("id,verb,payload,created_at,actor_id")
-        .eq("entity_type", "post")
-        .eq("entity_id", data.postId)
-        .order("created_at", { ascending: false })
-        .limit(30),
-      context.supabase
-        .from("post_placements")
-        .select("format,copy_override,is_primary")
-        .eq("post_id", data.postId)
-        .order("is_primary", { ascending: false }),
-    ]);
-    if (error) throw error;
-    const destinations = (placements ?? [])
-      .map((pl) => {
-        const co = (pl.copy_override ?? {}) as Record<string, unknown>;
-        const connectionId = typeof co.connection_id === "string" ? co.connection_id : "";
-        const channel = typeof co.channel === "string" ? co.channel : "";
-        if (!connectionId || !channel) return null;
-        return {
-          connectionId,
-          channel,
-          format: pl.format as "feed" | "stories" | "reels" | "carrossel",
-        };
-      })
-      .filter(Boolean) as Array<{ connectionId: string; channel: string; format: "feed" | "stories" | "reels" | "carrossel" }>;
-    const actorIds = Array.from(
-      new Set((events ?? []).map((e) => e.actor_id).filter(Boolean) as string[]),
-    );
-    const actorMap = new Map<string, { name: string | null; avatar: string | null }>();
-    if (actorIds.length > 0) {
-      const { data: profs } = await context.supabase
-        .from("user_profiles")
-        .select("id, full_name, avatar_url")
-        .in("id", actorIds);
-      (profs ?? []).forEach((p) =>
-        actorMap.set(p.id as string, {
-          name: (p.full_name as string) ?? null,
-          avatar: (p.avatar_url as string | null) ?? null,
-        }),
+  .handler(
+    async ({
+      data,
+      context,
+    }): Promise<{
+      post: BoardPost;
+      timeline: PostTimelineEvent[];
+      destinations: Array<{
+        connectionId: string;
+        channel: string;
+        format: "feed" | "stories" | "reels" | "carrossel";
+      }>;
+      project: { id: string; name: string; color: string | null } | null;
+    }> => {
+      const [{ data: post, error }, { data: events }, { data: placements }] = await Promise.all([
+        context.supabase
+          .from("posts")
+          .select(
+            "id,title,copy,channels,scheduled_at,published_at,remind_at,assignee_id,cover_url,stage_id,pipeline_id,position,created_at,updated_at,brand_id,client_id,review_status,reference_media,design_brief,ai_phase,approved_at,approved_by,rework_notes,priority,format,tags,visible_in_portal,internal_briefing,client_briefing,script,references,target_connection_ids,project_id,monthly_plan_topic_id,projects:project_id(id,name,color)",
+          )
+          .eq("id", data.postId)
+          .single(),
+        context.supabase
+          .from("activity_events")
+          .select("id,verb,payload,created_at,actor_id")
+          .eq("entity_type", "post")
+          .eq("entity_id", data.postId)
+          .order("created_at", { ascending: false })
+          .limit(30),
+        context.supabase
+          .from("post_placements")
+          .select("format,copy_override,is_primary")
+          .eq("post_id", data.postId)
+          .order("is_primary", { ascending: false }),
+      ]);
+      if (error) throw error;
+      const destinations = (placements ?? [])
+        .map((pl) => {
+          const co = (pl.copy_override ?? {}) as Record<string, unknown>;
+          const connectionId = typeof co.connection_id === "string" ? co.connection_id : "";
+          const channel = typeof co.channel === "string" ? co.channel : "";
+          if (!connectionId || !channel) return null;
+          return {
+            connectionId,
+            channel,
+            format: pl.format as "feed" | "stories" | "reels" | "carrossel",
+          };
+        })
+        .filter(Boolean) as Array<{
+        connectionId: string;
+        channel: string;
+        format: "feed" | "stories" | "reels" | "carrossel";
+      }>;
+      const actorIds = Array.from(
+        new Set((events ?? []).map((e) => e.actor_id).filter(Boolean) as string[]),
       );
-    }
-    // Herança real do projeto: peça materializada de uma pauta que já possui
-    // projeto deve apontar para o MESMO projects.id. Corrige vínculo ausente
-    // sem criar projeto novo e sem inventar dados.
-    const rawPost = post as unknown as {
-      project_id: string | null;
-      monthly_plan_topic_id: string | null;
-      projects?: { id: string; name: string; color: string | null } | null;
-    };
-    let project = rawPost.projects ?? null;
-    let projectId = rawPost.project_id ?? null;
-    if (!projectId && rawPost.monthly_plan_topic_id) {
-      const { data: topic } = await context.supabase
-        .from("monthly_plan_topics")
-        .select("monthly_plan_id")
-        .eq("id", rawPost.monthly_plan_topic_id)
-        .maybeSingle();
-      const planId = (topic as unknown as { monthly_plan_id: string | null } | null)?.monthly_plan_id ?? null;
-      if (planId) {
-        const { data: plan } = await context.supabase
-          .from("monthly_plans")
-          .select("project_id, projects:project_id(id,name,color)")
-          .eq("id", planId)
+      const actorMap = new Map<string, { name: string | null; avatar: string | null }>();
+      if (actorIds.length > 0) {
+        const { data: profs } = await context.supabase
+          .from("user_profiles")
+          .select("id, full_name, avatar_url")
+          .in("id", actorIds);
+        (profs ?? []).forEach((p) =>
+          actorMap.set(p.id as string, {
+            name: (p.full_name as string) ?? null,
+            avatar: (p.avatar_url as string | null) ?? null,
+          }),
+        );
+      }
+      // Herança real do projeto: peça materializada de uma pauta que já possui
+      // projeto deve apontar para o MESMO projects.id. Corrige vínculo ausente
+      // sem criar projeto novo e sem inventar dados.
+      const rawPost = post as unknown as {
+        project_id: string | null;
+        monthly_plan_topic_id: string | null;
+        projects?: { id: string; name: string; color: string | null } | null;
+      };
+      let project = rawPost.projects ?? null;
+      let projectId = rawPost.project_id ?? null;
+      if (!projectId && rawPost.monthly_plan_topic_id) {
+        const { data: topic } = await context.supabase
+          .from("monthly_plan_topics")
+          .select("monthly_plan_id")
+          .eq("id", rawPost.monthly_plan_topic_id)
           .maybeSingle();
-        const planRow = plan as unknown as {
-          project_id: string | null;
-          projects?: { id: string; name: string; color: string | null } | null;
-        } | null;
-        if (planRow?.project_id) {
-          projectId = planRow.project_id;
-          project = planRow.projects ?? null;
-          await context.supabase
-            .from("posts")
-            .update({ project_id: projectId } as never)
-            .eq("id", data.postId)
-            .is("project_id", null);
+        const planId =
+          (topic as unknown as { monthly_plan_id: string | null } | null)?.monthly_plan_id ?? null;
+        if (planId) {
+          const { data: plan } = await context.supabase
+            .from("monthly_plans")
+            .select("project_id, projects:project_id(id,name,color)")
+            .eq("id", planId)
+            .maybeSingle();
+          const planRow = plan as unknown as {
+            project_id: string | null;
+            projects?: { id: string; name: string; color: string | null } | null;
+          } | null;
+          if (planRow?.project_id) {
+            projectId = planRow.project_id;
+            project = planRow.projects ?? null;
+            await context.supabase
+              .from("posts")
+              .update({ project_id: projectId } as never)
+              .eq("id", data.postId)
+              .is("project_id", null);
+          }
         }
       }
-    }
 
-    return {
-      post: { ...(post as BoardPost), project_id: projectId },
-      project,
-      timeline: (events ?? []).map((e) => ({
-        id: e.id,
-        verb: e.verb,
-        payload: e.payload == null ? null : JSON.stringify(e.payload),
-        created_at: e.created_at,
-        actor_id: e.actor_id,
-        actor_name: e.actor_id ? actorMap.get(e.actor_id)?.name ?? null : null,
-        actor_avatar: e.actor_id ? actorMap.get(e.actor_id)?.avatar ?? null : null,
-      })) as PostTimelineEvent[],
-      destinations,
-    };
-  });
+      return {
+        post: { ...(post as BoardPost), project_id: projectId },
+        project,
+        timeline: (events ?? []).map((e) => ({
+          id: e.id,
+          verb: e.verb,
+          payload: e.payload == null ? null : JSON.stringify(e.payload),
+          created_at: e.created_at,
+          actor_id: e.actor_id,
+          actor_name: e.actor_id ? (actorMap.get(e.actor_id)?.name ?? null) : null,
+          actor_avatar: e.actor_id ? (actorMap.get(e.actor_id)?.avatar ?? null) : null,
+        })) as PostTimelineEvent[],
+        destinations,
+      };
+    },
+  );
 
 // ---------- Reference media (Phase-2 uploads) ----------
 
@@ -1357,9 +1409,20 @@ export const uploadPostReferenceMediaFn = createServerFn({ method: "POST" })
       next = current.map((r) =>
         r?.path === data.originalPath ? { ...r, thumb_path: path, bucket: "brand-media" } : r,
       );
-      entry = { path, thumb_path: path, originalPath: data.originalPath, bucket: "brand-media" } as MediaEntry & { bucket: string };
+      entry = {
+        path,
+        thumb_path: path,
+        originalPath: data.originalPath,
+        bucket: "brand-media",
+      } as MediaEntry & { bucket: string };
     } else {
-      entry = { path, name: data.filename, type: data.contentType, size: bin.byteLength, bucket: "brand-media" } as MediaEntry & { bucket: string };
+      entry = {
+        path,
+        name: data.filename,
+        type: data.contentType,
+        size: bin.byteLength,
+        bucket: "brand-media",
+      } as MediaEntry & { bucket: string };
       next = [...current, entry];
     }
     const { error: upErr } = await context.supabase
@@ -1391,7 +1454,8 @@ export const removePostReferenceMediaFn = createServerFn({ method: "POST" })
       ? (post.reference_media as Array<Record<string, unknown>>)
       : [];
     const entry = current.find((r) => r?.path === data.path);
-    const bucket = (typeof entry?.bucket === "string" ? (entry.bucket as string) : null) ?? "brand-media";
+    const bucket =
+      (typeof entry?.bucket === "string" ? (entry.bucket as string) : null) ?? "brand-media";
     await context.supabase.storage.from(bucket).remove([data.path]);
     const next = current.filter((r) => r?.path !== data.path);
     const { error } = await context.supabase
@@ -1404,9 +1468,7 @@ export const removePostReferenceMediaFn = createServerFn({ method: "POST" })
 
 export const signPostReferenceMediaFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((i: unknown) =>
-    z.object({ paths: z.array(z.string()).max(20) }).parse(i),
-  )
+  .inputValidator((i: unknown) => z.object({ paths: z.array(z.string()).max(20) }).parse(i))
   .handler(async ({ data, context }) => {
     if (data.paths.length === 0) return { urls: {} as Record<string, string> };
     // Buckets legados (brand-assets) e novo bucket unificado (brand-media)
@@ -1548,7 +1610,6 @@ export const generatePostReferenceImageFn = createServerFn({ method: "POST" })
 
     return { ok: true, path };
   });
-
 
 // ---------- Fila de retomada: peças pendentes voltam ao pipeline oficial ----------
 export const resumePendingPostsFn = createServerFn({ method: "POST" })

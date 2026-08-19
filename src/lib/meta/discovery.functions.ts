@@ -1,11 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import {
-  runMetaDiscovery,
-  toDiscoveredAccounts,
-  type DiscoveredAccount,
-} from "./discovery.server";
+import { runMetaDiscovery, toDiscoveredAccounts, type DiscoveredAccount } from "./discovery.server";
 import { readPagesPayload } from "./portfolio-shared";
 
 /**
@@ -77,8 +73,7 @@ export const listDiscoveredMetaAccountsFn = createServerFn({ method: "POST" })
     let discoveryError: string | null = null;
 
     const needsScan =
-      data.refresh === true ||
-      payload.pages.length + payload.standaloneInstagram.length === 0;
+      data.refresh === true || payload.pages.length + payload.standaloneInstagram.length === 0;
     if (needsScan) {
       const outcome = await runMetaDiscovery(context.supabase, {
         id: session.id as string,
@@ -194,9 +189,7 @@ export const reconcileMetaConnectionFn = createServerFn({ method: "POST" })
         : outcome.payload.pages.find((p) => p.instagramBusinessId === externalId);
     const standalone =
       channel === "instagram"
-        ? outcome.payload.standaloneInstagram.find(
-            (i) => i.instagramId === externalId,
-          )
+        ? outcome.payload.standaloneInstagram.find((i) => i.instagramId === externalId)
         : undefined;
 
     if (!page && !standalone) {
@@ -242,9 +235,7 @@ export const reconcileMetaConnectionFn = createServerFn({ method: "POST" })
     if (page) {
       patch.page_id = page.pageId;
       patch.external_name =
-        channel === "instagram"
-          ? (page.instagramUsername ?? page.pageName)
-          : page.pageName;
+        channel === "instagram" ? (page.instagramUsername ?? page.pageName) : page.pageName;
       if (page.instagramBusinessId) {
         patch.instagram_business_id = page.instagramBusinessId;
         patch.account_id = page.instagramBusinessId;
@@ -283,8 +274,7 @@ export const reconcileMetaConnectionFn = createServerFn({ method: "POST" })
       restored: true,
       message: {
         title: "Canal reconectado",
-        description:
-          "A Meta confirmou esta conta e a autorização de publicação foi renovada.",
+        description: "A Meta confirmou esta conta e a autorização de publicação foi renovada.",
       },
     };
   });

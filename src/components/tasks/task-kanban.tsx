@@ -26,7 +26,9 @@ import {
 } from "./shared";
 
 function KanbanCard({ task, onOpen }: { task: TaskRow; onOpen: () => void }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: task.id });
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: task.id,
+  });
   const style = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
     : undefined;
@@ -117,7 +119,9 @@ function KanbanColumn({
     <div className="flex w-[300px] shrink-0 flex-col rounded-xl border border-border/60 bg-muted/20">
       <header className="flex items-center gap-2 border-b border-border/60 bg-background/40 px-3 py-2.5">
         <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
-        <h2 className="text-[11px] font-mono uppercase tracking-widest text-foreground">{meta.label}</h2>
+        <h2 className="text-[11px] font-mono uppercase tracking-widest text-foreground">
+          {meta.label}
+        </h2>
         <span className="ml-auto rounded-md border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground">
           {tasks.length}
         </span>
@@ -183,7 +187,7 @@ export function TaskKanban({
     move.mutate({ id: task.id as string, status: nextStatus });
   }
 
-  const activeTask = activeId ? tasks.find((t) => t.id === activeId) ?? null : null;
+  const activeTask = activeId ? (tasks.find((t) => t.id === activeId) ?? null) : null;
 
   return (
     <DndContext

@@ -21,10 +21,7 @@ import { KpiCard } from "@/components/ui/kpi-card";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { cn } from "@/lib/utils";
-import {
-  listBrandMediaPlans,
-  type BrandMediaPlanRow,
-} from "@/lib/media-plans-index.functions";
+import { listBrandMediaPlans, type BrandMediaPlanRow } from "@/lib/media-plans-index.functions";
 import { CreateMediaPlanDialog } from "@/components/media-plans/create-media-plan-dialog";
 import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 
@@ -133,7 +130,12 @@ function MediaPlansIndex() {
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <KpiCard label="Planos" value={String(kpis.total)} icon={<Target className="h-4 w-4" />} />
         <KpiCard label="Investimento mensal" value={currency(kpis.totalBudget)} tone="sky" />
-        <KpiCard label="Aprovados" value={String(kpis.approved)} tone="emerald" icon={<CheckCircle2 className="h-4 w-4" />} />
+        <KpiCard
+          label="Aprovados"
+          value={String(kpis.approved)}
+          tone="emerald"
+          icon={<CheckCircle2 className="h-4 w-4" />}
+        />
         <KpiCard label="Em rascunho" value={String(kpis.drafts)} tone="amber" />
       </div>
 
@@ -210,17 +212,16 @@ function PlanRow({ plan }: { plan: BrandMediaPlanRow }) {
         <div className="flex items-center gap-2">
           <span className="truncate font-medium">{plan.title}</span>
           {plan.share_token && (
-            <Share2 className="h-3 w-3 text-muted-foreground" aria-label="Link compartilhado ativo" />
+            <Share2
+              className="h-3 w-3 text-muted-foreground"
+              aria-label="Link compartilhado ativo"
+            />
           )}
         </div>
         <div className="mt-0.5 text-xs text-muted-foreground">
           Atualizado em {new Date(plan.updated_at).toLocaleDateString("pt-BR")}
-          {plan.period_start
-            ? ` · ${new Date(plan.period_start).toLocaleDateString("pt-BR")}`
-            : ""}
-          {plan.period_end
-            ? ` — ${new Date(plan.period_end).toLocaleDateString("pt-BR")}`
-            : ""}
+          {plan.period_start ? ` · ${new Date(plan.period_start).toLocaleDateString("pt-BR")}` : ""}
+          {plan.period_end ? ` — ${new Date(plan.period_end).toLocaleDateString("pt-BR")}` : ""}
         </div>
       </div>
       <div className="truncate text-muted-foreground">{plan.client_name}</div>
@@ -239,9 +240,7 @@ function PlanRow({ plan }: { plan: BrandMediaPlanRow }) {
         >
           {currency(plan.allocated_amount)}
         </div>
-        <div className="text-[10px] text-muted-foreground">
-          {plan.allocated_pct.toFixed(1)}%
-        </div>
+        <div className="text-[10px] text-muted-foreground">{plan.allocated_pct.toFixed(1)}%</div>
       </div>
       <div className="text-right text-muted-foreground">{plan.items_count}</div>
     </Link>

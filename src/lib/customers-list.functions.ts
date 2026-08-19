@@ -37,7 +37,7 @@ export const listBrandClientChannelsFn = createServerFn({ method: "GET" })
         {
           connectionId: c.id as string,
           channel: (c.channel ?? "") as string,
-          label: ((c.external_name ?? c.account_username ?? c.channel) ?? "—") as string,
+          label: (c.external_name ?? c.account_username ?? c.channel ?? "—") as string,
           status: (c.status ?? "active") as string,
         },
       ]),

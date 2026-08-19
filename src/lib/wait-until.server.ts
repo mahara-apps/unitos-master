@@ -8,7 +8,12 @@ export function waitUntil(promise: Promise<unknown>): void {
     console.error("[waitUntil] background job failed:", err);
   });
   try {
-    const store = (globalThis as unknown as Record<symbol, { getStore?: () => { h3Event?: { waitUntil?: (p: Promise<unknown>) => void } } }>)[EVENT_KEY];
+    const store = (
+      globalThis as unknown as Record<
+        symbol,
+        { getStore?: () => { h3Event?: { waitUntil?: (p: Promise<unknown>) => void } } }
+      >
+    )[EVENT_KEY];
     const h3Event = store?.getStore?.()?.h3Event;
     if (h3Event?.waitUntil) {
       h3Event.waitUntil(safe);

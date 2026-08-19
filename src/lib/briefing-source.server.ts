@@ -69,7 +69,8 @@ function str(v: unknown): string | null {
 }
 
 function toList(v: unknown): string[] {
-  if (Array.isArray(v)) return v.map((x) => (typeof x === "string" ? x.trim() : String(x ?? ""))).filter(Boolean);
+  if (Array.isArray(v))
+    return v.map((x) => (typeof x === "string" ? x.trim() : String(x ?? ""))).filter(Boolean);
   const s = str(v);
   if (!s) return [];
   return s
@@ -120,7 +121,10 @@ export function mergeLegacyIntoHub(
   if (!str(out.differentials) && toList(legacy.diferenciais).length) {
     out.differentials = toList(legacy.diferenciais).join("\n");
   }
-  if (!(Array.isArray(out.hashtags) && out.hashtags.length) && toList(legacy.hashtags_sugeridas).length) {
+  if (
+    !(Array.isArray(out.hashtags) && out.hashtags.length) &&
+    toList(legacy.hashtags_sugeridas).length
+  ) {
     out.hashtags = toList(legacy.hashtags_sugeridas);
   }
   if (!(Array.isArray(out.competitors) && (out.competitors as unknown[]).length)) {
@@ -138,7 +142,9 @@ export function hubToLegacyBriefing(
   const h = hub as Record<string, unknown>;
   const volumetry = (h.volumetry ?? {}) as Record<string, number | undefined>;
   const weekly = Object.values(volumetry).reduce<number>((s, v) => s + (Number(v) || 0), 0);
-  const competitors = Array.isArray(h.competitors) ? (h.competitors as Array<Record<string, unknown>>) : [];
+  const competitors = Array.isArray(h.competitors)
+    ? (h.competitors as Array<Record<string, unknown>>)
+    : [];
 
   return {
     publico_alvo: str(h.audience),
@@ -169,7 +175,9 @@ export function hubToLegacyBriefing(
  * `brand_hub`. Usado por todos os fluxos que antes escreviam em
  * `brand_briefings`, que agora escrevem apenas na fonte canônica.
  */
-export function legacyToHubPatch(legacy: Record<string, unknown> | null | undefined): Partial<BrandHubData> {
+export function legacyToHubPatch(
+  legacy: Record<string, unknown> | null | undefined,
+): Partial<BrandHubData> {
   if (!legacy) return {};
   const out: Record<string, unknown> = {};
   for (const f of HUB_TEXT_FIELDS) {
@@ -241,8 +249,6 @@ export async function loadCanonicalBriefing(
     legacyRowId: null,
   };
 }
-
-
 
 /** Texto plano do briefing canônico, para prompts que só precisam de contexto. */
 export function briefingToPromptText(b: CanonicalBriefing): string {

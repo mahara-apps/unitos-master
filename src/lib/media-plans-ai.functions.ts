@@ -10,9 +10,7 @@ const InputSchema = z.object({
   clientId: z.string().uuid(),
   monthlyBudget: z.number().nonnegative(),
   objective: z.string().max(2000).optional().nullable(),
-  funnelSplit: z
-    .object({ topo: z.number(), meio: z.number(), fundo: z.number() })
-    .optional(),
+  funnelSplit: z.object({ topo: z.number(), meio: z.number(), fundo: z.number() }).optional(),
 });
 
 export type AiMediaPlanItem = {
@@ -42,22 +40,20 @@ const ItemsSchema = z.object({
 });
 
 function clampItems(items: AiMediaPlanItem[]): AiMediaPlanItem[] {
-  const clean = items
-    .slice(0, 12)
-    .map((i) => ({
-      product_service: String(i.product_service ?? "").slice(0, 280),
-      campaign_type: String(i.campaign_type ?? "").slice(0, 120),
-      funnel_stage: (["topo", "meio", "fundo"].includes(i.funnel_stage)
-        ? i.funnel_stage
-        : "meio") as AiMediaPlanItem["funnel_stage"],
-      channel: String(i.channel ?? "").slice(0, 120),
-      main_kpi: String(i.main_kpi ?? "").slice(0, 160),
-      audience: String(i.audience ?? "").slice(0, 400),
-      budget_pct: Math.max(0, Math.min(100, Number(i.budget_pct) || 0)),
-      keywords: (Array.isArray(i.keywords) ? i.keywords : [])
-        .slice(0, 10)
-        .map((k) => String(k).slice(0, 60)),
-    }));
+  const clean = items.slice(0, 12).map((i) => ({
+    product_service: String(i.product_service ?? "").slice(0, 280),
+    campaign_type: String(i.campaign_type ?? "").slice(0, 120),
+    funnel_stage: (["topo", "meio", "fundo"].includes(i.funnel_stage)
+      ? i.funnel_stage
+      : "meio") as AiMediaPlanItem["funnel_stage"],
+    channel: String(i.channel ?? "").slice(0, 120),
+    main_kpi: String(i.main_kpi ?? "").slice(0, 160),
+    audience: String(i.audience ?? "").slice(0, 400),
+    budget_pct: Math.max(0, Math.min(100, Number(i.budget_pct) || 0)),
+    keywords: (Array.isArray(i.keywords) ? i.keywords : [])
+      .slice(0, 10)
+      .map((k) => String(k).slice(0, 60)),
+  }));
   // Normalize percentages to sum ~100
   const sum = clean.reduce((s, i) => s + i.budget_pct, 0);
   if (sum > 0 && Math.abs(sum - 100) > 0.5) {
@@ -86,11 +82,7 @@ export const generateMediaPlanWithAi = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<{ items: AiMediaPlanItem[] }> => {
     // Load brand + briefing canônico (clients.brand_hub) — best-effort
     const [{ data: brand }, canonical] = await Promise.all([
-      context.supabase
-        .from("brands")
-        .select("name")
-        .eq("id", data.brandId)
-        .maybeSingle(),
+      context.supabase.from("brands").select("name").eq("id", data.brandId).maybeSingle(),
       loadCanonicalBriefing(context.supabase, {
         clientId: data.clientId,
         brandId: data.brandId,
@@ -104,7 +96,6 @@ export const generateMediaPlanWithAi = createServerFn({ method: "POST" })
 
     const split = data.funnelSplit ?? { topo: 30, meio: 40, fundo: 30 };
     const brief = briefingToPromptText(canonical);
-
 
     const budgetBRL = new Intl.NumberFormat("pt-BR", {
       style: "currency",
@@ -135,13 +126,11 @@ export const generateMediaPlanWithAi = createServerFn({ method: "POST" })
       .filter(Boolean)
       .join("\n");
 
-    const { model } = await getBrandAiModel(
-      context.supabase,
-      data.brandId,
-      "text",
-      "strategic",
-      { agent: "media-plan.generate", clientId: data.clientId ?? null, userId: context.userId },
-    );
+    const { model } = await getBrandAiModel(context.supabase, data.brandId, "text", "strategic", {
+      agent: "media-plan.generate",
+      clientId: data.clientId ?? null,
+      userId: context.userId,
+    });
 
     try {
       const { output } = await generateText({

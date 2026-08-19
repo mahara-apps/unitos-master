@@ -16,7 +16,6 @@ const BodySchema = z.object({
   limit: z.number().int().min(1).max(25).optional(),
 });
 
-
 export const Route = createFileRoute("/api/public/hooks/resume-post-content")({
   server: {
     handlers: {
@@ -37,7 +36,9 @@ export const Route = createFileRoute("/api/public/hooks/resume-post-content")({
 
         if (parsed.data.postIds?.length) {
           const { generatePostsContentSequential } = await import("@/lib/post-agents.server");
-          const result = await generatePostsContentSequential(parsed.data.postIds, { userId: null });
+          const result = await generatePostsContentSequential(parsed.data.postIds, {
+            userId: null,
+          });
           return Response.json({ candidates: parsed.data.postIds.length, ...result });
         }
 
@@ -50,7 +51,6 @@ export const Route = createFileRoute("/api/public/hooks/resume-post-content")({
           userId: null,
         });
         return Response.json(result);
-
       },
     },
   },

@@ -54,7 +54,6 @@ function friendlyGraphError(raw: string): string {
   return raw.length > 160 ? "Não foi possível buscar locais agora." : raw;
 }
 
-
 export const searchInstagramLocationsFn = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
@@ -106,9 +105,7 @@ export const searchInstagramLocationsFn = createServerFn({ method: "GET" })
       }
 
       try {
-        const { decryptCredential } = await import(
-          "@/lib/credentials-crypto.server"
-        );
+        const { decryptCredential } = await import("@/lib/credentials-crypto.server");
         const { MetaProvider, MetaGraphError } = await import("./provider.server");
         const pageToken = await decryptCredential(row.access_token_ciphertext);
         const provider = new MetaProvider();
@@ -128,18 +125,15 @@ export const searchInstagramLocationsFn = createServerFn({ method: "GET" })
           category?: string;
         };
         try {
-          const res = await provider.graph<{ data: PlaceRow[] }>(
-            "/pages/search",
-            {
-              accessToken: pageToken,
-              query: {
-                q,
-                type: "place",
-                fields: "id,name,location{city,state,country,street},category",
-                limit: "8",
-              },
+          const res = await provider.graph<{ data: PlaceRow[] }>("/pages/search", {
+            accessToken: pageToken,
+            query: {
+              q,
+              type: "place",
+              fields: "id,name,location{city,state,country,street},category",
+              limit: "8",
             },
-          );
+          });
           const hits: LocationHit[] = (res.data ?? []).map((r) => {
             const parts = [
               r.location?.street,
@@ -172,6 +166,5 @@ export const searchInstagramLocationsFn = createServerFn({ method: "GET" })
           error: friendlyGraphError((err as Error).message),
         };
       }
-
     },
   );

@@ -12,9 +12,7 @@ import {
   beginDiscovery,
 } from "./portfolio-shared";
 
-
 import type { PublishAuthorizationInfo } from "./portfolio-shared";
-
 
 export type {
   PortfolioPage,
@@ -32,7 +30,6 @@ import type {
   PortfolioAdAccount,
   PortfolioResponse,
 } from "./portfolio-shared";
-
 
 export const getMetaPortfolio = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -52,21 +49,12 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
         `${SESSION_INVALID_PREFIX} Sessão da Meta não encontrada. Faça login novamente.`,
       );
     if (new Date(session.expires_at).getTime() < Date.now()) {
-      throw new Error(
-        `${SESSION_INVALID_PREFIX} Sessão da Meta expirou. Faça login novamente.`,
-      );
+      throw new Error(`${SESSION_INVALID_PREFIX} Sessão da Meta expirou. Faça login novamente.`);
     }
-
 
     const sessionState = session as typeof session & {
       portfolio_loaded_at?: string | null;
-      portfolio_load_status?:
-        | "not_loaded"
-        | "loaded"
-        | "empty"
-        | "error"
-        | "rate_limited"
-        | null;
+      portfolio_load_status?: "not_loaded" | "loaded" | "empty" | "error" | "rate_limited" | null;
       portfolio_error?: string | null;
       portfolio_rate_limited_until?: string | null;
     };
@@ -81,9 +69,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
     // The `pages` column holds either a bare array (legacy sessions) or the
     // richer payload `{ pages, standaloneInstagram, warnings, businessCount }`.
     const pagesPayload = readPagesPayload(session.pages);
-    let cachedPages = pagesPayload.pages as Array<
-      PortfolioPage & { pageAccessToken?: string }
-    >;
+    let cachedPages = pagesPayload.pages as Array<PortfolioPage & { pageAccessToken?: string }>;
     let cachedStandaloneIg = pagesPayload.standaloneInstagram;
     let scanWarnings = pagesPayload.warnings;
     let businessCount = pagesPayload.businessCount;
@@ -92,14 +78,12 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
       (session.threads_accounts as unknown as Array<
         PortfolioThreadsAccount & { accessToken?: string }
       >) ?? [];
-    let cachedAds =
-      (session.ad_accounts as unknown as PortfolioAdAccount[]) ?? [];
+    let cachedAds = (session.ad_accounts as unknown as PortfolioAdAccount[]) ?? [];
 
     // FAIL-CLOSED: uma sessão recém-autorizada NUNCA é preenchida com contas
     // de sessões anteriores. Só o que a Meta devolver para o token atual pode
     // aparecer na tela de descoberta (reconexão => nova descoberta real).
     const seededFromCache = false;
-
 
     const ch = data.channel ?? null;
     const needPages =
@@ -111,8 +95,7 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
     const needAds = (ch === null || ch === "ads") && !!data.refresh;
 
     const rateLimitedUntil = sessionState.portfolio_rate_limited_until;
-    const inCooldown =
-      !!rateLimitedUntil && new Date(rateLimitedUntil).getTime() > Date.now();
+    const inCooldown = !!rateLimitedUntil && new Date(rateLimitedUntil).getTime() > Date.now();
 
     if ((needPages || needThreads || needAds) && inCooldown) {
       // Cooldown must never be converted into "no accounts": keep the known
@@ -164,251 +147,171 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
 
     if (discoveryLock) {
       try {
-
-
-
-      const { decryptCredential } = await import("@/lib/credentials-crypto.server");
-      const { MetaProvider, MetaGraphError } = await import("./provider.server");
-      const provider = new MetaProvider();
-      const invalidateSession = async () => {
-        const nowIso = new Date().toISOString();
-        await context.supabase
-          .from("meta_oauth_sessions")
-          .update({ expires_at: nowIso, user_token_expires_at: nowIso })
-          .eq("id", session.id);
-      };
-      if (!session.user_token_ciphertext) {
-        await invalidateSession();
-        throw new Error(
-          `${SESSION_INVALID_PREFIX} Token do usuário Meta ausente. Faça login novamente.`,
-        );
-      }
-      let userToken: string;
-      try {
-        userToken = await decryptCredential(session.user_token_ciphertext);
-      } catch (err) {
-        console.error("[getMetaPortfolio] decrypt failed", err);
-        await invalidateSession();
-        throw new Error(
-          `${SESSION_INVALID_PREFIX} Sua sessão da Meta não é mais válida. Faça login novamente.`,
-        );
-      }
-
-
-      console.log("[getMetaPortfolio] scanning", {
-        sessionId: session.id,
-        channel: ch,
-        needPages,
-        needThreads,
-        needAds,
-      });
-
-      // Autorização granular do token (target_ids). Uma requisição, sem
-      // efeito colateral: é o que separa "usuário autorizado" de
-      // "conta autorizada".
-      try {
-        const { getPublishAuthorization } = await import("./granular-scopes.server");
-        publishAuthorization = (await getPublishAuthorization(
-          userToken,
-        )) as PublishAuthorizationInfo;
-      } catch {
-        publishAuthorization = publishAuthorization ?? null;
-      }
-
-      try {
-        if (needPages) {
-          const knownPages = cachedPages;
-          const knownIg = cachedStandaloneIg;
-          const scan = await provider.scanPortfolio(userToken);
-          console.log(
-            `Meta discovery: requests=${scan.requestCount} cache=${
-              seededFromCache ? "seeded" : "miss"
-            } deep=${scan.deep} pages=${scan.pages.length} withIg=${
-              scan.pages.filter((p) => !!p.instagramBusinessId).length
-            } standaloneIg=${scan.standaloneInstagram.length} warnings=${scan.warnings.length}`,
-          );
-          const fresh = scan.pages.map((p) => ({
-            pageId: p.pageId,
-            pageName: p.pageName,
-            category: p.category ?? null,
-            pagePictureUrl: p.pagePictureUrl ?? null,
-            instagramBusinessId: p.instagramBusinessId ?? null,
-            instagramUsername: p.instagramUsername ?? null,
-            instagramPictureUrl: p.instagramPictureUrl ?? null,
-            pageAccessToken: p.pageAccessToken,
-          }));
-          // A varredura é a fonte de verdade: contas que a Meta não devolve
-          // mais para este token deixam de existir na descoberta (nada de
-          // manter contas antigas como válidas). Tokens já capturados são
-          // reaproveitados apenas para Páginas que continuam autorizadas.
-          const tokenById = new Map(
-            knownPages.map((p) => [p.pageId, p.pageAccessToken]),
-          );
-          cachedPages = fresh.map((p) => ({
-            ...p,
-            pageAccessToken: p.pageAccessToken || tokenById.get(p.pageId) || undefined,
-          })) as typeof cachedPages;
-          cachedStandaloneIg = scan.standaloneInstagram.map((i) => ({
-            instagramId: i.instagramId,
-            username: i.username,
-            name: i.name,
-            pictureUrl: i.pictureUrl,
-            businessName: i.businessName,
-          }));
-
-          scanWarnings = scan.warnings;
-          businessCount = scan.businessCount || businessCount;
-
-          // RECONEXÃO FAIL-CLOSED: conexões salvas deste mesmo usuário Meta que
-          // não aparecem mais na nova descoberta perdem o status "active" — não
-          // podem continuar sendo tratadas como prontas sem nova comprovação.
-          const discoveredIds = new Set<string>([
-            ...cachedPages.map((p) => p.pageId),
-            ...(cachedPages
-              .map((p) => p.instagramBusinessId)
-              .filter(Boolean) as string[]),
-            ...cachedStandaloneIg.map((i) => i.instagramId),
-          ]);
-          if (discoveredIds.size > 0) {
-            const { data: existing } = await context.supabase
-              .from("social_connections")
-              .select("id, external_id, channel, status")
-              .eq("brand_id", data.brandId)
-              .eq("provider", "meta")
-              .eq("owner_external_id", session.meta_user_id)
-              .in("channel", ["facebook", "instagram"]);
-            const stale = (existing ?? []).filter(
-              (c) => c.status === "active" && !discoveredIds.has(c.external_id),
-            );
-            for (const c of stale) {
-              await context.supabase
-                .from("social_connections")
-                .update({
-                  status: "revoked",
-                  last_error:
-                    "Conta não apareceu na última autorização da Meta. Reconecte e selecione esta conta durante o consentimento.",
-                })
-                .eq("id", c.id);
-            }
-            if (stale.length > 0) {
-              console.log(
-                `[getMetaPortfolio] revoked ${stale.length} stale meta connection(s) after re-discovery`,
-              );
-            }
-          }
-        }
-
-
-
-        if (needThreads) {
-          const pagesForThreads = cachedPages.map((p) => ({
-            pageId: p.pageId,
-            pageName: p.pageName,
-            pageAccessToken: p.pageAccessToken ?? "",
-          }));
-          const scanned = await provider.listThreadsAccounts(
-            userToken,
-            pagesForThreads as never,
-          );
-          console.log("[getMetaPortfolio] threads fetched", scanned.length);
-          cachedThreads = scanned.map((t) => ({
-            threadsUserId: t.threadsUserId,
-            username: t.username ?? null,
-            name: t.name ?? null,
-            pictureUrl: t.pictureUrl ?? null,
-            linkedViaPageId: t.linkedViaPageId,
-            accessToken: t.accessToken,
-          }));
-        }
-        if (needAds) {
-          cachedAds = await provider.listAdAccounts(userToken);
-          console.log("[getMetaPortfolio] ad accounts fetched", cachedAds.length);
-        }
-
-        const loadedCount =
-          ch === "instagram"
-            ? cachedPages.filter((p) => !!p.instagramBusinessId).length +
-              cachedStandaloneIg.length
-            : ch === "facebook"
-              ? cachedPages.length
-              : ch === "threads"
-                ? cachedThreads.length
-                : ch === "ads"
-                  ? cachedAds.length
-                  : cachedPages.length + cachedThreads.length + cachedAds.length;
-
-        const loadedAt = nowIso();
-        const nextStatus = loadedCount > 0 ? "loaded" : "empty";
-        const { error: upErr } = await context.supabase
-          .from("meta_oauth_sessions")
-          .update({
-            pages: {
-              pages: cachedPages,
-              standaloneInstagram: cachedStandaloneIg,
-              warnings: scanWarnings,
-              businessCount,
-              publishAuthorization,
-            } as unknown as import("@/integrations/supabase/types").Json,
-            threads_accounts: cachedThreads as unknown as import("@/integrations/supabase/types").Json,
-            ad_accounts: cachedAds as unknown as import("@/integrations/supabase/types").Json,
-            portfolio_loaded_at: loadedAt,
-            portfolio_load_status: nextStatus,
-            portfolio_error: null,
-            portfolio_rate_limited_until: null,
-          })
-          .eq("id", session.id);
-        if (upErr) console.error("[getMetaPortfolio] cache write failed", upErr);
-        portfolioStatus = nextStatus;
-        portfolioLoadedAt = loadedAt;
-        portfolioError = null;
-        portfolioRateLimitedUntil = null;
-      } catch (err) {
-        console.error("[getMetaPortfolio] Graph API failure", err);
-        const updateErrorStatus = async (
-          status: "error" | "rate_limited",
-          message: string,
-          until: string | null = null,
-        ) => {
-          const { error: statusErr } = await context.supabase
-            .from("meta_oauth_sessions")
-            .update({
-              portfolio_load_status: status,
-              portfolio_error: message,
-              portfolio_rate_limited_until: until,
-            })
-            .eq("id", session.id);
-          if (statusErr) console.error("[getMetaPortfolio] status write failed", statusErr);
-        };
-        if (isMetaRateLimit(err)) {
-          const until = new Date(Date.now() + 15 * 60_000).toISOString();
-          await updateErrorStatus(
-            "rate_limited",
-            "Limite de requisições da Meta atingido.",
-            until,
-          );
-          throw new Error(
-            `${RATE_LIMIT_PREFIX} Limite de requisições da Meta atingido. Aguarde alguns minutos antes de tentar novamente.`,
-          );
-        }
-        // A transient Meta failure must not blank a portfolio that was already
-        // loaded. Keep serving the last successful snapshot and surface the
-        // refresh problem as a non-blocking warning (stale-while-revalidate).
-        const cachedAssetCount =
-          cachedPages.length + cachedStandaloneIg.length + cachedThreads.length + cachedAds.length;
-        if (cachedAssetCount > 0) {
-          const detail = err instanceof Error ? err.message : "Falha temporária da Meta.";
-          const warning = `Não foi possível atualizar agora: ${detail} As contas da última sincronização continuam disponíveis.`;
-          // Keep only the latest refresh diagnostic plus a small snapshot of
-          // prior scan warnings. Provider messages can contain dynamic trace
-          // IDs, so an unbounded Set still grew after every failed refresh.
-          scanWarnings = Array.from(new Set([warning, ...scanWarnings])).slice(0, 8);
-          portfolioStatus = "loaded";
-          portfolioError = detail;
+        const { decryptCredential } = await import("@/lib/credentials-crypto.server");
+        const { MetaProvider, MetaGraphError } = await import("./provider.server");
+        const provider = new MetaProvider();
+        const invalidateSession = async () => {
+          const nowIso = new Date().toISOString();
           await context.supabase
             .from("meta_oauth_sessions")
+            .update({ expires_at: nowIso, user_token_expires_at: nowIso })
+            .eq("id", session.id);
+        };
+        if (!session.user_token_ciphertext) {
+          await invalidateSession();
+          throw new Error(
+            `${SESSION_INVALID_PREFIX} Token do usuário Meta ausente. Faça login novamente.`,
+          );
+        }
+        let userToken: string;
+        try {
+          userToken = await decryptCredential(session.user_token_ciphertext);
+        } catch (err) {
+          console.error("[getMetaPortfolio] decrypt failed", err);
+          await invalidateSession();
+          throw new Error(
+            `${SESSION_INVALID_PREFIX} Sua sessão da Meta não é mais válida. Faça login novamente.`,
+          );
+        }
+
+        console.log("[getMetaPortfolio] scanning", {
+          sessionId: session.id,
+          channel: ch,
+          needPages,
+          needThreads,
+          needAds,
+        });
+
+        // Autorização granular do token (target_ids). Uma requisição, sem
+        // efeito colateral: é o que separa "usuário autorizado" de
+        // "conta autorizada".
+        try {
+          const { getPublishAuthorization } = await import("./granular-scopes.server");
+          publishAuthorization = (await getPublishAuthorization(
+            userToken,
+          )) as PublishAuthorizationInfo;
+        } catch {
+          publishAuthorization = publishAuthorization ?? null;
+        }
+
+        try {
+          if (needPages) {
+            const knownPages = cachedPages;
+            const knownIg = cachedStandaloneIg;
+            const scan = await provider.scanPortfolio(userToken);
+            console.log(
+              `Meta discovery: requests=${scan.requestCount} cache=${
+                seededFromCache ? "seeded" : "miss"
+              } deep=${scan.deep} pages=${scan.pages.length} withIg=${
+                scan.pages.filter((p) => !!p.instagramBusinessId).length
+              } standaloneIg=${scan.standaloneInstagram.length} warnings=${scan.warnings.length}`,
+            );
+            const fresh = scan.pages.map((p) => ({
+              pageId: p.pageId,
+              pageName: p.pageName,
+              category: p.category ?? null,
+              pagePictureUrl: p.pagePictureUrl ?? null,
+              instagramBusinessId: p.instagramBusinessId ?? null,
+              instagramUsername: p.instagramUsername ?? null,
+              instagramPictureUrl: p.instagramPictureUrl ?? null,
+              pageAccessToken: p.pageAccessToken,
+            }));
+            // A varredura é a fonte de verdade: contas que a Meta não devolve
+            // mais para este token deixam de existir na descoberta (nada de
+            // manter contas antigas como válidas). Tokens já capturados são
+            // reaproveitados apenas para Páginas que continuam autorizadas.
+            const tokenById = new Map(knownPages.map((p) => [p.pageId, p.pageAccessToken]));
+            cachedPages = fresh.map((p) => ({
+              ...p,
+              pageAccessToken: p.pageAccessToken || tokenById.get(p.pageId) || undefined,
+            })) as typeof cachedPages;
+            cachedStandaloneIg = scan.standaloneInstagram.map((i) => ({
+              instagramId: i.instagramId,
+              username: i.username,
+              name: i.name,
+              pictureUrl: i.pictureUrl,
+              businessName: i.businessName,
+            }));
+
+            scanWarnings = scan.warnings;
+            businessCount = scan.businessCount || businessCount;
+
+            // RECONEXÃO FAIL-CLOSED: conexões salvas deste mesmo usuário Meta que
+            // não aparecem mais na nova descoberta perdem o status "active" — não
+            // podem continuar sendo tratadas como prontas sem nova comprovação.
+            const discoveredIds = new Set<string>([
+              ...cachedPages.map((p) => p.pageId),
+              ...(cachedPages.map((p) => p.instagramBusinessId).filter(Boolean) as string[]),
+              ...cachedStandaloneIg.map((i) => i.instagramId),
+            ]);
+            if (discoveredIds.size > 0) {
+              const { data: existing } = await context.supabase
+                .from("social_connections")
+                .select("id, external_id, channel, status")
+                .eq("brand_id", data.brandId)
+                .eq("provider", "meta")
+                .eq("owner_external_id", session.meta_user_id)
+                .in("channel", ["facebook", "instagram"]);
+              const stale = (existing ?? []).filter(
+                (c) => c.status === "active" && !discoveredIds.has(c.external_id),
+              );
+              for (const c of stale) {
+                await context.supabase
+                  .from("social_connections")
+                  .update({
+                    status: "revoked",
+                    last_error:
+                      "Conta não apareceu na última autorização da Meta. Reconecte e selecione esta conta durante o consentimento.",
+                  })
+                  .eq("id", c.id);
+              }
+              if (stale.length > 0) {
+                console.log(
+                  `[getMetaPortfolio] revoked ${stale.length} stale meta connection(s) after re-discovery`,
+                );
+              }
+            }
+          }
+
+          if (needThreads) {
+            const pagesForThreads = cachedPages.map((p) => ({
+              pageId: p.pageId,
+              pageName: p.pageName,
+              pageAccessToken: p.pageAccessToken ?? "",
+            }));
+            const scanned = await provider.listThreadsAccounts(userToken, pagesForThreads as never);
+            console.log("[getMetaPortfolio] threads fetched", scanned.length);
+            cachedThreads = scanned.map((t) => ({
+              threadsUserId: t.threadsUserId,
+              username: t.username ?? null,
+              name: t.name ?? null,
+              pictureUrl: t.pictureUrl ?? null,
+              linkedViaPageId: t.linkedViaPageId,
+              accessToken: t.accessToken,
+            }));
+          }
+          if (needAds) {
+            cachedAds = await provider.listAdAccounts(userToken);
+            console.log("[getMetaPortfolio] ad accounts fetched", cachedAds.length);
+          }
+
+          const loadedCount =
+            ch === "instagram"
+              ? cachedPages.filter((p) => !!p.instagramBusinessId).length +
+                cachedStandaloneIg.length
+              : ch === "facebook"
+                ? cachedPages.length
+                : ch === "threads"
+                  ? cachedThreads.length
+                  : ch === "ads"
+                    ? cachedAds.length
+                    : cachedPages.length + cachedThreads.length + cachedAds.length;
+
+          const loadedAt = nowIso();
+          const nextStatus = loadedCount > 0 ? "loaded" : "empty";
+          const { error: upErr } = await context.supabase
+            .from("meta_oauth_sessions")
             .update({
-              portfolio_load_status: "loaded",
-              portfolio_error: detail,
               pages: {
                 pages: cachedPages,
                 standaloneInstagram: cachedStandaloneIg,
@@ -416,24 +319,94 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
                 businessCount,
                 publishAuthorization,
               } as unknown as import("@/integrations/supabase/types").Json,
+              threads_accounts:
+                cachedThreads as unknown as import("@/integrations/supabase/types").Json,
+              ad_accounts: cachedAds as unknown as import("@/integrations/supabase/types").Json,
+              portfolio_loaded_at: loadedAt,
+              portfolio_load_status: nextStatus,
+              portfolio_error: null,
+              portfolio_rate_limited_until: null,
             })
             .eq("id", session.id);
-        } else if (err instanceof MetaGraphError) {
-          await updateErrorStatus("error", err.message);
-          throw new Error(`Meta: ${err.message}`);
-        } else if (err instanceof Error) {
-          await updateErrorStatus("error", err.message);
-          throw err;
-        } else {
-          await updateErrorStatus("error", "Falha ao consultar a Graph API da Meta.");
-          throw new Error("Falha ao consultar a Graph API da Meta.");
+          if (upErr) console.error("[getMetaPortfolio] cache write failed", upErr);
+          portfolioStatus = nextStatus;
+          portfolioLoadedAt = loadedAt;
+          portfolioError = null;
+          portfolioRateLimitedUntil = null;
+        } catch (err) {
+          console.error("[getMetaPortfolio] Graph API failure", err);
+          const updateErrorStatus = async (
+            status: "error" | "rate_limited",
+            message: string,
+            until: string | null = null,
+          ) => {
+            const { error: statusErr } = await context.supabase
+              .from("meta_oauth_sessions")
+              .update({
+                portfolio_load_status: status,
+                portfolio_error: message,
+                portfolio_rate_limited_until: until,
+              })
+              .eq("id", session.id);
+            if (statusErr) console.error("[getMetaPortfolio] status write failed", statusErr);
+          };
+          if (isMetaRateLimit(err)) {
+            const until = new Date(Date.now() + 15 * 60_000).toISOString();
+            await updateErrorStatus(
+              "rate_limited",
+              "Limite de requisições da Meta atingido.",
+              until,
+            );
+            throw new Error(
+              `${RATE_LIMIT_PREFIX} Limite de requisições da Meta atingido. Aguarde alguns minutos antes de tentar novamente.`,
+            );
+          }
+          // A transient Meta failure must not blank a portfolio that was already
+          // loaded. Keep serving the last successful snapshot and surface the
+          // refresh problem as a non-blocking warning (stale-while-revalidate).
+          const cachedAssetCount =
+            cachedPages.length +
+            cachedStandaloneIg.length +
+            cachedThreads.length +
+            cachedAds.length;
+          if (cachedAssetCount > 0) {
+            const detail = err instanceof Error ? err.message : "Falha temporária da Meta.";
+            const warning = `Não foi possível atualizar agora: ${detail} As contas da última sincronização continuam disponíveis.`;
+            // Keep only the latest refresh diagnostic plus a small snapshot of
+            // prior scan warnings. Provider messages can contain dynamic trace
+            // IDs, so an unbounded Set still grew after every failed refresh.
+            scanWarnings = Array.from(new Set([warning, ...scanWarnings])).slice(0, 8);
+            portfolioStatus = "loaded";
+            portfolioError = detail;
+            await context.supabase
+              .from("meta_oauth_sessions")
+              .update({
+                portfolio_load_status: "loaded",
+                portfolio_error: detail,
+                pages: {
+                  pages: cachedPages,
+                  standaloneInstagram: cachedStandaloneIg,
+                  warnings: scanWarnings,
+                  businessCount,
+                  publishAuthorization,
+                } as unknown as import("@/integrations/supabase/types").Json,
+              })
+              .eq("id", session.id);
+          } else if (err instanceof MetaGraphError) {
+            await updateErrorStatus("error", err.message);
+            throw new Error(`Meta: ${err.message}`);
+          } else if (err instanceof Error) {
+            await updateErrorStatus("error", err.message);
+            throw err;
+          } else {
+            await updateErrorStatus("error", "Falha ao consultar a Graph API da Meta.");
+            throw new Error("Falha ao consultar a Graph API da Meta.");
+          }
         }
-      }
       } finally {
         discoveryLock.done();
       }
     }
-
 
     const pages = cachedPages.map((p) => ({
       pageId: p.pageId,
@@ -525,7 +498,6 @@ export const getMetaPortfolio = createServerFn({ method: "GET" })
       expiresAt: session.expires_at,
     };
   });
-
 
 export const linkMetaAccount = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -631,8 +603,7 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
 
         const wantFacebook = data.channel === "facebook" || data.linkPair === true;
         const wantInstagram =
-          (data.channel === "instagram" || data.linkPair === true) &&
-          !!page.instagramBusinessId;
+          (data.channel === "instagram" || data.linkPair === true) && !!page.instagramBusinessId;
 
         if (data.channel === "instagram" && !page.instagramBusinessId) {
           throw new Error("Esta Página não possui Instagram Business vinculado.");
@@ -715,8 +686,8 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
       // Identidade e vínculos operacionais SEMPRE nas colunas de topo
       // (page_id / instagram_business_id), não só em metadata.
       const md = spec.metadata as Record<string, unknown>;
-      const pageIdCol = (md['page_id'] as string | null | undefined) ?? null;
-      const igIdCol = (md['instagram_business_id'] as string | null | undefined) ?? null;
+      const pageIdCol = (md["page_id"] as string | null | undefined) ?? null;
+      const igIdCol = (md["instagram_business_id"] as string | null | undefined) ?? null;
 
       const { data: upserted, error: upErr } = await context.supabase
         .from("social_connections")
@@ -756,17 +727,15 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
       connectionIds.push(upserted.id);
 
       if (data.clientId) {
-        const { error: assignErr } = await context.supabase
-          .from("client_social_accounts")
-          .upsert(
-            {
-              brand_id: data.brandId,
-              client_id: data.clientId,
-              connection_id: upserted.id,
-              created_by: context.userId,
-            },
-            { onConflict: "client_id,connection_id" },
-          );
+        const { error: assignErr } = await context.supabase.from("client_social_accounts").upsert(
+          {
+            brand_id: data.brandId,
+            client_id: data.clientId,
+            connection_id: upserted.id,
+            created_by: context.userId,
+          },
+          { onConflict: "client_id,connection_id" },
+        );
         if (assignErr) throw assignErr;
       }
     }
@@ -778,9 +747,6 @@ export const linkMetaAccount = createServerFn({ method: "POST" })
       linkedChannels: specs.map((s) => s.channel),
     };
   });
-
-
-
 
 /** Remoção = revogação lógica (mesma regra de `disconnectMeta`). */
 export const unlinkMetaAccount = createServerFn({ method: "POST" })
@@ -808,4 +774,3 @@ export const unlinkMetaAccount = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
-

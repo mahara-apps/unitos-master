@@ -50,10 +50,7 @@ export type PublishAuthorizationInfo = {
 };
 
 /** Estado canônico de UX de uma conta descoberta. */
-export type DiscoveredAccountStatus =
-  | "ready"
-  | "authorization_required"
-  | "unavailable";
+export type DiscoveredAccountStatus = "ready" | "authorization_required" | "unavailable";
 
 export type PortfolioResponse = {
   sessionId: string;
@@ -225,9 +222,7 @@ export function mergeDiscoveredPages(
 }
 
 /** Strips tokens from cached discovery metadata (safe to reuse across sessions). */
-export function stripPageTokens(
-  pages: CachedPagesPayload["pages"],
-): CachedPagesPayload["pages"] {
+export function stripPageTokens(pages: CachedPagesPayload["pages"]): CachedPagesPayload["pages"] {
   return pages.map(({ pageAccessToken: _drop, ...rest }) => rest);
 }
 

@@ -1,6 +1,11 @@
 import type { ReactNode } from "react";
 import { PortalLink } from "./portal-context";
-import { PORTAL_TABS, PORTAL_TAB_DESCRIPTION, PORTAL_TAB_LABEL, type PortalTabId } from "./portal-nav";
+import {
+  PORTAL_TABS,
+  PORTAL_TAB_DESCRIPTION,
+  PORTAL_TAB_LABEL,
+  type PortalTabId,
+} from "./portal-nav";
 
 /**
  * FASE 1 — SHELL ÚNICO do Portal do Cliente.
@@ -87,18 +92,16 @@ export function PortalShell({
 
           <header className="border-b border-border bg-background px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
             <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <div className="mb-2 text-xs font-medium text-muted-foreground">{clientName}</div>
-              <h1 className="truncate text-2xl font-semibold">
-                {PORTAL_TAB_LABEL[activeTab]}
-              </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {PORTAL_TAB_DESCRIPTION[activeTab]}
-              </p>
-            </div>
-            {headerActions ? (
-              <div className="flex flex-wrap items-center gap-2">{headerActions}</div>
-            ) : null}
+              <div className="min-w-0">
+                <div className="mb-2 text-xs font-medium text-muted-foreground">{clientName}</div>
+                <h1 className="truncate text-2xl font-semibold">{PORTAL_TAB_LABEL[activeTab]}</h1>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {PORTAL_TAB_DESCRIPTION[activeTab]}
+                </p>
+              </div>
+              {headerActions ? (
+                <div className="flex flex-wrap items-center gap-2">{headerActions}</div>
+              ) : null}
             </div>
           </header>
 
@@ -124,7 +127,9 @@ function PortalNavList({ activeTab, compact }: { activeTab: PortalTabId; compact
               tab={t.id}
               current={active}
               className={`flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                active
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               }`}
             >
               <Icon className="h-3.5 w-3.5" /> {t.label}

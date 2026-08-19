@@ -15,16 +15,36 @@ export type NotificationKind = Database["public"]["Enums"]["notification_kind"];
 
 export const KIND_META: Record<
   NotificationKind,
-  { label: string; icon: LucideIcon; color: string; tone: "violet" | "sky" | "amber" | "emerald" | "rose" | "neutral" }
+  {
+    label: string;
+    icon: LucideIcon;
+    color: string;
+    tone: "violet" | "sky" | "amber" | "emerald" | "rose" | "neutral";
+  }
 > = {
   mention: { label: "Menção", icon: MessageSquare, color: "text-sky-500", tone: "sky" },
   assignment: { label: "Atribuição", icon: UserPlus, color: "text-violet-500", tone: "violet" },
-  approval_requested: { label: "Aprovação pendente", icon: AlertCircle, color: "text-amber-500", tone: "amber" },
-  approval_decision: { label: "Decisão", icon: CheckCircle2, color: "text-emerald-500", tone: "emerald" },
+  approval_requested: {
+    label: "Aprovação pendente",
+    icon: AlertCircle,
+    color: "text-amber-500",
+    tone: "amber",
+  },
+  approval_decision: {
+    label: "Decisão",
+    icon: CheckCircle2,
+    color: "text-emerald-500",
+    tone: "emerald",
+  },
   deadline: { label: "Prazo", icon: Clock, color: "text-rose-500", tone: "rose" },
   system: { label: "Sistema", icon: Sparkles, color: "text-indigo-500", tone: "neutral" },
   sla_overdue: { label: "SLA vencido", icon: AlarmClock, color: "text-rose-500", tone: "rose" },
-  sla_overdue_manager: { label: "SLA vencido (equipe)", icon: ShieldAlert, color: "text-rose-500", tone: "rose" },
+  sla_overdue_manager: {
+    label: "SLA vencido (equipe)",
+    icon: ShieldAlert,
+    color: "text-rose-500",
+    tone: "rose",
+  },
 };
 
 export function iconFor(kind: NotificationKind): LucideIcon {

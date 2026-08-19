@@ -90,7 +90,12 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
     items: [
       { title: "Agentes IA", url: "/agents", icon: Bot },
       { title: "Brain", url: "/brain", icon: Brain, featureKey: "brain", badge: "beta" },
-      { title: "Brain Diagnostics", url: "/brain/diagnostics", icon: Activity, featureKey: "brain" },
+      {
+        title: "Brain Diagnostics",
+        url: "/brain/diagnostics",
+        icon: Activity,
+        featureKey: "brain",
+      },
       { title: "Chat", url: "/chat", icon: MessageSquare, featureKey: "chat" },
     ],
   },
@@ -115,11 +120,10 @@ export function AppSidebar() {
   const { brandId } = useActiveContextOptional();
   const { clientId } = useActiveContextOptional();
   const qc = useQueryClient();
-  const clientsCache = qc.getQueryData<Array<{ id: string; name: string; logo_url?: string | null }>>([
-    "clients",
-    brandId,
-  ]);
-  const activeClient = clientId ? clientsCache?.find((c) => c.id === clientId) ?? null : null;
+  const clientsCache = qc.getQueryData<
+    Array<{ id: string; name: string; logo_url?: string | null }>
+  >(["clients", brandId]);
+  const activeClient = clientId ? (clientsCache?.find((c) => c.id === clientId) ?? null) : null;
   const countPending = useServerFn(countMyPendingTasksFn);
   const pendingQ = useQuery({
     queryKey: ["tasks-pending-count", brandId, clientId ?? null],
@@ -162,9 +166,7 @@ export function AppSidebar() {
   if (isSuper) {
     visibleGroups.push({
       label: "Super Admin",
-      items: [
-        { title: "Feature Flags", url: "/super-admin/features", icon: ShieldAlert },
-      ],
+      items: [{ title: "Feature Flags", url: "/super-admin/features", icon: ShieldAlert }],
     });
   }
   return (
@@ -198,17 +200,18 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
         {visibleGroups.map((g, idx) => (
-          <SidebarGroup
-            key={g.label}
-            className={idx === 0 ? "mt-2.5" : "mt-4"}
-          >
+          <SidebarGroup key={g.label} className={idx === 0 ? "mt-2.5" : "mt-4"}>
             <SidebarGroupLabel>{g.label}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {g.items.map((item) => (
                   <SidebarMenuItem key={item.url}>
                     <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-                      <Link to={item.url} preload="intent" className="group/nav relative flex items-center gap-3">
+                      <Link
+                        to={item.url}
+                        preload="intent"
+                        className="group/nav relative flex items-center gap-3"
+                      >
                         {isActive(item.url) ? (
                           <span
                             aria-hidden
@@ -238,40 +241,40 @@ export function AppSidebar() {
                 ))}
                 {idx === 0 && activeClient ? (
                   <>
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive(`/customers/${activeClient.id}`)}
-                      tooltip={activeClient.name}
-                    >
-                      <Link
-                        to="/customers/$customerId"
-                        params={{ customerId: activeClient.id }}
-                        preload="intent"
-                        className="group/nav relative flex items-center gap-3"
+                    <SidebarMenuItem>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive(`/customers/${activeClient.id}`)}
+                        tooltip={activeClient.name}
                       >
-                        {isActive(`/customers/${activeClient.id}`) ? (
-                          <span
-                            aria-hidden
-                            className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-lime group-data-[collapsible=icon]:hidden"
-                          />
-                        ) : null}
-                        <UserIcon
-                          className="h-[19px] w-[19px] shrink-0"
-                          strokeWidth={isActive(`/customers/${activeClient.id}`) ? 2 : 1.8}
-                        />
-                        <span
-                          className={
-                            isActive(`/customers/${activeClient.id}`)
-                              ? "font-semibold"
-                              : "font-medium"
-                          }
+                        <Link
+                          to="/customers/$customerId"
+                          params={{ customerId: activeClient.id }}
+                          preload="intent"
+                          className="group/nav relative flex items-center gap-3"
                         >
-                          Perfil
-                        </span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                          {isActive(`/customers/${activeClient.id}`) ? (
+                            <span
+                              aria-hidden
+                              className="absolute left-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-brand-lime group-data-[collapsible=icon]:hidden"
+                            />
+                          ) : null}
+                          <UserIcon
+                            className="h-[19px] w-[19px] shrink-0"
+                            strokeWidth={isActive(`/customers/${activeClient.id}`) ? 2 : 1.8}
+                          />
+                          <span
+                            className={
+                              isActive(`/customers/${activeClient.id}`)
+                                ? "font-semibold"
+                                : "font-medium"
+                            }
+                          >
+                            Perfil
+                          </span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
                   </>
                 ) : null}
               </SidebarMenu>
@@ -303,12 +306,13 @@ function UserProfileMenu() {
     : null;
 
   const label = user?.name || user?.email || "Minha conta";
-  const initials = (user?.name || user?.email || "?")
-    .split(/[\s@.]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((s) => s[0]?.toUpperCase() ?? "")
-    .join("") || "?";
+  const initials =
+    (user?.name || user?.email || "?")
+      .split(/[\s@.]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((s) => s[0]?.toUpperCase() ?? "")
+      .join("") || "?";
 
   return (
     <Popover>

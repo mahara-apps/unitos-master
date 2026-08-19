@@ -14,7 +14,8 @@ const tabsListVariants = cva(
         // Padrão canônico "Cérebro de Agentes"
         pill: "h-9 bg-muted/50 p-1",
         // Barra full-width com borda — usado quando a aba serve como header de módulo
-        bordered: "inline-flex h-9 w-fit max-w-full justify-start overflow-x-auto overflow-y-hidden border border-border bg-card p-1",
+        bordered:
+          "inline-flex h-9 w-fit max-w-full justify-start overflow-x-auto overflow-y-hidden border border-border bg-card p-1",
         // Grid completo (login, dialogs) — o consumer define grid-cols-*
         grid: "h-9 bg-muted/50 p-1",
         // Legacy shadcn cru
@@ -27,8 +28,7 @@ const tabsListVariants = cva(
 
 const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
-  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List> &
-    VariantProps<typeof tabsListVariants>
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.List> & VariantProps<typeof tabsListVariants>
 >(({ className, variant, ...props }, ref) => (
   <TabsPrimitive.List
     ref={ref}

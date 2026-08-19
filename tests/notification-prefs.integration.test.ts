@@ -108,7 +108,10 @@ describe("emissor real: atribuição de tarefa", () => {
     await setPrefs(f().userA.id, { assignments: false });
     const before = await countKind(f().userA.id, "assignment");
     const taskId = await createTask(null);
-    await admin.from("tasks").update({ assignee_id: f().userA.id } as never).eq("id", taskId);
+    await admin
+      .from("tasks")
+      .update({ assignee_id: f().userA.id } as never)
+      .eq("id", taskId);
     expect(await countKind(f().userA.id, "assignment")).toBe(before);
   });
 
@@ -116,7 +119,10 @@ describe("emissor real: atribuição de tarefa", () => {
     await setPrefs(f().userA.id, { assignments: true });
     const before = await countKind(f().userA.id, "assignment");
     const taskId = await createTask(null);
-    await admin.from("tasks").update({ assignee_id: f().userA.id } as never).eq("id", taskId);
+    await admin
+      .from("tasks")
+      .update({ assignee_id: f().userA.id } as never)
+      .eq("id", taskId);
     expect(await countKind(f().userA.id, "assignment")).toBe(before + 1);
   });
 
@@ -127,9 +133,15 @@ describe("emissor real: atribuição de tarefa", () => {
     const beforeB = await countKind(f().userB.id, "assignment");
 
     const t1 = await createTask(null);
-    await admin.from("tasks").update({ assignee_id: f().userA.id } as never).eq("id", t1);
+    await admin
+      .from("tasks")
+      .update({ assignee_id: f().userA.id } as never)
+      .eq("id", t1);
     const t2 = await createTask(null);
-    await admin.from("tasks").update({ assignee_id: f().userB.id } as never).eq("id", t2);
+    await admin
+      .from("tasks")
+      .update({ assignee_id: f().userB.id } as never)
+      .eq("id", t2);
 
     expect(await countKind(f().userA.id, "assignment")).toBe(beforeA);
     expect(await countKind(f().userB.id, "assignment")).toBe(beforeB + 1);
@@ -160,7 +172,10 @@ describe("emissor real: aprovação de post", () => {
     const beforeB = await countKind(f().userB.id, "approval_requested");
 
     const postId = await createPost();
-    await admin.from("posts").update({ stage: "review" } as never).eq("id", postId);
+    await admin
+      .from("posts")
+      .update({ stage: "review" } as never)
+      .eq("id", postId);
 
     expect(await countKind(f().userA.id, "approval_requested")).toBe(beforeA);
     expect(await countKind(f().userB.id, "approval_requested")).toBe(beforeB + 1);
@@ -186,9 +201,7 @@ describe("prazos e cross-brand", () => {
   });
 
   it("notificações continuam isoladas por usuário (RLS) e por marca", async () => {
-    const { data: mine } = await f()
-      .userA.client.from("notifications")
-      .select("user_id, brand_id");
+    const { data: mine } = await f().userA.client.from("notifications").select("user_id, brand_id");
     for (const row of (mine ?? []) as Array<{ user_id: string; brand_id: string | null }>) {
       expect(row.user_id).toBe(f().userA.id);
       expect(row.brand_id === null || row.brand_id === f().brandId).toBe(true);

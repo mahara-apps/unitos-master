@@ -65,10 +65,38 @@ export async function ensureDefaultPipeline(
   const pipelineId = (newPipe as unknown as { id: string }).id;
 
   await sb.from("content_pipeline_stages").insert([
-    { pipeline_id: pipelineId, key: "briefing", label: "Ideia", color: "muted", position: 0, is_terminal: false },
-    { pipeline_id: pipelineId, key: "writing", label: "Produção", color: "indigo", position: 1024, is_terminal: false },
-    { pipeline_id: pipelineId, key: "review", label: "Revisão", color: "amber", position: 2048, is_terminal: false },
-    { pipeline_id: pipelineId, key: "approved", label: "Aprovado", color: "emerald", position: 3072, is_terminal: false },
+    {
+      pipeline_id: pipelineId,
+      key: "briefing",
+      label: "Ideia",
+      color: "muted",
+      position: 0,
+      is_terminal: false,
+    },
+    {
+      pipeline_id: pipelineId,
+      key: "writing",
+      label: "Produção",
+      color: "indigo",
+      position: 1024,
+      is_terminal: false,
+    },
+    {
+      pipeline_id: pipelineId,
+      key: "review",
+      label: "Revisão",
+      color: "amber",
+      position: 2048,
+      is_terminal: false,
+    },
+    {
+      pipeline_id: pipelineId,
+      key: "approved",
+      label: "Aprovado",
+      color: "emerald",
+      position: 3072,
+      is_terminal: false,
+    },
   ] as never);
 
   return pipelineId;
@@ -86,7 +114,6 @@ export async function materializePlanToKanban(
     /** Marca a pauta como "Em produção" ao final (default: true). */
     markPlanApproved?: boolean;
   },
-
 ): Promise<{ created: number; skipped: number }> {
   let list = args.topics ?? null;
   if (!list) {
@@ -214,7 +241,10 @@ export async function materializePlanToKanban(
   const { data: planPosts } = await sb
     .from("posts")
     .select("id, title, copy, scheduled_at, monthly_plan_topic_id")
-    .in("monthly_plan_topic_id", topicIds.length > 0 ? topicIds : ["00000000-0000-0000-0000-000000000000"]);
+    .in(
+      "monthly_plan_topic_id",
+      topicIds.length > 0 ? topicIds : ["00000000-0000-0000-0000-000000000000"],
+    );
   const allPlanPosts = (planPosts ?? []) as unknown as Array<{
     id: string;
     title: string | null;
@@ -229,16 +259,16 @@ export async function materializePlanToKanban(
     await sb
       .from("posts")
       .update({ project_id: projectId, pipeline_id: pipelineId } as never)
-      .in("id", allPlanPosts.map((p) => p.id))
+      .in(
+        "id",
+        allPlanPosts.map((p) => p.id),
+      )
       .is("project_id", null);
   }
 
   if (allPlanPosts.length > 0) {
     const postIds = allPlanPosts.map((p) => p.id);
-    const { data: existingTasks } = await sb
-      .from("tasks")
-      .select("post_id")
-      .in("post_id", postIds);
+    const { data: existingTasks } = await sb.from("tasks").select("post_id").in("post_id", postIds);
     const withTask = new Set(
       ((existingTasks ?? []) as unknown as { post_id: string | null }[])
         .map((t) => t.post_id)
@@ -270,15 +300,12 @@ export async function materializePlanToKanban(
       .update({ project_id: projectId } as never)
       .in("post_id", postIds)
       .is("project_id", null);
-
   }
 
   // Orquestração dos agentes (agent_prompts): cada peça nova nasce com a
   // legenda produzida pelo cérebro. Idempotente — peças com copy são ignoradas.
   const newPostIds = ((insertedPosts ?? []) as unknown as { id: string }[]).map((p) => p.id);
-  const emptyPlanPostIds = allPlanPosts
-    .filter((p) => !(p.copy ?? "").trim())
-    .map((p) => p.id);
+  const emptyPlanPostIds = allPlanPosts.filter((p) => !(p.copy ?? "").trim()).map((p) => p.id);
   const toGenerate = Array.from(new Set([...newPostIds, ...emptyPlanPostIds]));
   if (toGenerate.length > 0) {
     const [{ waitUntil }, { generatePostsContentSequential }] = await Promise.all([
@@ -294,8 +321,6 @@ export async function materializePlanToKanban(
       .update({ status: "approved" } as never)
       .eq("id", args.planId);
   }
-
-
 
   return { created: rows.length, skipped: list.length - rows.length };
 }

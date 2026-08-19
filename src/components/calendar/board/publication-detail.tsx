@@ -116,12 +116,7 @@ export function PublicationDetailModal({
           : token.label
       }
       headerExtra={
-        <span
-          className={cn(
-            "rounded-full border px-2 py-0.5 text-[10px] font-medium",
-            token.chip,
-          )}
-        >
+        <span className={cn("rounded-full border px-2 py-0.5 text-[10px] font-medium", token.chip)}>
           {item.overall === "partial"
             ? `Parcial ${item.publishedCount}/${item.totalDestinations}`
             : token.label}
@@ -130,15 +125,8 @@ export function PublicationDetailModal({
       footer={
         <>
           {canCancel ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCancel}
-              disabled={busy === "cancel"}
-            >
-              {busy === "cancel" ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              ) : null}
+            <Button variant="outline" size="sm" onClick={handleCancel} disabled={busy === "cancel"}>
+              {busy === "cancel" ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
               Cancelar agendamento
             </Button>
           ) : null}

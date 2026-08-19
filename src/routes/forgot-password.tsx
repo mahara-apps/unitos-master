@@ -87,9 +87,7 @@ function ForgotPasswordPage() {
       <div className="w-full max-w-[420px]">
         <div className="mb-8 flex flex-col items-center text-center">
           <UnitosLogo variant="full" eager className="mb-4 h-14 w-auto" />
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-            Recuperar senha
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">Recuperar senha</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Informe o email da sua conta e enviaremos um link seguro.
           </p>
@@ -107,12 +105,10 @@ function ForgotPasswordPage() {
                 <MailCheck className="h-6 w-6" />
               </div>
               <div>
-                <h2 className="text-base font-semibold text-foreground">
-                  Verifique seu email
-                </h2>
+                <h2 className="text-base font-semibold text-foreground">Verifique seu email</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Se esta conta existir, você receberá as instruções em instantes.
-                  Confira também a caixa de spam.
+                  Se esta conta existir, você receberá as instruções em instantes. Confira também a
+                  caixa de spam.
                 </p>
               </div>
               <Button asChild variant="outline" className="w-full">

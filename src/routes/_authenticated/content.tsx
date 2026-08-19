@@ -4,7 +4,16 @@ import { z } from "zod";
 import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { AlertTriangle, Layers, Loader2, Pencil, Plus, Settings, Sparkles, ChevronDown } from "lucide-react";
+import {
+  AlertTriangle,
+  Layers,
+  Loader2,
+  Pencil,
+  Plus,
+  Settings,
+  Sparkles,
+  ChevronDown,
+} from "lucide-react";
 import { describeError } from "@/lib/errors";
 import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 import { Button } from "@/components/ui/button";
@@ -219,7 +228,12 @@ function ContentReady({
           </Select>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9" aria-label="Configurações do pipeline">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9"
+                aria-label="Configurações do pipeline"
+              >
                 <Settings className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
@@ -247,19 +261,26 @@ function ContentReady({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuItem
-                onClick={() => { setNewTaskStageId(null); setOpenNewTask(true); }}
+                onClick={() => {
+                  setNewTaskStageId(null);
+                  setOpenNewTask(true);
+                }}
               >
                 <Plus className="mr-2 h-4 w-4" />
                 <div className="flex flex-col">
                   <span>Manual</span>
-                  <span className="text-[11px] text-muted-foreground">Criar uma tarefa em branco</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Criar uma tarefa em branco
+                  </span>
                 </div>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => void navigate({ to: "/monthly-plan" })}>
                 <Sparkles className="mr-2 h-4 w-4 text-fuchsia-500" />
                 <div className="flex flex-col">
                   <span>Gerar com IA</span>
-                  <span className="text-[11px] text-muted-foreground">Gerar pauta mensal (canal + formato)</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    Gerar pauta mensal (canal + formato)
+                  </span>
                 </div>
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -267,7 +288,13 @@ function ContentReady({
         </div>
       ),
     },
-    [effectivePipelineId, pipelines.length, pipelines.map((p) => p.name).join("|"), brandId, clientId],
+    [
+      effectivePipelineId,
+      pipelines.length,
+      pipelines.map((p) => p.name).join("|"),
+      brandId,
+      clientId,
+    ],
   );
 
   const createMutation = useMutation({
@@ -345,7 +372,6 @@ function ContentReady({
           />
         </Suspense>
       ) : null}
-
     </DashboardPageShell>
   );
 }
@@ -399,10 +425,7 @@ function BoardView({
     () => applyContentFilters(data.posts, filters),
     [data.posts, filters],
   );
-  const filteredBoard = useMemo(
-    () => ({ ...data, posts: filteredPosts }),
-    [data, filteredPosts],
-  );
+  const filteredBoard = useMemo(() => ({ ...data, posts: filteredPosts }), [data, filteredPosts]);
 
   const handleCycleSort = (stageId: string, by: Exclude<SortBy, "position">) => {
     setSortByStage((prev) => {
@@ -614,10 +637,7 @@ function RenamePipelineDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancelar
           </Button>
-          <Button
-            onClick={() => onSubmit(trimmed)}
-            disabled={pending || !trimmed || unchanged}
-          >
+          <Button onClick={() => onSubmit(trimmed)} disabled={pending || !trimmed || unchanged}>
             {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Salvar
           </Button>
@@ -631,21 +651,20 @@ function BoardSkeleton() {
   return (
     <DashboardPanelSurface className="flex min-h-0 flex-1">
       <div className="flex min-h-0 flex-1 gap-4 overflow-hidden p-4">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div
-          key={i}
-          className="h-full w-[304px] shrink-0 rounded-xl border border-border/60 bg-background/60 p-4"
-        >
-          <div className="h-3 w-32 animate-pulse rounded-md bg-muted/50" />
-          <div className="mt-4 space-y-2">
-            <div className="h-24 animate-pulse rounded-lg bg-muted/40" />
-            <div className="h-20 animate-pulse rounded-lg bg-muted/30" />
-            <div className="h-28 animate-pulse rounded-lg bg-muted/40" />
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div
+            key={i}
+            className="h-full w-[304px] shrink-0 rounded-xl border border-border/60 bg-background/60 p-4"
+          >
+            <div className="h-3 w-32 animate-pulse rounded-md bg-muted/50" />
+            <div className="mt-4 space-y-2">
+              <div className="h-24 animate-pulse rounded-lg bg-muted/40" />
+              <div className="h-20 animate-pulse rounded-lg bg-muted/30" />
+              <div className="h-28 animate-pulse rounded-lg bg-muted/40" />
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
       </div>
     </DashboardPanelSurface>
   );
 }
-

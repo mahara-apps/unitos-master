@@ -43,7 +43,13 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -80,8 +86,7 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute("/_authenticated/customers/$customerId/media-plan")({
   beforeLoad: () => ensureFeatureEnabled("midia_paga"),
-  validateSearch: (raw: Record<string, unknown>): MediaPlanSearch =>
-    searchSchema.parse(raw),
+  validateSearch: (raw: Record<string, unknown>): MediaPlanSearch => searchSchema.parse(raw),
   component: MediaPlanPage,
 });
 
@@ -118,9 +123,11 @@ const CHANNEL_OPTIONS = [
 ];
 
 const currency = (n: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(
-    Number.isFinite(n) ? n : 0,
-  );
+  new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 0,
+  }).format(Number.isFinite(n) ? n : 0);
 
 function MediaPlanPage() {
   const { customerId } = Route.useParams();
@@ -154,7 +161,12 @@ function MediaPlanPage() {
   const createFn = useServerFn(createMediaPlan);
   const [creating, setCreating] = useState(false);
   const createMut = useMutation({
-    mutationFn: async (payload: { title: string; monthly_budget: number; period_start?: string; period_end?: string }) => {
+    mutationFn: async (payload: {
+      title: string;
+      monthly_budget: number;
+      period_start?: string;
+      period_end?: string;
+    }) => {
       if (!brandId) throw new Error("workspace_required");
       return createFn({
         data: {
@@ -247,7 +259,12 @@ function MediaPlanPage() {
           )}
           {activePlanId && (
             <>
-              <Button variant="outline" size="sm" className="h-9" onClick={() => setShareOpen(true)}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9"
+                onClick={() => setShareOpen(true)}
+              >
                 <Share2 className="mr-2 h-4 w-4" /> Compartilhar
               </Button>
               {planQ.data?.plan.status !== "approved" ? (
@@ -316,11 +333,7 @@ function MediaPlanPage() {
       />
 
       {activePlanId && (
-        <ShareDialog
-          open={shareOpen}
-          onOpenChange={setShareOpen}
-          plan={planQ.data?.plan ?? null}
-        />
+        <ShareDialog open={shareOpen} onOpenChange={setShareOpen} plan={planQ.data?.plan ?? null} />
       )}
     </DashboardPageShell>
   );
@@ -332,8 +345,8 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
       <Rocket className="mb-4 h-10 w-10 text-muted-foreground" />
       <div className="mb-1 text-lg font-medium">Comece um plano de mídia paga</div>
       <div className="mb-6 max-w-md text-sm text-muted-foreground">
-        Estruture as campanhas por etapa do funil, defina o orçamento por canal e compartilhe a versão de
-        apresentação com o cliente por link.
+        Estruture as campanhas por etapa do funil, defina o orçamento por canal e compartilhe a
+        versão de apresentação com o cliente por link.
       </div>
       <Button onClick={onCreate}>
         <Plus className="mr-2 h-4 w-4" /> Criar plano
@@ -351,7 +364,12 @@ function CreatePlanDialog({
   open: boolean;
   onOpenChange: (v: boolean) => void;
   pending: boolean;
-  onCreate: (p: { title: string; monthly_budget: number; period_start?: string; period_end?: string }) => void;
+  onCreate: (p: {
+    title: string;
+    monthly_budget: number;
+    period_start?: string;
+    period_end?: string;
+  }) => void;
 }) {
   const [title, setTitle] = useState("");
   const [budget, setBudget] = useState(0);
@@ -374,10 +392,16 @@ function CreatePlanDialog({
         <div className="space-y-3">
           <div>
             <label className="text-xs font-medium text-muted-foreground">Título</label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Plano Q1 2026" />
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Plano Q1 2026"
+            />
           </div>
           <div>
-            <label className="text-xs font-medium text-muted-foreground">Orçamento mensal (R$)</label>
+            <label className="text-xs font-medium text-muted-foreground">
+              Orçamento mensal (R$)
+            </label>
             <Input
               type="number"
               inputMode="decimal"
@@ -404,7 +428,12 @@ function CreatePlanDialog({
           </Button>
           <Button
             onClick={() =>
-              onCreate({ title, monthly_budget: budget, period_start: start || undefined, period_end: end || undefined })
+              onCreate({
+                title,
+                monthly_budget: budget,
+                period_start: start || undefined,
+                period_end: end || undefined,
+              })
             }
             disabled={pending}
           >
@@ -489,7 +518,9 @@ function PlanEditor({
   );
 
   const filtered = localItems.filter(
-    (i) => (!searchStage || i.funnel_stage === searchStage) && (!searchChannel || i.channel === searchChannel),
+    (i) =>
+      (!searchStage || i.funnel_stage === searchStage) &&
+      (!searchChannel || i.channel === searchChannel),
   );
 
   const sensors = useSensors(
@@ -575,7 +606,9 @@ function PlanEditor({
             )}
           </div>
           <div className="text-right">
-            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Alocado</div>
+            <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Alocado
+            </div>
             <div
               className={cn(
                 "text-2xl font-semibold tracking-tight",
@@ -602,7 +635,8 @@ function PlanEditor({
         </div>
         {overBudget && (
           <div className="mt-2 text-xs text-rose-500">
-            Alocação acima de 100% ({totalPct.toFixed(1)}%). Ajuste as porcentagens para fechar a distribuição.
+            Alocação acima de 100% ({totalPct.toFixed(1)}%). Ajuste as porcentagens para fechar a
+            distribuição.
           </div>
         )}
       </div>
@@ -632,15 +666,30 @@ function PlanEditor({
           ))}
         </select>
         {(searchStage || searchChannel) && (
-          <Button variant="ghost" size="sm" onClick={() => onSearch({ stage: undefined, channel: undefined })}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => onSearch({ stage: undefined, channel: undefined })}
+          >
             <X className="mr-1 h-3.5 w-3.5" /> Limpar
           </Button>
         )}
         <div className="ml-auto flex items-center gap-2">
-          <Button size="sm" variant="outline" className="h-9" onClick={addRow} disabled={upsertMut.isPending}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-9"
+            onClick={addRow}
+            disabled={upsertMut.isPending}
+          >
             <Plus className="mr-2 h-4 w-4" /> Adicionar linha
           </Button>
-          <Button size="sm" variant="ghost" className="h-9 text-rose-500 hover:text-rose-500" onClick={onDeletePlan}>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-9 text-rose-500 hover:text-rose-500"
+            onClick={onDeletePlan}
+          >
             <Trash2 className="mr-2 h-4 w-4" /> Excluir plano
           </Button>
         </div>
@@ -666,7 +715,10 @@ function PlanEditor({
             <span />
           </div>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-            <SortableContext items={filtered.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+            <SortableContext
+              items={filtered.map((i) => i.id)}
+              strategy={verticalListSortingStrategy}
+            >
               {filtered.length === 0 ? (
                 <div className="px-4 py-10 text-center text-sm text-muted-foreground">
                   Nenhum item{searchStage || searchChannel ? " para os filtros aplicados" : ""}.
@@ -677,9 +729,7 @@ function PlanEditor({
                     key={item.id}
                     item={item}
                     monthlyBudget={plan.monthly_budget}
-                    onChange={(patch) =>
-                      upsertMut.mutate({ item: { id: item.id, ...patch } })
-                    }
+                    onChange={(patch) => upsertMut.mutate({ item: { id: item.id, ...patch } })}
                     onDelete={() => deleteMut.mutate(item.id)}
                   />
                 ))
@@ -703,8 +753,14 @@ function EditableRow({
   onChange: (patch: Partial<MediaPlanItem>) => void;
   onDelete: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
-  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1 };
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: item.id,
+  });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
 
   const [local, setLocal] = useState(item);
   useEffect(() => setLocal(item), [item]);
@@ -718,8 +774,7 @@ function EditableRow({
     }, 450);
   };
 
-  const previewAmount =
-    (Number(monthlyBudget) || 0) * (Number(local.budget_pct) || 0) / 100;
+  const previewAmount = ((Number(monthlyBudget) || 0) * (Number(local.budget_pct) || 0)) / 100;
 
   const kwText = (local.keywords ?? []).join(", ");
 
@@ -922,7 +977,9 @@ function ShareDialog({
             <label className="text-xs text-muted-foreground">Validade:</label>
             <select
               value={expires ?? "never"}
-              onChange={(e) => setExpires(e.target.value === "never" ? null : Number(e.target.value))}
+              onChange={(e) =>
+                setExpires(e.target.value === "never" ? null : Number(e.target.value))
+              }
               className="h-8 rounded-md border border-border/60 bg-background px-2 text-sm"
             >
               <option value={7}>7 dias</option>
@@ -934,7 +991,11 @@ function ShareDialog({
         </div>
         <DialogFooter>
           {plan?.share_token && (
-            <Button variant="ghost" onClick={() => revokeMut.mutate()} disabled={revokeMut.isPending}>
+            <Button
+              variant="ghost"
+              onClick={() => revokeMut.mutate()}
+              disabled={revokeMut.isPending}
+            >
               Revogar link
             </Button>
           )}
@@ -949,4 +1010,7 @@ function ShareDialog({
 }
 
 // keep imports referenced
-void STAGE_LABEL; void STAGE_TONE; void Badge; void Textarea;
+void STAGE_LABEL;
+void STAGE_TONE;
+void Badge;
+void Textarea;

@@ -155,7 +155,9 @@ export function AgencyContentView({ brandId }: { brandId: string }) {
               <div className="space-y-1">
                 <label className="text-[11px] font-medium text-muted-foreground">SLA</label>
                 <Select value={slaFilter} onValueChange={(v) => setSlaFilter(v as SlaFilter)}>
-                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="any">Todos</SelectItem>
                     <SelectItem value="on_track">Em dia</SelectItem>
@@ -167,11 +169,15 @@ export function AgencyContentView({ brandId }: { brandId: string }) {
               <div className="space-y-1">
                 <label className="text-[11px] font-medium text-muted-foreground">Etapa</label>
                 <Select value={stageFilter} onValueChange={setStageFilter}>
-                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="any">Todas</SelectItem>
                     {data.buckets.map((b) => (
-                      <SelectItem key={b.key} value={b.key}>{b.label}</SelectItem>
+                      <SelectItem key={b.key} value={b.key}>
+                        {b.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -179,11 +185,15 @@ export function AgencyContentView({ brandId }: { brandId: string }) {
               <div className="space-y-1">
                 <label className="text-[11px] font-medium text-muted-foreground">Cliente</label>
                 <Select value={clientFilter} onValueChange={setClientFilter}>
-                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="any">Todos</SelectItem>
                     {data.clients.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -196,10 +206,14 @@ export function AgencyContentView({ brandId }: { brandId: string }) {
                   value={String(stalledDays)}
                   onValueChange={(v) => setStalledDays(Number(v))}
                 >
-                  <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-8">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     {[1, 2, 3, 5, 7, 14].map((d) => (
-                      <SelectItem key={d} value={String(d)}>{d} dia(s)</SelectItem>
+                      <SelectItem key={d} value={String(d)}>
+                        {d} dia(s)
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -410,7 +424,11 @@ function UnifiedList({ posts }: { posts: AgencyPostRow[] }) {
                     {p.stage_label}
                   </span>
                 </TableCell>
-                <TableCell>{slaBadge(p.sla_status) ?? <span className="text-xs text-muted-foreground">—</span>}</TableCell>
+                <TableCell>
+                  {slaBadge(p.sla_status) ?? (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </TableCell>
                 <TableCell className="text-xs">{p.assignee_name ?? "—"}</TableCell>
                 <TableCell className="text-xs tabular-nums text-muted-foreground">
                   {relTime(p.stage_entered_at)}
@@ -452,10 +470,7 @@ function StalledClientsPanel({ items }: { items: AgencyContentSnapshot["stalledC
       ) : (
         <ul className="divide-y divide-border/60">
           {items.map((s) => (
-            <li
-              key={s.client_id}
-              className="flex items-center justify-between gap-2 px-3 py-2"
-            >
+            <li key={s.client_id} className="flex items-center justify-between gap-2 px-3 py-2">
               <div className="min-w-0">
                 <div className="truncate text-sm font-medium">{s.client_name}</div>
                 <div className="text-[11px] text-muted-foreground">

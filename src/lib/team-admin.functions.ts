@@ -78,7 +78,9 @@ export const listTeamMembersFn = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: profs } = await supabaseAdmin
       .from("user_profiles")
-      .select("id, full_name, avatar_url, phone, job_title, requires_password_change, is_super_admin")
+      .select(
+        "id, full_name, avatar_url, phone, job_title, requires_password_change, is_super_admin",
+      )
       .in("id", ids);
     const profiles = (profs ?? []) as unknown as ProfileRow[];
 
@@ -136,7 +138,11 @@ async function assertKeepsOwner(
     .from("brand_members")
     .select("user_id, role, is_active")
     .eq("brand_id", brandId);
-  const rows = (data ?? []) as unknown as Array<{ user_id: string; role: string; is_active: boolean | null }>;
+  const rows = (data ?? []) as unknown as Array<{
+    user_id: string;
+    role: string;
+    is_active: boolean | null;
+  }>;
   const stillOwner = rows.some((r) => {
     const isTarget = r.user_id === targetUserId;
     if (isTarget && next.removing) return false;
@@ -158,7 +164,10 @@ async function guardTarget(
 ): Promise<void> {
   const myRole = await assertBrandAdmin(supabase as never, actorId, brandId);
   const targetRole = await resolveAuthorityRole(supabase as never, targetUserId, brandId);
-  if (myRole === "manager" && (targetRole === "admin" || targetRole === "super_admin" || nextRole === "owner")) {
+  if (
+    myRole === "manager" &&
+    (targetRole === "admin" || targetRole === "super_admin" || nextRole === "owner")
+  ) {
     throw new Error("forbidden: gerente não pode alterar owners/administradores.");
   }
 }
@@ -270,7 +279,11 @@ export type PortalAccess = {
   status: "active" | "revoked" | "expired" | "pending";
 };
 
-function portalStatus(t: { revoked_at: string | null; expires_at: string | null; last_seen_at: string | null }) {
+function portalStatus(t: {
+  revoked_at: string | null;
+  expires_at: string | null;
+  last_seen_at: string | null;
+}) {
   if (t.revoked_at) return "revoked" as const;
   if (t.expires_at && new Date(t.expires_at).getTime() < Date.now()) return "expired" as const;
   return t.last_seen_at ? ("active" as const) : ("pending" as const);
@@ -279,54 +292,75 @@ function portalStatus(t: { revoked_at: string | null; expires_at: string | null;
 export const listPortalAccessesFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => BrandInput.parse(i))
-  .handler(async ({ data, context }): Promise<{ accesses: PortalAccess[]; clients: Array<{ id: string; name: string }> }> => {
-    const { supabase } = context;
-    const { data: clientRows, error: cErr } = await supabase
-      .from("clients")
-      .select("id, name")
-      .eq("brand_id", data.brandId)
-      .order("name");
-    if (cErr) throw new Error(cErr.message);
-    const clients = (clientRows ?? []) as Array<{ id: string; name: string }>;
-    if (clients.length === 0) return { accesses: [], clients: [] };
+  .handler(
+    async ({
+      data,
+      context,
+    }): Promise<{ accesses: PortalAccess[]; clients: Array<{ id: string; name: string }> }> => {
+      const { supabase } = context;
+      const { data: clientRows, error: cErr } = await supabase
+        .from("clients")
+        .select("id, name")
+        .eq("brand_id", data.brandId)
+        .order("name");
+      if (cErr) throw new Error(cErr.message);
+      const clients = (clientRows ?? []) as Array<{ id: string; name: string }>;
+      if (clients.length === 0) return { accesses: [], clients: [] };
 
-    const { data: tokens, error } = await supabase
-      .from("portal_tokens")
-      .select("id, token, label, client_id, expires_at, revoked_at, last_seen_at, created_at, created_by")
-      .in("client_id", clients.map((c) => c.id))
-      .order("created_at", { ascending: false });
-    if (error) throw new Error(error.message);
-    const rows = (tokens ?? []) as unknown as Array<{
-      id: string; token: string; label: string | null; client_id: string;
-      expires_at: string | null; revoked_at: string | null; last_seen_at: string | null;
-      created_at: string; created_by: string | null;
-    }>;
+      const { data: tokens, error } = await supabase
+        .from("portal_tokens")
+        .select(
+          "id, token, label, client_id, expires_at, revoked_at, last_seen_at, created_at, created_by",
+        )
+        .in(
+          "client_id",
+          clients.map((c) => c.id),
+        )
+        .order("created_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      const rows = (tokens ?? []) as unknown as Array<{
+        id: string;
+        token: string;
+        label: string | null;
+        client_id: string;
+        expires_at: string | null;
+        revoked_at: string | null;
+        last_seen_at: string | null;
+        created_at: string;
+        created_by: string | null;
+      }>;
 
-    const creatorIds = [...new Set(rows.map((r) => r.created_by).filter((v): v is string => !!v))];
-    let creators: Array<{ id: string; full_name: string | null }> = [];
-    if (creatorIds.length > 0) {
-      const { data: profs } = await supabase.from("user_profiles").select("id, full_name").in("id", creatorIds);
-      creators = (profs ?? []) as typeof creators;
-    }
-    const nameOf = new Map(clients.map((c) => [c.id, c.name]));
+      const creatorIds = [
+        ...new Set(rows.map((r) => r.created_by).filter((v): v is string => !!v)),
+      ];
+      let creators: Array<{ id: string; full_name: string | null }> = [];
+      if (creatorIds.length > 0) {
+        const { data: profs } = await supabase
+          .from("user_profiles")
+          .select("id, full_name")
+          .in("id", creatorIds);
+        creators = (profs ?? []) as typeof creators;
+      }
+      const nameOf = new Map(clients.map((c) => [c.id, c.name]));
 
-    return {
-      clients,
-      accesses: rows.map((t) => ({
-        id: t.id,
-        token: t.token,
-        label: t.label,
-        clientId: t.client_id,
-        clientName: nameOf.get(t.client_id) ?? "—",
-        expiresAt: t.expires_at,
-        revokedAt: t.revoked_at,
-        lastSeenAt: t.last_seen_at,
-        createdAt: t.created_at,
-        createdByName: creators.find((c) => c.id === t.created_by)?.full_name ?? null,
-        status: portalStatus(t),
-      })),
-    };
-  });
+      return {
+        clients,
+        accesses: rows.map((t) => ({
+          id: t.id,
+          token: t.token,
+          label: t.label,
+          clientId: t.client_id,
+          clientName: nameOf.get(t.client_id) ?? "—",
+          expiresAt: t.expires_at,
+          revokedAt: t.revoked_at,
+          lastSeenAt: t.last_seen_at,
+          createdAt: t.created_at,
+          createdByName: creators.find((c) => c.id === t.created_by)?.full_name ?? null,
+          status: portalStatus(t),
+        })),
+      };
+    },
+  );
 
 function randomToken(bytes = 24): string {
   const arr = new Uint8Array(bytes);
@@ -341,8 +375,14 @@ async function assertClientOfBrand(
 ): Promise<void> {
   const q = supabase.from("clients") as unknown as {
     select: (c: string) => {
-      eq: (k: string, v: string) => {
-        maybeSingle: () => Promise<{ data: { brand_id: string } | null; error: { message: string } | null }>;
+      eq: (
+        k: string,
+        v: string,
+      ) => {
+        maybeSingle: () => Promise<{
+          data: { brand_id: string } | null;
+          error: { message: string } | null;
+        }>;
       };
     };
   };
@@ -375,7 +415,9 @@ export const createPortalAccessFn = createServerFn({ method: "POST" })
       .is("revoked_at", null);
     if ((active ?? []).length > 0) {
       if (!data.replaceActive) {
-        throw new Error("active_access_exists: este cliente já tem um acesso ativo. Revogue-o ou use “substituir”.");
+        throw new Error(
+          "active_access_exists: este cliente já tem um acesso ativo. Revogue-o ou use “substituir”.",
+        );
       }
       const { error: rErr } = await supabase
         .from("portal_tokens")
@@ -435,7 +477,10 @@ export const updatePortalAccessFn = createServerFn({ method: "POST" })
         : null;
     }
     if (Object.keys(patch).length === 0) return { ok: true };
-    const { error } = await supabase.from("portal_tokens").update(patch as never).eq("id", data.tokenId);
+    const { error } = await supabase
+      .from("portal_tokens")
+      .update(patch as never)
+      .eq("id", data.tokenId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -469,12 +514,17 @@ export const reactivatePortalAccessFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => AccessActionInput.parse(i))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.rpc("reactivate_portal_token" as never, {
-      _token_id: data.tokenId,
-    } as never);
+    const { error } = await context.supabase.rpc(
+      "reactivate_portal_token" as never,
+      {
+        _token_id: data.tokenId,
+      } as never,
+    );
     if (error) {
       if (/active_token_exists/.test(error.message)) {
-        throw new Error("active_access_exists: este cliente já tem um acesso ativo. Revogue-o antes de reativar.");
+        throw new Error(
+          "active_access_exists: este cliente já tem um acesso ativo. Revogue-o antes de reativar.",
+        );
       }
       throw new Error(error.message);
     }

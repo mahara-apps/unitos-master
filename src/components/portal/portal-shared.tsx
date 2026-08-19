@@ -16,7 +16,15 @@ export function FullScreenLoader() {
   );
 }
 
-export function PortalAccessError({ message, mode, onRetry }: { message?: string; mode: "token" | "session"; onRetry?: () => void }) {
+export function PortalAccessError({
+  message,
+  mode,
+  onRetry,
+}: {
+  message?: string;
+  mode: "token" | "session";
+  onRetry?: () => void;
+}) {
   const tokenMessage = message?.includes("token_expired")
     ? "Este acesso expirou. Peça um novo link à equipe."
     : message?.includes("token_revoked")
@@ -27,16 +35,16 @@ export function PortalAccessError({ message, mode, onRetry }: { message?: string
   const sessionMessage = message?.includes("portal_service_key_missing")
     ? "Esta área depende de uma integração ainda não configurada pela equipe. Avise o responsável."
     : message?.includes("portal_client_context_invalid")
-    ? "A marca indicada no endereço não pertence ao seu acesso. Volte à sua área e escolha uma marca válida."
-    : message?.includes("portal_client_context_required")
-      ? "Não identificamos qual marca abrir. Volte à sua área e selecione a marca."
-      : message?.includes("portal_client_context_mismatch")
-        ? "Houve um conflito de contexto de marca. Recarregue e selecione a marca novamente."
-        : message?.includes("portal_no_client_access")
-          ? "Sua conta ainda não está vinculada a nenhuma marca. Fale com a equipe responsável."
-          : message?.includes("client_not_allowed")
-            ? "Você não tem acesso a esta marca."
-            : "Não foi possível abrir sua área do cliente. Tente novamente ou entre novamente na sua conta.";
+      ? "A marca indicada no endereço não pertence ao seu acesso. Volte à sua área e escolha uma marca válida."
+      : message?.includes("portal_client_context_required")
+        ? "Não identificamos qual marca abrir. Volte à sua área e selecione a marca."
+        : message?.includes("portal_client_context_mismatch")
+          ? "Houve um conflito de contexto de marca. Recarregue e selecione a marca novamente."
+          : message?.includes("portal_no_client_access")
+            ? "Sua conta ainda não está vinculada a nenhuma marca. Fale com a equipe responsável."
+            : message?.includes("client_not_allowed")
+              ? "Você não tem acesso a esta marca."
+              : "Não foi possível abrir sua área do cliente. Tente novamente ou entre novamente na sua conta.";
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background p-6">
       <div className="w-full max-w-md rounded-lg border border-border bg-card p-8 text-center shadow-sm">

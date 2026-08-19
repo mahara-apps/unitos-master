@@ -14,12 +14,7 @@ export type PlacementFormat = "feed" | "stories" | "reels" | "carrossel";
  * Tipo derivado da mídia selecionada. Usado para inferir automaticamente
  * quais formatos são publicáveis com o conteúdo que o usuário escolheu.
  */
-export type MediaKind =
-  | "none"
-  | "single_image"
-  | "multi_image"
-  | "video"
-  | "mixed"; // imagem + vídeo — combinação inválida no Feed da Meta
+export type MediaKind = "none" | "single_image" | "multi_image" | "video" | "mixed"; // imagem + vídeo — combinação inválida no Feed da Meta
 
 export const FORMAT_LABEL: Record<PlacementFormat, string> = {
   feed: "Feed",
@@ -72,10 +67,7 @@ export function inferMediaKind(items: { kind: string }[]): MediaKind {
   return "none";
 }
 
-export function isFormatCompatibleWithMedia(
-  format: PlacementFormat,
-  media: MediaKind,
-): boolean {
+export function isFormatCompatibleWithMedia(format: PlacementFormat, media: MediaKind): boolean {
   if (media === "mixed") return false;
   return FORMAT_MEDIA_MATRIX[format].includes(media);
 }
@@ -85,11 +77,9 @@ export function formatIncompatibilityReason(
   media: MediaKind,
 ): string | null {
   if (isFormatCompatibleWithMedia(format, media)) return null;
-  if (media === "mixed")
-    return "Combinação imagem + vídeo não é aceita na mesma publicação.";
+  if (media === "mixed") return "Combinação imagem + vídeo não é aceita na mesma publicação.";
   if (format === "reels") return "Reels exige um arquivo de vídeo.";
-  if (format === "carrossel")
-    return "Carrossel exige 2 ou mais imagens selecionadas.";
+  if (format === "carrossel") return "Carrossel exige 2 ou mais imagens selecionadas.";
   if (format === "feed" && media === "multi_image")
     return "Feed com múltiplas imagens vira Carrossel automaticamente.";
   return "Mídia atual não é compatível com este formato.";

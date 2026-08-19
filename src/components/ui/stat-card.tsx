@@ -11,4 +11,7 @@
  * implementação do KpiCard.
  */
 export { KpiCard as StatCard, KPI_TONES as STAT_CARD_TONES } from "@/components/ui/kpi-card";
-export type { KpiCardProps as StatCardProps, KpiTone as StatCardTone } from "@/components/ui/kpi-card";
+export type {
+  KpiCardProps as StatCardProps,
+  KpiTone as StatCardTone,
+} from "@/components/ui/kpi-card";

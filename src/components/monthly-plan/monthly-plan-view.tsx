@@ -4,13 +4,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import {
-  
   ArrowLeft,
   ArrowRight,
   Check,
   CheckCheck,
   FolderKanban,
-
   Link as LinkIcon,
   Loader2,
   Plus,
@@ -46,11 +44,12 @@ import { VolumetryCards, type PlanVolumetry } from "@/components/monthly-plan/vo
 import { ContextSourcesRow } from "@/components/monthly-plan/context-sources-row";
 import { PautaBoard } from "@/components/monthly-plan/pauta-board";
 import { NewPautaDialog } from "@/components/monthly-plan/new-pauta-dialog";
+import { PLAN_CHANNELS, PLAN_CHANNEL_LABEL as CHANNEL_LABEL } from "@/lib/monthly-plan-fields";
 import {
-  PLAN_CHANNELS,
-  PLAN_CHANNEL_LABEL as CHANNEL_LABEL,
-} from "@/lib/monthly-plan-fields";
-import { CONTENT_FORMATS, CONTENT_FORMAT_LABEL, normalizeContentFormat } from "@/lib/content-formats";
+  CONTENT_FORMATS,
+  CONTENT_FORMAT_LABEL,
+  normalizeContentFormat,
+} from "@/lib/content-formats";
 import {
   approveMonthlyPlanFn,
   createTopicFn,
@@ -265,9 +264,7 @@ export function MonthlyPlanView({
       <PlanShell embedded={embedded}>
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 sm:flex sm:flex-wrap sm:justify-between">
           <div className="min-w-0">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Volumetria e geração do mês
-            </h1>
+            <h1 className="text-2xl font-semibold tracking-tight">Volumetria e geração do mês</h1>
             <p className="mt-1 max-w-xl text-sm text-muted-foreground">
               O briefing do cliente é sempre usado como contexto. Escolha canais, quantidades e
               formatos no assistente de geração.
@@ -283,7 +280,6 @@ export function MonthlyPlanView({
             Gerar pauta com IA
           </Button>
         </div>
-
 
         <VolumetryCards volumetry={volumetry} loading={volumetryQ.isLoading} />
 
@@ -336,7 +332,6 @@ export function MonthlyPlanView({
         setBriefingId("__none");
         qc.invalidateQueries({ queryKey: ["monthly-plans", "list", brandId, clientId] });
       }}
-
     />
   );
 }
@@ -358,7 +353,6 @@ function ApprovalView({
   onDiscarded: () => void;
   embedded?: boolean;
 }) {
-
   const qc = useQueryClient();
   const navigate = useNavigate();
   const getPlan = useServerFn(getMonthlyPlanFn);
@@ -478,8 +472,7 @@ function ApprovalView({
   });
 
   const regenM = useMutation({
-    mutationFn: (input: { topicId: string; instruction: string }) =>
-      regenerate({ data: input }),
+    mutationFn: (input: { topicId: string; instruction: string }) => regenerate({ data: input }),
     onSuccess: (t) => {
       qc.setQueryData<MonthlyPlanWithTopics | null>(["monthly-plan", planId], (p) =>
         p ? { ...p, topics: p.topics.map((x) => (x.id === t.id ? t : x)) } : p,
@@ -619,9 +612,7 @@ function ApprovalView({
       <PlanShell embedded={embedded} className="space-y-6 sm:space-y-8">
         {(plan.status === "changes_requested" || plan.status === "client_rejected") &&
         plan.client_feedback ? (
-          <p className="text-xs text-amber-400">
-            Feedback do cliente: {plan.client_feedback}
-          </p>
+          <p className="text-xs text-amber-400">Feedback do cliente: {plan.client_feedback}</p>
         ) : null}
 
         {plan.internal_approved_at ? (
@@ -631,7 +622,9 @@ function ApprovalView({
               <button
                 type="button"
                 className="underline underline-offset-2 hover:text-foreground"
-                onClick={() => navigate({ to: "/projects/$projectId", params: { projectId: plan.project_id! } })}
+                onClick={() =>
+                  navigate({ to: "/projects/$projectId", params: { projectId: plan.project_id! } })
+                }
               >
                 Ver projeto
               </button>
@@ -647,8 +640,6 @@ function ApprovalView({
             )}
           </div>
         ) : null}
-
-
 
         {/* Estratégia */}
         <section className="space-y-5 rounded-2xl border border-border/60 bg-card/40 p-6 backdrop-blur">
@@ -697,13 +688,12 @@ function ApprovalView({
             <div>
               <h2 className="text-lg font-semibold">Ideias de posts</h2>
               <p className="text-xs text-muted-foreground">
-                {topics.length} itens · {approvedTopics.length} aprovados ·{" "}
-                {pendingTopics.length} sem decisão
+                {topics.length} itens · {approvedTopics.length} aprovados · {pendingTopics.length}{" "}
+                sem decisão
                 {clientApprovedCount + clientChangesCount + clientRejectedCount > 0
                   ? ` · cliente: ${clientApprovedCount} aprovados · ${clientChangesCount} com ajuste · ${clientRejectedCount} rejeitados`
                   : ""}
               </p>
-
             </div>
             {!locked ? (
               <div className="flex items-center gap-2">
@@ -741,22 +731,16 @@ function ApprovalView({
                 locked={locked}
                 regenerating={regenM.isPending && regenM.variables?.topicId === t.id}
                 onStatus={(status) => topicDecision.mutate({ topicId: t.id, status })}
-                onRegenerate={(instruction) =>
-                  regenM.mutate({ topicId: t.id, instruction })
-                }
+                onRegenerate={(instruction) => regenM.mutate({ topicId: t.id, instruction })}
                 onUndo={() => undoM.mutate(t.id)}
                 onPatch={(patch) => {
-                  qc.setQueryData<MonthlyPlanWithTopics | null>(
-                    ["monthly-plan", planId],
-                    (p) =>
-                      p
-                        ? {
-                            ...p,
-                            topics: p.topics.map((x) =>
-                              x.id === t.id ? { ...x, ...patch } : x,
-                            ),
-                          }
-                        : p,
+                  qc.setQueryData<MonthlyPlanWithTopics | null>(["monthly-plan", planId], (p) =>
+                    p
+                      ? {
+                          ...p,
+                          topics: p.topics.map((x) => (x.id === t.id ? { ...x, ...patch } : x)),
+                        }
+                      : p,
                   );
                   patchTopic.mutate({ topicId: t.id, patch });
                 }}
@@ -770,11 +754,7 @@ function ApprovalView({
       {/* Sticky action bar */}
       <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border/60 bg-background/95 backdrop-blur">
         <div className="flex w-full flex-col gap-2 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3 sm:px-6 lg:px-8">
-          <Button
-            variant="outline"
-            className="gap-1.5"
-            onClick={onBack}
-          >
+          <Button variant="outline" className="gap-1.5" onClick={onBack}>
             <ArrowLeft className="h-4 w-4" /> Voltar
           </Button>
 
@@ -847,8 +827,6 @@ function ApprovalView({
     </div>
   );
 }
-
-
 
 /* --------------------------------------------------------------- */
 
@@ -946,10 +924,7 @@ function TopicCard({
         placeholder="Título do post"
       />
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Select
-          value={topic.channel ?? ""}
-          onValueChange={(v) => onPatch({ channel: v })}
-        >
+        <Select value={topic.channel ?? ""} onValueChange={(v) => onPatch({ channel: v })}>
           <SelectTrigger
             className={`h-7 w-fit gap-1 bg-background/60 px-2 text-xs ${
               topic.channel ? "border-border/60" : "border-amber-500/50 text-amber-500"
@@ -1201,7 +1176,7 @@ function InlineEditable({
         isEmpty ? "text-muted-foreground/60 italic" : ""
       }`}
     >
-      {isEmpty ? placeholder ?? "Clique para editar" : value}
+      {isEmpty ? (placeholder ?? "Clique para editar") : value}
     </Tag>
   );
 }

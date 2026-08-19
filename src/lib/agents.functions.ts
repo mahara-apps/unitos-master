@@ -65,9 +65,7 @@ export const listAgentPromptsFn = createServerFn({ method: "POST" })
       return {
         agent_id: id,
         agent_name: String(r.agent_name),
-        required_fields: Array.isArray(r.required_fields)
-          ? (r.required_fields as string[])
-          : null,
+        required_fields: Array.isArray(r.required_fields) ? (r.required_fields as string[]) : null,
         override_prompt: ov?.system_prompt ?? null,
         has_override: !!ov,
         updated_at: String(ov?.updated_at ?? r.updated_at),
@@ -91,17 +89,15 @@ export const updateAgentPromptFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
-      .from("agent_prompt_overrides")
-      .upsert(
-        {
-          brand_id: data.brandId,
-          agent_id: data.agentId,
-          system_prompt: data.systemPrompt,
-          created_by: context.userId,
-        },
-        { onConflict: "brand_id,agent_id" },
-      );
+    const { error } = await context.supabase.from("agent_prompt_overrides").upsert(
+      {
+        brand_id: data.brandId,
+        agent_id: data.agentId,
+        system_prompt: data.systemPrompt,
+        created_by: context.userId,
+      },
+      { onConflict: "brand_id,agent_id" },
+    );
     if (error) throw error;
     return { ok: true };
   });
@@ -197,11 +193,7 @@ export const runAgentPlaygroundFn = createServerFn({ method: "POST" })
       systemPrompt = String(original.system_prompt);
     }
 
-    const rendered = renderPrompt(
-      systemPrompt,
-      data.variables ?? {},
-      "(não informado)",
-    );
+    const rendered = renderPrompt(systemPrompt, data.variables ?? {}, "(não informado)");
     const { model: llm, modelId: model } = await getBrandAiModel(
       context.supabase,
       data.brandId,

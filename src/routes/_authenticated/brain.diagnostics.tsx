@@ -23,10 +23,7 @@ import { useActiveContext } from "@/hooks/use-active-context";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PageKpi, PageKpiGrid, type KpiStatus } from "@/components/ui/page-kpi";
-import {
-  brainDiagnosticsFn,
-  type BrainDiagnostics,
-} from "@/lib/brain/diagnostics.functions";
+import { brainDiagnosticsFn, type BrainDiagnostics } from "@/lib/brain/diagnostics.functions";
 
 export const Route = createFileRoute("/_authenticated/brain/diagnostics")({
   beforeLoad: () => ensureFeatureEnabled("brain"),
@@ -69,9 +66,7 @@ function BrainDiagnosticsRoute() {
             <div className="text-sm font-medium">Pipeline ativo</div>
             <div className="text-xs text-muted-foreground">
               Atualização a cada 3s ·{" "}
-              {d?.generatedAt
-                ? new Date(d.generatedAt).toLocaleTimeString("pt-BR")
-                : "—"}
+              {d?.generatedAt ? new Date(d.generatedAt).toLocaleTimeString("pt-BR") : "—"}
             </div>
           </div>
         </div>
@@ -120,28 +115,20 @@ function BrainDiagnosticsRoute() {
                           ? `há ${d.worker.minutesSinceLastRun} min`
                           : "—"
                       } · status ${d.worker.lastStatus ?? "—"}${
-                        d.worker.lastDurationMs != null
-                          ? ` · ${d.worker.lastDurationMs} ms`
-                          : ""
+                        d.worker.lastDurationMs != null ? ` · ${d.worker.lastDurationMs} ms` : ""
                       }`
                     : "Nenhuma execução registrada."}
                 </p>
                 {d.worker.lastError ? (
-                  <p className="text-xs font-medium text-destructive">
-                    Erro: {d.worker.lastError}
-                  </p>
+                  <p className="text-xs font-medium text-destructive">Erro: {d.worker.lastError}</p>
                 ) : null}
               </div>
             </div>
             <div className="flex flex-wrap gap-2 text-xs">
               <Badge variant="secondary">{d.worker.runs24h} execuções / 24h</Badge>
               <Badge variant="secondary">{d.worker.processed24h} eventos</Badge>
-              <Badge variant="secondary">
-                {d.worker.discarded24h} descartados (evidência)
-              </Badge>
-              <Badge variant="secondary">
-                {d.worker.memoriesTouched24h} memórias sintetizadas
-              </Badge>
+              <Badge variant="secondary">{d.worker.discarded24h} descartados (evidência)</Badge>
+              <Badge variant="secondary">{d.worker.memoriesTouched24h} memórias sintetizadas</Badge>
               {d.worker.failures24h > 0 ? (
                 <Badge variant="destructive">{d.worker.failures24h} falhas</Badge>
               ) : null}
@@ -462,9 +449,7 @@ function LiveList({
                   </Badge>
                 ) : null}
                 {it.tail ? (
-                  <span className="text-[10px] tabular-nums text-muted-foreground">
-                    {it.tail}
-                  </span>
+                  <span className="text-[10px] tabular-nums text-muted-foreground">{it.tail}</span>
                 ) : null}
               </div>
             </li>

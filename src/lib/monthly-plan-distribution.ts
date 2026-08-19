@@ -16,8 +16,7 @@ export type ChannelFormatQuota = Record<string, Partial<Record<ContentFormat, nu
 /** Total de vagas de um mapa canal → formato → quantidade. */
 export function totalSlots(quota: ChannelFormatQuota): number {
   return Object.values(quota).reduce(
-    (sum, bucket) =>
-      sum + Object.values(bucket ?? {}).reduce((s, n) => s + (Number(n) || 0), 0),
+    (sum, bucket) => sum + Object.values(bucket ?? {}).reduce((s, n) => s + (Number(n) || 0), 0),
     0,
   );
 }
@@ -77,8 +76,7 @@ export function createSlotAllocator(quota: ChannelFormatQuota) {
     /** Aloca uma vaga a partir da sugestão da IA. */
     allocate(rawChannel: unknown, rawFormat: unknown): { channel: string; format: ContentFormat } {
       const suggested = (rawChannel ?? "").toString().trim().toLowerCase();
-      const channel =
-        suggested && channelRemaining(suggested) > 0 ? suggested : nextChannel();
+      const channel = suggested && channelRemaining(suggested) > 0 ? suggested : nextChannel();
 
       const allowed = formatsForChannel(channel);
       const wanted = normalizeContentFormat(rawFormat);
@@ -88,7 +86,8 @@ export function createSlotAllocator(quota: ChannelFormatQuota) {
       } else {
         format = bestFormat(channel);
       }
-      if (!format) format = wanted && allowed.includes(wanted) ? wanted : defaultFormatForChannel(channel);
+      if (!format)
+        format = wanted && allowed.includes(wanted) ? wanted : defaultFormatForChannel(channel);
 
       const bucket = remaining[channel];
       if (bucket && (bucket[format] ?? 0) > 0) {

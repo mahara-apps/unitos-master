@@ -3,7 +3,14 @@ import { readApiError } from "@/lib/errors";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { CheckCircle2, ChevronRight, ExternalLink, Instagram as InstagramIcon, Loader2, Sparkles } from "lucide-react";
+import {
+  CheckCircle2,
+  ChevronRight,
+  ExternalLink,
+  Instagram as InstagramIcon,
+  Loader2,
+  Sparkles,
+} from "lucide-react";
 
 import {
   Dialog,
@@ -244,9 +251,7 @@ export function QuickOnboardingWizard({
                 disabled={save.isPending}
                 className="gap-1.5 shadow-sm transition-transform active:scale-[0.98]"
               >
-                {save.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : null}
+                {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Próximo
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -265,9 +270,7 @@ export function QuickOnboardingWizard({
                 disabled={save.isPending}
                 className="gap-1.5 shadow-sm transition-transform active:scale-[0.98]"
               >
-                {save.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : null}
+                {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Próximo
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -275,15 +278,11 @@ export function QuickOnboardingWizard({
             {step === 3 && (
               <Button
                 size="default"
-                onClick={() =>
-                  advance({ volumetry: state.volumetry, goals: state.goals })
-                }
+                onClick={() => advance({ volumetry: state.volumetry, goals: state.goals })}
                 disabled={save.isPending}
                 className="gap-1.5 shadow-sm transition-transform active:scale-[0.98]"
               >
-                {save.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : null}
+                {save.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Concluir
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -333,7 +332,10 @@ function StepBadge({ step, total }: { step: number; total: number }) {
 
 function StepTrack({ step, total }: { step: number; total: number }) {
   return (
-    <div className="mt-6 flex gap-1.5" aria-label={`Progresso: ${Math.min(step, total)} de ${total}`}>
+    <div
+      className="mt-6 flex gap-1.5"
+      aria-label={`Progresso: ${Math.min(step, total)} de ${total}`}
+    >
       {Array.from({ length: total }).map((_, i) => {
         const idx = i + 1;
         const done = step > idx;
@@ -384,10 +386,19 @@ function StepIdentity({
   const socials = (client?.socials ?? {}) as Record<string, string | undefined>;
   const igRaw = (socials.instagram ?? "").trim();
   const igHandle = igRaw
-    ? igRaw.replace(/^@+/, "").replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/\/+$/, "")
+    ? igRaw
+        .replace(/^@+/, "")
+        .replace(/^https?:\/\/(www\.)?instagram\.com\//i, "")
+        .replace(/\/+$/, "")
     : "";
   const color = (client?.color ?? "").trim();
-  const hasCapturedData = !!(client?.name || client?.niche || igHandle || color || client?.logo_url);
+  const hasCapturedData = !!(
+    client?.name ||
+    client?.niche ||
+    igHandle ||
+    color ||
+    client?.logo_url
+  );
 
   return (
     <div className="space-y-8 pt-2">
@@ -398,45 +409,49 @@ function StepIdentity({
               Já capturado no cadastro
             </div>
             <div className="flex flex-wrap items-center gap-2.5">
-            {client?.logo_url ? (
-              <img
-                src={client.logo_url}
-                alt=""
-                className="h-7 w-7 rounded-md border border-border bg-background object-contain"
-              />
-            ) : null}
-            {client?.name ? (
-              <span className="truncate text-sm font-semibold text-foreground">{client.name}</span>
-            ) : null}
-            {client?.niche ? (
-              <span className="rounded-full border border-border/60 bg-background px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                {client.niche}
-              </span>
-            ) : null}
-            {igHandle ? (
-              <a
-                href={`https://instagram.com/${igHandle}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
-              >
-                <InstagramIcon className="h-3 w-3" />@{igHandle}
-                <ExternalLink className="h-2.5 w-2.5 opacity-70" />
-              </a>
-            ) : null}
-            {color ? (
-              <span className="inline-flex items-center gap-1.5">
-                <span
-                  className="h-2.5 w-2.5 rounded-full ring-4 ring-offset-0"
-                  style={{
-                    background: color,
-                    // subtle ring using the color itself at low opacity
-                    boxShadow: `0 0 0 4px ${color}1a`,
-                  }}
+              {client?.logo_url ? (
+                <img
+                  src={client.logo_url}
+                  alt=""
+                  className="h-7 w-7 rounded-md border border-border bg-background object-contain"
                 />
-                <span className="font-mono text-[11px] uppercase text-muted-foreground">{color}</span>
-              </span>
-            ) : null}
+              ) : null}
+              {client?.name ? (
+                <span className="truncate text-sm font-semibold text-foreground">
+                  {client.name}
+                </span>
+              ) : null}
+              {client?.niche ? (
+                <span className="rounded-full border border-border/60 bg-background px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                  {client.niche}
+                </span>
+              ) : null}
+              {igHandle ? (
+                <a
+                  href={`https://instagram.com/${igHandle}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+                >
+                  <InstagramIcon className="h-3 w-3" />@{igHandle}
+                  <ExternalLink className="h-2.5 w-2.5 opacity-70" />
+                </a>
+              ) : null}
+              {color ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full ring-4 ring-offset-0"
+                    style={{
+                      background: color,
+                      // subtle ring using the color itself at low opacity
+                      boxShadow: `0 0 0 4px ${color}1a`,
+                    }}
+                  />
+                  <span className="font-mono text-[11px] uppercase text-muted-foreground">
+                    {color}
+                  </span>
+                </span>
+              ) : null}
             </div>
           </div>
         </div>
@@ -446,30 +461,30 @@ function StepIdentity({
           Identidade
         </h3>
         <div className="space-y-5">
-      <Field label="Tom de voz" hint="Ex.: próximo, provocador, direto, com humor.">
-        <Textarea
-          rows={3}
-          value={state.tone_text}
-          onChange={(e) => setField("tone_text", e.target.value)}
-          placeholder="Como a marca fala com o público?"
-        />
-      </Field>
-      <Field label="Missão">
-        <Textarea
-          rows={3}
-          value={state.mission}
-          onChange={(e) => setField("mission", e.target.value)}
-          placeholder="Por que essa marca existe?"
-        />
-      </Field>
-      <Field label="Posicionamento" hint="O lugar que a marca ocupa na cabeça do público.">
-        <Textarea
-          rows={3}
-          value={state.positioning}
-          onChange={(e) => setField("positioning", e.target.value)}
-          placeholder="Para quem, contra quem, com que promessa."
-        />
-      </Field>
+          <Field label="Tom de voz" hint="Ex.: próximo, provocador, direto, com humor.">
+            <Textarea
+              rows={3}
+              value={state.tone_text}
+              onChange={(e) => setField("tone_text", e.target.value)}
+              placeholder="Como a marca fala com o público?"
+            />
+          </Field>
+          <Field label="Missão">
+            <Textarea
+              rows={3}
+              value={state.mission}
+              onChange={(e) => setField("mission", e.target.value)}
+              placeholder="Por que essa marca existe?"
+            />
+          </Field>
+          <Field label="Posicionamento" hint="O lugar que a marca ocupa na cabeça do público.">
+            <Textarea
+              rows={3}
+              value={state.positioning}
+              onChange={(e) => setField("positioning", e.target.value)}
+              placeholder="Para quem, contra quem, com que promessa."
+            />
+          </Field>
         </div>
       </div>
     </div>
@@ -489,38 +504,38 @@ function StepProductAudience({
         Produto & Público
       </h3>
       <div className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Oferta principal">
-          <Input
-            value={state.offer}
-            onChange={(e) => setField("offer", e.target.value)}
-            placeholder="Ex.: Consultoria de branding"
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Oferta principal">
+            <Input
+              value={state.offer}
+              onChange={(e) => setField("offer", e.target.value)}
+              placeholder="Ex.: Consultoria de branding"
+            />
+          </Field>
+          <Field label="Faixa de preço">
+            <Input
+              value={state.price_range}
+              onChange={(e) => setField("price_range", e.target.value)}
+              placeholder="Ex.: R$ 3-8k / projeto"
+            />
+          </Field>
+        </div>
+        <Field label="Descrição do público">
+          <Textarea
+            rows={3}
+            value={state.audience}
+            onChange={(e) => setField("audience", e.target.value)}
+            placeholder="Quem compra: idade, contexto, comportamento."
           />
         </Field>
-        <Field label="Faixa de preço">
-          <Input
-            value={state.price_range}
-            onChange={(e) => setField("price_range", e.target.value)}
-            placeholder="Ex.: R$ 3-8k / projeto"
+        <Field label="Dores">
+          <Textarea
+            rows={3}
+            value={state.pain_points}
+            onChange={(e) => setField("pain_points", e.target.value)}
+            placeholder="Frustrações que esse público sente hoje."
           />
         </Field>
-      </div>
-      <Field label="Descrição do público">
-        <Textarea
-          rows={3}
-          value={state.audience}
-          onChange={(e) => setField("audience", e.target.value)}
-          placeholder="Quem compra: idade, contexto, comportamento."
-        />
-      </Field>
-      <Field label="Dores">
-        <Textarea
-          rows={3}
-          value={state.pain_points}
-          onChange={(e) => setField("pain_points", e.target.value)}
-          placeholder="Frustrações que esse público sente hoje."
-        />
-      </Field>
       </div>
     </div>
   );
@@ -535,9 +550,7 @@ function StepGoals({
 }) {
   return (
     <div className="space-y-6 pt-2">
-      <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">
-        Metas
-      </h3>
+      <h3 className="text-sm font-semibold uppercase tracking-wide text-foreground">Metas</h3>
 
       <div className="space-y-3 rounded-xl border border-border/60 bg-muted/40 p-4">
         <div className="flex items-center justify-between">
@@ -565,7 +578,10 @@ function StepGoals({
         </div>
       </div>
 
-      <Field label="Metas e restrições" hint="Objetivos, KPIs, temas proibidos, regras de compliance.">
+      <Field
+        label="Metas e restrições"
+        hint="Objetivos, KPIs, temas proibidos, regras de compliance."
+      >
         <Textarea
           rows={4}
           value={state.goals}
@@ -585,9 +601,8 @@ function StepDone() {
       </div>
       <h3 className="text-lg font-semibold tracking-tight">Base pronta</h3>
       <p className="max-w-md text-sm text-muted-foreground">
-        Os campos essenciais foram salvos. Você já pode gerar a primeira
-        inteligência com IA — voz, personas, cohorts e SWOT — ou refinar o
-        briefing completo antes.
+        Os campos essenciais foram salvos. Você já pode gerar a primeira inteligência com IA — voz,
+        personas, cohorts e SWOT — ou refinar o briefing completo antes.
       </p>
     </div>
   );

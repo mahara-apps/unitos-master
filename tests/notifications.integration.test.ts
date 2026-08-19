@@ -202,10 +202,7 @@ describe("notificações", () => {
     });
 
     // A não lê a notificação de B.
-    const asA = await f.userA.client
-      .from("notifications")
-      .select("id")
-      .eq("id", idB);
+    const asA = await f.userA.client.from("notifications").select("id").eq("id", idB);
     expect((asA.data ?? []).length).toBe(0);
 
     // A não consegue marcar como lida a de B.

@@ -48,7 +48,6 @@ export type BriefingContext = {
   channelsWithBreakdown: PlanChannel[];
 };
 
-
 function pushLine(lines: string[], label: string, value: unknown) {
   if (value == null) return;
   if (Array.isArray(value)) {
@@ -68,7 +67,8 @@ export async function loadBriefingContext(
   clientId: string,
   opts: { briefingId?: string | null; weeksPerMonth?: number } = {},
 ): Promise<BriefingContext> {
-  const weeksPerMonth = opts.weeksPerMonth && opts.weeksPerMonth > 0 ? opts.weeksPerMonth : WEEKS_PER_MONTH;
+  const weeksPerMonth =
+    opts.weeksPerMonth && opts.weeksPerMonth > 0 ? opts.weeksPerMonth : WEEKS_PER_MONTH;
   const [clientRes, docsRes, briefingRes] = await Promise.all([
     supabase
       .from("clients")
@@ -141,7 +141,11 @@ export async function loadBriefingContext(
   );
   pushLine(lines, "Cor da marca", row.color);
   const hashtags = hub.hashtags as string[] | undefined;
-  pushLine(lines, "Hashtags", hashtags?.map((h) => (h.startsWith("#") ? h : `#${h}`)));
+  pushLine(
+    lines,
+    "Hashtags",
+    hashtags?.map((h) => (h.startsWith("#") ? h : `#${h}`)),
+  );
   const doDont = (hub.do_dont ?? {}) as { do?: string; dont?: string };
   pushLine(lines, "Do", doDont.do);
   pushLine(lines, "Don't", doDont.dont);
@@ -243,7 +247,8 @@ export async function loadBriefingContext(
   }
 
   // Versão de briefing escolhida explicitamente (opcional)
-  const versioned = (briefingRes as { data?: { snapshot?: unknown } | null } | null)?.data?.snapshot;
+  const versioned = (briefingRes as { data?: { snapshot?: unknown } | null } | null)?.data
+    ?.snapshot;
   if (versioned) {
     const raw = typeof versioned === "string" ? versioned : JSON.stringify(versioned);
     lines.push(`Briefing selecionado (versão): ${raw.slice(0, 3000)}`);

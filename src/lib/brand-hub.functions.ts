@@ -180,7 +180,10 @@ const HubPatch = Scope.extend({
             id: z.string(),
             handle: z.string().max(120),
             platform: z.string().max(40).default("instagram"),
-            added_at: z.string().optional().default(() => new Date().toISOString()),
+            added_at: z
+              .string()
+              .optional()
+              .default(() => new Date().toISOString()),
             notes: z.string().max(500).optional(),
             last_scraped_at: z.string().optional(),
             last_error: z.string().optional(),
@@ -203,14 +206,14 @@ export const updateBrandHub = createServerFn({ method: "POST" })
       .eq("id", data.clientId)
       .eq("brand_id", data.brandId)
       .maybeSingle();
-    const prev = ((current as { brand_hub?: BrandHubData } | null)?.brand_hub ?? {}) as BrandHubData;
+    const prev = ((current as { brand_hub?: BrandHubData } | null)?.brand_hub ??
+      {}) as BrandHubData;
     const next = { ...prev, ...data.patch } as BrandHubData;
     // Sincroniza volumetry (total por canal) com o breakdown por formato:
     // o total deixa de ser editável isoladamente quando há breakdown.
     if (data.patch.volumetry_breakdown) {
-      const { normalizeVolumetryBreakdown, deriveVolumetryTotals } = await import(
-        "@/lib/content-formats"
-      );
+      const { normalizeVolumetryBreakdown, deriveVolumetryTotals } =
+        await import("@/lib/content-formats");
       const breakdown = normalizeVolumetryBreakdown(data.patch.volumetry_breakdown);
       next.volumetry_breakdown = breakdown as Record<string, Record<string, number>>;
       next.volumetry = deriveVolumetryTotals(
@@ -330,7 +333,8 @@ export const scrapeCompetitor = createServerFn({ method: "POST" })
       list[idx] = {
         ...target,
         last_scraped_at: nowIso,
-        last_error: "APIFY_TOKEN not configured — add it in project secrets to enable live scraping.",
+        last_error:
+          "APIFY_TOKEN not configured — add it in project secrets to enable live scraping.",
       };
       await writeHub(context.supabase, data.brandId, data.clientId, { ...hub, competitors: list });
       return { ok: false, reason: "no_token" as const, competitor: list[idx] };
@@ -370,7 +374,8 @@ export const scrapeCompetitor = createServerFn({ method: "POST" })
         posts_count: Number(profile.postsCount ?? latestPosts.length),
         avg_likes: Math.round(avgLikes),
         avg_comments: Math.round(avgComments),
-        engagement_rate: followers > 0 ? Number(((avgLikes + avgComments) / followers).toFixed(4)) : 0,
+        engagement_rate:
+          followers > 0 ? Number(((avgLikes + avgComments) / followers).toFixed(4)) : 0,
         top_posts: latestPosts.slice(0, 5).map((p) => ({
           url: String(p.url ?? ""),
           caption: String(p.caption ?? "").slice(0, 280),
@@ -378,7 +383,11 @@ export const scrapeCompetitor = createServerFn({ method: "POST" })
           comments: Number(p.commentsCount ?? 0),
         })),
         recurring_hooks: latestPosts
-          .map((p) => String(p.caption ?? "").split(/[.\n!?]/)[0]?.trim())
+          .map((p) =>
+            String(p.caption ?? "")
+              .split(/[.\n!?]/)[0]
+              ?.trim(),
+          )
           .filter((s): s is string => Boolean(s && s.length > 5 && s.length < 140))
           .slice(0, 6),
       };
@@ -444,7 +453,11 @@ export const uploadBrandAsset = createServerFn({ method: "POST" })
       .createSignedUrl(path, 60 * 60 * 24 * 365);
     if (se) throw se;
     const column =
-      data.kind === "logo" ? "logo_url" : data.kind === "favicon" ? "favicon_url" : "logo_secondary_url";
+      data.kind === "logo"
+        ? "logo_url"
+        : data.kind === "favicon"
+          ? "favicon_url"
+          : "logo_secondary_url";
     const { error: ue } = await context.supabase
       .from("clients")
       .update({ [column]: signed.signedUrl } as never)
@@ -469,17 +482,28 @@ export const listClientDocuments = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => Scope.parse(i))
   .handler(async ({ data, context }): Promise<ClientDocument[]> => {
-    const { data: rows, error } = await (context.supabase as never as {
-      from: (t: string) => {
-        select: (c: string) => {
-          eq: (k: string, v: string) => {
-            eq: (k: string, v: string) => {
-              order: (c: string, o: { ascending: boolean }) => Promise<{ data: ClientDocument[] | null; error: unknown }>;
+    const { data: rows, error } = await (
+      context.supabase as never as {
+        from: (t: string) => {
+          select: (c: string) => {
+            eq: (
+              k: string,
+              v: string,
+            ) => {
+              eq: (
+                k: string,
+                v: string,
+              ) => {
+                order: (
+                  c: string,
+                  o: { ascending: boolean },
+                ) => Promise<{ data: ClientDocument[] | null; error: unknown }>;
+              };
             };
           };
         };
-      };
-    })
+      }
+    )
       .from("client_documents")
       .select("id, name, storage_path, mime_type, size_bytes, created_at")
       .eq("brand_id", data.brandId)
@@ -508,13 +532,17 @@ export const uploadClientDocument = createServerFn({ method: "POST" })
       .from("brand-documents")
       .upload(path, bin, { contentType: data.contentType, upsert: false });
     if (ue) throw ue;
-    const { data: inserted, error } = await (context.supabase as never as {
-      from: (t: string) => {
-        insert: (v: Record<string, unknown>) => {
-          select: (c: string) => { single: () => Promise<{ data: ClientDocument | null; error: unknown }> };
+    const { data: inserted, error } = await (
+      context.supabase as never as {
+        from: (t: string) => {
+          insert: (v: Record<string, unknown>) => {
+            select: (c: string) => {
+              single: () => Promise<{ data: ClientDocument | null; error: unknown }>;
+            };
+          };
         };
-      };
-    })
+      }
+    )
       .from("client_documents")
       .insert({
         brand_id: data.brandId,
@@ -537,19 +565,33 @@ export const deleteClientDocument = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => DocDelete.parse(i))
   .handler(async ({ data, context }) => {
-    const { data: row, error: qe } = await (context.supabase as never as {
-      from: (t: string) => {
-        select: (c: string) => {
-          eq: (k: string, v: string) => {
-            eq: (k: string, v: string) => {
-              eq: (k: string, v: string) => {
-                maybeSingle: () => Promise<{ data: { storage_path: string } | null; error: unknown }>;
+    const { data: row, error: qe } = await (
+      context.supabase as never as {
+        from: (t: string) => {
+          select: (c: string) => {
+            eq: (
+              k: string,
+              v: string,
+            ) => {
+              eq: (
+                k: string,
+                v: string,
+              ) => {
+                eq: (
+                  k: string,
+                  v: string,
+                ) => {
+                  maybeSingle: () => Promise<{
+                    data: { storage_path: string } | null;
+                    error: unknown;
+                  }>;
+                };
               };
             };
           };
         };
-      };
-    })
+      }
+    )
       .from("client_documents")
       .select("storage_path")
       .eq("id", data.documentId)
@@ -559,15 +601,20 @@ export const deleteClientDocument = createServerFn({ method: "POST" })
     if (qe) throw qe as Error;
     if (!row) throw new Error("document_not_found");
     await context.supabase.storage.from("brand-documents").remove([row.storage_path]);
-    const { error } = await (context.supabase as never as {
-      from: (t: string) => {
-        delete: () => {
-          eq: (k: string, v: string) => {
-            eq: (k: string, v: string) => Promise<{ error: unknown }>;
+    const { error } = await (
+      context.supabase as never as {
+        from: (t: string) => {
+          delete: () => {
+            eq: (
+              k: string,
+              v: string,
+            ) => {
+              eq: (k: string, v: string) => Promise<{ error: unknown }>;
+            };
           };
         };
-      };
-    })
+      }
+    )
       .from("client_documents")
       .delete()
       .eq("id", data.documentId)
@@ -580,19 +627,30 @@ export const signClientDocument = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => Scope.extend({ documentId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
-    const { data: row } = await (context.supabase as never as {
-      from: (t: string) => {
-        select: (c: string) => {
-          eq: (k: string, v: string) => {
-            eq: (k: string, v: string) => {
-              eq: (k: string, v: string) => {
-                maybeSingle: () => Promise<{ data: { storage_path: string } | null }>;
+    const { data: row } = await (
+      context.supabase as never as {
+        from: (t: string) => {
+          select: (c: string) => {
+            eq: (
+              k: string,
+              v: string,
+            ) => {
+              eq: (
+                k: string,
+                v: string,
+              ) => {
+                eq: (
+                  k: string,
+                  v: string,
+                ) => {
+                  maybeSingle: () => Promise<{ data: { storage_path: string } | null }>;
+                };
               };
             };
           };
         };
-      };
-    })
+      }
+    )
       .from("client_documents")
       .select("storage_path")
       .eq("id", data.documentId)

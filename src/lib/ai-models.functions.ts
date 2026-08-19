@@ -44,9 +44,7 @@ export const getAiModelStatus = createServerFn({ method: "GET" })
       for (const role of ["strategic", "operational", "image"] as ProviderRole[]) {
         const fallback = MODEL_CATALOG[provider][role];
         if (!fallback) continue;
-        const hit = (overrides ?? []).find(
-          (o) => o.provider === provider && o.role === role,
-        );
+        const hit = (overrides ?? []).find((o) => o.provider === provider && o.role === role);
         models.push({
           provider,
           role,

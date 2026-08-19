@@ -110,4 +110,3 @@ export async function logPlanEvent(
     // auditoria não crítica
   }
 }
-

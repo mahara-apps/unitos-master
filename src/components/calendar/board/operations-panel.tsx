@@ -10,10 +10,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  DashboardPanelSurface,
-  DashboardIconFrame,
-} from "@/components/ui/dashboard-primitives";
+import { DashboardPanelSurface, DashboardIconFrame } from "@/components/ui/dashboard-primitives";
 import {
   PUBLICATION_STATUS,
   dayLabel,
@@ -92,10 +89,9 @@ function Thumb({ url }: { url: string | null }) {
 function Channels({ item }: { item: PublicationItem }) {
   const nets = Array.from(
     new Set(
-      (item.destinations.length
-        ? item.destinations.map((d) => d.channel)
-        : item.channels
-      ).map((c) => classifySocialNetwork(c)),
+      (item.destinations.length ? item.destinations.map((d) => d.channel) : item.channels).map(
+        (c) => classifySocialNetwork(c),
+      ),
     ),
   );
   if (!nets.length) return null;
@@ -137,10 +133,7 @@ export function OperationsPanel({
         count={`${upcoming.length} na fila`}
       >
         {upcoming.length === 0 ? (
-          <Empty
-            title="Nada agendado à frente"
-            hint="Agende uma peça aprovada para vê-la aqui."
-          />
+          <Empty title="Nada agendado à frente" hint="Agende uma peça aprovada para vê-la aqui." />
         ) : (
           <ul className="divide-y divide-border/60">
             {upcoming.slice(0, 5).map((it) => {
@@ -342,13 +335,17 @@ export function OperationsPanel({
                     <span className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                       {d.channels.length ? (
                         <span className="inline-flex items-center gap-1">
-                          {Array.from(
-                            new Set(d.channels.map((c) => classifySocialNetwork(c))),
-                          )
+                          {Array.from(new Set(d.channels.map((c) => classifySocialNetwork(c))))
                             .slice(0, 3)
                             .map((k) => {
                               const Icon = SOCIAL_NETWORKS[k].Icon;
-                              return <Icon key={k} className={cn("h-3 w-3", NETWORK_COLOR[k])} strokeWidth={2} />;
+                              return (
+                                <Icon
+                                  key={k}
+                                  className={cn("h-3 w-3", NETWORK_COLOR[k])}
+                                  strokeWidth={2}
+                                />
+                              );
                             })}
                         </span>
                       ) : null}

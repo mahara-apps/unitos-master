@@ -61,7 +61,6 @@ export type PublicationState = {
 
 const familyOf = (format: string) => (format === "stories" ? "story" : "feed");
 
-
 // ============================================================
 // listPostPublicationStateFn
 // ============================================================
@@ -69,9 +68,7 @@ const familyOf = (format: string) => (format === "stories" ? "story" : "feed");
 export const listPostPublicationStateFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) =>
-    z
-      .object({ postId: z.string().uuid(), brandId: z.string().uuid() })
-      .parse(i),
+    z.object({ postId: z.string().uuid(), brandId: z.string().uuid() }).parse(i),
   )
   .handler(async ({ data, context }): Promise<PublicationState> => {
     const supabase = context.supabase;
@@ -132,8 +129,7 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
               (c.external_name as string | null) ??
               "Conta",
             handle: (c.account_username as string | null) ?? null,
-            externalId:
-              ((c.account_id as string | null) ?? (c.external_id as string | null)) ?? null,
+            externalId: (c.account_id as string | null) ?? (c.external_id as string | null) ?? null,
           };
           availableTargets.push(t);
           currentByConnection.set(t.connectionId, t);
@@ -149,10 +145,7 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
           .filter((v): v is string => !!v),
       ),
     );
-    const connMap = new Map<
-      string,
-      { channel: string; label: string; status: string }
-    >();
+    const connMap = new Map<string, { channel: string; label: string; status: string }>();
     if (connIds.length) {
       const { data: conns } = await supabase
         .from("social_connections")
@@ -163,83 +156,70 @@ export const listPostPublicationStateFn = createServerFn({ method: "POST" })
         connMap.set(c.id as string, {
           channel: (c.channel as string) ?? "",
           label:
-            (c.account_username as string | null) ??
-            (c.external_name as string | null) ??
-            "Conta",
+            (c.account_username as string | null) ?? (c.external_name as string | null) ?? "Conta",
           status: (c.status as string) ?? "",
         });
       }
     }
 
-    const destinations: PublicationDestinationState[] = (placements ?? []).map(
-      (pl) => {
-        const connectionId = (pl.connection_id as string | null) ?? null;
-        const conn = connectionId ? connMap.get(connectionId) : undefined;
-        const co = (pl.copy_override ?? {}) as Record<string, unknown>;
-        const historicChannel =
-          typeof co.channel === "string" ? (co.channel as string) : "";
-        const family = familyOf(pl.format as string);
-        const mine = rows.filter(
-          (r) =>
-            r.connection_id === connectionId &&
-            familyOf((r.placement as string) === "story" ? "stories" : "feed") ===
-              family,
-        );
-        const published = mine.find((r) => r.status === "published");
-        const failed = mine.find((r) => r.status === "failed");
-        const blocked = mine.find((r) => r.status === "blocked");
-        const inFlight = mine.find(
-          (r) => r.status === "scheduled" || r.status === "publishing",
-        );
-        const plStatus = (pl.status as string) ?? "draft";
-        const status = published
-          ? "published"
-          : inFlight
-            ? (inFlight.status as string)
-            : blocked ||
-                plStatus === "connection_required" ||
-                plStatus === "authorization_required"
-              ? (plStatus === "authorization_required"
-                  ? "authorization_required"
-                  : "connection_required")
-              : failed
-                ? "failed"
-                : plStatus;
-        // HISTÓRICO: conexão inexistente, inativa ou sem vínculo atual com o
-        // cliente. Nunca tratado como destino publicável (fail-closed).
-        const historical =
-          !connectionId || !currentByConnection.has(connectionId);
-        return {
-          placementId: pl.id as string,
-          connectionId,
-          channel: conn?.channel || historicChannel,
-          accountLabel: conn?.label ?? "Conta removida",
-          format: pl.format as string,
-          status,
-          publishedAt:
-            (published?.published_at as string | null) ??
-            ((pl.published_at as string | null) ?? null),
-          permalink: (published?.external_permalink as string | null) ?? null,
-          error: published
-            ? null
-            : ((blocked?.last_error as string | null) ??
-              (failed?.last_error as string | null) ??
-              null),
-          attempts: Number(failed?.publish_attempts ?? 0),
-          canRetry:
-            !published &&
-            !inFlight &&
-            !historical &&
-            (status === "failed" ||
-              status === "connection_required" ||
-              status === "authorization_required") &&
-            !!connectionId,
-          historical,
-          needsRebind: !published && !inFlight && historical,
-        };
-
-      },
-    );
+    const destinations: PublicationDestinationState[] = (placements ?? []).map((pl) => {
+      const connectionId = (pl.connection_id as string | null) ?? null;
+      const conn = connectionId ? connMap.get(connectionId) : undefined;
+      const co = (pl.copy_override ?? {}) as Record<string, unknown>;
+      const historicChannel = typeof co.channel === "string" ? (co.channel as string) : "";
+      const family = familyOf(pl.format as string);
+      const mine = rows.filter(
+        (r) =>
+          r.connection_id === connectionId &&
+          familyOf((r.placement as string) === "story" ? "stories" : "feed") === family,
+      );
+      const published = mine.find((r) => r.status === "published");
+      const failed = mine.find((r) => r.status === "failed");
+      const blocked = mine.find((r) => r.status === "blocked");
+      const inFlight = mine.find((r) => r.status === "scheduled" || r.status === "publishing");
+      const plStatus = (pl.status as string) ?? "draft";
+      const status = published
+        ? "published"
+        : inFlight
+          ? (inFlight.status as string)
+          : blocked || plStatus === "connection_required" || plStatus === "authorization_required"
+            ? plStatus === "authorization_required"
+              ? "authorization_required"
+              : "connection_required"
+            : failed
+              ? "failed"
+              : plStatus;
+      // HISTÓRICO: conexão inexistente, inativa ou sem vínculo atual com o
+      // cliente. Nunca tratado como destino publicável (fail-closed).
+      const historical = !connectionId || !currentByConnection.has(connectionId);
+      return {
+        placementId: pl.id as string,
+        connectionId,
+        channel: conn?.channel || historicChannel,
+        accountLabel: conn?.label ?? "Conta removida",
+        format: pl.format as string,
+        status,
+        publishedAt:
+          (published?.published_at as string | null) ?? (pl.published_at as string | null) ?? null,
+        permalink: (published?.external_permalink as string | null) ?? null,
+        error: published
+          ? null
+          : ((blocked?.last_error as string | null) ??
+            (failed?.last_error as string | null) ??
+            null),
+        attempts: Number(failed?.publish_attempts ?? 0),
+        canRetry:
+          !published &&
+          !inFlight &&
+          !historical &&
+          (status === "failed" ||
+            status === "connection_required" ||
+            status === "authorization_required") &&
+          !!connectionId,
+        historical,
+        needsRebind: !published && !inFlight && historical,
+      };
+    });
 
     const anyPublished = destinations.some((d) => d.status === "published");
     const allPublished =
@@ -332,8 +312,7 @@ export const rebindPlacementConnectionFn = createServerFn({ method: "POST" })
     }
 
     const co = (pl.copy_override ?? {}) as Record<string, unknown>;
-    const historicChannel =
-      typeof co.channel === "string" ? (co.channel as string) : null;
+    const historicChannel = typeof co.channel === "string" ? (co.channel as string) : null;
     if (historicChannel && historicChannel !== conn.channel) {
       throw new Error(
         `Este destino é do canal ${historicChannel}. Selecione uma conta do mesmo canal.`,
@@ -377,9 +356,7 @@ export const rebindPlacementConnectionFn = createServerFn({ method: "POST" })
         target_account_id:
           (conn.account_id as string | null) ?? (conn.external_id as string | null) ?? null,
         target_label:
-          (conn.account_username as string | null) ??
-          (conn.external_name as string | null) ??
-          null,
+          (conn.account_username as string | null) ?? (conn.external_name as string | null) ?? null,
       },
     });
 
@@ -392,7 +369,6 @@ export const rebindPlacementConnectionFn = createServerFn({ method: "POST" })
         "Conta",
     };
   });
-
 
 // ============================================================
 // retryFailedPlacementFn — reenfileira SOMENTE o destino com falha
@@ -415,7 +391,9 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
     // 1) Placement pertence ao post/marca e está em falha
     const { data: pl, error: plErr } = await supabase
       .from("post_placements")
-      .select("id, post_id, brand_id, client_id, format, status, connection_id, media, copy_override")
+      .select(
+        "id, post_id, brand_id, client_id, format, status, connection_id, media, copy_override",
+      )
       .eq("id", data.placementId)
       .eq("post_id", data.postId)
       .eq("brand_id", data.brandId)
@@ -432,7 +410,9 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
     // 2) Não pode existir publicação bem-sucedida nem item ativo para o destino
     const { data: queue, error: qErr } = await supabase
       .from("social_posts")
-      .select("id, status, placement, caption, hashtags, media, location_id, provider, publish_locked_at")
+      .select(
+        "id, status, placement, caption, hashtags, media, location_id, provider, publish_locked_at",
+      )
       .eq("post_id", data.postId)
       .eq("brand_id", data.brandId)
       .eq("connection_id", pl.connection_id);
@@ -443,29 +423,22 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
     }
     if (
       mine.some(
-        (r) =>
-          r.status === "scheduled" ||
-          r.status === "publishing" ||
-          !!r.publish_locked_at,
+        (r) => r.status === "scheduled" || r.status === "publishing" || !!r.publish_locked_at,
       )
     ) {
       throw new Error("Já existe uma republicação em andamento para este destino.");
     }
     const failedRow =
-      mine.find((r) => r.status === "failed") ??
-      mine.find((r) => r.status === "blocked");
+      mine.find((r) => r.status === "failed") ?? mine.find((r) => r.status === "blocked");
     const retryableStatuses = ["failed", "connection_required", "authorization_required"];
     if (!failedRow && !retryableStatuses.includes(pl.status as string)) {
       throw new Error("Este destino não está em falha.");
     }
 
-
     // 3) Conexão ativa, do canal certo e vinculada ao cliente
     const { data: conn, error: cErr } = await supabase
       .from("social_connections")
-      .select(
-        "id, channel, provider, status, external_id, account_id, access_token_ciphertext",
-      )
+      .select("id, channel, provider, status, external_id, account_id, access_token_ciphertext")
       .eq("id", pl.connection_id)
       .eq("brand_id", data.brandId)
       .maybeSingle();
@@ -500,9 +473,12 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
     }
 
     // 4) Mídia: reaproveita exatamente a mesma da tentativa anterior
-    const prevMedia = (failedRow?.media ?? null) as
-      | { storagePath?: string; link?: string; imageUrl?: string; videoUrl?: string }
-      | null;
+    const prevMedia = (failedRow?.media ?? null) as {
+      storagePath?: string;
+      link?: string;
+      imageUrl?: string;
+      videoUrl?: string;
+    } | null;
     let storagePath: string | null = prevMedia?.storagePath ?? null;
     if (!storagePath) {
       const arr = Array.isArray(pl.media) ? (pl.media as Array<{ storagePath?: string }>) : [];
@@ -535,9 +511,7 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
     // 5) Pré-flight completo de capacidade (cadeia + granular scope do target).
     //    Bloqueia ANTES de reenfileirar, sem consumir tentativa do worker.
     if (conn.provider === "meta") {
-      const { resolvePublishTarget } = await import(
-        "@/lib/meta/publish-capability.server"
-      );
+      const { resolvePublishTarget } = await import("@/lib/meta/publish-capability.server");
       const { capability } = await resolvePublishTarget(supabase, {
         brandId: data.brandId,
         clientId: clientId ?? null,
@@ -547,7 +521,6 @@ export const retryFailedPlacementFn = createServerFn({ method: "POST" })
       });
       if (!capability.publishReady) throw new Error(capability.message);
     }
-
 
     // 6) Caption/hashtags: reaproveita a tentativa anterior; senão deriva do post
     let caption: string | null = (failedRow?.caption as string | null) ?? null;

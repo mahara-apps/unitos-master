@@ -115,7 +115,12 @@ async function loadLatestProposal(supabase: SupabaseClient, scope: Scope, reques
     .limit(1)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return (data ?? null) as { id: string; payload: Record<string, unknown>; note: string | null; created_at: string } | null;
+  return (data ?? null) as {
+    id: string;
+    payload: Record<string, unknown>;
+    note: string | null;
+    created_at: string;
+  } | null;
 }
 
 async function loadHub(supabase: SupabaseClient, scope: Scope): Promise<Record<string, unknown>> {
@@ -126,7 +131,10 @@ async function loadHub(supabase: SupabaseClient, scope: Scope): Promise<Record<s
     .eq("brand_id", scope.brandId)
     .maybeSingle();
   if (error) throw new Error(error.message);
-  return ((data as { brand_hub?: Record<string, unknown> } | null)?.brand_hub ?? {}) as Record<string, unknown>;
+  return ((data as { brand_hub?: Record<string, unknown> } | null)?.brand_hub ?? {}) as Record<
+    string,
+    unknown
+  >;
 }
 
 /** Comparação campo a campo: briefing atual × proposta do cliente. */
@@ -146,7 +154,8 @@ export async function buildBriefingReviewDiff(
 
   const fields: BriefingFieldDiff[] = requestedFields.map((key) => {
     const current = normalize(hub[key]);
-    const answered = Object.prototype.hasOwnProperty.call(payload, key) && !isEmpty(normalize(payload[key]));
+    const answered =
+      Object.prototype.hasOwnProperty.call(payload, key) && !isEmpty(normalize(payload[key]));
     const proposed = answered ? normalize(payload[key]) : null;
     return {
       key,

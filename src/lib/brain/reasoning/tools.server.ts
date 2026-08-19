@@ -50,7 +50,7 @@ async function runTool(
 ): Promise<Omit<ToolResult, "ms">> {
   const brandId = ctx.brandId ?? null;
   const scope = <T>(qb: T): T =>
-    brandId ? (((qb as unknown) as { eq: (c: string, v: string) => T }).eq("brand_id", brandId)) : qb;
+    brandId ? (qb as unknown as { eq: (c: string, v: string) => T }).eq("brand_id", brandId) : qb;
 
   switch (step.tool) {
     case "tasks.overdue": {
@@ -106,7 +106,13 @@ async function runTool(
           .limit(10),
       );
       if (error) throw error;
-      return { tool: step.tool, ok: true, count: data?.length ?? 0, summary: `${data?.length ?? 0} tarefa(s) recentes.`, data: data ?? [] };
+      return {
+        tool: step.tool,
+        ok: true,
+        count: data?.length ?? 0,
+        summary: `${data?.length ?? 0} tarefa(s) recentes.`,
+        data: data ?? [],
+      };
     }
     case "projects.list": {
       const { data, error } = await scope(
@@ -117,7 +123,13 @@ async function runTool(
           .limit(20),
       );
       if (error) throw error;
-      return { tool: step.tool, ok: true, count: data?.length ?? 0, summary: `${data?.length ?? 0} projeto(s) ativos.`, data: data ?? [] };
+      return {
+        tool: step.tool,
+        ok: true,
+        count: data?.length ?? 0,
+        summary: `${data?.length ?? 0} projeto(s) ativos.`,
+        data: data ?? [],
+      };
     }
     case "projects.status": {
       const { data, error } = await scope(supabase.from("projects").select("status"));
@@ -127,7 +139,9 @@ async function runTool(
         const s = (r as { status?: string | null }).status ?? "desconhecido";
         buckets[s] = (buckets[s] ?? 0) + 1;
       }
-      const parts = Object.entries(buckets).map(([k, v]) => `${v} ${k}`).join(", ");
+      const parts = Object.entries(buckets)
+        .map(([k, v]) => `${v} ${k}`)
+        .join(", ");
       return { tool: step.tool, ok: true, summary: parts || "Sem projetos.", data: buckets };
     }
     case "content.upcoming": {
@@ -141,17 +155,27 @@ async function runTool(
           .limit(10),
       );
       if (error) throw error;
-      return { tool: step.tool, ok: true, count: data?.length ?? 0, summary: `${data?.length ?? 0} publicação(ões) agendada(s).`, data: data ?? [] };
+      return {
+        tool: step.tool,
+        ok: true,
+        count: data?.length ?? 0,
+        summary: `${data?.length ?? 0} publicação(ões) agendada(s).`,
+        data: data ?? [],
+      };
     }
     case "content.stage_counts": {
-      const { data, error } = await scope(supabase.from("posts").select("stage").is("deleted_at", null));
+      const { data, error } = await scope(
+        supabase.from("posts").select("stage").is("deleted_at", null),
+      );
       if (error) throw error;
       const buckets: Record<string, number> = {};
       for (const r of data ?? []) {
         const s = (r as { stage?: string | null }).stage ?? "sem estágio";
         buckets[s] = (buckets[s] ?? 0) + 1;
       }
-      const parts = Object.entries(buckets).map(([k, v]) => `${v} em ${k}`).join(", ");
+      const parts = Object.entries(buckets)
+        .map(([k, v]) => `${v} em ${k}`)
+        .join(", ");
       return { tool: step.tool, ok: true, summary: parts || "Sem posts.", data: buckets };
     }
     case "clients.list": {
@@ -159,13 +183,29 @@ async function runTool(
         supabase.from("clients").select("id,name,niche,is_active,archived_at").limit(50),
       );
       if (error) throw error;
-      const active = (data ?? []).filter((c) => (c as { is_active?: boolean }).is_active && !(c as { archived_at?: string | null }).archived_at);
-      return { tool: step.tool, ok: true, count: active.length, summary: `${active.length} cliente(s) ativo(s).`, data: active };
+      const active = (data ?? []).filter(
+        (c) =>
+          (c as { is_active?: boolean }).is_active &&
+          !(c as { archived_at?: string | null }).archived_at,
+      );
+      return {
+        tool: step.tool,
+        ok: true,
+        count: active.length,
+        summary: `${active.length} cliente(s) ativo(s).`,
+        data: active,
+      };
     }
     case "clients.summary": {
       const { data, error } = await scope(supabase.from("clients").select("id,name").limit(20));
       if (error) throw error;
-      return { tool: step.tool, ok: true, count: data?.length ?? 0, summary: `${data?.length ?? 0} cliente(s).`, data: data ?? [] };
+      return {
+        tool: step.tool,
+        ok: true,
+        count: data?.length ?? 0,
+        summary: `${data?.length ?? 0} cliente(s).`,
+        data: data ?? [],
+      };
     }
     case "calendar.upcoming": {
       const nowIso = new Date().toISOString();
@@ -201,20 +241,40 @@ async function runTool(
     }
     case "analytics.stats": {
       const stats = await query.stats(ctx);
-      const parts = Object.entries(stats).map(([k, v]) => `${v} ${k}`).join(" · ");
+      const parts = Object.entries(stats)
+        .map(([k, v]) => `${v} ${k}`)
+        .join(" · ");
       return { tool: step.tool, ok: true, summary: parts || "Sem estatísticas.", data: stats };
     }
     case "brain.memory": {
       const rows = await memory.list(ctx, { limit: 8 });
-      return { tool: step.tool, ok: true, count: rows.length, summary: `${rows.length} memória(s) recuperada(s).`, data: rows };
+      return {
+        tool: step.tool,
+        ok: true,
+        count: rows.length,
+        summary: `${rows.length} memória(s) recuperada(s).`,
+        data: rows,
+      };
     }
     case "brain.insights": {
       const rows = await insights.list(ctx, { limit: 8 });
-      return { tool: step.tool, ok: true, count: rows.length, summary: `${rows.length} insight(s) ativo(s).`, data: rows };
+      return {
+        tool: step.tool,
+        ok: true,
+        count: rows.length,
+        summary: `${rows.length} insight(s) ativo(s).`,
+        data: rows,
+      };
     }
     case "brain.recommendations": {
       const rows = await recommendations.list(ctx, { limit: 8 });
-      return { tool: step.tool, ok: true, count: rows.length, summary: `${rows.length} recomendação(ões) ativa(s).`, data: rows };
+      return {
+        tool: step.tool,
+        ok: true,
+        count: rows.length,
+        summary: `${rows.length} recomendação(ões) ativa(s).`,
+        data: rows,
+      };
     }
     case "brain.semantic": {
       const q = (step.args?.query as string) ?? "";

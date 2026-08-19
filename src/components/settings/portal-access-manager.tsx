@@ -3,32 +3,58 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
-  Copy, ExternalLink, Link2, Loader2, MoreHorizontal, Plus, RotateCcw, Search, ShieldOff, Trash2,
+  Copy,
+  ExternalLink,
+  Link2,
+  Loader2,
+  MoreHorizontal,
+  Plus,
+  RotateCcw,
+  Search,
+  ShieldOff,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Card, CardContent, CardDescription, CardHeader, CardTitle,
-} from "@/components/ui/card";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
-  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ExpandedModal } from "@/components/ui/expanded-modal";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { StatusBadge, fmtDate, fmtDateTime } from "@/components/settings/team-shared";
 import {
-  createPortalAccessFn, deletePortalAccessFn, listPortalAccessesFn, reactivatePortalAccessFn,
-  revokePortalAccessFn, updatePortalAccessFn, type PortalAccess,
+  createPortalAccessFn,
+  deletePortalAccessFn,
+  listPortalAccessesFn,
+  reactivatePortalAccessFn,
+  revokePortalAccessFn,
+  updatePortalAccessFn,
+  type PortalAccess,
 } from "@/lib/team-admin.functions";
 
 type Filter = "all" | "active" | "pending" | "expired" | "revoked";
@@ -94,10 +120,15 @@ export function PortalAccessManager({ brandId }: { brandId: string }) {
         <div>
           <CardTitle className="text-base">Acessos do portal do cliente</CardTitle>
           <CardDescription>
-            Links white-label por cliente. Cada cliente mantém um único acesso ativo; o histórico fica disponível nos filtros.
+            Links white-label por cliente. Cada cliente mantém um único acesso ativo; o histórico
+            fica disponível nos filtros.
           </CardDescription>
         </div>
-        <Button size="sm" onClick={() => setCreateOpen(true)} disabled={(data?.clients ?? []).length === 0}>
+        <Button
+          size="sm"
+          onClick={() => setCreateOpen(true)}
+          disabled={(data?.clients ?? []).length === 0}
+        >
           <Plus className="mr-2 h-4 w-4" />
           Novo acesso do portal
         </Button>
@@ -145,7 +176,9 @@ export function PortalAccessManager({ brandId }: { brandId: string }) {
 
         {isLoading ? (
           <div className="space-y-2 px-6 pb-6">
-            {[0, 1, 2].map((i) => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-14 w-full rounded-lg" />
+            ))}
           </div>
         ) : isError ? (
           <div className="px-6 pb-6 text-sm text-destructive">
@@ -177,7 +210,13 @@ export function PortalAccessManager({ brandId }: { brandId: string }) {
         onOpenChange={setCreateOpen}
         brandId={brandId}
         clients={data?.clients ?? []}
-        activeByClient={new Set(accesses.filter((a) => a.status !== "revoked" && a.status !== "expired").map((a) => a.clientId))}
+        activeByClient={
+          new Set(
+            accesses
+              .filter((a) => a.status !== "revoked" && a.status !== "expired")
+              .map((a) => a.clientId),
+          )
+        }
         onDone={invalidate}
       />
       {editing && (
@@ -195,7 +234,10 @@ export function PortalAccessManager({ brandId }: { brandId: string }) {
 }
 
 function AccessRow({
-  brandId, access, onEdit, onChanged,
+  brandId,
+  access,
+  onEdit,
+  onChanged,
 }: {
   brandId: string;
   access: PortalAccess;
@@ -212,17 +254,28 @@ function AccessRow({
 
   const revokeMut = useMutation({
     mutationFn: () => revoke({ data: { brandId, tokenId: access.id } }),
-    onSuccess: () => { toast.success("Acesso revogado. O link deixou de funcionar."); setConfirm(null); onChanged(); },
+    onSuccess: () => {
+      toast.success("Acesso revogado. O link deixou de funcionar.");
+      setConfirm(null);
+      onChanged();
+    },
     onError: (e: Error) => toast.error("Falha ao revogar", { description: e.message }),
   });
   const reactivateMut = useMutation({
     mutationFn: () => reactivate({ data: { brandId, tokenId: access.id } }),
-    onSuccess: () => { toast.success("Acesso reativado."); onChanged(); },
+    onSuccess: () => {
+      toast.success("Acesso reativado.");
+      onChanged();
+    },
     onError: (e: Error) => toast.error("Falha ao reativar", { description: e.message }),
   });
   const deleteMut = useMutation({
     mutationFn: () => del({ data: { brandId, tokenId: access.id } }),
-    onSuccess: () => { toast.success("Registro de acesso excluído."); setConfirm(null); onChanged(); },
+    onSuccess: () => {
+      toast.success("Registro de acesso excluído.");
+      setConfirm(null);
+      onChanged();
+    },
     onError: (e: Error) => toast.error("Falha ao excluir", { description: e.message }),
   });
 
@@ -232,7 +285,11 @@ function AccessRow({
         <div className="flex items-center gap-2">
           <Link2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <span className="truncate text-sm font-medium">{access.clientName}</span>
-          {access.status === "active" && <Badge variant="secondary" className="text-[10px]">Link vigente</Badge>}
+          {access.status === "active" && (
+            <Badge variant="secondary" className="text-[10px]">
+              Link vigente
+            </Badge>
+          )}
         </div>
         <div className="mt-0.5 truncate text-xs text-muted-foreground">
           {access.label || "Portal do cliente"}
@@ -244,12 +301,18 @@ function AccessRow({
           <span>{access.expiresAt ? `Expira ${fmtDate(access.expiresAt)}` : "Sem expiração"}</span>
         </div>
       </div>
-      <div className="hidden lg:block"><StatusBadge status={access.status} /></div>
-      <div className="hidden text-xs text-muted-foreground lg:block">{fmtDate(access.createdAt)}</div>
+      <div className="hidden lg:block">
+        <StatusBadge status={access.status} />
+      </div>
+      <div className="hidden text-xs text-muted-foreground lg:block">
+        {fmtDate(access.createdAt)}
+      </div>
       <div className="hidden text-xs text-muted-foreground lg:block">
         {access.expiresAt ? fmtDate(access.expiresAt) : "—"}
       </div>
-      <div className="hidden text-xs text-muted-foreground lg:block">{fmtDateTime(access.lastSeenAt)}</div>
+      <div className="hidden text-xs text-muted-foreground lg:block">
+        {fmtDateTime(access.lastSeenAt)}
+      </div>
 
       <div className="flex justify-end">
         <DropdownMenu>
@@ -262,19 +325,30 @@ function AccessRow({
             <DropdownMenuItem onClick={onEdit}>Editar rótulo e expiração</DropdownMenuItem>
             <DropdownMenuItem
               disabled={isRevoked}
-              onClick={() => { navigator.clipboard.writeText(link); toast.success("Link copiado."); }}
+              onClick={() => {
+                navigator.clipboard.writeText(link);
+                toast.success("Link copiado.");
+              }}
             >
               <Copy className="mr-2 h-3.5 w-3.5" /> Copiar link
             </DropdownMenuItem>
-            <DropdownMenuItem disabled={isRevoked} onClick={() => window.open(link, "_blank", "noreferrer")}>
+            <DropdownMenuItem
+              disabled={isRevoked}
+              onClick={() => window.open(link, "_blank", "noreferrer")}
+            >
               <ExternalLink className="mr-2 h-3.5 w-3.5" /> Abrir portal
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {isRevoked ? (
-              <DropdownMenuItem disabled={reactivateMut.isPending} onClick={() => reactivateMut.mutate()}>
-                {reactivateMut.isPending
-                  ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                  : <RotateCcw className="mr-2 h-3.5 w-3.5" />}
+              <DropdownMenuItem
+                disabled={reactivateMut.isPending}
+                onClick={() => reactivateMut.mutate()}
+              >
+                {reactivateMut.isPending ? (
+                  <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <RotateCcw className="mr-2 h-3.5 w-3.5" />
+                )}
                 Reativar acesso
               </DropdownMenuItem>
             ) : (
@@ -298,13 +372,14 @@ function AccessRow({
                 {confirm === "delete" ? (
                   <>
                     O registro do link <strong>{access.label || "Portal do cliente"}</strong> de{" "}
-                    <strong>{access.clientName}</strong> será apagado definitivamente, junto com seu histórico de
-                    último acesso. Esta ação não pode ser desfeita.
+                    <strong>{access.clientName}</strong> será apagado definitivamente, junto com seu
+                    histórico de último acesso. Esta ação não pode ser desfeita.
                   </>
                 ) : (
                   <>
-                    O link do portal de <strong>{access.clientName}</strong> deixa de conceder acesso imediatamente.
-                    Quem estiver com o link recebe erro na próxima abertura. Você pode reativá-lo depois ou emitir um novo.
+                    O link do portal de <strong>{access.clientName}</strong> deixa de conceder
+                    acesso imediatamente. Quem estiver com o link recebe erro na próxima abertura.
+                    Você pode reativá-lo depois ou emitir um novo.
                   </>
                 )}
               </AlertDialogDescription>
@@ -319,7 +394,9 @@ function AccessRow({
                   else revokeMut.mutate();
                 }}
               >
-                {(deleteMut.isPending || revokeMut.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {(deleteMut.isPending || revokeMut.isPending) && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
                 {confirm === "delete" ? "Excluir definitivamente" : "Revogar agora"}
               </AlertDialogAction>
             </AlertDialogFooter>
@@ -331,7 +408,12 @@ function AccessRow({
 }
 
 function CreateAccessModal({
-  open, onOpenChange, brandId, clients, activeByClient, onDone,
+  open,
+  onOpenChange,
+  brandId,
+  clients,
+  activeByClient,
+  onDone,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -389,7 +471,9 @@ function CreateAccessModal({
           </div>
         ) : (
           <div className="flex w-full items-center justify-end gap-2">
-            <Button variant="ghost" onClick={close}>Cancelar</Button>
+            <Button variant="ghost" onClick={close}>
+              Cancelar
+            </Button>
             <Button
               onClick={() => mut.mutate()}
               disabled={!clientId || mut.isPending || (hasActive && !replaceActive)}
@@ -411,7 +495,10 @@ function CreateAccessModal({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => { navigator.clipboard.writeText(issued); toast.success("Link copiado."); }}
+              onClick={() => {
+                navigator.clipboard.writeText(issued);
+                toast.success("Link copiado.");
+              }}
             >
               <Copy className="mr-2 h-3.5 w-3.5" /> Copiar link
             </Button>
@@ -421,11 +508,14 @@ function CreateAccessModal({
             <div className="space-y-1.5">
               <Label className="text-xs">Cliente</Label>
               <Select value={clientId} onValueChange={setClientId}>
-                <SelectTrigger><SelectValue placeholder="Selecione o cliente" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o cliente" />
+                </SelectTrigger>
                 <SelectContent>
                   {clients.map((c) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.name}{activeByClient.has(c.id) ? " · já tem acesso ativo" : ""}
+                      {c.name}
+                      {activeByClient.has(c.id) ? " · já tem acesso ativo" : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -433,15 +523,23 @@ function CreateAccessModal({
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Rótulo</Label>
-              <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Portal do cliente" />
+              <Input
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder="Portal do cliente"
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Expiração</Label>
               <Select value={expiry} onValueChange={setExpiry}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {EXPIRY_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -455,8 +553,9 @@ function CreateAccessModal({
                   onChange={(e) => setReplaceActive(e.target.checked)}
                 />
                 <span>
-                  Este cliente já tem um acesso ativo. Marque para <strong>revogar o link atual</strong> e substituí-lo
-                  pelo novo — o link antigo para de funcionar imediatamente.
+                  Este cliente já tem um acesso ativo. Marque para{" "}
+                  <strong>revogar o link atual</strong> e substituí-lo pelo novo — o link antigo
+                  para de funcionar imediatamente.
                 </span>
               </label>
             )}
@@ -468,7 +567,11 @@ function CreateAccessModal({
 }
 
 function EditAccessModal({
-  open, onOpenChange, brandId, access, onDone,
+  open,
+  onOpenChange,
+  brandId,
+  access,
+  onDone,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -487,10 +590,16 @@ function EditAccessModal({
           brandId,
           tokenId: access.id,
           label: label.trim() || "Portal do cliente",
-          ...(expiry === "keep" ? {} : { expiresInDays: expiry === "never" ? null : Number(expiry) }),
+          ...(expiry === "keep"
+            ? {}
+            : { expiresInDays: expiry === "never" ? null : Number(expiry) }),
         },
       }),
-    onSuccess: () => { toast.success("Acesso atualizado."); onDone(); onOpenChange(false); },
+    onSuccess: () => {
+      toast.success("Acesso atualizado.");
+      onDone();
+      onOpenChange(false);
+    },
     onError: (e: Error) => toast.error("Falha ao salvar", { description: e.message }),
   });
 
@@ -503,7 +612,9 @@ function EditAccessModal({
       description={`${access.clientName} · criado em ${fmtDate(access.createdAt)}`}
       footer={
         <div className="flex w-full items-center justify-end gap-2">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+            Cancelar
+          </Button>
           <Button onClick={() => mut.mutate()} disabled={mut.isPending}>
             {mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Salvar
@@ -519,19 +630,24 @@ function EditAccessModal({
         <div className="space-y-1.5">
           <Label className="text-xs">Expiração</Label>
           <Select value={expiry} onValueChange={setExpiry}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="keep">
                 Manter atual ({access.expiresAt ? fmtDate(access.expiresAt) : "sem expiração"})
               </SelectItem>
               {EXPIRY_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2.5 text-xs text-muted-foreground">
-          Status atual: <StatusBadge status={access.status} /> · último acesso {fmtDateTime(access.lastSeenAt)}
+          Status atual: <StatusBadge status={access.status} /> · último acesso{" "}
+          {fmtDateTime(access.lastSeenAt)}
         </div>
       </div>
     </ExpandedModal>

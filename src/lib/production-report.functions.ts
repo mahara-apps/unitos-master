@@ -71,7 +71,10 @@ export const listProductionReportFn = createServerFn({ method: "POST" })
     }>;
 
     // Estágio efetivo vem de `stage_id` (coluna real do pipeline).
-    const stageMap = await loadStageMap(context.supabase, list.map((p) => p.stage_id));
+    const stageMap = await loadStageMap(
+      context.supabase,
+      list.map((p) => p.stage_id),
+    );
 
     const byChannel: Record<string, number> = {};
     let publishedCount = 0;

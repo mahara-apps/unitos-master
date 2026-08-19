@@ -37,12 +37,7 @@ export function describeError(err: unknown): string {
     }
   }
 
-  const raw =
-    err instanceof Error
-      ? err.message
-      : typeof err === "string"
-        ? err
-        : "";
+  const raw = err instanceof Error ? err.message : typeof err === "string" ? err : "";
 
   if (!raw) return "Ocorreu um erro inesperado.";
 
@@ -87,7 +82,6 @@ export function describeError(err: unknown): string {
     return "O provedor configurado não oferece um modelo para esta função. Ajuste o provedor em Conexões.";
   }
 
-
   // Erros comuns do PostgREST / Supabase
   if (lower.includes("row-level security") || lower.includes("permission denied")) {
     return "Você não tem permissão para executar esta ação.";
@@ -129,7 +123,10 @@ export function describeError(err: unknown): string {
  * Extrai a mensagem legível da resposta de uma rota de API.
  * Aceita corpo JSON (`{ message }` / `{ error }`) ou texto puro.
  */
-export async function readApiError(res: Response, fallback = "Não foi possível concluir a operação."): Promise<string> {
+export async function readApiError(
+  res: Response,
+  fallback = "Não foi possível concluir a operação.",
+): Promise<string> {
   const raw = await res.text().catch(() => "");
   if (!raw) return fallback;
   try {

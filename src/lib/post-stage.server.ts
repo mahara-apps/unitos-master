@@ -44,9 +44,8 @@ export function deriveLegacyStage(
   stage: StageShape | null | undefined,
   current: LegacyPostStage | string | null | undefined,
 ): LegacyPostStage | null {
-  const fallback = (current && ENUM_KEYS.has(current as LegacyPostStage)
-    ? (current as LegacyPostStage)
-    : null);
+  const fallback =
+    current && ENUM_KEYS.has(current as LegacyPostStage) ? (current as LegacyPostStage) : null;
   if (!stage) return fallback;
   const key = (stage.key ?? "").toLowerCase() as LegacyPostStage;
   if (ENUM_KEYS.has(key)) return key;
@@ -92,14 +91,17 @@ export async function resolveStageIdByKey(
     .from("content_pipeline_stages")
     .select("id, key, is_terminal")
     .eq("pipeline_id", pipelineId);
-  const rows = (data ?? []) as Array<{ id: string; key: string | null; is_terminal: boolean | null }>;
+  const rows = (data ?? []) as Array<{
+    id: string;
+    key: string | null;
+    is_terminal: boolean | null;
+  }>;
   for (const key of keys) {
     const hit = rows.find((r) => (r.key ?? "").toLowerCase() === key.toLowerCase());
     if (hit) return hit.id;
   }
   return null;
 }
-
 
 /**
  * Mapa `stage_id -> {key, is_terminal}` para um conjunto de peças.
@@ -117,7 +119,11 @@ export async function loadStageMap(
     .from("content_pipeline_stages")
     .select("id, key, is_terminal")
     .in("id", ids);
-  for (const r of (data ?? []) as Array<{ id: string; key: string | null; is_terminal: boolean | null }>) {
+  for (const r of (data ?? []) as Array<{
+    id: string;
+    key: string | null;
+    is_terminal: boolean | null;
+  }>) {
     out.set(r.id, { key: (r.key ?? "").toLowerCase(), is_terminal: !!r.is_terminal });
   }
   return out;

@@ -52,20 +52,28 @@ export const listClientDocumentsAi = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => Scope.parse(i))
   .handler(async ({ data, context }): Promise<ClientDocumentAi[]> => {
-    const { data: rows, error } = await (context.supabase as unknown as {
-      from: (t: string) => {
-        select: (c: string) => {
-          eq: (k: string, v: string) => {
-            eq: (k: string, v: string) => {
-              order: (
-                c: string,
-                o: { ascending: boolean },
-              ) => Promise<{ data: ClientDocumentAi[] | null; error: unknown }>;
+    const { data: rows, error } = await (
+      context.supabase as unknown as {
+        from: (t: string) => {
+          select: (c: string) => {
+            eq: (
+              k: string,
+              v: string,
+            ) => {
+              eq: (
+                k: string,
+                v: string,
+              ) => {
+                order: (
+                  c: string,
+                  o: { ascending: boolean },
+                ) => Promise<{ data: ClientDocumentAi[] | null; error: unknown }>;
+              };
             };
           };
         };
-      };
-    })
+      }
+    )
       .from("client_documents")
       .select(
         "id, name, storage_path, mime_type, size_bytes, created_at, ai_status, ai_model, ai_error, analyzed_at, applied_to_briefing_at, ai_summary, visible_to_client",
@@ -96,8 +104,6 @@ export const setClientDocumentVisibility = createServerFn({ method: "POST" })
     if (error) throw error as Error;
     return { ok: true, visible: data.visible };
   });
-
-
 
 const ApplyInput = Scope.extend({
   documentId: z.string().uuid(),
@@ -130,19 +136,33 @@ export const applyDocumentToBriefing = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => ApplyInput.parse(i))
   .handler(async ({ data, context }) => {
-    const { data: doc, error: docErr } = await (context.supabase as unknown as {
-      from: (t: string) => {
-        select: (c: string) => {
-          eq: (k: string, v: string) => {
-            eq: (k: string, v: string) => {
-              eq: (k: string, v: string) => {
-                maybeSingle: () => Promise<{ data: { ai_summary: ClientDocumentAi["ai_summary"] } | null; error: unknown }>;
+    const { data: doc, error: docErr } = await (
+      context.supabase as unknown as {
+        from: (t: string) => {
+          select: (c: string) => {
+            eq: (
+              k: string,
+              v: string,
+            ) => {
+              eq: (
+                k: string,
+                v: string,
+              ) => {
+                eq: (
+                  k: string,
+                  v: string,
+                ) => {
+                  maybeSingle: () => Promise<{
+                    data: { ai_summary: ClientDocumentAi["ai_summary"] } | null;
+                    error: unknown;
+                  }>;
+                };
               };
             };
           };
         };
-      };
-    })
+      }
+    )
       .from("client_documents")
       .select("ai_summary")
       .eq("id", data.documentId)
@@ -178,13 +198,15 @@ export const applyDocumentToBriefing = createServerFn({ method: "POST" })
       origin: "document",
     });
 
-    await (context.supabase as unknown as {
-      from: (t: string) => {
-        update: (v: unknown) => {
-          eq: (k: string, v: string) => Promise<unknown>;
+    await (
+      context.supabase as unknown as {
+        from: (t: string) => {
+          update: (v: unknown) => {
+            eq: (k: string, v: string) => Promise<unknown>;
+          };
         };
-      };
-    })
+      }
+    )
       .from("client_documents")
       .update({ applied_to_briefing_at: new Date().toISOString() })
       .eq("id", data.documentId);

@@ -38,7 +38,11 @@ type ErrLike = {
  * causa real: o SDK descarta o erro do provedor na mensagem, mas o mantém em
  * `cause` (e às vezes em `responseBody`/`data`).
  */
-export function unwrapAiError(err: unknown): { text: string; status?: number; hadNoOutput: boolean } {
+export function unwrapAiError(err: unknown): {
+  text: string;
+  status?: number;
+  hadNoOutput: boolean;
+} {
   const parts: string[] = [];
   let status: number | undefined;
   let hadNoOutput = false;

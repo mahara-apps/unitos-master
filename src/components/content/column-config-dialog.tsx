@@ -155,7 +155,9 @@ export function ColumnConfigDialog({
 
           {canEdit ? (
             <div>
-              <Button variant="outline" size="sm" className="h-9" onClick={addColumn}>+ Adicionar coluna</Button>
+              <Button variant="outline" size="sm" className="h-9" onClick={addColumn}>
+                + Adicionar coluna
+              </Button>
             </div>
           ) : (
             <p className="text-xs text-muted-foreground">
@@ -165,8 +167,14 @@ export function ColumnConfigDialog({
         </div>
 
         <DialogFooter className="border-t border-border/60 px-6 py-4">
-          <Button variant="ghost" className="h-9" onClick={() => onOpenChange(false)}>Fechar</Button>
-          <Button className="h-9" onClick={() => save.mutate()} disabled={!canEdit || !dirty || save.isPending}>
+          <Button variant="ghost" className="h-9" onClick={() => onOpenChange(false)}>
+            Fechar
+          </Button>
+          <Button
+            className="h-9"
+            onClick={() => save.mutate()}
+            disabled={!canEdit || !dirty || save.isPending}
+          >
             {save.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Salvar ordem
           </Button>
@@ -203,8 +211,9 @@ function SortableRow({
   onPatch: (patch: Partial<PipelineStage>) => void;
   onDelete: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: stage.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: stage.id,
+  });
   const [label, setLabel] = useState(stage.label);
   const initialHours =
     stage.sla_hours != null
@@ -232,11 +241,7 @@ function SortableRow({
   };
 
   return (
-    <DashboardPanelSurface
-      ref={setNodeRef}
-      style={style}
-      className="space-y-3 p-3"
-    >
+    <DashboardPanelSurface ref={setNodeRef} style={style} className="space-y-3 p-3">
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -267,12 +272,20 @@ function SortableRow({
               onClick={() => onPatch({ color: c as StageColor })}
               aria-label={c}
               className={`h-5 w-5 rounded-full ${STAGE_BG[c]} ${
-                stage.color === c ? "ring-2 ring-foreground ring-offset-1 ring-offset-background" : ""
+                stage.color === c
+                  ? "ring-2 ring-foreground ring-offset-1 ring-offset-background"
+                  : ""
               }`}
             />
           ))}
         </div>
-        <Button size="icon" variant="ghost" disabled={!canEdit} onClick={onDelete} className="h-9 w-9 text-destructive">
+        <Button
+          size="icon"
+          variant="ghost"
+          disabled={!canEdit}
+          onClick={onDelete}
+          className="h-9 w-9 text-destructive"
+        >
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
@@ -280,9 +293,13 @@ function SortableRow({
       <div className="grid gap-3 md:grid-cols-3 pl-6">
         <div className="space-y-1">
           <div className="flex items-center justify-between gap-2">
-            <Label className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">SLA (horas)</Label>
+            <Label className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground">
+              SLA (horas)
+            </Label>
             {sla.trim() !== "" && Number.isFinite(Number(sla)) && Number(sla) > 0 ? (
-              <span className="text-[10px] text-muted-foreground">{formatSlaHours(Number(sla))}</span>
+              <span className="text-[10px] text-muted-foreground">
+                {formatSlaHours(Number(sla))}
+              </span>
             ) : null}
           </div>
           <Input
@@ -308,7 +325,10 @@ function SortableRow({
                   type="button"
                   onClick={() => {
                     setSla(String(p.hours));
-                    onPatch({ sla_hours: p.hours, sla_days: Math.max(1, Math.round(p.hours / 24)) });
+                    onPatch({
+                      sla_hours: p.hours,
+                      sla_days: Math.max(1, Math.round(p.hours / 24)),
+                    });
                   }}
                   className="rounded-md border border-border/60 bg-background px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
                 >

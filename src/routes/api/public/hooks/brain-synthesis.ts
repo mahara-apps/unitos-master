@@ -9,9 +9,7 @@ export const Route = createFileRoute("/api/public/hooks/brain-synthesis")({
       POST: async ({ request }) => {
         const cronDenied = assertCronRequest(request);
         if (cronDenied) return cronDenied;
-        const { runBrainSynthesis } = await import(
-          "@/lib/brain/learning/synthesize.server"
-        );
+        const { runBrainSynthesis } = await import("@/lib/brain/learning/synthesize.server");
         try {
           const report = await runBrainSynthesis();
           return Response.json({ ok: true, report });

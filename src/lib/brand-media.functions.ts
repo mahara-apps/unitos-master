@@ -37,9 +37,7 @@ function classify(mime: string): "image" | "video" | "other" {
 }
 
 async function signPath(supabase: any, path: string): Promise<string | null> {
-  const { data, error } = await supabase.storage
-    .from("brand-media")
-    .createSignedUrl(path, 60 * 60);
+  const { data, error } = await supabase.storage.from("brand-media").createSignedUrl(path, 60 * 60);
   if (error) return null;
   return data?.signedUrl ?? null;
 }
@@ -119,7 +117,9 @@ export const registerBrandMediaFn = createServerFn({ method: "POST" })
         kind,
         tags: data.tags,
       })
-      .select("id, brand_id, client_id, storage_path, name, mime_type, size_bytes, kind, width, height, tags, created_at")
+      .select(
+        "id, brand_id, client_id, storage_path, name, mime_type, size_bytes, kind, width, height, tags, created_at",
+      )
       .single();
     if (error) throw new Error(error.message);
     return {
@@ -156,13 +156,8 @@ export const deleteBrandMediaFn = createServerFn({ method: "POST" })
       .maybeSingle();
     if (readErr) throw new Error(readErr.message);
     if (!row) throw new Error("Mídia não encontrada");
-    await context.supabase.storage
-      .from("brand-media")
-      .remove([row.storage_path]);
-    const { error } = await context.supabase
-      .from("brand_media_assets")
-      .delete()
-      .eq("id", data.id);
+    await context.supabase.storage.from("brand-media").remove([row.storage_path]);
+    const { error } = await context.supabase.from("brand_media_assets").delete().eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -170,7 +165,12 @@ export const deleteBrandMediaFn = createServerFn({ method: "POST" })
 const SignInput = z.object({
   brandId: z.string().uuid(),
   storagePath: z.string().min(3),
-  expiresIn: z.number().int().min(60).max(60 * 60 * 24).default(3600),
+  expiresIn: z
+    .number()
+    .int()
+    .min(60)
+    .max(60 * 60 * 24)
+    .default(3600),
 });
 
 /**

@@ -70,10 +70,7 @@ import { useAccessRole } from "@/hooks/use-access-role";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { DashboardPageShell } from "@/components/ui/dashboard-primitives";
 import { CustomerAvatar } from "@/components/customer/customer-avatar";
-import {
-  NewCustomerWizard,
-  CUSTOMER_SEGMENTS,
-} from "@/components/customer/new-customer-wizard";
+import { NewCustomerWizard, CUSTOMER_SEGMENTS } from "@/components/customer/new-customer-wizard";
 import { channelDef } from "@/components/connections/channel-meta";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { useActiveContext } from "@/hooks/use-active-context";
@@ -214,11 +211,16 @@ function CustomersIndexPage() {
       }
       if (segmentFilter !== ANY && (c.niche ?? "").trim() !== segmentFilter) return false;
       if (ownerFilter !== ANY) {
-        if (ownerFilter === "none" ? !!c.owner_user_id : c.owner_user_id !== ownerFilter) return false;
+        if (ownerFilter === "none" ? !!c.owner_user_id : c.owner_user_id !== ownerFilter)
+          return false;
       }
       if (channelFilter !== ANY) {
         const chans = channelsByClient[c.id] ?? [];
-        if (channelFilter === "none" ? chans.length > 0 : !chans.some((x) => x.channel === channelFilter))
+        if (
+          channelFilter === "none"
+            ? chans.length > 0
+            : !chans.some((x) => x.channel === channelFilter)
+        )
           return false;
       }
       return true;
@@ -232,7 +234,11 @@ function CustomersIndexPage() {
   ).length;
 
   const filtersOn =
-    !!q || statusFilter !== ANY || segmentFilter !== ANY || ownerFilter !== ANY || channelFilter !== ANY;
+    !!q ||
+    statusFilter !== ANY ||
+    segmentFilter !== ANY ||
+    ownerFilter !== ANY ||
+    channelFilter !== ANY;
   const clearFilters = () => {
     setQ("");
     setStatusFilter(ANY);
@@ -405,7 +411,6 @@ function CustomersIndexPage() {
                   : "Nenhum cliente atribuído a você. Peça a um administrador para definir você como responsável ou vincular você ao cliente."
             }
           />
-
         ) : (
           <Table>
             <TableHeader>
@@ -415,7 +420,9 @@ function CustomersIndexPage() {
                 <TableHead className="text-[10px] uppercase tracking-widest">Status</TableHead>
                 <TableHead className="text-[10px] uppercase tracking-widest">Responsável</TableHead>
                 <TableHead className="text-[10px] uppercase tracking-widest">Canais</TableHead>
-                <TableHead className="text-[10px] uppercase tracking-widest">Configuração</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-widest">
+                  Configuração
+                </TableHead>
                 <TableHead className="text-[10px] uppercase tracking-widest">
                   Última atividade
                 </TableHead>
@@ -665,8 +672,7 @@ function EditCustomerDialog({
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const set = (k: keyof typeof values, v: string | boolean) =>
-    setValues((s) => ({ ...s, [k]: v }));
+  const set = (k: keyof typeof values, v: string | boolean) => setValues((s) => ({ ...s, [k]: v }));
 
   const submit = () => {
     const parsed = EditSchema.safeParse(values);
@@ -709,7 +715,11 @@ function EditCustomerDialog({
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <Label className="text-xs">Nome da empresa *</Label>
-            <Input className="mt-1" value={values.name} onChange={(e) => set("name", e.target.value)} />
+            <Input
+              className="mt-1"
+              value={values.name}
+              onChange={(e) => set("name", e.target.value)}
+            />
             {errors.name ? <p className="mt-1 text-xs text-destructive">{errors.name}</p> : null}
           </div>
           <div>
@@ -722,7 +732,11 @@ function EditCustomerDialog({
           </div>
           <div>
             <Label className="text-xs">CNPJ</Label>
-            <Input className="mt-1" value={values.cnpj} onChange={(e) => set("cnpj", e.target.value)} />
+            <Input
+              className="mt-1"
+              value={values.cnpj}
+              onChange={(e) => set("cnpj", e.target.value)}
+            />
           </div>
           <div>
             <Label className="text-xs">Segmento *</Label>
@@ -760,7 +774,9 @@ function EditCustomerDialog({
               onChange={(e) => set("website", e.target.value)}
               placeholder="https://empresa.com"
             />
-            {errors.website ? <p className="mt-1 text-xs text-destructive">{errors.website}</p> : null}
+            {errors.website ? (
+              <p className="mt-1 text-xs text-destructive">{errors.website}</p>
+            ) : null}
           </div>
           <div className="sm:col-span-2">
             <Label className="text-xs">Descrição da empresa</Label>
@@ -799,10 +815,7 @@ function EditCustomerDialog({
           </div>
           <div>
             <Label className="text-xs">Responsável pela conta *</Label>
-            <Select
-              value={values.owner_user_id}
-              onValueChange={(v) => set("owner_user_id", v)}
-            >
+            <Select value={values.owner_user_id} onValueChange={(v) => set("owner_user_id", v)}>
               <SelectTrigger className="mt-1 h-9 text-xs">
                 <SelectValue placeholder="Selecionar responsável…" />
               </SelectTrigger>
@@ -824,10 +837,7 @@ function EditCustomerDialog({
               <span className="text-xs text-muted-foreground">
                 {values.is_active ? "Cliente ativo" : "Cliente inativo"}
               </span>
-              <Switch
-                checked={values.is_active}
-                onCheckedChange={(v) => set("is_active", v)}
-              />
+              <Switch checked={values.is_active} onCheckedChange={(v) => set("is_active", v)} />
             </div>
           </div>
         </div>

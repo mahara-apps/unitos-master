@@ -3,7 +3,16 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { Building2, Image as ImageIcon, Loader2, MapPin, Palette, Save, Trash2, Upload } from "lucide-react";
+import {
+  Building2,
+  Image as ImageIcon,
+  Loader2,
+  MapPin,
+  Palette,
+  Save,
+  Trash2,
+  Upload,
+} from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { updateBrandBranding } from "@/lib/branding.functions";
@@ -59,7 +68,8 @@ const SLOTS: SlotSpec[] = [
   {
     kind: "logo_dark",
     title: "Logo — tema escuro",
-    description: "Usada no sidebar em fundo escuro e nas telas de login/recuperação em modo escuro.",
+    description:
+      "Usada no sidebar em fundo escuro e nas telas de login/recuperação em modo escuro.",
     hint: "PNG ou SVG com fundo transparente • Dimensão ideal 480×120 px (proporção 4:1) • Mín. 240×60 • até 500 KB",
     minWidth: 240,
     minHeight: 60,
@@ -95,11 +105,42 @@ type CompanyState = {
   estado: string;
 };
 
-const UFS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
+const UFS = [
+  "AC",
+  "AL",
+  "AP",
+  "AM",
+  "BA",
+  "CE",
+  "DF",
+  "ES",
+  "GO",
+  "MA",
+  "MT",
+  "MS",
+  "MG",
+  "PA",
+  "PB",
+  "PR",
+  "PE",
+  "PI",
+  "RJ",
+  "RN",
+  "RS",
+  "RO",
+  "RR",
+  "SC",
+  "SP",
+  "SE",
+  "TO",
+];
 
 function IdentityPage() {
   const { brandId } = useActiveContext();
-  usePageHeader({ title: "Agência", subtitle: "Dados cadastrais e identidade visual da marca" }, []);
+  usePageHeader(
+    { title: "Agência", subtitle: "Dados cadastrais e identidade visual da marca" },
+    [],
+  );
 
   if (!brandId) {
     return (
@@ -128,8 +169,8 @@ function IdentityPage() {
             <div className="text-sm">
               <p className="font-medium">Identidade visual desta marca</p>
               <p className="text-muted-foreground">
-                Faça upload das versões clara e escura do seu logo, além de um ícone quadrado
-                para o sidebar colapsado e favicon. As trocas aparecem em segundos após o salvamento.
+                Faça upload das versões clara e escura do seu logo, além de um ícone quadrado para o
+                sidebar colapsado e favicon. As trocas aparecem em segundos após o salvamento.
               </p>
             </div>
           </div>
@@ -203,7 +244,8 @@ function CompanyPanel({ brandId, section }: { brandId: string; section: "company
       toast.success("Dados da marca atualizados");
       await qc.invalidateQueries({ queryKey: ["brand", "company", brandId] });
     },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Falha ao salvar dados da marca"),
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Falha ao salvar dados da marca"),
   });
 
   if (!company) {
@@ -229,23 +271,52 @@ function CompanyPanel({ brandId, section }: { brandId: string; section: "company
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="cpf">CPF</Label>
-            <Input id="cpf" value={company.cpf} onChange={(e) => setCompany({ ...company, cpf: e.target.value })} maxLength={20} placeholder="000.000.000-00" />
+            <Input
+              id="cpf"
+              value={company.cpf}
+              onChange={(e) => setCompany({ ...company, cpf: e.target.value })}
+              maxLength={20}
+              placeholder="000.000.000-00"
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="cnpj">CNPJ</Label>
-            <Input id="cnpj" value={company.cnpj} onChange={(e) => setCompany({ ...company, cnpj: e.target.value })} maxLength={20} placeholder="00.000.000/0000-00" />
+            <Input
+              id="cnpj"
+              value={company.cnpj}
+              onChange={(e) => setCompany({ ...company, cnpj: e.target.value })}
+              maxLength={20}
+              placeholder="00.000.000/0000-00"
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="nome_fantasia">Nome fantasia</Label>
-            <Input id="nome_fantasia" value={company.nome_fantasia} onChange={(e) => setCompany({ ...company, nome_fantasia: e.target.value })} maxLength={160} />
+            <Input
+              id="nome_fantasia"
+              value={company.nome_fantasia}
+              onChange={(e) => setCompany({ ...company, nome_fantasia: e.target.value })}
+              maxLength={160}
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="razao_social">Razão social</Label>
-            <Input id="razao_social" value={company.razao_social} onChange={(e) => setCompany({ ...company, razao_social: e.target.value })} maxLength={200} />
+            <Input
+              id="razao_social"
+              value={company.razao_social}
+              onChange={(e) => setCompany({ ...company, razao_social: e.target.value })}
+              maxLength={200}
+            />
           </div>
           <div className="flex justify-end sm:col-span-2">
-            <Button onClick={() => companyMutation.mutate(company)} disabled={companyMutation.isPending}>
-              {companyMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            <Button
+              onClick={() => companyMutation.mutate(company)}
+              disabled={companyMutation.isPending}
+            >
+              {companyMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
               Salvar dados da empresa
             </Button>
           </div>
@@ -266,40 +337,87 @@ function CompanyPanel({ brandId, section }: { brandId: string; section: "company
       <CardContent className="grid gap-4 sm:grid-cols-6">
         <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="cep">CEP</Label>
-          <Input id="cep" value={company.cep} onChange={(e) => setCompany({ ...company, cep: e.target.value })} maxLength={12} placeholder="00000-000" />
+          <Input
+            id="cep"
+            value={company.cep}
+            onChange={(e) => setCompany({ ...company, cep: e.target.value })}
+            maxLength={12}
+            placeholder="00000-000"
+          />
         </div>
         <div className="space-y-1.5 sm:col-span-4">
           <Label htmlFor="rua">Rua</Label>
-          <Input id="rua" value={company.rua} onChange={(e) => setCompany({ ...company, rua: e.target.value })} maxLength={200} />
+          <Input
+            id="rua"
+            value={company.rua}
+            onChange={(e) => setCompany({ ...company, rua: e.target.value })}
+            maxLength={200}
+          />
         </div>
         <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="numero">Número</Label>
-          <Input id="numero" value={company.numero} onChange={(e) => setCompany({ ...company, numero: e.target.value })} maxLength={20} />
+          <Input
+            id="numero"
+            value={company.numero}
+            onChange={(e) => setCompany({ ...company, numero: e.target.value })}
+            maxLength={20}
+          />
         </div>
         <div className="space-y-1.5 sm:col-span-4">
           <Label htmlFor="complemento">Complemento</Label>
-          <Input id="complemento" value={company.complemento} onChange={(e) => setCompany({ ...company, complemento: e.target.value })} maxLength={120} />
+          <Input
+            id="complemento"
+            value={company.complemento}
+            onChange={(e) => setCompany({ ...company, complemento: e.target.value })}
+            maxLength={120}
+          />
         </div>
         <div className="space-y-1.5 sm:col-span-2">
           <Label htmlFor="bairro">Bairro</Label>
-          <Input id="bairro" value={company.bairro} onChange={(e) => setCompany({ ...company, bairro: e.target.value })} maxLength={120} />
+          <Input
+            id="bairro"
+            value={company.bairro}
+            onChange={(e) => setCompany({ ...company, bairro: e.target.value })}
+            maxLength={120}
+          />
         </div>
         <div className="space-y-1.5 sm:col-span-3">
           <Label htmlFor="cidade">Cidade</Label>
-          <Input id="cidade" value={company.cidade} onChange={(e) => setCompany({ ...company, cidade: e.target.value })} maxLength={120} />
+          <Input
+            id="cidade"
+            value={company.cidade}
+            onChange={(e) => setCompany({ ...company, cidade: e.target.value })}
+            maxLength={120}
+          />
         </div>
         <div className="space-y-1.5 sm:col-span-1">
           <Label htmlFor="estado">UF</Label>
-          <Select value={company.estado || undefined} onValueChange={(v) => setCompany({ ...company, estado: v })}>
-            <SelectTrigger id="estado"><SelectValue placeholder="UF" /></SelectTrigger>
+          <Select
+            value={company.estado || undefined}
+            onValueChange={(v) => setCompany({ ...company, estado: v })}
+          >
+            <SelectTrigger id="estado">
+              <SelectValue placeholder="UF" />
+            </SelectTrigger>
             <SelectContent>
-              {UFS.map((uf) => (<SelectItem key={uf} value={uf}>{uf}</SelectItem>))}
+              {UFS.map((uf) => (
+                <SelectItem key={uf} value={uf}>
+                  {uf}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
         <div className="flex justify-end sm:col-span-6">
-          <Button onClick={() => companyMutation.mutate(company)} disabled={companyMutation.isPending}>
-            {companyMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+          <Button
+            onClick={() => companyMutation.mutate(company)}
+            disabled={companyMutation.isPending}
+          >
+            {companyMutation.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
             Salvar endereço
           </Button>
         </div>
@@ -323,7 +441,11 @@ function BrandingSlot({ brandId, spec }: { brandId: string; spec: SlotSpec }) {
         : branding.paths.icon;
 
   const previewSrc =
-    spec.kind === "logo_light" ? branding.logoLight : spec.kind === "logo_dark" ? branding.logoDark : branding.icon;
+    spec.kind === "logo_light"
+      ? branding.logoLight
+      : spec.kind === "logo_dark"
+        ? branding.logoDark
+        : branding.icon;
   const isCustom =
     spec.kind === "logo_light"
       ? branding.logoLightCustom
@@ -419,7 +541,11 @@ function BrandingSlot({ brandId, spec }: { brandId: string; spec: SlotSpec }) {
           )}
         >
           {previewSrc ? (
-            <img src={previewSrc} alt="preview" className={cn("object-contain", spec.previewClass)} />
+            <img
+              src={previewSrc}
+              alt="preview"
+              className={cn("object-contain", spec.previewClass)}
+            />
           ) : (
             <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
           )}
@@ -440,7 +566,11 @@ function BrandingSlot({ brandId, spec }: { brandId: string; spec: SlotSpec }) {
             disabled={busy}
             className="flex-1"
           >
-            {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+            {busy ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="mr-2 h-4 w-4" />
+            )}
             {isCustom ? "Substituir" : "Enviar imagem"}
           </Button>
           {isCustom && (

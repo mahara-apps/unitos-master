@@ -23,8 +23,7 @@ const INFRA_PATTERNS = [
 ];
 
 export function humanizeMetaError(raw: unknown): MetaFriendlyError {
-  const msg =
-    raw instanceof Error ? raw.message : typeof raw === "string" ? raw : "";
+  const msg = raw instanceof Error ? raw.message : typeof raw === "string" ? raw : "";
 
   if (INFRA_PATTERNS.some((re) => re.test(msg))) {
     return {
@@ -46,8 +45,7 @@ export function humanizeMetaError(raw: unknown): MetaFriendlyError {
   if (/\(#190\)|access token|OAuthException/i.test(msg)) {
     return {
       title: "Sessão da Meta expirada.",
-      description:
-        "Faça login na Meta novamente para recarregar e reautorizar suas contas.",
+      description: "Faça login na Meta novamente para recarregar e reautorizar suas contas.",
       authorization: true,
     };
   }

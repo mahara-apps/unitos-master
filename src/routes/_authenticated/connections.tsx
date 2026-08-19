@@ -64,10 +64,7 @@ import {
 } from "@/lib/connections.functions";
 import { getMessagingKpis } from "@/lib/messaging-kpis.functions";
 import { usePageHeader } from "@/hooks/use-page-header";
-import {
-  DashboardPageShell,
-  DashboardPanelSurface,
-} from "@/components/ui/dashboard-primitives";
+import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { AiCenter, type AiSettingsUpdate } from "@/components/connections/ai-center";
 import { AiUsagePanel } from "@/components/connections/ai-usage-panel";
@@ -93,8 +90,7 @@ export const Route = createFileRoute("/_authenticated/connections")({
 function ConnectionsHeaderRegister() {
   usePageHeader({
     title: "Conexões",
-    subtitle:
-      "Chaves de IA, canais sociais e comunicações do workspace · cifradas com AES-256-GCM",
+    subtitle: "Chaves de IA, canais sociais e comunicações do workspace · cifradas com AES-256-GCM",
   });
   return null;
 }
@@ -111,7 +107,6 @@ type ChannelId =
   | "whatsapp_evolution"
   | "whatsapp_cloud"
   | "resend";
-
 
 type ChannelDef = {
   id: ChannelId;
@@ -228,9 +223,6 @@ function ConnectionsPage() {
     ? search.section!
     : "providers";
 
-
-
-
   // Portfolio selector state (Meta OAuth post-callback).
   const [portfolioSessionId, setPortfolioSessionId] = useState<string | null>(null);
   const [portfolioOpen, setPortfolioOpen] = useState(false);
@@ -273,12 +265,7 @@ function ConnectionsPage() {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const sid = params.get("meta_session");
-    const ch = params.get("meta_channel") as
-      | "facebook"
-      | "instagram"
-      | "threads"
-      | "ads"
-      | null;
+    const ch = params.get("meta_channel") as "facebook" | "instagram" | "threads" | "ads" | null;
     if (sid) {
       setPortfolioSessionId(sid);
       setPortfolioChannel(ch);
@@ -356,7 +343,6 @@ function ConnectionsPage() {
   }
 
   if (!brandId) {
-
     return (
       <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
         Selecione um workspace para ver as conexões.
@@ -401,7 +387,10 @@ function ConnectionsPage() {
     ms.connected === ms.total ? "emerald" : ms.connected >= 1 ? "amber" : "rose";
   const chCoverage = Math.round((ch.connected / ch.total) * 100);
   const pendingNames = (list: ChannelDef[]) =>
-    list.map((d) => d.name).slice(0, 3).join(", ") || "Nenhum";
+    list
+      .map((d) => d.name)
+      .slice(0, 3)
+      .join(", ") || "Nenhum";
 
   return (
     <DashboardPageShell>
@@ -490,7 +479,6 @@ function ConnectionsPage() {
           </Tabs>
         </TabsContent>
 
-
         {/* Tab: Canais */}
         <TabsContent value="channels" className="space-y-3">
           <ChannelsCenter brandId={brandId} canManage={role === "admin"} />
@@ -546,19 +534,21 @@ function accountsForChannel(
   meta: MetaConnRow[],
 ): SocialAccount[] {
   if (channel.id === "facebook") {
-    return meta.filter((c) => c.channel === "facebook").map((c) => {
-      const md = (c.metadata ?? {}) as { page_picture_url?: string | null };
-      return {
-        id: c.id,
-        name: c.externalName ?? c.externalId,
-        handle: c.externalName ?? undefined,
-        avatarUrl: md.page_picture_url ?? undefined,
-        updatedAt: c.updatedAt,
-        status: c.status === "active" ? "active" : "attention",
-        lastError: c.lastError,
-        tokenExpiresAt: c.tokenExpiresAt,
-      };
-    });
+    return meta
+      .filter((c) => c.channel === "facebook")
+      .map((c) => {
+        const md = (c.metadata ?? {}) as { page_picture_url?: string | null };
+        return {
+          id: c.id,
+          name: c.externalName ?? c.externalId,
+          handle: c.externalName ?? undefined,
+          avatarUrl: md.page_picture_url ?? undefined,
+          updatedAt: c.updatedAt,
+          status: c.status === "active" ? "active" : "attention",
+          lastError: c.lastError,
+          tokenExpiresAt: c.tokenExpiresAt,
+        };
+      });
   }
   if (channel.id === "instagram") {
     return meta
@@ -575,7 +565,7 @@ function accountsForChannel(
         const uname = c.accountUsername ?? md.instagram_username ?? "";
         return {
           id: c.id,
-          name: uname ? `@${uname}` : c.externalName ?? c.externalId,
+          name: uname ? `@${uname}` : (c.externalName ?? c.externalId),
           handle: uname ? `@${uname}` : undefined,
           avatarUrl: md.instagram_picture_url ?? undefined,
           updatedAt: c.updatedAt,
@@ -651,11 +641,7 @@ function MessagingKpiCards({
         icon={<AlertTriangle className="h-4 w-4" />}
         label="Falhas (7d)"
         value={failed.toLocaleString("pt-BR")}
-        sub={
-          failed === 0
-            ? "Nenhuma falha registrada"
-            : data?.topFailedChannel ?? "—"
-        }
+        sub={failed === 0 ? "Nenhuma falha registrada" : (data?.topFailedChannel ?? "—")}
         tone={failed === 0 ? "emerald" : "amber"}
       />
       <KpiCard
@@ -844,8 +830,7 @@ function ToolCredentialCard({
       setOpen(false);
       onChanged();
     },
-    onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : "Falha ao conectar"),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Falha ao conectar"),
   });
 
   const removeMut = useMutation({
@@ -884,9 +869,7 @@ function ToolCredentialCard({
             <KeyRound className="h-3 w-3" />
             API Key
           </span>
-          <span className="tabular-nums text-foreground/80">
-            {connected ? "•••• segura" : "—"}
-          </span>
+          <span className="tabular-nums text-foreground/80">{connected ? "•••• segura" : "—"}</span>
         </div>
         <div className="mt-1 text-[10px] text-muted-foreground">
           Cifrada com AES-256-GCM (BRAND_CREDENTIALS_SECRET)
@@ -922,8 +905,8 @@ function ToolCredentialCard({
           <DialogHeader>
             <DialogTitle>Conectar {tool.name}</DialogTitle>
             <DialogDescription>
-              A chave é cifrada com AES-256-GCM antes de ser salva. Apenas os últimos 4
-              caracteres ficam visíveis.
+              A chave é cifrada com AES-256-GCM antes de ser salva. Apenas os últimos 4 caracteres
+              ficam visíveis.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -968,4 +951,3 @@ function ToolCredentialCard({
     </DashboardPanelSurface>
   );
 }
-

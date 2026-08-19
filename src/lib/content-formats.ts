@@ -10,11 +10,7 @@
  * que continua sendo aceito na LEITURA para compatibilidade com dados legados.
  */
 
-import {
-  FORMATS_BY_CHANNEL,
-  FORMAT_LABEL,
-  type PlacementFormat,
-} from "@/lib/scheduling-formats";
+import { FORMATS_BY_CHANNEL, FORMAT_LABEL, type PlacementFormat } from "@/lib/scheduling-formats";
 import { PLAN_CHANNELS, type PlanChannel } from "@/lib/monthly-plan-fields";
 
 /** Formato canônico — idêntico ao enum de placements. */
@@ -56,7 +52,7 @@ const ALIASES: Record<string, ContentFormat> = {
   "video curto": "reels",
   "vídeo curto": "reels",
   video: "reels",
-  "vídeo": "reels",
+  vídeo: "reels",
   shorts: "reels",
   tiktok: "reels",
   carrossel: "carrossel",
@@ -99,7 +95,9 @@ export function defaultFormatForChannel(channel: string): ContentFormat {
  * breakdown do canal quando o breakdown existir (sincronizados na gravação).
  * ------------------------------------------------------------------------- */
 
-export type VolumetryBreakdown = Partial<Record<PlanChannel, Partial<Record<ContentFormat, number>>>>;
+export type VolumetryBreakdown = Partial<
+  Record<PlanChannel, Partial<Record<ContentFormat, number>>>
+>;
 
 /** Limpa/normaliza um breakdown vindo do banco ou do formulário. */
 export function normalizeVolumetryBreakdown(raw: unknown): VolumetryBreakdown {
@@ -123,7 +121,9 @@ export function normalizeVolumetryBreakdown(raw: unknown): VolumetryBreakdown {
 }
 
 /** Soma de um canal no breakdown. */
-export function sumChannelBreakdown(bucket: Partial<Record<ContentFormat, number>> | undefined): number {
+export function sumChannelBreakdown(
+  bucket: Partial<Record<ContentFormat, number>> | undefined,
+): number {
   if (!bucket) return 0;
   return Object.values(bucket).reduce((s, n) => s + (Number(n) || 0), 0);
 }
@@ -182,7 +182,11 @@ export function breakdownFromTotal(
 
 /** Texto determinístico da distribuição, para prompt/contexto dos agentes. */
 export function describeDistribution(
-  perChannel: Array<{ channel: string; formats: Partial<Record<ContentFormat, number>>; total: number }>,
+  perChannel: Array<{
+    channel: string;
+    formats: Partial<Record<ContentFormat, number>>;
+    total: number;
+  }>,
 ): string {
   return perChannel
     .filter((c) => c.total > 0)

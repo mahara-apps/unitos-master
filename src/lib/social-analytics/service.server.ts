@@ -48,12 +48,7 @@ import type {
 import type { SocialProvider, SocialProviderContext } from "@/lib/social/provider";
 import { getSocialProviderForNetwork } from "@/lib/social/registry.server";
 import { decryptCredential } from "@/lib/credentials-crypto.server";
-import {
-  SOCIAL_CACHE_TTL_MS,
-  hashKey,
-  socialCacheKey,
-  withSocialCache,
-} from "./cache";
+import { SOCIAL_CACHE_TTL_MS, hashKey, socialCacheKey, withSocialCache } from "./cache";
 
 export { SOCIAL_CACHE_TTL_MS };
 
@@ -141,10 +136,7 @@ export type ResolvedConnection = {
 };
 
 /** Provider key (`social_connections.provider`) → user-facing network id. */
-function inferNetwork(
-  provider: string,
-  accountId: string | null,
-): SocialNetwork | null {
+function inferNetwork(provider: string, accountId: string | null): SocialNetwork | null {
   const p = provider.toLowerCase();
   if (p === "meta") return accountId ? "instagram" : "facebook";
   if (
@@ -171,11 +163,7 @@ export async function resolveConnection(
   userTokenForCache: string,
 ): Promise<ResolvedConnection> {
   if (!/^[0-9a-f-]{36}$/i.test(connectionId)) {
-    throw new SocialServiceError(
-      "invalid_connection_id",
-      "connectionId inválido",
-      400,
-    );
+    throw new SocialServiceError("invalid_connection_id", "connectionId inválido", 400);
   }
 
   const { data: row, error } = await supabase
@@ -192,11 +180,7 @@ export async function resolveConnection(
     throw new SocialServiceError("not_found", "Conexão não encontrada", 404);
   }
   if (!row.access_token_ciphertext) {
-    throw new SocialServiceError(
-      "connection_missing_token",
-      "Conexão sem token — reconecte",
-      409,
-    );
+    throw new SocialServiceError("connection_missing_token", "Conexão sem token — reconecte", 409);
   }
 
   const network = inferNetwork(row.provider, row.account_id);
@@ -257,18 +241,9 @@ export async function resolveConnection(
 // provider diretamente.
 // ---------------------------------------------------------------------------
 
-function unwrap<T>(
-  op: string,
-  network: SocialNetwork,
-  res: ProviderResult<T>,
-): T {
+function unwrap<T>(op: string, network: SocialNetwork, res: ProviderResult<T>): T {
   if (res.ok) return res.data;
-  throw new SocialServiceError(
-    "provider_error",
-    res.error,
-    502,
-    { op, network, code: res.code },
-  );
+  throw new SocialServiceError("provider_error", res.error, 502, { op, network, code: res.code });
 }
 
 export async function getDashboard(
@@ -386,11 +361,7 @@ export function socialErrorResponse(err: unknown): Response {
 // Lifecycle & publishing — delegam ao provider concreto via registry.
 // ---------------------------------------------------------------------------
 
-function unwrapWrite<T>(
-  op: string,
-  network: SocialNetwork,
-  res: ProviderResult<T>,
-): T {
+function unwrapWrite<T>(op: string, network: SocialNetwork, res: ProviderResult<T>): T {
   if (!res.ok) {
     throw new SocialServiceError("provider_error", `[${network}] ${op}: ${res.error}`, 500);
   }
@@ -400,10 +371,18 @@ function unwrapWrite<T>(
 export async function connect(opts: ConnectOptions): Promise<SocialConnectStart> {
   const provider = getSocialProviderForNetwork(opts.network);
   if (!provider) {
-    throw new SocialServiceError("provider_not_implemented", `Provider ${opts.network} não implementado`, 501);
+    throw new SocialServiceError(
+      "provider_not_implemented",
+      `Provider ${opts.network} não implementado`,
+      501,
+    );
   }
   if (!provider.connect) {
-    throw new SocialServiceError("provider_not_implemented", `Provider ${opts.network} não suporta connect()`, 400);
+    throw new SocialServiceError(
+      "provider_not_implemented",
+      `Provider ${opts.network} não suporta connect()`,
+      400,
+    );
   }
   return unwrapWrite("connect", opts.network, await provider.connect(opts));
 }
@@ -413,7 +392,11 @@ export async function disconnect(
   opts: Omit<DisconnectOptions, "network"> = {},
 ): Promise<{ revoked: boolean }> {
   if (!conn.provider.disconnect) {
-    throw new SocialServiceError("provider_not_implemented", `Provider ${conn.network} não suporta disconnect()`, 400);
+    throw new SocialServiceError(
+      "provider_not_implemented",
+      `Provider ${conn.network} não suporta disconnect()`,
+      400,
+    );
   }
   return unwrapWrite(
     "disconnect",
@@ -427,7 +410,11 @@ export async function refreshToken(
   opts: Omit<RefreshTokenOptions, "network"> = {},
 ): Promise<SocialTokenInfo & { accessToken: string }> {
   if (!conn.provider.refreshToken) {
-    throw new SocialServiceError("provider_not_implemented", `Provider ${conn.network} não suporta refreshToken()`, 400);
+    throw new SocialServiceError(
+      "provider_not_implemented",
+      `Provider ${conn.network} não suporta refreshToken()`,
+      400,
+    );
   }
   return unwrapWrite(
     "refreshToken",
@@ -441,7 +428,11 @@ export async function publish(
   opts: Omit<PublishOptions, "network">,
 ): Promise<SocialPublishResult> {
   if (!conn.provider.publish) {
-    throw new SocialServiceError("provider_not_implemented", `Provider ${conn.network} não suporta publish()`, 400);
+    throw new SocialServiceError(
+      "provider_not_implemented",
+      `Provider ${conn.network} não suporta publish()`,
+      400,
+    );
   }
   return unwrapWrite(
     "publish",
@@ -455,7 +446,11 @@ export async function schedule(
   opts: Omit<ScheduleOptions, "network">,
 ): Promise<SocialScheduleResult> {
   if (!conn.provider.schedule) {
-    throw new SocialServiceError("provider_not_implemented", `Provider ${conn.network} não suporta schedule()`, 400);
+    throw new SocialServiceError(
+      "provider_not_implemented",
+      `Provider ${conn.network} não suporta schedule()`,
+      400,
+    );
   }
   return unwrapWrite(
     "schedule",

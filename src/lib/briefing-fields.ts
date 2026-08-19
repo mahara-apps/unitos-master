@@ -43,7 +43,13 @@ export const BRIEFING_FIELDS: BriefingField[] = [
   { key: "desires", label: "Desejos", type: "textarea", block: "publico" },
   { key: "journey", label: "Jornada do cliente", type: "textarea", block: "publico" },
   { key: "tone_text", label: "Tom de voz", type: "textarea", block: "estetica" },
-  { key: "hashtags", label: "Hashtags de referência", hint: "Uma por linha, sem #", type: "list", block: "estetica" },
+  {
+    key: "hashtags",
+    label: "Hashtags de referência",
+    hint: "Uma por linha, sem #",
+    type: "list",
+    block: "estetica",
+  },
   { key: "goals", label: "Metas e restrições", type: "textarea", block: "metas" },
 ];
 
@@ -86,13 +92,19 @@ export function sanitizeProposalPayload(
     const field = BY_KEY.get(key)!;
     if (field.type === "list") {
       const list = (Array.isArray(value) ? value : String(value ?? "").split(/\n|,|;/))
-        .map((v) => String(v ?? "").trim().replace(/^#/, ""))
+        .map((v) =>
+          String(v ?? "")
+            .trim()
+            .replace(/^#/, ""),
+        )
         .filter(Boolean)
         .slice(0, 30);
       if (list.length) out[key] = list;
       continue;
     }
-    const text = String(value ?? "").trim().slice(0, 5000);
+    const text = String(value ?? "")
+      .trim()
+      .slice(0, 5000);
     if (text) out[key] = text;
   }
   return out;

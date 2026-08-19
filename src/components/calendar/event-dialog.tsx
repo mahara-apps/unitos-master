@@ -94,9 +94,7 @@ export function EventDialog({
   const isEdit = !!event;
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const [type, setType] = useState<"appointment" | "seasonal">(
-    event?.type ?? defaultType,
-  );
+  const [type, setType] = useState<"appointment" | "seasonal">(event?.type ?? defaultType);
   const [title, setTitle] = useState(event?.title ?? "");
   const [description, setDescription] = useState(event?.description ?? "");
   const [allDay, setAllDay] = useState(event?.all_day ?? false);
@@ -117,13 +115,7 @@ export function EventDialog({
       : "",
   );
   const [scope, setScope] = useState<"client" | "brand" | "global">(
-    event?.is_global
-      ? "global"
-      : event?.client_id
-        ? "client"
-        : clientId
-          ? "client"
-          : "brand",
+    event?.is_global ? "global" : event?.client_id ? "client" : clientId ? "client" : "brand",
   );
 
   useEffect(() => {
@@ -149,13 +141,7 @@ export function EventDialog({
         : "",
     );
     setScope(
-      event?.is_global
-        ? "global"
-        : event?.client_id
-          ? "client"
-          : clientId
-            ? "client"
-            : "brand",
+      event?.is_global ? "global" : event?.client_id ? "client" : clientId ? "client" : "brand",
     );
   }, [open, event, defaultType, defaultDate, clientId]);
 
@@ -211,7 +197,11 @@ export function EventDialog({
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>
-            {isEdit ? "Editar evento" : type === "seasonal" ? "Nova data sazonal" : "Novo compromisso"}
+            {isEdit
+              ? "Editar evento"
+              : type === "seasonal"
+                ? "Nova data sazonal"
+                : "Novo compromisso"}
           </DialogTitle>
           <DialogDescription>
             {type === "seasonal"
@@ -236,7 +226,10 @@ export function EventDialog({
             </div>
             <div className="space-y-1.5">
               <Label>Escopo</Label>
-              <Select value={scope} onValueChange={(v) => setScope(v as "client" | "brand" | "global")}>
+              <Select
+                value={scope}
+                onValueChange={(v) => setScope(v as "client" | "brand" | "global")}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -334,12 +327,16 @@ export function EventDialog({
           </div>
         </DialogFooter>
       </DialogContent>
-      <AlertDialog open={confirmDelete} onOpenChange={(o) => !delMut.isPending && setConfirmDelete(o)}>
+      <AlertDialog
+        open={confirmDelete}
+        onOpenChange={(o) => !delMut.isPending && setConfirmDelete(o)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir evento?</AlertDialogTitle>
             <AlertDialogDescription>
-              O evento “{event?.title}” será removido permanentemente. Esta ação não pode ser desfeita.
+              O evento “{event?.title}” será removido permanentemente. Esta ação não pode ser
+              desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

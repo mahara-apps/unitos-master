@@ -3,8 +3,22 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { AlertTriangle, Bell, CalendarClock, CheckCircle2, Loader2, MessageCircle, Save, Sparkles, UserPlus } from "lucide-react";
-import { getMyProfile, updateNotificationPrefs, type NotificationPrefs } from "@/lib/profile.functions";
+import {
+  AlertTriangle,
+  Bell,
+  CalendarClock,
+  CheckCircle2,
+  Loader2,
+  MessageCircle,
+  Save,
+  Sparkles,
+  UserPlus,
+} from "lucide-react";
+import {
+  getMyProfile,
+  updateNotificationPrefs,
+  type NotificationPrefs,
+} from "@/lib/profile.functions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -93,7 +107,11 @@ function NotificationsPage() {
       subtitle: "Quais eventos geram aviso no app para você",
       actions: (
         <Button size="sm" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
-          {mutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+          {mutation.isPending ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="mr-2 h-4 w-4" />
+          )}
           Salvar preferências
         </Button>
       ),
@@ -101,10 +119,7 @@ function NotificationsPage() {
     [mutation.isPending, prefs],
   );
 
-  const active = useMemo(
-    () => NOTIFICATION_PREF_KEYS.filter((k) => prefs[k]).length,
-    [prefs],
-  );
+  const active = useMemo(() => NOTIFICATION_PREF_KEYS.filter((k) => prefs[k]).length, [prefs]);
 
   if (isLoading) {
     return (

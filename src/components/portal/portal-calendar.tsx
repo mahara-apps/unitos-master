@@ -110,7 +110,9 @@ function normalize(rows: unknown[]): CalItem[] {
         ? "published"
         : "scheduled";
     return {
-      id: String(r.id ?? `${at ?? "sem-data"}-${typeof r.title === "string" ? r.title : "publicacao"}`),
+      id: String(
+        r.id ?? `${at ?? "sem-data"}-${typeof r.title === "string" ? r.title : "publicacao"}`,
+      ),
       kind,
       title: (typeof r.title === "string" && r.title) || "Publicação",
       at,

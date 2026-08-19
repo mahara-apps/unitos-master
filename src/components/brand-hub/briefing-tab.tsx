@@ -208,7 +208,11 @@ export function BriefingTab({
 
       <div className="lg:col-span-2 flex justify-end">
         <Button onClick={() => mut.mutate()} disabled={mut.isPending} className="gap-2">
-          {mut.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          {mut.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
           Save briefing
         </Button>
       </div>

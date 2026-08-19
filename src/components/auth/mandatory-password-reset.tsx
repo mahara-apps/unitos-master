@@ -3,7 +3,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { getMyPasswordFlag, clearMyPasswordFlag } from "@/lib/password.functions";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,14 +34,23 @@ export function MandatoryPasswordReset() {
   // Prevent accidental close during forced reset.
   useEffect(() => {
     if (!open) return;
-    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [open]);
 
   const submit = async () => {
-    if (pw.length < 8) { toast.error("A senha deve ter ao menos 8 caracteres"); return; }
-    if (pw !== confirm) { toast.error("As senhas não coincidem"); return; }
+    if (pw.length < 8) {
+      toast.error("A senha deve ter ao menos 8 caracteres");
+      return;
+    }
+    if (pw !== confirm) {
+      toast.error("As senhas não coincidem");
+      return;
+    }
     setBusy(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: pw });
@@ -69,15 +84,37 @@ export function MandatoryPasswordReset() {
         </DialogHeader>
         <form
           className="space-y-3"
-          onSubmit={(e) => { e.preventDefault(); submit(); }}
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit();
+          }}
         >
           <div className="space-y-1.5">
-            <Label className="text-xs" htmlFor="new-pw">Nova senha</Label>
-            <Input id="new-pw" type="password" autoFocus value={pw} onChange={(e) => setPw(e.target.value)} minLength={8} required />
+            <Label className="text-xs" htmlFor="new-pw">
+              Nova senha
+            </Label>
+            <Input
+              id="new-pw"
+              type="password"
+              autoFocus
+              value={pw}
+              onChange={(e) => setPw(e.target.value)}
+              minLength={8}
+              required
+            />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs" htmlFor="confirm-pw">Confirmar senha</Label>
-            <Input id="confirm-pw" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} minLength={8} required />
+            <Label className="text-xs" htmlFor="confirm-pw">
+              Confirmar senha
+            </Label>
+            <Input
+              id="confirm-pw"
+              type="password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              minLength={8}
+              required
+            />
           </div>
           <Button type="submit" className="w-full" disabled={busy}>
             {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

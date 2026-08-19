@@ -84,21 +84,41 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Unitos- Gerenciador de Conteudos Digitais para Agências de M" },
       {
         name: "description",
-        content: "UNITOS: Gerenciador de conteúdos digitais para agências de marketing. Organize arquivos, campanhas, criativos e equipes em uma única plataforma.",
+        content:
+          "UNITOS: Gerenciador de conteúdos digitais para agências de marketing. Organize arquivos, campanhas, criativos e equipes em uma única plataforma.",
       },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Unitos- Gerenciador de Conteudos Digitais para Agências de M" },
+      {
+        property: "og:title",
+        content: "Unitos- Gerenciador de Conteudos Digitais para Agências de M",
+      },
       {
         property: "og:description",
-        content: "UNITOS: Gerenciador de conteúdos digitais para agências de marketing. Organize arquivos, campanhas, criativos e equipes em uma única plataforma.",
+        content:
+          "UNITOS: Gerenciador de conteúdos digitais para agências de marketing. Organize arquivos, campanhas, criativos e equipes em uma única plataforma.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
-      { name: "twitter:title", content: "Unitos- Gerenciador de Conteudos Digitais para Agências de M" },
-      { name: "twitter:description", content: "UNITOS: Gerenciador de conteúdos digitais para agências de marketing. Organize arquivos, campanhas, criativos e equipes em uma única plataforma." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/4b55e1f7-dd3e-4d06-a643-cf026678069b" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/4b55e1f7-dd3e-4d06-a643-cf026678069b" },
+      {
+        name: "twitter:title",
+        content: "Unitos- Gerenciador de Conteudos Digitais para Agências de M",
+      },
+      {
+        name: "twitter:description",
+        content:
+          "UNITOS: Gerenciador de conteúdos digitais para agências de marketing. Organize arquivos, campanhas, criativos e equipes em uma única plataforma.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/4b55e1f7-dd3e-4d06-a643-cf026678069b",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://storage.googleapis.com/gpt-engineer-file-uploads/attachments/og-images/4b55e1f7-dd3e-4d06-a643-cf026678069b",
+      },
     ],
     links: [
       {

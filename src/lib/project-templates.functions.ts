@@ -68,15 +68,12 @@ export const instantiateTemplateFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
-    const { data: projectId, error } = await context.supabase.rpc(
-      "instantiate_project_template",
-      {
-        _template_id: data.templateId,
-        _brand_id: data.brandId,
-        _client_id: (data.clientId ?? null) as string,
-        _project_name: data.projectName,
-      },
-    );
+    const { data: projectId, error } = await context.supabase.rpc("instantiate_project_template", {
+      _template_id: data.templateId,
+      _brand_id: data.brandId,
+      _client_id: (data.clientId ?? null) as string,
+      _project_name: data.projectName,
+    });
     if (error) throw error;
     return { projectId: (projectId as unknown as string) ?? "" };
   });

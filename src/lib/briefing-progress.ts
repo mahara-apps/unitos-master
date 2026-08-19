@@ -5,7 +5,9 @@ import type { BrandHubClient, BrandHubData } from "@/lib/brand-hub.functions";
  * with the fields the Briefing Workspace exposes and with the inputs the
  * `generateMonthlyPlanFn` (pipeline canônico de pauta) expects.
  */
-const CHECKS: Array<(hub: BrandHubData, client?: Pick<BrandHubClient, "tone_of_voice">) => boolean> = [
+const CHECKS: Array<
+  (hub: BrandHubData, client?: Pick<BrandHubClient, "tone_of_voice">) => boolean
+> = [
   (h, c) => nonEmpty(h.tone_text) || nonEmpty(c?.tone_of_voice ?? null),
   (h) => nonEmpty(h.mission),
   (h) => nonEmpty(h.positioning),

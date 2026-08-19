@@ -21,7 +21,9 @@ export const getPublicBriefing = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: row } = await supabaseAdmin
       .from("client_briefing_tokens" as never)
-      .select("id, revoked_at, expires_at, submitted_at, client_id, brand_id, clients(name), brands(name)")
+      .select(
+        "id, revoked_at, expires_at, submitted_at, client_id, brand_id, clients(name), brands(name)",
+      )
       .eq("token", data.token)
       .maybeSingle();
     if (!row) return { ok: false, reason: "not_found" };
@@ -85,7 +87,8 @@ export const submitPublicBriefing = createServerFn({ method: "POST" })
       .select("brand_hub, name")
       .eq("id", r.client_id)
       .maybeSingle();
-    const prev = ((current as { brand_hub?: Record<string, unknown> } | null)?.brand_hub ?? {}) as Record<string, unknown>;
+    const prev = ((current as { brand_hub?: Record<string, unknown> } | null)?.brand_hub ??
+      {}) as Record<string, unknown>;
     await supabaseAdmin
       .from("clients")
       .update({ brand_hub: { ...prev, ...patch } } as never)

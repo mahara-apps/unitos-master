@@ -67,9 +67,7 @@ export function JobsTable({ jobs }: { jobs: AgentJobRow[] }) {
                   {j.step_label ?? j.kind}
                 </div>
               </div>
-              <span className="truncate font-mono text-xs text-muted-foreground">
-                {j.kind}
-              </span>
+              <span className="truncate font-mono text-xs text-muted-foreground">{j.kind}</span>
               <span className="tabular-nums text-xs text-muted-foreground">
                 {formatDuration(j.started_at, j.finished_at)}
               </span>

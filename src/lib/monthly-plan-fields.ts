@@ -37,7 +37,6 @@ export const PLAN_CHANNELS_DEFAULT: PlanChannel[] = [
  * eliminar o vocabulário duplicado.
  */
 
-
 /**
  * Mês contábil da pauta. Não é mais um valor fixo — depende do calendário real
  * do mês-alvo, pois alguns meses abrangem 5 semanas de produção.
@@ -74,7 +73,6 @@ export function getWeeksForPeriod(
   months: number,
   opts: { fromCurrent?: boolean; from?: Date; override?: number } = {},
 ): number {
-
   if (opts.override) return opts.override * months;
   const base = opts.from ?? new Date();
   const startOffset = opts.fromCurrent ? 0 : 1;

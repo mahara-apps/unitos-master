@@ -14,8 +14,11 @@ type Scope = { brandId: string; clientId: string };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const isValidScope = (s: Partial<Scope> | null | undefined): s is Scope =>
-  !!s && typeof s.brandId === "string" && typeof s.clientId === "string" &&
-  UUID_RE.test(s.brandId) && UUID_RE.test(s.clientId);
+  !!s &&
+  typeof s.brandId === "string" &&
+  typeof s.clientId === "string" &&
+  UUID_RE.test(s.brandId) &&
+  UUID_RE.test(s.clientId);
 
 export const customerCoreQuery = ({ brandId, clientId }: Scope) =>
   queryOptions({

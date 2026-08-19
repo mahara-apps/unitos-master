@@ -29,12 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,22 +52,10 @@ import { usePageHeader } from "@/hooks/use-page-header";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { listClients } from "@/lib/workspace.functions";
 import { listBrandTeam } from "@/lib/team.functions";
-import {
-  archiveProject,
-  deleteProject,
-  getProject,
-  updateProject,
-} from "@/lib/projects.functions";
-import {
-  listPipelinesFn,
-  ensureDefaultPipelineFn,
-  loadBoardFn,
-} from "@/lib/content.functions";
+import { archiveProject, deleteProject, getProject, updateProject } from "@/lib/projects.functions";
+import { listPipelinesFn, ensureDefaultPipelineFn, loadBoardFn } from "@/lib/content.functions";
 import { TaskDialog } from "@/components/content/task-dialog";
-import {
-  DashboardPageShell,
-  DashboardPanelSurface,
-} from "@/components/ui/dashboard-primitives";
+import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { JobsPanel } from "@/components/projects/jobs-panel";
 import { ProjectTasksPanel } from "@/components/projects/project-tasks-panel";
@@ -116,19 +99,27 @@ const CHANNEL_LABELS: Record<string, string> = {
 
 function fmtDate(iso?: string | null) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+  return new Date(iso).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 /** Etapa legível de uma peça. */
-function itemState(post: {
-  stage: string | null;
-  review_status: string | null;
-  published_at: string | null;
-} | null): { label: string; tone: "muted" | "amber" | "emerald" | "primary" } {
+function itemState(
+  post: {
+    stage: string | null;
+    review_status: string | null;
+    published_at: string | null;
+  } | null,
+): { label: string; tone: "muted" | "amber" | "emerald" | "primary" } {
   if (!post) return { label: "Pendente de produção", tone: "muted" };
-  if (post.published_at || post.stage === "published") return { label: "Publicado", tone: "primary" };
+  if (post.published_at || post.stage === "published")
+    return { label: "Publicado", tone: "primary" };
   const review = (post.review_status ?? "").toLowerCase();
-  if (review === "approved" || post.stage === "approved") return { label: "Aprovado", tone: "emerald" };
+  if (review === "approved" || post.stage === "approved")
+    return { label: "Aprovado", tone: "emerald" };
   // `posts.stage` é espelhado a partir da coluna do Kanban (stage_id).
   if (post.stage === "scheduled") return { label: "Agendado", tone: "primary" };
   if (post.stage === "review") return { label: "Em revisão", tone: "amber" };
@@ -137,7 +128,6 @@ function itemState(post: {
   if (review === "pending") return { label: "Em revisão", tone: "amber" };
   return { label: "Em produção", tone: "amber" };
 }
-
 
 const TONE_CLASS: Record<string, string> = {
   muted: "border-border/60 text-muted-foreground",
@@ -189,7 +179,11 @@ function ProjectDetailPage() {
     enabled: !!brandId,
   });
 
-  const clients = (clientsQ.data ?? []) as Array<{ id: string; name: string; color: string | null }>;
+  const clients = (clientsQ.data ?? []) as Array<{
+    id: string;
+    name: string;
+    color: string | null;
+  }>;
   const team = (teamQ.data?.members ?? []) as Array<{ user_id: string; full_name: string | null }>;
 
   const project = projectQ.data?.project;
@@ -328,7 +322,12 @@ function ProjectDetailPage() {
         <DashboardPanelSurface className="px-4 py-3 text-sm text-muted-foreground">
           Projeto não encontrado.
         </DashboardPanelSurface>
-        <Button variant="ghost" size="sm" className="h-9" onClick={() => navigate({ to: "/projects" })}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-9"
+          onClick={() => navigate({ to: "/projects" })}
+        >
           <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
         </Button>
       </DashboardPageShell>
@@ -340,13 +339,19 @@ function ProjectDetailPage() {
   }
 
   const clientName = clients.find((c) => c.id === project.client_id)?.name ?? "Sem cliente";
-  const ownerName = team.find((m) => m.user_id === project.owner_id)?.full_name ?? "Sem responsável";
+  const ownerName =
+    team.find((m) => m.user_id === project.owner_id)?.full_name ?? "Sem responsável";
   const statusLabel =
     STATUS_OPTIONS.find((s) => s.value === project.status)?.label ?? project.status;
 
   return (
     <DashboardPageShell>
-      <Button variant="ghost" size="sm" className="-ml-2 h-9 w-fit" onClick={() => navigate({ to: "/projects" })}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="-ml-2 h-9 w-fit"
+        onClick={() => navigate({ to: "/projects" })}
+      >
         <ArrowLeft className="mr-2 h-4 w-4" /> Voltar
       </Button>
 
@@ -363,7 +368,9 @@ function ProjectDetailPage() {
         <span>•</span>
         <span>{ownerName}</span>
         <span>•</span>
-        <Badge variant="outline" className="text-[10px]">{statusLabel}</Badge>
+        <Badge variant="outline" className="text-[10px]">
+          {statusLabel}
+        </Badge>
         {project.plan ? <PlanStatusBadge status={project.plan.status} prefix="Pauta:" /> : null}
       </div>
 
@@ -384,10 +391,18 @@ function ProjectDetailPage() {
         </div>
         <Progress value={pct} className="h-2" />
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-muted-foreground">
-          <span>Total <strong className="text-foreground tabular-nums">{totalItems}</strong></span>
-          <span>Em produção <strong className="text-foreground tabular-nums">{stats.pending}</strong></span>
-          <span>Aprovadas <strong className="text-foreground tabular-nums">{stats.approved}</strong></span>
-          <span>Publicadas <strong className="text-foreground tabular-nums">{stats.published}</strong></span>
+          <span>
+            Total <strong className="text-foreground tabular-nums">{totalItems}</strong>
+          </span>
+          <span>
+            Em produção <strong className="text-foreground tabular-nums">{stats.pending}</strong>
+          </span>
+          <span>
+            Aprovadas <strong className="text-foreground tabular-nums">{stats.approved}</strong>
+          </span>
+          <span>
+            Publicadas <strong className="text-foreground tabular-nums">{stats.published}</strong>
+          </span>
         </div>
       </DashboardPanelSurface>
 
@@ -437,7 +452,9 @@ function ProjectDetailPage() {
                         <span>Canal não definido</span>
                       )}
                       <span>·</span>
-                      <span>{it.format ? contentFormatLabel(it.format) : "formato não definido"}</span>
+                      <span>
+                        {it.format ? contentFormatLabel(it.format) : "formato não definido"}
+                      </span>
                       {it.tasks.assignee_name ? (
                         <>
                           <span>·</span>
@@ -547,7 +564,9 @@ function ProjectDetailPage() {
           </DialogHeader>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="grid gap-1.5 md:col-span-2">
-              <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Nome</Label>
+              <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Nome
+              </Label>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -555,7 +574,9 @@ function ProjectDetailPage() {
               />
             </div>
             <div className="grid gap-1.5 md:col-span-2">
-              <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Descrição</Label>
+              <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Descrição
+              </Label>
               <Textarea
                 value={desc}
                 onChange={(e) => setDesc(e.target.value)}
@@ -567,7 +588,9 @@ function ProjectDetailPage() {
               />
             </div>
             <div className="grid gap-1.5">
-              <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Status</Label>
+              <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Status
+              </Label>
               <Select
                 value={status}
                 onValueChange={(v) => {
@@ -575,16 +598,22 @@ function ProjectDetailPage() {
                   saveField({ status: v });
                 }}
               >
-                <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {STATUS_OPTIONS.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                    <SelectItem key={s.value} value={s.value}>
+                      {s.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-1.5">
-              <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Responsável</Label>
+              <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Responsável
+              </Label>
               <Select
                 value={ownerId ?? "none"}
                 onValueChange={(v) => {
@@ -593,7 +622,9 @@ function ProjectDetailPage() {
                   saveField({ owner_id: next });
                 }}
               >
-                <SelectTrigger className="h-9"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                <SelectTrigger className="h-9">
+                  <SelectValue placeholder="Nenhum" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhum</SelectItem>
                   {team.map((m) => (
@@ -621,7 +652,9 @@ function ProjectDetailPage() {
               }}
             />
             <div className="grid gap-1.5 md:col-span-2">
-              <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">Cor</Label>
+              <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+                Cor
+              </Label>
               <div className="flex flex-wrap gap-1.5">
                 {COLORS.map((c) => (
                   <button
@@ -647,7 +680,9 @@ function ProjectDetailPage() {
               <Textarea
                 value={goals}
                 onChange={(e) => setGoals(e.target.value)}
-                onBlur={() => (goals || null) !== (project.goals || null) && saveField({ goals: goals || null })}
+                onBlur={() =>
+                  (goals || null) !== (project.goals || null) && saveField({ goals: goals || null })
+                }
                 placeholder="Ex.: Aumentar vendas em 30%, gerar 500 leads..."
                 rows={2}
               />
@@ -690,15 +725,25 @@ function ProjectDetailPage() {
   );
 }
 
-function DateEdit(props: { label: string; value: string | null; onChange: (v: string | null) => void }) {
+function DateEdit(props: {
+  label: string;
+  value: string | null;
+  onChange: (v: string | null) => void;
+}) {
   const date = props.value ? new Date(props.value) : undefined;
   return (
     <div className="grid gap-1.5">
-      <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">{props.label}</Label>
+      <Label className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+        {props.label}
+      </Label>
       <Popover>
         <PopoverTrigger asChild>
           <Button variant="outline" className="h-9 justify-start text-left font-normal">
-            {date ? fmtDate(props.value) : <span className="text-muted-foreground">Selecionar</span>}
+            {date ? (
+              fmtDate(props.value)
+            ) : (
+              <span className="text-muted-foreground">Selecionar</span>
+            )}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">

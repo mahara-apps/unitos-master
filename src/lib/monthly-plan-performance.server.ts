@@ -100,7 +100,6 @@ export async function loadPerformanceContext(
       const ch = (row.channel as string | null) ?? "";
       if (ch && !connectionByChannel.has(ch)) connectionByChannel.set(ch, row.id as string);
     }
-
   } catch (err) {
     console.warn("[monthly-plan performance] connections lookup failed", err);
     connectionByChannel = new Map();
@@ -182,10 +181,12 @@ export async function loadPerformanceContext(
 
         const byType = new Map<string, { sum: number; n: number }>();
         for (const p of posts.slice(0, 10)) {
-          const eng = metricValue(
-            p.metrics as Array<{ key: string; value: number }>,
-            ["engagement", "engagements", "total_interactions", "likes"],
-          );
+          const eng = metricValue(p.metrics as Array<{ key: string; value: number }>, [
+            "engagement",
+            "engagements",
+            "total_interactions",
+            "likes",
+          ]);
           const type = p.mediaType ?? "other";
           const b = byType.get(type) ?? { sum: 0, n: 0 };
           b.sum += eng ?? 0;

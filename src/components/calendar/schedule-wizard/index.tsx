@@ -86,7 +86,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-
 import {
   listBrandMediaFn,
   registerBrandMediaFn,
@@ -282,9 +281,7 @@ export function ScheduleWizard({
         }
         // Peça agendada continua editável — só sinalizamos o estado para
         // liberar a ação "Cancelar agendamento".
-        setScheduledAtIso(
-          st.stage === "scheduled" ? (st.scheduledAt ?? null) : null,
-        );
+        setScheduledAtIso(st.stage === "scheduled" ? (st.scheduledAt ?? null) : null);
       })
       .catch((e) => toast.error(describeError(e)))
       .finally(() => {
@@ -305,9 +302,7 @@ export function ScheduleWizard({
     setPairs((prev) => {
       const kept = prev.filter((p) => valid.has(p.connectionId));
       if (kept.length === prev.length) return prev;
-      toast.warning(
-        "Um destino foi removido: a conta não está mais vinculada a este cliente.",
-      );
+      toast.warning("Um destino foi removido: a conta não está mais vinculada a este cliente.");
       return kept;
     });
   }, [open, hydrating, connectionsQ.data]);
@@ -377,8 +372,7 @@ export function ScheduleWizard({
     return map;
   }, [readinessQ.data]);
   const blockedDestinations = useMemo(
-    () =>
-      pairs.filter((p) => readinessByConn.get(p.connectionId)?.publishReady === false),
+    () => pairs.filter((p) => readinessByConn.get(p.connectionId)?.publishReady === false),
     [pairs, readinessByConn],
   );
 
@@ -397,8 +391,6 @@ export function ScheduleWizard({
     },
     [brandId, clientId, revalidateCapability, readinessQ],
   );
-
-
 
   const mediaKind: MediaKind = useMemo(() => inferMediaKind(selectedMedia), [selectedMedia]);
 
@@ -439,9 +431,7 @@ export function ScheduleWizard({
   // Rascunho pode ser salvo sempre; agendar/publicar exige TODOS os destinos
   // com capacidade confirmada (fail closed).
   const canSubmit = pairs.length > 0 && !overLimit && !!title.trim();
-  const canPublish =
-    canSubmit && blockedDestinations.length === 0 && !readinessQ.isLoading;
-
+  const canPublish = canSubmit && blockedDestinations.length === 0 && !readinessQ.isLoading;
 
   function togglePair(channel: SocialChannel, format: PlacementFormat) {
     const conn = connByChannel.get(channel);
@@ -728,9 +718,7 @@ export function ScheduleWizard({
                   disabled={cancelling}
                   onClick={() => setCancelOpen(true)}
                 >
-                  {cancelling ? (
-                    <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-                  ) : null}
+                  {cancelling ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : null}
                   Cancelar agendamento
                 </Button>
               </>
@@ -798,10 +786,10 @@ export function ScheduleWizard({
                   title={
                     canPublish
                       ? undefined
-                      : (blockedDestinations
+                      : ((blockedDestinations
                           .map((p) => readinessByConn.get(p.connectionId)?.message)
                           .filter(Boolean)[0] as string | undefined) ??
-                        "Verificando autorização dos destinos…"
+                        "Verificando autorização dos destinos…")
                   }
                   onClick={() => persist("schedule")}
                 >
@@ -837,7 +825,6 @@ export function ScheduleWizard({
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
-
               </div>
             </div>
           </>
@@ -846,9 +833,7 @@ export function ScheduleWizard({
         {/* ---------------- Coluna 1 — edição ---------------- */}
         <div className="min-h-0 space-y-5 overflow-y-auto border-b border-border/60 px-5 py-4 lg:border-b-0 lg:border-r">
           {/* Estado real de publicação por destino + republicação de falhas */}
-          {postId ? (
-            <PublicationStatusPanel postId={postId} brandId={brandId} />
-          ) : null}
+          {postId ? <PublicationStatusPanel postId={postId} brandId={brandId} /> : null}
 
           {/* Destinos */}
 
@@ -1067,7 +1052,6 @@ export function ScheduleWizard({
                 })}
               </div>
             )}
-
           </section>
 
           <Separator />
@@ -1378,10 +1362,11 @@ export function ScheduleWizard({
               </div>
             </div>
             <p className="text-[10.5px] text-muted-foreground">
-              Fuso: {tzLabel()} · mínimo de {MIN_SCHEDULE_LEAD_MINUTES} minutos a partir
-              de agora · use “Publicar agora” no menu ao lado de “Agendar”.
+              Fuso: {tzLabel()} · mínimo de {MIN_SCHEDULE_LEAD_MINUTES} minutos a partir de agora ·
+              use “Publicar agora” no menu ao lado de “Agendar”.
             </p>
-            {scheduleDate && scheduleTime &&
+            {scheduleDate &&
+            scheduleTime &&
             !isScheduleLeadValid(new Date(`${scheduleDate}T${scheduleTime}`)) ? (
               <p className="rounded-md border border-destructive/40 bg-destructive/5 px-2 py-1.5 text-[10.5px] text-destructive">
                 {MIN_SCHEDULE_LEAD_MESSAGE}
@@ -1475,9 +1460,8 @@ export function ScheduleWizard({
           <AlertDialogHeader>
             <AlertDialogTitle>Cancelar agendamento?</AlertDialogTitle>
             <AlertDialogDescription>
-              A publicação sai da fila e não será enviada às redes. A peça
-              continua salva com legenda, mídias e destinos — você pode reagendar
-              quando quiser.
+              A publicação sai da fila e não será enviada às redes. A peça continua salva com
+              legenda, mídias e destinos — você pode reagendar quando quiser.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1489,9 +1473,7 @@ export function ScheduleWizard({
                 void handleCancelSchedule();
               }}
             >
-              {cancelling ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
+              {cancelling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Cancelar agendamento
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1829,7 +1811,6 @@ function LocationCombobox({
           <div className="max-w-full break-words p-2 text-[11px] leading-snug text-amber-600 dark:text-amber-400">
             {searchQ.data.error ?? "Falha na busca."}
           </div>
-
         ) : (searchQ.data?.results ?? []).length === 0 ? (
           <div className="p-2 text-[11px] text-muted-foreground">
             Nenhum local encontrado para “{debounced}”.

@@ -29,12 +29,7 @@ import type {
 } from "@/lib/social/types";
 import * as SAS from "@/lib/social-analytics/service.server";
 import { SocialServiceError } from "@/lib/social-analytics/service.server";
-import {
-  getCapabilities,
-  isCapable,
-  type CapabilityKey,
-  type SocialChannel,
-} from "./capabilities";
+import { getCapabilities, isCapable, type CapabilityKey, type SocialChannel } from "./capabilities";
 import {
   listBrandChannels,
   resolveBrandChannelConnection,
@@ -205,10 +200,7 @@ export async function getProfile(
 // Introspection
 // ---------------------------------------------------------------------------
 
-export async function listChannels(
-  supabase: SupabaseClient<Database>,
-  brandId: string,
-) {
+export async function listChannels(supabase: SupabaseClient<Database>, brandId: string) {
   return listBrandChannels(supabase, brandId);
 }
 

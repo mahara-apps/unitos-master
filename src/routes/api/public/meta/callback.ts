@@ -25,18 +25,12 @@ export const Route = createFileRoute("/api/public/meta/callback")({
         if (errorReason) {
           return htmlResult({ ok: false, error: metaOAuthErrorMessage(errorReason) });
         }
-        if (!code || !stateToken)
-          return htmlResult({ ok: false, error: "Missing code or state" });
+        if (!code || !stateToken) return htmlResult({ ok: false, error: "Missing code or state" });
 
-        const { supabaseAdmin } = await import(
-          "@/integrations/supabase/client.server"
-        );
-        const { MetaProvider, MetaGraphError, verifyOAuthState } = await import(
-          "@/lib/meta/provider.server"
-        );
-        const { encryptCredential } = await import(
-          "@/lib/credentials-crypto.server"
-        );
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { MetaProvider, MetaGraphError, verifyOAuthState } =
+          await import("@/lib/meta/provider.server");
+        const { encryptCredential } = await import("@/lib/credentials-crypto.server");
 
         // 1) Verify signed state (CSRF + brand/user context).
         let state: Awaited<ReturnType<typeof verifyOAuthState>>;
@@ -59,9 +53,7 @@ export const Route = createFileRoute("/api/public/meta/callback")({
           try {
             const shortLived = await provider.exchangeCode(code);
             stage = "criação do token de longa duração";
-            const longLived = await provider.exchangeForLongLivedUserToken(
-              shortLived.accessToken,
-            );
+            const longLived = await provider.exchangeForLongLivedUserToken(shortLived.accessToken);
 
             // 3) Identify Meta user + granted scopes (NO Graph scans here — those
             //    are lazy-loaded on demand when the user opens the portfolio
@@ -69,13 +61,9 @@ export const Route = createFileRoute("/api/public/meta/callback")({
             stage = "leitura da conta Meta";
             const me = await provider.getMe(longLived.accessToken);
             stage = "leitura das permissões concedidas";
-            const grantedScopes = await provider.listGrantedPermissions(
-              longLived.accessToken,
-            );
+            const grantedScopes = await provider.listGrantedPermissions(longLived.accessToken);
 
-            const missingScopes = requestedScopes.filter(
-              (s) => !grantedScopes.includes(s),
-            );
+            const missingScopes = requestedScopes.filter((s) => !grantedScopes.includes(s));
 
             // 4) Persist ONLY the user token + identity in a short-lived session
             //    row. Portfolio arrays start empty and are populated lazily by
@@ -170,9 +158,11 @@ function htmlResult(result: {
   try {
     if (window.opener) {
       window.opener.postMessage(${JSON.stringify({ source: "meta-oauth", ok: result.ok, error: result.error, message: result.message, sessionId: result.sessionId ?? null, channel: result.channel ?? null })}, "*");
-      ${result.missingScopes && result.missingScopes.length > 0
-        ? `window.opener.postMessage(${JSON.stringify({ source: "meta-oauth", type: "missing-scopes", scopes: result.missingScopes })}, "*");`
-        : ""}
+      ${
+        result.missingScopes && result.missingScopes.length > 0
+          ? `window.opener.postMessage(${JSON.stringify({ source: "meta-oauth", type: "missing-scopes", scopes: result.missingScopes })}, "*");`
+          : ""
+      }
       window.close();
       setTimeout(() => window.close(), 100);
     } else {

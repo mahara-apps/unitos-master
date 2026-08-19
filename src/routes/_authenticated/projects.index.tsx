@@ -67,15 +67,8 @@ import { listClients } from "@/lib/workspace.functions";
 import { listBrandTeam } from "@/lib/team.functions";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { KpiCard } from "@/components/ui/kpi-card";
-import {
-  DashboardPageShell,
-  DashboardPanelSurface,
-} from "@/components/ui/dashboard-primitives";
-import {
-  createProject,
-  listProjects,
-  type ProjectStats,
-} from "@/lib/projects.functions";
+import { DashboardPageShell, DashboardPanelSurface } from "@/components/ui/dashboard-primitives";
+import { createProject, listProjects, type ProjectStats } from "@/lib/projects.functions";
 import { NewFromTemplateDialog } from "@/components/projects/new-from-template-dialog";
 import { PlanStatusBadge } from "@/lib/monthly-plan-status";
 import {
@@ -101,15 +94,24 @@ const COLORS = [
   "#71717a", // neutral
 ];
 
-const STATUS_META: Record<
-  string,
-  { label: string; className: string }
-> = {
+const STATUS_META: Record<string, { label: string; className: string }> = {
   planning: { label: "Planejamento", className: "border-border/60 bg-muted text-muted-foreground" },
-  active: { label: "Ativa", className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" },
-  in_progress: { label: "Em execução", className: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300" },
-  paused: { label: "Pausada", className: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300" },
-  done: { label: "Concluída", className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" },
+  active: {
+    label: "Ativa",
+    className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  },
+  in_progress: {
+    label: "Em execução",
+    className: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-300",
+  },
+  paused: {
+    label: "Pausada",
+    className: "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  },
+  done: {
+    label: "Concluída",
+    className: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  },
   archived: { label: "Arquivada", className: "border-border/60 bg-muted text-muted-foreground" },
 };
 
@@ -318,10 +320,13 @@ function ProjectsIndexPage() {
     enabled: !!brandId,
   });
   const team = (teamQ.data?.members ?? []) as Array<{ user_id: string; full_name: string | null }>;
-  const clients = (clientsQ.data ?? []) as Array<{ id: string; name: string; color: string | null }>;
+  const clients = (clientsQ.data ?? []) as Array<{
+    id: string;
+    name: string;
+    color: string | null;
+  }>;
 
-  const clientName = (id: string | null) =>
-    clients.find((c) => c.id === id)?.name ?? "";
+  const clientName = (id: string | null) => clients.find((c) => c.id === id)?.name ?? "";
 
   const rows = useMemo(() => {
     const all = projectsQ.data?.projects ?? [];
@@ -388,8 +393,7 @@ function ProjectsIndexPage() {
   }, [projectsQ.data]);
 
   const createMut = useMutation({
-    mutationFn: (values: ProjectFormValues) =>
-      create({ data: { brandId: brandId!, values } }),
+    mutationFn: (values: ProjectFormValues) => create({ data: { brandId: brandId!, values } }),
     onSuccess: () => {
       toast.success("Projeto criado");
       qc.invalidateQueries({ queryKey: ["projects", brandId] });
@@ -525,16 +529,13 @@ function ProjectsIndexPage() {
               <span
                 className="h-2 w-2 shrink-0 rounded-full"
                 style={{
-                  background:
-                    clients.find((c) => c.id === activeClientId)?.color ?? "#8b5cf6",
+                  background: clients.find((c) => c.id === activeClientId)?.color ?? "#8b5cf6",
                 }}
               />
               <span className="truncate font-medium text-foreground">
                 {clientName(activeClientId) || "Cliente ativo"}
               </span>
-              <span className="hidden text-[10px] uppercase tracking-wide sm:inline">
-                sidebar
-              </span>
+              <span className="hidden text-[10px] uppercase tracking-wide sm:inline">sidebar</span>
             </span>
           ) : (
             <ClientFilterCombobox
@@ -606,22 +607,59 @@ function ProjectsIndexPage() {
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <SortHeader label="Projeto" sortKey="name" active={sortKey} dir={sortDir} onSort={onSort} />
+                <SortHeader
+                  label="Projeto"
+                  sortKey="name"
+                  active={sortKey}
+                  dir={sortDir}
+                  onSort={onSort}
+                />
                 {activeClientId ? null : (
-                  <SortHeader label="Cliente" sortKey="client" active={sortKey} dir={sortDir} onSort={onSort} className="hidden md:table-cell" />
+                  <SortHeader
+                    label="Cliente"
+                    sortKey="client"
+                    active={sortKey}
+                    dir={sortDir}
+                    onSort={onSort}
+                    className="hidden md:table-cell"
+                  />
                 )}
-                <SortHeader label="Status" sortKey="status" active={sortKey} dir={sortDir} onSort={onSort} />
+                <SortHeader
+                  label="Status"
+                  sortKey="status"
+                  active={sortKey}
+                  dir={sortDir}
+                  onSort={onSort}
+                />
                 <TableHead className="hidden text-[11px] font-medium uppercase tracking-wide text-muted-foreground lg:table-cell">
                   Pauta
                 </TableHead>
-                <SortHeader label="Período" sortKey="due" active={sortKey} dir={sortDir} onSort={onSort} className="hidden lg:table-cell" />
-                <SortHeader label="Progresso" sortKey="progress" active={sortKey} dir={sortDir} onSort={onSort} className="w-[200px]" />
+                <SortHeader
+                  label="Período"
+                  sortKey="due"
+                  active={sortKey}
+                  dir={sortDir}
+                  onSort={onSort}
+                  className="hidden lg:table-cell"
+                />
+                <SortHeader
+                  label="Progresso"
+                  sortKey="progress"
+                  active={sortKey}
+                  dir={sortDir}
+                  onSort={onSort}
+                  className="w-[200px]"
+                />
               </TableRow>
             </TableHeader>
             <TableBody>
               {rows.map((p) => {
-                const stats: ProjectStats =
-                  projectsQ.data?.stats?.[p.id] ?? { total: 0, approved: 0, published: 0, pending: 0 };
+                const stats: ProjectStats = projectsQ.data?.stats?.[p.id] ?? {
+                  total: 0,
+                  approved: 0,
+                  published: 0,
+                  pending: 0,
+                };
                 const client = clients.find((c) => c.id === p.client_id);
                 const meta = STATUS_META[p.status] ?? STATUS_META.active;
                 const total = stats.total || 0;
@@ -646,7 +684,9 @@ function ProjectsIndexPage() {
                           className="h-2 w-2 shrink-0 rounded-full"
                           style={{ background: p.color ?? "#8b5cf6" }}
                         />
-                        <span className="truncate text-sm font-medium text-foreground">{p.name}</span>
+                        <span className="truncate text-sm font-medium text-foreground">
+                          {p.name}
+                        </span>
                       </div>
                     </TableCell>
                     {activeClientId ? null : (
@@ -770,14 +810,20 @@ function ProjectFormDialog(props: {
               <Label>Status</Label>
               <Select
                 value={values.status}
-                onValueChange={(v) => setValues((s) => ({ ...s, status: v as ProjectFormValues["status"] }))}
+                onValueChange={(v) =>
+                  setValues((s) => ({ ...s, status: v as ProjectFormValues["status"] }))
+                }
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {Object.entries(STATUS_META)
                     .filter(([k]) => k !== "archived")
                     .map(([k, v]) => (
-                      <SelectItem key={k} value={k}>{v.label}</SelectItem>
+                      <SelectItem key={k} value={k}>
+                        {v.label}
+                      </SelectItem>
                     ))}
                 </SelectContent>
               </Select>
@@ -786,13 +832,19 @@ function ProjectFormDialog(props: {
               <Label>Cliente</Label>
               <Select
                 value={values.client_id ?? "none"}
-                onValueChange={(v) => setValues((s) => ({ ...s, client_id: v === "none" ? null : v }))}
+                onValueChange={(v) =>
+                  setValues((s) => ({ ...s, client_id: v === "none" ? null : v }))
+                }
               >
-                <SelectTrigger><SelectValue placeholder="Selecionar" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecionar" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Sem cliente</SelectItem>
                   {props.clients.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -801,9 +853,13 @@ function ProjectFormDialog(props: {
               <Label>Responsável</Label>
               <Select
                 value={values.owner_id ?? "none"}
-                onValueChange={(v) => setValues((s) => ({ ...s, owner_id: v === "none" ? null : v }))}
+                onValueChange={(v) =>
+                  setValues((s) => ({ ...s, owner_id: v === "none" ? null : v }))
+                }
               >
-                <SelectTrigger><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Nenhum" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhum</SelectItem>
                   {props.team.map((m) => (
@@ -856,7 +912,9 @@ function ProjectFormDialog(props: {
           </div>
         </div>
         <DialogFooter>
-          <Button variant="ghost" onClick={() => props.onOpenChange(false)}>Cancelar</Button>
+          <Button variant="ghost" onClick={() => props.onOpenChange(false)}>
+            Cancelar
+          </Button>
           <Button onClick={submit} disabled={props.submitting}>
             {props.submitting ? "Salvando..." : "Criar projeto"}
           </Button>
@@ -866,7 +924,11 @@ function ProjectFormDialog(props: {
   );
 }
 
-function DateField(props: { label: string; value: string | null; onChange: (v: string | null) => void }) {
+function DateField(props: {
+  label: string;
+  value: string | null;
+  onChange: (v: string | null) => void;
+}) {
   const date = props.value ? new Date(props.value) : undefined;
   return (
     <div className="grid gap-1.5">
@@ -875,7 +937,11 @@ function DateField(props: { label: string; value: string | null; onChange: (v: s
         <PopoverTrigger asChild>
           <Button variant="outline" className="justify-start text-left font-normal">
             <CalendarIcon className="mr-2 h-4 w-4" />
-            {date ? fmtDate(props.value) : <span className="text-muted-foreground">Selecionar data</span>}
+            {date ? (
+              fmtDate(props.value)
+            ) : (
+              <span className="text-muted-foreground">Selecionar data</span>
+            )}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">

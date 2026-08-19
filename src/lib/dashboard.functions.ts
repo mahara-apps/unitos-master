@@ -30,14 +30,9 @@ type ResolvedRange = {
 function resolveRange(input?: { from?: string; to?: string }): ResolvedRange {
   const now = Date.now();
   const toMs = input?.to ? new Date(input.to).getTime() : now;
-  const fromMs = input?.from
-    ? new Date(input.from).getTime()
-    : toMs - 30 * 86_400_000;
+  const fromMs = input?.from ? new Date(input.from).getTime() : toMs - 30 * 86_400_000;
   const safeFrom = Math.min(fromMs, toMs);
-  const days = Math.max(
-    1,
-    Math.min(90, Math.ceil((toMs - safeFrom) / 86_400_000) || 1),
-  );
+  const days = Math.max(1, Math.min(90, Math.ceil((toMs - safeFrom) / 86_400_000) || 1));
   return {
     fromIso: new Date(safeFrom).toISOString(),
     toIso: new Date(toMs).toISOString(),
@@ -141,14 +136,16 @@ async function computeAiUsage(
       .gte("created_at", range.fromIso)
       .lte("created_at", range.toIso),
   );
-  const rows = ((res?.data ?? []) as Array<{
-    agent: string | null;
-    cost_usd: number | string | null;
-    created_at: string;
-    client_id: string | null;
-    input_tokens: number | null;
-    output_tokens: number | null;
-  }>).map((r) => ({
+  const rows = (
+    (res?.data ?? []) as Array<{
+      agent: string | null;
+      cost_usd: number | string | null;
+      created_at: string;
+      client_id: string | null;
+      input_tokens: number | null;
+      output_tokens: number | null;
+    }>
+  ).map((r) => ({
     agent: r.agent ?? "outros",
     cost: Number(r.cost_usd ?? 0),
     at: new Date(r.created_at).getTime(),
@@ -187,7 +184,7 @@ async function computeAiUsage(
     .map(([client_id, v]) => ({
       client_id,
       client_name: client_id
-        ? clientNameById?.get(client_id) ?? "Sem cliente"
+        ? (clientNameById?.get(client_id) ?? "Sem cliente")
         : "Global / sem cliente",
       cost: v.cost,
       jobs: v.jobs,
@@ -206,11 +203,8 @@ async function computeStats(
 ): Promise<DashboardStats> {
   const { supabase, userId } = ctx;
   const range = resolveRange(rangeInput);
-  const scope = <
-    Q extends { eq: (col: string, val: string) => Q },
-  >(
-    q: Q,
-  ): Q => (clientId ? q.eq("client_id", clientId) : q);
+  const scope = <Q extends { eq: (col: string, val: string) => Q }>(q: Q): Q =>
+    clientId ? q.eq("client_id", clientId) : q;
 
   const [
     clientsRes,
@@ -272,22 +266,19 @@ async function computeStats(
           .select("id", { count: "exact", head: true })
           .eq("brand_id", brandId)
           .eq("done", true)
-            .gte("done_at", range.fromIso)
-            .lte("done_at", range.toIso),
+          .gte("done_at", range.fromIso)
+          .lte("done_at", range.toIso),
       ),
     ),
     ignore(
       scope(
-        supabase
-          .from("posts")
-          .select("id", { count: "exact", head: true })
-          .eq("brand_id", brandId),
+        supabase.from("posts").select("id", { count: "exact", head: true }).eq("brand_id", brandId),
       ),
     ),
     // Aprovações pendentes = tabela real post_approvals (única fonte de verdade).
     // Join com posts para filtrar por brand/cliente.
     ignore(
-      (clientId
+      clientId
         ? supabase
             .from("post_approvals")
             .select("id, posts!inner(brand_id,client_id)", { count: "exact", head: true })
@@ -298,7 +289,7 @@ async function computeStats(
             .from("post_approvals")
             .select("id, posts!inner(brand_id)", { count: "exact", head: true })
             .eq("status", "pending")
-            .eq("posts.brand_id", brandId)),
+            .eq("posts.brand_id", brandId),
     ),
     ignore(
       scope(
@@ -330,35 +321,33 @@ async function computeStats(
         .from("activity_events")
         .select("id,verb,entity_type,payload,created_at,actor_id,client_id")
         .eq("brand_id", brandId)
-          .gte("created_at", range.fromIso)
-          .lte("created_at", range.toIso)
+        .gte("created_at", range.fromIso)
+        .lte("created_at", range.toIso)
         .order("created_at", { ascending: false })
         .limit(200),
     ),
     ignore(
-      scope(
-        supabase.from("tasks").select("status").eq("brand_id", brandId).eq("done", false),
-      ),
+      scope(supabase.from("tasks").select("status").eq("brand_id", brandId).eq("done", false)),
     ),
     ignore(scope(supabase.from("posts").select("stage,stage_id").eq("brand_id", brandId))),
     // Publicações aprovadas 30d = post_approvals.status='approved' na janela (fonte real).
     ignore(
-      (clientId
+      clientId
         ? supabase
             .from("post_approvals")
             .select("id, posts!inner(brand_id,client_id)", { count: "exact", head: true })
             .eq("status", "approved")
             .eq("posts.brand_id", brandId)
             .eq("posts.client_id", clientId)
-              .gte("created_at", range.fromIso)
-              .lte("created_at", range.toIso)
+            .gte("created_at", range.fromIso)
+            .lte("created_at", range.toIso)
         : supabase
             .from("post_approvals")
             .select("id, posts!inner(brand_id)", { count: "exact", head: true })
             .eq("status", "approved")
             .eq("posts.brand_id", brandId)
-              .gte("created_at", range.fromIso)
-              .lte("created_at", range.toIso)),
+            .gte("created_at", range.fromIso)
+            .lte("created_at", range.toIso),
     ),
     ignore(
       scope(
@@ -366,11 +355,11 @@ async function computeStats(
           .from("posts")
           .select("id,channels,created_at,published_at")
           .eq("brand_id", brandId)
-            .gte("created_at", range.fromIso)
-            .lte("created_at", range.toIso),
+          .gte("created_at", range.fromIso)
+          .lte("created_at", range.toIso),
       ),
     ),
-      computeAiUsage(supabase, brandId, range),
+    computeAiUsage(supabase, brandId, range),
     // Fonte adicional de publicações realizadas: worker de agendamento grava aqui,
     // não em posts.published_at. Necessário para o Ritmo de publicações refletir a realidade.
     ignore(
@@ -380,8 +369,8 @@ async function computeStats(
           .select("id,post_id,provider,published_at")
           .eq("brand_id", brandId)
           .eq("status", "published")
-            .gte("published_at", range.fromIso)
-            .lte("published_at", range.toIso),
+          .gte("published_at", range.fromIso)
+          .lte("published_at", range.toIso),
       ),
     ),
   ]);
@@ -416,7 +405,7 @@ async function computeStats(
   // Load dynamic pipeline stages: use client's default pipeline when scoped,
   // otherwise union across all default pipelines for the brand's clients.
   const pipelinesRes = await ignore(
-    (clientId
+    clientId
       ? supabase
           .from("content_pipelines")
           .select("id,client_id")
@@ -426,7 +415,7 @@ async function computeStats(
           .from("content_pipelines")
           .select("id,client_id,clients!inner(brand_id)")
           .eq("clients.brand_id", brandId)
-          .eq("is_default", true)),
+          .eq("is_default", true),
   );
   const pipelineIds = ((pipelinesRes?.data ?? []) as Array<{ id: string }>).map((p) => p.id);
   const pipelineStagesRes = pipelineIds.length
@@ -469,9 +458,7 @@ async function computeStats(
     const entry = unionByKey.get(key);
     if (entry) entry.count += 1;
   }
-  const pipelineStages = Array.from(unionByKey.values()).sort(
-    (a, b) => a.position - b.position,
-  );
+  const pipelineStages = Array.from(unionByKey.values()).sort((a, b) => a.position - b.position);
 
   const postsFull = (postsFullRes?.data ?? []) as Array<{
     id: string;
@@ -637,81 +624,97 @@ async function computeAgency(
 ): Promise<AgencyDashboard> {
   const { supabase } = ctx;
   const range = resolveRange(rangeInput);
-  const [clientsRes, tasksRes, postsRes, briefingsRes, activityRes, upcomingRes, approvalsRes, approvalsAggRes, aiUsage, socialPublishedRes] =
-    await Promise.all([
-      ignore(
-        supabase
-          .from("clients")
-          .select("id,name,color")
-          .eq("brand_id", brandId)
-          .is("archived_at", null),
-      ),
-      ignore(
-        supabase
-          .from("tasks")
-          .select("id,title,status,done,done_at,due_at,client_id")
-          .eq("brand_id", brandId),
-      ),
-      ignore(
-        supabase
-          .from("posts")
-          .select("id,title,stage,stage_id,channels,scheduled_at,published_at,client_id,updated_at,created_at")
-          .eq("brand_id", brandId),
-      ),
-      ignore(supabase.from("client_briefings").select("client_id,updated_at")),
-      ignore(
-        supabase
-          .from("activity_events")
-          .select("id,created_at,client_id")
-          .eq("brand_id", brandId)
-          .gte("created_at", range.fromIso)
-          .lte("created_at", range.toIso)
-          .order("created_at", { ascending: false })
-          .limit(1000),
-      ),
-      ignore(
-        supabase
-          .from("posts")
-          .select("id,title,scheduled_at,client_id,channels")
-          .eq("brand_id", brandId)
-          .in("stage", ["scheduled", "approved"])
-          .gte("scheduled_at", new Date().toISOString())
-          .lte("scheduled_at", untilIso(7))
-          .order("scheduled_at", { ascending: true })
-          .limit(20),
-      ),
-      ignore(
-        supabase
-          .from("post_approvals")
-          .select("id,created_at,posts!inner(id,title,client_id,channels,brand_id)")
-          .eq("status", "pending")
-          .eq("posts.brand_id", brandId)
-          .order("created_at", { ascending: true })
-          .limit(12),
-      ),
-      // post_approvals (fonte de verdade) — join com posts para escopar por brand.
-      ignore(
-        supabase
-          .from("post_approvals")
-          .select("id,status,updated_at,posts!inner(brand_id)")
-          .eq("posts.brand_id", brandId)
-          .gte("created_at", range.fromIso)
-          .lte("created_at", range.toIso),
-      ),
-      computeAiUsage(supabase, brandId, range),
-      // Publicações realizadas pelo worker de agendamento (não gravam posts.published_at).
-      ignore(
-        supabase
-          .from("social_posts")
-          .select("id,post_id,provider,published_at,client_id")
-          .eq("brand_id", brandId)
-          .eq("status", "published")
-          .gte("published_at", range.fromIso)
-          .lte("published_at", range.toIso),
-      ),
-    ]);
+  const [
+    clientsRes,
+    tasksRes,
+    postsRes,
+    briefingsRes,
+    activityRes,
+    upcomingRes,
+    approvalsRes,
+    approvalsAggRes,
+    aiUsage,
+    socialPublishedRes,
+  ] = await Promise.all([
+    ignore(
+      supabase
+        .from("clients")
+        .select("id,name,color")
+        .eq("brand_id", brandId)
+        .is("archived_at", null),
+    ),
+    ignore(
+      supabase
+        .from("tasks")
+        .select("id,title,status,done,done_at,due_at,client_id")
+        .eq("brand_id", brandId),
+    ),
+    ignore(
+      supabase
+        .from("posts")
+        .select(
+          "id,title,stage,stage_id,channels,scheduled_at,published_at,client_id,updated_at,created_at",
+        )
+        .eq("brand_id", brandId),
+    ),
+    ignore(supabase.from("client_briefings").select("client_id,updated_at")),
+    ignore(
+      supabase
+        .from("activity_events")
+        .select("id,created_at,client_id")
+        .eq("brand_id", brandId)
+        .gte("created_at", range.fromIso)
+        .lte("created_at", range.toIso)
+        .order("created_at", { ascending: false })
+        .limit(1000),
+    ),
+    ignore(
+      supabase
+        .from("posts")
+        .select("id,title,scheduled_at,client_id,channels")
+        .eq("brand_id", brandId)
+        .in("stage", ["scheduled", "approved"])
+        .gte("scheduled_at", new Date().toISOString())
+        .lte("scheduled_at", untilIso(7))
+        .order("scheduled_at", { ascending: true })
+        .limit(20),
+    ),
+    ignore(
+      supabase
+        .from("post_approvals")
+        .select("id,created_at,posts!inner(id,title,client_id,channels,brand_id)")
+        .eq("status", "pending")
+        .eq("posts.brand_id", brandId)
+        .order("created_at", { ascending: true })
+        .limit(12),
+    ),
+    // post_approvals (fonte de verdade) — join com posts para escopar por brand.
+    ignore(
+      supabase
+        .from("post_approvals")
+        .select("id,status,updated_at,posts!inner(brand_id)")
+        .eq("posts.brand_id", brandId)
+        .gte("created_at", range.fromIso)
+        .lte("created_at", range.toIso),
+    ),
+    computeAiUsage(supabase, brandId, range),
+    // Publicações realizadas pelo worker de agendamento (não gravam posts.published_at).
+    ignore(
+      supabase
+        .from("social_posts")
+        .select("id,post_id,provider,published_at,client_id")
+        .eq("brand_id", brandId)
+        .eq("status", "published")
+        .gte("published_at", range.fromIso)
+        .lte("published_at", range.toIso),
+    ),
+  ]);
 
-  const clients = (clientsRes?.data ?? []) as Array<{ id: string; name: string; color: string | null }>;
+  const clients = (clientsRes?.data ?? []) as Array<{
+    id: string;
+    name: string;
+    color: string | null;
+  }>;
   const tasks = (tasksRes?.data ?? []) as Array<{
     id: string;
     title: string;
@@ -746,7 +749,11 @@ async function computeAgency(
       b.updated_at,
     ]),
   );
-  const activity = (activityRes?.data ?? []) as Array<{ id: string; created_at: string; client_id: string | null }>;
+  const activity = (activityRes?.data ?? []) as Array<{
+    id: string;
+    created_at: string;
+    client_id: string | null;
+  }>;
 
   const now = Date.now();
   const nameById = new Map(clients.map((c) => [c.id, c.name] as const));
@@ -763,9 +770,8 @@ async function computeAgency(
     clients: clients.length,
     projects_active: 0,
     tasks_open: tasks.filter((t) => !t.done).length,
-    tasks_overdue: tasks.filter(
-      (t) => !t.done && t.due_at && new Date(t.due_at).getTime() < now,
-    ).length,
+    tasks_overdue: tasks.filter((t) => !t.done && t.due_at && new Date(t.due_at).getTime() < now)
+      .length,
     tasks_done_7d: tasks.filter(
       (t) =>
         t.done &&
@@ -864,8 +870,11 @@ async function computeAgency(
       briefingUpdatedAt: briefings.get(c.id) ?? null,
     });
     const lastPost =
-      cPosts.filter((p) => p.published_at).map((p) => p.published_at as string).sort().at(-1) ??
-      null;
+      cPosts
+        .filter((p) => p.published_at)
+        .map((p) => p.published_at as string)
+        .sort()
+        .at(-1) ?? null;
 
     return {
       id: c.id,
@@ -880,16 +889,18 @@ async function computeAgency(
     };
   });
 
-  const approvalsQueue = ((approvalsRes?.data ?? []) as Array<{
-    id: string;
-    created_at: string;
-    posts: {
+  const approvalsQueue = (
+    (approvalsRes?.data ?? []) as Array<{
       id: string;
-      title: string;
-      client_id: string;
-      channels: string[] | null;
-    } | null;
-  }>)
+      created_at: string;
+      posts: {
+        id: string;
+        title: string;
+        client_id: string;
+        channels: string[] | null;
+      } | null;
+    }>
+  )
     .filter((r) => !!r.posts)
     .map((r) => ({
       id: r.id,
@@ -914,14 +925,16 @@ async function computeAgency(
       title: t.title,
       when: t.due_at as string,
       client_id: t.client_id,
-      client_name: t.client_id ? nameById.get(t.client_id) ?? null : null,
+      client_name: t.client_id ? (nameById.get(t.client_id) ?? null) : null,
     }));
-  const upcomingPosts = ((upcomingRes?.data ?? []) as Array<{
-    id: string;
-    title: string;
-    scheduled_at: string;
-    client_id: string;
-  }>).map((p) => ({
+  const upcomingPosts = (
+    (upcomingRes?.data ?? []) as Array<{
+      id: string;
+      title: string;
+      scheduled_at: string;
+      client_id: string;
+    }>
+  ).map((p) => ({
     kind: "post" as const,
     id: p.id,
     title: p.title,
@@ -1000,9 +1013,7 @@ async function computeAgency(
     const entry = unionByKey.get(key);
     if (entry) entry.count += 1;
   }
-  const pipelineStages = Array.from(unionByKey.values()).sort(
-    (a, b) => a.position - b.position,
-  );
+  const pipelineStages = Array.from(unionByKey.values()).sort((a, b) => a.position - b.position);
 
   // União posts.published_at + social_posts.published_at (worker). Dedupe por post_id/bucket.
   const publishTrend14d = Array.from({ length: sparkBuckets }, (_, i) => {
@@ -1057,28 +1068,33 @@ async function computeAgency(
     byClient: aiUsage.byClient.map((r) => ({
       ...r,
       client_name: r.client_id
-        ? nameById.get(r.client_id) ?? r.client_name
+        ? (nameById.get(r.client_id) ?? r.client_name)
         : "Global / sem cliente",
     })),
   };
 
   // Task buckets (open/in_progress/review/done/overdue) — todos filtrados por range para "done".
   const tasksByBucket = {
-    open: tasks.filter((t) => !t.done && t.status !== "in_progress" && t.status !== "review").length,
+    open: tasks.filter((t) => !t.done && t.status !== "in_progress" && t.status !== "review")
+      .length,
     in_progress: tasks.filter((t) => !t.done && t.status === "in_progress").length,
     review: tasks.filter((t) => !t.done && t.status === "review").length,
     done: tasks.filter(
-      (t) => t.done && t.done_at && new Date(t.done_at).getTime() >= range.fromMs && new Date(t.done_at).getTime() <= range.toMs,
+      (t) =>
+        t.done &&
+        t.done_at &&
+        new Date(t.done_at).getTime() >= range.fromMs &&
+        new Date(t.done_at).getTime() <= range.toMs,
     ).length,
     overdue: counts.tasks_overdue,
   };
 
   // Aprovações agrupadas por cliente (a partir de approvalRows + join com posts.client_id)
-  const approvalsWithClient = ((approvalsAggRes?.data ?? []) as Array<{
+  const approvalsWithClient = (approvalsAggRes?.data ?? []) as Array<{
     id: string;
     status: string;
     posts: { brand_id: string; client_id?: string | null } | null;
-  }>);
+  }>;
   const abcMap = new Map<string, { pending: number; approved: number }>();
   for (const a of approvalsWithClient) {
     const cid = a.posts?.client_id;
@@ -1222,9 +1238,7 @@ ${JSON.stringify(brief, null, 2)}`,
 export const searchWorkspace = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
-    z
-      .object({ brandId: z.string().uuid(), q: z.string().trim().min(1).max(80) })
-      .parse(input),
+    z.object({ brandId: z.string().uuid(), q: z.string().trim().min(1).max(80) }).parse(input),
   )
   .handler(async ({ data, context }) => {
     const like = `%${data.q}%`;
@@ -1264,7 +1278,11 @@ export const searchWorkspace = createServerFn({ method: "POST" })
     ]);
     return {
       clients: (clients?.data ?? []) as Array<{ id: string; name: string }>,
-      projects: (projects?.data ?? []) as Array<{ id: string; name: string; client_id: string | null }>,
+      projects: (projects?.data ?? []) as Array<{
+        id: string;
+        name: string;
+        client_id: string | null;
+      }>,
       tasks: (tasks?.data ?? []) as Array<{ id: string; title: string; client_id: string | null }>,
       posts: (posts?.data ?? []) as Array<{ id: string; title: string; client_id: string }>,
     };

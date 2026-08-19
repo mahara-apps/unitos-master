@@ -51,9 +51,7 @@ import {
   type ClientHealth,
   type DashboardStats,
 } from "@/lib/dashboard.functions";
-import {
-  loadCustomerDashboardFn,
-} from "@/lib/customer-dashboard.functions";
+import { loadCustomerDashboardFn } from "@/lib/customer-dashboard.functions";
 import { Sparkline } from "@/components/dashboard/sparkline";
 import { AgencyOpsSection } from "@/components/dashboard/agency-ops-section";
 import { ClientAccountDashboard } from "@/components/dashboard/client-account-dashboard";
@@ -212,7 +210,11 @@ function AgencyMode({ brandId }: { brandId: string }) {
           icon={<BadgeCheck className="h-4 w-4" />}
           label="Aprovações pendentes"
           value={d?.counts.approvals_pending ?? 0}
-          sub={d?.approvalsQueue[0]?.client_name ? `Mais antiga: ${d.approvalsQueue[0].client_name}` : "Sem fila"}
+          sub={
+            d?.approvalsQueue[0]?.client_name
+              ? `Mais antiga: ${d.approvalsQueue[0].client_name}`
+              : "Sem fila"
+          }
           tone="amber"
         />
         <KpiCard
@@ -288,9 +290,7 @@ function SectionHeader({ title, hint }: { title: string; hint?: string }) {
       <h2 className="text-[11px] font-mono font-semibold uppercase tracking-[0.18em] text-foreground/80">
         {title}
       </h2>
-      {hint && (
-        <span className="text-[11px] text-muted-foreground">{hint}</span>
-      )}
+      {hint && <span className="text-[11px] text-muted-foreground">{hint}</span>}
     </div>
   );
 }
@@ -333,9 +333,24 @@ function StatusBanner({
           </div>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <StatusPill icon={<AlertTriangle className="h-3 w-3" />} label="Alertas críticos" value={criticalAlerts} tone={criticalAlerts ? "rose" : "muted"} />
-          <StatusPill icon={<BadgeCheck className="h-3 w-3" />} label="Aprovações" value={approvals} tone={approvals > 5 ? "amber" : "muted"} />
-          <StatusPill icon={<Clock className="h-3 w-3" />} label="Tarefas atrasadas" value={overdue} tone={overdue ? "rose" : "muted"} />
+          <StatusPill
+            icon={<AlertTriangle className="h-3 w-3" />}
+            label="Alertas críticos"
+            value={criticalAlerts}
+            tone={criticalAlerts ? "rose" : "muted"}
+          />
+          <StatusPill
+            icon={<BadgeCheck className="h-3 w-3" />}
+            label="Aprovações"
+            value={approvals}
+            tone={approvals > 5 ? "amber" : "muted"}
+          />
+          <StatusPill
+            icon={<Clock className="h-3 w-3" />}
+            label="Tarefas atrasadas"
+            value={overdue}
+            tone={overdue ? "rose" : "muted"}
+          />
         </div>
       </div>
     </div>
@@ -359,7 +374,9 @@ function StatusPill({
     muted: "border-border/60 bg-muted/40 text-muted-foreground",
   }[tone];
   return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs", cls)}>
+    <span
+      className={cn("inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs", cls)}
+    >
       {icon}
       <span>{label}</span>
       <span className="font-mono font-semibold tabular-nums">{value}</span>
@@ -387,13 +404,7 @@ function AlertChip({ alert }: { alert: AgencyDashboard["alerts"][number] }) {
   );
 }
 
-function ClientHealthRanking({
-  healths,
-  loading,
-}: {
-  healths: ClientHealth[];
-  loading: boolean;
-}) {
+function ClientHealthRanking({ healths, loading }: { healths: ClientHealth[]; loading: boolean }) {
   const sorted = [...healths].sort((a, b) => a.score - b.score);
   return (
     <Card
@@ -459,7 +470,13 @@ function ClientHealthRanking({
   );
 }
 
-const FUNNEL_FALLBACK: Array<{ key: string; label: string; color: string | null; position: number; count: number }> = [
+const FUNNEL_FALLBACK: Array<{
+  key: string;
+  label: string;
+  color: string | null;
+  position: number;
+  count: number;
+}> = [
   { key: "idea", label: "Ideia", color: "#0ea5e9", position: 0, count: 0 },
   { key: "production", label: "Produção", color: "#f59e0b", position: 1, count: 0 },
   { key: "review", label: "Revisão", color: "#f97316", position: 2, count: 0 },
@@ -468,7 +485,13 @@ const FUNNEL_FALLBACK: Array<{ key: string; label: string; color: string | null;
   { key: "published", label: "Publicado", color: "#ec4899", position: 5, count: 0 },
 ];
 
-type FunnelStage = { key: string; label: string; color: string | null; position: number; count: number };
+type FunnelStage = {
+  key: string;
+  label: string;
+  color: string | null;
+  position: number;
+  count: number;
+};
 
 function FunnelCard({
   stages,
@@ -479,9 +502,10 @@ function FunnelCard({
   postsByStage: Record<string, number>;
   avgLead: number | null;
 }) {
-  const list: FunnelStage[] = stages && stages.length > 0
-    ? stages.map((s) => ({ ...s, count: postsByStage[s.key.toLowerCase()] ?? s.count }))
-    : FUNNEL_FALLBACK.map((s) => ({ ...s, count: postsByStage[s.key] ?? 0 }));
+  const list: FunnelStage[] =
+    stages && stages.length > 0
+      ? stages.map((s) => ({ ...s, count: postsByStage[s.key.toLowerCase()] ?? s.count }))
+      : FUNNEL_FALLBACK.map((s) => ({ ...s, count: postsByStage[s.key] ?? 0 }));
   const total = list.reduce((s, x) => s + x.count, 0);
   const published = list.find((s) => s.key.toLowerCase() === "published")?.count ?? 0;
   const conv = total ? Math.round((published / total) * 100) : 0;
@@ -556,7 +580,8 @@ function AiUsageCard({ usage }: { usage: AiUsageSummary | undefined }) {
               ${(usage?.cost ?? 0).toFixed(2)}
             </div>
             <div className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
-              Custo no período · {usage?.jobs ?? 0} execuções · {((usage?.tokens ?? 0) / 1000).toFixed(1)}k tokens
+              Custo no período · {usage?.jobs ?? 0} execuções ·{" "}
+              {((usage?.tokens ?? 0) / 1000).toFixed(1)}k tokens
             </div>
           </div>
           {usage && usage.spark.some((v: number) => v > 0) && (
@@ -650,13 +675,36 @@ function PublishTrendCard({
                   <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <XAxis dataKey="day" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} interval={1} />
-              <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} width={24} />
+              <XAxis
+                dataKey="day"
+                tick={{ fontSize: 10 }}
+                tickLine={false}
+                axisLine={false}
+                interval={1}
+              />
+              <YAxis
+                tick={{ fontSize: 10 }}
+                tickLine={false}
+                axisLine={false}
+                allowDecimals={false}
+                width={24}
+              />
               <Tooltip
-                contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", fontSize: 12, borderRadius: 8 }}
+                contentStyle={{
+                  background: "hsl(var(--card))",
+                  border: "1px solid hsl(var(--border))",
+                  fontSize: 12,
+                  borderRadius: 8,
+                }}
                 labelStyle={{ color: "hsl(var(--muted-foreground))" }}
               />
-              <Area type="monotone" dataKey="posts" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#pubGrad)" />
+              <Area
+                type="monotone"
+                dataKey="posts"
+                stroke="hsl(var(--primary))"
+                strokeWidth={2}
+                fill="url(#pubGrad)"
+              />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -703,7 +751,10 @@ function ApprovalsQueueCard({
       {loading ? (
         <SkeletonList />
       ) : items.length === 0 ? (
-        <EmptyState icon={<CheckCircle2 className="h-5 w-5 text-emerald-500" />} text="Nenhuma aprovação pendente." />
+        <EmptyState
+          icon={<CheckCircle2 className="h-5 w-5 text-emerald-500" />}
+          text="Nenhuma aprovação pendente."
+        />
       ) : (
         <ul className="divide-y divide-border/40">
           {items.slice(0, 6).map((it) => (
@@ -751,7 +802,10 @@ function UpcomingCard({
       {loading ? (
         <SkeletonList />
       ) : items.length === 0 ? (
-        <EmptyState icon={<CalendarClock className="h-5 w-5" />} text="Nenhuma entrega nos próximos 7 dias." />
+        <EmptyState
+          icon={<CalendarClock className="h-5 w-5" />}
+          text="Nenhuma entrega nos próximos 7 dias."
+        />
       ) : (
         <ul className="divide-y divide-border/40">
           {items.slice(0, 6).map((it) => (
@@ -764,12 +818,17 @@ function UpcomingCard({
                     : "border-sky-500/30 bg-sky-500/10 text-sky-500",
                 )}
               >
-                {it.kind === "post" ? <Sparkles className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                {it.kind === "post" ? (
+                  <Sparkles className="h-3.5 w-3.5" />
+                ) : (
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                )}
               </span>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm">{it.title}</div>
                 <div className="truncate text-xs text-muted-foreground">
-                  {it.client_name ?? "—"} · {format(new Date(it.when), "EEE dd/MM · HH:mm", { locale: ptBR })}
+                  {it.client_name ?? "—"} ·{" "}
+                  {format(new Date(it.when), "EEE dd/MM · HH:mm", { locale: ptBR })}
                 </div>
               </div>
             </li>
@@ -797,7 +856,9 @@ function HeatmapCard({ heatmap, rangeDays }: { heatmap: number[]; rangeDays?: nu
               key={i}
               title={`${n} publicação(ões)`}
               className="h-4 w-4 rounded-sm border border-border/40"
-              style={{ background: `color-mix(in oklab, hsl(var(--primary)) ${Math.round(intensity * 100)}%, transparent)` }}
+              style={{
+                background: `color-mix(in oklab, hsl(var(--primary)) ${Math.round(intensity * 100)}%, transparent)`,
+              }}
             />
           );
         })}
@@ -879,11 +940,7 @@ const CHANNEL_COLORS: Record<string, string> = {
   blog: "#0ea5e9",
 };
 
-function ChannelMixCard({
-  channels,
-}: {
-  channels: Array<{ channel: string; count: number }>;
-}) {
+function ChannelMixCard({ channels }: { channels: Array<{ channel: string; count: number }> }) {
   const total = channels.reduce((s, c) => s + c.count, 0);
   const max = Math.max(1, ...channels.map((c) => c.count));
   return (
@@ -893,7 +950,10 @@ function ChannelMixCard({
       icon={<PieIcon className="h-4 w-4" />}
     >
       {channels.length === 0 ? (
-        <EmptyState icon={<PieIcon className="h-5 w-5" />} text="Sem canais publicados no período." />
+        <EmptyState
+          icon={<PieIcon className="h-5 w-5" />}
+          text="Sem canais publicados no período."
+        />
       ) : (
         <ul className="space-y-2 px-4 py-3">
           {channels.slice(0, 6).map((c) => {
@@ -914,7 +974,10 @@ function ChannelMixCard({
                   </span>
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/40">
-                  <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+                  <div
+                    className="h-full rounded-full"
+                    style={{ width: `${pct}%`, background: color }}
+                  />
                 </div>
               </li>
             );
@@ -942,7 +1005,10 @@ function ApprovalsByClientCard({
       {loading ? (
         <SkeletonList />
       ) : rows.length === 0 ? (
-        <EmptyState icon={<BadgeCheck className="h-5 w-5" />} text="Nenhuma aprovação registrada." />
+        <EmptyState
+          icon={<BadgeCheck className="h-5 w-5" />}
+          text="Nenhuma aprovação registrada."
+        />
       ) : (
         <ul className="space-y-2.5 px-4 py-3">
           {rows.map((r) => {
@@ -1006,8 +1072,6 @@ function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }
   return <ClientAccountDashboard brandId={brandId} clientId={clientId} range={range} />;
 }
 
-
-
 function UpcomingClientCard({
   posts,
   loading,
@@ -1020,19 +1084,28 @@ function UpcomingClientCard({
       title="Próximas publicações"
       subtitle="Agenda dos próximos 7 dias"
       icon={<CalendarClock className="h-4 w-4" />}
-      action={<Link to="/calendar" className="text-xs text-muted-foreground hover:text-foreground">Calendário →</Link>}
+      action={
+        <Link to="/calendar" className="text-xs text-muted-foreground hover:text-foreground">
+          Calendário →
+        </Link>
+      }
     >
       {loading ? (
         <SkeletonList />
       ) : posts.length === 0 ? (
-        <EmptyState icon={<CalendarClock className="h-5 w-5" />} text="Sem publicações agendadas." />
+        <EmptyState
+          icon={<CalendarClock className="h-5 w-5" />}
+          text="Sem publicações agendadas."
+        />
       ) : (
         <ul className="divide-y divide-border/40">
           {posts.slice(0, 6).map((p) => (
             <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
               <span className="truncate">{p.title}</span>
               <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-                {p.scheduled_at ? format(new Date(p.scheduled_at), "dd MMM · HH:mm", { locale: ptBR }) : "—"}
+                {p.scheduled_at
+                  ? format(new Date(p.scheduled_at), "dd MMM · HH:mm", { locale: ptBR })
+                  : "—"}
               </span>
             </li>
           ))}
@@ -1054,7 +1127,11 @@ function RecentActivityCard({
       title="Atividade recente"
       subtitle="Eventos no período selecionado"
       icon={<Sparkles className="h-4 w-4" />}
-      action={<Link to="/notifications" className="text-xs text-muted-foreground hover:text-foreground">Ver tudo →</Link>}
+      action={
+        <Link to="/notifications" className="text-xs text-muted-foreground hover:text-foreground">
+          Ver tudo →
+        </Link>
+      }
     >
       {loading ? (
         <SkeletonList />
@@ -1067,7 +1144,9 @@ function RecentActivityCard({
               <span className="truncate">
                 <span className="font-medium capitalize">{a.entity_type}</span>{" "}
                 <span className="text-muted-foreground">{a.verb}</span>
-                {a.payload?.title ? <span className="ml-1 text-muted-foreground">· {a.payload.title}</span> : null}
+                {a.payload?.title ? (
+                  <span className="ml-1 text-muted-foreground">· {a.payload.title}</span>
+                ) : null}
               </span>
               <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
                 {format(new Date(a.created_at), "dd MMM · HH:mm", { locale: ptBR })}

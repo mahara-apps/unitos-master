@@ -1,10 +1,23 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  type ReactNode,
+} from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { useRouter } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { listMyAiJobs, dismissAiJob, clearFinishedAiJobs, type AiJobRow } from "@/lib/ai-jobs.functions";
+import {
+  listMyAiJobs,
+  dismissAiJob,
+  clearFinishedAiJobs,
+  type AiJobRow,
+} from "@/lib/ai-jobs.functions";
 
 type Ctx = {
   jobs: AiJobRow[];
@@ -49,14 +62,18 @@ export function AiJobsProvider({ children }: { children: ReactNode }) {
       channel = supabase
         .channel(`rt:ai_jobs:${userId}`)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .on("postgres_changes" as any, {
-          event: "*",
-          schema: "public",
-          table: "ai_jobs",
-          filter: `user_id=eq.${userId}`,
-        }, () => {
-          qc.invalidateQueries({ queryKey: AI_JOBS_KEY });
-        })
+        .on(
+          "postgres_changes" as any,
+          {
+            event: "*",
+            schema: "public",
+            table: "ai_jobs",
+            filter: `user_id=eq.${userId}`,
+          },
+          () => {
+            qc.invalidateQueries({ queryKey: AI_JOBS_KEY });
+          },
+        )
         .subscribe();
     })();
 
@@ -72,7 +89,11 @@ export function AiJobsProvider({ children }: { children: ReactNode }) {
     for (const j of jobs) {
       const prev = prevStatusRef.current.get(j.id);
       if (prev !== j.status) {
-        if ((j.status === "succeeded" || j.status === "failed") && !notifiedRef.current.has(j.id) && prev) {
+        if (
+          (j.status === "succeeded" || j.status === "failed") &&
+          !notifiedRef.current.has(j.id) &&
+          prev
+        ) {
           notifiedRef.current.add(j.id);
           if (j.status === "succeeded") {
             toast.success(`Concluído: ${j.title}`, {
@@ -98,10 +119,13 @@ export function AiJobsProvider({ children }: { children: ReactNode }) {
     }
   }, [query.data, qc, router]);
 
-  const dismiss = useCallback(async (id: string) => {
-    await dismissFn({ data: { id } });
-    qc.invalidateQueries({ queryKey: AI_JOBS_KEY });
-  }, [dismissFn, qc]);
+  const dismiss = useCallback(
+    async (id: string) => {
+      await dismissFn({ data: { id } });
+      qc.invalidateQueries({ queryKey: AI_JOBS_KEY });
+    },
+    [dismissFn, qc],
+  );
 
   const clearFinished = useCallback(async () => {
     await clearFn();
@@ -113,7 +137,9 @@ export function AiJobsProvider({ children }: { children: ReactNode }) {
     return {
       jobs,
       active: jobs.filter((j) => j.status === "queued" || j.status === "running"),
-      finished: jobs.filter((j) => j.status === "succeeded" || j.status === "failed" || j.status === "cancelled"),
+      finished: jobs.filter(
+        (j) => j.status === "succeeded" || j.status === "failed" || j.status === "cancelled",
+      ),
       dismiss,
       clearFinished,
       refetch: () => qc.invalidateQueries({ queryKey: AI_JOBS_KEY }),

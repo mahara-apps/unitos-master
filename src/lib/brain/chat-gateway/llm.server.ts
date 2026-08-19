@@ -28,9 +28,7 @@ function firstName(name?: string | null): string | null {
 }
 
 function buildInstructions(brain: BrainConsolidated, user?: ChatUserContext): string {
-  const displayName =
-    firstName(user?.name) ??
-    (user?.email ? user.email.split("@")[0] : null);
+  const displayName = firstName(user?.name) ?? (user?.email ? user.email.split("@")[0] : null);
 
   const identity = displayName
     ? `Usuário atual: ${displayName}${user?.email ? ` (${user.email})` : ""}. Você já sabe quem é — chame pelo primeiro nome quando fizer sentido, sem forçar em toda mensagem.`
@@ -42,11 +40,13 @@ function buildInstructions(brain: BrainConsolidated, user?: ChatUserContext): st
     "",
     "Estilo de resposta:",
     "- Curto por padrão: 1 a 3 frases. Só expanda quando a pergunta pedir detalhe real.",
-    "- Conversacional e cadenciado, em português do Brasil. Sem jargão, sem preâmbulo (\"claro!\", \"com certeza!\").",
+    '- Conversacional e cadenciado, em português do Brasil. Sem jargão, sem preâmbulo ("claro!", "com certeza!").',
     "- Evite markdown pesado: nada de negrito em cada linha, nada de listas com 1–2 itens. Bullets só quando houver 3+ itens realmente paralelos.",
     "- Nunca liste todas as suas capacidades de forma proativa. Só cite uma ação quando ela responde a pergunta atual.",
-    "- Para saudações (\"oi\", \"tudo bem?\"): responda curto e devolva a bola. Ex.: \"Oi" + (displayName ? ", " + displayName : "") + ". No que te ajudo?\". Nada de menu.",
-    "- Perguntas sobre o próprio usuário (\"qual meu nome?\", \"quem sou eu?\"): responda direto com o que você já sabe acima.",
+    '- Para saudações ("oi", "tudo bem?"): responda curto e devolva a bola. Ex.: "Oi' +
+      (displayName ? ", " + displayName : "") +
+      '. No que te ajudo?". Nada de menu.',
+    '- Perguntas sobre o próprio usuário ("qual meu nome?", "quem sou eu?"): responda direto com o que você já sabe acima.',
     "",
     "Uso de dados e ferramentas:",
     "- Nunca invente números, prazos ou nomes. Se não souber, use uma ferramenta ou diga que não tem o dado.",
@@ -54,7 +54,8 @@ function buildInstructions(brain: BrainConsolidated, user?: ChatUserContext): st
     "- Ao criar uma tarefa, confirme em uma frase o que foi criado.",
     "",
     "Conhecimento do Brain para esta pergunta (pode estar vazio):",
-    brain.markdown || "_(sem conhecimento relevante — responda com o que sabe ou use ferramentas.)_",
+    brain.markdown ||
+      "_(sem conhecimento relevante — responda com o que sabe ou use ferramentas.)_",
   ].join("\n");
 }
 
@@ -153,7 +154,12 @@ export async function streamAnswer(args: StreamAnswerArgs): Promise<{
     { agent: "brain.chat", clientId: args.brainCtx.clientId ?? null },
   );
 
-  const messages = await buildMessages(args.supabase, args.history, args.question, args.attachments);
+  const messages = await buildMessages(
+    args.supabase,
+    args.history,
+    args.question,
+    args.attachments,
+  );
   const tools = buildChatTools(args.supabase, args.brainCtx, args.toolCallLog);
 
   const result = streamText({

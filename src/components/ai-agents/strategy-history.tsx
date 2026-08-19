@@ -2,15 +2,7 @@ import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import {
-  Clock,
-  History,
-  RotateCcw,
-  Copy,
-  Download,
-  CheckCircle2,
-  Loader2,
-} from "lucide-react";
+import { Clock, History, RotateCcw, Copy, Download, CheckCircle2, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -194,8 +186,7 @@ export function StrategyHistory({
   const restore = useServerFn(restoreStrategyRunFn);
 
   const restoreM = useMutation({
-    mutationFn: (run: StrategyRun) =>
-      restore({ data: { brandId, clientId, blocks: run.blocks } }),
+    mutationFn: (run: StrategyRun) => restore({ data: { brandId, clientId, blocks: run.blocks } }),
     onSuccess: () => {
       toast.success("Geração restaurada como versão ativa");
       const scope = { brandId, clientId };
@@ -208,8 +199,7 @@ export function StrategyHistory({
       setConfirmRun(null);
       onRestored?.();
     },
-    onError: (e) =>
-      toast.error(e instanceof Error ? e.message : "Falha ao restaurar a geração"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao restaurar a geração"),
   });
 
   if (runsQ.isLoading) return <Skeleton className="h-48 w-full rounded-xl" />;
@@ -223,8 +213,8 @@ export function StrategyHistory({
         <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
           <History className="h-5 w-5 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            Nenhuma geração anterior ainda. Ao gerar inteligência novamente, a versão atual
-            passa a ficar guardada aqui.
+            Nenhuma geração anterior ainda. Ao gerar inteligência novamente, a versão atual passa a
+            ficar guardada aqui.
           </p>
         </CardContent>
       </Card>
@@ -281,17 +271,13 @@ export function StrategyHistory({
         onRestore={(run) => setConfirmRun(run)}
       />
 
-      <AlertDialog
-        open={!!confirmRun}
-        onOpenChange={(o) => !o && setConfirmRun(null)}
-      >
+      <AlertDialog open={!!confirmRun} onOpenChange={(o) => !o && setConfirmRun(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Restaurar esta geração?</AlertDialogTitle>
             <AlertDialogDescription>
-              A geração de {confirmRun ? formatRunDate(confirmRun.createdAt) : ""} volta a ser
-              a versão ativa do cliente. A versão atual não é apagada — ela passa para o
-              histórico.
+              A geração de {confirmRun ? formatRunDate(confirmRun.createdAt) : ""} volta a ser a
+              versão ativa do cliente. A versão atual não é apagada — ela passa para o histórico.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -303,9 +289,7 @@ export function StrategyHistory({
               }}
               disabled={restoreM.isPending}
             >
-              {restoreM.isPending ? (
-                <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-              ) : null}
+              {restoreM.isPending ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
               Restaurar
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -332,9 +316,7 @@ function RunViewer({
   const q = useQuery({
     queryKey: ["strategy-run", brandId, clientId, run?.key],
     queryFn: () =>
-      get({ data: { brandId, clientId, blocks: run!.blocks } }) as Promise<
-        Record<string, unknown>
-      >,
+      get({ data: { brandId, clientId, blocks: run!.blocks } }) as Promise<Record<string, unknown>>,
     enabled: !!run,
   });
 
@@ -348,64 +330,57 @@ function RunViewer({
       title={`Geração de ${run ? formatRunDate(run.createdAt) : ""}`}
       description="Versão somente leitura — não é a vigente deste cliente."
     >
-        {run ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={() => copyText(runToMarkdown(run, payload), "Geração")}
-              disabled={q.isLoading}
-            >
-              <Download className="h-3.5 w-3.5" /> Copiar tudo (Markdown)
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="gap-1.5"
-              onClick={() => onRestore(run)}
-            >
-              <RotateCcw className="h-3.5 w-3.5" /> Restaurar como ativa
-            </Button>
-          </div>
-        ) : null}
-
-        <div className="mt-6 space-y-6">
-          {q.isLoading ? (
-            <Skeleton className="h-64 w-full rounded-xl" />
-          ) : (
-            (Object.keys(BLOCK_LABEL) as Array<keyof StrategyBlocks>)
-              .filter((b) => payload[b] !== undefined && payload[b] !== null)
-              .map((b) => (
-                <section key={b} className="space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <h4 className="text-sm font-semibold tracking-tight">{BLOCK_LABEL[b]}</h4>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 gap-1.5 px-2 text-xs"
-                      onClick={() =>
-                        copyText(toPlainText(BLOCK_LABEL[b], payload[b]), BLOCK_LABEL[b])
-                      }
-                    >
-                      <Copy className="h-3 w-3" /> Copiar
-                    </Button>
-                  </div>
-                  <div className="rounded-xl border border-border/60 bg-card p-4">
-                    <ReadOnlyValue value={payload[b]} />
-                  </div>
-                </section>
-              ))
-          )}
-          {!q.isLoading &&
-          !(Object.keys(BLOCK_LABEL) as Array<keyof StrategyBlocks>).some(
-            (b) => payload[b] !== undefined && payload[b] !== null,
-          ) ? (
-            <p className="text-sm text-muted-foreground">
-              Esta geração não tem conteúdo armazenado.
-            </p>
-          ) : null}
+      {run ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-1.5"
+            onClick={() => copyText(runToMarkdown(run, payload), "Geração")}
+            disabled={q.isLoading}
+          >
+            <Download className="h-3.5 w-3.5" /> Copiar tudo (Markdown)
+          </Button>
+          <Button size="sm" variant="ghost" className="gap-1.5" onClick={() => onRestore(run)}>
+            <RotateCcw className="h-3.5 w-3.5" /> Restaurar como ativa
+          </Button>
         </div>
+      ) : null}
+
+      <div className="mt-6 space-y-6">
+        {q.isLoading ? (
+          <Skeleton className="h-64 w-full rounded-xl" />
+        ) : (
+          (Object.keys(BLOCK_LABEL) as Array<keyof StrategyBlocks>)
+            .filter((b) => payload[b] !== undefined && payload[b] !== null)
+            .map((b) => (
+              <section key={b} className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="text-sm font-semibold tracking-tight">{BLOCK_LABEL[b]}</h4>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 gap-1.5 px-2 text-xs"
+                    onClick={() =>
+                      copyText(toPlainText(BLOCK_LABEL[b], payload[b]), BLOCK_LABEL[b])
+                    }
+                  >
+                    <Copy className="h-3 w-3" /> Copiar
+                  </Button>
+                </div>
+                <div className="rounded-xl border border-border/60 bg-card p-4">
+                  <ReadOnlyValue value={payload[b]} />
+                </div>
+              </section>
+            ))
+        )}
+        {!q.isLoading &&
+        !(Object.keys(BLOCK_LABEL) as Array<keyof StrategyBlocks>).some(
+          (b) => payload[b] !== undefined && payload[b] !== null,
+        ) ? (
+          <p className="text-sm text-muted-foreground">Esta geração não tem conteúdo armazenado.</p>
+        ) : null}
+      </div>
     </ExpandedModal>
   );
 }
@@ -417,9 +392,7 @@ export function ActiveRunMeta({ run }: { run: StrategyRun | undefined }) {
     <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 bg-card px-4 py-3 text-sm">
       <CheckCircle2 className="h-4 w-4 text-emerald-500" />
       <span className="font-medium">Gerada em {formatRunDate(run.createdAt)}</span>
-      {run.author ? (
-        <span className="text-muted-foreground">· por {run.author}</span>
-      ) : null}
+      {run.author ? <span className="text-muted-foreground">· por {run.author}</span> : null}
       {models.length ? (
         <span className="flex flex-wrap items-center gap-1.5">
           {models.map(([step, model]) => (

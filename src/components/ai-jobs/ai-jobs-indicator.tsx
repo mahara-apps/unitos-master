@@ -42,7 +42,12 @@ export function AiJobsIndicator() {
             </div>
           </div>
           {finished.length > 0 && (
-            <Button variant="ghost" size="sm" className="h-7 text-[11px]" onClick={() => void clearFinished()}>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-[11px]"
+              onClick={() => void clearFinished()}
+            >
               <Trash2 className="mr-1 h-3 w-3" /> Limpar
             </Button>
           )}
@@ -59,7 +64,9 @@ export function AiJobsIndicator() {
               <div key={j.id} className="group border-b border-border/60 px-4 py-3 last:border-b-0">
                 <div className="flex items-start gap-2">
                   <div className="mt-0.5">
-                    {j.status === "succeeded" && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+                    {j.status === "succeeded" && (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    )}
                     {j.status === "failed" && <XCircle className="h-4 w-4 text-red-500" />}
                     {isActive && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
                   </div>

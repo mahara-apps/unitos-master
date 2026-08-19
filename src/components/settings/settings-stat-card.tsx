@@ -26,12 +26,6 @@ export function SettingsStatCard({
   tone?: StatCardTone;
 }) {
   return (
-    <StatCard
-      label={label}
-      value={value as number | string}
-      sub={hint}
-      icon={icon}
-      tone={tone}
-    />
+    <StatCard label={label} value={value as number | string} sub={hint} icon={icon} tone={tone} />
   );
 }

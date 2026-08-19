@@ -8,10 +8,7 @@ function toHex(n: number) {
   return n.toString(16).padStart(2, "0");
 }
 
-export async function extractDominantColors(
-  src: string,
-  max = 6,
-): Promise<ExtractedColor[]> {
+export async function extractDominantColors(src: string, max = 6): Promise<ExtractedColor[]> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -33,17 +30,23 @@ export async function extractDominantColors(
         for (let i = 0; i < data.length; i += 4) {
           const a = data[i + 3];
           if (a < 200) continue;
-          const r = data[i], g = data[i + 1], b = data[i + 2];
+          const r = data[i],
+            g = data[i + 1],
+            b = data[i + 2];
           // skip near-white and near-black
           if (r > 240 && g > 240 && b > 240) continue;
           if (r < 15 && g < 15 && b < 15) continue;
           // ignore near-greys (low saturation)
-          const mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+          const mx = Math.max(r, g, b),
+            mn = Math.min(r, g, b);
           if (mx - mn < 12) continue;
           const key = ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
           const cur = bins.get(key);
           if (cur) {
-            cur.r += r; cur.g += g; cur.b += b; cur.c += 1;
+            cur.r += r;
+            cur.g += g;
+            cur.b += b;
+            cur.c += 1;
           } else {
             bins.set(key, { r, g, b, c: 1 });
           }

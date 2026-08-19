@@ -34,13 +34,7 @@ import { PortalBriefing } from "./portal-briefing";
 import { PortalFiles } from "./portal-files";
 import { PortalBrand } from "./portal-brand";
 import { PLAN_PENDING_CLIENT_STATUS } from "@/lib/monthly-plan-client.types";
-import {
-  EmptyState,
-  ErrorState,
-  GridSkeleton,
-  ListSkeleton,
-  formatDate,
-} from "./portal-shared";
+import { EmptyState, ErrorState, GridSkeleton, ListSkeleton, formatDate } from "./portal-shared";
 
 /* ---------------------------------- HOME ---------------------------------- */
 
@@ -145,7 +139,12 @@ export function HomeTab() {
     return items.sort((a, b) => (a.when < b.when ? 1 : -1)).slice(0, 6);
   }, [calendarQ.data, plansQ.data, briefingQ.data]);
 
-  const failed = metricsQ.isError && pendingQ.isError && plansQ.isError && briefingQ.isError && calendarQ.isError;
+  const failed =
+    metricsQ.isError &&
+    pendingQ.isError &&
+    plansQ.isError &&
+    briefingQ.isError &&
+    calendarQ.isError;
   const loadingKpis = metricsQ.isLoading || plansQ.isLoading || briefingQ.isLoading;
   const kpiValue = (v: number) => (loadingKpis ? <Skeleton className="h-6 w-10" /> : v);
 
@@ -210,10 +209,28 @@ export function HomeTab() {
         </PortalLink>
         <PageKpi
           label="Prazos de produção"
-          value={metricsQ.isLoading ? <Skeleton className="h-6 w-10" /> : (metricsQ.data?.sla.overdue ?? 0)}
+          value={
+            metricsQ.isLoading ? (
+              <Skeleton className="h-6 w-10" />
+            ) : (
+              (metricsQ.data?.sla.overdue ?? 0)
+            )
+          }
           icon={<ShieldCheck />}
-          status={(metricsQ.data?.sla.overdue ?? 0) > 0 ? "danger" : (metricsQ.data?.sla.atRisk ?? 0) > 0 ? "warning" : "success"}
-          description={(metricsQ.data?.sla.overdue ?? 0) > 0 ? "Conteúdos fora do prazo" : (metricsQ.data?.sla.tracked ?? 0) > 0 ? "Produção dentro do prazo" : "Sem prazo em acompanhamento"}
+          status={
+            (metricsQ.data?.sla.overdue ?? 0) > 0
+              ? "danger"
+              : (metricsQ.data?.sla.atRisk ?? 0) > 0
+                ? "warning"
+                : "success"
+          }
+          description={
+            (metricsQ.data?.sla.overdue ?? 0) > 0
+              ? "Conteúdos fora do prazo"
+              : (metricsQ.data?.sla.tracked ?? 0) > 0
+                ? "Produção dentro do prazo"
+                : "Sem prazo em acompanhamento"
+          }
         />
       </PageKpiGrid>
 
@@ -530,12 +547,7 @@ export function ApprovalsTab() {
         </div>
       )}
 
-      {openId && (
-        <ApprovalDialog
-          postId={openId}
-          onClose={() => setOpenId(null)}
-        />
-      )}
+      {openId && <ApprovalDialog postId={openId} onClose={() => setOpenId(null)} />}
     </div>
   );
 }
@@ -544,7 +556,9 @@ function ApprovalCard({ post, onOpen }: { post: Record<string, unknown>; onOpen:
   const status = ((post.approval as { status: string } | undefined)?.status ?? "pending") as string;
   const tone = decisionTone(status);
   const channels = Array.isArray(post.channels) ? (post.channels as string[]) : [];
-  const sla = post.sla as { status?: string; hoursRemaining?: number; hoursOverdue?: number } | undefined;
+  const sla = post.sla as
+    | { status?: string; hoursRemaining?: number; hoursOverdue?: number }
+    | undefined;
   return (
     <button
       onClick={onOpen}
@@ -598,21 +612,13 @@ function ApprovalCard({ post, onOpen }: { post: Record<string, unknown>; onOpen:
             {formatDate(post.scheduled_at as string)}
           </div>
         ) : null}
-        {sla?.status && sla.status !== "none" ? (
-          <SlaBadge sla={sla} />
-        ) : null}
+        {sla?.status && sla.status !== "none" ? <SlaBadge sla={sla} /> : null}
       </div>
     </button>
   );
 }
 
-function ApprovalDialog({
-  postId,
-  onClose,
-}: {
-  postId: string;
-  onClose: () => void;
-}) {
+function ApprovalDialog({ postId, onClose }: { postId: string; onClose: () => void }) {
   const qc = useQueryClient();
   const api = usePortalApi();
   const q = useQuery({
@@ -740,7 +746,10 @@ function ApprovalDialog({
                   <Skeleton className="h-32 w-full" />
                 </>
               ) : q.isError ? (
-                <ErrorState description="Não conseguimos carregar este conteúdo." onRetry={() => void q.refetch()} />
+                <ErrorState
+                  description="Não conseguimos carregar este conteúdo."
+                  onRetry={() => void q.refetch()}
+                />
               ) : (
                 <>
                   {decided && approval && (
@@ -870,25 +879,13 @@ function ApprovalDialog({
                     {decided && currentStatus === "approved" ? "Manter aprovado" : "Aprovar"}
                   </Button>
                   <div className="grid grid-cols-3 gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setMode("adjust")}
-                    >
+                    <Button size="sm" variant="outline" onClick={() => setMode("adjust")}>
                       <MessageSquareWarning className="mr-1 h-4 w-4" /> Ajustes
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setMode("reject")}
-                    >
+                    <Button size="sm" variant="outline" onClick={() => setMode("reject")}>
                       <X className="mr-1 h-4 w-4" /> Recusar
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setMode("comment")}
-                    >
+                    <Button size="sm" variant="ghost" onClick={() => setMode("comment")}>
                       <MessageCircle className="mr-1 h-4 w-4" /> Comentar
                     </Button>
                   </div>
@@ -905,16 +902,32 @@ function ApprovalDialog({
   );
 }
 
-function SlaBadge({ sla }: { sla: { status?: string; hoursRemaining?: number; hoursOverdue?: number } }) {
+function SlaBadge({
+  sla,
+}: {
+  sla: { status?: string; hoursRemaining?: number; hoursOverdue?: number };
+}) {
   const hours = sla.status === "overdue" ? (sla.hoursOverdue ?? 0) : (sla.hoursRemaining ?? 0);
   const duration = hours >= 24 ? `${Math.ceil(hours / 24)}d` : `${Math.ceil(hours)}h`;
   if (sla.status === "overdue") {
-    return <Badge variant="outline" className="border-severity-critical/30 text-severity-critical">Prazo excedido · {duration}</Badge>;
+    return (
+      <Badge variant="outline" className="border-severity-critical/30 text-severity-critical">
+        Prazo excedido · {duration}
+      </Badge>
+    );
   }
   if (sla.status === "at_risk") {
-    return <Badge variant="outline" className="border-severity-warning/30 text-severity-warning">Prazo próximo · {duration}</Badge>;
+    return (
+      <Badge variant="outline" className="border-severity-warning/30 text-severity-warning">
+        Prazo próximo · {duration}
+      </Badge>
+    );
   }
-  return <Badge variant="outline" className="border-health-good/30 text-health-good">No prazo · {duration}</Badge>;
+  return (
+    <Badge variant="outline" className="border-health-good/30 text-health-good">
+      No prazo · {duration}
+    </Badge>
+  );
 }
 
 /* -------------------------------- CALENDAR -------------------------------- */

@@ -46,9 +46,7 @@ import { sessionTabPath, tokenTabRoute, type PortalTabId } from "./portal-nav";
  * `public.portal_*` / o mesmo núcleo de decisão de pauta.
  */
 
-export type PortalMode =
-  | { kind: "token"; token: string }
-  | { kind: "session"; clientId: string };
+export type PortalMode = { kind: "token"; token: string } | { kind: "session"; clientId: string };
 
 /**
  * Não existe modo "sessão sem cliente": o cliente do contexto é obrigatório e
@@ -77,7 +75,6 @@ export function usePortalMode(): PortalMode {
 export function portalScopeKey(mode: PortalMode): string {
   return mode.kind === "token" ? `t:${mode.token}` : `s:${mode.clientId}`;
 }
-
 
 type ApprovalStatus = "all" | "pending" | "approved" | "adjust";
 type PostDecision = "approved" | "rejected" | "adjust" | "comment";
@@ -125,8 +122,6 @@ export function usePortalApi() {
     // Modo sessão SEMPRE viaja com o cliente do contexto: nunca vazio/omitido.
     const base = { clientId: mode.kind === "session" ? mode.clientId : "" };
 
-
-
     return {
       isToken,
       scopeKey: portalScopeKey(mode),
@@ -137,11 +132,7 @@ export function usePortalApi() {
           : sApprovals({ data: { ...base, status } }),
       post: (postId: string) =>
         isToken ? tPost({ data: { token, postId } }) : sPost({ data: { ...base, postId } }),
-      decidePost: (input: {
-        postId: string;
-        decision: PostDecision;
-        note?: string;
-      }) =>
+      decidePost: (input: { postId: string; decision: PostDecision; note?: string }) =>
         isToken
           ? tDecide({ data: { token, ...input } })
           : sDecide({
@@ -227,6 +218,5 @@ export function PortalLink({
     >
       {children}
     </Link>
-
   );
 }

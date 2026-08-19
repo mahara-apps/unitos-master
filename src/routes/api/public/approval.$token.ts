@@ -6,8 +6,7 @@ function admin() {
   // `SUPABASE_*` is a reserved prefix on Lovable Cloud; external Supabase
   // projects expose the service role under `SB_SERVICE_ROLE_KEY`.
   const url = process.env.SUPABASE_URL;
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SB_SERVICE_ROLE_KEY;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SB_SERVICE_ROLE_KEY;
   if (!url || !key) {
     throw new Error(
       "Missing Supabase environment variable(s): SUPABASE_URL and/or SB_SERVICE_ROLE_KEY.",
@@ -57,7 +56,6 @@ export const Route = createFileRoute("/api/public/approval/$token")({
         const clientRow = Array.isArray(clientRel) ? (clientRel[0] ?? null) : (clientRel ?? null);
         const client = clientRow ? { name: clientRow.name } : null;
 
-
         return cors(
           Response.json({
             post,
@@ -65,7 +63,6 @@ export const Route = createFileRoute("/api/public/approval/$token")({
             token: { id: tok.id, expires_at: tok.expires_at },
           }),
         );
-
       },
 
       POST: async ({ request, params }) => {

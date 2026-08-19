@@ -98,7 +98,7 @@ export function TaskTimerWidget({ brandId, taskId, estimatedMinutes, compact }: 
           task_id: taskId,
           brand_id: brandId,
           started_at: new Date().toISOString(),
-           elapsed_seconds: 0,
+          elapsed_seconds: 0,
         },
         paused: false,
       });

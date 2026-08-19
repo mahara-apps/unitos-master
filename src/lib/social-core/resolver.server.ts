@@ -64,10 +64,7 @@ export async function resolveBrandChannelConnection(
     .eq("channel", ref.channel)
     .in("status", ["active", "attention"]);
   if (allowedIds) q = q.in("id", allowedIds);
-  const { data, error } = await q
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const { data, error } = await q.order("created_at", { ascending: false }).limit(1).maybeSingle();
 
   if (error) throw new SocialServiceError("db_error", error.message, 500);
   if (!data) {
@@ -81,7 +78,6 @@ export async function resolveBrandChannelConnection(
 
   return resolveConnection(supabase, data.id, userTokenForCache);
 }
-
 
 /** Lista todos os canais ativos de uma Marca (leitura, sem decripta token). */
 export async function listBrandChannels(
@@ -99,9 +95,7 @@ export async function listBrandChannels(
 > {
   const { data, error } = await supabase
     .from("social_connections")
-    .select(
-      "id, channel, provider, external_name, account_username, status",
-    )
+    .select("id, channel, provider, external_name, account_username, status")
     .eq("brand_id", brandId)
     .in("status", ["active", "attention"])
     .order("created_at", { ascending: false });
@@ -111,9 +105,7 @@ export async function listBrandChannels(
     connectionId: r.id,
     channel: r.channel as SocialChannel,
     provider: r.provider,
-    label: r.account_username
-      ? `@${r.account_username}`
-      : (r.external_name ?? r.provider),
+    label: r.account_username ? `@${r.account_username}` : (r.external_name ?? r.provider),
     handle: r.account_username ?? null,
     status: r.status,
   }));
