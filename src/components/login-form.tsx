@@ -7,10 +7,8 @@ import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { UnitosLogo } from "@/components/brand/unitos-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Form,
   FormControl,
@@ -19,23 +17,15 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { cn } from "@/lib/utils";
 
 const emailSchema = z.string().trim().min(1, "Informe seu email").email("Email inválido").max(255);
 const passwordSchema = z.string().min(8, "Mínimo de 8 caracteres").max(72, "Máximo de 72 caracteres");
 
 const signInSchema = z.object({ email: emailSchema, password: passwordSchema });
-const signUpSchema = z.object({
-  name: z.string().trim().min(2, "Informe seu nome").max(80),
-  email: emailSchema,
-  password: passwordSchema,
-});
 
 type SignInValues = z.infer<typeof signInSchema>;
-type SignUpValues = z.infer<typeof signUpSchema>;
 
 export function LoginForm() {
-  const [tab, setTab] = useState<"signin" | "signup">("signin");
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
@@ -56,10 +46,6 @@ export function LoginForm() {
     resolver: zodResolver(signInSchema),
     defaultValues: { email: "", password: "" },
   });
-  const signUpForm = useForm<SignUpValues>({
-    resolver: zodResolver(signUpSchema),
-    defaultValues: { name: "", email: "", password: "" },
-  });
 
   async function onSignIn(values: SignInValues) {
     setSubmitting(true);
@@ -77,138 +63,84 @@ export function LoginForm() {
     navigate({ to: resolveNext(), replace: true });
   }
 
-  async function onSignUp(values: SignUpValues) {
-    setSubmitting(true);
-    const { error } = await supabase.auth.signUp({
-      email: values.email,
-      password: values.password,
-      options: {
-        emailRedirectTo: window.location.origin,
-        data: { full_name: values.name },
-      },
-    });
-    setSubmitting(false);
-    if (error) {
-      toast.error("Não foi possível cadastrar", { description: error.message });
-      return;
-    }
-    toast.success("Conta criada", { description: "Você já pode acessar o painel." });
-    await router.invalidate();
-    navigate({ to: resolveNext(), replace: true });
-  }
-
   return (
-    <div className="w-full max-w-[420px]">
-      <div className="mb-8 text-center">
-        <UnitosLogo variant="full" eager className="mx-auto mb-4 h-14 w-auto" />
-        <p className="mt-2 text-sm text-muted-foreground">
-          Entre ou crie sua conta para acessar o painel.
-        </p>
-      </div>
+    <div className="w-full max-w-[400px]">
+      <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+        Bem-vindo de volta
+      </h1>
+      <p className="mt-3 text-sm text-muted-foreground">
+        Entre com os dados de acesso enviados para você.
+      </p>
 
-      <div
-        className={cn(
-          "rounded-xl border border-border bg-card p-6 sm:p-8",
-          "shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-8px_rgba(16,24,40,0.08)]",
-        )}
-      >
-        <Tabs value={tab} onValueChange={(v) => setTab(v as "signin" | "signup")}>
-          <TabsList variant="grid" className="grid w-full grid-cols-2">
-            <TabsTrigger value="signin">Entrar</TabsTrigger>
-            <TabsTrigger value="signup">Criar conta</TabsTrigger>
-          </TabsList>
+      <Form {...signInForm}>
+        <form onSubmit={signInForm.handleSubmit(onSignIn)} className="mt-10 space-y-6">
+          <FormField
+            control={signInForm.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Email
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    type="email"
+                    placeholder="voce@empresa.com"
+                    autoComplete="email"
+                    className="h-12 rounded-xl bg-background transition-shadow focus-visible:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-primary)_12%,transparent)]"
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={signInForm.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <div className="flex items-center justify-between gap-3">
+                  <FormLabel className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Senha
+                  </FormLabel>
+                  <Link
+                    to="/forgot-password"
+                    className="text-xs font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    Esqueci minha senha
+                  </Link>
+                </div>
+                <FormControl>
+                  <PasswordInput
+                    field={field}
+                    show={showPassword}
+                    onToggle={() => setShowPassword((v) => !v)}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <Button
+            type="submit"
+            disabled={submitting}
+            className="h-12 w-full rounded-xl text-sm font-semibold shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--color-primary)_60%,transparent)] transition-transform active:scale-[0.99]"
+          >
+            {submitting ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> Entrando…
+              </span>
+            ) : (
+              "Entrar"
+            )}
+          </Button>
+        </form>
+      </Form>
 
-          <TabsContent value="signin" className="mt-6">
-            <Form {...signInForm}>
-              <form onSubmit={signInForm.handleSubmit(onSignIn)} className="space-y-5">
-                <FormField
-                  control={signInForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="voce@exemplo.com" autoComplete="email" className="h-11" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={signInForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <div className="flex items-center justify-between">
-                        <FormLabel>Senha</FormLabel>
-                        <Link to="/forgot-password" className="text-xs font-medium text-primary hover:underline">
-                          Esqueci minha senha
-                        </Link>
-                      </div>
-                      <FormControl>
-                        <PasswordInput field={field} show={showPassword} onToggle={() => setShowPassword((v) => !v)} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" disabled={submitting} className="h-11 w-full">
-                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Entrar"}
-                </Button>
-              </form>
-            </Form>
-          </TabsContent>
-
-          <TabsContent value="signup" className="mt-6">
-            <Form {...signUpForm}>
-              <form onSubmit={signUpForm.handleSubmit(onSignUp)} className="space-y-5">
-                <FormField
-                  control={signUpForm.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Seu nome completo" autoComplete="name" className="h-11" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={signUpForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="voce@exemplo.com" autoComplete="email" className="h-11" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={signUpForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Senha</FormLabel>
-                      <FormControl>
-                        <PasswordInput field={field} show={showPassword} onToggle={() => setShowPassword((v) => !v)} autoComplete="new-password" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" disabled={submitting} className="h-11 w-full">
-                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Criar conta"}
-                </Button>
-              </form>
-            </Form>
-          </TabsContent>
-        </Tabs>
-      </div>
+      <p className="mt-8 text-center text-xs text-muted-foreground">
+        Acesso restrito a usuários convidados.
+      </p>
     </div>
   );
 }
@@ -217,27 +149,25 @@ function PasswordInput({
   field,
   show,
   onToggle,
-  autoComplete = "current-password",
 }: {
   field: React.ComponentProps<typeof Input>;
   show: boolean;
   onToggle: () => void;
-  autoComplete?: string;
 }) {
   return (
     <div className="relative">
       <Input
         type={show ? "text" : "password"}
         placeholder="••••••••"
-        autoComplete={autoComplete}
-        className="h-11 pr-10"
+        autoComplete="current-password"
+        className="h-12 rounded-xl bg-background pr-12 transition-shadow focus-visible:shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-primary)_12%,transparent)]"
         {...field}
       />
       <button
         type="button"
         onClick={onToggle}
         aria-label={show ? "Ocultar senha" : "Mostrar senha"}
-        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-muted-foreground hover:text-foreground"
+        className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
       </button>
