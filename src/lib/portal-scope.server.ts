@@ -71,7 +71,10 @@ export async function resolveSessionScope(
 
 /** True quando a chave de serviço está configurada no ambiente. */
 export function hasServiceKey(): boolean {
-  return Boolean(process.env["SUPABASE_SERVICE_ROLE_KEY"] || process.env["SB_SERVICE_ROLE_KEY"]);
+  return Boolean(
+    process.env["SUPABASE_SERVICE_ROLE_KEY"]?.trim() ||
+      process.env["SB_SERVICE_ROLE_KEY"]?.trim(),
+  );
 }
 
 /** Client privilegiado usado depois do escopo estar resolvido e validado. */
