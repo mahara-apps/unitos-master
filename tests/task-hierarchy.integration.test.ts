@@ -433,7 +433,7 @@ describe("6b. Matriz de papéis (isolamento por cliente)", () => {
   it("USER sem vínculo não acessa cliente com responsáveis definidos", async () => {
     const c = fx.userNoLink.client;
     const clients = await c.from("clients").select("id").in("id", [fx.clientA, fx.clientB]);
-    expect(clients.data ?? [], "editor sem vínculo não vê clientes vinculados").toHaveLength(0);
+    expect(clients.data ?? [], "user sem vínculo não vê clientes vinculados").toHaveLength(0);
     const proj = await c.from("projects").select("id").eq("id", ids.projectA);
     expect(proj.data ?? []).toHaveLength(0);
     const task = await c.from("tasks").select("id").eq("id", ids.taskB);
@@ -449,7 +449,7 @@ describe("6b. Matriz de papéis (isolamento por cliente)", () => {
       .insert({ brand_id: fx.brandId, client_id: fx.clientA, name: `Invasor ${testTag}` })
       .select("id")
       .single();
-    expect(p.error, "editor sem vínculo não deveria criar projeto do cliente A").not.toBeNull();
+    expect(p.error, "user sem vínculo não deveria criar projeto do cliente A").not.toBeNull();
 
     const t = await c
       .from("tasks")
@@ -462,7 +462,7 @@ describe("6b. Matriz de papéis (isolamento por cliente)", () => {
       })
       .select("id")
       .single();
-    expect(t.error, "editor sem vínculo não deveria criar tarefa do cliente A").not.toBeNull();
+    expect(t.error, "user sem vínculo não deveria criar tarefa do cliente A").not.toBeNull();
   });
 
   it("USER com vínculo acessa somente o próprio cliente", async () => {

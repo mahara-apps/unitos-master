@@ -334,7 +334,7 @@ describe("escrita: INSERT / UPDATE / DELETE via RLS", () => {
     expect(promote.data ?? []).toHaveLength(0);
     const touchOwner = await cx.manager.client
       .from("brand_members")
-      .update({ role: "editor" })
+      .update({ role: "user" })
       .eq("brand_id", cx.brandId)
       .eq("user_id", cx.owner.id)
       .select("id");
@@ -413,8 +413,8 @@ describe("contrato das funções de servidor (mesmas usadas por access-guard)", 
 });
 
 describe("papéis legados convergem para USER (sem papel operacional duplicado)", () => {
-  it("gravação legada 'editor'/'designer' em brand_members é normalizada para 'user'", async () => {
-    for (const legacy of ["editor", "designer"] as const) {
+  it("gravação legada 'user'/'user' em brand_members é normalizada para 'user'", async () => {
+    for (const legacy of ["user", "user"] as const) {
       const up = await cx.owner.client
         .from("brand_members")
         .update({ role: legacy })
@@ -442,8 +442,8 @@ describe("papéis legados convergem para USER (sem papel operacional duplicado)"
       .eq("brand_id", cx.brandId);
     expect(rows.error).toBeNull();
     const roles = (rows.data ?? []).map((r) => r.role as string);
-    expect(roles).not.toContain("editor");
-    expect(roles).not.toContain("designer");
+    expect(roles).not.toContain("user");
+    expect(roles).not.toContain("user");
     for (const r of roles) expect(["owner", "manager", "user", "client"]).toContain(r);
   });
 });

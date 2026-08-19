@@ -62,7 +62,7 @@ beforeAll(async () => {
   // owner é adicionado por trigger; operator entra como membro comum da marca.
   await admin
     .from("brand_members")
-    .upsert({ brand_id: brandId, user_id: operator.id, role: "editor" }, { onConflict: "brand_id,user_id" });
+    .upsert({ brand_id: brandId, user_id: operator.id, role: "user" }, { onConflict: "brand_id,user_id" });
 
   const clientA = await insert("clients", {
     brand_id: brandId,
