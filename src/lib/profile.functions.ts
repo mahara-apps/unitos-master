@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { normalizeNotificationPrefs } from "@/lib/notification-prefs";
 
 const UpdateSchema = z.object({
   full_name: z.string().trim().min(1, "Nome obrigatório").max(120),
