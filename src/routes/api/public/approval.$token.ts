@@ -45,26 +45,27 @@ export const Route = createFileRoute("/api/public/approval/$token")({
         const { data: post } = await db
           .from("posts")
           .select(
-            "id, title, copy, format, channels, scheduled_at, cover_url, client_briefing, script, references, reference_media, review_status",
+            "id, client_id, title, copy, format, channels, scheduled_at, cover_url, client_briefing, script, references, reference_media, review_status, clients:client_id(name)",
           )
           .eq("id", tok.post_id)
           .is("deleted_at", null)
           .single();
         if (!post) return cors(new Response("post not found", { status: 404 }));
 
-        const { data: client } = await db
-          .from("clients")
-          .select("name, brand_hub")
-          .eq("id", (await db.from("posts").select("client_id").eq("id", post.id).single()).data?.client_id ?? "")
-          .maybeSingle();
+        const clientRel = (post as { clients?: { name: string } | { name: string }[] | null })
+          .clients;
+        const clientRow = Array.isArray(clientRel) ? (clientRel[0] ?? null) : (clientRel ?? null);
+        const client = clientRow ? { name: clientRow.name } : null;
+
 
         return cors(
           Response.json({
             post,
-            client: client ? { name: client.name } : null,
+            client,
             token: { id: tok.id, expires_at: tok.expires_at },
           }),
         );
+
       },
 
       POST: async ({ request, params }) => {

@@ -66,6 +66,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
+import { useAccessRole } from "@/hooks/use-access-role";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { DashboardPageShell } from "@/components/ui/dashboard-primitives";
 import { CustomerAvatar } from "@/components/customer/customer-avatar";
@@ -136,7 +137,9 @@ function basicSetup(c: ClientRow) {
 
 function CustomersIndexPage() {
   const { brandId } = useActiveContext();
+  const { role: accessRole } = useAccessRole();
   const qc = useQueryClient();
+
   const navigate = useNavigate();
   const list = useServerFn(listClients);
   const update = useServerFn(updateClient);
@@ -395,11 +398,14 @@ function CustomersIndexPage() {
           <PanelEmptyState
             icon={<Users className="h-4 w-4" />}
             text={
-              all.length === 0
-                ? "Nenhum cliente cadastrado ainda. Clique em “Novo cliente” para começar."
-                : "Nenhum cliente corresponde aos filtros aplicados."
+              all.length > 0
+                ? "Nenhum cliente corresponde aos filtros aplicados."
+                : accessRole === "admin"
+                  ? "Nenhum cliente cadastrado ainda. Clique em “Novo cliente” para começar."
+                  : "Nenhum cliente atribuído a você. Peça a um administrador para definir você como responsável ou vincular você ao cliente."
             }
           />
+
         ) : (
           <Table>
             <TableHeader>

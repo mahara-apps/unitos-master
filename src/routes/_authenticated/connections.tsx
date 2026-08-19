@@ -228,11 +228,8 @@ function ConnectionsPage() {
     ? search.section!
     : "providers";
 
-  // Gate: /connections é área admin (BM, credenciais globais, mapa de conexões).
-  // Contas operacionais por cliente vivem em /customers/:id → aba Canais.
-  if (isReady && role !== "admin") {
-    return <Navigate to="/dashboard" replace />;
-  }
+
+
 
   // Portfolio selector state (Meta OAuth post-callback).
   const [portfolioSessionId, setPortfolioSessionId] = useState<string | null>(null);
@@ -349,7 +346,17 @@ function ConnectionsPage() {
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Falha ao salvar"),
   });
 
+  // Gate: /connections é área admin (BM, credenciais globais, mapa de conexões).
+  // Contas operacionais por cliente vivem em /customers/:id → aba Canais.
+  // IMPORTANTE: este early-return fica DEPOIS de todos os hooks — colocá-lo
+  // antes fazia a segunda renderização (isReady: false → true) executar menos
+  // hooks e derrubar a tela com "Rendered fewer hooks than expected".
+  if (isReady && role !== "admin") {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   if (!brandId) {
+
     return (
       <div className="flex h-[60vh] items-center justify-center text-sm text-muted-foreground">
         Selecione um workspace para ver as conexões.
