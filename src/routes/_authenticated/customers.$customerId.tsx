@@ -179,7 +179,7 @@ function CustomerDetailReady({
   brandId: string;
   customerId: string;
   openOnboarding: boolean;
-  initialTab?: CustomerTab;
+  initialTab?: string;
   initialPlanId?: string;
 }) {
   const list = useServerFn(listClients);
