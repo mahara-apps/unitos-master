@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { CalendarDays, CheckCircle2, FileText, LayoutGrid } from "lucide-react";
 import { LoginForm } from "@/components/login-form";
 import { supabase } from "@/integrations/supabase/client";
+import logoLight from "@/assets/brand/logo-unitos-light.png.asset.json";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): { next?: string } => ({
