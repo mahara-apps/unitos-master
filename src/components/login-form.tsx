@@ -7,7 +7,6 @@ import { Link, useNavigate, useRouter } from "@tanstack/react-router";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { UnitosLogo } from "@/components/brand/unitos-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -66,8 +65,6 @@ export function LoginForm() {
 
   return (
     <div className="w-full max-w-[400px]">
-      <UnitosLogo variant="full" eager className="mb-10 h-8 w-auto max-w-[150px] lg:hidden" />
-
       <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
         Bem-vindo de volta
       </h1>
