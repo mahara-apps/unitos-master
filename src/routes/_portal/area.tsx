@@ -31,9 +31,8 @@ import { LogOut } from "lucide-react";
  * portal falha explicitamente.
  */
 export const Route = createFileRoute("/_portal/area")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    cliente: typeof search["cliente"] === "string" ? (search["cliente"] as string) : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): { cliente?: string } =>
+    typeof search["cliente"] === "string" ? { cliente: search["cliente"] as string } : {},
   component: PortalAreaLayout,
 });
 
