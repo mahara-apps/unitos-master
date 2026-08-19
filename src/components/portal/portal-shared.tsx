@@ -24,7 +24,9 @@ export function PortalAccessError({ message, mode, onRetry }: { message?: string
       : message?.includes("portal_rate_limited")
         ? "Houve muitas tentativas. Aguarde alguns minutos e tente novamente."
         : "Este acesso não está disponível. Peça um novo link à equipe.";
-  const sessionMessage = message?.includes("portal_client_context_invalid")
+  const sessionMessage = message?.includes("portal_service_key_missing")
+    ? "Esta área depende de uma integração ainda não configurada pela equipe. Avise o responsável."
+    : message?.includes("portal_client_context_invalid")
     ? "A marca indicada no endereço não pertence ao seu acesso. Volte à sua área e escolha uma marca válida."
     : message?.includes("portal_client_context_required")
       ? "Não identificamos qual marca abrir. Volte à sua área e selecione a marca."

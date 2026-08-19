@@ -3,7 +3,7 @@ import { getRequestHeader } from "@tanstack/react-start/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { normalizePortalTheme, resolvePortalTheme } from "@/lib/portal-theme";
 import { fillPortalCovers, signPortalDocument, signPortalRefs } from "@/lib/portal-media.server";
-import { resolveSessionScope, resolveTokenScope, scopedAdmin } from "@/lib/portal-scope.server";
+import { hasServiceKey, resolveSessionScope, resolveTokenScope, scopedAdmin } from "@/lib/portal-scope.server";
 import type {
   PortalApproval,
   PortalBriefing,
@@ -98,6 +98,8 @@ function slaFor(enteredAt: string | null, hours: number | null): PortalSla {
 async function enrichSla(posts: PortalPost[], clientId: string, brandId: string): Promise<PortalPost[]> {
   const ids = posts.map((post) => post.id);
   if (!ids.length) return posts;
+  // SLA é enriquecimento: sem chave de serviço o portal segue funcionando sem ele.
+  if (!hasServiceKey()) return posts.map((post) => ({ ...post, sla: slaFor(null, null) }));
   const admin = await scopedAdmin();
   const { data: rows, error } = await admin
     .from("posts")
@@ -130,6 +132,7 @@ async function enrichSla(posts: PortalPost[], clientId: string, brandId: string)
 }
 
 async function slaSummary(clientId: string, brandId: string): Promise<PortalMetrics["sla"]> {
+  if (!hasServiceKey()) return { tracked: 0, onTrack: 0, atRisk: 0, overdue: 0 };
   const admin = await scopedAdmin();
   const { data: rows, error } = await admin
     .from("posts")
