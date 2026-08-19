@@ -61,10 +61,11 @@ export const Route = createFileRoute("/api/public/approval/$token")({
         return cors(
           Response.json({
             post,
-            client: client ? { name: client.name } : null,
+            client,
             token: { id: tok.id, expires_at: tok.expires_at },
           }),
         );
+
       },
 
       POST: async ({ request, params }) => {
