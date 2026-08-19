@@ -13,13 +13,7 @@ const PARTS: Array<{ key: keyof Breakdown; label: string; max: number }> = [
 
 type Breakdown = { onTime: number; approvals: number; briefing: number; schedule: number };
 
-export function OverviewSummary({
-  health,
-  breakdown,
-}: {
-  health: number;
-  breakdown: Breakdown;
-}) {
+export function OverviewSummary({ health, breakdown }: { health: number; breakdown: Breakdown }) {
   const tone =
     health >= 75 ? "text-health-good" : health >= 50 ? "text-severity-warning" : "text-destructive";
   const reading =
@@ -30,11 +24,7 @@ export function OverviewSummary({
         : "A conta está em risco — priorize as pendências.";
 
   return (
-    <OverviewCard
-      title="Saúde da conta"
-      subtitle={reading}
-      icon={<Activity className="h-4 w-4" />}
-    >
+    <OverviewCard title="Saúde da conta" subtitle={reading} icon={<Activity className="h-4 w-4" />}>
       <div className="flex h-full flex-col justify-between gap-6">
         <div>
           <div className={`text-5xl font-semibold leading-none tabular-nums ${tone}`}>
