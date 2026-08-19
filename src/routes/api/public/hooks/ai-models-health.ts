@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { runAiModelHealthCheck } from "@/lib/ai-model-health.server";
+import { assertCronRequest } from "@/lib/cron-auth.server";
 
 /**
  * Daily health check: pings each provider's models (per role) with the
@@ -10,16 +11,8 @@ export const Route = createFileRoute("/api/public/hooks/ai-models-health")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        // O projeto expõe a chave publicável em SUPABASE_PUBLISHABLE_KEY;
-        // SUPABASE_ANON_KEY é mantida por compatibilidade.
-        const expected = [
-          process.env["SUPABASE_PUBLISHABLE_KEY"],
-          process.env["SUPABASE_ANON_KEY"],
-        ].filter((v): v is string => !!v);
-        const apikey = request.headers.get("apikey");
-        if (!apikey || !expected.includes(apikey)) {
-          return new Response("Unauthorized", { status: 401 });
-        }
+        const cronDenied = assertCronRequest(request);
+        if (cronDenied) return cronDenied;
 
 
         try {

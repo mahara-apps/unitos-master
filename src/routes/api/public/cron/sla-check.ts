@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { insertNotificationsDeduped } from "@/lib/notifications-dedupe";
+import { assertCronRequest } from "@/lib/cron-auth.server";
 
 
 /**
  * SLA overdue notifier.
- * Called by pg_cron once per hour. Authenticated via apikey header (anon key)
- * which is already stored in the project — no custom secret needed.
+ * Called by pg_cron once per hour. Autenticado pelo segredo dedicado
+ * `CRON_SECRET` (header `x-cron-secret`) — nunca pela chave publicável.
  *
  * For each non-terminal stage with sla_days > 0, finds posts whose
  * (now - stage_entered_at) > sla_days and:
@@ -18,14 +19,8 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apikey = request.headers.get("apikey") ?? request.headers.get("x-api-key");
-        const expected = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY;
-        if (!apikey || !expected || apikey !== expected) {
-          return new Response(JSON.stringify({ error: "unauthorized" }), {
-            status: 401,
-            headers: { "Content-Type": "application/json" },
-          });
-        }
+        const cronDenied = assertCronRequest(request);
+        if (cronDenied) return cronDenied;
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { assertCronRequest } from "@/lib/cron-auth.server";
 
 /**
  * Erro determinístico de autorização/vínculo: NUNCA deve consumir retries.
@@ -39,18 +40,15 @@ class DeterministicBlock extends Error {
  * `published_at`) e move o `stage_id` para a coluna "Publicado" do Kanban.
  * Idempotente: nunca reescreve histórico já publicado.
  *
- * Auth: bypass no edge via /api/public/*; exige `apikey` = anon publishable key.
+ * Auth: bypass no edge via /api/public/*; exige `x-cron-secret` = CRON_SECRET.
 
  */
 export const Route = createFileRoute("/api/public/meta/publish-scheduled")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const anon = process.env.SUPABASE_PUBLISHABLE_KEY!;
-        const key = request.headers.get("apikey") ?? request.headers.get("x-api-key");
-        if (!key || key !== anon) {
-          return new Response("Unauthorized", { status: 401 });
-        }
+        const cronDenied = assertCronRequest(request);
+        if (cronDenied) return cronDenied;
 
         const { supabaseAdmin } = await import(
           "@/integrations/supabase/client.server"
