@@ -288,71 +288,61 @@ function CustomerDetailReady({
   const isChildRoute = pathname.replace(/\/+$/, "") !== `/customers/${customerId}`;
   if (isChildRoute) return <Outlet />;
 
-  const initials = (customer?.name ?? "?")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("");
-
   return (
     <ScrollArea className="h-[calc(100dvh-3.5rem)] bg-background">
-      <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-[1600px] space-y-8 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         {customer === undefined && !customersQ.isLoading ? (
-          <div className="rounded-xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          <div className="rounded-2xl border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
             Este cliente não pertence ao workspace ativo.
           </div>
         ) : (
           <>
-            {/* Faixa de identidade do cliente */}
-            <header className="flex flex-wrap items-center gap-4 rounded-2xl border border-border/60 bg-gradient-to-r from-primary/10 via-card to-card px-4 py-4 sm:px-5">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-base font-semibold text-primary ring-1 ring-primary/25">
-                {initials || "?"}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h1 className="truncate text-lg font-semibold tracking-tight">
-                  {customer?.name ?? (customersQ.isLoading ? "Carregando…" : "Cliente")}
-                </h1>
-                <p className="truncate text-xs text-muted-foreground">
-                  {customer?.niche ?? "Sem nicho definido"}
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {needsOnboarding && (
+            <CustomerHeader
+              name={customer?.name ?? (customersQ.isLoading ? "Carregando…" : "Cliente")}
+              niche={customer?.niche}
+              color={customer?.color}
+              isActive={customer?.is_active}
+              briefingCompletion={hubQ.data ? completion : null}
+              actions={
+                needsOnboarding ? (
                   <Button
                     size="sm"
-                    className="h-8 gap-1.5"
+                    className="h-9 gap-1.5"
                     onClick={() => {
                       goToTab("briefing");
                       setWizardOpen(true);
                     }}
                   >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Completar onboarding
+                    <Sparkles className="h-4 w-4" />
+                    Completar briefing
                   </Button>
-                )}
-              </div>
-            </header>
+                ) : null
+              }
+            />
 
-            <Tabs value={activeTab} onValueChange={goToTab} className="space-y-4">
-              <TabsList
-                variant="bordered"
-                className="w-full flex-nowrap justify-start gap-1 overflow-x-auto"
-              >
-                {CUSTOMER_TABS.map((t) => (
-                  <TabsTrigger
-                    key={t.value}
-                    value={t.value}
-                    className="shrink-0 gap-1.5 data-[state=active]:bg-accent data-[state=active]:text-accent-foreground"
-                  >
-                    {t.label}
-                    {t.value === "briefing" && needsOnboarding && (
-                      <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                    )}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              <TabsContent value="overview">
+            <Tabs value={activeTab} onValueChange={goToTab} className="space-y-6">
+              {/* Navegação horizontal rolável: nunca quebra em várias linhas. */}
+              <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+                <TabsList className="w-max min-w-full flex-nowrap justify-start gap-1 rounded-xl bg-muted/40 p-1">
+                  {CUSTOMER_TABS.map((t) => (
+                    <TabsTrigger
+                      key={t.value}
+                      value={t.value}
+                      className="h-9 shrink-0 gap-1.5 rounded-lg px-3.5 text-sm data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                    >
+                      {t.label}
+                      {t.value === "briefing" && needsOnboarding && (
+                        <span
+                          aria-hidden
+                          className="h-1.5 w-1.5 rounded-full bg-severity-warning"
+                        />
+                      )}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
+
+              <TabsContent value="overview" className="mt-0">
                 <CustomerOverview
                   brandId={brandId}
                   clientId={customerId}
@@ -361,7 +351,7 @@ function CustomerDetailReady({
                 />
               </TabsContent>
 
-              <TabsContent value="briefing" className="space-y-6">
+              <TabsContent value="briefing" className="mt-0 space-y-8">
                 <BriefingWorkspace
                   brandId={brandId}
                   clientId={customerId}
@@ -375,14 +365,20 @@ function CustomerDetailReady({
                   }}
                 />
                 {/* Estratégia IA vive junto do briefing que a gera (alias ?tab=estrategia). */}
-                <StrategyResults
-                  brandId={brandId}
-                  clientId={customerId}
-                  onGenerate={() => goToTab("briefing")}
-                  onRestored={invalidateAll}
-                />
+                <PanelGroup
+                  title="Estratégia gerada pela IA"
+                  description="Resultados criados a partir do briefing acima."
+                >
+                  <StrategyResults
+                    brandId={brandId}
+                    clientId={customerId}
+                    onGenerate={() => goToTab("briefing")}
+                    onRestored={invalidateAll}
+                  />
+                </PanelGroup>
               </TabsContent>
-              <TabsContent value="pauta">
+
+              <TabsContent value="pauta" className="mt-0">
                 <MonthlyPlanView
                   brandId={brandId}
                   clientId={customerId}
@@ -391,18 +387,28 @@ function CustomerDetailReady({
                 />
               </TabsContent>
 
-              <TabsContent value="trabalho">
+              <TabsContent value="trabalho" className="mt-0">
                 <WorkTab brandId={brandId} clientId={customerId} />
               </TabsContent>
 
               {/* Aba única "Conta": cadastro (identidade/contato/redes) +
                   gestão (contrato/jornada). Cada informação tem uma só fonte. */}
-              <TabsContent value="conta" className="space-y-6">
-                <BasicInfoTab brandId={brandId} clientId={customerId} />
-                <AccountManagementTab brandId={brandId} clientId={customerId} />
+              <TabsContent value="conta" className="mt-0 space-y-8">
+                <PanelGroup
+                  title="Dados da empresa e contatos"
+                  description="Identidade, contato principal e redes sociais do cliente."
+                >
+                  <BasicInfoTab brandId={brandId} clientId={customerId} />
+                </PanelGroup>
+                <PanelGroup
+                  title="Contrato, jornada e portal"
+                  description="Situação comercial, etapa da jornada e acesso do cliente ao portal."
+                >
+                  <AccountManagementTab brandId={brandId} clientId={customerId} />
+                </PanelGroup>
               </TabsContent>
 
-              <TabsContent value="publicacoes">
+              <TabsContent value="publicacoes" className="mt-0">
                 <PublicationsTab brandId={brandId} clientId={customerId} />
               </TabsContent>
             </Tabs>
