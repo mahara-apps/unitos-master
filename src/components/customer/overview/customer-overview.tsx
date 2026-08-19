@@ -3,6 +3,7 @@
 // Consome apenas server functions já existentes; nenhum dado mockado.
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { OverviewSkeleton } from "@/components/ai-agents/tab-skeletons";
