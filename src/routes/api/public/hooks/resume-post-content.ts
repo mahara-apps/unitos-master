@@ -4,8 +4,8 @@ import { assertCronRequest } from "@/lib/cron-auth.server";
 
 /**
  * Retoma a geração de conteúdo de peças pendentes (idea / copy_failed*) e
- * libera travas órfãs em `copy_running`. Endpoint de operação/cron: exige a
- * chave publicável no header `apikey`, igual aos demais hooks.
+ * libera travas órfãs em `copy_running`. Endpoint de operação/cron: exige o
+ * segredo `CRON_SECRET` no header `x-cron-secret`, igual aos demais hooks.
  */
 const BodySchema = z.object({
   brandId: z.string().uuid().nullable().optional(),

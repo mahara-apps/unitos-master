@@ -11,7 +11,6 @@ export const Route = createFileRoute("/api/public/hooks/ai-models-health")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        // O projeto expõe a chave publicável em SUPABASE_PUBLISHABLE_KEY;
         const cronDenied = assertCronRequest(request);
         if (cronDenied) return cronDenied;
 

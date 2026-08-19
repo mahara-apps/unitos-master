@@ -5,8 +5,8 @@ import { assertCronRequest } from "@/lib/cron-auth.server";
 
 /**
  * SLA overdue notifier.
- * Called by pg_cron once per hour. Authenticated via apikey header (anon key)
- * which is already stored in the project — no custom secret needed.
+ * Called by pg_cron once per hour. Autenticado pelo segredo dedicado
+ * `CRON_SECRET` (header `x-cron-secret`) — nunca pela chave publicável.
  *
  * For each non-terminal stage with sla_days > 0, finds posts whose
  * (now - stage_entered_at) > sla_days and:

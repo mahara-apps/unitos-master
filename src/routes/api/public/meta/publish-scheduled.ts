@@ -40,7 +40,7 @@ class DeterministicBlock extends Error {
  * `published_at`) e move o `stage_id` para a coluna "Publicado" do Kanban.
  * Idempotente: nunca reescreve histórico já publicado.
  *
- * Auth: bypass no edge via /api/public/*; exige `apikey` = anon publishable key.
+ * Auth: bypass no edge via /api/public/*; exige `x-cron-secret` = CRON_SECRET.
 
  */
 export const Route = createFileRoute("/api/public/meta/publish-scheduled")({

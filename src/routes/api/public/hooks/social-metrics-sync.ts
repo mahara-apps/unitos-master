@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { assertCronRequest } from "@/lib/cron-auth.server";
 
 // Cron endpoint: sincroniza roll-up de social_posts como eventos do Brain.
-// Chamado por pg_cron 1×/dia; gate por apikey (SUPABASE_PUBLISHABLE_KEY).
+// Chamado por pg_cron 1×/dia; gate por `CRON_SECRET` (header x-cron-secret).
 export const Route = createFileRoute("/api/public/hooks/social-metrics-sync")({
   server: {
     handlers: {
