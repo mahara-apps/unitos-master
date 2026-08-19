@@ -84,7 +84,7 @@ export function PautaOrganizationField({
     staleTime: 30_000,
   });
   const [search, setSearch] = React.useState("");
-
+  const projects: PlanProjectOption[] = useMemo(() => projectsQ.data ?? [], [projectsQ.data]);
   const projects: PlanProjectOption[] = projectsQ.data ?? [];
   const filtered = React.useMemo(() => {
     const t = search.trim().toLowerCase();

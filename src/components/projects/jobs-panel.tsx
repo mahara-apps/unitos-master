@@ -49,7 +49,7 @@ export function JobsPanel({ brandId, projectId }: Props) {
   });
 
   const jobs: ProjectJob[] = jobsQ.data ?? [];
-  const tasks: JobTask[] = tasksQ.data ?? [];
+  const tasks: JobTask[] = useMemo(() => tasksQ.data ?? [], [tasksQ.data]);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const effectiveJobId = selectedJobId ?? jobs[0]?.id ?? null;
 

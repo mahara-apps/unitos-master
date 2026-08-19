@@ -92,7 +92,7 @@ export function PortalAccessManager({ brandId }: { brandId: string }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<PortalAccess | null>(null);
 
-  const accesses = data?.accesses ?? [];
+  const accesses = useMemo(() => data?.accesses ?? [], [data]);
   const rows = useMemo(() => {
     const q = term.trim().toLowerCase();
     return accesses.filter(

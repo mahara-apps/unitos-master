@@ -32,7 +32,7 @@ const BUCKET_ORDER: NotificationBucket[] = ["today", "yesterday", "week", "older
 
 function NotificationsPage() {
   const notifQ = useNotifications("inbox");
-  const items: NotificationRow[] = notifQ.data?.items ?? [];
+  const items: NotificationRow[] = useMemo(() => notifQ.data?.items ?? [], [notifQ.data]);
   const unreadTotal = notifQ.data?.unreadTotal ?? 0;
   const [tab, setTab] = useState<FilterTab>("all");
   const [search, setSearch] = useState("");
