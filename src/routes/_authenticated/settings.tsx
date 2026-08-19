@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { Bell, Gauge, History, Loader2, Lock, Palette, ShieldCheck, Timer, User, Users } from "lucide-react";
+import { Bell, History, Loader2, Lock, Palette, ShieldCheck, Timer, User, Users } from "lucide-react";
 
 import { useAccessRole } from "@/hooks/use-access-role";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,11 +43,8 @@ const GROUPS: TabGroup[] = [
       { to: "/settings/logs", label: "Auditoria", icon: History, admin: true },
     ],
   },
-  {
-    label: "IA",
-    tabs: [{ to: "/settings/ai-limits", label: "Limites de IA", icon: Gauge, admin: true }],
-  },
 ];
+
 
 const ALL_TABS = GROUPS.flatMap((g) => g.tabs);
 
