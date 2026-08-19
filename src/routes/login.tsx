@@ -124,12 +124,6 @@ function BrandPanel() {
         className="pointer-events-none absolute -top-28 right-[-12%] -z-10 h-80 w-80 rotate-12 rounded-[38%] border border-white/10 bg-white/[0.03]"
       />
 
-      <img
-        src={branding.logoDark}
-        alt="Logo da agência"
-        draggable={false}
-        className="h-11 w-auto max-w-[190px] select-none self-start object-contain"
-      />
 
 
       <div className="max-w-md">
