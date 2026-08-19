@@ -142,3 +142,28 @@ De 8 abas + 2 telas órfãs para 6 abas, uma fonte por dado e um único conjunto
 - **Fase 5 — Polimento.** `PageKpi` nos três KPIs legados; primitivas de canal compartilhadas; rolagem/tabs no mobile; `TOPIC` do Brain configurável.
 
 Cada fase é fechada e testável isoladamente; nenhuma depende da seguinte.
+
+## Fase 2 — resultado (executada)
+
+- **Cadastro × Gestão da conta:** unificados na aba única **Conta**
+  (`?tab=conta`). `BasicInfoTab` continua fonte única de identidade/contato/redes;
+  `AccountManagementTab` continua fonte única de contrato/jornada/portal.
+  Nenhuma server function ou campo alterado. `?tab=cadastro` e `?tab=gestao`
+  seguem válidos como aliases legados e resolvem para `conta`.
+- **Search `brain`:** removido do enum e do tipo `CustomerTab` (sem consumidor;
+  havia apenas o redirect defensivo para `briefing`).
+- **Media plan:** **PRESERVADO** — possui consumidores reais
+  (`/media-plans` (lista), `create-media-plan-dialog`, `brand-client-switcher`).
+  Local definitivo: sub-rota `/customers/$customerId/media-plan`, fora das 6 abas.
+- **Ponte `window` `nx:switch-customer-tab`:** removida (não existia dispatcher).
+  Troca de aba usa apenas `onOpenTab` (prop) + `?tab=` na URL.
+- **KPIs:** `overview-summary` e `overview-performance` migrados para
+  `PageKpi`/`PageKpiGrid`; `ProfileStat` já era adaptador fino de `PageKpi`.
+  Métricas e consultas inalteradas.
+- **Erros da Visão geral:** `loading` / `empty` / `error` agora são estados
+  distintos, com botão "Tentar novamente" (`refetch`).
+
+### Fica para a Fase 3
+- Reorganização final em 6 abas (Trabalho e Publicações ainda não existem).
+- Guarda de acesso em `beforeLoad`.
+- Layout mobile / `ScrollArea` com `100vh` fixo.
