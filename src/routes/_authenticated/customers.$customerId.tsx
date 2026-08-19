@@ -22,6 +22,8 @@ import { toast } from "sonner";
 import { listClients } from "@/lib/workspace.functions";
 import { StrategyResults } from "@/components/ai-agents/strategy-results";
 import { CustomerOverview } from "@/components/customer/overview/customer-overview";
+import { CustomerHeader } from "@/components/customer/customer-header";
+import { PanelGroup } from "@/components/customer/ui/panel-section";
 import { WorkTab } from "@/components/customer/work/work-tab";
 import { PublicationsTab } from "@/components/customer/publications/publications-tab";
 import { BasicInfoTab } from "@/components/customer/basic-info-tab";
