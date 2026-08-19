@@ -178,8 +178,8 @@ function CustomersIndexPage() {
   const memberName = (id?: string | null) =>
     (id && members.find((m) => m.user_id === id)?.full_name) || (id ? id.slice(0, 8) : null);
 
-  const all = (clientsQ.data ?? []) as ClientRow[];
-  const channelsByClient = channelsQ.data ?? {};
+  const all = useMemo(() => (clientsQ.data ?? []) as ClientRow[], [clientsQ.data]);
+  const channelsByClient = useMemo(() => channelsQ.data ?? {}, [channelsQ.data]);
 
   const segments = useMemo(() => {
     const set = new Set<string>();

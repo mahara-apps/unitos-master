@@ -136,7 +136,7 @@ function PermissionsPage() {
     enabled: !!brandId,
   });
 
-  const members = teamQ.data?.members ?? [];
+  const members = useMemo(() => teamQ.data?.members ?? [], [teamQ.data]);
 
   const counts = useMemo(() => {
     const byRole = (roles: string[]) =>

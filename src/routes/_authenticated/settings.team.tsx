@@ -104,7 +104,7 @@ function TeamSettingsPage() {
   const myRole = membersQ.data?.myRole ?? null;
   const canManageOwners = myRole === "owner" || myRole === "super_admin" || myRole === "admin";
 
-  const invitesAll = teamQ.data?.invites ?? [];
+  const invitesAll = useMemo(() => teamQ.data?.invites ?? [], [teamQ.data]);
   const pendingInvites = useMemo(
     () => invitesAll.filter((i) => !i.accepted_at && !i.revoked_at),
     [invitesAll],

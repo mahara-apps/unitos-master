@@ -138,7 +138,7 @@ function PublicMonthlyPlanPage() {
       toast.error(ERRORS[e.message] ?? "Não foi possível registrar sua resposta."),
   });
 
-  const topics = planQ.data?.topics ?? [];
+  const topics = useMemo(() => planQ.data?.topics ?? [], [planQ.data]);
   const allDecided = useMemo(
     () => topics.length > 0 && topics.every((t) => items[t.id]),
     [topics, items],

@@ -656,7 +656,7 @@ function ApprovalDialog({ postId, onClose }: { postId: string; onClose: () => vo
   });
   const post = q.data?.post;
   const approval = q.data?.approval;
-  const media = q.data?.media ?? [];
+  const media = useMemo(() => q.data?.media ?? [], [q.data]);
   const gallery = useMemo(() => {
     const list: Array<{ url: string; type: string }> = [];
     if (post?.cover_url) list.push({ url: post.cover_url as string, type: "image" });

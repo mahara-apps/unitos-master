@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 // Campo de organização da pauta: Nenhum projeto / Projeto existente / Novo projeto.
 // Nunca cria projeto sem escolha explícita do usuário.
 import * as React from "react";
