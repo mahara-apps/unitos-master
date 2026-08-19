@@ -93,12 +93,17 @@ function TeamSettingsPage() {
         onDone={() => qc.invalidateQueries({ queryKey: ["brand-team", brandId] })}
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <SettingsStatCard label="Membros" value={members.length} icon={<Users className="h-4 w-4" />} tone="sky" />
-        <SettingsStatCard label="Convites pendentes" value={pendingInvites.length} icon={<MailIcon className="h-4 w-4" />} tone={pendingInvites.length > 0 ? "amber" : "neutral"} />
-        <SettingsStatCard label="Portais ativos" value={portalTokens.length} icon={<LinkIcon className="h-4 w-4" />} tone="violet" />
-        <SettingsStatCard label="Owners" value={owners} icon={<Crown className="h-4 w-4" />} tone="emerald" />
-      </div>
+      <PageKpiGrid>
+        <PageKpi label="Membros" value={members.length} icon={<Users className="h-4 w-4" />} status="info" />
+        <PageKpi
+          label="Convites pendentes"
+          value={pendingInvites.length}
+          icon={<MailIcon className="h-4 w-4" />}
+          status={pendingInvites.length > 0 ? "warning" : "neutral"}
+        />
+        <PageKpi label="Portais ativos" value={portalTokens.length} icon={<LinkIcon className="h-4 w-4" />} status="info" />
+        <PageKpi label="Owners" value={owners} icon={<Crown className="h-4 w-4" />} status="success" />
+      </PageKpiGrid>
 
       <Card>
         <CardHeader>
