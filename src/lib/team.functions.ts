@@ -916,17 +916,15 @@ export const addPerson = createServerFn({ method: "POST" })
       .eq("user_id", targetId)
       .maybeSingle();
 
-    const { error: upErr } = await supabaseAdmin
-      .from("brand_members")
-      .upsert(
-        {
-          brand_id: data.brandId,
-          user_id: targetId,
-          role: data.role,
-          permissions: data.permissions,
-        },
-        { onConflict: "brand_id,user_id" },
-      );
+    const { error: upErr } = await supabaseAdmin.from("brand_members").upsert(
+      {
+        brand_id: data.brandId,
+        user_id: targetId,
+        role: data.role,
+        permissions: data.permissions,
+      },
+      { onConflict: "brand_id,user_id" },
+    );
     if (upErr) throw upErr;
 
     // Restrições por projeto (opcional)
