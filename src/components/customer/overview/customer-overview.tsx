@@ -37,6 +37,7 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
   const listTasks = useServerFn(listTasksFn);
   const listScheduled = useServerFn(listScheduledPostsFn);
   const listEvents = useServerFn(listCalendarEventsFn);
+  const navigate = useNavigate();
   const [newAppointment, setNewAppointment] = useState(false);
   const scopeValid = isValidScope({ brandId, clientId });
 
@@ -142,7 +143,9 @@ export function CustomerOverview({ brandId, clientId, onOpenBriefing, onOpenTab 
       <OverviewAttention
         alerts={data.alerts ?? []}
         overdue={overdue}
-        onOpenTasks={() => onOpenTab?.("gestao")}
+        onOpenTasks={() =>
+          navigate({ to: "/tasks", search: { view: "list", groupBy: "status" } as never })
+        }
       />
 
       {/* Linha 2 — o que precisa ser feito */}
