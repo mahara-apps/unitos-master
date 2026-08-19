@@ -82,7 +82,13 @@ function describe(ev: ActivityEvent) {
   return { title: base, subtitle: title, Icon, tone, when };
 }
 
-export function OverviewActivity({ activity }: { activity: ActivityEvent[] }) {
+export function OverviewActivity({
+  activity,
+  className,
+}: {
+  activity: ActivityEvent[];
+  className?: string;
+}) {
   const [expanded, setExpanded] = useState(false);
   const shown = expanded ? activity.slice(0, 20) : activity.slice(0, 5);
 
@@ -102,7 +108,7 @@ export function OverviewActivity({ activity }: { activity: ActivityEvent[] }) {
           </button>
         ) : undefined
       }
-      className={expanded ? "min-h-[16rem]" : undefined}
+      className={cn(expanded && "min-h-[16rem]", className)}
     >
       {activity.length === 0 ? (
         <OverviewEmpty
