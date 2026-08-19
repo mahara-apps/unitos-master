@@ -1,10 +1,5 @@
 import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-  useSuspenseQuery,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
@@ -24,10 +19,7 @@ import {
   Play,
   Images,
 } from "lucide-react";
-import {
-  Sheet,
-  SheetContent,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,12 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
-} from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   createPostFn,
   updatePostFn,
@@ -170,7 +157,11 @@ function QuickApprovalLinkButton({ postId }: { postId: string }) {
       onClick={() => m.mutate()}
       disabled={m.isPending}
     >
-      {m.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Link2 className="mr-1.5 h-3.5 w-3.5" />}
+      {m.isPending ? (
+        <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <Link2 className="mr-1.5 h-3.5 w-3.5" />
+      )}
       Gerar link
     </Button>
   );
@@ -203,10 +194,7 @@ function AssigneeSelect({
       .map((s) => s[0]?.toUpperCase() ?? "")
       .join("") || "?";
   return (
-    <Select
-      value={value ?? "none"}
-      onValueChange={(v) => onChange(v === "none" ? null : v)}
-    >
+    <Select value={value ?? "none"} onValueChange={(v) => onChange(v === "none" ? null : v)}>
       <SelectTrigger className={cn("h-9 w-full min-w-0 gap-1 text-xs", className)}>
         <SelectValue placeholder="Sem responsável" />
       </SelectTrigger>
@@ -259,21 +247,20 @@ function ProjectSelect({
     staleTime: 60_000,
     enabled: !!brandId && !!clientId,
   });
-  const projects = ((data?.projects ?? []) as Array<{
-    id: string;
-    name: string;
-    color: string | null;
-    status: string;
-  }>).filter((p) => p.status !== "archived");
+  const projects = (
+    (data?.projects ?? []) as Array<{
+      id: string;
+      name: string;
+      color: string | null;
+      status: string;
+    }>
+  ).filter((p) => p.status !== "archived");
   const options =
     fallback && !projects.some((p) => p.id === fallback.id)
       ? [{ ...fallback, status: "active" }, ...projects]
       : projects;
   return (
-    <Select
-      value={value ?? "none"}
-      onValueChange={(v) => onChange(v === "none" ? null : v)}
-    >
+    <Select value={value ?? "none"} onValueChange={(v) => onChange(v === "none" ? null : v)}>
       <SelectTrigger className={cn("h-9 w-full min-w-0 gap-1 text-xs", className)}>
         <FolderKanban className="mr-1 h-3.5 w-3.5 text-muted-foreground" />
         <SelectValue placeholder="Sem projeto" />
@@ -356,15 +343,9 @@ function CreateBody({
           copy: state.copy.trim() || null,
           internal_briefing: state.internalBriefing.trim() || null,
           client_briefing: state.clientBriefing.trim() || null,
-          script: state.script.trim()
-            ? [{ cena: 1, fala: state.script.trim() }]
-            : null,
-          scheduled_at: state.scheduledAt
-            ? new Date(state.scheduledAt).toISOString()
-            : null,
-          remind_at: state.remindAt
-            ? new Date(state.remindAt).toISOString()
-            : null,
+          script: state.script.trim() ? [{ cena: 1, fala: state.script.trim() }] : null,
+          scheduled_at: state.scheduledAt ? new Date(state.scheduledAt).toISOString() : null,
+          remind_at: state.remindAt ? new Date(state.remindAt).toISOString() : null,
           priority: state.priority === "none" ? null : state.priority,
           tags: state.tags.length ? state.tags : undefined,
           visible_in_portal: state.visibleInPortal,
@@ -376,7 +357,8 @@ function CreateBody({
       toast.success("Tarefa criada");
       qc.invalidateQueries({ queryKey: invalidateKey });
       qc.invalidateQueries({ queryKey: ["projects", brandId] });
-      if (state.projectId) qc.invalidateQueries({ queryKey: ["project", brandId, state.projectId] });
+      if (state.projectId)
+        qc.invalidateQueries({ queryKey: ["project", brandId, state.projectId] });
       onOpenChange(false);
     },
     onError: (e: Error) => toast.error(describeError(e)),
@@ -392,7 +374,10 @@ function CreateBody({
           </p>
         </div>
         <div className="grid grid-cols-3 items-center gap-2">
-          <Select value={state.stageId} onValueChange={(v) => setState((p) => ({ ...p, stageId: v }))}>
+          <Select
+            value={state.stageId}
+            onValueChange={(v) => setState((p) => ({ ...p, stageId: v }))}
+          >
             <SelectTrigger className="h-9 w-full min-w-0 gap-1 text-xs">
               <SelectValue />
             </SelectTrigger>
@@ -436,9 +421,7 @@ function CreateBody({
           onClick={() => create.mutate()}
           disabled={!state.title.trim() || !state.stageId || create.isPending}
         >
-          {create.isPending ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : null}
+          {create.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Criar
         </Button>
       </div>
@@ -475,9 +458,11 @@ function EditBody({
   const [state, setState] = useState(() => stateFromPost(post, stages));
   // Initial destinations hydrate no primeiro render (state inicial).
   useEffect(() => {
-    setState((prev) => (prev.destinations.length === 0 && (data.destinations ?? []).length > 0
-      ? { ...prev, destinations: data.destinations }
-      : prev));
+    setState((prev) =>
+      prev.destinations.length === 0 && (data.destinations ?? []).length > 0
+        ? { ...prev, destinations: data.destinations }
+        : prev,
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
@@ -519,21 +504,15 @@ function EditBody({
             copy: state.copy.trim() || null,
             internal_briefing: state.internalBriefing.trim() || null,
             client_briefing: state.clientBriefing.trim() || null,
-            script: state.script.trim()
-              ? [{ cena: 1, fala: state.script.trim() }]
-              : null,
+            script: state.script.trim() ? [{ cena: 1, fala: state.script.trim() }] : null,
             channels: state.channels as never,
             target_connection_ids: state.targetConnectionIds,
             format: state.format || null,
             priority: state.priority === "none" ? null : state.priority,
             tags: state.tags,
             visible_in_portal: state.visibleInPortal,
-            scheduled_at: state.scheduledAt
-              ? new Date(state.scheduledAt).toISOString()
-              : null,
-            remind_at: state.remindAt
-              ? new Date(state.remindAt).toISOString()
-              : null,
+            scheduled_at: state.scheduledAt ? new Date(state.scheduledAt).toISOString() : null,
+            remind_at: state.remindAt ? new Date(state.remindAt).toISOString() : null,
             stage_id: state.stageId || null,
             assignee_id: state.assigneeId,
             project_id: state.projectId,
@@ -547,7 +526,8 @@ function EditBody({
       qc.invalidateQueries({ queryKey: invalidateKey });
       qc.invalidateQueries({ queryKey: ["post-detail", postId] });
       qc.invalidateQueries({ queryKey: ["projects", brandId] });
-      if (state.projectId) qc.invalidateQueries({ queryKey: ["project", brandId, state.projectId] });
+      if (state.projectId)
+        qc.invalidateQueries({ queryKey: ["project", brandId, state.projectId] });
       onOpenChange(false);
     },
     onError: (e: Error) => toast.error(describeError(e)),
@@ -575,8 +555,7 @@ function EditBody({
   });
 
   const approveOnly = useMutation({
-    mutationFn: () =>
-      updatePost({ data: { postId, patch: { review_status: "approved" } } }),
+    mutationFn: () => updatePost({ data: { postId, patch: { review_status: "approved" } } }),
     onSuccess: () => {
       toast.success("Aprovado");
       qc.invalidateQueries({ queryKey: invalidateKey });
@@ -656,9 +635,7 @@ function EditBody({
         // Size guard on the client (server also enforces).
         const max = isVideo(file) ? 100 * 1024 * 1024 : 25 * 1024 * 1024;
         if (file.size > max) {
-          toast.error(
-            `${file.name}: excede o limite (${isVideo(file) ? "100 MB" : "25 MB"})`,
-          );
+          toast.error(`${file.name}: excede o limite (${isVideo(file) ? "100 MB" : "25 MB"})`);
           continue;
         }
         if (!isImage(file) && !isVideo(file)) {
@@ -696,18 +673,14 @@ function EditBody({
             console.warn("thumb failed", thumbErr);
           }
         } catch (err) {
-          toast.error(
-            `${file.name}: ${(err as Error).message ?? "falha ao enviar"}`,
-          );
+          toast.error(`${file.name}: ${(err as Error).message ?? "falha ao enviar"}`);
         }
       }
       return { uploaded, totalAfter: existingCount + uploaded };
     },
     onSuccess: (r) => {
       if (r.uploaded > 0) {
-        toast.success(
-          r.uploaded === 1 ? "Mídia anexada" : `${r.uploaded} mídias anexadas`,
-        );
+        toast.success(r.uploaded === 1 ? "Mídia anexada" : `${r.uploaded} mídias anexadas`);
         // Auto-carrossel when ending with 2+ media (except Story format).
         const current = normalizeContentFormat(state.format);
         if (r.totalAfter >= 2 && current !== "stories") {
@@ -732,7 +705,6 @@ function EditBody({
     onError: (e: Error) => toast.error(describeError(e)),
   });
 
-
   return (
     <>
       <div className="sticky top-0 z-10 space-y-3 border-b border-border/60 bg-background/95 px-6 pb-3 pt-4 backdrop-blur">
@@ -746,37 +718,53 @@ function EditBody({
             />
             <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
               {reviewStatus === "pending" && aiPhase === "idea" ? (
-                <Badge variant="outline" className="rounded-md border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                <Badge
+                  variant="outline"
+                  className="rounded-md border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                >
                   Aguardando aprovação
                 </Badge>
               ) : null}
               {aiPhase === "copy_running" ? (
-                <Badge variant="outline" className="rounded-md border-indigo-500/40 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                <Badge
+                  variant="outline"
+                  className="rounded-md border-indigo-500/40 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400"
+                >
                   <Loader2 className="mr-1 h-3 w-3 animate-spin" /> Gerando copy
                 </Badge>
               ) : null}
               {aiPhase === "copy_ready" ? (
-                <Badge variant="outline" className="rounded-md border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <Badge
+                  variant="outline"
+                  className="rounded-md border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                >
                   Legenda gerada pelos agentes
                 </Badge>
               ) : null}
               {aiPhase === "copy_failed_retryable" || aiPhase === "copy_failed" ? (
-                <Badge variant="outline" className="rounded-md border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                <Badge
+                  variant="outline"
+                  className="rounded-md border-amber-500/40 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                >
                   Geração pendente — pode tentar novamente
                 </Badge>
               ) : null}
               {aiPhase === "copy_failed_permanent" ? (
-                <Badge variant="outline" className="rounded-md border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                <Badge
+                  variant="outline"
+                  className="rounded-md border-rose-500/40 bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                >
                   Geração bloqueada — verificar configuração
                 </Badge>
               ) : null}
-
-
             </div>
           </div>
         </div>
         <div className="grid grid-cols-[repeat(3,minmax(0,1fr))_minmax(0,1.25fr)] items-center gap-2">
-          <Select value={state.stageId} onValueChange={(v) => setState((p) => ({ ...p, stageId: v }))}>
+          <Select
+            value={state.stageId}
+            onValueChange={(v) => setState((p) => ({ ...p, stageId: v }))}
+          >
             <SelectTrigger className="h-9 w-full min-w-0 gap-1 text-xs">
               <SelectValue />
             </SelectTrigger>
@@ -803,8 +791,17 @@ function EditBody({
           <div className="flex items-center justify-end gap-1.5">
             {reviewStatus !== "approved" ? (
               <>
-                <Button size="sm" onClick={() => approveOnly.mutate()} disabled={approveOnly.isPending} className="h-9 flex-1">
-                  {approveOnly.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />}
+                <Button
+                  size="sm"
+                  onClick={() => approveOnly.mutate()}
+                  disabled={approveOnly.isPending}
+                  className="h-9 flex-1"
+                >
+                  {approveOnly.isPending ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                  )}
                   Aprovar
                 </Button>
                 {state.scheduledAt && state.destinations.length > 0 ? (
@@ -826,7 +823,10 @@ function EditBody({
                 ) : null}
               </>
             ) : (
-              <Badge variant="outline" className="h-9 w-full justify-center rounded-md border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <Badge
+                variant="outline"
+                className="h-9 w-full justify-center rounded-md border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+              >
                 <CheckCircle2 className="mr-1 h-3 w-3" /> Aprovado
               </Badge>
             )}
@@ -849,7 +849,6 @@ function EditBody({
             aiPhase === "copy_failed_retryable" ||
             aiPhase === "copy_failed_permanent" ? (
               <RegenerateCaptionButton postId={postId} invalidateKey={invalidateKey} />
-
             ) : null
           }
           brandId={brandId}
@@ -868,16 +867,16 @@ function EditBody({
 
         <div className="mt-6 space-y-5">
           <Separator />
-        {post.design_brief ? (
-          <div className="space-y-1.5">
-            <Label className="flex items-center gap-1.5">
-              <FileText className="h-3.5 w-3.5" /> Briefing visual (IA)
-            </Label>
-            <DashboardPanelSurface className="bg-background/60 p-3 text-sm whitespace-pre-wrap">
-              {post.design_brief}
-            </DashboardPanelSurface>
-          </div>
-        ) : null}
+          {post.design_brief ? (
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5" /> Briefing visual (IA)
+              </Label>
+              <DashboardPanelSurface className="bg-background/60 p-3 text-sm whitespace-pre-wrap">
+                {post.design_brief}
+              </DashboardPanelSurface>
+            </div>
+          ) : null}
 
           <Separator />
           <Timeline items={data.timeline} />
@@ -906,7 +905,11 @@ function EditBody({
             }}
             disabled={rework.isPending}
           >
-            {rework.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="mr-1.5 h-3.5 w-3.5" />}
+            {rework.isPending ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+            )}
             Refazer
           </Button>
           <Button size="sm" className="h-9" onClick={() => save.mutate()} disabled={save.isPending}>
@@ -998,9 +1001,9 @@ function stateFromPost(
     script: scriptText,
     scheduledAt: post.scheduled_at ? post.scheduled_at.slice(0, 16) : "",
     remindAt: post.remind_at ? post.remind_at.slice(0, 16) : "",
-    priority: (["low", "medium", "high", "urgent"].includes(post.priority ?? "")
+    priority: ["low", "medium", "high", "urgent"].includes(post.priority ?? "")
       ? (post.priority as Priority)
-      : "none"),
+      : "none",
     tags: (post.tags ?? []) as string[],
     visibleInPortal: !!post.visible_in_portal,
     projectId: (post.project_id ?? null) as string | null,
@@ -1084,9 +1087,7 @@ function TaskLayout({
   const addTag = () => {
     const v = tagInput.trim();
     if (!v) return;
-    setState((prev) =>
-      prev.tags.includes(v) ? prev : { ...prev, tags: [...prev.tags, v] },
-    );
+    setState((prev) => (prev.tags.includes(v) ? prev : { ...prev, tags: [...prev.tags, v] }));
     setTagInput("");
   };
   const removeTag = (t: string) =>
@@ -1110,12 +1111,11 @@ function TaskLayout({
         ) : null}
 
         {assignedConnections.length > 0 ? (
-        <div className="space-y-2">
-          <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
-            Vai publicar? Selecione a conta de destino
-          </Label>
+          <div className="space-y-2">
+            <Label className="text-[11px] font-mono uppercase tracking-widest text-muted-foreground">
+              Vai publicar? Selecione a conta de destino
+            </Label>
             <div className="flex flex-wrap gap-1.5">
-
               {assignedConnections.map((row) => {
                 const meta = CHANNELS.find((c) => c.id === row.channel);
                 const Icon = meta?.icon;
@@ -1128,7 +1128,8 @@ function TaskLayout({
                       onClick={() => toggleTargetConnection(row)}
                       className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-xs font-medium transition ${
                         active
-                          ? CHANNEL_STYLES[row.channel] ?? "border-primary bg-primary/10 text-foreground"
+                          ? (CHANNEL_STYLES[row.channel] ??
+                            "border-primary bg-primary/10 text-foreground")
                           : "border-border/60 bg-background/60 text-muted-foreground hover:border-border hover:text-foreground"
                       } ${active ? "rounded-r-none border-r-0" : ""}`}
                       title={row.accountLabel ?? row.channel}
@@ -1141,7 +1142,9 @@ function TaskLayout({
                     {active ? (
                       <Select
                         value={dest!.format}
-                        onValueChange={(v) => setDestinationFormat(row.connectionId, v as PlacementFormat)}
+                        onValueChange={(v) =>
+                          setDestinationFormat(row.connectionId, v as PlacementFormat)
+                        }
                       >
                         <SelectTrigger className="h-8 rounded-l-none border-l border-border/60 bg-background/60 px-2 text-[11px] font-medium text-muted-foreground">
                           <SelectValue />
@@ -1159,12 +1162,10 @@ function TaskLayout({
                 );
               })}
             </div>
-        </div>
+          </div>
         ) : brandId && clientId && !clientChannelsQ.isLoading ? (
           <div className="space-y-1.5 rounded-md border border-dashed p-3">
-            <p className="text-xs text-muted-foreground">
-              Nenhum canal vinculado a este cliente.
-            </p>
+            <p className="text-xs text-muted-foreground">Nenhum canal vinculado a este cliente.</p>
             {role === "admin" ? (
               <Link
                 to="/customers/$customerId"
@@ -1190,7 +1191,7 @@ function TaskLayout({
                 onClick={() => set("format", f)}
                 className={`h-8 rounded-md border px-3 text-xs font-medium transition ${
                   state.format === f
-                    ? FORMAT_STYLES[f] ?? "border-primary bg-primary/10 text-foreground"
+                    ? (FORMAT_STYLES[f] ?? "border-primary bg-primary/10 text-foreground")
                     : "border-border/60 bg-background/60 text-muted-foreground hover:border-border hover:text-foreground"
                 }`}
               >
@@ -1292,7 +1293,14 @@ function TaskLayout({
           />
           {mode === "edit" && createdAt ? (
             <p className="text-[11px] text-muted-foreground">
-              Criado em {new Date(createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+              Criado em{" "}
+              {new Date(createdAt).toLocaleString("pt-BR", {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </p>
           ) : null}
         </div>
@@ -1323,11 +1331,36 @@ function TaskLayout({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none"><span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-zinc-400" />Sem prioridade</span></SelectItem>
-              <SelectItem value="low"><span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-blue-500" />Baixa</span></SelectItem>
-              <SelectItem value="medium"><span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-amber-500" />Média</span></SelectItem>
-              <SelectItem value="high"><span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-orange-500" />Alta</span></SelectItem>
-              <SelectItem value="urgent"><span className="inline-flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-red-600" />Urgente</span></SelectItem>
+              <SelectItem value="none">
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-zinc-400" />
+                  Sem prioridade
+                </span>
+              </SelectItem>
+              <SelectItem value="low">
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-blue-500" />
+                  Baixa
+                </span>
+              </SelectItem>
+              <SelectItem value="medium">
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  Média
+                </span>
+              </SelectItem>
+              <SelectItem value="high">
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-orange-500" />
+                  Alta
+                </span>
+              </SelectItem>
+              <SelectItem value="urgent">
+                <span className="inline-flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-red-600" />
+                  Urgente
+                </span>
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -1375,9 +1408,7 @@ function TaskLayout({
               onCheckedChange={(v) => set("visibleInPortal", v)}
             />
           </div>
-          {mode === "edit" && postId ? (
-            <ApprovalLinkSection postId={postId} />
-          ) : null}
+          {mode === "edit" && postId ? <ApprovalLinkSection postId={postId} /> : null}
         </div>
       </div>
     </div>
@@ -1410,20 +1441,19 @@ const VERB_LABELS: Record<string, string> = {
 };
 
 function translateVerb(v: string): string {
-  return (
-    VERB_LABELS[v] ??
-    v.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase())
-  );
+  return VERB_LABELS[v] ?? v.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 }
 
 function initialsOf(name: string | null): string {
   if (!name) return "?";
-  return name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? "")
-    .join("") || "?";
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase() ?? "")
+      .join("") || "?"
+  );
 }
 
 /**
@@ -1466,9 +1496,7 @@ function RegenerateCaptionButton({
 
 function Timeline({ items }: { items: PostTimelineEvent[] }) {
   if (items.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">Sem eventos registrados.</p>
-    );
+    return <p className="text-sm text-muted-foreground">Sem eventos registrados.</p>;
   }
   return (
     <div>
@@ -1485,8 +1513,14 @@ function Timeline({ items }: { items: PostTimelineEvent[] }) {
             minute: "2-digit",
           });
           return (
-            <li key={ev.id} className="flex items-start gap-2 rounded-md border border-border/60 bg-background/60 px-2 py-1.5">
-              <Badge variant="secondary" className="mt-0.5 shrink-0 rounded-md border border-border/60 bg-card font-normal">
+            <li
+              key={ev.id}
+              className="flex items-start gap-2 rounded-md border border-border/60 bg-background/60 px-2 py-1.5"
+            >
+              <Badge
+                variant="secondary"
+                className="mt-0.5 shrink-0 rounded-md border border-border/60 bg-card font-normal"
+              >
                 {translateVerb(ev.verb)}
               </Badge>
               <div className="flex min-w-0 flex-1 items-center gap-2 text-muted-foreground">
@@ -1519,7 +1553,6 @@ function Timeline({ items }: { items: PostTimelineEvent[] }) {
   );
 }
 
-
 function ApprovalLinkSection({ postId }: { postId: string }) {
   const qc = useQueryClient();
   const listTokens = useServerFn(listApprovalTokensFn);
@@ -1541,17 +1574,14 @@ function ApprovalLinkSection({ postId }: { postId: string }) {
   });
   const revoke = useMutation({
     mutationFn: (tokenId: string) => revokeTok({ data: { tokenId } }),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ["approval-tokens", postId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["approval-tokens", postId] }),
     onError: (e: Error) => toast.error(describeError(e)),
   });
 
   const active = useMemo(
     () =>
       (q.data ?? []).filter(
-        (t) =>
-          !t.revoked_at &&
-          (!t.expires_at || new Date(t.expires_at).getTime() > Date.now()),
+        (t) => !t.revoked_at && (!t.expires_at || new Date(t.expires_at).getTime() > Date.now()),
       ),
     [q.data],
   );
@@ -1645,10 +1675,7 @@ async function fileToBase64(file: File): Promise<string> {
   let binary = "";
   const chunk = 0x8000;
   for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode.apply(
-      null,
-      Array.from(bytes.subarray(i, i + chunk)),
-    );
+    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
   }
   return btoa(binary);
 }
@@ -1659,10 +1686,7 @@ async function blobToBase64(blob: Blob): Promise<string> {
   let binary = "";
   const chunk = 0x8000;
   for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode.apply(
-      null,
-      Array.from(bytes.subarray(i, i + chunk)),
-    );
+    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
   }
   return btoa(binary);
 }
@@ -1690,9 +1714,7 @@ async function generateThumbnail(file: File): Promise<Blob | null> {
     const ctx = canvas.getContext("2d");
     if (!ctx) return Promise.resolve(null);
     ctx.drawImage(source, 0, 0, cw, ch);
-    return new Promise((resolve) =>
-      canvas.toBlob((b) => resolve(b), "image/webp", 0.8),
-    );
+    return new Promise((resolve) => canvas.toBlob((b) => resolve(b), "image/webp", 0.8));
   };
 
   const url = URL.createObjectURL(file);
@@ -1760,8 +1782,7 @@ function InstagramPreview({
   const isVideo = (current.type ?? "").startsWith("video/");
   const originalUrl = urls[current.path];
   const thumbUrl = current.thumb_path ? urls[current.thumb_path] : null;
-  const displayUrl =
-    current.pruned && thumbUrl ? thumbUrl : originalUrl ?? thumbUrl ?? null;
+  const displayUrl = current.pruned && thumbUrl ? thumbUrl : (originalUrl ?? thumbUrl ?? null);
 
   return (
     <div className="space-y-2">
@@ -1814,9 +1835,7 @@ function InstagramPreview({
               {idx < refs.length - 1 ? (
                 <button
                   type="button"
-                  onClick={() =>
-                    setIdx((i) => Math.min(refs.length - 1, i + 1))
-                  }
+                  onClick={() => setIdx((i) => Math.min(refs.length - 1, i + 1))}
                   className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-foreground/60 p-1 text-background transition hover:bg-foreground/80"
                   aria-label="Próximo"
                 >
@@ -1962,9 +1981,7 @@ function MediaReferenceBlock({
           >
             <Upload className="h-4 w-4" />
             <span className="font-medium">Arraste e solte aqui</span>
-            <span>
-              ou clique para anexar. Ao inserir 2 ou mais, o post vira Carrossel.
-            </span>
+            <span>ou clique para anexar. Ao inserir 2 ou mais, o post vira Carrossel.</span>
           </button>
         ) : (
           <InstagramPreview refs={refs} urls={signedUrls} onRemove={onRemove} />
@@ -2002,4 +2019,3 @@ function MediaReferenceBlock({
     </div>
   );
 }
-

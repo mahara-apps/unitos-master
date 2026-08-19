@@ -20,10 +20,7 @@ import { Button } from "@/components/ui/button";
 import { PageKpi, PageKpiGrid } from "@/components/ui/page-kpi";
 import { PanelEmptyState } from "@/components/ui/panel-empty";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  listPublicationBoardFn,
-  type PublicationItem,
-} from "@/lib/calendar-board.functions";
+import { listPublicationBoardFn, type PublicationItem } from "@/lib/calendar-board.functions";
 import { PublicationRow } from "@/components/calendar/board/publication-card";
 import { PublicationDetailModal } from "@/components/calendar/board/publication-detail";
 import { ChannelsTab } from "@/components/customer/channels-tab";
@@ -31,13 +28,7 @@ import { OverviewCard } from "@/components/customer/overview/overview-shared";
 
 const DAY = 86_400_000;
 
-export function PublicationsTab({
-  brandId,
-  clientId,
-}: {
-  brandId: string;
-  clientId: string;
-}) {
+export function PublicationsTab({ brandId, clientId }: { brandId: string; clientId: string }) {
   const qc = useQueryClient();
   const loadBoard = useServerFn(listPublicationBoardFn);
   const [detail, setDetail] = useState<PublicationItem | null>(null);
@@ -73,7 +64,9 @@ export function PublicationsTab({
 
   const ordered = useMemo(
     () =>
-      [...items].sort((a, b) => (b.when ?? b.createdAt ?? "").localeCompare(a.when ?? a.createdAt ?? "")),
+      [...items].sort((a, b) =>
+        (b.when ?? b.createdAt ?? "").localeCompare(a.when ?? a.createdAt ?? ""),
+      ),
     [items],
   );
 

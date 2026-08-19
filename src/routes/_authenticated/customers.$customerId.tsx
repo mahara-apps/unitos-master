@@ -78,7 +78,6 @@ export const Route = createFileRoute("/_authenticated/customers/$customerId")({
   component: CustomerDetail,
 });
 
-
 function CustomerDetail() {
   const { customerId } = Route.useParams();
   const { onboarding, tab, planId } = Route.useSearch();
