@@ -147,7 +147,7 @@ function BrandPanel() {
         </ul>
       </div>
 
-      <p className="text-xs opacity-60">Plataforma de operação e aprovação de conteúdo.</p>
+      <p className="text-xs opacity-60">Plataforma de operação para agências.</p>
     </aside>
   );
 }
