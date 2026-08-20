@@ -86,6 +86,12 @@ GRANT EXECUTE ON FUNCTION public.can_invite_brand_role(uuid, uuid, public.app_ro
 -- mas passa a validar a autoridade do papel concedido em INSERT e UPDATE.
 -- ----------------------------------------------------------------------------
 DROP POLICY IF EXISTS "brand admins manage invites" ON public.brand_invites;
+-- Idempotência (reconstrução do zero / reaplicação): as policies abaixo já
+-- podem existir se a promoção equivalente tiver rodado antes neste banco.
+DROP POLICY IF EXISTS "brand admins read invites" ON public.brand_invites;
+DROP POLICY IF EXISTS "brand admins create invites" ON public.brand_invites;
+DROP POLICY IF EXISTS "brand admins update invites" ON public.brand_invites;
+DROP POLICY IF EXISTS "brand admins delete invites" ON public.brand_invites;
 
 CREATE POLICY "brand admins read invites"
   ON public.brand_invites FOR SELECT TO authenticated
