@@ -31,8 +31,10 @@ supabase db push
 **Produção** (etapa separada, só depois da validação verde):
 
 - `20260101000000_...` → **nunca executar**: `supabase migration repair --status applied 20260101000000`
-- `20260821090000_...` e `20260821090100_...` → aplicar pelo fluxo normal de
-  migrations do projeto (ferramenta de migration), com backup/PITR confirmado.
+- `20260821090000_...`, `20260821090100_...` e `20260821090300_...` → aplicar pelo
+  fluxo normal de migrations do projeto (ferramenta de migration), com
+  backup/PITR confirmado.
+
 
 ## Comandos proibidos nesta etapa
 
