@@ -3009,6 +3009,7 @@ export type Database = {
           estado: string | null
           icon_url: string | null
           id: string
+          login_logo_url: string | null
           logo_dark_url: string | null
           logo_url: string | null
           name: string
@@ -3032,6 +3033,7 @@ export type Database = {
           estado?: string | null
           icon_url?: string | null
           id?: string
+          login_logo_url?: string | null
           logo_dark_url?: string | null
           logo_url?: string | null
           name: string
@@ -3055,6 +3057,7 @@ export type Database = {
           estado?: string | null
           icon_url?: string | null
           id?: string
+          login_logo_url?: string | null
           logo_dark_url?: string | null
           logo_url?: string | null
           name?: string

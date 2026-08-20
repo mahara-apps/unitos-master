@@ -11,10 +11,17 @@ export type BrandBranding = {
   logoLight: string;
   logoDark: string;
   icon: string;
+  logoLogin: string;
   logoLightCustom: boolean;
   logoDarkCustom: boolean;
   iconCustom: boolean;
-  paths: { logo_light: string | null; logo_dark: string | null; icon: string | null };
+  logoLoginCustom: boolean;
+  paths: {
+    logo_light: string | null;
+    logo_dark: string | null;
+    icon: string | null;
+    logo_login: string | null;
+  };
 };
 
 const DEFAULTS = {
@@ -60,18 +67,19 @@ export function useBrandBranding(brandId: string | null | undefined): BrandBrand
     light: string | null;
     dark: string | null;
     icon: string | null;
-  }>({ light: null, dark: null, icon: null });
+    login: string | null;
+  }>({ light: null, dark: null, icon: null, login: null });
 
   useEffect(() => {
     let alive = true;
     const p = paths.data;
     if (!p) {
-      setSigned({ light: null, dark: null, icon: null });
+      setSigned({ light: null, dark: null, icon: null, login: null });
       return;
     }
-    Promise.all([sign(p.logo_light), sign(p.logo_dark), sign(p.icon)]).then(
-      ([light, dark, icon]) => {
-        if (alive) setSigned({ light, dark, icon });
+    Promise.all([sign(p.logo_light), sign(p.logo_dark), sign(p.icon), sign(p.logo_login)]).then(
+      ([light, dark, icon, login]) => {
+        if (alive) setSigned({ light, dark, icon, login });
       },
     );
     return () => {
@@ -83,13 +91,16 @@ export function useBrandBranding(brandId: string | null | undefined): BrandBrand
     logoLight: signed.light ?? DEFAULTS.logoLight,
     logoDark: signed.dark ?? DEFAULTS.logoDark,
     icon: signed.icon ?? DEFAULTS.icon,
+    logoLogin: signed.login ?? DEFAULTS.logoLight,
     logoLightCustom: !!signed.light,
     logoDarkCustom: !!signed.dark,
     iconCustom: !!signed.icon,
+    logoLoginCustom: !!signed.login,
     paths: {
       logo_light: paths.data?.logo_light ?? null,
       logo_dark: paths.data?.logo_dark ?? null,
       icon: paths.data?.icon ?? null,
+      logo_login: paths.data?.logo_login ?? null,
     },
   };
 }

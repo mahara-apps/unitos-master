@@ -2,12 +2,13 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-type Kind = "logo_light" | "logo_dark" | "icon";
+type Kind = "logo_light" | "logo_dark" | "icon" | "logo_login";
 
-const COLUMN: Record<Kind, "logo_url" | "logo_dark_url" | "icon_url"> = {
+const COLUMN: Record<Kind, "logo_url" | "logo_dark_url" | "icon_url" | "login_logo_url"> = {
   logo_light: "logo_url",
   logo_dark: "logo_dark_url",
   icon: "icon_url",
+  logo_login: "login_logo_url",
 };
 
 async function assertManager(supabase: SupabaseClient, userId: string, brandId: string) {
@@ -30,7 +31,7 @@ export const updateBrandBranding = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { brandId: string; kind: Kind; storagePath: string | null }) => {
     if (!input?.brandId) throw new Error("brandId required");
-    if (!["logo_light", "logo_dark", "icon"].includes(input.kind)) throw new Error("invalid kind");
+    if (!["logo_light", "logo_dark", "icon", "logo_login"].includes(input.kind)) throw new Error("invalid kind");
     return input;
   })
   .handler(async ({ data, context }) => {
@@ -55,7 +56,7 @@ export const getBrandBranding = createServerFn({ method: "GET" })
     const { supabase } = context;
     const { data: row, error } = await supabase
       .from("brands")
-      .select("logo_url, logo_dark_url, icon_url")
+      .select("logo_url, logo_dark_url, icon_url, login_logo_url")
       .eq("id", data.brandId)
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -63,5 +64,6 @@ export const getBrandBranding = createServerFn({ method: "GET" })
       logo_light: (row?.logo_url as string | null) ?? null,
       logo_dark: (row?.logo_dark_url as string | null) ?? null,
       icon: (row?.icon_url as string | null) ?? null,
+      logo_login: (row?.login_logo_url as string | null) ?? null,
     };
   });
