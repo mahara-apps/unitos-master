@@ -97,10 +97,14 @@ function InvitePanel({
   onClose: () => void;
 }) {
   const invite = useServerFn(inviteBrandMembers);
+  const { authorityRole } = useAccessRole();
+  // Espelha `public.can_invite_brand_role`: manager não concede owner/manager.
+  const roleOptions = invitableRoles(authorityRole);
   const [emails, setEmails] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
   const [role, setRole] = useState<Role>("user");
   const [busy, setBusy] = useState(false);
+
 
   const commit = (raw: string) => {
     const clean = raw.trim().toLowerCase();
