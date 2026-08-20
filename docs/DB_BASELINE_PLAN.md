@@ -1,10 +1,15 @@
-# Unitos — Plano de Baseline do Banco (somente análise / aguardando aprovação)
+# Unitos — Plano de Baseline do Banco (artefatos preparados / aguardando aprovação)
 
-Status: **PROPOSTA**. Nada foi executado no banco. Nenhuma migration existente foi
-editada, renomeada ou removida. Nenhum arquivo `supabase/migrations/*.sql` criado.
+Status: **ARTEFATOS PREPARADOS EM STAGING**. Nada foi executado no banco de produção
+(nenhum DDL/DML remoto). Nenhuma migration existente foi editada, renomeada ou removida.
+Nenhum arquivo foi adicionado a `supabase/migrations/`.
+
+Os SQLs propostos estão em **`supabase/baseline/`** (área de staging, não aplicada) —
+ver `supabase/baseline/README.md` e a seção 10 deste documento.
 
 Evidências coletadas em: repositório atual (199 migrations) + leitura read-only do
 banco de produção (`information_schema`, `pg_class`, `pg_policy`, `pg_proc`).
+
 
 ---
 
