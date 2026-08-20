@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, X, Mail, Link2, UserPlus } from "lucide-react";
 import { inviteBrandMembers, addExistingUserToBrand } from "@/lib/team.functions";
-import { ASSIGNABLE_ROLES, ROLE_LABEL } from "@/components/settings/team-shared";
+import { ASSIGNABLE_ROLES, ROLE_LABEL, invitableRoles } from "@/components/settings/team-shared";
+import { useAccessRole } from "@/hooks/use-access-role";
 import type { BrandRole } from "@/lib/team-admin.functions";
 
 /**
@@ -97,10 +98,14 @@ function InvitePanel({
   onClose: () => void;
 }) {
   const invite = useServerFn(inviteBrandMembers);
+  const { authorityRole } = useAccessRole();
+  // Espelha `public.can_invite_brand_role`: manager não concede owner/manager.
+  const roleOptions = invitableRoles(authorityRole);
   const [emails, setEmails] = useState<string[]>([]);
   const [draft, setDraft] = useState("");
   const [role, setRole] = useState<Role>("user");
   const [busy, setBusy] = useState(false);
+
 
   const commit = (raw: string) => {
     const clean = raw.trim().toLowerCase();
@@ -201,7 +206,7 @@ function InvitePanel({
           onChange={(e) => setRole(e.target.value as Role)}
           className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm"
         >
-          {ROLES.map((r) => (
+          {(roleOptions.length ? roleOptions : ROLES).map((r) => (
             <option key={r} value={r}>
               {ROLE_LABEL[r]}
             </option>

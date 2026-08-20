@@ -15,6 +15,9 @@ produção*, os SQLs ficam aqui até aprovação.
 | `20260821090000_fix_user_profiles_role_and_signup.sql` | Forward-only: DEFAULT `role='user'`, CHECK, `handle_new_user()`, privilégios mínimos. | `supabase/migrations/` |
 | `20260821090100_storage_buckets_baseline.sql` | Forward-only: cria os **5** buckets de Storage nunca versionados (inclui `chat-attachments`). | `supabase/migrations/` |
 | `20260821090300_fix_user_profiles_privilege_escalation.sql` | Forward-only: corrige escalação de privilégio em `user_profiles` (`role` / `is_super_admin`). | `supabase/migrations/` |
+| `20260821091000_fix_brand_invite_escalation.sql` | Forward-only: bloqueia escalação manager→owner via `brand_invites` (nova `can_invite_brand_role()`, policies de INSERT/UPDATE e revalidação em `accept_brand_invite()`). | `supabase/migrations/` |
+| `20260821091100_fix_portal_tokens_scope.sql` | Forward-only: `portal_tokens` passa a usar `can_access_client_row()` em vez de `is_brand_member()`. | `supabase/migrations/` |
+| `20260821091200_revoke_anon_table_privileges.sql` | Forward-only: revoga privilégios de tabela/sequência de `anon` em `public` (defesa em profundidade). Não toca `storage.objects` nem EXECUTE das RPCs do Portal. | `supabase/migrations/` |
 
 ## Como promover (somente após aprovação)
 
@@ -63,3 +66,14 @@ Depois do push, criar os 5 buckets caso o SQL de buckets não tenha permissão
 - mover estes arquivos para `supabase/migrations/` neste repositório
 
 Detalhes completos em `docs/DB_BASELINE_PLAN.md`.
+
+
+## Lote de segurança 2026-08-20 (validado em cluster descartável, NÃO promovido)
+
+`20260821091000`, `20260821091100` e `20260821091200` corrigem os 3 achados
+prioritários da auditoria de RBAC. Reconstrução completa no cluster local:
+**207 arquivos aplicados, 0 falhas**. Testes: 17 cenários de convite,
+14 de `portal_tokens` e 8 de `anon` — todos com o resultado esperado
+(`/tmp/dbclone/sec3_tests.sql` e `sec3_tests_fix.sql`).
+
+Produção **não** foi alterada por este lote.
