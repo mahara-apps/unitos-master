@@ -18,6 +18,7 @@ produção*, os SQLs ficam aqui até aprovação.
 | `20260821091000_fix_brand_invite_escalation.sql` | Forward-only: bloqueia escalação manager→owner via `brand_invites` (nova `can_invite_brand_role()`, policies de INSERT/UPDATE e revalidação em `accept_brand_invite()`). | `supabase/migrations/` |
 | `20260821091100_fix_portal_tokens_scope.sql` | Forward-only: `portal_tokens` passa a usar `can_access_client_row()` em vez de `is_brand_member()`. | `supabase/migrations/` |
 | `20260821091200_revoke_anon_table_privileges.sql` | Forward-only: revoga privilégios de tabela/sequência de `anon` em `public` (defesa em profundidade). Não toca `storage.objects` nem EXECUTE das RPCs do Portal. | `supabase/migrations/` |
+| `20260821092000_fix_v1_manager_owner_escalation.sql` | Forward-only: fecha **V1** (MANAGER → OWNER). `link_existing_user_to_brand()` passa a validar o papel concedido por `can_invite_brand_role()` (antes do INSERT e do ON CONFLICT DO UPDATE), bloqueia autopromoção e corrige a ambiguidade histórica de `user_id` no upsert. **NÃO promovido — aguardando autorização.** | `supabase/migrations/` |
 
 ## Como promover (somente após aprovação)
 

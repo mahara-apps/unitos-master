@@ -88,6 +88,33 @@ export async function assertAdminAuthority(
   return role;
 }
 
+/**
+ * Exige que o ator possa CONCEDER `role` na marca — fonte canônica única:
+ * `public.can_invite_brand_role()` (mesma matriz usada por `brand_invites`).
+ *
+ * Usar SEMPRE antes de qualquer escrita administrativa em `brand_members`,
+ * inclusive quando a escrita final usar o client de service role (que bypassa
+ * RLS). Não cria hierarquia paralela: apenas consulta a função canônica.
+ */
+export async function assertCanGrantBrandRole(
+  supabase: RpcClient,
+  actorId: string,
+  brandId: string,
+  role: string,
+  email: string,
+): Promise<void> {
+  const { data, error } = await callRpc(supabase, "can_invite_brand_role", {
+    _brand_id: brandId,
+    _actor_id: actorId,
+    _role: role,
+    _email: email,
+  });
+  if (error) throw error;
+  if (data !== true) {
+    throw new Error("forbidden: papel insuficiente para conceder este nível de acesso");
+  }
+}
+
 /** Exige que o cliente esteja no escopo do usuário (mesma regra da RLS). */
 export async function assertClientScope(
   supabase: RpcClient,
