@@ -2,8 +2,18 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { BrandRole } from "@/lib/team-admin.functions";
 
-/** Papéis atribuíveis pela tela (o papel `client` vem do portal, não daqui). */
+/**
+ * Papéis atribuíveis em formulário da aplicação.
+ * `client` vem do Portal; `super_admin` é um nível global do perfil concedido
+ * apenas fora da aplicação (banco/super admin) — nunca é opção de formulário.
+ */
 export const ASSIGNABLE_ROLES: BrandRole[] = ["owner", "manager", "user"];
+
+/** Normaliza qualquer papel vindo do banco para uma opção válida do seletor. */
+export function toAssignableRole(role: string | null | undefined): BrandRole {
+  return (ASSIGNABLE_ROLES as string[]).includes(role ?? "") ? (role as BrandRole) : "user";
+}
+
 
 export const ROLE_LABEL: Record<BrandRole, string> = {
   owner: "Admin (proprietário) — administra tudo na marca",
