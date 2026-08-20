@@ -38,7 +38,7 @@ export const Route = createFileRoute("/_authenticated/settings/identity")({
   component: IdentityPage,
 });
 
-type Kind = "logo_light" | "logo_dark" | "icon";
+type Kind = "logo_light" | "logo_dark" | "icon" | "logo_login";
 
 type SlotSpec = {
   kind: Kind;
@@ -71,6 +71,18 @@ const SLOTS: SlotSpec[] = [
     description:
       "Usada no sidebar em fundo escuro e nas telas de login/recuperação em modo escuro.",
     hint: "PNG ou SVG com fundo transparente • Dimensão ideal 480×120 px (proporção 4:1) • Mín. 240×60 • até 500 KB",
+    minWidth: 240,
+    minHeight: 60,
+    maxBytes: 500 * 1024,
+    previewBg: "dark",
+    previewClass: "h-16 w-auto max-w-[280px]",
+  },
+  {
+    kind: "logo_login",
+    title: "Logo da tela de login",
+    description:
+      "Exclusiva da tela de login (painel escuro à esquerda). Se vazia, usa a logo do tema claro.",
+    hint: "PNG ou SVG horizontal com fundo transparente, versão clara • Ideal 600×160 px • Mín. 240×60 • até 500 KB",
     minWidth: 240,
     minHeight: 60,
     maxBytes: 500 * 1024,
@@ -174,7 +186,7 @@ function IdentityPage() {
               </p>
             </div>
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {SLOTS.map((s) => (
               <BrandingSlot key={s.kind} brandId={brandId} spec={s} />
             ))}
@@ -433,25 +445,20 @@ function BrandingSlot({ brandId, spec }: { brandId: string; spec: SlotSpec }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
 
-  const currentPath =
-    spec.kind === "logo_light"
-      ? branding.paths.logo_light
-      : spec.kind === "logo_dark"
-        ? branding.paths.logo_dark
-        : branding.paths.icon;
+  const currentPath = branding.paths[spec.kind === "icon" ? "icon" : spec.kind];
 
-  const previewSrc =
-    spec.kind === "logo_light"
-      ? branding.logoLight
-      : spec.kind === "logo_dark"
-        ? branding.logoDark
-        : branding.icon;
-  const isCustom =
-    spec.kind === "logo_light"
-      ? branding.logoLightCustom
-      : spec.kind === "logo_dark"
-        ? branding.logoDarkCustom
-        : branding.iconCustom;
+  const previewSrc = {
+    logo_light: branding.logoLight,
+    logo_dark: branding.logoDark,
+    icon: branding.icon,
+    logo_login: branding.logoLogin,
+  }[spec.kind];
+  const isCustom = {
+    logo_light: branding.logoLightCustom,
+    logo_dark: branding.logoDarkCustom,
+    icon: branding.iconCustom,
+    logo_login: branding.logoLoginCustom,
+  }[spec.kind];
 
   async function readImageDims(file: File): Promise<{ w: number; h: number }> {
     if (file.type === "image/svg+xml") return { w: 9999, h: 9999 };
