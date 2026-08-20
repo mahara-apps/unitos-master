@@ -99,3 +99,21 @@ Correções de idempotência (somente nos arquivos de baseline, produção intoc
 policies que criam, pois a promoção equivalente já existe em produção.
 
 Produção **não** foi alterada por este lote.
+
+## V7 — social_posts_status_check / status 'blocked' (validado em cluster descartável, NÃO promovido)
+
+`20260821097000_fix_v7_social_posts_status_blocked.sql` recria
+`social_posts_status_check` (mesmo nome) preservando os 6 status existentes e
+adicionando **apenas** `'blocked'`, valor que
+`block_unusable_scheduled_social_posts()` / `mark_social_post_blocked()` já
+tentam gravar — hoje o sweep aborta por violação de CHECK. Nada além da
+constraint é alterado (sem RLS, policies, grants, triggers, colunas, funções ou
+dados).
+
+Reconstrução do zero no cluster local: **220 arquivos, 0 falhas**. Validado:
+7 status aceitos, status arbitrários rejeitados, sweep gravando
+`connection_inactive` e `client_account_link_missing`, posts válidos/futuros/
+publicados intocados, 2ª execução idempotente, tenant B isolado, ACL da V6
+preservada. Regressão: 160/160, typecheck e build OK.
+
+Produção **não** foi alterada por este lote.
