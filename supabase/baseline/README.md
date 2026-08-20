@@ -28,19 +28,38 @@ supabase link --project-ref <ref-DESCARTAVEL>
 supabase db push
 ```
 
-**Produção** (etapa separada, só depois da validação verde):
+## Status de promoção (concluída)
 
-- `20260101000000_...` → **nunca executar**: `supabase migration repair --status applied 20260101000000`
-- `20260821090000_...`, `20260821090100_...` e `20260821090300_...` → aplicar pelo
-  fluxo normal de migrations do projeto (ferramenta de migration), com
-  backup/PITR confirmado.
+- `20260821090000_...` e `20260821090300_...` → **APLICADOS EM PRODUÇÃO** via a
+  ferramenta de migration (migration consolidada de promoção). Verificado:
+  `user_profiles.role` DEFAULT `'user'`, CHECK ativo, `handle_new_user()` e a
+  guarda `guard_super_admin_flag()` (UPDATE + INSERT) em produção.
+- `20260821090100_storage_buckets_baseline.sql` → **não aplicável em produção**:
+  os 5 buckets já existem e a criação de bucket é feita pela API de Storage, não
+  por SQL. O arquivo permanece aqui apenas como referência de instalação limpa.
+- `20260101000000_baseline_pre_versioning.sql` → permanece **fora** de
+  `supabase/migrations/`. Já era idempotente e agora também é inofensivo em
+  produção (a policy histórica permissiva só é recriada quando a tabela não
+  possui nenhuma outra policy, cenário exclusivo de instalação limpa).
+
+## Instalação limpa (nova instância Supabase)
+
+```bash
+cp supabase/baseline/20260101000000_*.sql supabase/migrations/
+cp supabase/baseline/20260821*.sql supabase/migrations/
+supabase link --project-ref <ref-NOVO>
+supabase db push
+```
+
+Depois do push, criar os 5 buckets caso o SQL de buckets não tenha permissão
+(`brand-assets`, `brand-documents`, `brand-media`, `avatars`,
+`chat-attachments`, todos privados).
 
 
-## Comandos proibidos nesta etapa
+## Comandos proibidos no repositório ligado à produção
 
 - `supabase db push` contra produção
-- `supabase migration repair` em produção
 - qualquer `psql`/SQL remoto de escrita no projeto de produção
-- mover estes arquivos para `supabase/migrations/` no repositório ligado à produção
+- mover estes arquivos para `supabase/migrations/` neste repositório
 
 Detalhes completos em `docs/DB_BASELINE_PLAN.md`.
