@@ -22,9 +22,9 @@
 --     notification_prefs), o CHECK de role e as policies posteriores NAO entram
 --     aqui: sao responsabilidade das migrations historicas.
 --
--- EM PRODUCAO: este arquivo NAO deve ser executado. Sera marcado como aplicado
--- via `supabase migration repair --status applied 20260101000000` SOMENTE APOS
--- validacao completa em um projeto Supabase descartavel.
+-- EM PRODUCAO: seguro. Todo o conteudo e idempotente e a policy historica
+-- permissiva so e recriada quando a tabela nao possui nenhuma outra policy
+-- (cenario exclusivo de instalacao limpa).
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
@@ -80,16 +80,26 @@ CREATE TRIGGER update_user_profiles_modtime
   FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- Policy historica de leitura. Existia no banco pre-versionamento e e removida
--- pela migration 20260710020307 (`DROP POLICY IF EXISTS "Autenticados veem perfis"`),
--- que a substitui por policies restritas a self + membros da mesma marca.
--- Recriada aqui apenas para fidelidade da sequencia historica; NAO afeta o
--- estado final da instalacao.
-DROP POLICY IF EXISTS "Autenticados veem perfis" ON public.user_profiles;
-CREATE POLICY "Autenticados veem perfis"
-  ON public.user_profiles
-  FOR SELECT
-  TO authenticated
-  USING (true);
+-- pela migration 20260710020307 (`-- Policy historica de leitura. Existia no banco pre-versionamento e e removida
+-- pela migration 20260710020307. Recriada APENAS quando a tabela acabou de ser
+-- criada por este arquivo (instalacao limpa): em producao, onde as policies
+-- restritas de 20260710020307 ja estao ativas, este bloco e um no-op absoluto.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+     WHERE schemaname = 'public'
+       AND tablename  = 'user_profiles'
+       AND policyname <> 'Autenticados veem perfis'
+  ) THEN
+    DROP POLICY IF EXISTS "Autenticados veem perfis" ON public.user_profiles;
+    CREATE POLICY "Autenticados veem perfis"
+      ON public.user_profiles
+      FOR SELECT
+      TO authenticated
+      USING (true);
+  END IF;
+END $$;
 
 -- Privilegios minimos (NAO replicar o ACL historico: anon tinha arwdDxtm).
 REVOKE ALL ON TABLE public.user_profiles FROM anon;
