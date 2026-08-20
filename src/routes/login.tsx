@@ -2,8 +2,9 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { CalendarDays, CheckCircle2, FileText, LayoutGrid } from "lucide-react";
 import { LoginForm } from "@/components/login-form";
+import { LoginLogo } from "@/components/brand/login-logo";
 import { supabase } from "@/integrations/supabase/client";
-import logoLight from "@/assets/brand/logo-unitos-light.png.asset.json";
+
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): { next?: string } => ({
@@ -107,7 +108,7 @@ function LoginPage() {
 
 function BrandPanel() {
   return (
-    <aside className="relative isolate hidden min-w-0 overflow-hidden bg-[linear-gradient(150deg,oklch(0.22_0.03_260)_0%,oklch(0.18_0.02_260)_55%,oklch(0.13_0.02_260)_100%)] text-primary-foreground lg:flex lg:flex-col lg:justify-between lg:p-14">
+    <aside className="relative isolate hidden min-w-0 overflow-hidden bg-[linear-gradient(150deg,oklch(0.22_0.03_260)_0%,oklch(0.18_0.02_260)_55%,oklch(0.13_0.02_260)_100%)] text-primary-foreground lg:flex lg:flex-col lg:items-start lg:justify-center lg:p-14">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(110%_80%_at_10%_0%,color-mix(in_oklab,var(--color-primary)_55%,transparent)_0%,transparent_62%)]"
@@ -125,19 +126,15 @@ function BrandPanel() {
         className="pointer-events-none absolute -top-28 right-[-12%] -z-10 h-80 w-80 rotate-12 rounded-[38%] border border-white/10 bg-white/[0.03]"
       />
 
-      <img
-        src={logoLight.url}
-        alt="Unitos"
-        draggable={false}
-        className="mb-10 h-9 w-auto select-none object-contain"
-      />
+      {/* Logo, headline e recursos compartilham o MESMO container e eixo à esquerda */}
+      <div className="flex w-full max-w-md flex-col items-start gap-10">
+        <LoginLogo />
 
-      <div className="max-w-md">
         <p className="text-3xl font-semibold leading-tight tracking-tight xl:text-4xl">
           Tudo o que sua equipe precisa para organizar, aprovar e acompanhar sua operação.
         </p>
 
-        <ul className="mt-12 grid gap-3">
+        <ul className="grid w-full gap-3">
           {FEATURES.map(({ icon: Icon, title, description }) => (
             <li
               key={title}
@@ -155,10 +152,13 @@ function BrandPanel() {
         </ul>
       </div>
 
-      <p className="text-xs opacity-60">Plataforma de operação para agências.</p>
+      <p className="absolute bottom-14 left-14 text-xs opacity-60">
+        Plataforma de operação para agências.
+      </p>
     </aside>
   );
 }
+
 
 function sanitizeNext(next: string | undefined): string | null {
   if (!next) return null;
