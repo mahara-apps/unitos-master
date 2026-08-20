@@ -45,7 +45,17 @@ export const createBrand = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => CreateBrandInput.parse(input))
   .handler(async ({ data, context }) => {
+    // V5: usuários exclusivamente do Portal (client_members.role='portal_client')
+    // não podem criar Brand — a criação é restrita a usuários internos.
+    const { data: allowed, error: guardErr } = await context.supabase.rpc("can_create_brand", {
+      _user_id: context.userId,
+    });
+    if (guardErr) throw guardErr;
+    if (allowed === false) {
+      throw new Error("Usuários do Portal do Cliente não podem criar workspaces.");
+    }
     const id = crypto.randomUUID();
+
     const slugBase = data.name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
