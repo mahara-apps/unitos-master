@@ -20,6 +20,12 @@
 -- Nenhuma hierarquia paralela é criada. Nenhuma função canônica é alterada.
 -- Comportamento funcional restante (tenant, busca por e-mail, status
 -- added/updated/already_member/not_found, permissions) é preservado 1:1.
+--
+-- Correção secundária necessária: a versão histórica declarava OUT param
+-- `user_id`, o que tornava `ON CONFLICT (brand_id, user_id)` ambíguo e fazia o
+-- caminho de escrita falhar com "column reference user_id is ambiguous".
+-- `#variable_conflict use_column` resolve a ambiguidade a favor da coluna,
+-- mantendo a semântica pretendida do upsert.
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION public.link_existing_user_to_brand(
@@ -33,6 +39,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public, auth
 AS $$
+#variable_conflict use_column
 DECLARE
   v_actor uuid := auth.uid();
   v_target uuid;
