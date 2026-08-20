@@ -98,13 +98,14 @@ export async function assertAdminAuthority(
  */
 export async function assertCanGrantBrandRole(
   supabase: RpcClient,
+  actorId: string,
   brandId: string,
   role: string,
   email: string,
 ): Promise<void> {
   const { data, error } = await callRpc(supabase, "can_invite_brand_role", {
     _brand_id: brandId,
-    _actor_id: null, // preenchido abaixo pelo chamador via _actor_id explícito
+    _actor_id: actorId,
     _role: role,
     _email: email,
   });
