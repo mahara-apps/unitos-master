@@ -21,6 +21,7 @@ import {
   ROLE_LABEL,
   ROLE_ACCESS,
   ASSIGNABLE_ROLES,
+  toAssignableRole,
   memberInitials,
 } from "@/components/settings/team-shared";
 
@@ -48,7 +49,7 @@ export function MemberEditModal({
   const [fullName, setFullName] = useState(member.fullName ?? "");
   const [phone, setPhone] = useState(member.phone ?? "");
   const [jobTitle, setJobTitle] = useState(member.jobTitle ?? "");
-  const [role, setRole] = useState<BrandRole>(member.role);
+  const [role, setRole] = useState<BrandRole>(toAssignableRole(member.role));
   const [isActive, setIsActive] = useState(member.isActive);
 
   useEffect(() => {
@@ -56,7 +57,7 @@ export function MemberEditModal({
     setFullName(member.fullName ?? "");
     setPhone(member.phone ?? "");
     setJobTitle(member.jobTitle ?? "");
-    setRole(member.role);
+    setRole(toAssignableRole(member.role));
     setIsActive(member.isActive);
   }, [open, member]);
 

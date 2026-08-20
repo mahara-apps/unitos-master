@@ -9,17 +9,18 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, X, Mail, Link2, UserPlus } from "lucide-react";
 import { inviteBrandMembers, addExistingUserToBrand } from "@/lib/team.functions";
+import { ASSIGNABLE_ROLES, ROLE_LABEL } from "@/components/settings/team-shared";
+import type { BrandRole } from "@/lib/team-admin.functions";
 
-/** Papéis internos oficiais — `client` pertence ao Portal, não à equipe. */
-type Role = "owner" | "manager" | "user";
-const ROLES: Role[] = ["owner", "manager", "user"];
+/**
+ * Papéis internos oficiais vêm de `ASSIGNABLE_ROLES` (owner | manager | user).
+ * `client` pertence ao Portal e `super_admin` é um nível global do perfil —
+ * nenhum dos dois é atribuível em formulário da aplicação.
+ */
+type Role = BrandRole;
+const ROLES = ASSIGNABLE_ROLES;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const ROLE_LABEL: Record<Role, string> = {
-  owner: "Admin (proprietário) — administra toda a marca",
-  manager: "Manager — administra a marca e todos os clientes",
-  user: "User — opera apenas os clientes vinculados",
-};
 
 export function AddMemberDrawer({
   open,
