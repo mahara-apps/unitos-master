@@ -13,7 +13,8 @@ produção*, os SQLs ficam aqui até aprovação.
 |---|---|---|
 | `20260101000000_baseline_pre_versioning.sql` | Cria `update_updated_at_column()` e `user_profiles` (objetos pré-versionamento). Timestamp **anterior** à 1ª migration histórica (`20260707030537`). | `supabase/migrations/` |
 | `20260821090000_fix_user_profiles_role_and_signup.sql` | Forward-only: DEFAULT `role='user'`, CHECK, `handle_new_user()`, privilégios mínimos. | `supabase/migrations/` |
-| `20260821090100_storage_buckets_baseline.sql` | Forward-only: cria os 4 buckets de Storage nunca versionados. | `supabase/migrations/` |
+| `20260821090100_storage_buckets_baseline.sql` | Forward-only: cria os **5** buckets de Storage nunca versionados (inclui `chat-attachments`). | `supabase/migrations/` |
+| `20260821090300_fix_user_profiles_privilege_escalation.sql` | Forward-only: corrige escalação de privilégio em `user_profiles` (`role` / `is_super_admin`). | `supabase/migrations/` |
 
 ## Como promover (somente após aprovação)
 
@@ -30,8 +31,10 @@ supabase db push
 **Produção** (etapa separada, só depois da validação verde):
 
 - `20260101000000_...` → **nunca executar**: `supabase migration repair --status applied 20260101000000`
-- `20260821090000_...` e `20260821090100_...` → aplicar pelo fluxo normal de
-  migrations do projeto (ferramenta de migration), com backup/PITR confirmado.
+- `20260821090000_...`, `20260821090100_...` e `20260821090300_...` → aplicar pelo
+  fluxo normal de migrations do projeto (ferramenta de migration), com
+  backup/PITR confirmado.
+
 
 ## Comandos proibidos nesta etapa
 
