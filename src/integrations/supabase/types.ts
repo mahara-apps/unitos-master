@@ -6210,6 +6210,7 @@ export type Database = {
         Args: { _task_id: string; _user_id: string }
         Returns: boolean
       }
+      can_create_brand: { Args: { _user_id: string }; Returns: boolean }
       can_invite_brand_role: {
         Args: {
           _actor_id: string
