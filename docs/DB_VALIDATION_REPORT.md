@@ -119,3 +119,79 @@ Nenhuma migration histórica foi editada. Nada foi promovido para `supabase/migr
 A reconstrução em si está comprovada (202/202, 0 falhas, RBAC e RLS funcionais, build OK), mas a
 promoção só deve ocorrer com os dois ajustes forward-only acima incluídos no conjunto — em especial
 a correção da escalação de privilégio, que já afeta produção hoje.
+
+---
+
+# Rodada 2 — Correção dos 2 bloqueadores (clone descartável)
+
+Cluster recriado do zero (initdb) e aplicados **203 arquivos** (baseline +
+199 históricas + 3 forward-only): **0 falhas**.
+
+## CORRIGIDO
+
+1. **`chat-attachments` ausente** — consolidado em
+   `supabase/baseline/20260821090100_storage_buckets_baseline.sql`
+   (5 buckets, `ON CONFLICT DO NOTHING`, idempotente / no-op em produção).
+2. **Escalação de privilégio em `public.user_profiles`** — nova migration
+   forward-only `20260821090300_fix_user_profiles_privilege_escalation.sql`.
+   Causa raiz: policy de UPDATE `auth.uid() = id` (RLS não restringe colunas)
+   + `GRANT UPDATE` a nível de tabela + trigger `guard_super_admin_flag()`
+   que só olhava `is_super_admin`, deixando `role` sem guarda — e
+   `is_super_admin(uuid)` aceita `role = 'super_admin'`.
+   Correção: a função passou a guardar `role` **e** `is_super_admin`, em
+   `UPDATE` e `INSERT`, liberando somente quando `auth.uid() IS NULL`
+   (service_role / rotina interna / signup) ou o ator é super admin.
+
+## TESTES (SQL direto no banco, com RLS ativa)
+
+| Cenário | Esperado | Obtido |
+|---|---|---|
+| T0.1 signup: role padrão / metadata `role:editor` | `user` | `user` OK |
+| T1.1 user → admin | bloqueado | EXCEPTION 42501 OK |
+| T1.2 user → super_admin | bloqueado | EXCEPTION 42501 OK |
+| T1.3 user → manager | bloqueado | EXCEPTION 42501 OK |
+| T1.4 user → `is_super_admin=true` | bloqueado | EXCEPTION 42501 OK |
+| T1.5 user → role + is_super_admin juntos | bloqueado | EXCEPTION 42501 OK |
+| T1.6 user altera role de outro | 0 linhas | 0 linhas (RLS) OK |
+| T1.7 user INSERT perfil privilegiado | bloqueado | EXCEPTION 42501 OK |
+| T1.8 user via CTE / `UPDATE ... FROM` | bloqueado | EXCEPTION 42501 OK |
+| T1.9 user DELETE + recriar perfil | 0 linhas | 0 linhas OK |
+| T2 user atualiza full_name, avatar_url, phone, timezone, locale, job_title, bio, whatsapp, notify_whatsapp, notification_prefs, requires_password_change | permitido | UPDATE 1, `role` intacto OK |
+| T3.1 admin altera próprio role | bloqueado | EXCEPTION 42501 OK |
+| T3.2 admin altera role de outro perfil | bloqueado | 0 linhas OK |
+| T3.3 admin muda papel em `brand_members` | permitido (RBAC atual) | UPDATE 1 OK |
+| T3.4 admin atualiza próprio perfil | permitido | UPDATE 1 OK |
+| T4.1 manager altera próprio role | bloqueado | EXCEPTION 42501 OK |
+| T4.2 manager administra `brand_members` | permitido | UPDATE 1 OK |
+| T5.1 super_admin altera role de outro | permitido | UPDATE 1 OK |
+| T5.2 super_admin concede `is_super_admin` | permitido | UPDATE 1 OK |
+| T6 service_role altera role | permitido | UPDATE 1 OK |
+| T7 anon altera role | bloqueado | permission denied OK |
+| T8 RLS: user não vê cliente sem vínculo / outsider não vê marca nem perfis alheios | isolado | 0 / 0 / 1 OK |
+| T8 `app_access_role` admin/manager/user/super | 4 níveis | admin/manager/user/super_admin OK |
+| T9 Storage: 5 buckets privados, sem limites | 5 | 5 OK |
+| T10 estrutura: 106 tabelas, 439 índices, 255 policies, 0 tabelas sem RLS, 0 SECURITY DEFINER sem search_path, `role` DEFAULT `'user'` | OK | OK |
+| Build + suíte da aplicação | verde | build OK, 147/147 OK |
+
+Observação: um único cenário auxiliar (T5.3, super_admin criando linha em
+`auth.users` pelo psql) não roda por limitação do harness — `authenticated` não
+tem GRANT em `auth.users`. Cobertura equivalente já garantida por T5.1/T5.2.
+
+## ARQUIVOS NOVOS / ALTERADOS
+
+- `supabase/baseline/20260821090300_fix_user_profiles_privilege_escalation.sql` (novo)
+- `supabase/baseline/20260821090100_storage_buckets_baseline.sql` (atualizado: 5 buckets)
+- `supabase/baseline/README.md` (atualizado)
+- `docs/DB_VALIDATION_REPORT.md` (esta seção)
+
+## PRODUÇÃO
+
+- Nenhuma migration promovida para `supabase/migrations/`.
+- Nenhum SQL executado no Supabase de produção.
+- Nenhum `db push` / `migration repair` em produção.
+- Nenhum dado de produção alterado.
+- Nenhuma das 199 migrations históricas editada, apagada ou renomeada.
+
+## VEREDITO
+
+**APROVADO PARA PROMOÇÃO**
