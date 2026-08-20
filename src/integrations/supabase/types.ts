@@ -6210,6 +6210,15 @@ export type Database = {
         Args: { _task_id: string; _user_id: string }
         Returns: boolean
       }
+      can_invite_brand_role: {
+        Args: {
+          _actor_id: string
+          _brand_id: string
+          _email: string
+          _role: Database["public"]["Enums"]["app_role"]
+        }
+        Returns: boolean
+      }
       can_manage_brand_ai_limits: {
         Args: { _brand_id: string; _user_id: string }
         Returns: boolean
