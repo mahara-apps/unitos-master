@@ -19,6 +19,8 @@ produção*, os SQLs ficam aqui até aprovação.
 | `20260821091100_fix_portal_tokens_scope.sql` | Forward-only: `portal_tokens` passa a usar `can_access_client_row()` em vez de `is_brand_member()`. | `supabase/migrations/` |
 | `20260821091200_revoke_anon_table_privileges.sql` | Forward-only: revoga privilégios de tabela/sequência de `anon` em `public` (defesa em profundidade). Não toca `storage.objects` nem EXECUTE das RPCs do Portal. | `supabase/migrations/` |
 | `20260821092000_fix_v1_manager_owner_escalation.sql` | Forward-only: fecha **V1** (MANAGER → OWNER). `link_existing_user_to_brand()` passa a validar o papel concedido por `can_invite_brand_role()` (antes do INSERT e do ON CONFLICT DO UPDATE), bloqueia autopromoção e corrige a ambiguidade histórica de `user_id` no upsert. **PROMOVIDO EM PRODUÇÃO — 2026-08-20 19:22 UTC** (migration `20260820192249_...`). Regressão permanente: `tests/v1-role-escalation.integration.test.ts`. | `supabase/migrations/` |
+| `20260821095000_fix_v5_portal_client_brand_creation.sql` | Forward-only: fecha **V5** (PORTAL_CLIENT criava Brand e virava OWNER). Nova `can_create_brand(uuid)` (SECURITY DEFINER, EXECUTE só para `authenticated`/`service_role`) e substituição da policy `any auth creates brand` por `internal users create brand`. **VALIDADO NO CLUSTER DESCARTÁVEL — NÃO PROMOVIDO.** | `supabase/migrations/` |
+
 
 ## Como promover (somente após aprovação)
 
