@@ -19,6 +19,7 @@
 -- =============================================================================
 
 DROP POLICY IF EXISTS "brand members manage portal tokens" ON public.portal_tokens;
+DROP POLICY IF EXISTS "scoped members manage portal tokens" ON public.portal_tokens;
 
 CREATE POLICY "scoped members manage portal tokens"
   ON public.portal_tokens FOR ALL TO authenticated

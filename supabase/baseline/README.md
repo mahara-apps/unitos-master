@@ -78,3 +78,22 @@ prioritários da auditoria de RBAC. Reconstrução completa no cluster local:
 (`/tmp/dbclone/sec3_tests.sql` e `sec3_tests_fix.sql`).
 
 Produção **não** foi alterada por este lote.
+
+## V2 — brain_apply_partition_policies (validado em cluster descartável, NÃO promovido)
+
+`20260821093000_fix_v2_brain_partition_policies_execute.sql` remove EXECUTE de
+`PUBLIC`, `anon` e `authenticated` em `public.brain_apply_partition_policies(text)`
+(SECURITY DEFINER que executa ENABLE/FORCE RLS, CREATE POLICY e GRANT), mantendo
+`service_role`. Não altera a implementação da função, funções canônicas, RLS ou
+grants de tabela.
+
+Reconstrução do zero no cluster local: **211 arquivos, 0 falhas**. Validado:
+`prosecdef = true`, `anon`/`authenticated` = sem EXECUTE (`permission denied`),
+`service_role` = EXECUTE, `brain_ensure_event_partitions()` funcionando,
+RLS ativo em 105/105 tabelas. Regressão: 77/77 (RBAC, settings, Portal, V1).
+
+Correções de idempotência (somente nos arquivos de baseline, produção intocada):
+`20260821091000` e `20260821091100` passaram a fazer `DROP POLICY IF EXISTS` das
+policies que criam, pois a promoção equivalente já existe em produção.
+
+Produção **não** foi alterada por este lote.
