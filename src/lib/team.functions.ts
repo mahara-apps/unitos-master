@@ -2,7 +2,11 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { ALL_PERMISSION_IDS, normalizePermissions, type PermissionId } from "@/lib/permissions";
-import { assertBrandAdmin, resolveAuthorityRole } from "@/lib/access-guard";
+import {
+  assertBrandAdmin,
+  assertCanGrantBrandRole,
+  resolveAuthorityRole,
+} from "@/lib/access-guard";
 
 const ROLES = ["owner", "manager", "user", "client"] as const;
 /** Papéis atribuíveis a membros internos (Portal usa `client`). */
@@ -544,6 +548,12 @@ export const provisionUser = createServerFn({ method: "POST" })
       }
     }
 
+    // V1 — Autoridade canônica do papel concedido (can_invite_brand_role).
+    // Vale para TODAS as marcas alvo e roda ANTES de qualquer uso de service role.
+    for (const a of data.assignments) {
+      await assertCanGrantBrandRole(supabase, userId, a.brandId, a.role, data.email);
+    }
+
     // Validar clientIds pertencem à marca correta
     const allClientIds = data.assignments.flatMap((a) => a.clientIds);
     if (allClientIds.length > 0) {
@@ -842,6 +852,10 @@ export const addPerson = createServerFn({ method: "POST" })
         throw new Error("forbidden: apenas owners e managers podem adicionar pessoas");
       }
     }
+
+    // V1 — Autoridade canônica do papel concedido (can_invite_brand_role).
+    // Executa ANTES de qualquer operação com service role; não confia no client.
+    await assertCanGrantBrandRole(supabase, userId, data.brandId, data.role, data.email);
 
     // Validar clientIds pertencem à marca
     if (data.clientIds.length > 0) {
