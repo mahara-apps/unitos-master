@@ -1,10 +1,15 @@
-# Unitos — Plano de Baseline do Banco (somente análise / aguardando aprovação)
+# Unitos — Plano de Baseline do Banco (artefatos preparados / aguardando aprovação)
 
-Status: **PROPOSTA**. Nada foi executado no banco. Nenhuma migration existente foi
-editada, renomeada ou removida. Nenhum arquivo `supabase/migrations/*.sql` criado.
+Status: **ARTEFATOS PREPARADOS EM STAGING**. Nada foi executado no banco de produção
+(nenhum DDL/DML remoto). Nenhuma migration existente foi editada, renomeada ou removida.
+Nenhum arquivo foi adicionado a `supabase/migrations/`.
+
+Os SQLs propostos estão em **`supabase/baseline/`** (área de staging, não aplicada) —
+ver `supabase/baseline/README.md` e a seção 10 deste documento.
 
 Evidências coletadas em: repositório atual (199 migrations) + leitura read-only do
 banco de produção (`information_schema`, `pg_class`, `pg_policy`, `pg_proc`).
+
 
 ---
 
@@ -289,3 +294,91 @@ Nada foi executado. Aguardando autorização explícita para:
 - [ ] aplicar M1/M2/M3 em produção
 - [ ] rodar `migration repair` de M0 em produção
 - [ ] ajuste de código M4
+
+---
+
+## 10. ARTEFATOS PREPARADOS (staging — nada aplicado)
+
+### 10.1 Por que em `supabase/baseline/` e não em `supabase/migrations/`
+
+`supabase/migrations/` é gerenciado pelo pipeline de migrations do projeto: qualquer
+arquivo colocado lá entra na fila de aplicação **no banco de produção**. Como esta
+etapa exige explicitamente zero alteração em produção, os SQLs ficam em staging até
+aprovação. A promoção (cópia para `supabase/migrations/`) é feita em um clone
+separado para o teste em Supabase descartável.
+
+### 10.2 Arquivos criados
+
+| Arquivo | Timestamp | Resumo |
+|---|---|---|
+| `supabase/baseline/20260101000000_baseline_pre_versioning.sql` | anterior à 1ª histórica (`20260707030537`) | `CREATE OR REPLACE FUNCTION public.update_updated_at_column()` (definição idêntica à de produção, `search_path = public`) + `REVOKE` de `PUBLIC`/`anon` + `GRANT EXECUTE` a `service_role`; `CREATE TABLE IF NOT EXISTS public.user_profiles` (6 colunas base, PK, FK `auth.users ON DELETE CASCADE`, `role NOT NULL DEFAULT 'user'`); `ENABLE ROW LEVEL SECURITY`; trigger `update_user_profiles_modtime`; policy histórica `"Autenticados veem perfis"` (removida depois por `20260710020307`); grants mínimos (`REVOKE ALL FROM anon`, `SELECT/INSERT/UPDATE/DELETE` a `authenticated`, `ALL` a `service_role`). |
+| `supabase/baseline/20260821090000_fix_user_profiles_role_and_signup.sql` | posterior à última histórica (`20260820134714`) | `role SET DEFAULT 'user'`; `UPDATE` de normalização (rede de segurança, 0 linhas hoje); recria `user_profiles_role_check` com `admin|manager|user|super_admin`; `CREATE OR REPLACE public.handle_new_user()` (`SECURITY DEFINER`, fallback `'user'`, nunca `member`/`editor`) + trigger `on_auth_user_created AFTER INSERT ON auth.users`; endurece privilégios (`REVOKE ALL FROM anon`, remove `TRUNCATE/REFERENCES/TRIGGER` de `authenticated`). |
+| `supabase/baseline/20260821090100_storage_buckets_baseline.sql` | posterior | `INSERT ... ON CONFLICT DO NOTHING` nos 4 buckets privados (`brand-assets`, `brand-documents`, `brand-media`, `avatars`) que nunca foram versionados. |
+| `supabase/baseline/README.md` | — | Instruções de promoção e lista de comandos proibidos nesta etapa. |
+
+Decisões relevantes:
+- O baseline **não** recria colunas adicionadas por migrations posteriores
+  (`requires_password_change`, `phone`, `timezone`, `locale`, `job_title`, `bio`,
+  `is_super_admin`, `whatsapp`, `notify_whatsapp`, `notification_prefs`) — elas
+  aparecem apenas em comentário explicativo.
+- O baseline **não** cria o CHECK de `role` (isso é papel de `20260819150650`).
+- O enum `public.app_role` **não** é recriado nem alterado.
+- `role` no baseline já nasce com `DEFAULT 'user'` (o histórico `'editor'` seria
+  incompatível com o CHECK posterior).
+
+### 10.3 Ordem de aplicação em instância limpa
+
+```
+20260101000000_baseline_pre_versioning.sql        <- baseline (objetos pré-versionamento)
+20260707030537 ... 20260820134714                 <- 199 migrations históricas, intactas
+20260821090000_fix_user_profiles_role_and_signup.sql
+20260821090100_storage_buckets_baseline.sql
+```
+
+### 10.4 Validação estática executada (sem tocar no banco)
+
+| Verificação | Resultado |
+|---|---|
+| Ordenação dos timestamps (baseline 1º, forward por último) | OK |
+| Colisão de nome de arquivo com histórico | nenhuma |
+| Colisão de timestamp com histórico | nenhuma |
+| 1ª ocorrência de `user_profiles` na sequência | agora é o baseline (antes: `20260707032536`) |
+| 1ª ocorrência de `update_updated_at_column` | agora é o baseline (antes: `20260707030537`) |
+| `ALTER TABLE` sem `CREATE TABLE` anterior | **0** (antes: 1 — `user_profiles`) |
+| `EXECUTE FUNCTION` de função de trigger nunca definida | **0** |
+| Baseline recria colunas posteriores | não |
+| Migrations históricas modificadas | **0** (199 arquivos preservados byte a byte) |
+
+Problemas remanescentes (não bloqueiam o teste, documentados):
+1. `20260720144007` (linha 230) referencia `user_profiles.user_id` (coluna inexistente);
+   corrigido por `20260720144133`. Não impede `db push` (corpo de função não é validado).
+2. As 10 chamadas `cron.schedule` apontam para URL/segredo do ambiente atual —
+   precisam ser reapontadas ou removidas no projeto descartável.
+3. As migrations históricas não são idempotentes: só aplicáveis a banco vazio.
+
+### 10.5 Como validar em Supabase descartável
+
+Ver seção 8 (roteiro completo) e `supabase/baseline/README.md`. Resumo:
+clone separado do repo → `cp supabase/baseline/*.sql supabase/migrations/` →
+`supabase link --project-ref <ref-descartavel>` → `supabase db push` →
+comparar estrutura com produção (colunas, constraints, policies, `relacl`, `pg_proc`,
+triggers, buckets) → teste funcional de signup/marca → `vitest run`.
+
+### 10.6 Como tratar produção (somente depois da validação verde)
+
+1. Backup/PITR confirmado.
+2. `20260101000000_baseline_pre_versioning.sql`: **nunca executar**. Registrar como
+   aplicado: `supabase migration repair --status applied 20260101000000`.
+   Este comando **só** pode ocorrer após validação completa em banco descartável.
+3. `20260821090000` e `20260821090100`: aplicar pelo fluxo normal de migrations
+   (a ferramenta de migration do projeto), nessa ordem.
+4. Regerar `src/integrations/supabase/types.ts`.
+
+### 10.7 Comandos que NÃO devem ser executados nesta etapa
+
+- `supabase db push` contra produção
+- `supabase migration repair --status applied ...` em produção
+- qualquer SQL remoto de escrita (`INSERT/UPDATE/DELETE/ALTER/DDL`) no projeto de produção
+- mover/copiar `supabase/baseline/*.sql` para `supabase/migrations/` no repositório
+  ligado à produção
+- qualquer edição, renomeação ou remoção de arquivo em `supabase/migrations/`
