@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, X, Mail, Link2, UserPlus } from "lucide-react";
 import { inviteBrandMembers, addExistingUserToBrand } from "@/lib/team.functions";
-import { ASSIGNABLE_ROLES, ROLE_LABEL } from "@/components/settings/team-shared";
+import { ASSIGNABLE_ROLES, ROLE_LABEL, invitableRoles } from "@/components/settings/team-shared";
+import { useAccessRole } from "@/hooks/use-access-role";
 import type { BrandRole } from "@/lib/team-admin.functions";
 
 /**
@@ -205,7 +206,7 @@ function InvitePanel({
           onChange={(e) => setRole(e.target.value as Role)}
           className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm"
         >
-          {ROLES.map((r) => (
+          {(roleOptions.length ? roleOptions : ROLES).map((r) => (
             <option key={r} value={r}>
               {ROLE_LABEL[r]}
             </option>
