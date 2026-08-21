@@ -94,20 +94,18 @@ function LoginPage() {
     };
   }, [next, navigate]);
 
-  if (!checked) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary" />
-      </div>
-    );
-  }
-
+  // A tela é sempre renderizada (inclusive no SSR). Renderizar apenas um
+  // spinner durante a checagem de sessão deixava a página em branco quando a
+  // hidratação era adiada — o formulário nunca aparecia.
   return (
-    <main className="grid min-h-screen w-full lg:grid-cols-[45%_55%] xl:grid-cols-2">
+    <main className="relative grid min-h-screen w-full lg:grid-cols-[45%_55%] xl:grid-cols-2">
       <BrandPanel />
       <section className="flex min-w-0 items-center justify-center bg-background px-6 py-14 sm:px-10 lg:px-16">
         <LoginForm />
       </section>
+      {!checked ? (
+        <div className="pointer-events-none absolute inset-0 z-10 hidden bg-background/60 backdrop-blur-sm data-[visible=true]:block" />
+      ) : null}
     </main>
   );
 }
