@@ -529,7 +529,7 @@ export const provisionUser = createServerFn({ method: "POST" })
       }
     }
 
-    }
+
 
     // V1 — Autoridade canônica do papel concedido (can_invite_brand_role).
     // Vale para TODAS as marcas alvo e roda ANTES de qualquer uso de service role.
