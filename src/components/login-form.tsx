@@ -152,16 +152,18 @@ export function LoginForm() {
           />
           <Button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || !ready}
             className="h-12 w-full rounded-xl text-sm font-semibold shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--color-primary)_60%,transparent)] transition-transform active:scale-[0.99]"
           >
-            {submitting ? (
+            {submitting || !ready ? (
               <span className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" /> Entrando…
+                <Loader2 className="h-4 w-4 animate-spin" />{" "}
+                {submitting ? "Entrando…" : "Carregando…"}
               </span>
             ) : (
               "Entrar"
             )}
+
           </Button>
         </form>
       </Form>
