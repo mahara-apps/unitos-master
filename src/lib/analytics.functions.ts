@@ -97,19 +97,14 @@ export const getAnalytics = createServerFn({ method: "POST" })
       data.client_ids = [data.client_id];
     }
     // Membership check — fonte canônica `is_brand_member` (cobre super admin,
-    // admin global de `user_profiles.role` e membros ativos da marca).
-    const [memberRpc, brandRes] = await Promise.all([
-      (
-        supabase.rpc as unknown as (
-          f: string,
-          a: Record<string, unknown>,
-        ) => Promise<{ data: boolean | null }>
-      )("is_brand_member", { _brand_id: brand_id, _user_id: userId }),
-      supabase.from("brands").select("owner_id").eq("id", brand_id).maybeSingle(),
-    ]);
-    const isMember = memberRpc.data === true;
-    const isOwner = (brandRes.data as { owner_id?: string } | null)?.owner_id === userId;
-    if (!isMember && !isOwner) throw new Error("forbidden");
+    // admin global de `user_profiles.role`, criador e membros ativos da marca).
+    const { data: isMember } = await (
+      supabase.rpc as unknown as (
+        f: string,
+        a: Record<string, unknown>,
+      ) => Promise<{ data: boolean | null }>
+    )("is_brand_member", { _brand_id: brand_id, _user_id: userId });
+    if (isMember !== true) throw new Error("forbidden");
 
     // -------- Posts ---------
     let postsQ = supabase
