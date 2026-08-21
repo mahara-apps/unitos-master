@@ -90,6 +90,7 @@ function LoginPage() {
       });
     return () => {
       cancelled = true;
+      clearTimeout(failsafe);
     };
   }, [next, navigate]);
 
