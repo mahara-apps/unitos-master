@@ -90,9 +90,6 @@ function LoginPage() {
       <section className="flex min-w-0 items-center justify-center bg-background px-6 py-14 sm:px-10 lg:px-16">
         <LoginForm />
       </section>
-      {!checked ? (
-        <div className="pointer-events-none absolute inset-0 z-10 hidden bg-background/60 backdrop-blur-sm data-[visible=true]:block" />
-      ) : null}
     </main>
   );
 }
