@@ -199,14 +199,11 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     // Authorize: caller must be owner or manager of the brand
-    const { data: myMembership, error: memErr } = await supabase
-      .from("brand_members")
-      .select("role")
-      .eq("brand_id", data.brandId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (memErr) throw memErr;
-    if (!myMembership || (myMembership.role !== "owner" && myMembership.role !== "manager")) {
+    // Autorização canônica: super_admin, admin global (`user_profiles.role`),
+    // owner ou manager da marca.
+    try {
+      await assertBrandAdmin(supabase, userId, data.brandId);
+    } catch {
       throw new Error("forbidden");
     }
 
