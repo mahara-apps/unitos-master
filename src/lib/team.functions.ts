@@ -738,15 +738,10 @@ export const addExistingUserToBrand = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => AddExistingInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    // Authorize: caller must be owner or manager
-    const { data: my, error: memErr } = await supabase
-      .from("brand_members")
-      .select("role")
-      .eq("brand_id", data.brandId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (memErr) throw memErr;
-    if (!my || (my.role !== "owner" && my.role !== "manager")) {
+    // Autorização canônica (super_admin, admin global, owner, manager).
+    try {
+      await assertBrandAdmin(supabase, userId, data.brandId);
+    } catch {
       throw new Error("forbidden");
     }
 
