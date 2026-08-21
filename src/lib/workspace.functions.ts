@@ -1,7 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { assertAdminAuthority, assertBrandAdmin, assertClientScope } from "@/lib/access-guard";
+import {
+  assertAdminAuthority,
+  assertBrandAdmin,
+  assertClientScope,
+  resolveAuthorityRole,
+} from "@/lib/access-guard";
 import { computeBriefingCompletion } from "@/lib/briefing-progress";
 import type { BrandHubData } from "@/lib/brand-hub.functions";
 
