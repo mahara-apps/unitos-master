@@ -60,6 +60,11 @@ function LoginPage() {
 
   useEffect(() => {
     let cancelled = false;
+    // Rede/auth travada não pode prender a tela no spinner: após 4s mostramos
+    // o formulário de qualquer forma.
+    const failsafe = setTimeout(() => {
+      if (!cancelled) setChecked(true);
+    }, 4000);
     supabase.auth
       .getSession()
       .then(async ({ data }) => {
