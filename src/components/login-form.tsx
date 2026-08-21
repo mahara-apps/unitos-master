@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -31,6 +31,10 @@ type SignInValues = z.infer<typeof signInSchema>;
 export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Antes da hidratação o React não intercepta o submit: o formulário era
+  // enviado nativamente (GET) e as credenciais iam para a URL sem nada
+  // acontecer. O botão só libera quando o JS já está ativo.
+  const [ready, setReady] = useState(false);
   const navigate = useNavigate();
   const router = useRouter();
 
@@ -51,6 +55,25 @@ export function LoginForm() {
     resolver: zodResolver(signInSchema),
     defaultValues: { email: "", password: "" },
   });
+
+  useEffect(() => {
+    setReady(true);
+    // Limpa credenciais que possam ter vazado na URL por um submit nativo.
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("email") || params.has("password")) {
+      const email = params.get("email");
+      if (email) signInForm.setValue("email", email);
+      params.delete("email");
+      params.delete("password");
+      const qs = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${qs ? `?${qs}` : ""}`,
+      );
+    }
+  }, [signInForm]);
+
 
   async function onSignIn(values: SignInValues) {
     setSubmitting(true);
@@ -129,16 +152,18 @@ export function LoginForm() {
           />
           <Button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || !ready}
             className="h-12 w-full rounded-xl text-sm font-semibold shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--color-primary)_60%,transparent)] transition-transform active:scale-[0.99]"
           >
-            {submitting ? (
+            {submitting || !ready ? (
               <span className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" /> Entrando…
+                <Loader2 className="h-4 w-4 animate-spin" />{" "}
+                {submitting ? "Entrando…" : "Carregando…"}
               </span>
             ) : (
               "Entrar"
             )}
+
           </Button>
         </form>
       </Form>
