@@ -96,21 +96,20 @@ export const getAnalytics = createServerFn({ method: "POST" })
     if (data.client_id) {
       data.client_ids = [data.client_id];
     }
-    // Membership check — aceita membro da marca, dono da marca ou super admin.
-    const [memberRes, brandRes, adminRes] = await Promise.all([
-      supabase
-        .from("brand_members")
-        .select("brand_id")
-        .eq("brand_id", brand_id)
-        .eq("user_id", userId)
-        .maybeSingle(),
+    // Membership check — fonte canônica `is_brand_member` (cobre super admin,
+    // admin global de `user_profiles.role` e membros ativos da marca).
+    const [memberRpc, brandRes] = await Promise.all([
+      (
+        supabase.rpc as unknown as (
+          f: string,
+          a: Record<string, unknown>,
+        ) => Promise<{ data: boolean | null }>
+      )("is_brand_member", { _brand_id: brand_id, _user_id: userId }),
       supabase.from("brands").select("owner_id").eq("id", brand_id).maybeSingle(),
-      supabase.from("user_profiles").select("is_super_admin").eq("id", userId).maybeSingle(),
     ]);
-    const isMember = Boolean(memberRes.data);
+    const isMember = memberRpc.data === true;
     const isOwner = (brandRes.data as { owner_id?: string } | null)?.owner_id === userId;
-    const isSuper = Boolean((adminRes.data as { is_super_admin?: boolean } | null)?.is_super_admin);
-    if (!isMember && !isOwner && !isSuper) throw new Error("forbidden");
+    if (!isMember && !isOwner) throw new Error("forbidden");
 
     // -------- Posts ---------
     let postsQ = supabase
