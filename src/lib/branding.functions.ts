@@ -12,19 +12,9 @@ const COLUMN: Record<Kind, "logo_url" | "logo_dark_url" | "icon_url" | "login_lo
 };
 
 async function assertManager(supabase: SupabaseClient, userId: string, brandId: string) {
-  // Uses RLS-scoped client. Fetch membership to check role owner/manager.
-  const { data, error } = await supabase
-    .from("brand_members")
-    .select("role")
-    .eq("brand_id", brandId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!data || (data.role !== "owner" && data.role !== "manager")) {
-    // Super admin fallback via RPC
-    const { data: sa } = await supabase.rpc("is_super_admin", { _user_id: userId } as never);
-    if (!sa) throw new Error("forbidden");
-  }
+  // Fonte canônica de autoridade: app_access_role (cobre super_admin,
+  // admin global de `user_profiles.role`, owner e manager da marca).
+  await assertBrandAdmin(supabase as unknown as RpcClient, userId, brandId);
 }
 
 export const updateBrandBranding = createServerFn({ method: "POST" })
