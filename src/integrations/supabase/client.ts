@@ -44,10 +44,23 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * O lock padrão do supabase-js usa Web Locks, que são compartilhados por
+ * origem. Em iframes de preview (ou com a mesma aba aberta duas vezes) um lock
+ * preso faz `getSession()`/`getUser()` nunca resolver — a tela fica no spinner
+ * para sempre. Usamos um lock pass-through no navegador para evitar o deadlock.
+ */
+const passThroughLock = async <R>(
+  _name: string,
+  _acquireTimeout: number,
+  fn: () => Promise<R>,
+): Promise<R> => fn();
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: typeof window !== "undefined" ? localStorage : undefined,
     persistSession: true,
     autoRefreshToken: true,
+    lock: passThroughLock,
   },
 });

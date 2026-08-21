@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { CalendarDays, CheckCircle2, FileText, LayoutGrid } from "lucide-react";
 import { LoginForm } from "@/components/login-form";
 import { LoginLogo } from "@/components/brand/login-logo";
@@ -56,48 +56,36 @@ const FEATURES = [
 function LoginPage() {
   const { next } = Route.useSearch();
   const navigate = useNavigate();
-  const [checked, setChecked] = useState(false);
-
   useEffect(() => {
     let cancelled = false;
+    // Se já existe sessão válida, redireciona; caso contrário mantém o
+    // formulário visível (nunca uma tela vazia).
     supabase.auth
       .getSession()
       .then(async ({ data }) => {
+        if (cancelled || !data.session?.user) return;
+        const { data: userData, error } = await supabase.auth.getUser();
         if (cancelled) return;
-        if (data.session?.user) {
-          const { data: userData, error } = await supabase.auth.getUser();
-          if (cancelled) return;
-          if (error || !userData.user) {
-            await clearStoredSupabaseSession();
-            setChecked(true);
-            return;
-          }
-          const target = sanitizeNext(next) ?? "/dashboard";
-          navigate({ to: target, replace: true });
-        } else {
-          setChecked(true);
+        if (error || !userData.user) {
+          await clearStoredSupabaseSession();
+          return;
         }
+        navigate({ to: sanitizeNext(next) ?? "/dashboard", replace: true });
       })
       .catch(async () => {
         if (cancelled) return;
         await clearStoredSupabaseSession();
-        setChecked(true);
       });
     return () => {
       cancelled = true;
     };
   }, [next, navigate]);
 
-  if (!checked) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary" />
-      </div>
-    );
-  }
-
+  // A tela é sempre renderizada (inclusive no SSR). Renderizar apenas um
+  // spinner durante a checagem de sessão deixava a página em branco quando a
+  // hidratação era adiada — o formulário nunca aparecia.
   return (
-    <main className="grid min-h-screen w-full lg:grid-cols-[45%_55%] xl:grid-cols-2">
+    <main className="relative grid min-h-screen w-full lg:grid-cols-[45%_55%] xl:grid-cols-2">
       <BrandPanel />
       <section className="flex min-w-0 items-center justify-center bg-background px-6 py-14 sm:px-10 lg:px-16">
         <LoginForm />
