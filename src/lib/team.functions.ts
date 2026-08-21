@@ -826,23 +826,11 @@ export const addPerson = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
-    // Autorização: super admin OU owner/manager desta marca
-    const { data: adminFlag } = await supabase
-      .from("user_profiles")
-      .select("is_super_admin")
-      .eq("id", userId)
-      .maybeSingle();
-    const isSuper = Boolean((adminFlag as { is_super_admin?: boolean } | null)?.is_super_admin);
-    if (!isSuper) {
-      const { data: my } = await supabase
-        .from("brand_members")
-        .select("role")
-        .eq("brand_id", data.brandId)
-        .eq("user_id", userId)
-        .maybeSingle();
-      if (!my || (my.role !== "owner" && my.role !== "manager")) {
-        throw new Error("forbidden: apenas owners e managers podem adicionar pessoas");
-      }
+    // Autorização canônica: super_admin, admin global, owner ou manager.
+    try {
+      await assertBrandAdmin(supabase, userId, data.brandId);
+    } catch {
+      throw new Error("forbidden: apenas administradores e gerentes podem adicionar pessoas");
     }
 
     // V1 — Autoridade canônica do papel concedido (can_invite_brand_role).
