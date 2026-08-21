@@ -31,6 +31,10 @@ type SignInValues = z.infer<typeof signInSchema>;
 export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // Antes da hidratação o React não intercepta o submit: o formulário era
+  // enviado nativamente (GET) e as credenciais iam para a URL sem nada
+  // acontecer. O botão só libera quando o JS já está ativo.
+  const [ready, setReady] = useState(false);
   const navigate = useNavigate();
   const router = useRouter();
 
@@ -51,6 +55,25 @@ export function LoginForm() {
     resolver: zodResolver(signInSchema),
     defaultValues: { email: "", password: "" },
   });
+
+  useEffect(() => {
+    setReady(true);
+    // Limpa credenciais que possam ter vazado na URL por um submit nativo.
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("email") || params.has("password")) {
+      const email = params.get("email");
+      if (email) signInForm.setValue("email", email);
+      params.delete("email");
+      params.delete("password");
+      const qs = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${qs ? `?${qs}` : ""}`,
+      );
+    }
+  }, [signInForm]);
+
 
   async function onSignIn(values: SignInValues) {
     setSubmitting(true);
