@@ -199,14 +199,11 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     // Authorize: caller must be owner or manager of the brand
-    const { data: myMembership, error: memErr } = await supabase
-      .from("brand_members")
-      .select("role")
-      .eq("brand_id", data.brandId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (memErr) throw memErr;
-    if (!myMembership || (myMembership.role !== "owner" && myMembership.role !== "manager")) {
+    // Autorização canônica: super_admin, admin global (`user_profiles.role`),
+    // owner ou manager da marca.
+    try {
+      await assertBrandAdmin(supabase, userId, data.brandId);
+    } catch {
       throw new Error("forbidden");
     }
 
@@ -519,34 +516,20 @@ export const provisionUser = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
-    // Autorização: super admin OU owner/manager em TODAS as marcas alvo
-    const { data: adminFlag } = await supabase
-      .from("user_profiles")
-      .select("is_super_admin")
-      .eq("id", userId)
-      .maybeSingle();
-    const isSuper = Boolean((adminFlag as { is_super_admin?: boolean } | null)?.is_super_admin);
-
+    // Autorização: autoridade admin em TODAS as marcas alvo (super_admin e
+    // admin global passam em qualquer marca via app_access_role).
     const brandIds = Array.from(new Set(data.assignments.map((a) => a.brandId)));
-    if (!isSuper) {
-      const { data: myRoles, error: rolesErr } = await supabase
-        .from("brand_members")
-        .select("brand_id, role")
-        .in("brand_id", brandIds)
-        .eq("user_id", userId);
-      if (rolesErr) throw rolesErr;
-      const allowed = new Set(
-        (myRoles ?? [])
-          .filter((r) => r.role === "owner" || r.role === "manager")
-          .map((r) => r.brand_id),
-      );
-      const missing = brandIds.filter((b) => !allowed.has(b));
-      if (missing.length > 0) {
+    for (const brandId of brandIds) {
+      try {
+        await assertBrandAdmin(supabase, userId, brandId);
+      } catch {
         throw new Error(
-          "forbidden: você precisa ser owner ou manager de todos os workspaces selecionados",
+          "forbidden: você precisa ser administrador ou gerente de todos os workspaces selecionados",
         );
       }
     }
+
+
 
     // V1 — Autoridade canônica do papel concedido (can_invite_brand_role).
     // Vale para TODAS as marcas alvo e roda ANTES de qualquer uso de service role.
@@ -689,9 +672,13 @@ export const listProvisionableBrands = createServerFn({ method: "GET" })
       .eq("id", userId)
       .maybeSingle();
     const isSuper = Boolean((adminFlag as { is_super_admin?: boolean } | null)?.is_super_admin);
+    // Admin global (`user_profiles.role='admin'`) tem autoridade em toda a
+    // agência — mesmo tratamento de escopo, sem virar super admin.
+    const globalRole = await resolveAuthorityRole(supabase, userId, null);
+    const isGlobalAuthority = isSuper || globalRole === "super_admin" || globalRole === "admin";
 
     let brandsQuery = supabase.from("brands").select("id, name").order("name");
-    if (!isSuper) {
+    if (!isGlobalAuthority) {
       const { data: memberships, error: mErr } = await supabase
         .from("brand_members")
         .select("brand_id, role")
@@ -741,15 +728,10 @@ export const addExistingUserToBrand = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => AddExistingInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    // Authorize: caller must be owner or manager
-    const { data: my, error: memErr } = await supabase
-      .from("brand_members")
-      .select("role")
-      .eq("brand_id", data.brandId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (memErr) throw memErr;
-    if (!my || (my.role !== "owner" && my.role !== "manager")) {
+    // Autorização canônica (super_admin, admin global, owner, manager).
+    try {
+      await assertBrandAdmin(supabase, userId, data.brandId);
+    } catch {
       throw new Error("forbidden");
     }
 
@@ -834,23 +816,11 @@ export const addPerson = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
-    // Autorização: super admin OU owner/manager desta marca
-    const { data: adminFlag } = await supabase
-      .from("user_profiles")
-      .select("is_super_admin")
-      .eq("id", userId)
-      .maybeSingle();
-    const isSuper = Boolean((adminFlag as { is_super_admin?: boolean } | null)?.is_super_admin);
-    if (!isSuper) {
-      const { data: my } = await supabase
-        .from("brand_members")
-        .select("role")
-        .eq("brand_id", data.brandId)
-        .eq("user_id", userId)
-        .maybeSingle();
-      if (!my || (my.role !== "owner" && my.role !== "manager")) {
-        throw new Error("forbidden: apenas owners e managers podem adicionar pessoas");
-      }
+    // Autorização canônica: super_admin, admin global, owner ou manager.
+    try {
+      await assertBrandAdmin(supabase, userId, data.brandId);
+    } catch {
+      throw new Error("forbidden: apenas administradores e gerentes podem adicionar pessoas");
     }
 
     // V1 — Autoridade canônica do papel concedido (can_invite_brand_role).

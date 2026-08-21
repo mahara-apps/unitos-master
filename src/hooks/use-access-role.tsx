@@ -41,7 +41,12 @@ export function useAccessRole(): Result {
     return {
       role: isAdminLevel ? "admin" : "user",
       authorityRole,
-      brandRole: a?.isSuperAdmin ? "super_admin" : (a?.brandRole ?? null),
+      // Admin global (`user_profiles.role='admin'`) pode não ter linha em
+      // brand_members — a UI o trata como owner da marca (autoridade
+      // equivalente), sem virar super admin.
+      brandRole: a?.isSuperAdmin
+        ? "super_admin"
+        : (a?.brandRole ?? (authorityRole === "admin" ? "owner" : null)),
       userId: a?.userId ?? null,
       // Admin/manager/super admin: escopo total na marca. Operação: lista explícita.
       allowedClientIds: !a ? null : isAdminLevel ? null : new Set(a.clientIds),

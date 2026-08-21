@@ -6322,6 +6322,7 @@ export type Database = {
         Args: { _brand_id: string; _user_id: string }
         Returns: boolean
       }
+      is_global_admin: { Args: { _user_id: string }; Returns: boolean }
       is_portal_client_of: {
         Args: { _client_id: string; _user_id: string }
         Returns: boolean
