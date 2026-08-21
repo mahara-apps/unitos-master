@@ -5,18 +5,25 @@ import { assertAdminAuthority, assertBrandAdmin, assertClientScope } from "@/lib
 import { computeBriefingCompletion } from "@/lib/briefing-progress";
 import type { BrandHubData } from "@/lib/brand-hub.functions";
 
-/** Lista brands em que o usuário é membro. */
+/**
+ * Lista brands visíveis ao usuário. Autoridade global (super_admin ou
+ * `user_profiles.role = 'admin'`) enxerga todas as marcas da agência mesmo
+ * sem linha em `brand_members` — a RLS de `brands` aplica a mesma regra.
+ */
 export const listMyBrands = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
+    const globalRole = await resolveAuthorityRole(supabase, userId, null);
+    const isGlobalAuthority = globalRole === "super_admin" || globalRole === "admin";
+
     const { data: memberships, error: memErr } = await supabase
       .from("brand_members")
       .select("brand_id, role")
       .eq("user_id", userId);
     if (memErr) throw memErr;
     const ids = (memberships ?? []).map((m) => m.brand_id);
-    if (ids.length === 0)
+    if (ids.length === 0 && !isGlobalAuthority)
       return [] as Array<{
         id: string;
         name: string;
@@ -24,17 +31,18 @@ export const listMyBrands = createServerFn({ method: "GET" })
         color: string | null;
         role: string;
       }>;
-    const { data: brands, error } = await supabase
-      .from("brands")
-      .select("id, name, slug, color")
-      .in("id", ids)
-      .order("name");
+    let query = supabase.from("brands").select("id, name, slug, color").order("name");
+    if (!isGlobalAuthority) query = query.in("id", ids);
+    const { data: brands, error } = await query;
     if (error) throw error;
     return (brands ?? []).map((b) => ({
       ...b,
-      role: memberships!.find((m) => m.brand_id === b.id)?.role ?? "user",
+      role:
+        (memberships ?? []).find((m) => m.brand_id === b.id)?.role ??
+        (isGlobalAuthority ? "owner" : "user"),
     }));
   });
+
 
 const CreateBrandInput = z.object({
   name: z.string().trim().min(2).max(80),
