@@ -73,6 +73,47 @@ describe("admin global (user_profiles.role = 'admin')", () => {
     expect(clients.data?.length).toBe(1);
   });
 
+  it("opera áreas da agência antes restritas a membros explícitos", async () => {
+    const conn = await admin
+      .from("social_connections")
+      .insert({ brand_id: brandId, provider: "meta", account_name: "QA GA IG", status: "active" })
+      .select("id")
+      .single();
+    if (conn.error) throw conn.error;
+
+    const link = await admin
+      .from("client_members")
+      .insert({ brand_id: brandId, client_id: clientId, user_id: globalAdmin.id, role: "member" })
+      .select("id")
+      .single();
+    if (link.error) throw link.error;
+
+    const conns = await globalAdmin.client.from("social_connections").select("id").eq("id", conn.data.id);
+    expect(conns.error).toBeNull();
+    expect(conns.data?.length).toBe(1);
+
+    const members = await globalAdmin.client.from("client_members").select("id").eq("brand_id", brandId);
+    expect(members.error).toBeNull();
+    expect((members.data ?? []).length).toBeGreaterThan(0);
+
+    const sla = await globalAdmin.client
+      .from("sla_rules")
+      .insert({ brand_id: brandId, name: "QA GA SLA", hours: 24 })
+      .select("id")
+      .single();
+    expect(sla.error).toBeNull();
+
+    // usuário comum sem membership não alcança nada disso
+    const otherConns = await plainUser.client.from("social_connections").select("id").eq("id", conn.data.id);
+    expect(otherConns.data ?? []).toHaveLength(0);
+    const otherMembers = await plainUser.client.from("client_members").select("id").eq("brand_id", brandId);
+    expect(otherMembers.data ?? []).toHaveLength(0);
+
+    await admin.from("sla_rules").delete().eq("brand_id", brandId);
+    await admin.from("client_members").delete().eq("id", link.data.id);
+    await admin.from("social_connections").delete().eq("id", conn.data.id);
+  });
+
   it("usuário comum sem membership continua sem acesso", async () => {
     const role = await plainUser.client.rpc("app_access_role", {
       _user_id: plainUser.id,
@@ -86,3 +127,4 @@ describe("admin global (user_profiles.role = 'admin')", () => {
     expect(clients.data ?? []).toHaveLength(0);
   });
 });
+
