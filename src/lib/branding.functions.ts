@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { assertBrandAdmin, type RpcClient } from "@/lib/access-guard";
 
 type Kind = "logo_light" | "logo_dark" | "icon" | "logo_login";
 
