@@ -56,41 +56,28 @@ const FEATURES = [
 function LoginPage() {
   const { next } = Route.useSearch();
   const navigate = useNavigate();
-  const [checked, setChecked] = useState(false);
-
   useEffect(() => {
     let cancelled = false;
-    // Rede/auth travada não pode prender a tela no spinner: após 4s mostramos
-    // o formulário de qualquer forma.
-    const failsafe = setTimeout(() => {
-      if (!cancelled) setChecked(true);
-    }, 4000);
+    // Se já existe sessão válida, redireciona; caso contrário mantém o
+    // formulário visível (nunca uma tela vazia).
     supabase.auth
       .getSession()
       .then(async ({ data }) => {
+        if (cancelled || !data.session?.user) return;
+        const { data: userData, error } = await supabase.auth.getUser();
         if (cancelled) return;
-        if (data.session?.user) {
-          const { data: userData, error } = await supabase.auth.getUser();
-          if (cancelled) return;
-          if (error || !userData.user) {
-            await clearStoredSupabaseSession();
-            setChecked(true);
-            return;
-          }
-          const target = sanitizeNext(next) ?? "/dashboard";
-          navigate({ to: target, replace: true });
-        } else {
-          setChecked(true);
+        if (error || !userData.user) {
+          await clearStoredSupabaseSession();
+          return;
         }
+        navigate({ to: sanitizeNext(next) ?? "/dashboard", replace: true });
       })
       .catch(async () => {
         if (cancelled) return;
         await clearStoredSupabaseSession();
-        setChecked(true);
       });
     return () => {
       cancelled = true;
-      clearTimeout(failsafe);
     };
   }, [next, navigate]);
 
