@@ -21,7 +21,7 @@ beforeAll(async () => {
   const owner = await createUser("gowner");
   const brand = await admin
     .from("brands")
-    .insert({ name: `QA GA ${Date.now()}`, slug: `qa-ga-${Date.now()}`, owner_id: owner.id })
+    .insert({ name: `QA GA ${Date.now()}`, slug: `qa-ga-${Date.now()}`, created_by: owner.id })
     .select("id")
     .single();
   if (brand.error) throw brand.error;
