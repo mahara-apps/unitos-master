@@ -672,9 +672,13 @@ export const listProvisionableBrands = createServerFn({ method: "GET" })
       .eq("id", userId)
       .maybeSingle();
     const isSuper = Boolean((adminFlag as { is_super_admin?: boolean } | null)?.is_super_admin);
+    // Admin global (`user_profiles.role='admin'`) tem autoridade em toda a
+    // agência — mesmo tratamento de escopo, sem virar super admin.
+    const globalRole = await resolveAuthorityRole(supabase, userId, null);
+    const isGlobalAuthority = isSuper || globalRole === "super_admin" || globalRole === "admin";
 
     let brandsQuery = supabase.from("brands").select("id, name").order("name");
-    if (!isSuper) {
+    if (!isGlobalAuthority) {
       const { data: memberships, error: mErr } = await supabase
         .from("brand_members")
         .select("brand_id, role")
