@@ -99,7 +99,7 @@ function DashboardPage() {
       brain: "Brain",
       chat: "Chat",
       midia_paga: "Mídia Paga",
-      blog_post: "Conteúdo/Blog",
+      blog_post: "Conteúdo",
     };
     const label = labels[search.blocked] ?? search.blocked;
     toast.error(`Módulo "${label}" não disponível no seu plano`);
