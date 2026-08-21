@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertBrandAdmin, type RpcClient } from "@/lib/access-guard";
 
 export const JOURNEY_STAGES = [
   "onboarding",
