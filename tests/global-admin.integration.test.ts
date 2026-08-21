@@ -76,7 +76,13 @@ describe("admin global (user_profiles.role = 'admin')", () => {
   it("opera áreas da agência antes restritas a membros explícitos", async () => {
     const conn = await admin
       .from("social_connections")
-      .insert({ brand_id: brandId, provider: "meta", account_name: "QA GA IG", status: "active" })
+      .insert({
+        brand_id: brandId,
+        provider: "meta",
+        external_id: `qa-ga-${Date.now()}`,
+        access_token_ciphertext: "qa-cipher",
+        status: "active",
+      })
       .select("id")
       .single();
     if (conn.error) throw conn.error;
@@ -98,7 +104,7 @@ describe("admin global (user_profiles.role = 'admin')", () => {
 
     const sla = await globalAdmin.client
       .from("sla_rules")
-      .insert({ brand_id: brandId, name: "QA GA SLA", hours: 24 })
+      .insert({ brand_id: brandId, scope: "task", channel: "internal", target_hours: 24 })
       .select("id")
       .single();
     expect(sla.error).toBeNull();
