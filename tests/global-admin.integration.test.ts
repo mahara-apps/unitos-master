@@ -79,6 +79,7 @@ describe("admin global (user_profiles.role = 'admin')", () => {
       .insert({
         brand_id: brandId,
         provider: "meta",
+        channel: "instagram",
         external_id: `qa-ga-${Date.now()}`,
         access_token_ciphertext: "qa-cipher",
         status: "active",
