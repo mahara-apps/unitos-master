@@ -169,15 +169,10 @@ async function assertAdmin(
   brandId: string,
   userId: string,
 ) {
-  const { data, error } = await supabase
-    .from("brand_members")
-    .select("role")
-    .eq("brand_id", brandId)
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error) throw error;
-  const role = data?.role;
-  if (role !== "owner" && role !== "manager") {
+  // Autoridade canônica (super_admin, admin global, owner, manager).
+  try {
+    await assertBrandAdmin(supabase as unknown as RpcClient, userId, brandId);
+  } catch {
     throw new Error("Apenas admin/manager pode editar a gestão da conta.");
   }
 }
