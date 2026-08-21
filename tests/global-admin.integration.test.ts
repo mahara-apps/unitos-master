@@ -105,7 +105,7 @@ describe("admin global (user_profiles.role = 'admin')", () => {
 
     const sla = await globalAdmin.client
       .from("sla_rules")
-      .insert({ brand_id: brandId, scope: "task", channel: "internal", target_hours: 24 })
+      .insert({ brand_id: brandId, scope: "task", target_hours: 24 })
       .select("id")
       .single();
     expect(sla.error).toBeNull();
