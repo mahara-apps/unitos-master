@@ -76,7 +76,7 @@ function AdminFeaturesPage() {
       </div>
 
       <PageKpiGrid>
-        <PageKpi label="Recursos ativos" value={`${active}`} hint={`de ${features.length}`} />
+        <PageKpi label="Recursos ativos" value={`${active}`} description={`de ${features.length}`} />
         <PageKpi label="Categorias" value={`${categories.length}`} />
         <PageKpi
           label="Obrigatórios"

@@ -76,7 +76,7 @@ function AdminEnvironmentPage() {
         />
         <PageKpi label="Clientes" value={info ? `${info.clients}` : "—"} />
         <PageKpi label="Membros" value={info ? `${info.members}` : "—"} />
-        <PageKpi label="Versão" value={APP_VERSION} hint={env} />
+        <PageKpi label="Versão" value={APP_VERSION} description={env} />
       </PageKpiGrid>
 
       <Card>
