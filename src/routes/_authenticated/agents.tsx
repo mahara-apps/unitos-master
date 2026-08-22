@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -19,6 +20,7 @@ import {
 } from "@/components/agents/agent-meta";
 
 export const Route = createFileRoute("/_authenticated/agents")({
+  beforeLoad: () => ensureFeatureEnabled("agents"),
   component: AgentsPage,
 });
 

@@ -36,12 +36,14 @@ import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedBrainRouteImport } from './routes/_authenticated/brain'
 import { Route as AuthenticatedAnalyticsRouteImport } from './routes/_authenticated/analytics'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as PortalTokenIndexRouteImport } from './routes/portal.$token.index'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings.index'
 import { Route as AuthenticatedProjectsIndexRouteImport } from './routes/_authenticated/projects.index'
 import { Route as AuthenticatedMonthlyPlanIndexRouteImport } from './routes/_authenticated/monthly-plan.index'
 import { Route as AuthenticatedCustomersIndexRouteImport } from './routes/_authenticated/customers.index'
 import { Route as AuthenticatedChatIndexRouteImport } from './routes/_authenticated/chat.index'
+import { Route as AuthenticatedAdminIndexRouteImport } from './routes/_authenticated/admin.index'
 import { Route as PortalTokenPautaRouteImport } from './routes/portal.$token.pauta'
 import { Route as PortalTokenMinhaMarcaRouteImport } from './routes/portal.$token.minha-marca'
 import { Route as PortalTokenCalendarioRouteImport } from './routes/portal.$token.calendario'
@@ -76,6 +78,9 @@ import { Route as AuthenticatedMonthlyPlanPlanIdRouteImport } from './routes/_au
 import { Route as AuthenticatedCustomersCustomerIdRouteImport } from './routes/_authenticated/customers.$customerId'
 import { Route as AuthenticatedChatConversationIdRouteImport } from './routes/_authenticated/chat.$conversationId'
 import { Route as AuthenticatedBrainDiagnosticsRouteImport } from './routes/_authenticated/brain.diagnostics'
+import { Route as AuthenticatedAdminRecursosRouteImport } from './routes/_authenticated/admin.recursos'
+import { Route as AuthenticatedAdminIdentidadeRouteImport } from './routes/_authenticated/admin.identidade'
+import { Route as AuthenticatedAdminAmbienteRouteImport } from './routes/_authenticated/admin.ambiente'
 import { Route as ApiSocialTopPostsConnectionIdRouteImport } from './routes/api/social/top-posts/$connectionId'
 import { Route as ApiSocialDashboardConnectionIdRouteImport } from './routes/api/social/dashboard/$connectionId'
 import { Route as ApiPublicMetaWebhookRouteImport } from './routes/api/public/meta/webhook'
@@ -234,6 +239,11 @@ const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
   path: '/agents',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const PortalTokenIndexRoute = PortalTokenIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -267,6 +277,11 @@ const AuthenticatedChatIndexRoute = AuthenticatedChatIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AuthenticatedChatRoute,
+} as any)
+const AuthenticatedAdminIndexRoute = AuthenticatedAdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthenticatedAdminRoute,
 } as any)
 const PortalTokenPautaRoute = PortalTokenPautaRouteImport.update({
   id: '/pauta',
@@ -454,6 +469,24 @@ const AuthenticatedBrainDiagnosticsRoute =
     path: '/diagnostics',
     getParentRoute: () => AuthenticatedBrainRoute,
   } as any)
+const AuthenticatedAdminRecursosRoute =
+  AuthenticatedAdminRecursosRouteImport.update({
+    id: '/recursos',
+    path: '/recursos',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminIdentidadeRoute =
+  AuthenticatedAdminIdentidadeRouteImport.update({
+    id: '/identidade',
+    path: '/identidade',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
+const AuthenticatedAdminAmbienteRoute =
+  AuthenticatedAdminAmbienteRouteImport.update({
+    id: '/ambiente',
+    path: '/ambiente',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const ApiSocialTopPostsConnectionIdRoute =
   ApiSocialTopPostsConnectionIdRouteImport.update({
     id: '/api/social/top-posts/$connectionId',
@@ -581,6 +614,7 @@ export interface FileRoutesByFullPath {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/admin': typeof AuthenticatedAdminRouteWithChildren
   '/agents': typeof AuthenticatedAgentsRoute
   '/analytics': typeof AuthenticatedAnalyticsRoute
   '/brain': typeof AuthenticatedBrainRouteWithChildren
@@ -602,6 +636,9 @@ export interface FileRoutesByFullPath {
   '/pauta/$planId': typeof PautaPlanIdRoute
   '/plano/$planId': typeof PlanoPlanIdRoute
   '/portal/$token': typeof PortalTokenRouteWithChildren
+  '/admin/ambiente': typeof AuthenticatedAdminAmbienteRoute
+  '/admin/identidade': typeof AuthenticatedAdminIdentidadeRoute
+  '/admin/recursos': typeof AuthenticatedAdminRecursosRoute
   '/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
@@ -636,6 +673,7 @@ export interface FileRoutesByFullPath {
   '/portal/$token/calendario': typeof PortalTokenCalendarioRoute
   '/portal/$token/minha-marca': typeof PortalTokenMinhaMarcaRoute
   '/portal/$token/pauta': typeof PortalTokenPautaRoute
+  '/admin/': typeof AuthenticatedAdminIndexRoute
   '/chat/': typeof AuthenticatedChatIndexRoute
   '/customers/': typeof AuthenticatedCustomersIndexRoute
   '/monthly-plan/': typeof AuthenticatedMonthlyPlanIndexRoute
@@ -684,6 +722,9 @@ export interface FileRoutesByTo {
   '/invite/$token': typeof InviteTokenRoute
   '/pauta/$planId': typeof PautaPlanIdRoute
   '/plano/$planId': typeof PlanoPlanIdRoute
+  '/admin/ambiente': typeof AuthenticatedAdminAmbienteRoute
+  '/admin/identidade': typeof AuthenticatedAdminIdentidadeRoute
+  '/admin/recursos': typeof AuthenticatedAdminRecursosRoute
   '/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
   '/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
@@ -718,6 +759,7 @@ export interface FileRoutesByTo {
   '/portal/$token/calendario': typeof PortalTokenCalendarioRoute
   '/portal/$token/minha-marca': typeof PortalTokenMinhaMarcaRoute
   '/portal/$token/pauta': typeof PortalTokenPautaRoute
+  '/admin': typeof AuthenticatedAdminIndexRoute
   '/chat': typeof AuthenticatedChatIndexRoute
   '/customers': typeof AuthenticatedCustomersIndexRoute
   '/monthly-plan': typeof AuthenticatedMonthlyPlanIndexRoute
@@ -754,6 +796,7 @@ export interface FileRoutesById {
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRouteWithChildren
   '/_authenticated/agents': typeof AuthenticatedAgentsRoute
   '/_authenticated/analytics': typeof AuthenticatedAnalyticsRoute
   '/_authenticated/brain': typeof AuthenticatedBrainRouteWithChildren
@@ -775,6 +818,9 @@ export interface FileRoutesById {
   '/pauta/$planId': typeof PautaPlanIdRoute
   '/plano/$planId': typeof PlanoPlanIdRoute
   '/portal/$token': typeof PortalTokenRouteWithChildren
+  '/_authenticated/admin/ambiente': typeof AuthenticatedAdminAmbienteRoute
+  '/_authenticated/admin/identidade': typeof AuthenticatedAdminIdentidadeRoute
+  '/_authenticated/admin/recursos': typeof AuthenticatedAdminRecursosRoute
   '/_authenticated/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
   '/_authenticated/chat/$conversationId': typeof AuthenticatedChatConversationIdRoute
   '/_authenticated/customers/$customerId': typeof AuthenticatedCustomersCustomerIdRouteWithChildren
@@ -809,6 +855,7 @@ export interface FileRoutesById {
   '/portal/$token/calendario': typeof PortalTokenCalendarioRoute
   '/portal/$token/minha-marca': typeof PortalTokenMinhaMarcaRoute
   '/portal/$token/pauta': typeof PortalTokenPautaRoute
+  '/_authenticated/admin/': typeof AuthenticatedAdminIndexRoute
   '/_authenticated/chat/': typeof AuthenticatedChatIndexRoute
   '/_authenticated/customers/': typeof AuthenticatedCustomersIndexRoute
   '/_authenticated/monthly-plan/': typeof AuthenticatedMonthlyPlanIndexRoute
@@ -844,6 +891,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/admin'
     | '/agents'
     | '/analytics'
     | '/brain'
@@ -865,6 +913,9 @@ export interface FileRouteTypes {
     | '/pauta/$planId'
     | '/plano/$planId'
     | '/portal/$token'
+    | '/admin/ambiente'
+    | '/admin/identidade'
+    | '/admin/recursos'
     | '/brain/diagnostics'
     | '/chat/$conversationId'
     | '/customers/$customerId'
@@ -899,6 +950,7 @@ export interface FileRouteTypes {
     | '/portal/$token/calendario'
     | '/portal/$token/minha-marca'
     | '/portal/$token/pauta'
+    | '/admin/'
     | '/chat/'
     | '/customers/'
     | '/monthly-plan/'
@@ -947,6 +999,9 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/pauta/$planId'
     | '/plano/$planId'
+    | '/admin/ambiente'
+    | '/admin/identidade'
+    | '/admin/recursos'
     | '/brain/diagnostics'
     | '/chat/$conversationId'
     | '/customers/$customerId'
@@ -981,6 +1036,7 @@ export interface FileRouteTypes {
     | '/portal/$token/calendario'
     | '/portal/$token/minha-marca'
     | '/portal/$token/pauta'
+    | '/admin'
     | '/chat'
     | '/customers'
     | '/monthly-plan'
@@ -1016,6 +1072,7 @@ export interface FileRouteTypes {
     | '/forgot-password'
     | '/login'
     | '/reset-password'
+    | '/_authenticated/admin'
     | '/_authenticated/agents'
     | '/_authenticated/analytics'
     | '/_authenticated/brain'
@@ -1037,6 +1094,9 @@ export interface FileRouteTypes {
     | '/pauta/$planId'
     | '/plano/$planId'
     | '/portal/$token'
+    | '/_authenticated/admin/ambiente'
+    | '/_authenticated/admin/identidade'
+    | '/_authenticated/admin/recursos'
     | '/_authenticated/brain/diagnostics'
     | '/_authenticated/chat/$conversationId'
     | '/_authenticated/customers/$customerId'
@@ -1071,6 +1131,7 @@ export interface FileRouteTypes {
     | '/portal/$token/calendario'
     | '/portal/$token/minha-marca'
     | '/portal/$token/pauta'
+    | '/_authenticated/admin/'
     | '/_authenticated/chat/'
     | '/_authenticated/customers/'
     | '/_authenticated/monthly-plan/'
@@ -1327,6 +1388,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgentsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/portal/$token/': {
       id: '/portal/$token/'
       path: '/'
@@ -1368,6 +1436,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/chat/'
       preLoaderRoute: typeof AuthenticatedChatIndexRouteImport
       parentRoute: typeof AuthenticatedChatRoute
+    }
+    '/_authenticated/admin/': {
+      id: '/_authenticated/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AuthenticatedAdminIndexRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
     }
     '/portal/$token/pauta': {
       id: '/portal/$token/pauta'
@@ -1607,6 +1682,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBrainDiagnosticsRouteImport
       parentRoute: typeof AuthenticatedBrainRoute
     }
+    '/_authenticated/admin/recursos': {
+      id: '/_authenticated/admin/recursos'
+      path: '/recursos'
+      fullPath: '/admin/recursos'
+      preLoaderRoute: typeof AuthenticatedAdminRecursosRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/identidade': {
+      id: '/_authenticated/admin/identidade'
+      path: '/identidade'
+      fullPath: '/admin/identidade'
+      preLoaderRoute: typeof AuthenticatedAdminIdentidadeRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
+    '/_authenticated/admin/ambiente': {
+      id: '/_authenticated/admin/ambiente'
+      path: '/ambiente'
+      fullPath: '/admin/ambiente'
+      preLoaderRoute: typeof AuthenticatedAdminAmbienteRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/api/social/top-posts/$connectionId': {
       id: '/api/social/top-posts/$connectionId'
       path: '/api/social/top-posts/$connectionId'
@@ -1757,6 +1853,23 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminAmbienteRoute: typeof AuthenticatedAdminAmbienteRoute
+  AuthenticatedAdminIdentidadeRoute: typeof AuthenticatedAdminIdentidadeRoute
+  AuthenticatedAdminRecursosRoute: typeof AuthenticatedAdminRecursosRoute
+  AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
+}
+
+const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminAmbienteRoute: AuthenticatedAdminAmbienteRoute,
+  AuthenticatedAdminIdentidadeRoute: AuthenticatedAdminIdentidadeRoute,
+  AuthenticatedAdminRecursosRoute: AuthenticatedAdminRecursosRoute,
+  AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
+}
+
+const AuthenticatedAdminRouteWithChildren =
+  AuthenticatedAdminRoute._addFileChildren(AuthenticatedAdminRouteChildren)
+
 interface AuthenticatedBrainRouteChildren {
   AuthenticatedBrainDiagnosticsRoute: typeof AuthenticatedBrainDiagnosticsRoute
 }
@@ -1888,6 +2001,7 @@ const AuthenticatedSettingsRouteWithChildren =
   )
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRouteWithChildren
   AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
   AuthenticatedAnalyticsRoute: typeof AuthenticatedAnalyticsRoute
   AuthenticatedBrainRoute: typeof AuthenticatedBrainRouteWithChildren
@@ -1907,6 +2021,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRouteWithChildren,
   AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
   AuthenticatedAnalyticsRoute: AuthenticatedAnalyticsRoute,
   AuthenticatedBrainRoute: AuthenticatedBrainRouteWithChildren,

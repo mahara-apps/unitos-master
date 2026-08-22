@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 import { useMemo, useState } from "react";
 import { Inbox, Search, Settings2, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import {
 } from "@/lib/notifications-format";
 
 export const Route = createFileRoute("/_authenticated/notifications")({
+  beforeLoad: () => ensureFeatureEnabled("notifications"),
   component: NotificationsPage,
 });
 

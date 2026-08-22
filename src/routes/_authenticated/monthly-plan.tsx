@@ -1,10 +1,12 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
+import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 import { AlertTriangle } from "lucide-react";
 
 import { useActiveContext } from "@/hooks/use-active-context";
 import { usePageHeader } from "@/hooks/use-page-header";
 
 export const Route = createFileRoute("/_authenticated/monthly-plan")({
+  beforeLoad: () => ensureFeatureEnabled("monthly_plan"),
   component: MonthlyPlanLayout,
 });
 

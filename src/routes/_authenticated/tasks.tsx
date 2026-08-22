@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -48,6 +49,7 @@ import { VIEWS, VIEW_META, searchSchema, type View } from "@/components/tasks/ta
 export { searchSchema };
 
 export const Route = createFileRoute("/_authenticated/tasks")({
+  beforeLoad: () => ensureFeatureEnabled("tasks"),
   component: TasksPage,
   validateSearch: searchSchema,
 });

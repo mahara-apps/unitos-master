@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -82,6 +83,7 @@ import { BrainWidget } from "@/components/brain/brain-widget";
 import { useFeatureAccess } from "@/hooks/use-feature-access";
 
 export const Route = createFileRoute("/_authenticated/analytics")({
+  beforeLoad: () => ensureFeatureEnabled("analytics"),
   component: AnalyticsPage,
 });
 

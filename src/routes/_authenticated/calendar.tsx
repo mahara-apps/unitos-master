@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -58,6 +59,7 @@ import {
 import { normalizeContentFormat } from "@/lib/content-formats";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
+  beforeLoad: () => ensureFeatureEnabled("calendar"),
   component: CalendarPage,
   errorComponent: ({ error, reset }) => (
     <div className="mx-auto max-w-lg space-y-3 rounded-lg border border-destructive/40 bg-destructive/5 p-6 text-sm">

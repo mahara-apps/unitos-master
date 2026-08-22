@@ -33,6 +33,8 @@ import {
   BrainCircuit,
   MessageSquare,
   Activity,
+  Palette,
+  Info,
 } from "lucide-react";
 import {
   Sidebar,
@@ -71,24 +73,30 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
     label: "Visão Geral",
     items: [
       { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-      { title: "Analytics", url: "/analytics", icon: BarChart3 },
+      { title: "Analytics", url: "/analytics", icon: BarChart3, featureKey: "analytics" },
     ],
   },
   {
     label: "Operação",
     items: [
-      { title: "Projetos", url: "/projects", icon: FolderKanban },
-      { title: "Pauta", url: "/monthly-plan", icon: ScrollText },
+      { title: "Projetos", url: "/projects", icon: FolderKanban, featureKey: "projects" },
+      { title: "Pauta", url: "/monthly-plan", icon: ScrollText, featureKey: "monthly_plan" },
       { title: "Conteúdo", url: "/content", icon: KanbanSquare, featureKey: "blog_post" },
-      { title: "Calendário", url: "/calendar", icon: CalendarDays },
-      { title: "Tarefas", url: "/tasks", icon: ListChecks, badge: "tasks-pending" },
+      { title: "Calendário", url: "/calendar", icon: CalendarDays, featureKey: "calendar" },
+      {
+        title: "Tarefas",
+        url: "/tasks",
+        icon: ListChecks,
+        featureKey: "tasks",
+        badge: "tasks-pending",
+      },
       { title: "Mídia paga", url: "/media-plans", icon: Target, featureKey: "midia_paga" },
     ],
   },
   {
     label: "Inteligência",
     items: [
-      { title: "Agentes IA", url: "/agents", icon: Bot },
+      { title: "Agentes IA", url: "/agents", icon: Bot, featureKey: "agents" },
       { title: "Brain", url: "/brain", icon: Brain, featureKey: "brain", badge: "beta" },
       {
         title: "Brain Diagnostics",
@@ -102,9 +110,9 @@ const groups: Array<{ label: string; items: NavItem[] }> = [
   {
     label: "Gestão & Configurações",
     items: [
-      { title: "Clientes", url: "/customers", icon: Users },
-      { title: "Integrações", url: "/connections", icon: Plug },
-      { title: "Notificações", url: "/notifications", icon: Bell },
+      { title: "Clientes", url: "/customers", icon: Users, featureKey: "customers" },
+      { title: "Integrações", url: "/connections", icon: Plug, featureKey: "connections" },
+      { title: "Notificações", url: "/notifications", icon: Bell, featureKey: "notifications" },
       { title: "Configurações", url: "/settings", icon: SettingsIcon },
     ],
   },
@@ -164,9 +172,14 @@ export function AppSidebar() {
     }))
     .filter((g) => g.items.length > 0);
   if (isSuper) {
+    // Área exclusiva de Super Admin dentro do próprio ambiente do cliente.
     visibleGroups.push({
-      label: "Super Admin",
-      items: [{ title: "Feature Flags", url: "/super-admin/features", icon: ShieldAlert }],
+      label: "Administração do Cliente",
+      items: [
+        { title: "Recursos", url: "/admin/recursos", icon: ShieldAlert },
+        { title: "Identidade", url: "/admin/identidade", icon: Palette },
+        { title: "Ambiente", url: "/admin/ambiente", icon: Info },
+      ],
     });
   }
   return (
