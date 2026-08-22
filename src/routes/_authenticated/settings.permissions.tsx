@@ -188,10 +188,9 @@ function PermissionsPage() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {ROLE_CARDS.map((r) => {
-            const count =
-              r.key === "super_admin"
-                ? null
-                : members.filter((m) => r.brandRoles.includes((m.role ?? "").toLowerCase())).length;
+            const count = members.filter((m) =>
+              r.brandRoles.includes((m.role ?? "").toLowerCase()),
+            ).length;
             return (
               <Card key={r.key}>
                 <CardHeader className="pb-3">
