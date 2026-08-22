@@ -7,6 +7,7 @@ import { Lock, Search } from "lucide-react";
 
 import { useActiveContext } from "@/hooks/use-active-context";
 import { listBrandFeatures, setBrandFeature } from "@/lib/feature-flags.functions";
+import { clearAccessCaches } from "@/lib/access-cache";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
