@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Crown, Info, Layers, Loader2, ShieldCheck, Sparkles, Users } from "lucide-react";
+import { Crown, Info, Layers, Loader2, ShieldCheck, Users } from "lucide-react";
 
 import { listBrandTeam } from "@/lib/team.functions";
 import { useActiveContext } from "@/hooks/use-active-context";
