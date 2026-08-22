@@ -144,7 +144,7 @@ function PermissionsPage() {
           <p className="font-medium">Esta tela é somente leitura</p>
           <p className="text-muted-foreground">
             O acesso é decidido exclusivamente pelo <strong>papel</strong> do usuário (
-            <code className="text-xs">brand_members.role</code> e a flag de super admin), aplicado
+            <code className="text-xs">brand_members.role</code>), aplicado
             no banco por RLS e nas server functions. Não existem permissões individuais para
             configurar: para mudar o acesso de alguém, altere o papel dele em{" "}
             <Link
