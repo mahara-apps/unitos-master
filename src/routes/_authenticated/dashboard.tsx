@@ -6,16 +6,6 @@ import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
   AlertTriangle,
   ArrowRight,
   ArrowUpRight,
@@ -55,6 +45,7 @@ import {
 } from "@/lib/dashboard.functions";
 import { loadCustomerDashboardFn } from "@/lib/customer-dashboard.functions";
 import { Sparkline } from "@/components/dashboard/sparkline";
+const PublishTrendChart = React.lazy(() => import("@/components/dashboard/publish-trend-chart"));
 import { AgencyOpsSection } from "@/components/dashboard/agency-ops-section";
 import { ClientAccountDashboard } from "@/components/dashboard/client-account-dashboard";
 
@@ -680,46 +671,9 @@ function PublishTrendCard({
     >
       <div className="grid gap-3 px-4 py-3 lg:grid-cols-[1.6fr_1fr]">
         <div className="h-40 min-w-0">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
-              <defs>
-                <linearGradient id="pubGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis
-                dataKey="day"
-                tick={{ fontSize: 10 }}
-                tickLine={false}
-                axisLine={false}
-                interval={1}
-              />
-              <YAxis
-                tick={{ fontSize: 10 }}
-                tickLine={false}
-                axisLine={false}
-                allowDecimals={false}
-                width={24}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  fontSize: 12,
-                  borderRadius: 8,
-                }}
-                labelStyle={{ color: "hsl(var(--muted-foreground))" }}
-              />
-              <Area
-                type="monotone"
-                dataKey="posts"
-                stroke="hsl(var(--primary))"
-                strokeWidth={2}
-                fill="url(#pubGrad)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          <React.Suspense fallback={<div className="h-full w-full animate-pulse rounded-md bg-muted/40" />}>
+            <PublishTrendChart data={chartData} />
+          </React.Suspense>
         </div>
         <div className="min-w-0">
           <div className="mb-2 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
