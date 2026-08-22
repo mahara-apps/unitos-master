@@ -25,6 +25,7 @@ import { listTasksFn, listProjectsFn } from "@/lib/tasks.functions";
 import { listBrandAssigneesFn } from "@/lib/content.functions";
 import { listClients } from "@/lib/workspace.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { getCachedUser } from "@/lib/auth-cache";
 import { CreateTaskDialog, TaskDrawer, isOverdue } from "@/components/tasks/shared";
 import {
   DEFAULT_VISIBLE_COLUMNS,
@@ -95,8 +96,8 @@ function TasksPage() {
 
   useEffect(() => {
     let cancelled = false;
-    supabase.auth.getUser().then(({ data }) => {
-      if (!cancelled) setMe(data.user?.id ?? null);
+    getCachedUser().then((user) => {
+      if (!cancelled) setMe(user?.id ?? null);
     });
     return () => {
       cancelled = true;
