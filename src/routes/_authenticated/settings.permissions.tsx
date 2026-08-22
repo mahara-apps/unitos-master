@@ -35,20 +35,6 @@ type RoleCard = {
  */
 const ROLE_CARDS: RoleCard[] = [
   {
-    key: "super_admin",
-    label: "Super Admin",
-    badge: "Global",
-    icon: Sparkles,
-    brandRoles: [],
-    scope: "Todas as marcas e todos os clientes da plataforma (flag is_super_admin no perfil).",
-    can: [
-      "Acessar qualquer marca e qualquer cliente",
-      "Administrar catálogo de features e configurações globais",
-      "Tudo que Admin faz, em qualquer workspace",
-    ],
-    cannot: ["Nada é restrito por papel — é o nível mais alto"],
-  },
-  {
     key: "admin",
     label: "Admin (proprietário)",
     badge: "Administra a marca",
