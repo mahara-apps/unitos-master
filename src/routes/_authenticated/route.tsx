@@ -38,8 +38,10 @@ const fallbackTitles: Record<string, string> = {
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async ({ location }) => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) {
+    // Usuário e escopo de portal vêm de cache deduplicado: o gate roda em toda
+    // navegação e sem cache pagava 2 roundtrips seriais antes de renderizar.
+    const [user, access] = await Promise.all([getCachedUser(), getCachedPortalAccess()]);
+    if (!user) {
       await supabase.auth.signOut().catch(() => null);
       const next =
         location.href.startsWith("/") && !location.href.startsWith("/login")
