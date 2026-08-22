@@ -5,13 +5,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   Building2,
-  Image as ImageIcon,
   Loader2,
   MapPin,
   Palette,
   Save,
-  Trash2,
-  Upload,
 } from "lucide-react";
 
 import { BrandingSlots } from "@/components/settings/branding-slots";
