@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
 import { MandatoryPasswordReset } from "@/components/auth/mandatory-password-reset";
-import { getMyPortalAccessFn } from "@/lib/portal-access.functions";
+import { getCachedUser } from "@/lib/auth-cache";
+import { getCachedPortalAccess } from "@/lib/access-cache";
 
 /**
  * Área autenticada do portal do cliente (Etapa 1 — login opcional).
