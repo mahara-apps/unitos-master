@@ -15,14 +15,34 @@ const TTL_MS = 60_000;
 let cached: { user: User | null; at: number } | null = null;
 let inflight: Promise<User | null> | null = null;
 
+/** Timeout do gate: rede lenta/lock travado não pode prender a navegação. */
+const TIMEOUT_MS = 6_000;
+
+async function resolveUser(): Promise<User | null> {
+  // Fallback local: se o refresh remoto travar, usamos a sessão já persistida
+  // (o servidor revalida o bearer em toda chamada protegida).
+  const local = supabase.auth
+    .getSession()
+    .then(({ data }) => data.session?.user ?? null)
+    .catch(() => null);
+
+  const remote = supabase.auth
+    .getUser()
+    .then(({ data, error }) => (error ? null : (data.user ?? null)))
+    .catch(() => null);
+
+  const timeout = new Promise<"timeout">((r) => setTimeout(() => r("timeout"), TIMEOUT_MS));
+  const raced = await Promise.race([remote, timeout]);
+  return raced === "timeout" ? await local : raced;
+}
+
 export async function getCachedUser(options?: { force?: boolean }): Promise<User | null> {
   if (!options?.force && cached && Date.now() - cached.at < TTL_MS) return cached.user;
   if (!options?.force && inflight) return inflight;
 
   inflight = (async () => {
     try {
-      const { data, error } = await supabase.auth.getUser();
-      const user = error ? null : (data.user ?? null);
+      const user = await resolveUser();
       cached = { user, at: Date.now() };
       return user;
     } finally {
