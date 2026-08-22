@@ -80,6 +80,7 @@ import { Route as AuthenticatedChatConversationIdRouteImport } from './routes/_a
 import { Route as AuthenticatedBrainDiagnosticsRouteImport } from './routes/_authenticated/brain.diagnostics'
 import { Route as AuthenticatedAdminRecursosRouteImport } from './routes/_authenticated/admin.recursos'
 import { Route as AuthenticatedAdminIdentidadeRouteImport } from './routes/_authenticated/admin.identidade'
+import { Route as AuthenticatedAdminAmbienteRouteImport } from './routes/_authenticated/admin.ambiente'
 import { Route as ApiSocialTopPostsConnectionIdRouteImport } from './routes/api/social/top-posts/$connectionId'
 import { Route as ApiSocialDashboardConnectionIdRouteImport } from './routes/api/social/dashboard/$connectionId'
 import { Route as ApiPublicMetaWebhookRouteImport } from './routes/api/public/meta/webhook'
@@ -480,6 +481,12 @@ const AuthenticatedAdminIdentidadeRoute =
     path: '/identidade',
     getParentRoute: () => AuthenticatedAdminRoute,
   } as any)
+const AuthenticatedAdminAmbienteRoute =
+  AuthenticatedAdminAmbienteRouteImport.update({
+    id: '/ambiente',
+    path: '/ambiente',
+    getParentRoute: () => AuthenticatedAdminRoute,
+  } as any)
 const ApiSocialTopPostsConnectionIdRoute =
   ApiSocialTopPostsConnectionIdRouteImport.update({
     id: '/api/social/top-posts/$connectionId',
@@ -629,6 +636,7 @@ export interface FileRoutesByFullPath {
   '/pauta/$planId': typeof PautaPlanIdRoute
   '/plano/$planId': typeof PlanoPlanIdRoute
   '/portal/$token': typeof PortalTokenRouteWithChildren
+  '/admin/ambiente': typeof AuthenticatedAdminAmbienteRoute
   '/admin/identidade': typeof AuthenticatedAdminIdentidadeRoute
   '/admin/recursos': typeof AuthenticatedAdminRecursosRoute
   '/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
@@ -714,6 +722,7 @@ export interface FileRoutesByTo {
   '/invite/$token': typeof InviteTokenRoute
   '/pauta/$planId': typeof PautaPlanIdRoute
   '/plano/$planId': typeof PlanoPlanIdRoute
+  '/admin/ambiente': typeof AuthenticatedAdminAmbienteRoute
   '/admin/identidade': typeof AuthenticatedAdminIdentidadeRoute
   '/admin/recursos': typeof AuthenticatedAdminRecursosRoute
   '/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
@@ -809,6 +818,7 @@ export interface FileRoutesById {
   '/pauta/$planId': typeof PautaPlanIdRoute
   '/plano/$planId': typeof PlanoPlanIdRoute
   '/portal/$token': typeof PortalTokenRouteWithChildren
+  '/_authenticated/admin/ambiente': typeof AuthenticatedAdminAmbienteRoute
   '/_authenticated/admin/identidade': typeof AuthenticatedAdminIdentidadeRoute
   '/_authenticated/admin/recursos': typeof AuthenticatedAdminRecursosRoute
   '/_authenticated/brain/diagnostics': typeof AuthenticatedBrainDiagnosticsRoute
@@ -903,6 +913,7 @@ export interface FileRouteTypes {
     | '/pauta/$planId'
     | '/plano/$planId'
     | '/portal/$token'
+    | '/admin/ambiente'
     | '/admin/identidade'
     | '/admin/recursos'
     | '/brain/diagnostics'
@@ -988,6 +999,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/pauta/$planId'
     | '/plano/$planId'
+    | '/admin/ambiente'
     | '/admin/identidade'
     | '/admin/recursos'
     | '/brain/diagnostics'
@@ -1082,6 +1094,7 @@ export interface FileRouteTypes {
     | '/pauta/$planId'
     | '/plano/$planId'
     | '/portal/$token'
+    | '/_authenticated/admin/ambiente'
     | '/_authenticated/admin/identidade'
     | '/_authenticated/admin/recursos'
     | '/_authenticated/brain/diagnostics'
@@ -1683,6 +1696,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminIdentidadeRouteImport
       parentRoute: typeof AuthenticatedAdminRoute
     }
+    '/_authenticated/admin/ambiente': {
+      id: '/_authenticated/admin/ambiente'
+      path: '/ambiente'
+      fullPath: '/admin/ambiente'
+      preLoaderRoute: typeof AuthenticatedAdminAmbienteRouteImport
+      parentRoute: typeof AuthenticatedAdminRoute
+    }
     '/api/social/top-posts/$connectionId': {
       id: '/api/social/top-posts/$connectionId'
       path: '/api/social/top-posts/$connectionId'
@@ -1834,12 +1854,14 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedAdminRouteChildren {
+  AuthenticatedAdminAmbienteRoute: typeof AuthenticatedAdminAmbienteRoute
   AuthenticatedAdminIdentidadeRoute: typeof AuthenticatedAdminIdentidadeRoute
   AuthenticatedAdminRecursosRoute: typeof AuthenticatedAdminRecursosRoute
   AuthenticatedAdminIndexRoute: typeof AuthenticatedAdminIndexRoute
 }
 
 const AuthenticatedAdminRouteChildren: AuthenticatedAdminRouteChildren = {
+  AuthenticatedAdminAmbienteRoute: AuthenticatedAdminAmbienteRoute,
   AuthenticatedAdminIdentidadeRoute: AuthenticatedAdminIdentidadeRoute,
   AuthenticatedAdminRecursosRoute: AuthenticatedAdminRecursosRoute,
   AuthenticatedAdminIndexRoute: AuthenticatedAdminIndexRoute,
