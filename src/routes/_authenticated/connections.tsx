@@ -1,4 +1,5 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { ensureFeatureEnabled } from "@/lib/feature-flags.gate";
 import { useEffect, useState, type ComponentType } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -77,6 +78,7 @@ import { ptBR } from "date-fns/locale";
 type ConnectionsSearch = { tab?: "channels" | "ai" | "messaging"; section?: string };
 
 export const Route = createFileRoute("/_authenticated/connections")({
+  beforeLoad: () => ensureFeatureEnabled("connections"),
   validateSearch: (search: Record<string, unknown>): ConnectionsSearch => ({
     tab:
       search.tab === "ai" || search.tab === "messaging" || search.tab === "channels"
