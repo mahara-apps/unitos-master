@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Crown, Info, Layers, Loader2, ShieldCheck, Sparkles, Users } from "lucide-react";
+import { Crown, Info, Layers, Loader2, ShieldCheck, Users } from "lucide-react";
 
 import { listBrandTeam } from "@/lib/team.functions";
 import { useActiveContext } from "@/hooks/use-active-context";
@@ -34,20 +34,6 @@ type RoleCard = {
  * `is_super_admin`). Nada aqui é configurável — o papel decide tudo.
  */
 const ROLE_CARDS: RoleCard[] = [
-  {
-    key: "super_admin",
-    label: "Super Admin",
-    badge: "Global",
-    icon: Sparkles,
-    brandRoles: [],
-    scope: "Todas as marcas e todos os clientes da plataforma (flag is_super_admin no perfil).",
-    can: [
-      "Acessar qualquer marca e qualquer cliente",
-      "Administrar catálogo de features e configurações globais",
-      "Tudo que Admin faz, em qualquer workspace",
-    ],
-    cannot: ["Nada é restrito por papel — é o nível mais alto"],
-  },
   {
     key: "admin",
     label: "Admin (proprietário)",
@@ -158,7 +144,7 @@ function PermissionsPage() {
           <p className="font-medium">Esta tela é somente leitura</p>
           <p className="text-muted-foreground">
             O acesso é decidido exclusivamente pelo <strong>papel</strong> do usuário (
-            <code className="text-xs">brand_members.role</code> e a flag de super admin), aplicado
+            <code className="text-xs">brand_members.role</code>), aplicado
             no banco por RLS e nas server functions. Não existem permissões individuais para
             configurar: para mudar o acesso de alguém, altere o papel dele em{" "}
             <Link
@@ -202,10 +188,9 @@ function PermissionsPage() {
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {ROLE_CARDS.map((r) => {
-            const count =
-              r.key === "super_admin"
-                ? null
-                : members.filter((m) => r.brandRoles.includes((m.role ?? "").toLowerCase())).length;
+            const count = members.filter((m) =>
+              r.brandRoles.includes((m.role ?? "").toLowerCase()),
+            ).length;
             return (
               <Card key={r.key}>
                 <CardHeader className="pb-3">
@@ -223,11 +208,9 @@ function PermissionsPage() {
                       <Badge variant="secondary" className="text-[10px]">
                         {r.badge}
                       </Badge>
-                      {count !== null ? (
-                        <span className="text-[11px] text-muted-foreground">
-                          {count} {count === 1 ? "membro" : "membros"}
-                        </span>
-                      ) : null}
+                      <span className="text-[11px] text-muted-foreground">
+                        {count} {count === 1 ? "membro" : "membros"}
+                      </span>
                     </div>
                   </div>
                 </CardHeader>
