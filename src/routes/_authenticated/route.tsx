@@ -13,7 +13,8 @@ import { MandatoryPasswordReset } from "@/components/auth/mandatory-password-res
 import { AiJobsProvider } from "@/components/ai-jobs/ai-jobs-provider";
 import { AiJobsIndicator } from "@/components/ai-jobs/ai-jobs-indicator";
 import { BrandFavicon } from "@/components/brand/brand-favicon";
-import { getMyPortalAccessFn } from "@/lib/portal-access.functions";
+import { getCachedUser } from "@/lib/auth-cache";
+import { getCachedPortalAccess } from "@/lib/access-cache";
 
 const fallbackTitles: Record<string, string> = {
   "/dashboard": "Painel",
