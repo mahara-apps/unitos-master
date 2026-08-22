@@ -173,6 +173,7 @@ function useToggleFeature(brandId: string) {
       setFn({ data: { brandId, featureKey: vars.featureKey, enabled: vars.enabled } }),
     onSuccess: async (_d, vars) => {
       toast.success(vars.enabled ? "Recurso ativado" : "Recurso desativado");
+      clearAccessCaches();
       await qc.invalidateQueries({ queryKey: ["brand-features"] });
       await qc.invalidateQueries({ queryKey: ["admin-environment"] });
       await qc.invalidateQueries({ queryKey: ["admin-audit"] });
