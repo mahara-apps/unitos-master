@@ -31,7 +31,7 @@ export const updateBrandBranding = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    await assertManager(supabase, userId, data.brandId);
+    await assertIdentityWriter(supabase, userId);
     const col = COLUMN[data.kind];
     const { error } = await supabase
       .from("brands")
