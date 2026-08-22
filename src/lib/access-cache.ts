@@ -18,15 +18,19 @@ function memo<T>(ttl = TTL_MS) {
   const store = new Map<string, Entry<T>>();
   const inflight = new Map<string, Promise<T>>();
   return {
-    async get(key: string, load: () => Promise<T>): Promise<T> {
+    /**
+     * `load` pode marcar `cache: false` (ex.: resultado de timeout) para que um
+     * fallback provisório não fique preso no cache pelo TTL inteiro.
+     */
+    async get(key: string, load: () => Promise<{ value: T; cache?: boolean }>): Promise<T> {
       const hit = store.get(key);
       if (hit && Date.now() - hit.at < ttl) return hit.value;
       const running = inflight.get(key);
       if (running) return running;
       const p = (async () => {
         try {
-          const value = await load();
-          store.set(key, { value, at: Date.now() });
+          const { value, cache = true } = await load();
+          if (cache) store.set(key, { value, at: Date.now() });
           return value;
         } finally {
           inflight.delete(key);
