@@ -86,7 +86,7 @@ function ForgotPasswordPage() {
       />
       <div className="w-full max-w-[420px]">
         <div className="mb-8 flex flex-col items-center text-center">
-          <UnitosLogo variant="full" eager className="mb-4 h-14 w-auto" />
+          <UnitosLogo variant="full" eager className="mb-4 w-[200px] max-w-full" />
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">Recuperar senha</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             Informe o email da sua conta e enviaremos um link seguro.
