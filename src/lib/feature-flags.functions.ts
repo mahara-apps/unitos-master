@@ -1,11 +1,19 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertSuperAdmin, resolveIsSuperAdmin } from "@/lib/super-admin";
+import type { RpcClient } from "@/lib/access-guard";
 
 /**
- * Feature flags por marca — controle central de módulos vendáveis (Brain,
- * Chat, Mídia Paga, Blog). Escritas restritas a super admins (validado no
- * servidor além da RLS).
+ * Feature flags por marca (ambiente) — o Master carrega TODO o código e o
+ * banco decide o que está liberado em cada ambiente.
+ *
+ * - `feature_catalog`  → catálogo global (a feature existe no Master).
+ * - `brand_features`   → ativação por ambiente (a feature está liberada aqui).
+ *
+ * Sem linha em `brand_features`, vale `feature_catalog.default_enabled`.
+ * Features `is_core` (espinha dorsal da navegação) são sempre habilitadas.
+ * Escritas: exclusivas de Super Admin (validado no servidor, além da RLS).
  */
 
 export const listFeatureCatalog = createServerFn({ method: "GET" })
@@ -13,8 +21,10 @@ export const listFeatureCatalog = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("feature_catalog")
-      .select("id, key, name, description, category, icon, is_core, created_at")
-      .order("is_core", { ascending: false })
+      .select(
+        "id, key, name, description, category, icon, is_core, sort_order, is_available, default_enabled, created_at, updated_at",
+      )
+      .order("sort_order")
       .order("name");
     if (error) throw error;
     return data ?? [];
@@ -28,7 +38,11 @@ export const listBrandFeatures = createServerFn({ method: "GET" })
   .handler(async ({ data, context }) => {
     const { data: catalog, error: catErr } = await context.supabase
       .from("feature_catalog")
-      .select("key, name, description, category, icon, is_core");
+      .select(
+        "key, name, description, category, icon, is_core, sort_order, is_available, default_enabled",
+      )
+      .order("sort_order")
+      .order("name");
     if (catErr) throw catErr;
 
     const { data: rows, error } = await context.supabase
@@ -40,6 +54,7 @@ export const listBrandFeatures = createServerFn({ method: "GET" })
     const byKey = new Map((rows ?? []).map((r) => [r.feature_key, r]));
     return (catalog ?? []).map((c) => {
       const row = byKey.get(c.key);
+      const configured = row?.enabled ?? null;
       return {
         key: c.key,
         name: c.name,
@@ -47,10 +62,15 @@ export const listBrandFeatures = createServerFn({ method: "GET" })
         category: c.category,
         icon: c.icon,
         is_core: c.is_core,
-        enabled: c.is_core ? true : (row?.enabled ?? false),
+        sort_order: c.sort_order,
+        is_available: c.is_available,
+        default_enabled: c.default_enabled,
+        enabled: c.is_core ? true : (configured ?? c.default_enabled),
+        configured,
         enabled_at: row?.enabled_at ?? null,
         enabled_by: row?.enabled_by ?? null,
         notes: row?.notes ?? null,
+        updated_at: row?.updated_at ?? null,
       };
     });
   });
@@ -62,37 +82,31 @@ const SetFeatureInput = z.object({
   notes: z.string().max(500).optional().nullable(),
 });
 
-async function assertSuperAdmin(
-  supabase: {
-    rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
-  },
-  userId: string,
-) {
-  const isSuper = await resolveIsSuperAdmin(supabase, userId);
-  if (!isSuper) throw new Error("Forbidden: super admin required");
-}
-
-async function resolveIsSuperAdmin(
-  supabase: {
-    rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
-  },
-  userId: string,
-): Promise<boolean> {
-  // Two overloads exist: is_super_admin() (email allowlist via JWT) and
-  // is_super_admin(_user_id) (user_profiles.is_super_admin). Aceita qualquer uma.
-  const [byJwt, byProfile] = await Promise.all([
-    supabase.rpc("is_super_admin", {}),
-    supabase.rpc("is_super_admin", { _user_id: userId }),
-  ]);
-  if (byJwt.error && byProfile.error) throw byJwt.error;
-  return !!byJwt.data || !!byProfile.data;
-}
-
 export const setBrandFeature = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => SetFeatureInput.parse(i))
   .handler(async ({ data, context }) => {
-    await assertSuperAdmin(context.supabase as never, context.userId);
+    await assertSuperAdmin(context.supabase as unknown as RpcClient, context.userId);
+
+    const { data: cat, error: catErr } = await context.supabase
+      .from("feature_catalog")
+      .select("key, name, is_core, default_enabled")
+      .eq("key", data.featureKey)
+      .maybeSingle();
+    if (catErr) throw catErr;
+    if (!cat) throw new Error("Feature inexistente no catálogo");
+    if (cat.is_core && !data.enabled) {
+      throw new Error("Recurso obrigatório do sistema — não pode ser desativado");
+    }
+
+    const { data: prev } = await context.supabase
+      .from("brand_features")
+      .select("enabled")
+      .eq("brand_id", data.brandId)
+      .eq("feature_key", data.featureKey)
+      .maybeSingle();
+    const previousValue = prev?.enabled ?? cat.default_enabled;
+
     const now = new Date().toISOString();
     const { error } = await context.supabase.from("brand_features").upsert(
       {
@@ -107,13 +121,29 @@ export const setBrandFeature = createServerFn({ method: "POST" })
       { onConflict: "brand_id,feature_key" },
     );
     if (error) throw error;
+
+    // Auditoria (best-effort): quem mudou o quê, em qual ambiente.
+    await context.supabase.from("activity_events").insert({
+      brand_id: data.brandId,
+      actor_id: context.userId,
+      entity_type: "brand_feature",
+      verb: data.enabled ? "feature.enabled" : "feature.disabled",
+      payload: {
+        feature_key: data.featureKey,
+        feature_name: cat.name,
+        previous_value: previousValue,
+        new_value: data.enabled,
+        notes: data.notes ?? null,
+      },
+    } as never);
+
     return { ok: true };
   });
 
 export const listBrandsWithFeatureCounts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertSuperAdmin(context.supabase as never, context.userId);
+    await assertSuperAdmin(context.supabase as unknown as RpcClient, context.userId);
     const { data: brands, error } = await context.supabase
       .from("brands")
       .select("id, name, slug, color")
@@ -138,26 +168,28 @@ const RequireInput = z.object({
 
 /**
  * Bloqueio server-side de acesso a módulos.
- * - Super admin: sempre `enabled: true`.
- * - Sem brandId: `enabled: false` (rota redireciona).
- * - Sem linha em brand_features: `enabled: false` (nunca liberado por default).
- * - Features `is_core=true` sempre habilitadas.
+ * - Super admin: sempre `enabled: true` (administração e testes).
+ * - Features `is_core`: sempre habilitadas.
+ * - Sem linha em `brand_features`: vale `default_enabled` do catálogo.
  */
 export const requireFeatureAccess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => RequireInput.parse(i))
   .handler(async ({ data, context }) => {
-    const isSuper = await resolveIsSuperAdmin(context.supabase as never, context.userId);
+    const isSuper = await resolveIsSuperAdmin(
+      context.supabase as unknown as RpcClient,
+      context.userId,
+    );
     if (isSuper) return { enabled: true, reason: "super_admin" as const };
-
-    if (!data.brandId) return { enabled: false, reason: "no_brand" as const };
 
     const { data: cat } = await context.supabase
       .from("feature_catalog")
-      .select("is_core")
+      .select("is_core, default_enabled")
       .eq("key", data.featureKey)
       .maybeSingle();
     if (cat?.is_core) return { enabled: true, reason: "core" as const };
+
+    if (!data.brandId) return { enabled: false, reason: "no_brand" as const };
 
     const { data: row, error } = await context.supabase
       .from("brand_features")
@@ -166,12 +198,16 @@ export const requireFeatureAccess = createServerFn({ method: "POST" })
       .eq("feature_key", data.featureKey)
       .maybeSingle();
     if (error) throw error;
-    return { enabled: !!row?.enabled, reason: row?.enabled ? "granted" : ("denied" as const) };
+    const enabled = row ? row.enabled : (cat?.default_enabled ?? false);
+    return { enabled, reason: enabled ? "granted" : ("denied" as const) };
   });
 
 export const amISuperAdmin = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const isSuperAdmin = await resolveIsSuperAdmin(context.supabase as never, context.userId);
+    const isSuperAdmin = await resolveIsSuperAdmin(
+      context.supabase as unknown as RpcClient,
+      context.userId,
+    );
     return { isSuperAdmin };
   });
