@@ -51,11 +51,10 @@ export const Route = createFileRoute("/_authenticated")({
     }
     // Cliente final (client_members.role = 'portal_client') sem vínculo de
     // equipe não entra na UI interna — vai para a área do portal.
-    const access = await getMyPortalAccessFn().catch(() => null);
     if (access && access.isPortalUser && !access.isTeamMember) {
       throw redirect({ to: "/area/inicio" });
     }
-    return { user: data.user };
+    return { user };
   },
 
   component: AppShell,
