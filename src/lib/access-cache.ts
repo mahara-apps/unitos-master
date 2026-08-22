@@ -45,18 +45,44 @@ function memo<T>(ttl = TTL_MS) {
 const portalAccessCache = memo<PortalAccess | null>();
 const featureGateCache = memo<boolean>();
 
+/**
+ * Nenhum gate pode prender a navegação: se a chamada não responder no prazo,
+ * seguimos com o fallback permissivo do lado do cliente (o servidor continua
+ * validando toda leitura/escrita via RLS e middlewares).
+ */
+async function withTimeout<T>(p: Promise<T>, fallback: T, ms = 6_000): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<T>((r) => {
+    timer = setTimeout(() => r(fallback), ms);
+  });
+  try {
+    return await Promise.race([p, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export function getCachedPortalAccess(): Promise<PortalAccess | null> {
-  return portalAccessCache.get("me", () => getMyPortalAccessFn().catch(() => null));
+  return portalAccessCache.get("me", () =>
+    withTimeout(
+      getMyPortalAccessFn().catch(() => null),
+      null,
+    ),
+  );
 }
 
 export function getCachedFeatureEnabled(
   brandId: string | null,
   featureKey: string,
 ): Promise<boolean> {
-  return featureGateCache.get(`${brandId ?? "none"}:${featureKey}`, async () => {
-    const { enabled } = await requireFeatureAccess({ data: { brandId, featureKey } });
-    return enabled;
-  });
+  return featureGateCache.get(`${brandId ?? "none"}:${featureKey}`, () =>
+    withTimeout(
+      requireFeatureAccess({ data: { brandId, featureKey } })
+        .then(({ enabled }) => enabled)
+        .catch(() => true),
+      true,
+    ),
+  );
 }
 
 /** Chamado ao alternar features ou trocar de identidade. */
