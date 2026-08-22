@@ -27,7 +27,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/settings/identity")({
   component: IdentityPage,
