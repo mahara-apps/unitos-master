@@ -14,6 +14,9 @@ export const getRouter = () => {
         gcTime: 5 * 60_000,
         refetchOnWindowFocus: false,
         retry: 1,
+        // Refetch (troca de marca/cliente/filtro) mantém os dados anteriores
+        // visíveis: nenhuma tela volta para skeleton só porque revalidou.
+        placeholderData: keepPreviousData,
       },
     },
   });
