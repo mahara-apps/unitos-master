@@ -193,12 +193,14 @@ export function AppSidebar() {
         >
           <UnitosLogo
             variant="full"
-            className="h-full max-h-16 w-full !bg-transparent object-contain object-left group-data-[collapsible=icon]:hidden"
+            className="w-full max-w-[176px] group-data-[collapsible=icon]:hidden"
           />
           <UnitosLogo
             variant="mark"
-            className="hidden h-11 w-11 bg-transparent object-contain group-data-[collapsible=icon]:block group-data-[collapsible=icon]:group-hover/brand:opacity-0 transition-opacity"
+            align="center"
+            className="hidden h-11 w-11 transition-opacity group-data-[collapsible=icon]:block group-data-[collapsible=icon]:group-hover/brand:opacity-0"
           />
+
         </Link>
         <SidebarTrigger className="h-7 w-7 shrink-0 text-muted-foreground group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:inset-0 group-data-[collapsible=icon]:m-auto group-data-[collapsible=icon]:opacity-0 group-data-[collapsible=icon]:group-hover/brand:opacity-100 transition-opacity" />
       </SidebarHeader>

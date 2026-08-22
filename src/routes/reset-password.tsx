@@ -119,7 +119,7 @@ function ResetPasswordPage() {
       />
       <div className="w-full max-w-[420px]">
         <div className="mb-8 flex flex-col items-center text-center">
-          <UnitosLogo variant="full" eager className="mb-4 h-14 w-auto" />
+          <UnitosLogo variant="full" eager className="mb-4 w-[200px] max-w-full" />
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             Definir nova senha
           </h1>
