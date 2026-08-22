@@ -15,9 +15,7 @@ function readActiveBrandId(): string | null {
  */
 export async function ensureFeatureEnabled(featureKey: string): Promise<void> {
   const brandId = readActiveBrandId();
-  const { enabled } = await requireFeatureAccess({
-    data: { brandId, featureKey },
-  });
+  const enabled = await getCachedFeatureEnabled(brandId, featureKey);
   if (!enabled) {
     throw redirect({ to: "/dashboard", search: { blocked: featureKey } });
   }
