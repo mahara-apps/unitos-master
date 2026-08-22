@@ -12,6 +12,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { useRouter } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
+import { getCachedUser } from "@/lib/auth-cache";
 import {
   listMyAiJobs,
   dismissAiJob,
@@ -55,9 +56,9 @@ export function AiJobsProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     (async () => {
-      const { data } = await supabase.auth.getUser();
+      const user = await getCachedUser();
       if (cancelled) return;
-      userId = data.user?.id ?? null;
+      userId = user?.id ?? null;
       if (!userId) return;
       channel = supabase
         .channel(`rt:ai_jobs:${userId}`)

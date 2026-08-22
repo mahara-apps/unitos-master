@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ExpandedModal } from "@/components/ui/expanded-modal";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
+import { getCachedUser } from "@/lib/auth-cache";
 import {
   listMyNotificationsFn,
   markAllNotificationsReadFn,
@@ -113,8 +114,8 @@ export function NotificationsBell() {
   useEffect(() => {
     let cancelled = false;
     let channel: ReturnType<typeof supabase.channel> | null = null;
-    supabase.auth.getUser().then(({ data }) => {
-      const userId = data.user?.id ?? null;
+    getCachedUser().then((user) => {
+      const userId = user?.id ?? null;
       if (!userId || cancelled) return;
       const topic = `notif:${userId}`;
       for (const existing of supabase.getChannels()) {

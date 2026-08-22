@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { supabase } from "@/integrations/supabase/client";
 import { MandatoryPasswordReset } from "@/components/auth/mandatory-password-reset";
-import { getMyPortalAccessFn } from "@/lib/portal-access.functions";
+import { getCachedUser } from "@/lib/auth-cache";
+import { getCachedPortalAccess } from "@/lib/access-cache";
 
 /**
  * Área autenticada do portal do cliente (Etapa 1 — login opcional).
@@ -12,16 +12,15 @@ import { getMyPortalAccessFn } from "@/lib/portal-access.functions";
 export const Route = createFileRoute("/_portal")({
   ssr: false,
   beforeLoad: async ({ location }) => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) {
+    const [user, access] = await Promise.all([getCachedUser(), getCachedPortalAccess()]);
+    if (!user) {
       throw redirect({ to: "/login", search: { next: location.href } });
     }
-    const access = await getMyPortalAccessFn();
-    if (!access.isPortalUser) {
+    if (!access?.isPortalUser) {
       // Usuário interno não tem o que fazer na área do cliente.
       throw redirect({ to: "/dashboard" });
     }
-    return { user: data.user, access };
+    return { user, access };
   },
   component: PortalAreaShell,
 });

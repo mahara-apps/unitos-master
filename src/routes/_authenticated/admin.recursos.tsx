@@ -7,6 +7,7 @@ import { Lock, Search } from "lucide-react";
 
 import { useActiveContext } from "@/hooks/use-active-context";
 import { listBrandFeatures, setBrandFeature } from "@/lib/feature-flags.functions";
+import { clearAccessCaches } from "@/lib/access-cache";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -173,6 +174,7 @@ function useToggleFeature(brandId: string) {
       setFn({ data: { brandId, featureKey: vars.featureKey, enabled: vars.enabled } }),
     onSuccess: async (_d, vars) => {
       toast.success(vars.enabled ? "Recurso ativado" : "Recurso desativado");
+      clearAccessCaches();
       await qc.invalidateQueries({ queryKey: ["brand-features"] });
       await qc.invalidateQueries({ queryKey: ["admin-environment"] });
       await qc.invalidateQueries({ queryKey: ["admin-audit"] });

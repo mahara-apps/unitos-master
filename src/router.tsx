@@ -1,4 +1,4 @@
-import { QueryClient } from "@tanstack/react-query";
+import { QueryClient, keepPreviousData } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
 import { RoutePending } from "./components/route-pending";
@@ -14,6 +14,9 @@ export const getRouter = () => {
         gcTime: 5 * 60_000,
         refetchOnWindowFocus: false,
         retry: 1,
+        // Refetch (troca de marca/cliente/filtro) mantém os dados anteriores
+        // visíveis: nenhuma tela volta para skeleton só porque revalidou.
+        placeholderData: keepPreviousData,
       },
     },
   });

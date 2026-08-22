@@ -6,16 +6,6 @@ import { format, formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import {
   AlertTriangle,
   ArrowRight,
   ArrowUpRight,
@@ -42,6 +32,8 @@ import {
 import { useActiveContext } from "@/hooks/use-active-context";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { supabase } from "@/integrations/supabase/client";
+import { getCachedUser } from "@/lib/auth-cache";
+import { DataErrorState, SlowLoadingNotice } from "@/components/ui/query-state";
 import { cn } from "@/lib/utils";
 import {
   getAgencyDashboardFn,
@@ -53,6 +45,7 @@ import {
 } from "@/lib/dashboard.functions";
 import { loadCustomerDashboardFn } from "@/lib/customer-dashboard.functions";
 import { Sparkline } from "@/components/dashboard/sparkline";
+const PublishTrendChart = React.lazy(() => import("@/components/dashboard/publish-trend-chart"));
 import { AgencyOpsSection } from "@/components/dashboard/agency-ops-section";
 import { ClientAccountDashboard } from "@/components/dashboard/client-account-dashboard";
 
@@ -72,6 +65,33 @@ import { CalendarIcon } from "lucide-react";
 import { DateRangePicker, dateRangeToDays } from "@/components/ui/date-range-picker";
 import type { DateRange } from "react-day-picker";
 import { subDays } from "date-fns";
+
+/** Saudação do usuário — cacheada globalmente (evita auth+profile por tela). */
+function useGreeting(): string {
+  const q = useQuery({
+    queryKey: ["dashboard-greeting"],
+    queryFn: async () => {
+      const user = await getCachedUser();
+      if (!user) return "Olá!";
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .maybeSingle();
+      const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+      const name =
+        profile?.full_name ||
+        (meta.full_name as string) ||
+        (meta.name as string) ||
+        (user.email ? user.email.split("@")[0] : "");
+      if (!name) return "Olá!";
+      const first = name.trim().split(/\s+/)[0] ?? "";
+      return `Olá, ${first.charAt(0).toUpperCase()}${first.slice(1)}!`;
+    },
+    staleTime: 10 * 60_000,
+  });
+  return q.data ?? "Olá!";
+}
 
 function useDefaultRange(): [DateRange | undefined, (r: DateRange | undefined) => void] {
   const [range, setRange] = React.useState<DateRange | undefined>(() => {
@@ -127,35 +147,9 @@ function DashboardPage() {
 
 function AgencyMode({ brandId }: { brandId: string }) {
   const fn = useServerFn(getAgencyDashboardFn);
-  const [greeting, setGreeting] = React.useState("Olá!");
   const [range, setRange] = useDefaultRange();
   const days = dateRangeToDays(range);
-  React.useEffect(() => {
-    (async () => {
-      const { data } = await supabase.auth.getUser();
-      const u = data.user;
-      if (!u) return;
-      let name = "";
-      const { data: profile } = await supabase
-        .from("user_profiles")
-        .select("full_name")
-        .eq("id", u.id)
-        .maybeSingle();
-      if (profile?.full_name) name = profile.full_name;
-      if (!name) {
-        const meta = (u.user_metadata ?? {}) as Record<string, unknown>;
-        name =
-          (meta.full_name as string) ||
-          (meta.name as string) ||
-          (u.email ? u.email.split("@")[0] : "");
-      }
-      if (name) {
-        const first = name.trim().split(/\s+/)[0];
-        const capped = first.charAt(0).toUpperCase() + first.slice(1);
-        setGreeting(`Olá, ${capped}!`);
-      }
-    })();
-  }, []);
+  const greeting = useGreeting();
 
   const q = useQuery({
     queryKey: ["dashboard-agency", brandId, days],
@@ -189,6 +183,16 @@ function AgencyMode({ brandId }: { brandId: string }) {
 
   return (
     <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+      {q.isError ? (
+        <DataErrorState
+          compact
+          message={q.error instanceof Error ? q.error.message : null}
+          onRetry={() => void q.refetch()}
+        />
+      ) : (
+        <SlowLoadingNotice active={q.isLoading} onRetry={() => void q.refetch()} />
+      )}
+
       <StatusBanner
         avgHealth={avgHealth}
         criticalAlerts={criticalAlerts}
@@ -667,46 +671,9 @@ function PublishTrendCard({
     >
       <div className="grid gap-3 px-4 py-3 lg:grid-cols-[1.6fr_1fr]">
         <div className="h-40 min-w-0">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
-              <defs>
-                <linearGradient id="pubGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <XAxis
-                dataKey="day"
-                tick={{ fontSize: 10 }}
-                tickLine={false}
-                axisLine={false}
-                interval={1}
-              />
-              <YAxis
-                tick={{ fontSize: 10 }}
-                tickLine={false}
-                axisLine={false}
-                allowDecimals={false}
-                width={24}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  fontSize: 12,
-                  borderRadius: 8,
-                }}
-                labelStyle={{ color: "hsl(var(--muted-foreground))" }}
-              />
-              <Area
-                type="monotone"
-                dataKey="posts"
-                stroke="hsl(var(--primary))"
-                strokeWidth={2}
-                fill="url(#pubGrad)"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+          <React.Suspense fallback={<div className="h-full w-full animate-pulse rounded-md bg-muted/40" />}>
+            <PublishTrendChart data={chartData} />
+          </React.Suspense>
         </div>
         <div className="min-w-0">
           <div className="mb-2 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">

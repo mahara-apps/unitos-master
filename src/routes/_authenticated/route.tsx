@@ -13,7 +13,8 @@ import { MandatoryPasswordReset } from "@/components/auth/mandatory-password-res
 import { AiJobsProvider } from "@/components/ai-jobs/ai-jobs-provider";
 import { AiJobsIndicator } from "@/components/ai-jobs/ai-jobs-indicator";
 import { BrandFavicon } from "@/components/brand/brand-favicon";
-import { getMyPortalAccessFn } from "@/lib/portal-access.functions";
+import { getCachedUser } from "@/lib/auth-cache";
+import { getCachedPortalAccess } from "@/lib/access-cache";
 
 const fallbackTitles: Record<string, string> = {
   "/dashboard": "Painel",
@@ -38,8 +39,10 @@ const fallbackTitles: Record<string, string> = {
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
   beforeLoad: async ({ location }) => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) {
+    // Usuário e escopo de portal vêm de cache deduplicado: o gate roda em toda
+    // navegação e sem cache pagava 2 roundtrips seriais antes de renderizar.
+    const [user, access] = await Promise.all([getCachedUser(), getCachedPortalAccess()]);
+    if (!user) {
       await supabase.auth.signOut().catch(() => null);
       const next =
         location.href.startsWith("/") && !location.href.startsWith("/login")
@@ -49,11 +52,10 @@ export const Route = createFileRoute("/_authenticated")({
     }
     // Cliente final (client_members.role = 'portal_client') sem vínculo de
     // equipe não entra na UI interna — vai para a área do portal.
-    const access = await getMyPortalAccessFn().catch(() => null);
     if (access && access.isPortalUser && !access.isTeamMember) {
       throw redirect({ to: "/area/inicio" });
     }
-    return { user: data.user };
+    return { user };
   },
 
   component: AppShell,

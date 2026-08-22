@@ -61,6 +61,7 @@ import { useAccessRole } from "@/hooks/use-access-role";
 import { Link } from "@tanstack/react-router";
 import { saveScheduledPostFn } from "@/lib/scheduling-wizard.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { getCachedUser } from "@/lib/auth-cache";
 import { cn } from "@/lib/utils";
 import { CHANNELS, CHANNEL_STYLES, FORMAT_STYLES, PRIORITY_STYLES } from "./stage-colors";
 import {
@@ -315,8 +316,8 @@ function CreateBody({
   // Pré-seleciona o usuário atual como responsável ao abrir em criação.
   useEffect(() => {
     let cancelled = false;
-    supabase.auth.getUser().then(({ data }) => {
-      const uid = data.user?.id ?? null;
+    getCachedUser().then((user) => {
+      const uid = user?.id ?? null;
       if (!uid || cancelled) return;
       setState((p) => (p.assigneeId ? p : { ...p, assigneeId: uid }));
     });
