@@ -4011,32 +4011,44 @@ export type Database = {
         Row: {
           category: string | null
           created_at: string
+          default_enabled: boolean
           description: string | null
           icon: string | null
           id: string
+          is_available: boolean
           is_core: boolean
           key: string
           name: string
+          sort_order: number
+          updated_at: string
         }
         Insert: {
           category?: string | null
           created_at?: string
+          default_enabled?: boolean
           description?: string | null
           icon?: string | null
           id?: string
+          is_available?: boolean
           is_core?: boolean
           key: string
           name: string
+          sort_order?: number
+          updated_at?: string
         }
         Update: {
           category?: string | null
           created_at?: string
+          default_enabled?: boolean
           description?: string | null
           icon?: string | null
           id?: string
+          is_available?: boolean
           is_core?: boolean
           key?: string
           name?: string
+          sort_order?: number
+          updated_at?: string
         }
         Relationships: []
       }
