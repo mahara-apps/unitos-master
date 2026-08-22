@@ -121,10 +121,10 @@ export const listAdminAuditFn = createServerFn({ method: "GET" })
     if (actorIds.length > 0) {
       const { data: profiles } = await context.supabase
         .from("user_profiles")
-        .select("user_id, full_name, email")
-        .in("user_id", actorIds);
+        .select("id, full_name")
+        .in("id", actorIds);
       names = new Map(
-        (profiles ?? []).map((p) => [p.user_id, p.full_name || p.email || "Usuário"]),
+        (profiles ?? []).map((p) => [p.id, p.full_name || "Usuário"]),
       );
     }
 
