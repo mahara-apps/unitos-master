@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { assertBrandAdmin, type RpcClient } from "@/lib/access-guard";
+import type { RpcClient } from "@/lib/access-guard";
+import { assertSuperAdmin } from "@/lib/super-admin";
 
 type Kind = "logo_light" | "logo_dark" | "icon" | "logo_login";
 
@@ -12,10 +13,13 @@ const COLUMN: Record<Kind, "logo_url" | "logo_dark_url" | "icon_url" | "login_lo
   logo_login: "login_logo_url",
 };
 
-async function assertManager(supabase: SupabaseClient, userId: string, brandId: string) {
-  // Fonte canônica de autoridade: app_access_role (cobre super_admin,
-  // admin global de `user_profiles.role`, owner e manager da marca).
-  await assertBrandAdmin(supabase as unknown as RpcClient, userId, brandId);
+/**
+ * Identidade visual é white label do ambiente: SOMENTE Super Admin altera
+ * (owner/manager da marca continuam apenas visualizando). Leitura segue aberta
+ * a qualquer usuário autenticado, pois alimenta sidebar/login.
+ */
+async function assertIdentityWriter(supabase: SupabaseClient, userId: string) {
+  await assertSuperAdmin(supabase as unknown as RpcClient, userId);
 }
 
 export const updateBrandBranding = createServerFn({ method: "POST" })
