@@ -181,17 +181,14 @@ function IdentityPage() {
             <div className="text-sm">
               <p className="font-medium">Identidade visual desta marca</p>
               <p className="text-muted-foreground">
-                Faça upload das versões clara e escura do seu logo, além de um ícone quadrado para o
-                sidebar colapsado e favicon. As trocas aparecem em segundos após o salvamento.
+                Visualização apenas. A troca de logos e ícone é feita pelo Super Admin em
+                Administração do Cliente → Identidade.
               </p>
             </div>
           </div>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {SLOTS.map((s) => (
-              <BrandingSlot key={s.kind} brandId={brandId} spec={s} />
-            ))}
-          </div>
+          <BrandingSlots brandId={brandId} editable={false} />
         </TabsContent>
+
 
         <TabsContent value="company" className="mt-4">
           <CompanyPanel brandId={brandId} section="company" />
