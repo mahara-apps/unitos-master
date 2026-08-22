@@ -1,5 +1,5 @@
 import { redirect } from "@tanstack/react-router";
-import { requireFeatureAccess } from "./feature-flags.functions";
+import { getCachedFeatureEnabled } from "./access-cache";
 
 const BRAND_KEY = "nx.brand";
 
