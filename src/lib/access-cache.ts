@@ -54,13 +54,17 @@ const featureGateCache = memo<boolean>();
  * seguimos com o fallback permissivo do lado do cliente (o servidor continua
  * validando toda leitura/escrita via RLS e middlewares).
  */
-async function withTimeout<T>(p: Promise<T>, fallback: T, ms = 6_000): Promise<T> {
+async function withTimeout<T>(
+  p: Promise<T>,
+  fallback: T,
+  ms = 6_000,
+): Promise<{ value: T; cache?: boolean }> {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const timeout = new Promise<T>((r) => {
-    timer = setTimeout(() => r(fallback), ms);
+  const timeout = new Promise<{ value: T; cache: boolean }>((r) => {
+    timer = setTimeout(() => r({ value: fallback, cache: false }), ms);
   });
   try {
-    return await Promise.race([p, timeout]);
+    return await Promise.race([p.then((value) => ({ value })), timeout]);
   } finally {
     if (timer) clearTimeout(timer);
   }
