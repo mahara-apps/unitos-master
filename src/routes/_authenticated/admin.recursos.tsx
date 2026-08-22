@@ -81,12 +81,12 @@ function AdminFeaturesPage() {
         <PageKpi
           label="Obrigatórios"
           value={`${features.filter((f) => f.is_core).length}`}
-          hint="sempre ligados"
+          description="sempre ligados"
         />
         <PageKpi
           label="Desativados"
           value={`${features.filter((f) => !f.enabled).length}`}
-          hint="invisíveis para usuários"
+          description="invisíveis para usuários"
         />
       </PageKpiGrid>
 
