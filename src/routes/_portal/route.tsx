@@ -12,16 +12,15 @@ import { getMyPortalAccessFn } from "@/lib/portal-access.functions";
 export const Route = createFileRoute("/_portal")({
   ssr: false,
   beforeLoad: async ({ location }) => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) {
+    const [user, access] = await Promise.all([getCachedUser(), getCachedPortalAccess()]);
+    if (!user) {
       throw redirect({ to: "/login", search: { next: location.href } });
     }
-    const access = await getMyPortalAccessFn();
-    if (!access.isPortalUser) {
+    if (!access?.isPortalUser) {
       // Usuário interno não tem o que fazer na área do cliente.
       throw redirect({ to: "/dashboard" });
     }
-    return { user: data.user, access };
+    return { user, access };
   },
   component: PortalAreaShell,
 });
