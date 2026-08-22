@@ -208,11 +208,9 @@ function PermissionsPage() {
                       <Badge variant="secondary" className="text-[10px]">
                         {r.badge}
                       </Badge>
-                      {count !== null ? (
-                        <span className="text-[11px] text-muted-foreground">
-                          {count} {count === 1 ? "membro" : "membros"}
-                        </span>
-                      ) : null}
+                      <span className="text-[11px] text-muted-foreground">
+                        {count} {count === 1 ? "membro" : "membros"}
+                      </span>
                     </div>
                   </div>
                 </CardHeader>
