@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { computeClientHealthScore } from "@/lib/client-health";
 import { normalizePortalTheme, portalThemeSchema } from "@/lib/portal-theme";
+import { assertClientInBrand } from "@/lib/access-guard";
 
 const scope = z.object({
   brandId: z.string().uuid(),
