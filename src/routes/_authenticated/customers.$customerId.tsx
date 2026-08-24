@@ -133,8 +133,9 @@ function CustomerDetail() {
       </div>
     );
   }
-  // Nada de dado protegido é montado antes da validação de escopo terminar.
-  if (!isReady) return <HeaderFallback />;
+  // Nada de dado protegido é montado antes da validação de escopo terminar
+  // (papel/escopo + pertencimento do cliente ao workspace ativo).
+  if (!isReady || !brandClientsQ.data) return <HeaderFallback />;
   if (denied) {
     return (
       <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
