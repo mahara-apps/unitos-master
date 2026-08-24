@@ -1,10 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertBrandMember, resolveScopedClientIds } from "@/lib/access-guard";
 
 const MESSAGING_TOOLS = ["whatsapp_evolution", "whatsapp_cloud", "resend"] as const;
 
-const schema = z.object({ brandId: z.string().uuid() });
+const schema = z.object({
+  brandId: z.string().uuid(),
+  clientId: z.string().uuid().nullish(),
+});
 
 export type MessagingKpis = {
   sent30d: number;
@@ -29,29 +33,49 @@ export const getMessagingKpis = createServerFn({ method: "GET" })
   .inputValidator((data: unknown) => schema.parse(data))
   .handler(async ({ data, context }): Promise<MessagingKpis> => {
     const { supabase, userId } = context;
+
+    // FASE 10B: o brandId/clientId vindo do frontend nunca é autorização.
+    // Revalida a associação ao workspace e resolve o escopo real de clientes
+    // (admin → workspace inteiro; manager/user → somente atribuídos).
+    await assertBrandMember(supabase, userId, data.brandId);
+    const scopedClientIds = await resolveScopedClientIds(
+      supabase,
+      data.brandId,
+      data.clientId ?? null,
+    );
+
     const now = new Date();
     const d30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const d60 = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000).toISOString();
     const d7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
+    /** Aplica escopo de cliente à query (mesma regra da RLS de message_logs). */
+    const scoped = <T extends { in: (c: string, v: string[]) => T }>(q: T): T =>
+      scopedClientIds ? q.in("client_id", scopedClientIds) : q;
+
     // Sent last 30d
-    const sent30dQ = await supabase
-      .from("message_logs")
-      .select("id, status", { count: "exact", head: false })
-      .eq("brand_id", data.brandId)
-      .gte("sent_at", d30);
+    const sent30dQ = await scoped(
+      supabase
+        .from("message_logs")
+        .select("id, status", { count: "exact", head: false })
+        .eq("brand_id", data.brandId)
+        .gte("sent_at", d30),
+    );
+
 
     const rows30 = sent30dQ.data ?? [];
     const sent30d = rows30.length;
     const delivered30d = rows30.filter((r) => r.status === "delivered").length;
 
     // Previous 30d (30-60 days ago)
-    const prevQ = await supabase
-      .from("message_logs")
-      .select("id", { count: "exact", head: true })
-      .eq("brand_id", data.brandId)
-      .gte("sent_at", d60)
-      .lt("sent_at", d30);
+    const prevQ = await scoped(
+      supabase
+        .from("message_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("brand_id", data.brandId)
+        .gte("sent_at", d60)
+        .lt("sent_at", d30),
+    );
     const sentPrev30d = prevQ.count ?? 0;
 
     const trendPct =
@@ -64,12 +88,14 @@ export const getMessagingKpis = createServerFn({ method: "GET" })
     const deliveryRate = sent30d === 0 ? null : delivered30d / sent30d;
 
     // Failed last 7d + top channel
-    const failedQ = await supabase
-      .from("message_logs")
-      .select("channel")
-      .eq("brand_id", data.brandId)
-      .eq("status", "failed")
-      .gte("sent_at", d7);
+    const failedQ = await scoped(
+      supabase
+        .from("message_logs")
+        .select("channel")
+        .eq("brand_id", data.brandId)
+        .eq("status", "failed")
+        .gte("sent_at", d7),
+    );
 
     const failedRows = failedQ.data ?? [];
     const failed7d = failedRows.length;
