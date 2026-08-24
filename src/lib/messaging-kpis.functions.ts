@@ -33,17 +33,35 @@ export const getMessagingKpis = createServerFn({ method: "GET" })
   .inputValidator((data: unknown) => schema.parse(data))
   .handler(async ({ data, context }): Promise<MessagingKpis> => {
     const { supabase, userId } = context;
+
+    // FASE 10B: o brandId/clientId vindo do frontend nunca é autorização.
+    // Revalida a associação ao workspace e resolve o escopo real de clientes
+    // (admin → workspace inteiro; manager/user → somente atribuídos).
+    await assertBrandMember(supabase, userId, data.brandId);
+    const scopedClientIds = await resolveScopedClientIds(
+      supabase,
+      data.brandId,
+      data.clientId ?? null,
+    );
+
     const now = new Date();
     const d30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const d60 = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000).toISOString();
     const d7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
+    /** Aplica escopo de cliente à query (mesma regra da RLS de message_logs). */
+    const scoped = <T extends { in: (c: string, v: string[]) => T }>(q: T): T =>
+      scopedClientIds ? q.in("client_id", scopedClientIds) : q;
+
     // Sent last 30d
-    const sent30dQ = await supabase
-      .from("message_logs")
-      .select("id, status", { count: "exact", head: false })
-      .eq("brand_id", data.brandId)
-      .gte("sent_at", d30);
+    const sent30dQ = await scoped(
+      supabase
+        .from("message_logs")
+        .select("id, status", { count: "exact", head: false })
+        .eq("brand_id", data.brandId)
+        .gte("sent_at", d30),
+    );
+
 
     const rows30 = sent30dQ.data ?? [];
     const sent30d = rows30.length;
