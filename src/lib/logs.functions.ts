@@ -180,9 +180,10 @@ export const listSystemLogs = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => Input.parse(input ?? {}))
   .handler(async ({ data, context }): Promise<SystemLogEntry[]> => {
     const { supabase, userId } = context;
-    // Auditoria é restrita a papéis administrativos (super_admin/admin/manager),
-    // inclusive em chamadas diretas ao endpoint.
-    await assertAdminAuthority(supabase, userId, data.brandId ?? null);
+    // Auditoria exige papel administrativo DENTRO do workspace informado.
+    // Sem workspace selecionado não há autoridade a avaliar (Fase 1 RBAC).
+    if (!data.brandId) return [];
+    await assertAdminAuthority(supabase, userId, data.brandId);
     const limit = data.limit ?? 200;
     const sources = data.sources ?? ["ai_job", "activity", "notification"];
 
@@ -194,8 +195,9 @@ export const listSystemLogs = createServerFn({ method: "POST" })
     const memberBrandIds = (memberships ?? []).map((m) => m.brand_id as string);
     if (memberBrandIds.length === 0) return [];
 
-    const brandFilter =
-      data.brandId && memberBrandIds.includes(data.brandId) ? [data.brandId] : memberBrandIds;
+    const brandFilter = memberBrandIds.includes(data.brandId) ? [data.brandId] : [];
+    if (brandFilter.length === 0) return [];
+
 
     const promises: Promise<SystemLogEntry[]>[] = [];
 
