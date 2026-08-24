@@ -672,10 +672,10 @@ export const listProvisionableBrands = createServerFn({ method: "GET" })
       .eq("id", userId)
       .maybeSingle();
     const isSuper = Boolean((adminFlag as { is_super_admin?: boolean } | null)?.is_super_admin);
-    // Admin global (`user_profiles.role='admin'`) tem autoridade em toda a
-    // agência — mesmo tratamento de escopo, sem virar super admin.
+    // Somente SUPER ADMIN é autoridade de plataforma. ADMIN provisiona apenas
+    // nos workspaces em que é membro (`user_profiles.role='admin'` não escala).
     const globalRole = await resolveAuthorityRole(supabase, userId, null);
-    const isGlobalAuthority = isSuper || globalRole === "super_admin" || globalRole === "admin";
+    const isGlobalAuthority = isSuper || globalRole === "super_admin";
 
     let brandsQuery = supabase.from("brands").select("id, name").order("name");
     if (!isGlobalAuthority) {
@@ -683,8 +683,10 @@ export const listProvisionableBrands = createServerFn({ method: "GET" })
         .from("brand_members")
         .select("brand_id, role")
         .eq("user_id", userId)
+        .eq("is_active", true)
         .in("role", ["owner", "manager"]);
       if (mErr) throw mErr;
+
       const ids = (memberships ?? []).map((m) => m.brand_id);
       if (ids.length === 0)
         return {
