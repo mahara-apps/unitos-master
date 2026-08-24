@@ -88,12 +88,14 @@ export const getMessagingKpis = createServerFn({ method: "GET" })
     const deliveryRate = sent30d === 0 ? null : delivered30d / sent30d;
 
     // Failed last 7d + top channel
-    const failedQ = await supabase
-      .from("message_logs")
-      .select("channel")
-      .eq("brand_id", data.brandId)
-      .eq("status", "failed")
-      .gte("sent_at", d7);
+    const failedQ = await scoped(
+      supabase
+        .from("message_logs")
+        .select("channel")
+        .eq("brand_id", data.brandId)
+        .eq("status", "failed")
+        .gte("sent_at", d7),
+    );
 
     const failedRows = failedQ.data ?? [];
     const failed7d = failedRows.length;
