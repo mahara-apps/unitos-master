@@ -1180,6 +1180,10 @@ export const getDashboardInsights = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => BrandInput.parse(input))
   .handler(async ({ data, context }): Promise<DashboardInsights | null> => {
+    await assertBrandMember(context.supabase, context.userId, data.brandId);
+    if (data.clientId) {
+      await assertClientInBrand(context.supabase, context.userId, data.brandId, data.clientId);
+    }
     const brief = data.clientId
       ? await computeStats(context, data.brandId, data.clientId).then((s) => ({
           mode: "client" as const,
