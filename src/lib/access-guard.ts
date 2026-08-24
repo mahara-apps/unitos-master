@@ -139,3 +139,74 @@ export async function assertClientScope(
   if (error) throw error;
   if (data !== true) throw new Error("Forbidden: cliente fora do seu escopo");
 }
+
+/* ------------------------------------------------------------------ */
+/* Escopo de clientes (contexto canônico)                             */
+/* ------------------------------------------------------------------ */
+
+export type AccessScope = {
+  /** Workspace consultado. */
+  brandId: string | null;
+  role: AuthorityRole | null;
+  /**
+   * Clientes que o usuário pode acessar no workspace.
+   * `null` = autoridade total no workspace (admin/super_admin) — NUNCA
+   * significa "nenhum". Lista vazia = nenhum cliente atribuído.
+   */
+  allowedClientIds: string[] | null;
+};
+
+type MyAccessRow = {
+  role?: unknown;
+  client_ids?: unknown;
+  is_super_admin?: unknown;
+};
+
+/**
+ * Fonte ÚNICA de escopo server-side: espelha `public.my_access` (mesma regra
+ * de `can_access_client_row`). Use antes de qualquer agregação por workspace
+ * para não vazar clientes fora do escopo do usuário.
+ *
+ * - `super_admin` / `admin` do workspace → `allowedClientIds = null` (tudo).
+ * - `manager` / `user` → lista explícita de clientes atribuídos.
+ */
+export async function resolveAccessScope(
+  supabase: RpcClient,
+  brandId: string | null,
+): Promise<AccessScope> {
+  const { data, error } = await callRpc(supabase, "my_access", { _brand_id: brandId ?? null });
+  if (error) throw error;
+  const row = (data ?? {}) as MyAccessRow;
+  const role = isAuthorityRole(row.role) ? row.role : null;
+  const clientIds = Array.isArray(row.client_ids)
+    ? row.client_ids.filter((v): v is string => typeof v === "string")
+    : [];
+  const isFullAuthority = role === "super_admin" || role === "admin";
+  return { brandId: brandId ?? null, role, allowedClientIds: isFullAuthority ? null : clientIds };
+}
+
+/**
+ * Resolve a lista de clientes a considerar em uma agregação.
+ *
+ * - `requestedClientId` informado → valida escopo e devolve só ele.
+ * - Sem cliente selecionado → devolve `null` para admin (todo o workspace)
+ *   ou a lista atribuída para manager/user.
+ *
+ * Lança quando o cliente pedido está fora do escopo (nunca degrada
+ * silenciosamente para "todos").
+ */
+export async function resolveScopedClientIds(
+  supabase: RpcClient,
+  brandId: string | null,
+  requestedClientId?: string | null,
+): Promise<string[] | null> {
+  const scope = await resolveAccessScope(supabase, brandId);
+  if (requestedClientId) {
+    if (scope.allowedClientIds && !scope.allowedClientIds.includes(requestedClientId)) {
+      throw new Error("Forbidden: cliente fora do seu escopo");
+    }
+    return [requestedClientId];
+  }
+  return scope.allowedClientIds;
+}
+
