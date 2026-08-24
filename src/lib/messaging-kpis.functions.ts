@@ -1,10 +1,14 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertBrandMember, resolveScopedClientIds } from "@/lib/access-guard";
 
 const MESSAGING_TOOLS = ["whatsapp_evolution", "whatsapp_cloud", "resend"] as const;
 
-const schema = z.object({ brandId: z.string().uuid() });
+const schema = z.object({
+  brandId: z.string().uuid(),
+  clientId: z.string().uuid().nullish(),
+});
 
 export type MessagingKpis = {
   sent30d: number;
