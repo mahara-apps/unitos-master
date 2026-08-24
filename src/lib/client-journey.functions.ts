@@ -170,7 +170,7 @@ async function assertAdmin(
   brandId: string,
   userId: string,
 ) {
-  // Autoridade canônica (super_admin, admin global, owner, manager).
+  // Autoridade canônica (super_admin, owner/ADMIN, manager do workspace).
   try {
     await assertBrandAdmin(supabase as unknown as RpcClient, userId, brandId);
   } catch {
