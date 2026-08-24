@@ -90,8 +90,24 @@ function CustomerDetail() {
   // O escopo do painel é sempre o `customerId` validado da rota — nunca o
   // clientId "ambiente". Só espelhamos no contexto ativo quando o acesso já
   // foi confirmado (efeito abaixo, após a checagem de responsabilidade).
-  const denied = isReady && !!allowedClientIds && !allowedClientIds.has(customerId);
-  const allowed = isReady && !denied && isUuid(customerId);
+  const outOfScope = isReady && !!allowedClientIds && !allowedClientIds.has(customerId);
+
+  // Fase 4 — URL com clientId de OUTRO workspace: admin/super admin têm escopo
+  // `null` (todos os clientes do workspace ativo), então a checagem por escopo
+  // não basta. Validamos que o cliente pertence ao workspace ativo. A lista
+  // passa pela RLS de `clients` (mesma chave de cache do header).
+  const listForGuard = useServerFn(listClients);
+  const brandClientsQ = useQuery({
+    queryKey: ["clients", brandId],
+    queryFn: () => listForGuard({ data: { brandId: brandId! } }),
+    enabled: isUuid(brandId),
+    staleTime: 60_000,
+  });
+  const crossWorkspace =
+    !!brandClientsQ.data && !brandClientsQ.data.some((c) => c.id === customerId);
+
+  const denied = outOfScope || crossWorkspace;
+  const allowed = isReady && !denied && !!brandClientsQ.data && isUuid(customerId);
 
   useEffect(() => {
     if (allowed) setClientId(customerId);
@@ -99,9 +115,13 @@ function CustomerDetail() {
 
   useEffect(() => {
     if (!denied) return;
-    toast.error("Acesso negado", { description: "Você não é responsável por este cliente." });
+    toast.error("Acesso negado", {
+      description: crossWorkspace
+        ? "Este cliente não pertence ao workspace ativo."
+        : "Você não é responsável por este cliente.",
+    });
     navigate({ to: FALLBACK_ROUTE[role], replace: true });
-  }, [denied, role, navigate]);
+  }, [denied, crossWorkspace, role, navigate]);
 
   if (!isUuid(brandId)) {
     return (
@@ -113,8 +133,9 @@ function CustomerDetail() {
       </div>
     );
   }
-  // Nada de dado protegido é montado antes da validação de escopo terminar.
-  if (!isReady) return <HeaderFallback />;
+  // Nada de dado protegido é montado antes da validação de escopo terminar
+  // (papel/escopo + pertencimento do cliente ao workspace ativo).
+  if (!isReady || !brandClientsQ.data) return <HeaderFallback />;
   if (denied) {
     return (
       <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">

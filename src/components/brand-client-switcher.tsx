@@ -127,8 +127,18 @@ export function ContextSwitcher() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Fase 4 — resolução de WORKSPACE (contexto superior).
+  // O valor persistido é apenas PREFERÊNCIA: se não estiver na lista de
+  // workspaces do usuário atual (troca de usuário/perda de acesso), é
+  // descartado. Nenhum cliente é escolhido automaticamente em nenhum caso.
   useEffect(() => {
-    if (!brandId && brandsQ.data && brandsQ.data.length > 0) setBrandId(brandsQ.data[0].id);
+    const brands = brandsQ.data;
+    if (!brands) return;
+    if (brandId && !brands.some((b) => b.id === brandId)) {
+      setBrandId(brands.length > 0 ? brands[0].id : null);
+      return;
+    }
+    if (!brandId && brands.length > 0) setBrandId(brands[0].id);
   }, [brandId, brandsQ.data, setBrandId]);
 
   const activeBrand = brandsQ.data?.find((b) => b.id === brandId) ?? null;
@@ -137,11 +147,19 @@ export function ContextSwitcher() {
   );
   const activeClient = visibleClients.find((c) => c.id === clientId) ?? null;
 
-  // Se o usuário tem um clientId ativo fora do seu escopo, limpa a seleção.
+  // Revalidação do clientId persistido (nunca amplia autorização):
+  // 1) fora do escopo do usuário (manager/user) → limpa;
+  // 2) não pertence ao workspace ativo (residual de outro workspace) → limpa,
+  //    inclusive para admin/super admin, cujo escopo é `null` (todo o workspace).
   useEffect(() => {
-    if (!clientId || !allowedClientIds) return;
-    if (!allowedClientIds.has(clientId)) setClientId(null);
-  }, [clientId, allowedClientIds, setClientId]);
+    if (!clientId) return;
+    if (allowedClientIds && !allowedClientIds.has(clientId)) {
+      setClientId(null);
+      return;
+    }
+    const clients = clientsQ.data;
+    if (clients && !clients.some((c) => c.id === clientId)) setClientId(null);
+  }, [clientId, allowedClientIds, clientsQ.data, setClientId]);
 
   return (
     <>

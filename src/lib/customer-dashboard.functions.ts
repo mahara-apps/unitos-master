@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { computeClientHealthScore } from "@/lib/client-health";
 import { normalizePortalTheme, portalThemeSchema } from "@/lib/portal-theme";
+import { assertClientInBrand } from "@/lib/access-guard";
 
 const scope = z.object({
   brandId: z.string().uuid(),
@@ -21,6 +22,10 @@ export const loadCustomerDashboardFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => scope.parse(i))
   .handler(async ({ data, context }) => {
+    // Fase 4: o par (brandId, clientId) vem do contexto ativo do frontend.
+    // Rejeita pares cross-workspace (cliente de A com workspace B) e clientes
+    // fora do escopo — nunca devolve um painel vazio "silencioso".
+    await assertClientInBrand(context.supabase, context.userId, data.brandId, data.clientId);
     const nowMs = Date.now();
     const toMs = data.range?.to ? new Date(data.range.to).getTime() : nowMs;
     const fromMs = data.range?.from ? new Date(data.range.from).getTime() : toMs - 30 * 86_400_000;

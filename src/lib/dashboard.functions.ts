@@ -5,7 +5,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { computeClientHealthScore } from "@/lib/client-health";
-import { assertClientScope } from "@/lib/access-guard";
+import { assertBrandMember, assertClientInBrand } from "@/lib/access-guard";
 
 
 type SupaCtx = { supabase: SupabaseClient<Database>; userId: string };
@@ -543,11 +543,13 @@ export const getDashboardStats = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => BrandInput.parse(input))
   .handler(async ({ data, context }) => {
-    // Defesa em profundidade: o clientId vem do frontend, então o escopo é
-    // revalidado no servidor (a RLS já filtra as linhas, aqui falhamos alto
-    // em vez de devolver um dashboard zerado e enganoso).
+    // Defesa em profundidade: brandId/clientId vêm do contexto ativo do
+    // frontend. Exigimos pertencimento ao workspace e, quando há cliente
+    // selecionado, que ele pertença a ESTE workspace e ao escopo do usuário
+    // (bloqueia pares cross-workspace residuais).
+    await assertBrandMember(context.supabase, context.userId, data.brandId);
     if (data.clientId) {
-      await assertClientScope(context.supabase, context.userId, data.clientId);
+      await assertClientInBrand(context.supabase, context.userId, data.brandId, data.clientId);
     }
     return computeStats(context, data.brandId, data.clientId ?? null, data.range);
   });
@@ -1158,7 +1160,13 @@ export const getAgencyDashboardFn = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data, context }) => computeAgency(context, data.brandId, data.range));
+  .handler(async ({ data, context }) => {
+    // Dashboard gerencial do workspace: exige pertencimento ao workspace.
+    // O escopo por cliente continua sendo aplicado pela RLS (manager/user só
+    // agregam clientes atribuídos).
+    await assertBrandMember(context.supabase, context.userId, data.brandId);
+    return computeAgency(context, data.brandId, data.range);
+  });
 
 // ==================== AI Insights ====================
 
@@ -1172,6 +1180,10 @@ export const getDashboardInsights = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => BrandInput.parse(input))
   .handler(async ({ data, context }): Promise<DashboardInsights | null> => {
+    await assertBrandMember(context.supabase, context.userId, data.brandId);
+    if (data.clientId) {
+      await assertClientInBrand(context.supabase, context.userId, data.brandId, data.clientId);
+    }
     const brief = data.clientId
       ? await computeStats(context, data.brandId, data.clientId).then((s) => ({
           mode: "client" as const,
@@ -1250,6 +1262,7 @@ export const searchWorkspace = createServerFn({ method: "POST" })
     z.object({ brandId: z.string().uuid(), q: z.string().trim().min(1).max(80) }).parse(input),
   )
   .handler(async ({ data, context }) => {
+    await assertBrandMember(context.supabase, context.userId, data.brandId);
     const like = `%${data.q}%`;
     const [clients, projects, tasks, posts] = await Promise.all([
       ignore(
