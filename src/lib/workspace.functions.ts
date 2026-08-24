@@ -4,9 +4,11 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   assertAdminAuthority,
   assertBrandAdmin,
-  assertClientScope,
+  assertClientInBrand,
   resolveAuthorityRole,
+
 } from "@/lib/access-guard";
+
 import { computeBriefingCompletion } from "@/lib/briefing-progress";
 import type { BrandHubData } from "@/lib/brand-hub.functions";
 
@@ -265,9 +267,11 @@ export const updateClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => UpdateClientInput.parse(input))
   .handler(async ({ data, context }) => {
-    // Escopo: o cliente precisa estar no escopo do usuário (mesma regra da RLS).
-    await assertClientScope(context.supabase, context.userId, data.clientId);
+    // Escopo: o cliente precisa pertencer ao workspace informado E estar no
+    // escopo do usuário (bloqueia par forjado brand A + client B).
+    await assertClientInBrand(context.supabase, context.userId, data.brandId, data.clientId);
     // Autoridade: dados básicos (nome/contato/socials) exigem ADMIN/MANAGER.
+
     const basicKeys = new Set(["contact_name", "contact_email", "socials", "name"]);
     const patchesBasic = Object.keys(data.patch).some((k) => basicKeys.has(k));
     if (patchesBasic) {
@@ -296,15 +300,24 @@ export const deleteClient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => DeleteClientInput.parse(input))
   .handler(async ({ data, context }) => {
+    // Autoridade no workspace + ESCOPO do cliente: manager/user não podem
+    // excluir cliente que não lhes foi atribuído (mesma regra da RLS).
     await assertBrandAdmin(context.supabase, context.userId, data.brandId);
-    const { error } = await context.supabase
+    await assertClientInBrand(context.supabase, context.userId, data.brandId, data.clientId);
+    const { data: removed, error } = await context.supabase
       .from("clients")
       .delete()
       .eq("id", data.clientId)
-      .eq("brand_id", data.brandId);
+      .eq("brand_id", data.brandId)
+      .select("id");
     if (error) throw error;
+    // Sem "sucesso silencioso" quando a RLS não afetou nenhuma linha.
+    if (!removed || removed.length === 0) {
+      throw new Error("Forbidden: cliente fora do seu escopo");
+    }
     return { ok: true };
   });
+
 
 const SeedInput = z.object({ brandId: z.string().uuid() });
 
@@ -380,6 +393,10 @@ export const seedDemoData = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => SeedInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    // Semear é operação administrativa do workspace: exige autoridade real,
+    // nunca apenas o `brandId` enviado pelo frontend.
+    await assertBrandAdmin(supabase, userId, data.brandId);
+
     const { count } = await supabase
       .from("clients")
       .select("id", { count: "exact", head: true })
