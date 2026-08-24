@@ -68,12 +68,14 @@ export const getMessagingKpis = createServerFn({ method: "GET" })
     const delivered30d = rows30.filter((r) => r.status === "delivered").length;
 
     // Previous 30d (30-60 days ago)
-    const prevQ = await supabase
-      .from("message_logs")
-      .select("id", { count: "exact", head: true })
-      .eq("brand_id", data.brandId)
-      .gte("sent_at", d60)
-      .lt("sent_at", d30);
+    const prevQ = await scoped(
+      supabase
+        .from("message_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("brand_id", data.brandId)
+        .gte("sent_at", d60)
+        .lt("sent_at", d30),
+    );
     const sentPrev30d = prevQ.count ?? 0;
 
     const trendPct =
