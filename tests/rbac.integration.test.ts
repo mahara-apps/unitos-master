@@ -516,18 +516,24 @@ describe("escopo do USER depende de vínculo explícito", () => {
       .eq("user_id", cx.user.id);
   });
 
-  it("ADMIN e MANAGER cobrem a marca inteira, mas MANAGER não atravessa marcas", async () => {
-    for (const a of [cx.owner, cx.manager]) {
-      for (const id of [cx.clientFree, cx.clientOfUser, cx.clientOfManager]) {
-        const r = await a.client.rpc(
-          "can_access_client" as never,
-          {
-            _client_id: id,
-            _user_id: a.id,
-          } as never,
-        );
-        expect(r.data, `${a.email} deveria acessar ${id}`).toBe(true);
-      }
+  it("ADMIN cobre a marca inteira; MANAGER só clientes atribuídos e nunca outra marca", async () => {
+    for (const id of [cx.clientFree, cx.clientOfUser, cx.clientOfManager]) {
+      const r = await cx.owner.client.rpc(
+        "can_access_client" as never,
+        { _client_id: id, _user_id: cx.owner.id } as never,
+      );
+      expect(r.data, `ADMIN deveria acessar ${id}`).toBe(true);
+    }
+    for (const [id, expected] of [
+      [cx.clientOfManager, true],
+      [cx.clientOfUser, false],
+      [cx.clientFree, false],
+    ] as const) {
+      const r = await cx.manager.client.rpc(
+        "can_access_client" as never,
+        { _client_id: id, _user_id: cx.manager.id } as never,
+      );
+      expect(r.data, `MANAGER em ${id}`).toBe(expected);
     }
     const cross = await cx.manager.client.rpc(
       "can_access_client" as never,
