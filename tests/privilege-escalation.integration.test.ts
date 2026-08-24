@@ -52,7 +52,7 @@ beforeAll(async () => {
   superAdmin = await createUser("super");
   const p = await admin
     .from("user_profiles")
-    .upsert({ user_id: superAdmin.id, is_super_admin: true }, { onConflict: "user_id" });
+    .upsert({ id: superAdmin.id, is_super_admin: true }, { onConflict: "id" });
   if (p.error) throw new Error(`super admin flag: ${p.error.message}`);
 
   const projects = await admin
@@ -127,7 +127,7 @@ afterAll(async () => {
   await admin.from("chat_messages").delete().eq("conversation_id", convoB);
   await admin.from("chat_conversations").delete().eq("id", convoB);
   await admin.from("ai_jobs").delete().eq("id", jobB);
-  await admin.from("user_profiles").delete().eq("user_id", superAdmin?.id ?? NON_EXISTENT);
+  await admin.from("user_profiles").delete().eq("id", superAdmin?.id ?? NON_EXISTENT);
   await admin.auth.admin.deleteUser(superAdmin?.id ?? NON_EXISTENT).catch(() => {});
   await cleanup(fx);
 });
@@ -269,7 +269,7 @@ describe("3. ADMIN — workspace selecionado, nunca os dois", () => {
     const prof = await admin
       .from("user_profiles")
       .select("is_super_admin")
-      .eq("user_id", fx.userOwner.id)
+      .eq("id", fx.userOwner.id)
       .maybeSingle();
     expect(prof.data?.is_super_admin ?? false).toBe(false);
   });
