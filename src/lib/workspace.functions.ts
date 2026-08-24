@@ -5,8 +5,8 @@ import {
   assertAdminAuthority,
   assertBrandAdmin,
   assertClientInBrand,
-  
   resolveAuthorityRole,
+
 } from "@/lib/access-guard";
 
 import { computeBriefingCompletion } from "@/lib/briefing-progress";
