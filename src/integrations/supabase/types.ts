@@ -6197,6 +6197,10 @@ export type Database = {
         }
         Returns: string
       }
+      brain_memory_guard_scope: {
+        Args: { _brand_id: string; _client_id: string }
+        Returns: undefined
+      }
       brain_memory_touch: { Args: { _ids: string[] }; Returns: number }
       brain_mine_patterns: { Args: { _brand_id?: string }; Returns: Json }
       brain_render_memory_desc: {
