@@ -4194,6 +4194,7 @@ export type Database = {
         Row: {
           brand_id: string
           channel: string
+          client_id: string | null
           created_at: string
           delivered_at: string | null
           error_message: string | null
@@ -4208,6 +4209,7 @@ export type Database = {
         Insert: {
           brand_id: string
           channel: string
+          client_id?: string | null
           created_at?: string
           delivered_at?: string | null
           error_message?: string | null
@@ -4222,6 +4224,7 @@ export type Database = {
         Update: {
           brand_id?: string
           channel?: string
+          client_id?: string | null
           created_at?: string
           delivered_at?: string | null
           error_message?: string | null
@@ -4246,6 +4249,13 @@ export type Database = {
             columns: ["brand_id"]
             isOneToOne: false
             referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_logs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
