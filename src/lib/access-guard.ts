@@ -41,7 +41,13 @@ async function callRpc(
   return res;
 }
 
-/** Papel canônico do usuário na marca (fonte única: brand_members + is_super_admin). */
+/**
+ * Papel canônico do usuário na marca (fonte única: `app_access_role`).
+ *
+ * `brandId` nulo NÃO resolve papel interno: o banco deixou de escolher o
+ * "melhor papel entre marcas" (Fase 1 RBAC). Sem workspace só existe
+ * `super_admin` (autoridade global) ou `client` (Portal).
+ */
 export async function resolveAuthorityRole(
   supabase: RpcClient,
   userId: string,
@@ -55,13 +61,21 @@ export async function resolveAuthorityRole(
   return isAuthorityRole(data) ? data : null;
 }
 
-/** Exige papel administrativo (ADMIN/MANAGER/SUPER ADMIN) na marca. */
+/**
+ * Exige papel administrativo na marca.
+ *
+ * ATENÇÃO: `admin` = todo o workspace; `manager` tem autoridade
+ * administrativa mas escopo de DADOS limitado aos clientes atribuídos —
+ * operações sobre um cliente específico exigem `assertClientScope` além
+ * deste guard.
+ */
 export async function assertBrandAdmin(
   supabase: RpcClient,
   userId: string,
   brandId: string,
   opts: { allowManager?: boolean } = {},
 ): Promise<AuthorityRole> {
+  if (!brandId) throw new Error("Forbidden: workspace obrigatório");
   const role = await resolveAuthorityRole(supabase, userId, brandId);
   const allowed: readonly AuthorityRole[] =
     opts.allowManager === false ? ["super_admin", "admin"] : ADMIN_LEVEL_ROLES;
@@ -72,21 +86,18 @@ export async function assertBrandAdmin(
 }
 
 /**
- * Exige autoridade administrativa (super_admin/admin/manager) — com marca
- * quando informada, ou no melhor papel do usuário quando o escopo é global
- * (ex.: auditoria consolidada de todas as marcas do usuário).
+ * Exige autoridade administrativa (super_admin/admin/manager) DENTRO de um
+ * workspace. `brandId` é obrigatório: não existe autoridade administrativa
+ * "global" fora do super admin.
  */
 export async function assertAdminAuthority(
   supabase: RpcClient,
   userId: string,
-  brandId?: string | null,
+  brandId: string,
 ): Promise<AuthorityRole> {
-  const role = await resolveAuthorityRole(supabase, userId, brandId ?? null);
-  if (!role || !ADMIN_LEVEL_ROLES.includes(role)) {
-    throw new Error("Forbidden: papel insuficiente para esta operação");
-  }
-  return role;
+  return assertBrandAdmin(supabase, userId, brandId);
 }
+
 
 /**
  * Exige que o ator possa CONCEDER `role` na marca — fonte canônica única:
