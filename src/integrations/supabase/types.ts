@@ -6218,6 +6218,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      can_access_project: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_access_task: {
         Args: { _task_id: string; _user_id: string }
         Returns: boolean
