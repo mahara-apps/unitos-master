@@ -1160,7 +1160,13 @@ export const getAgencyDashboardFn = createServerFn({ method: "POST" })
       })
       .parse(input),
   )
-  .handler(async ({ data, context }) => computeAgency(context, data.brandId, data.range));
+  .handler(async ({ data, context }) => {
+    // Dashboard gerencial do workspace: exige pertencimento ao workspace.
+    // O escopo por cliente continua sendo aplicado pela RLS (manager/user só
+    // agregam clientes atribuídos).
+    await assertBrandMember(context.supabase, context.userId, data.brandId);
+    return computeAgency(context, data.brandId, data.range);
+  });
 
 // ==================== AI Insights ====================
 
