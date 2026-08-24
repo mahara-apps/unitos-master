@@ -6488,6 +6488,7 @@ export type Database = {
         Args: { _task_id: string }
         Returns: number
       }
+      safe_uuid: { Args: { _txt: string }; Returns: string }
       set_cron_secret: { Args: { _value: string }; Returns: undefined }
       start_timer: {
         Args: { _brand_id: string; _task_id: string }
@@ -6496,6 +6497,10 @@ export type Database = {
       stop_timer: {
         Args: { _entry_id: string; _reason?: string }
         Returns: number
+      }
+      storage_scope_allows: {
+        Args: { _bucket: string; _name: string; _write: boolean }
+        Returns: boolean
       }
       sync_post_publication_state: {
         Args: { p_post_id: string }
