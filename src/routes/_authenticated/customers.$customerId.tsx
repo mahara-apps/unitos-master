@@ -115,9 +115,13 @@ function CustomerDetail() {
 
   useEffect(() => {
     if (!denied) return;
-    toast.error("Acesso negado", { description: "Você não é responsável por este cliente." });
+    toast.error("Acesso negado", {
+      description: crossWorkspace
+        ? "Este cliente não pertence ao workspace ativo."
+        : "Você não é responsável por este cliente.",
+    });
     navigate({ to: FALLBACK_ROUTE[role], replace: true });
-  }, [denied, role, navigate]);
+  }, [denied, crossWorkspace, role, navigate]);
 
   if (!isUuid(brandId)) {
     return (
