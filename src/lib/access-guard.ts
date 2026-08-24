@@ -41,7 +41,13 @@ async function callRpc(
   return res;
 }
 
-/** Papel canônico do usuário na marca (fonte única: brand_members + is_super_admin). */
+/**
+ * Papel canônico do usuário na marca (fonte única: `app_access_role`).
+ *
+ * `brandId` nulo NÃO resolve papel interno: o banco deixou de escolher o
+ * "melhor papel entre marcas" (Fase 1 RBAC). Sem workspace só existe
+ * `super_admin` (autoridade global) ou `client` (Portal).
+ */
 export async function resolveAuthorityRole(
   supabase: RpcClient,
   userId: string,
@@ -55,13 +61,21 @@ export async function resolveAuthorityRole(
   return isAuthorityRole(data) ? data : null;
 }
 
-/** Exige papel administrativo (ADMIN/MANAGER/SUPER ADMIN) na marca. */
+/**
+ * Exige papel administrativo na marca.
+ *
+ * ATENÇÃO: `admin` = todo o workspace; `manager` tem autoridade
+ * administrativa mas escopo de DADOS limitado aos clientes atribuídos —
+ * operações sobre um cliente específico exigem `assertClientScope` além
+ * deste guard.
+ */
 export async function assertBrandAdmin(
   supabase: RpcClient,
   userId: string,
   brandId: string,
   opts: { allowManager?: boolean } = {},
 ): Promise<AuthorityRole> {
+  if (!brandId) throw new Error("Forbidden: workspace obrigatório");
   const role = await resolveAuthorityRole(supabase, userId, brandId);
   const allowed: readonly AuthorityRole[] =
     opts.allowManager === false ? ["super_admin", "admin"] : ADMIN_LEVEL_ROLES;
@@ -72,21 +86,18 @@ export async function assertBrandAdmin(
 }
 
 /**
- * Exige autoridade administrativa (super_admin/admin/manager) — com marca
- * quando informada, ou no melhor papel do usuário quando o escopo é global
- * (ex.: auditoria consolidada de todas as marcas do usuário).
+ * Exige autoridade administrativa (super_admin/admin/manager) DENTRO de um
+ * workspace. `brandId` é obrigatório: não existe autoridade administrativa
+ * "global" fora do super admin.
  */
 export async function assertAdminAuthority(
   supabase: RpcClient,
   userId: string,
-  brandId?: string | null,
+  brandId: string,
 ): Promise<AuthorityRole> {
-  const role = await resolveAuthorityRole(supabase, userId, brandId ?? null);
-  if (!role || !ADMIN_LEVEL_ROLES.includes(role)) {
-    throw new Error("Forbidden: papel insuficiente para esta operação");
-  }
-  return role;
+  return assertBrandAdmin(supabase, userId, brandId);
 }
+
 
 /**
  * Exige que o ator possa CONCEDER `role` na marca — fonte canônica única:
@@ -128,3 +139,74 @@ export async function assertClientScope(
   if (error) throw error;
   if (data !== true) throw new Error("Forbidden: cliente fora do seu escopo");
 }
+
+/* ------------------------------------------------------------------ */
+/* Escopo de clientes (contexto canônico)                             */
+/* ------------------------------------------------------------------ */
+
+export type AccessScope = {
+  /** Workspace consultado. */
+  brandId: string | null;
+  role: AuthorityRole | null;
+  /**
+   * Clientes que o usuário pode acessar no workspace.
+   * `null` = autoridade total no workspace (admin/super_admin) — NUNCA
+   * significa "nenhum". Lista vazia = nenhum cliente atribuído.
+   */
+  allowedClientIds: string[] | null;
+};
+
+type MyAccessRow = {
+  role?: unknown;
+  client_ids?: unknown;
+  is_super_admin?: unknown;
+};
+
+/**
+ * Fonte ÚNICA de escopo server-side: espelha `public.my_access` (mesma regra
+ * de `can_access_client_row`). Use antes de qualquer agregação por workspace
+ * para não vazar clientes fora do escopo do usuário.
+ *
+ * - `super_admin` / `admin` do workspace → `allowedClientIds = null` (tudo).
+ * - `manager` / `user` → lista explícita de clientes atribuídos.
+ */
+export async function resolveAccessScope(
+  supabase: RpcClient,
+  brandId: string | null,
+): Promise<AccessScope> {
+  const { data, error } = await callRpc(supabase, "my_access", { _brand_id: brandId ?? null });
+  if (error) throw error;
+  const row = (data ?? {}) as MyAccessRow;
+  const role = isAuthorityRole(row.role) ? row.role : null;
+  const clientIds = Array.isArray(row.client_ids)
+    ? row.client_ids.filter((v): v is string => typeof v === "string")
+    : [];
+  const isFullAuthority = role === "super_admin" || role === "admin";
+  return { brandId: brandId ?? null, role, allowedClientIds: isFullAuthority ? null : clientIds };
+}
+
+/**
+ * Resolve a lista de clientes a considerar em uma agregação.
+ *
+ * - `requestedClientId` informado → valida escopo e devolve só ele.
+ * - Sem cliente selecionado → devolve `null` para admin (todo o workspace)
+ *   ou a lista atribuída para manager/user.
+ *
+ * Lança quando o cliente pedido está fora do escopo (nunca degrada
+ * silenciosamente para "todos").
+ */
+export async function resolveScopedClientIds(
+  supabase: RpcClient,
+  brandId: string | null,
+  requestedClientId?: string | null,
+): Promise<string[] | null> {
+  const scope = await resolveAccessScope(supabase, brandId);
+  if (requestedClientId) {
+    if (scope.allowedClientIds && !scope.allowedClientIds.includes(requestedClientId)) {
+      throw new Error("Forbidden: cliente fora do seu escopo");
+    }
+    return [requestedClientId];
+  }
+  return scope.allowedClientIds;
+}
+

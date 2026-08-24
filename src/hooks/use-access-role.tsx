@@ -36,21 +36,22 @@ export function useAccessRole(): Result {
   return useMemo<Result>(() => {
     const a = q.data;
     const authorityRole = a?.role ?? null;
+    // Autoridade administrativa (menus/ações de gestão).
     const isAdminLevel =
       authorityRole === "super_admin" || authorityRole === "admin" || authorityRole === "manager";
+    // Escopo de DADOS: só admin/super admin enxergam a marca inteira.
+    // MANAGER e USER ficam restritos aos clientes atribuídos.
+    const hasFullClientScope = authorityRole === "super_admin" || authorityRole === "admin";
     return {
       role: isAdminLevel ? "admin" : "user",
       authorityRole,
-      // Admin global (`user_profiles.role='admin'`) pode não ter linha em
-      // brand_members — a UI o trata como owner da marca (autoridade
-      // equivalente), sem virar super admin.
       brandRole: a?.isSuperAdmin
         ? "super_admin"
         : (a?.brandRole ?? (authorityRole === "admin" ? "owner" : null)),
       userId: a?.userId ?? null,
-      // Admin/manager/super admin: escopo total na marca. Operação: lista explícita.
-      allowedClientIds: !a ? null : isAdminLevel ? null : new Set(a.clientIds),
+      allowedClientIds: !a ? null : hasFullClientScope ? null : new Set(a.clientIds),
       isReady: !q.isLoading && !!a,
     };
   }, [q.data, q.isLoading]);
 }
+

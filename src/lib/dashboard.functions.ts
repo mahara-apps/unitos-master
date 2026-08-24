@@ -5,6 +5,8 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { computeClientHealthScore } from "@/lib/client-health";
+import { assertClientScope } from "@/lib/access-guard";
+
 
 type SupaCtx = { supabase: SupabaseClient<Database>; userId: string };
 
@@ -540,9 +542,16 @@ async function computeStats(
 export const getDashboardStats = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => BrandInput.parse(input))
-  .handler(async ({ data, context }) =>
-    computeStats(context, data.brandId, data.clientId ?? null, data.range),
-  );
+  .handler(async ({ data, context }) => {
+    // Defesa em profundidade: o clientId vem do frontend, então o escopo é
+    // revalidado no servidor (a RLS já filtra as linhas, aqui falhamos alto
+    // em vez de devolver um dashboard zerado e enganoso).
+    if (data.clientId) {
+      await assertClientScope(context.supabase, context.userId, data.clientId);
+    }
+    return computeStats(context, data.brandId, data.clientId ?? null, data.range);
+  });
+
 
 // ==================== Agency dashboard ====================
 
