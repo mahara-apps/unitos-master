@@ -214,11 +214,17 @@ describe("papel canônico (fonte única de autoridade)", () => {
 });
 
 describe("escopo de leitura (SELECT via RLS)", () => {
-  it("ADMIN e MANAGER enxergam todos os clientes da marca", async () => {
+  it("ADMIN cobre a marca inteira; MANAGER só os clientes atribuídos", async () => {
     const expected = [cx.clientFree, cx.clientOfUser, cx.clientOfManager].sort();
     expect(await visibleClients(cx.owner.client, cx.brandId)).toEqual(expected);
-    expect(await visibleClients(cx.manager.client, cx.brandId)).toEqual(expected);
+    // Fase 1 RBAC: MANAGER tem autoridade administrativa, mas escopo de DADOS
+    // restrito aos clientes atribuídos.
+    const mgr = await visibleClients(cx.manager.client, cx.brandId);
+    expect(mgr).toContain(cx.clientOfManager);
+    expect(mgr).not.toContain(cx.clientOfUser);
+    expect(mgr).not.toContain(cx.clientFree);
   });
+
 
   it("USER limitado ao escopo (somente clientes vinculados)", async () => {
     const ids = await visibleClients(cx.user.client, cx.brandId);
@@ -510,18 +516,24 @@ describe("escopo do USER depende de vínculo explícito", () => {
       .eq("user_id", cx.user.id);
   });
 
-  it("ADMIN e MANAGER cobrem a marca inteira, mas MANAGER não atravessa marcas", async () => {
-    for (const a of [cx.owner, cx.manager]) {
-      for (const id of [cx.clientFree, cx.clientOfUser, cx.clientOfManager]) {
-        const r = await a.client.rpc(
-          "can_access_client" as never,
-          {
-            _client_id: id,
-            _user_id: a.id,
-          } as never,
-        );
-        expect(r.data, `${a.email} deveria acessar ${id}`).toBe(true);
-      }
+  it("ADMIN cobre a marca inteira; MANAGER só clientes atribuídos e nunca outra marca", async () => {
+    for (const id of [cx.clientFree, cx.clientOfUser, cx.clientOfManager]) {
+      const r = await cx.owner.client.rpc(
+        "can_access_client" as never,
+        { _client_id: id, _user_id: cx.owner.id } as never,
+      );
+      expect(r.data, `ADMIN deveria acessar ${id}`).toBe(true);
+    }
+    for (const [id, expected] of [
+      [cx.clientOfManager, true],
+      [cx.clientOfUser, false],
+      [cx.clientFree, false],
+    ] as const) {
+      const r = await cx.manager.client.rpc(
+        "can_access_client" as never,
+        { _client_id: id, _user_id: cx.manager.id } as never,
+      );
+      expect(r.data, `MANAGER em ${id}`).toBe(expected);
     }
     const cross = await cx.manager.client.rpc(
       "can_access_client" as never,

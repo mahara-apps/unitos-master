@@ -1,27 +1,31 @@
 /**
- * Admin global — `public.user_profiles.role = 'admin'` concede autoridade de
- * workspace em toda a agência (sem virar super_admin) mesmo sem linha em
- * `brand_members`. Valida as fontes canônicas: app_access_role, my_access,
- * is_brand_member, can_access_client + RLS de brands/clients.
+ * FASE 1 RBAC — NÃO existe "admin global".
+ *
+ * `public.user_profiles.role = 'admin'` deixou de conceder autoridade em
+ * workspaces onde o usuário não tem membership. Autoridade de plataforma é
+ * exclusiva do SUPER ADMIN; ADMIN é sempre por workspace.
+ *
+ * Este teste blinda a não-escalação nas fontes canônicas: app_access_role,
+ * my_access e can_access_client + RLS de brands/clients.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { admin, createUser, type TestUser } from "./helpers/fixtures";
 
-let globalAdmin: TestUser;
+let profileAdmin: TestUser;
 let plainUser: TestUser;
+let owner: TestUser;
 let brandId: string;
 let clientId: string;
 
 beforeAll(async () => {
-  globalAdmin = await createUser("gadmin");
+  profileAdmin = await createUser("gadmin");
   plainUser = await createUser("gplain");
+  owner = await createUser("gowner");
 
-  // Marca + cliente criados por um terceiro (nem globalAdmin nem plainUser
-  // possuem membership nela).
-  const owner = await createUser("gowner");
+  const stamp = Date.now();
   const brand = await admin
     .from("brands")
-    .insert({ name: `QA GA ${Date.now()}`, slug: `qa-ga-${Date.now()}`, created_by: owner.id })
+    .insert({ name: `QA GA ${stamp}`, slug: `qa-ga-${stamp}`, created_by: owner.id })
     .select("id")
     .single();
   if (brand.error) throw brand.error;
@@ -35,45 +39,52 @@ beforeAll(async () => {
   if (client.error) throw client.error;
   clientId = client.data.id;
 
-  await admin.from("brand_members").delete().eq("user_id", globalAdmin.id);
+  await admin.from("brand_members").delete().eq("user_id", profileAdmin.id);
   await admin.from("brand_members").delete().eq("user_id", plainUser.id);
-  const up = await admin.from("user_profiles").update({ role: "admin" }).eq("id", globalAdmin.id);
+  const up = await admin.from("user_profiles").update({ role: "admin" }).eq("id", profileAdmin.id);
   if (up.error) throw up.error;
 });
 
 afterAll(async () => {
   await admin.from("clients").delete().eq("id", clientId);
+  await admin.from("brand_members").delete().eq("brand_id", brandId);
   await admin.from("brands").delete().eq("id", brandId);
+  for (const u of [profileAdmin, plainUser, owner]) {
+    if (u) await admin.auth.admin.deleteUser(u.id).catch(() => {});
+  }
 });
 
-describe("admin global (user_profiles.role = 'admin')", () => {
-  it("app_access_role retorna 'admin' na marca sem membership", async () => {
-    const { data, error } = await globalAdmin.client.rpc("app_access_role", {
-      _user_id: globalAdmin.id,
+describe("user_profiles.role = 'admin' não é autoridade global", () => {
+  it("app_access_role NÃO retorna 'admin' em marca sem membership", async () => {
+    const { data, error } = await profileAdmin.client.rpc("app_access_role", {
+      _user_id: profileAdmin.id,
       _brand_id: brandId,
     });
     expect(error).toBeNull();
-    expect(data).toBe("admin");
+    expect(data).not.toBe("admin");
   });
 
-  it("não é promovido a super_admin", async () => {
-    const { data } = await globalAdmin.client.rpc("my_access", { _brand_id: brandId });
+  it("my_access não escala papel nem super_admin", async () => {
+    const { data } = await profileAdmin.client.rpc("my_access", { _brand_id: brandId });
     const row = (data ?? {}) as Record<string, unknown>;
-    expect(row["role"]).toBe("admin");
+    expect(row["role"]).not.toBe("admin");
     expect(row["is_super_admin"]).not.toBe(true);
+    expect(row["client_ids"] ?? []).toEqual([]);
   });
 
-  it("enxerga a marca e o cliente da agência via RLS", async () => {
-    const brands = await globalAdmin.client.from("brands").select("id").eq("id", brandId);
-    expect(brands.error).toBeNull();
-    expect(brands.data?.length).toBe(1);
-
-    const clients = await globalAdmin.client.from("clients").select("id").eq("id", clientId);
-    expect(clients.error).toBeNull();
-    expect(clients.data?.length).toBe(1);
+  it("não enxerga a marca nem o cliente via RLS", async () => {
+    const brands = await profileAdmin.client.from("brands").select("id").eq("id", brandId);
+    expect(brands.data ?? []).toHaveLength(0);
+    const clients = await profileAdmin.client.from("clients").select("id").eq("id", clientId);
+    expect(clients.data ?? []).toHaveLength(0);
+    const access = await profileAdmin.client.rpc("can_access_client", {
+      _client_id: clientId,
+      _user_id: profileAdmin.id,
+    });
+    expect(access.data).not.toBe(true);
   });
 
-  it("opera áreas da agência antes restritas a membros explícitos", async () => {
+  it("não alcança áreas da agência (conexões, membros, SLA)", async () => {
     const conn = await admin
       .from("social_connections")
       .insert({
@@ -88,37 +99,45 @@ describe("admin global (user_profiles.role = 'admin')", () => {
       .single();
     if (conn.error) throw conn.error;
 
-    const link = await admin
-      .from("client_members")
-      .insert({ brand_id: brandId, client_id: clientId, user_id: globalAdmin.id, role: "member" })
+    const conns = await profileAdmin.client
+      .from("social_connections")
       .select("id")
-      .single();
-    if (link.error) throw link.error;
+      .eq("id", conn.data.id);
+    expect(conns.data ?? []).toHaveLength(0);
 
-    const conns = await globalAdmin.client.from("social_connections").select("id").eq("id", conn.data.id);
-    expect(conns.error).toBeNull();
-    expect(conns.data?.length).toBe(1);
+    const members = await profileAdmin.client
+      .from("client_members")
+      .select("id")
+      .eq("brand_id", brandId);
+    expect(members.data ?? []).toHaveLength(0);
 
-    const members = await globalAdmin.client.from("client_members").select("id").eq("brand_id", brandId);
-    expect(members.error).toBeNull();
-    expect((members.data ?? []).length).toBeGreaterThan(0);
-
-    const sla = await globalAdmin.client
+    const sla = await profileAdmin.client
       .from("sla_rules")
       .insert({ brand_id: brandId, scope: "agent", target_hours: 24 })
       .select("id")
       .single();
-    expect(sla.error).toBeNull();
+    expect(sla.error).not.toBeNull();
 
-    // usuário comum sem membership não alcança nada disso
-    const otherConns = await plainUser.client.from("social_connections").select("id").eq("id", conn.data.id);
-    expect(otherConns.data ?? []).toHaveLength(0);
-    const otherMembers = await plainUser.client.from("client_members").select("id").eq("brand_id", brandId);
-    expect(otherMembers.data ?? []).toHaveLength(0);
-
-    await admin.from("sla_rules").delete().eq("brand_id", brandId);
-    await admin.from("client_members").delete().eq("id", link.data.id);
     await admin.from("social_connections").delete().eq("id", conn.data.id);
+  });
+
+  it("ADMIN com membership real continua enxergando o próprio workspace", async () => {
+    const link = await admin
+      .from("brand_members")
+      .insert({ brand_id: brandId, user_id: profileAdmin.id, role: "owner" })
+      .select("id")
+      .single();
+    expect(link.error).toBeNull();
+
+    const role = await profileAdmin.client.rpc("app_access_role", {
+      _user_id: profileAdmin.id,
+      _brand_id: brandId,
+    });
+    expect(role.data).toBe("admin");
+    const clients = await profileAdmin.client.from("clients").select("id").eq("id", clientId);
+    expect((clients.data ?? []).map((c) => c.id)).toEqual([clientId]);
+
+    await admin.from("brand_members").delete().eq("id", link.data!.id);
   });
 
   it("usuário comum sem membership continua sem acesso", async () => {
@@ -127,11 +146,7 @@ describe("admin global (user_profiles.role = 'admin')", () => {
       _brand_id: brandId,
     });
     expect(role.data).not.toBe("admin");
-
     const brands = await plainUser.client.from("brands").select("id").eq("id", brandId);
     expect(brands.data ?? []).toHaveLength(0);
-    const clients = await plainUser.client.from("clients").select("id").eq("id", clientId);
-    expect(clients.data ?? []).toHaveLength(0);
   });
 });
-

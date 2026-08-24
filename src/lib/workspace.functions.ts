@@ -11,24 +11,27 @@ import { computeBriefingCompletion } from "@/lib/briefing-progress";
 import type { BrandHubData } from "@/lib/brand-hub.functions";
 
 /**
- * Lista brands visíveis ao usuário. Autoridade global (super_admin ou
- * `user_profiles.role = 'admin'`) enxerga todas as marcas da agência mesmo
- * sem linha em `brand_members` — a RLS de `brands` aplica a mesma regra.
+ * Lista workspaces visíveis ao usuário.
+ *
+ * Regra canônica: SUPER ADMIN → todos os workspaces; qualquer outro papel
+ * (inclusive ADMIN) → somente os workspaces em que possui membership ativa.
+ * `user_profiles.role = 'admin'` NÃO concede acesso global.
  */
 export const listMyBrands = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
     const globalRole = await resolveAuthorityRole(supabase, userId, null);
-    const isGlobalAuthority = globalRole === "super_admin" || globalRole === "admin";
+    const isSuperAdmin = globalRole === "super_admin";
 
     const { data: memberships, error: memErr } = await supabase
       .from("brand_members")
       .select("brand_id, role")
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .eq("is_active", true);
     if (memErr) throw memErr;
     const ids = (memberships ?? []).map((m) => m.brand_id);
-    if (ids.length === 0 && !isGlobalAuthority)
+    if (ids.length === 0 && !isSuperAdmin)
       return [] as Array<{
         id: string;
         name: string;
@@ -37,16 +40,17 @@ export const listMyBrands = createServerFn({ method: "GET" })
         role: string;
       }>;
     let query = supabase.from("brands").select("id, name, slug, color").order("name");
-    if (!isGlobalAuthority) query = query.in("id", ids);
+    if (!isSuperAdmin) query = query.in("id", ids);
     const { data: brands, error } = await query;
     if (error) throw error;
     return (brands ?? []).map((b) => ({
       ...b,
       role:
         (memberships ?? []).find((m) => m.brand_id === b.id)?.role ??
-        (isGlobalAuthority ? "owner" : "user"),
+        (isSuperAdmin ? "owner" : "user"),
     }));
   });
+
 
 
 const CreateBrandInput = z.object({

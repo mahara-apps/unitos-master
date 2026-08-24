@@ -394,14 +394,34 @@ describe("6b. Matriz de papéis (isolamento por cliente)", () => {
     expect(taskB.data ?? []).toHaveLength(1);
   });
 
-  it("MANAGER acessa todos os clientes da própria marca", async () => {
+  it("MANAGER acessa somente clientes atribuídos (Fase 1 RBAC)", async () => {
     const c = fx.userManager.client;
-    const clients = await c.from("clients").select("id").in("id", [fx.clientA, fx.clientB]);
-    expect(clients.data ?? []).toHaveLength(2);
+    // Sem vínculo em client_members o MANAGER não enxerga clientes da marca.
+    const none = await c.from("clients").select("id").in("id", [fx.clientA, fx.clientB]);
+    expect(none.data ?? []).toHaveLength(0);
     const projB = await c.from("projects").select("id").eq("id", ids.projectB);
-    expect(projB.data ?? []).toHaveLength(1);
+    expect(projB.data ?? []).toHaveLength(0);
+
+    const link = await admin.from("client_members").insert({
+      brand_id: fx.brandId,
+      client_id: fx.clientB,
+      user_id: fx.userManager.id,
+      role: "manager",
+    });
+    expect(link.error, link.error?.message).toBeNull();
+
+    const scoped = await c.from("clients").select("id").in("id", [fx.clientA, fx.clientB]);
+    expect((scoped.data ?? []).map((r) => r.id)).toEqual([fx.clientB]);
+    const projBNow = await c.from("projects").select("id").eq("id", ids.projectB);
+    expect(projBNow.data ?? []).toHaveLength(1);
     const subs = await c.from("task_subtasks").select("id").eq("task_id", ids.taskB);
     expect(subs.error, subs.error?.message).toBeNull();
+
+    await admin
+      .from("client_members")
+      .delete()
+      .eq("client_id", fx.clientB)
+      .eq("user_id", fx.userManager.id);
   });
 
   it("ADMIN/MANAGER não atravessam a fronteira de marca", async () => {
@@ -503,17 +523,24 @@ describe("6b. Matriz de papéis (isolamento por cliente)", () => {
     }
   });
 
-  it("cliente sem responsável e sem vínculos NÃO é visível para USER (somente ADMIN/MANAGER)", async () => {
+  it("cliente sem responsável e sem vínculos é visível só para ADMIN", async () => {
     // can_access_client_row(): USER só acessa cliente de que é responsável
     // (owner_user_id) ou ao qual está vinculado em client_members.
     for (const u of [fx.userA, fx.userB, fx.userNoLink]) {
       const r = await u.client.from("clients").select("id").eq("id", fx.clientOrphan);
       expect(r.data ?? [], `${u.email} não deveria ver o cliente órfão`).toHaveLength(0);
     }
-    for (const u of [fx.userManager, fx.userOwner]) {
-      const r = await u.client.from("clients").select("id").eq("id", fx.clientOrphan);
-      expect(r.data ?? [], `${u.email} deveria ver o cliente órfão`).toHaveLength(1);
-    }
+    // ADMIN cobre a marca inteira; MANAGER não (escopo por cliente atribuído).
+    const asAdmin = await fx.userOwner.client
+      .from("clients")
+      .select("id")
+      .eq("id", fx.clientOrphan);
+    expect(asAdmin.data ?? [], "ADMIN deveria ver o cliente órfão").toHaveLength(1);
+    const asManager = await fx.userManager.client
+      .from("clients")
+      .select("id")
+      .eq("id", fx.clientOrphan);
+    expect(asManager.data ?? [], "MANAGER sem vínculo não vê o cliente órfão").toHaveLength(0);
     // Portal continua isolado ao próprio cliente.
     const portal = await fx.userPortal.client
       .from("clients")

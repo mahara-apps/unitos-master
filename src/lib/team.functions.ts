@@ -199,8 +199,8 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     // Authorize: caller must be owner or manager of the brand
-    // Autorização canônica: super_admin, admin global (`user_profiles.role`),
-    // owner ou manager da marca.
+    // Autorização canônica: super_admin, ADMIN (owner) ou MANAGER do workspace.
+    // `user_profiles.role='admin'` não concede autoridade global.
     try {
       await assertBrandAdmin(supabase, userId, data.brandId);
     } catch {
@@ -517,7 +517,7 @@ export const provisionUser = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
 
     // Autorização: autoridade admin em TODAS as marcas alvo (super_admin e
-    // admin global passam em qualquer marca via app_access_role).
+    // ADMIN e MANAGER passam via app_access_role no workspace).
     const brandIds = Array.from(new Set(data.assignments.map((a) => a.brandId)));
     for (const brandId of brandIds) {
       try {
@@ -672,10 +672,10 @@ export const listProvisionableBrands = createServerFn({ method: "GET" })
       .eq("id", userId)
       .maybeSingle();
     const isSuper = Boolean((adminFlag as { is_super_admin?: boolean } | null)?.is_super_admin);
-    // Admin global (`user_profiles.role='admin'`) tem autoridade em toda a
-    // agência — mesmo tratamento de escopo, sem virar super admin.
+    // Somente SUPER ADMIN é autoridade de plataforma. ADMIN provisiona apenas
+    // nos workspaces em que é membro (`user_profiles.role='admin'` não escala).
     const globalRole = await resolveAuthorityRole(supabase, userId, null);
-    const isGlobalAuthority = isSuper || globalRole === "super_admin" || globalRole === "admin";
+    const isGlobalAuthority = isSuper || globalRole === "super_admin";
 
     let brandsQuery = supabase.from("brands").select("id, name").order("name");
     if (!isGlobalAuthority) {
@@ -683,8 +683,10 @@ export const listProvisionableBrands = createServerFn({ method: "GET" })
         .from("brand_members")
         .select("brand_id, role")
         .eq("user_id", userId)
+        .eq("is_active", true)
         .in("role", ["owner", "manager"]);
       if (mErr) throw mErr;
+
       const ids = (memberships ?? []).map((m) => m.brand_id);
       if (ids.length === 0)
         return {
@@ -728,7 +730,7 @@ export const addExistingUserToBrand = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => AddExistingInput.parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    // Autorização canônica (super_admin, admin global, owner, manager).
+    // Autorização canônica (super_admin, owner/ADMIN, manager do workspace).
     try {
       await assertBrandAdmin(supabase, userId, data.brandId);
     } catch {
@@ -816,7 +818,7 @@ export const addPerson = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
-    // Autorização canônica: super_admin, admin global, owner ou manager.
+    // Autorização canônica: super_admin, owner/ADMIN ou manager do workspace.
     try {
       await assertBrandAdmin(supabase, userId, data.brandId);
     } catch {

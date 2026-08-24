@@ -140,6 +140,44 @@ export async function assertClientScope(
   if (data !== true) throw new Error("Forbidden: cliente fora do seu escopo");
 }
 
+/**
+ * Exige que o PROJETO esteja no escopo do usuário — herança
+ * workspace → cliente → projeto (fonte canônica: `can_access_project`).
+ *
+ * Use sempre que uma server function receber `projectId` do frontend antes de
+ * qualquer leitura/escrita privilegiada.
+ */
+export async function assertProjectScope(
+  supabase: RpcClient,
+  userId: string,
+  projectId: string,
+): Promise<void> {
+  const { data, error } = await callRpc(supabase, "can_access_project", {
+    _project_id: projectId,
+    _user_id: userId,
+  });
+  if (error) throw error;
+  if (data !== true) throw new Error("Forbidden: projeto fora do seu escopo");
+}
+
+/**
+ * Exige que a TAREFA esteja no escopo do usuário — herança
+ * workspace → cliente → projeto → tarefa (fonte canônica: `can_access_task`).
+ */
+export async function assertTaskScope(
+  supabase: RpcClient,
+  userId: string,
+  taskId: string,
+): Promise<void> {
+  const { data, error } = await callRpc(supabase, "can_access_task", {
+    _task_id: taskId,
+    _user_id: userId,
+  });
+  if (error) throw error;
+  if (data !== true) throw new Error("Forbidden: tarefa fora do seu escopo");
+}
+
+
 /* ------------------------------------------------------------------ */
 /* Escopo de clientes (contexto canônico)                             */
 /* ------------------------------------------------------------------ */

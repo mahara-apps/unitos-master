@@ -144,14 +144,45 @@ describe("SLA de etapa (content_pipeline_stages)", () => {
     expect(del.data ?? []).toHaveLength(0);
   });
 
-  it("manager altera etapa da própria marca", async () => {
-    const { data, error } = await fx!.userManager.client
+  it("admin altera etapa da própria marca; manager só com cliente atribuído", async () => {
+    const asAdmin = await fx!.userOwner.client
       .from("content_pipeline_stages")
       .update({ label: "Etapa QA", sla_days: 3 })
       .eq("id", stageId)
       .select("id");
-    expect(error).toBeNull();
-    expect(data?.length).toBe(1);
+    expect(asAdmin.error).toBeNull();
+    expect(asAdmin.data?.length).toBe(1);
+
+    // Fase 1 RBAC: pipeline pertence ao clientA; manager sem vínculo não alcança.
+    const denied = await fx!.userManager.client
+      .from("content_pipeline_stages")
+      .update({ label: "Etapa Manager" })
+      .eq("id", stageId)
+      .select("id");
+    expect(denied.error).toBeNull();
+    expect(denied.data ?? []).toHaveLength(0);
+
+    const link = await admin.from("client_members").insert({
+      brand_id: fx!.brandId,
+      client_id: fx!.clientA,
+      user_id: fx!.userManager.id,
+      role: "manager",
+    });
+    expect(link.error).toBeNull();
+
+    const allowed = await fx!.userManager.client
+      .from("content_pipeline_stages")
+      .update({ label: "Etapa QA", sla_days: 3 })
+      .eq("id", stageId)
+      .select("id");
+    expect(allowed.error).toBeNull();
+    expect(allowed.data?.length).toBe(1);
+
+    await admin
+      .from("client_members")
+      .delete()
+      .eq("client_id", fx!.clientA)
+      .eq("user_id", fx!.userManager.id);
   });
 
   it("cross-brand: manager não altera etapa de outra marca", async () => {
