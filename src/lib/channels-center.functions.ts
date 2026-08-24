@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertClientScope } from "@/lib/access-guard";
 
 /**
  * Central de Canais — leituras/auditoria de apresentação.
@@ -137,6 +138,15 @@ export const recordChannelEventFn = createServerFn({ method: "POST" })
       .eq("id", data.brandId)
       .maybeSingle();
     if (error || !brand) return { ok: false };
+
+    // Nunca confiar no `clientId` vindo do frontend antes do bypass de RLS.
+    if (data.clientId) {
+      try {
+        await assertClientScope(context.supabase as never, context.userId, data.clientId);
+      } catch {
+        return { ok: false };
+      }
+    }
 
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
