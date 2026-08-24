@@ -119,6 +119,7 @@ beforeAll(async () => {
       user_id: fx.userB.id,
       kind: "copilot_draft",
       status: "queued",
+      title: "PE Job B",
     })
     .select("id")
     .single();
@@ -180,6 +181,7 @@ describe("1. USER — cliente não atribuído", () => {
       user_id: fx.userA.id,
       kind: "copilot_draft",
       status: "queued",
+      title: "forjado",
     });
     expect(job.error).not.toBeNull();
   });
