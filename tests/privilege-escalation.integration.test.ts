@@ -52,7 +52,10 @@ beforeAll(async () => {
   superAdmin = await createUser("super");
   const p = await admin
     .from("user_profiles")
-    .upsert({ id: superAdmin.id, is_super_admin: true }, { onConflict: "id" });
+    .upsert(
+      { id: superAdmin.id, full_name: "QA Super", is_super_admin: true },
+      { onConflict: "id" },
+    );
   if (p.error) throw new Error(`super admin flag: ${p.error.message}`);
 
   const projects = await admin
