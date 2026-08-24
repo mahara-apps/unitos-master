@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { guardClientScope } from "@/lib/http-scope.server";
 import { createClient } from "@supabase/supabase-js";
 import { generateText, NoObjectGeneratedError, Output } from "ai";
 import { z } from "zod";
@@ -189,7 +190,12 @@ export const Route = createFileRoute("/api/jobs/analyze-document")({
 
         const supabase = buildUserClient(token);
         const { data: claims } = await supabase.auth.getClaims(token);
-        if (!claims?.claims?.sub) return new Response("Unauthorized", { status: 401 });
+        const userId = claims?.claims?.sub;
+        if (!userId) return new Response("Unauthorized", { status: 401 });
+
+        // Fase 2: escopo de cliente validado antes de baixar o documento.
+        const denied = await guardClientScope(supabase, userId, parsed.data.clientId);
+        if (denied) return denied;
 
         await (
           supabase as unknown as {
