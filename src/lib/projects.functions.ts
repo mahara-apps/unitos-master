@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { loadStageMap, effectiveStage } from "@/lib/post-stage.server";
+import { assertBrandMember, assertClientInBrand, assertProjectScope } from "@/lib/access-guard";
 
 const ProjectStatus = z.enum(["planning", "active", "in_progress", "paused", "done", "archived"]);
 
@@ -306,6 +307,16 @@ export const createProject = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const v = data.values;
+    await assertBrandMember(context.supabase as never, context.userId, data.brandId);
+    if (v.client_id) {
+      // Bloqueia par forjado (brand A + client B) e cliente fora do escopo.
+      await assertClientInBrand(
+        context.supabase as never,
+        context.userId,
+        data.brandId,
+        v.client_id,
+      );
+    }
     const { data: row, error } = await context.supabase
       .from("projects")
       .insert({
@@ -326,6 +337,13 @@ export const createProject = createServerFn({ method: "POST" })
     return { id: (row as { id: string }).id };
   });
 
+/** RLS não erra em UPDATE/DELETE sem linhas: falha explícita evita "sucesso" falso. */
+function assertAffected(rows: unknown, action: string): void {
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error(`Forbidden: projeto fora do seu escopo (${action})`);
+  }
+}
+
 export const updateProject = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) =>
@@ -338,12 +356,22 @@ export const updateProject = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
+    if (data.patch.client_id) {
+      await assertClientInBrand(
+        context.supabase as never,
+        context.userId,
+        data.brandId,
+        data.patch.client_id,
+      );
+    }
+    const { data: rows, error } = await context.supabase
       .from("projects")
       .update(data.patch as never)
       .eq("id", data.projectId)
-      .eq("brand_id", data.brandId);
+      .eq("brand_id", data.brandId)
+      .select("id");
     if (error) throw error;
+    assertAffected(rows, "atualizar");
     return { ok: true };
   });
 
@@ -353,12 +381,14 @@ export const archiveProject = createServerFn({ method: "POST" })
     z.object({ brandId: z.string().uuid(), projectId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
+    const { data: rows, error } = await context.supabase
       .from("projects")
       .update({ status: "archived" } as never)
       .eq("id", data.projectId)
-      .eq("brand_id", data.brandId);
+      .eq("brand_id", data.brandId)
+      .select("id");
     if (error) throw error;
+    assertAffected(rows, "arquivar");
     return { ok: true };
   });
 
@@ -368,17 +398,21 @@ export const deleteProject = createServerFn({ method: "POST" })
     z.object({ brandId: z.string().uuid(), projectId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    // unlink posts to avoid FK issues
+    // Escopo antes de qualquer efeito colateral (desvincular posts).
+    await assertProjectScope(context.supabase as never, context.userId, data.projectId);
     await context.supabase
       .from("posts")
       .update({ project_id: null } as never)
       .eq("brand_id", data.brandId)
       .eq("project_id", data.projectId);
-    const { error } = await context.supabase
+    const { data: rows, error } = await context.supabase
       .from("projects")
       .delete()
       .eq("id", data.projectId)
-      .eq("brand_id", data.brandId);
+      .eq("brand_id", data.brandId)
+      .select("id");
     if (error) throw error;
+    assertAffected(rows, "excluir");
     return { ok: true };
   });
+

@@ -63,7 +63,8 @@ export const listTeamMembersFn = createServerFn({ method: "POST" })
   .inputValidator((i: unknown) => BrandInput.parse(i))
   .handler(async ({ data, context }): Promise<{ members: TeamMember[]; myRole: string | null }> => {
     const { supabase, userId } = context;
-    const myRole = await resolveAuthorityRole(supabase, userId, data.brandId);
+    // Tela administrativa: expõe e-mail/telefone/flags — exige autoridade admin.
+    const myRole = await assertBrandAdmin(supabase as never, userId, data.brandId);
 
     const { data: rows, error } = await supabase
       .from("brand_members")

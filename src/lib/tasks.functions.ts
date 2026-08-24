@@ -362,8 +362,13 @@ export const updateTaskFn = createServerFn({ method: "POST" })
     } else if (patch.done === false) {
       patch.done_at = null;
     }
-    const { error } = await context.supabase.from("tasks").update(patch).eq("id", data.taskId);
+    const { data: rows, error } = await context.supabase
+      .from("tasks")
+      .update(patch)
+      .eq("id", data.taskId)
+      .select("id");
     if (error) throw error;
+    if (!rows || rows.length === 0) throw new Error("Forbidden: tarefa fora do seu escopo");
     return { ok: true };
   });
 
@@ -371,8 +376,14 @@ export const deleteTaskFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => z.object({ taskId: z.string().uuid() }).parse(i))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("tasks").delete().eq("id", data.taskId);
+    await assertTaskScope(context.supabase as never, context.userId, data.taskId);
+    const { data: rows, error } = await context.supabase
+      .from("tasks")
+      .delete()
+      .eq("id", data.taskId)
+      .select("id");
     if (error) throw error;
+    if (!rows || rows.length === 0) throw new Error("Forbidden: tarefa fora do seu escopo");
     return { ok: true };
   });
 
@@ -383,11 +394,13 @@ export const setTaskArchivedFn = createServerFn({ method: "POST" })
     z.object({ taskId: z.string().uuid(), archived: z.boolean() }).parse(i),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
+    const { data: rows, error } = await context.supabase
       .from("tasks")
       .update({ archived_at: data.archived ? new Date().toISOString() : null })
-      .eq("id", data.taskId);
+      .eq("id", data.taskId)
+      .select("id");
     if (error) throw error;
+    if (!rows || rows.length === 0) throw new Error("Forbidden: tarefa fora do seu escopo");
     return { ok: true };
   });
 
