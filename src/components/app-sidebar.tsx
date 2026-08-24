@@ -59,6 +59,7 @@ import { canAccessSidebarUrl } from "@/lib/permissions";
 import { useBrandFeatures } from "@/hooks/use-feature-access";
 import { useIsSuperAdmin } from "@/hooks/use-feature-access";
 import { ShieldAlert } from "lucide-react";
+import { resetIdentityState } from "@/lib/session-reset";
 
 type NavItem = {
   title: string;
@@ -310,6 +311,7 @@ export function AppSidebar() {
 
 function UserProfileMenu() {
   useSidebar();
+  const queryClient = useQueryClient();
   const fetchProfile = useServerFn(getMyProfile);
   const { data: profile } = useQuery({
     queryKey: ["me", "profile"],
@@ -382,6 +384,7 @@ function UserProfileMenu() {
           type="button"
           onClick={async () => {
             await supabase.auth.signOut();
+            resetIdentityState(queryClient);
             window.location.href = "/login";
           }}
           className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"
