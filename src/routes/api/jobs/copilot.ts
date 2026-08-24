@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { guardClientScope } from "@/lib/http-scope.server";
 import { waitUntil } from "@/lib/wait-until.server";
 import { createClient } from "@supabase/supabase-js";
 import { generateText } from "ai";
@@ -230,6 +231,11 @@ export const Route = createFileRoute("/api/jobs/copilot")({
         const { data: claims } = await supabase.auth.getClaims(token);
         const userId = claims?.claims?.sub;
         if (!userId) return new Response("Unauthorized", { status: 401 });
+
+        // Fase 2: nunca confiar no `clientId` do corpo — valida escopo antes
+        // de qualquer trabalho com configuração administrativa de IA.
+        const denied = await guardClientScope(supabase, userId, input.clientId);
+        if (denied) return denied;
 
         const title = input.briefing.split("\n")[0].slice(0, 80) || "AI Draft";
         const { data: job, error: jobErr } = await supabase

@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { guardClientScope } from "@/lib/http-scope.server";
 import { waitUntil } from "@/lib/wait-until.server";
 import { createClient } from "@supabase/supabase-js";
 import { generateText } from "ai";
@@ -1064,6 +1065,13 @@ export const Route = createFileRoute("/api/jobs/customer-pipeline")({
         const { data: claims } = await supabase.auth.getClaims(token);
         const userId = claims?.claims?.sub;
         if (!userId) return new Response("Unauthorized", { status: 401 });
+
+        // --- Início: valida escopo do cliente antes de enfileirar ---
+        const start = StartSchema.safeParse(raw);
+        if (start.success) {
+          const denied = await guardClientScope(supabase, userId, start.data.clientId);
+          if (denied) return denied;
+        }
 
         // --- Continuação de etapa (chamada interna) ---
         const cont = ContinueSchema.safeParse(raw);
