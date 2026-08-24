@@ -214,11 +214,17 @@ describe("papel canônico (fonte única de autoridade)", () => {
 });
 
 describe("escopo de leitura (SELECT via RLS)", () => {
-  it("ADMIN e MANAGER enxergam todos os clientes da marca", async () => {
+  it("ADMIN cobre a marca inteira; MANAGER só os clientes atribuídos", async () => {
     const expected = [cx.clientFree, cx.clientOfUser, cx.clientOfManager].sort();
     expect(await visibleClients(cx.owner.client, cx.brandId)).toEqual(expected);
-    expect(await visibleClients(cx.manager.client, cx.brandId)).toEqual(expected);
+    // Fase 1 RBAC: MANAGER tem autoridade administrativa, mas escopo de DADOS
+    // restrito aos clientes atribuídos.
+    const mgr = await visibleClients(cx.manager.client, cx.brandId);
+    expect(mgr).toContain(cx.clientOfManager);
+    expect(mgr).not.toContain(cx.clientOfUser);
+    expect(mgr).not.toContain(cx.clientFree);
   });
+
 
   it("USER limitado ao escopo (somente clientes vinculados)", async () => {
     const ids = await visibleClients(cx.user.client, cx.brandId);
