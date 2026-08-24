@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertBrandAdmin, assertBrandMember, assertClientInBrand } from "@/lib/access-guard";
 import { getBrandAiModel } from "./ai-provider.server";
 import { generateText } from "ai";
 import { renderPrompt } from "./agent-variables";
@@ -41,6 +42,9 @@ export const listAgentPromptsFn = createServerFn({ method: "POST" })
     z.object({ brandId: z.string().uuid().nullable().optional() }).parse(i ?? {}),
   )
   .handler(async ({ data, context }): Promise<AgentPromptRow[]> => {
+    if (data.brandId) {
+      await assertBrandMember(context.supabase as never, context.userId, data.brandId);
+    }
     const { data: catalog, error } = await context.supabase.rpc("list_agent_catalog");
     if (error) throw error;
 
@@ -89,6 +93,8 @@ export const updateAgentPromptFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
+    // Prompt de agente é configuração do workspace: só nível administrativo.
+    await assertBrandAdmin(context.supabase as never, context.userId, data.brandId);
     const { error } = await context.supabase.from("agent_prompt_overrides").upsert(
       {
         brand_id: data.brandId,
@@ -112,6 +118,7 @@ export const resetAgentPromptFn = createServerFn({ method: "POST" })
     z.object({ brandId: z.string().uuid(), agentId: z.string().min(1) }).parse(i),
   )
   .handler(async ({ data, context }) => {
+    await assertBrandAdmin(context.supabase as never, context.userId, data.brandId);
     const { error } = await context.supabase
       .from("agent_prompt_overrides")
       .delete()
@@ -133,6 +140,15 @@ export const listAgentJobsFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }): Promise<AgentJobRow[]> => {
+    await assertBrandMember(context.supabase as never, context.userId, data.brandId);
+    if (data.clientId) {
+      await assertClientInBrand(
+        context.supabase as never,
+        context.userId,
+        data.brandId,
+        data.clientId,
+      );
+    }
     let q = context.supabase
       .from("ai_jobs")
       .select(
@@ -168,6 +184,8 @@ export const runAgentPlaygroundFn = createServerFn({ method: "POST" })
       .parse(i),
   )
   .handler(async ({ data, context }) => {
+    // Playground consome orçamento/config de IA do workspace: exige membro.
+    await assertBrandMember(context.supabase as never, context.userId, data.brandId);
     // Preferência: override da marca (visível ao usuário).
     const { data: ov, error: ovErr } = await context.supabase
       .from("agent_prompt_overrides")

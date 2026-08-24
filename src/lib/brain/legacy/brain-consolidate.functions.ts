@@ -3,6 +3,9 @@
 // use o namespace `brain` exportado em `src/lib/brain/api.ts`.
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertBrandAdmin } from "../../access-guard";
+import { assertSuperAdmin } from "../../super-admin";
 import { generateText } from "ai";
 import { getBrandAiModel } from "../../ai-provider.server";
 
@@ -14,8 +17,18 @@ const Input = z.object({ brandId: z.string().uuid().nullable().optional() });
  * patterns into 3-6 insights. Writes with the admin client (bypasses RLS).
  */
 export const brainConsolidateFn = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => Input.parse(i ?? {}))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    // Fase 3: a consolidação escreve com service role (bypassa RLS), então a
+    // autorização precisa acontecer ANTES. Um `brandId` do frontend nunca
+    // autoriza: exige nível administrativo naquele workspace. A varredura
+    // global (sem brandId) é operação de plataforma → só SUPER ADMIN.
+    if (data.brandId) {
+      await assertBrandAdmin(context.supabase as never, context.userId, data.brandId);
+    } else {
+      await assertSuperAdmin(context.supabase as never, context.userId);
+    }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const targetBrands: string[] = [];

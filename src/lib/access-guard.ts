@@ -126,6 +126,54 @@ export async function assertCanGrantBrandRole(
   }
 }
 
+/**
+ * Exige que o usuário PERTENÇA ao workspace (qualquer papel interno) — fonte
+ * canônica `app_access_role`. Usar antes de qualquer operação privilegiada
+ * (supabaseAdmin/config de IA) que receba `brandId` do frontend: sem isto o
+ * ID enviado pelo cliente seria a única "autorização".
+ */
+export async function assertBrandMember(
+  supabase: RpcClient,
+  userId: string,
+  brandId: string,
+): Promise<AuthorityRole> {
+  if (!brandId) throw new Error("Forbidden: workspace obrigatório");
+  const role = await resolveAuthorityRole(supabase, userId, brandId);
+  const allowed: readonly AuthorityRole[] = ["super_admin", "admin", "manager", "user"];
+  if (!role || !allowed.includes(role)) {
+    throw new Error("Forbidden: você não pertence a este workspace");
+  }
+  return role;
+}
+
+/**
+ * Bloqueia pares cross-workspace forjados (`brandId` de A + `clientId` de B):
+ * o cliente precisa existir DENTRO do workspace informado e no escopo do
+ * usuário (a leitura passa pela RLS de `clients`).
+ */
+export async function assertClientInBrand(
+  supabase: RpcClient & { from: unknown },
+  userId: string,
+  brandId: string,
+  clientId: string,
+): Promise<void> {
+  await assertClientScope(supabase, userId, clientId);
+  const q = (supabase as unknown as {
+    from: (t: string) => {
+      select: (c: string) => {
+        eq: (k: string, v: string) => {
+          eq: (k: string, v: string) => {
+            maybeSingle: () => Promise<{ data: { id: string } | null; error: unknown }>;
+          };
+        };
+      };
+    };
+  }).from("clients");
+  const { data, error } = await q.select("id").eq("id", clientId).eq("brand_id", brandId).maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Forbidden: cliente não pertence a este workspace");
+}
+
 /** Exige que o cliente esteja no escopo do usuário (mesma regra da RLS). */
 export async function assertClientScope(
   supabase: RpcClient,

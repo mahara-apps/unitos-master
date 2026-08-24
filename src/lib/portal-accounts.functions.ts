@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertBrandAdmin, assertClientInBrand } from "@/lib/access-guard";
 
 /**
  * Fase C — contas de acesso por login do portal do cliente.
@@ -62,27 +63,21 @@ async function loadClient(
 
 async function assertCanManage(
   context: {
-    supabase: { rpc: (fn: string, a: Record<string, unknown>) => Promise<{ data: unknown }> };
+    supabase: {
+      rpc: (fn: string, a: Record<string, unknown>) => Promise<{ data: unknown }>;
+      from: unknown;
+    };
   },
   brandId: string,
   userId: string,
+  clientId?: string,
 ): Promise<void> {
-  const [owner, manager] = await Promise.all([
-    context.supabase.rpc("has_brand_role", {
-      _brand_id: brandId,
-      _user_id: userId,
-      _role: "owner",
-    }),
-    context.supabase.rpc("has_brand_role", {
-      _brand_id: brandId,
-      _user_id: userId,
-      _role: "manager",
-    }),
-  ]);
-  if (owner.data !== true && manager.data !== true) {
-    throw new Error(
-      "forbidden: só owner ou manager do workspace pode gerenciar o acesso do cliente.",
-    );
+  // Fonte canônica (Fase 3): `app_access_role` — reconhece SUPER ADMIN e não
+  // cria hierarquia paralela via `has_brand_role`. Escopo de cliente é
+  // validado à parte porque MANAGER só alcança clientes atribuídos.
+  await assertBrandAdmin(context.supabase as never, userId, brandId);
+  if (clientId) {
+    await assertClientInBrand(context.supabase as never, userId, brandId, clientId);
   }
 }
 
@@ -190,7 +185,7 @@ export const createPortalAccountFn = createServerFn({ method: "POST" })
     async ({ data, context }): Promise<{ email: string; tempPassword: string; userId: string }> => {
       const { supabase, userId } = context;
       const client = await loadClient(supabase as never, data.clientId);
-      await assertCanManage(context as never, client.brand_id, userId);
+      await assertCanManage(context as never, client.brand_id, userId, client.id);
 
       const email = (data.email ?? client.contact_email ?? "").trim().toLowerCase();
       if (!isUsableEmail(email)) {
@@ -281,7 +276,7 @@ export const resetPortalAccountPasswordFn = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<{ email: string; tempPassword: string }> => {
     const { supabase, userId } = context;
     const client = await loadClient(supabase as never, data.clientId);
-    await assertCanManage(context as never, client.brand_id, userId);
+    await assertCanManage(context as never, client.brand_id, userId, client.id);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: rows } = await (
