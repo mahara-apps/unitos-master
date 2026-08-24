@@ -543,11 +543,13 @@ export const getDashboardStats = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => BrandInput.parse(input))
   .handler(async ({ data, context }) => {
-    // Defesa em profundidade: o clientId vem do frontend, então o escopo é
-    // revalidado no servidor (a RLS já filtra as linhas, aqui falhamos alto
-    // em vez de devolver um dashboard zerado e enganoso).
+    // Defesa em profundidade: brandId/clientId vêm do contexto ativo do
+    // frontend. Exigimos pertencimento ao workspace e, quando há cliente
+    // selecionado, que ele pertença a ESTE workspace e ao escopo do usuário
+    // (bloqueia pares cross-workspace residuais).
+    await assertBrandMember(context.supabase, context.userId, data.brandId);
     if (data.clientId) {
-      await assertClientScope(context.supabase, context.userId, data.clientId);
+      await assertClientInBrand(context.supabase, context.userId, data.brandId, data.clientId);
     }
     return computeStats(context, data.brandId, data.clientId ?? null, data.range);
   });
