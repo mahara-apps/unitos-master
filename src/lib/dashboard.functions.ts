@@ -1262,6 +1262,7 @@ export const searchWorkspace = createServerFn({ method: "POST" })
     z.object({ brandId: z.string().uuid(), q: z.string().trim().min(1).max(80) }).parse(input),
   )
   .handler(async ({ data, context }) => {
+    await assertBrandMember(context.supabase, context.userId, data.brandId);
     const like = `%${data.q}%`;
     const [clients, projects, tasks, posts] = await Promise.all([
       ignore(
