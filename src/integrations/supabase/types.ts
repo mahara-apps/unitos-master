@@ -6257,6 +6257,10 @@ export type Database = {
           publish_attempts: number
         }[]
       }
+      client_in_scope: {
+        Args: { _brand_id: string; _client_id: string }
+        Returns: boolean
+      }
       consolidate_brain_memory: {
         Args: { _brand_id?: string }
         Returns: number
@@ -6332,6 +6336,10 @@ export type Database = {
       }
       is_brand_member: {
         Args: { _brand_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_client_assigned: {
+        Args: { _client_id: string; _user_id: string }
         Returns: boolean
       }
       is_global_admin: { Args: { _user_id: string }; Returns: boolean }
