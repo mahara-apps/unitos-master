@@ -15,8 +15,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { QueryPersistence } from "@/lib/query-persistence";
-import { clearCachedUser } from "@/lib/auth-cache";
-import { clearAccessCaches } from "@/lib/access-cache";
+import { resetIdentityState } from "@/lib/session-reset";
 
 function NotFoundComponent() {
   return (
@@ -157,10 +156,10 @@ function RootComponent() {
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-      clearCachedUser();
-      clearAccessCaches();
+      // Transição de identidade: descarta cache/estado local do usuário
+      // anterior antes de revalidar as rotas.
+      resetIdentityState(queryClient);
       router.invalidate();
-      if (event !== "SIGNED_OUT") queryClient.invalidateQueries();
     });
     return () => data.subscription.unsubscribe();
   }, [router, queryClient]);

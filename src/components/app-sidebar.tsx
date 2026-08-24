@@ -382,6 +382,7 @@ function UserProfileMenu() {
           type="button"
           onClick={async () => {
             await supabase.auth.signOut();
+            resetIdentityState(queryClient);
             window.location.href = "/login";
           }}
           className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-rose-600 hover:bg-rose-500/10 dark:text-rose-400"

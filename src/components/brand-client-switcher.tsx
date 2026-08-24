@@ -36,6 +36,7 @@ import { toast } from "sonner";
 import { CustomerAvatar } from "@/components/customer/customer-avatar";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { QuickCreateCustomerDrawer } from "@/components/customer/quick-create-customer-drawer";
+import { resetScopeCache } from "@/lib/session-reset";
 
 export function ContextSwitcher() {
   const { brandId, clientId, setBrandId, setClientId } = useActiveContext();
@@ -91,7 +92,7 @@ export function ContextSwitcher() {
         await navigate({ to: "/customers/$customerId", params: { customerId: id }, replace: true });
       }
     }
-    await qc.invalidateQueries();
+    await resetScopeCache(qc);
   };
 
   const handleSelectAllClients = async () => {
@@ -100,7 +101,7 @@ export function ContextSwitcher() {
     if (customerMatch) {
       await navigate({ to: "/customers", replace: true });
     }
-    await qc.invalidateQueries();
+    await resetScopeCache(qc);
   };
 
   const handleSelectBrand = async (id: string) => {
@@ -109,7 +110,7 @@ export function ContextSwitcher() {
     if (customerMatch) {
       await navigate({ to: "/dashboard", replace: true });
     }
-    await qc.invalidateQueries();
+    await resetScopeCache(qc);
   };
 
   const createMut = useMutation({
@@ -117,7 +118,7 @@ export function ContextSwitcher() {
     onSuccess: async (b) => {
       await qc.invalidateQueries({ queryKey: ["brands"] });
       setBrandId(b.id);
-      await qc.invalidateQueries();
+      await resetScopeCache(qc);
       toast.success("Workspace criado", {
         description: "Cadastre seu primeiro cliente para começar.",
       });
