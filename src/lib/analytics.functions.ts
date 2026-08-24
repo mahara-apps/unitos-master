@@ -96,8 +96,8 @@ export const getAnalytics = createServerFn({ method: "POST" })
     if (data.client_id) {
       data.client_ids = [data.client_id];
     }
-    // Membership check — fonte canônica `is_brand_member` (cobre super admin,
-    // admin global de `user_profiles.role`, criador e membros ativos da marca).
+    // Membership check — fonte canônica `is_brand_member` (cobre super admin
+    // e membros ativos do workspace; ADMIN não tem autoridade global).
     const { data: isMember } = await (
       supabase.rpc as unknown as (
         f: string,

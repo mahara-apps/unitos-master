@@ -199,8 +199,8 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     // Authorize: caller must be owner or manager of the brand
-    // Autorização canônica: super_admin, admin global (`user_profiles.role`),
-    // owner ou manager da marca.
+    // Autorização canônica: super_admin, ADMIN (owner) ou MANAGER do workspace.
+    // `user_profiles.role='admin'` não concede autoridade global.
     try {
       await assertBrandAdmin(supabase, userId, data.brandId);
     } catch {
