@@ -1,22 +1,26 @@
 import { redirect } from "@tanstack/react-router";
-import { getCachedFeatureEnabled } from "./access-cache";
+import { getCachedFeatureAccess, type FeatureAccessResult } from "./access-cache";
+import { waitForActiveWorkspace } from "./active-workspace";
 
-const BRAND_KEY = "nx.brand";
-
-function readActiveBrandId(): string | null {
-  if (typeof window === "undefined") return null;
-  const v = window.localStorage.getItem(BRAND_KEY);
-  return v && /^[0-9a-f-]{36}$/i.test(v) ? v : null;
-}
+export type { FeatureAccessResult };
 
 /**
  * Bloqueia a navegação para um módulo quando a feature não está habilitada.
  * Uso em `beforeLoad` de rotas — roda client-side (subtree é `ssr: false`).
+ *
+ * O workspace vem do contexto canônico (`active-workspace`, alimentado pelo
+ * `ActiveContextProvider`), não de `localStorage`. Enquanto o contexto não
+ * resolve, aguardamos: ausência de workspace NÃO é ausência de plano.
  */
 export async function ensureFeatureEnabled(featureKey: string): Promise<void> {
-  const brandId = readActiveBrandId();
-  const enabled = await getCachedFeatureEnabled(brandId, featureKey);
-  if (!enabled) {
-    throw redirect({ to: "/dashboard", search: { blocked: featureKey } });
-  }
+  const { brandId } = await waitForActiveWorkspace();
+  const result = await getCachedFeatureAccess(brandId, featureKey);
+  if (result.enabled) return;
+  // Falha de consulta não é bloqueio de plano: o servidor (RLS/guards) segue
+  // sendo a autoridade de cada leitura/escrita dentro da tela.
+  if (result.reason === "entitlement_error") return;
+  throw redirect({
+    to: "/dashboard",
+    search: { blocked: featureKey, reason: result.reason },
+  });
 }
