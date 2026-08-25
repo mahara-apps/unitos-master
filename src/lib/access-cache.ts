@@ -1,5 +1,6 @@
 import { getMyPortalAccessFn, type PortalAccess } from "@/lib/portal-access.functions";
 import { requireFeatureAccess } from "@/lib/feature-flags.functions";
+import { subscribeActiveWorkspace } from "@/lib/active-workspace";
 
 /**
  * Caches de gate de navegação (somente performance — nenhuma regra muda).
@@ -47,7 +48,7 @@ function memo<T>(ttl = TTL_MS) {
 }
 
 const portalAccessCache = memo<PortalAccess | null>();
-const featureGateCache = memo<boolean>();
+const featureGateCache = memo<FeatureAccessResult>();
 
 /**
  * Nenhum gate pode prender a navegação: se a chamada não responder no prazo,
@@ -79,17 +80,48 @@ export function getCachedPortalAccess(): Promise<PortalAccess | null> {
   );
 }
 
-export function getCachedFeatureEnabled(
+export type FeatureAccessReason =
+  | "granted"
+  | "feature_disabled"
+  | "no_workspace"
+  | "entitlement_error";
+
+export type FeatureAccessResult = { enabled: boolean; reason: FeatureAccessReason };
+
+/**
+ * Resolve o entitlement de uma feature para o workspace ativo.
+ *
+ * Regras de cache:
+ *  - sem workspace resolvido: NUNCA cacheia (o negativo não pode sobreviver à
+ *    resolução do contexto);
+ *  - erro/timeout: não cacheia e não é tratado como bloqueio de plano;
+ *  - troca de workspace/identidade: cache limpo (ver `subscribeActiveWorkspace`
+ *    abaixo e `clearAccessCaches`).
+ */
+export function getCachedFeatureAccess(
   brandId: string | null,
   featureKey: string,
-): Promise<boolean> {
-  return featureGateCache.get(`${brandId ?? "none"}:${featureKey}`, () =>
+): Promise<FeatureAccessResult> {
+  if (!brandId) {
+    return Promise.resolve({ enabled: false, reason: "no_workspace" });
+  }
+  return featureGateCache.get(`${brandId}:${featureKey}`, () =>
     withTimeout(
       requireFeatureAccess({ data: { brandId, featureKey } })
-        .then(({ enabled }) => enabled)
-        .catch(() => true),
-      true,
-    ),
+        .then(({ enabled, reason }): FeatureAccessResult => {
+          if (enabled) return { enabled: true, reason: "granted" };
+          return {
+            enabled: false,
+            reason: reason === "no_brand" ? "no_workspace" : "feature_disabled",
+          };
+        })
+        .catch((): FeatureAccessResult => ({ enabled: true, reason: "entitlement_error" })),
+      { enabled: true, reason: "entitlement_error" } as FeatureAccessResult,
+    ).then((r) => ({
+      ...r,
+      // resultado provisório/erro não fica preso no TTL
+      cache: r.cache !== false && r.value.reason !== "entitlement_error",
+    })),
   );
 }
 
@@ -98,3 +130,11 @@ export function clearAccessCaches(): void {
   portalAccessCache.clear();
   featureGateCache.clear();
 }
+
+/**
+ * Qualquer mudança do workspace ativo (login, logout, troca de identidade,
+ * troca de workspace) invalida os entitlements memorizados.
+ */
+subscribeActiveWorkspace(() => {
+  featureGateCache.clear();
+});

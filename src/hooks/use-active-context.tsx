@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { markActiveWorkspaceUnresolved, publishActiveWorkspace } from "@/lib/active-workspace";
 
 type ActiveContextValue = {
   brandId: string | null;
@@ -33,14 +34,37 @@ export function ActiveContextProvider({ children }: { children: ReactNode }) {
   const [brandId, setBrandIdState] = useState<string | null>(null);
   const [clientId, setClientIdState] = useState<string | null>(null);
 
+  // Hidratação: `localStorage` é apenas preferência persistida. Só marcamos o
+  // workspace como "resolvido" quando existe um valor; caso contrário o
+  // contexto continua indefinido até o switcher resolver a lista real.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setBrandIdState(readUuid(BRAND_KEY));
+    const persisted = readUuid(BRAND_KEY);
+    setBrandIdState(persisted);
     setClientIdState(readUuid(CLIENT_KEY));
+    if (persisted) publishActiveWorkspace(persisted, true);
+  }, []);
+
+  /**
+   * Transição de identidade (`resetIdentityState`): o estado local é limpo e o
+   * workspace volta a ser indefinido — o contexto é reconstruído a partir dos
+   * workspaces reais do usuário atual, sem herdar o anterior.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onReset = () => {
+      setBrandIdState(null);
+      setClientIdState(null);
+      markActiveWorkspaceUnresolved();
+    };
+    window.addEventListener("nx:identity-reset", onReset);
+    return () => window.removeEventListener("nx:identity-reset", onReset);
   }, []);
 
   const setBrandId = useCallback((id: string | null) => {
     setBrandIdState(id);
+    // Contexto canônico primeiro; persistência é auxiliar.
+    publishActiveWorkspace(id, true);
     if (typeof window === "undefined") return;
     if (id) localStorage.setItem(BRAND_KEY, id);
     else localStorage.removeItem(BRAND_KEY);

@@ -37,6 +37,7 @@ import { CustomerAvatar } from "@/components/customer/customer-avatar";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { QuickCreateCustomerDrawer } from "@/components/customer/quick-create-customer-drawer";
 import { resetScopeCache } from "@/lib/session-reset";
+import { publishActiveWorkspace } from "@/lib/active-workspace";
 
 export function ContextSwitcher() {
   const { brandId, clientId, setBrandId, setClientId } = useActiveContext();
@@ -139,7 +140,13 @@ export function ContextSwitcher() {
       setBrandId(brands.length > 0 ? brands[0].id : null);
       return;
     }
-    if (!brandId && brands.length > 0) setBrandId(brands[0].id);
+    if (!brandId && brands.length > 0) {
+      setBrandId(brands[0].id);
+      return;
+    }
+    // Usuário sem nenhum workspace: o contexto está resolvido (e vazio) — o
+    // feature gate precisa saber disso para não ficar aguardando.
+    if (!brandId && brands.length === 0) publishActiveWorkspace(null, true);
   }, [brandId, brandsQ.data, setBrandId]);
 
   const activeBrand = brandsQ.data?.find((b) => b.id === brandId) ?? null;
