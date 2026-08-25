@@ -132,13 +132,16 @@ export const Route = createFileRoute("/api/public/approval/$token")({
         });
         if (rate.blocked) return tooMany(rate.retryAfter);
 
-        const { data, error } = await db.rpc("card_approval_public_decide" as never, {
-          _token: params.token,
-          _verb: verb,
-          _comment: body.comment?.slice(0, 2000) ?? null,
-          _ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
-          _ua: request.headers.get("user-agent") ?? null,
-        } as never);
+        const { data, error } = await db.rpc(
+          "card_approval_public_decide" as never,
+          {
+            _token: params.token,
+            _verb: verb,
+            _comment: body.comment?.slice(0, 2000) ?? null,
+            _ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+            _ua: request.headers.get("user-agent") ?? null,
+          } as never,
+        );
         if (error) return noStore(new Response("decision failed", { status: 500 }));
 
         const result = (data ?? {}) as { ok?: boolean; reason?: string; status?: number };

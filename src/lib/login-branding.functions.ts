@@ -59,7 +59,6 @@ export const getLoginLogoFn = createServerFn({ method: "GET" }).handler(async ()
       brand = rows[0] ?? null;
     }
 
-
     if (!brand?.login_logo_url) return empty;
 
     const path = brand.login_logo_url;

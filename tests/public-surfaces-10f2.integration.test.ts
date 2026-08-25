@@ -50,13 +50,16 @@ async function makeToken(
 type Decision = { ok?: boolean; reason?: string; status?: number };
 
 async function decide(token: string, verb = "approved", comment: string | null = null) {
-  const { data, error } = await admin.rpc("card_approval_public_decide" as never, {
-    _token: token,
-    _verb: verb,
-    _comment: comment,
-    _ip: null,
-    _ua: "vitest",
-  } as never);
+  const { data, error } = await admin.rpc(
+    "card_approval_public_decide" as never,
+    {
+      _token: token,
+      _verb: verb,
+      _comment: comment,
+      _ip: null,
+      _ua: "vitest",
+    } as never,
+  );
   if (error) throw new Error(`rpc: ${error.message}`);
   return (data ?? {}) as Decision;
 }
@@ -186,19 +189,25 @@ describe("superfícies públicas — RPCs não expostas a anon/authenticated", (
   it("anon não executa a decisão pública", async () => {
     const { anonClient } = await import("./helpers/fixtures");
     const c = anonClient();
-    const { error } = await c.rpc("card_approval_public_decide" as never, {
-      _token: "qa-10f2-anon",
-      _verb: "approved",
-    } as never);
+    const { error } = await c.rpc(
+      "card_approval_public_decide" as never,
+      {
+        _token: "qa-10f2-anon",
+        _verb: "approved",
+      } as never,
+    );
     expect(error).not.toBeNull();
   });
 
   it("anon não executa o rate limit interno", async () => {
     const { anonClient } = await import("./helpers/fixtures");
     const c = anonClient();
-    const { error } = await c.rpc("public_surface_rate_hit" as never, {
-      _key: "qa-10f2-anon-key-0000",
-    } as never);
+    const { error } = await c.rpc(
+      "public_surface_rate_hit" as never,
+      {
+        _key: "qa-10f2-anon-key-0000",
+      } as never,
+    );
     expect(error).not.toBeNull();
   });
 });
@@ -212,12 +221,15 @@ describe("rate limit de superfície pública", () => {
 
   it("libera abaixo do limite e bloqueia acima, com retry_after", async () => {
     const hit = () =>
-      admin.rpc("public_surface_rate_hit" as never, {
-        _key: key,
-        _max: 3,
-        _window_seconds: 300,
-        _block_seconds: 60,
-      } as never);
+      admin.rpc(
+        "public_surface_rate_hit" as never,
+        {
+          _key: key,
+          _max: 3,
+          _window_seconds: 300,
+          _block_seconds: 60,
+        } as never,
+      );
     for (let i = 0; i < 3; i++) {
       const { data } = await hit();
       expect((data as { blocked: boolean }).blocked).toBe(false);
@@ -267,9 +279,12 @@ describe("logo de login — escopo do asset", () => {
 
 describe("share_token do plano de mídia — vínculo estrutural", () => {
   it("token inexistente não resolve plano", async () => {
-    const { data, error } = await admin.rpc("media_plan_public_resolve" as never, {
-      _token: `qa-10f2-missing-${crypto.randomUUID()}`,
-    } as never);
+    const { data, error } = await admin.rpc(
+      "media_plan_public_resolve" as never,
+      {
+        _token: `qa-10f2-missing-${crypto.randomUUID()}`,
+      } as never,
+    );
     expect(error).not.toBeNull();
     expect(data).toBeNull();
   });
@@ -286,9 +301,12 @@ describe("share_token do plano de mídia — vínculo estrutural", () => {
       .select("id, share_token")
       .single();
     if (plan.error) throw new Error(plan.error.message);
-    const { data } = await admin.rpc("media_plan_public_resolve" as never, {
-      _token: plan.data.share_token as string,
-    } as never);
+    const { data } = await admin.rpc(
+      "media_plan_public_resolve" as never,
+      {
+        _token: plan.data.share_token as string,
+      } as never,
+    );
     const res = data as { plan: { id: string }; client: { id: string }; brand: { id: string } };
     expect(res.plan.id).toBe(plan.data.id);
     expect(res.client.id).toBe(fx!.clientA);

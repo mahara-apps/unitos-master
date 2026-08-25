@@ -32,12 +32,15 @@ export async function checkPublicRate(
   key: string,
   opts: { max: number; windowSeconds: number; blockSeconds: number },
 ): Promise<RateLimitVerdict> {
-  const { data, error } = await db.rpc("public_surface_rate_hit" as never, {
-    _key: key,
-    _max: opts.max,
-    _window_seconds: opts.windowSeconds,
-    _block_seconds: opts.blockSeconds,
-  } as never);
+  const { data, error } = await db.rpc(
+    "public_surface_rate_hit" as never,
+    {
+      _key: key,
+      _max: opts.max,
+      _window_seconds: opts.windowSeconds,
+      _block_seconds: opts.blockSeconds,
+    } as never,
+  );
   // Falha de infraestrutura não deve derrubar o fluxo legítimo.
   if (error) return { blocked: false, retryAfter: 0 };
   const row = (data ?? {}) as { blocked?: boolean; retry_after?: number };
