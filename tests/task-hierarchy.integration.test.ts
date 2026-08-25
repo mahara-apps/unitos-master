@@ -127,16 +127,25 @@ describe("1. Criação de tarefa", () => {
     expect(r.error, "deveria falhar sem desvincular o projeto").not.toBeNull();
   });
 
-  it("desvincular o projeto ao trocar o cliente é aceito (comportamento de updateTaskFn)", async () => {
+  it("10D.2: USER não pode tornar a tarefa workspace-level (client_id NULL)", async () => {
     const r = await A.from("tasks")
       .update({ client_id: null, project_id: null })
       .eq("id", ids.taskWithProject);
+    expect(r.error, "USER não tem autoridade de workspace").not.toBeNull();
+  });
+
+  it("10D.2: ADMIN (owner) pode desvincular cliente/projeto da tarefa", async () => {
+    const O = fx.userOwner.client;
+    const r = await O.from("tasks")
+      .update({ client_id: null, project_id: null })
+      .eq("id", ids.taskWithProject);
     expect(r.error, r.error?.message).toBeNull();
-    const back = await A.from("tasks")
+    const back = await O.from("tasks")
       .update({ client_id: fx.clientA, project_id: ids.projectA })
       .eq("id", ids.taskWithProject);
     expect(back.error, back.error?.message).toBeNull();
   });
+
 
   it("persistência: tarefas relidas do banco mantêm os vínculos", async () => {
     const rows = await listTasks(A, fx.brandId, { clientId: fx.clientA });

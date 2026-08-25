@@ -272,9 +272,40 @@ export const createTaskFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((i: unknown) => CreateTaskInput.parse(i))
   .handler(async ({ data, context }) => {
+    const { assertBrandMember, assertClientInBrand } = await import("@/lib/access-guard");
+    // O workspace enviado pelo frontend nunca é confiável.
+    const role = await assertBrandMember(context.supabase as never, context.userId, data.brandId);
+
+    // Cliente derivado do projeto quando o projeto é client-scoped: o
+    // `client_id` do frontend não pode "descer" para outro cliente.
+    let clientId = data.client_id ?? null;
+    if (data.project_id) {
+      const { data: project, error: projErr } = await context.supabase
+        .from("projects")
+        .select("id, brand_id, client_id")
+        .eq("id", data.project_id)
+        .maybeSingle();
+      if (projErr) throw projErr;
+      if (!project) throw new Error("Projeto não encontrado.");
+      if (project.brand_id !== data.brandId) {
+        throw new Error("Este projeto pertence a outra workspace.");
+      }
+      if (project.client_id) clientId = project.client_id as string;
+    }
+
+    if (clientId) {
+      // Valida par workspace+cliente e escopo do ator (MANAGER/USER só em
+      // clientes atribuídos).
+      await assertClientInBrand(context.supabase as never, context.userId, data.brandId, clientId);
+    } else if (role !== "super_admin" && role !== "admin") {
+      // Tarefa workspace-level (client_id NULL) é caso legítimo apenas para
+      // autoridade de workspace (ADMIN/SUPER ADMIN). Sem default silencioso.
+      throw new Error("Forbidden: selecione um cliente para criar a tarefa");
+    }
+
     await assertProjectScope(context.supabase as never, {
       brandId: data.brandId,
-      clientId: data.client_id ?? null,
+      clientId,
       projectId: data.project_id ?? null,
     });
     const { data: row, error } = await context.supabase
@@ -286,7 +317,7 @@ export const createTaskFn = createServerFn({ method: "POST" })
         status: data.status ?? "todo",
         priority: data.priority ?? "medium",
         assignee_id: data.assignee_id ?? null,
-        client_id: data.client_id ?? null,
+        client_id: clientId,
         project_id: data.project_id ?? null,
         due_at: data.due_at ?? null,
         created_by: context.userId,
@@ -350,8 +381,22 @@ export const updateTaskFn = createServerFn({ method: "POST" })
           patch.project_id = null;
         }
       }
+      // Reescopo de cliente: valida cadeia workspace→cliente no servidor.
+      const { assertBrandMember, assertClientInBrand } = await import("@/lib/access-guard");
+      const brandId = current!.brand_id as string;
+      const role = await assertBrandMember(context.supabase as never, context.userId, brandId);
+      if (nextClientId) {
+        await assertClientInBrand(
+          context.supabase as never,
+          context.userId,
+          brandId,
+          nextClientId,
+        );
+      } else if (role !== "super_admin" && role !== "admin") {
+        throw new Error("Forbidden: tarefa sem cliente exige autoridade de workspace");
+      }
       await assertProjectScope(context.supabase as never, {
-        brandId: current!.brand_id as string,
+        brandId,
         clientId: nextClientId,
         projectId: patch.project_id !== undefined ? patch.project_id : nextProjectId,
       });

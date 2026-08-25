@@ -307,7 +307,7 @@ export const createProject = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const v = data.values;
-    await assertBrandMember(context.supabase as never, context.userId, data.brandId);
+    const role = await assertBrandMember(context.supabase as never, context.userId, data.brandId);
     if (v.client_id) {
       // Bloqueia par forjado (brand A + client B) e cliente fora do escopo.
       await assertClientInBrand(
@@ -316,6 +316,10 @@ export const createProject = createServerFn({ method: "POST" })
         data.brandId,
         v.client_id,
       );
+    } else if (role !== "super_admin" && role !== "admin") {
+      // Projeto workspace-level (client_id NULL) só existe para autoridade de
+      // workspace. MANAGER/USER precisam informar um cliente atribuído.
+      throw new Error("Forbidden: selecione um cliente para criar o projeto");
     }
     const { data: row, error } = await context.supabase
       .from("projects")
@@ -356,6 +360,7 @@ export const updateProject = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    const role = await assertBrandMember(context.supabase as never, context.userId, data.brandId);
     if (data.patch.client_id) {
       await assertClientInBrand(
         context.supabase as never,
@@ -363,6 +368,13 @@ export const updateProject = createServerFn({ method: "POST" })
         data.brandId,
         data.patch.client_id,
       );
+    } else if (
+      data.patch.client_id === null &&
+      role !== "super_admin" &&
+      role !== "admin"
+    ) {
+      // Tornar o projeto workspace-level exige autoridade de workspace.
+      throw new Error("Forbidden: projeto sem cliente exige autoridade de workspace");
     }
     const { data: rows, error } = await context.supabase
       .from("projects")
