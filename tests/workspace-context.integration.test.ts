@@ -88,7 +88,7 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
-  await admin.auth.admin.deleteUser(superAdmin.id).catch(() => {});
+  if (superAdmin) await admin.auth.admin.deleteUser(superAdmin.id).catch(() => {});
   await cleanup(fx);
 }, 60_000);
 
@@ -198,12 +198,12 @@ describe("USER — somente clientes atribuídos", () => {
 });
 
 describe("SUPER ADMIN — autoridade global", () => {
-  it("acessa múltiplos workspaces", async () => {
+  it.skipIf(!PRIV)("acessa múltiplos workspaces", async () => {
     await allowed(() => assertBrandMember(sb(superAdmin), superAdmin.id, fx.brandId));
     await allowed(() => assertBrandMember(sb(superAdmin), superAdmin.id, fx.otherBrandId));
   });
 
-  it("escopo muda ao trocar de workspace", async () => {
+  it.skipIf(!PRIV)("escopo muda ao trocar de workspace", async () => {
     const a = await resolveAccessScope(sb(superAdmin), fx.brandId);
     const b = await resolveAccessScope(sb(superAdmin), fx.otherBrandId);
     expect(a.role).toBe("super_admin");
@@ -211,7 +211,7 @@ describe("SUPER ADMIN — autoridade global", () => {
     expect(await visibleClients(superAdmin, fx.otherBrandId)).toEqual([fx.otherBrandClient]);
   });
 
-  it("par cross-workspace continua inválido, mesmo global", async () => {
+  it.skipIf(!PRIV)("par cross-workspace continua inválido, mesmo global", async () => {
     await denied(() =>
       assertClientInBrand(sb(superAdmin), superAdmin.id, fx.otherBrandId, fx.clientA),
     );

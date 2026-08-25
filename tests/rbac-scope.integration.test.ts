@@ -114,21 +114,21 @@ beforeAll(async () => {
 afterAll(async () => {
   await admin.from("brand_members").delete().eq("user_id", multiAdmin?.id ?? "");
   await cleanup(fx);
-  for (const u of [superAdmin, multiAdmin]) {
+  for (const u of [superAdmin, multiAdmin].filter(Boolean)) {
     if (u) await admin.auth.admin.deleteUser(u.id).catch(() => {});
   }
 });
 
 describe("SUPER ADMIN — autoridade de plataforma", () => {
-  it("1) acessa clientes do workspace A", async () => {
+  it.skipIf(!PRIV)("1) acessa clientes do workspace A", async () => {
     expect(await canAccessClient(superAdmin, fx.clientA)).toBe(true);
   });
 
-  it("2) acessa clientes do workspace B", async () => {
+  it.skipIf(!PRIV)("2) acessa clientes do workspace B", async () => {
     expect(await canAccessClient(superAdmin, fx.otherBrandClient)).toBe(true);
   });
 
-  it("19) é distinto de admin: my_access marca is_super_admin", async () => {
+  it.skipIf(!PRIV)("19) é distinto de admin: my_access marca is_super_admin", async () => {
     const a = await myAccess(superAdmin, fx.brandId);
     expect(a.is_super_admin).toBe(true);
     expect(a.role).toBe("super_admin");

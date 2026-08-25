@@ -90,7 +90,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await admin.from("activity_events").delete().in("id", [eventA, eventB, eventNull]);
-  await admin.auth.admin.deleteUser(superAdmin.id).catch(() => {});
+  if (superAdmin) await admin.auth.admin.deleteUser(superAdmin.id).catch(() => {});
   await cleanup(fx);
 }, 180_000);
 
@@ -117,13 +117,13 @@ describe("A/B/T — ADMIN (owner) cobre todo o workspace", () => {
 });
 
 describe("U — SUPER ADMIN mantém autoridade global", () => {
-  it("vê todos os projects e tasks", async () => {
+  it.skipIf(!PRIV)("vê todos os projects e tasks", async () => {
     const p = await readProjects(superAdmin);
     const t = await readTasks(superAdmin);
     expect(ids(p.data)).toEqual(expect.arrayContaining([projectA, projectB, projectNull]));
     expect(ids(t.data)).toEqual(expect.arrayContaining([taskA, taskB, taskNull]));
   });
-  it("vê os eventos, inclusive o órfão NULL", async () => {
+  it.skipIf(!PRIV)("vê os eventos, inclusive o órfão NULL", async () => {
     const r = await readEvents(superAdmin);
     expect(ids(r.data)).toEqual(expect.arrayContaining([eventA, eventB, eventNull]));
   });

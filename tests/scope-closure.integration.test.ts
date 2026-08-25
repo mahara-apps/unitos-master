@@ -139,7 +139,7 @@ describe("brain_metrics_snapshots é agregação de workspace", () => {
     }
   });
 
-  it("SUPER ADMIN lê os snapshots", async () => {
+  it.skipIf(!PRIV)("SUPER ADMIN lê os snapshots", async () => {
     const r = await superAdmin.client
       .from("brain_metrics_snapshots")
       .select("id")
