@@ -28,7 +28,11 @@ export interface BrainEventInput {
   client_id?: string | null;
   source_module: string;
   event_type: string;
-  actor_id?: string | null;
+  /**
+   * FASE 10E.2 — o ator NUNCA é aceito do chamador. `publish()` deriva sempre de
+   * `ctx.userId` (identidade autenticada) e o banco reforça `actor_id = auth.uid()`.
+   * Eventos de sistema (service_role/worker) ficam com ator nulo.
+   */
   /** Entidade de origem do evento (opcional). */
   entity_type?: string | null;
   entity_id?: string | null;

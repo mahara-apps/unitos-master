@@ -4,6 +4,7 @@
 // de callers que já detêm um SupabaseClient autenticado.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { waitUntil } from "../wait-until.server";
+import { sanitizeEventPayload } from "./event-bus";
 
 export function ingestBrainQuiet(
   supabase: SupabaseClient,
@@ -21,7 +22,7 @@ export function ingestBrainQuiet(
             brand_id: brandId,
             event_type: eventType,
             source_module: sourceModule,
-            payload: payload as never,
+            payload: sanitizeEventPayload(payload) as never,
           })
           .select("id")
           .single();

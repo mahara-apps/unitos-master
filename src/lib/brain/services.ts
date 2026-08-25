@@ -36,7 +36,6 @@ export async function registerEvent(
     client_id: event.client_id ?? ctx.clientId ?? null,
     source_module: event.source_module,
     event_type: event.event_type,
-    actor_id: event.actor_id ?? ctx.userId,
     payload: event.payload,
   });
 }
