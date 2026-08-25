@@ -37,7 +37,8 @@ export const getLoginLogoFn = createServerFn({ method: "GET" }).handler(async ()
     const brandId = process.env["LOGIN_BRAND_ID"]?.trim();
     const brandSlug = process.env["LOGIN_BRAND_SLUG"]?.trim();
 
-    let brand: { id: string; login_logo_url: string | null } | null = null;
+    type BrandLogoRow = { id: string; login_logo_url: string | null };
+    let brand: BrandLogoRow | null = null;
 
     if (brandId || brandSlug) {
       const q = supabaseAdmin.from("brands").select("id, login_logo_url");
@@ -45,7 +46,7 @@ export const getLoginLogoFn = createServerFn({ method: "GET" }).handler(async ()
         ? await q.eq("id", brandId).maybeSingle()
         : await q.eq("slug", brandSlug!).maybeSingle();
       // Marca inexistente configurada → falha fechada (branding neutro).
-      brand = (data as typeof brand) ?? null;
+      brand = (data as BrandLogoRow | null) ?? null;
     } else {
       // Sem contexto explícito: aceita apenas instalação de marca única.
       const { data } = await supabaseAdmin
@@ -53,10 +54,11 @@ export const getLoginLogoFn = createServerFn({ method: "GET" }).handler(async ()
         .select("id, login_logo_url")
         .not("login_logo_url", "is", null)
         .limit(2);
-      const rows = (data ?? []) as NonNullable<typeof brand>[];
+      const rows = (data ?? []) as BrandLogoRow[];
       if (rows.length !== 1) return empty;
-      brand = rows[0]!;
+      brand = rows[0] ?? null;
     }
+
 
     if (!brand?.login_logo_url) return empty;
 
