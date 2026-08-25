@@ -331,14 +331,16 @@ async function computeStats(
       ),
     ),
     ignore(
-      supabase
-        .from("activity_events")
-        .select("id,verb,entity_type,payload,created_at,actor_id,client_id")
-        .eq("brand_id", brandId)
-        .gte("created_at", range.fromIso)
-        .lte("created_at", range.toIso)
-        .order("created_at", { ascending: false })
-        .limit(200),
+      scope(
+        supabase
+          .from("activity_events")
+          .select("id,verb,entity_type,payload,created_at,actor_id,client_id")
+          .eq("brand_id", brandId)
+          .gte("created_at", range.fromIso)
+          .lte("created_at", range.toIso)
+          .order("created_at", { ascending: false })
+          .limit(200),
+      ),
     ),
     ignore(
       scope(supabase.from("tasks").select("status").eq("brand_id", brandId).eq("done", false)),
