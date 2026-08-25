@@ -311,3 +311,59 @@ Não é plano (não existe camada de plano/subscription), não é feature key (i
 - Build (`/tmp/observability/build-errors.log`, 2026-08-25T03:11:09Z): `build OK`.
 - Inspeção de estado do navegador do usuário: somente leitura (chaves de `localStorage`, texto renderizado). Nenhuma mutação, clique ou navegação.
 - Nada foi alterado para fazer teste passar.
+
+---
+
+## CORREÇÃO APLICADA — Feature Gate / Workspace Context (25/08/2026)
+
+### Causa raiz
+`feature-flags.gate.ts` lia o workspace ativo apenas de `localStorage["nx.brand"]`.
+O `resetIdentityState` (SIGNED_IN / USER_UPDATED / logout) removia essa chave sem
+sincronizar o `ActiveContextProvider`, gerando `brandId = null` no gate enquanto a
+UI operava com workspace selecionado. `requireFeatureAccess` devolvia
+`no_brand`, o gate redirecionava para `/dashboard?blocked=...` e o dashboard
+rotulava qualquer bloqueio como "não disponível no seu plano". O cache de 5 min
+guardava a chave `none:<feature>`, perpetuando o falso bloqueio.
+
+### Arquivos alterados
+- `src/lib/active-workspace.ts` (novo) — registro canônico não-React do workspace
+  ativo (`brandId` + `resolved`), com `subscribe` e `waitForActiveWorkspace`.
+- `src/hooks/use-active-context.tsx` — o provider publica no registro canônico
+  (hidratação e `setBrandId`) e reconstrói o contexto no evento `nx:identity-reset`.
+- `src/lib/feature-flags.gate.ts` — aguarda o contexto, lê o registro canônico e
+  classifica o motivo do bloqueio.
+- `src/lib/access-cache.ts` — `getCachedFeatureAccess` devolve `{enabled, reason}`;
+  nunca cacheia negativo sem workspace nem erro; limpa o cache a cada mudança de
+  workspace (`subscribeActiveWorkspace`).
+- `src/lib/session-reset.ts` — mantém o reset e marca o workspace como indefinido
+  + dispara `nx:identity-reset`.
+- `src/components/brand-client-switcher.tsx` — sinaliza contexto resolvido quando
+  o usuário não possui nenhum workspace.
+- `src/routes/_authenticated/dashboard.tsx` — classifica `reason`:
+  `no_workspace` (informativo), `entitlement_error` (erro) e `feature_disabled`
+  (plano). `?reason=` incluído em `validateSearch`.
+- `tests/feature-gate-context.unit.test.ts` (novo) — Testes 1 a 9 + erro de consulta.
+
+### ActiveContextProvider ↔ Feature Gate
+Sequência: contexto canônico → workspace ativo → feature gate.
+`localStorage` permanece só como preferência auxiliar; nunca é autoridade.
+
+### no_workspace / cache negativo / login / troca / logout
+- `brandId` nulo → `reason = no_workspace` (sem cache, sem mensagem de plano).
+- Contexto indefinido → o gate aguarda (até 3s) a resolução, e só então decide.
+- Login/logout/troca de identidade → reset de cache + workspace indefinido +
+  reconstrução do contexto; nenhum entitlement anterior é herdado.
+- Troca de workspace → cache de features limpo, entitlements do novo workspace.
+
+### Regressão
+- Novos testes: 10/10. Suíte completa: 408/408. Typecheck OK. Lint sem erros
+  (restam 2 warnings pré-existentes de `react-refresh` em `use-active-context.tsx`).
+- Build OK. Nenhuma alteração em RBAC, RLS, Storage, Portal, Brain, planos ou
+  entitlements (12 de 14 features seguem habilitadas; `chat` e `midia_paga`
+  desabilitadas).
+
+### Riscos residuais
+- O timeout de 3s do `waitForActiveWorkspace` é o pior caso quando o switcher não
+  monta: nessa situação o usuário cai no dashboard com aviso de "selecione uma
+  workspace" (nunca com mensagem de plano).
+- Contas QA `super_admin` continuam pendentes (fora do escopo desta etapa).
