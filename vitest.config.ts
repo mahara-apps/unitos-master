@@ -14,6 +14,7 @@ export default defineConfig({
     testTimeout: 60000,
     hookTimeout: 120000,
     fileParallelism: false,
+    setupFiles: ["./tests/helpers/global-teardown.ts"],
     reporters: ["verbose"],
   },
 });

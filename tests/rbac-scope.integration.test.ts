@@ -13,6 +13,10 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { admin, cleanup, createUser, seed, type Fixture, type TestUser } from "./helpers/fixtures";
+import { createSuperAdminUser, privilegedTestEnvAllowed } from "./helpers/fixtures";
+
+/** Identidade SUPER ADMIN real só é criada em ambiente declarado de teste. */
+const PRIV = privilegedTestEnvAllowed();
 
 let fx: Fixture;
 let superAdmin: TestUser;
@@ -62,9 +66,7 @@ const myAccess = async (u: TestUser, brandId: string | null) => {
 beforeAll(async () => {
   fx = await seed();
 
-  superAdmin = await createUser("su");
-  const up = await admin.from("user_profiles").update({ is_super_admin: true }).eq("id", superAdmin.id);
-  if (up.error) throw up.error;
+  if (PRIV) superAdmin = await createSuperAdminUser("su");
 
   multiAdmin = await createUser("multi");
   const mm = await admin.from("brand_members").insert([

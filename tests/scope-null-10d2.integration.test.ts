@@ -8,6 +8,10 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { admin, cleanup, createUser, seed, type Fixture, type TestUser } from "./helpers/fixtures";
+import { createSuperAdminUser, privilegedTestEnvAllowed } from "./helpers/fixtures";
+
+/** Identidade SUPER ADMIN real só é criada em ambiente declarado de teste. */
+const PRIV = privilegedTestEnvAllowed();
 
 let fx: Fixture;
 let superAdmin: TestUser;
@@ -69,11 +73,7 @@ async function insertEvent(clientId: string | null, verb: string) {
 
 beforeAll(async () => {
   fx = await seed();
-  superAdmin = await createUser("d2super");
-  const p = await admin
-    .from("user_profiles")
-    .upsert({ id: superAdmin.id, full_name: "QA 10D2", is_super_admin: true }, { onConflict: "id" });
-  if (p.error) throw new Error(p.error.message);
+  if (PRIV) superAdmin = await createSuperAdminUser("d2super");
 
   projectA = await insertProject(fx.clientA, "10D2 Proj A");
   projectB = await insertProject(fx.clientB, "10D2 Proj B");

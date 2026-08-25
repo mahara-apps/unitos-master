@@ -23,6 +23,10 @@ import {
   resolveScopedClientIds,
 } from "../src/lib/access-guard";
 import { admin, cleanup, createUser, seed, type Fixture, type TestUser } from "./helpers/fixtures";
+import { createSuperAdminUser, privilegedTestEnvAllowed } from "./helpers/fixtures";
+
+/** Identidade SUPER ADMIN real só é criada em ambiente declarado de teste. */
+const PRIV = privilegedTestEnvAllowed();
 
 let fx: Fixture;
 let superAdmin: TestUser;
@@ -49,14 +53,7 @@ const sb = (u: TestUser) => u.client as never;
 
 beforeAll(async () => {
   fx = await seed();
-  superAdmin = await createUser("super");
-  const p = await admin
-    .from("user_profiles")
-    .upsert(
-      { id: superAdmin.id, full_name: "QA Super", is_super_admin: true },
-      { onConflict: "id" },
-    );
-  if (p.error) throw new Error(`super admin flag: ${p.error.message}`);
+  if (PRIV) superAdmin = await createSuperAdminUser("super");
 
   const projects = await admin
     .from("projects")
