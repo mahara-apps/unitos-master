@@ -37,6 +37,7 @@ import { CustomerAvatar } from "@/components/customer/customer-avatar";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { QuickCreateCustomerDrawer } from "@/components/customer/quick-create-customer-drawer";
 import { resetScopeCache } from "@/lib/session-reset";
+import { publishActiveWorkspace } from "@/lib/active-workspace";
 
 export function ContextSwitcher() {
   const { brandId, clientId, setBrandId, setClientId } = useActiveContext();
