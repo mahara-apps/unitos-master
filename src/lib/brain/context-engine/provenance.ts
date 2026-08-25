@@ -29,7 +29,6 @@ export async function record(ctx: BrainContext, input: ProvenanceInput): Promise
     client_id: input.pack.scope.clientId,
     source_module: input.consumer,
     event_type: "context.used",
-    actor_id: ctx.userId,
     payload: {
       response_id: input.responseId ?? null,
       question: input.pack.question.slice(0, 400),
