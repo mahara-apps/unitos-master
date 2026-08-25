@@ -116,7 +116,7 @@ export function getCachedFeatureAccess(
           };
         })
         .catch((): FeatureAccessResult => ({ enabled: true, reason: "entitlement_error" })),
-      { enabled: true, reason: "entitlement_error" },
+      { enabled: true, reason: "entitlement_error" } as FeatureAccessResult,
     ).then((r) => ({
       ...r,
       // resultado provisório/erro não fica preso no TTL
