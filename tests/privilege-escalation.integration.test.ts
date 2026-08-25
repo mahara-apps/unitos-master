@@ -128,7 +128,10 @@ afterAll(async () => {
   await admin.from("chat_messages").delete().eq("conversation_id", convoB);
   await admin.from("chat_conversations").delete().eq("id", convoB);
   await admin.from("ai_jobs").delete().eq("id", jobB);
-  await admin.from("user_profiles").delete().eq("id", superAdmin?.id ?? NON_EXISTENT);
+  await admin
+    .from("user_profiles")
+    .delete()
+    .eq("id", superAdmin?.id ?? NON_EXISTENT);
   await admin.auth.admin.deleteUser(superAdmin?.id ?? NON_EXISTENT).catch(() => {});
   await cleanup(fx);
 });
@@ -310,11 +313,14 @@ describe("5. SUPER ADMIN — autoridade global e separada", () => {
     await allowed(() => assertClientScope(sb(superAdmin), superAdmin.id, fx.otherBrandClient));
   });
 
-  it.skipIf(!PRIV)("mesmo SUPER ADMIN é rejeitado em par cross-workspace inconsistente", async () => {
-    await denied(() =>
-      assertClientInBrand(sb(superAdmin), superAdmin.id, fx.otherBrandId, fx.clientA),
-    );
-  });
+  it.skipIf(!PRIV)(
+    "mesmo SUPER ADMIN é rejeitado em par cross-workspace inconsistente",
+    async () => {
+      await denied(() =>
+        assertClientInBrand(sb(superAdmin), superAdmin.id, fx.otherBrandId, fx.clientA),
+      );
+    },
+  );
 });
 
 describe("6. IDs inexistentes e ausentes", () => {

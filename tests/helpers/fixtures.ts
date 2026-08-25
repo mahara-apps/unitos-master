@@ -2,11 +2,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { assertPrivilegedTestEnv } from "./test-env";
 
-export {
-  assertPrivilegedTestEnv,
-  privilegedTestEnv,
-  privilegedTestEnvAllowed,
-} from "./test-env";
+export { assertPrivilegedTestEnv, privilegedTestEnv, privilegedTestEnvAllowed } from "./test-env";
 
 const url = process.env["SUPABASE_URL"];
 const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
@@ -72,7 +68,10 @@ export async function createSuperAdminUser(label: string): Promise<TestUser> {
   const u = await createUser(label);
   const p = await admin
     .from("user_profiles")
-    .upsert({ id: u.id, full_name: `QA Super ${label}`, is_super_admin: true }, { onConflict: "id" });
+    .upsert(
+      { id: u.id, full_name: `QA Super ${label}`, is_super_admin: true },
+      { onConflict: "id" },
+    );
   if (p.error) throw new Error(`createSuperAdminUser(${label}): ${p.error.message}`);
   return u;
 }
@@ -85,13 +84,15 @@ export async function cleanupTestIdentities(): Promise<void> {
     .from("user_profiles")
     .update({ is_super_admin: false })
     .in("id", ids)
-    .then(() => undefined, () => undefined);
+    .then(
+      () => undefined,
+      () => undefined,
+    );
   for (const id of ids) {
     await admin.auth.admin.deleteUser(id).catch(() => {});
     createdUserIds.delete(id);
   }
 }
-
 
 export type Fixture = {
   brandId: string;

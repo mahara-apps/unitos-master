@@ -217,10 +217,7 @@ describe("herança — subtarefas/comentários/tempo/jobs de registro NULL", () 
       .single();
     if (st.error) throw new Error(st.error.message);
     try {
-      const read = await fx.userA.client
-        .from("task_subtasks")
-        .select("id")
-        .eq("id", st.data.id);
+      const read = await fx.userA.client.from("task_subtasks").select("id").eq("id", st.data.id);
       expect(read.data ?? []).toHaveLength(0);
       const write = await fx.userA.client
         .from("task_subtasks")
@@ -298,10 +295,7 @@ describe("P/Q/R/S — escrita com IDs forjados", () => {
     expect(nul.error).toBeTruthy();
   });
   it("project/task de outra workspace são rejeitados", async () => {
-    const p = await fx.userA.client
-      .from("projects")
-      .select("id")
-      .eq("id", fx.otherBrandProject);
+    const p = await fx.userA.client.from("projects").select("id").eq("id", fx.otherBrandProject);
     expect(p.data ?? []).toHaveLength(0);
     const w = await fx.userA.client
       .from("tasks")
