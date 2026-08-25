@@ -205,8 +205,20 @@ async function computeStats(
 ): Promise<DashboardStats> {
   const { supabase, userId } = ctx;
   const range = resolveRange(rangeInput);
-  const scope = <Q extends { eq: (col: string, val: string) => Q }>(q: Q): Q =>
-    clientId ? q.eq("client_id", clientId) : q;
+  // Defesa em profundidade (10D.2): sem cliente selecionado, MANAGER/USER
+  // agregam SOMENTE os clientes atribuídos — nunca a marca inteira. Admin e
+  // super admin recebem `null` (workspace completo).
+  const { resolveScopedClientIds } = await import("@/lib/access-guard");
+  const allowedClientIds = clientId
+    ? null
+    : await resolveScopedClientIds(supabase as never, brandId, null);
+  const NO_CLIENT = "00000000-0000-0000-0000-000000000000";
+  const scope = <Q extends { eq: (col: string, val: string) => Q }>(q: Q): Q => {
+    if (clientId) return q.eq("client_id", clientId);
+    if (!allowedClientIds) return q;
+    const list = allowedClientIds.length > 0 ? allowedClientIds : [NO_CLIENT];
+    return (q as unknown as { in: (c: string, v: string[]) => Q }).in("client_id", list);
+  };
 
   const [
     clientsRes,
