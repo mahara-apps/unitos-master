@@ -8,6 +8,10 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { admin, cleanup, createUser, seed, type Fixture, type TestUser } from "./helpers/fixtures";
+import { createSuperAdminUser, privilegedTestEnvAllowed } from "./helpers/fixtures";
+
+/** Identidade SUPER ADMIN real só é criada em ambiente declarado de teste. */
+const PRIV = privilegedTestEnvAllowed();
 
 let fx: Fixture;
 let superAdmin: TestUser;
@@ -69,11 +73,7 @@ async function insertEvent(clientId: string | null, verb: string) {
 
 beforeAll(async () => {
   fx = await seed();
-  superAdmin = await createUser("d2super");
-  const p = await admin
-    .from("user_profiles")
-    .upsert({ id: superAdmin.id, full_name: "QA 10D2", is_super_admin: true }, { onConflict: "id" });
-  if (p.error) throw new Error(p.error.message);
+  if (PRIV) superAdmin = await createSuperAdminUser("d2super");
 
   projectA = await insertProject(fx.clientA, "10D2 Proj A");
   projectB = await insertProject(fx.clientB, "10D2 Proj B");
@@ -90,7 +90,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await admin.from("activity_events").delete().in("id", [eventA, eventB, eventNull]);
-  await admin.auth.admin.deleteUser(superAdmin.id).catch(() => {});
+  if (superAdmin) await admin.auth.admin.deleteUser(superAdmin.id).catch(() => {});
   await cleanup(fx);
 }, 180_000);
 
@@ -117,13 +117,13 @@ describe("A/B/T — ADMIN (owner) cobre todo o workspace", () => {
 });
 
 describe("U — SUPER ADMIN mantém autoridade global", () => {
-  it("vê todos os projects e tasks", async () => {
+  it.skipIf(!PRIV)("vê todos os projects e tasks", async () => {
     const p = await readProjects(superAdmin);
     const t = await readTasks(superAdmin);
     expect(ids(p.data)).toEqual(expect.arrayContaining([projectA, projectB, projectNull]));
     expect(ids(t.data)).toEqual(expect.arrayContaining([taskA, taskB, taskNull]));
   });
-  it("vê os eventos, inclusive o órfão NULL", async () => {
+  it.skipIf(!PRIV)("vê os eventos, inclusive o órfão NULL", async () => {
     const r = await readEvents(superAdmin);
     expect(ids(r.data)).toEqual(expect.arrayContaining([eventA, eventB, eventNull]));
   });

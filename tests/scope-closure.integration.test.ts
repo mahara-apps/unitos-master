@@ -7,6 +7,10 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { admin, cleanup, createUser, seed, type Fixture, type TestUser } from "./helpers/fixtures";
+import { createSuperAdminUser, privilegedTestEnvAllowed } from "./helpers/fixtures";
+
+/** Identidade SUPER ADMIN real só é criada em ambiente declarado de teste. */
+const PRIV = privilegedTestEnvAllowed();
 
 let fx: Fixture;
 let superAdmin: TestUser;
@@ -15,11 +19,7 @@ let taskB: string;
 
 beforeAll(async () => {
   fx = await seed();
-  superAdmin = await createUser("s5super");
-  const p = await admin
-    .from("user_profiles")
-    .upsert({ id: superAdmin.id, full_name: "QA S5", is_super_admin: true }, { onConflict: "id" });
-  if (p.error) throw new Error(p.error.message);
+  if (PRIV) superAdmin = await createSuperAdminUser("s5super");
 
   const tpl = await admin
     .from("project_templates")
@@ -139,7 +139,7 @@ describe("brain_metrics_snapshots é agregação de workspace", () => {
     }
   });
 
-  it("SUPER ADMIN lê os snapshots", async () => {
+  it.skipIf(!PRIV)("SUPER ADMIN lê os snapshots", async () => {
     const r = await superAdmin.client
       .from("brain_metrics_snapshots")
       .select("id")

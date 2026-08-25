@@ -24,6 +24,10 @@ import {
   resolveScopedClientIds,
 } from "../src/lib/access-guard";
 import { admin, cleanup, createUser, seed, type Fixture, type TestUser } from "./helpers/fixtures";
+import { createSuperAdminUser, privilegedTestEnvAllowed } from "./helpers/fixtures";
+
+/** Identidade SUPER ADMIN real só é criada em ambiente declarado de teste. */
+const PRIV = privilegedTestEnvAllowed();
 
 let fx: Fixture;
 let superAdmin: TestUser;
@@ -60,11 +64,7 @@ async function visibleTaskClientIds(u: TestUser, brandId: string): Promise<strin
 beforeAll(async () => {
   fx = await seed();
 
-  superAdmin = await createUser("wsctx-super");
-  const flag = await admin
-    .from("user_profiles")
-    .upsert({ id: superAdmin.id, full_name: "QA Super WS", is_super_admin: true }, { onConflict: "id" });
-  if (flag.error) throw new Error(`super admin flag: ${flag.error.message}`);
+  if (PRIV) superAdmin = await createSuperAdminUser("wsctx-super");
 
   const proj = await admin
     .from("projects")
@@ -88,7 +88,7 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
-  await admin.auth.admin.deleteUser(superAdmin.id).catch(() => {});
+  if (superAdmin) await admin.auth.admin.deleteUser(superAdmin.id).catch(() => {});
   await cleanup(fx);
 }, 60_000);
 
@@ -198,12 +198,12 @@ describe("USER — somente clientes atribuídos", () => {
 });
 
 describe("SUPER ADMIN — autoridade global", () => {
-  it("acessa múltiplos workspaces", async () => {
+  it.skipIf(!PRIV)("acessa múltiplos workspaces", async () => {
     await allowed(() => assertBrandMember(sb(superAdmin), superAdmin.id, fx.brandId));
     await allowed(() => assertBrandMember(sb(superAdmin), superAdmin.id, fx.otherBrandId));
   });
 
-  it("escopo muda ao trocar de workspace", async () => {
+  it.skipIf(!PRIV)("escopo muda ao trocar de workspace", async () => {
     const a = await resolveAccessScope(sb(superAdmin), fx.brandId);
     const b = await resolveAccessScope(sb(superAdmin), fx.otherBrandId);
     expect(a.role).toBe("super_admin");
@@ -211,7 +211,7 @@ describe("SUPER ADMIN — autoridade global", () => {
     expect(await visibleClients(superAdmin, fx.otherBrandId)).toEqual([fx.otherBrandClient]);
   });
 
-  it("par cross-workspace continua inválido, mesmo global", async () => {
+  it.skipIf(!PRIV)("par cross-workspace continua inválido, mesmo global", async () => {
     await denied(() =>
       assertClientInBrand(sb(superAdmin), superAdmin.id, fx.otherBrandId, fx.clientA),
     );
