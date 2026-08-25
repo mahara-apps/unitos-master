@@ -1,6 +1,7 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { clearCachedUser } from "@/lib/auth-cache";
 import { clearAccessCaches } from "@/lib/access-cache";
+import { markActiveWorkspaceUnresolved } from "@/lib/active-workspace";
 import { clearSocialSnapshot } from "@/lib/query-persistence";
 
 /**
@@ -16,7 +17,11 @@ export function resetIdentityState(queryClient: QueryClient): void {
   queryClient.clear();
   clearCachedUser();
   clearAccessCaches();
+  // O workspace volta a "indefinido": o feature gate aguarda a reconstrução do
+  // contexto em vez de concluir que não existe workspace/plano.
+  markActiveWorkspaceUnresolved();
   if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("nx:identity-reset"));
     try {
       window.localStorage.removeItem("nx.brand");
       window.localStorage.removeItem("nx.client");

@@ -102,8 +102,9 @@ function useDefaultRange(): [DateRange | undefined, (r: DateRange | undefined) =
 }
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  validateSearch: (s: Record<string, unknown>): { blocked?: string } => ({
+  validateSearch: (s: Record<string, unknown>): { blocked?: string; reason?: string } => ({
     blocked: typeof s.blocked === "string" ? s.blocked : undefined,
+    reason: typeof s.reason === "string" ? s.reason : undefined,
   }),
 
   component: DashboardPage,
@@ -122,9 +123,16 @@ function DashboardPage() {
       blog_post: "Conteúdo",
     };
     const label = labels[search.blocked] ?? search.blocked;
-    toast.error(`Módulo "${label}" não disponível no seu plano`);
+    // Classificação obrigatória: sem workspace resolvido NÃO é ausência de plano.
+    if (search.reason === "no_workspace") {
+      toast.info("Selecione uma workspace para abrir este módulo");
+    } else if (search.reason === "entitlement_error") {
+      toast.error(`Não foi possível verificar o acesso ao módulo "${label}". Tente novamente.`);
+    } else {
+      toast.error(`Módulo "${label}" não disponível no seu plano`);
+    }
     navigate({ search: {}, replace: true });
-  }, [search.blocked, navigate]);
+  }, [search.blocked, search.reason, navigate]);
   if (!brandId) {
     return (
       <div className="w-full px-6 py-10">
