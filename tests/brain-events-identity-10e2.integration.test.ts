@@ -71,6 +71,16 @@ describe("brain_events — actor_id não pode ser forjado", () => {
   });
 
   it("MANAGER: actor_id forjado é substituído pela própria identidade", async () => {
+    // MANAGER só alcança clientes atribuídos (10D). Vincula explicitamente ao clientA.
+    const link = await admin
+      .from("client_members")
+      .insert({
+        brand_id: fx.brandId,
+        client_id: fx.clientA,
+        user_id: fx.userManager.id,
+        role: "manager",
+      });
+    expect(link.error).toBeNull();
     const res = await insertAs(fx.userManager, {
       brand_id: fx.brandId,
       client_id: fx.clientA,
@@ -138,15 +148,28 @@ describe("brain_events — escopo permanece isolado", () => {
 });
 
 describe("brain_events — created_at e payload", () => {
-  it("created_at enviado pelo chamador é ignorado", async () => {
+  it("created_at falsificado pelo chamador é rejeitado", async () => {
     const res = await insertAs(fx.userA, {
       brand_id: fx.brandId,
       client_id: fx.clientA,
       created_at: FAKE_TS,
     });
+    expect(res.error).toBeTruthy();
+  });
+
+  it("created_at futuro é rejeitado", async () => {
+    const res = await insertAs(fx.userA, {
+      brand_id: fx.brandId,
+      client_id: fx.clientA,
+      created_at: new Date(Date.now() + 86_400_000).toISOString(),
+    });
+    expect(res.error).toBeTruthy();
+  });
+
+  it("evento sem created_at recebe timestamp atual do banco", async () => {
+    const res = await insertAs(fx.userA, { brand_id: fx.brandId, client_id: fx.clientA });
     expect(res.error).toBeNull();
     const row = await readRow(res.id!);
-    expect(new Date(row.created_at).getUTCFullYear()).toBeGreaterThan(2024);
     expect(Math.abs(Date.now() - new Date(row.created_at).getTime())).toBeLessThan(120_000);
   });
 
