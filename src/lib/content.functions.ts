@@ -1599,14 +1599,24 @@ export const generatePostReferenceImageFn = createServerFn({ method: "POST" })
       .eq("id", data.postId);
     if (upErr) throw upErr;
 
-    // Log activity event
-    await context.supabase.from("activity_events").insert({
-      entity_type: "post",
-      entity_id: data.postId,
-      verb: "media_generated",
-      actor_id: context.userId,
-      payload: { filename } as never,
-    } as never);
+    // Log activity event — escopo herdado do post (já validado pela RLS na
+    // leitura acima). `activity_events` não tem policy de INSERT para
+    // `authenticated`: a escrita usa o client privilegiado, sempre com
+    // brand_id/client_id derivados da entidade de origem.
+    {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { error: evErr } = await supabaseAdmin.from("activity_events").insert({
+        brand_id: post.brand_id,
+        client_id: post.client_id ?? null,
+        entity_type: "post",
+        entity_id: data.postId,
+        verb: "media_generated",
+        actor_id: context.userId,
+        payload: { filename } as never,
+      } as never);
+      // Auditoria não deve derrubar a geração de mídia, mas o erro é visível.
+      if (evErr) console.error("activity_events insert failed (media_generated)", evErr);
+    }
 
     return { ok: true, path };
   });
