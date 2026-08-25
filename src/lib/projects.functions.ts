@@ -360,6 +360,7 @@ export const updateProject = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
+    const role = await assertBrandMember(context.supabase as never, context.userId, data.brandId);
     if (data.patch.client_id) {
       await assertClientInBrand(
         context.supabase as never,
@@ -367,6 +368,13 @@ export const updateProject = createServerFn({ method: "POST" })
         data.brandId,
         data.patch.client_id,
       );
+    } else if (
+      data.patch.client_id === null &&
+      role !== "super_admin" &&
+      role !== "admin"
+    ) {
+      // Tornar o projeto workspace-level exige autoridade de workspace.
+      throw new Error("Forbidden: projeto sem cliente exige autoridade de workspace");
     }
     const { data: rows, error } = await context.supabase
       .from("projects")
