@@ -679,7 +679,9 @@ function PublishTrendCard({
     >
       <div className="grid gap-3 px-4 py-3 lg:grid-cols-[1.6fr_1fr]">
         <div className="h-40 min-w-0">
-          <React.Suspense fallback={<div className="h-full w-full animate-pulse rounded-md bg-muted/40" />}>
+          <React.Suspense
+            fallback={<div className="h-full w-full animate-pulse rounded-md bg-muted/40" />}
+          >
             <PublishTrendChart data={chartData} />
           </React.Suspense>
         </div>

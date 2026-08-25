@@ -7,10 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import {
-  markActiveWorkspaceUnresolved,
-  publishActiveWorkspace,
-} from "@/lib/active-workspace";
+import { markActiveWorkspaceUnresolved, publishActiveWorkspace } from "@/lib/active-workspace";
 
 type ActiveContextValue = {
   brandId: string | null;

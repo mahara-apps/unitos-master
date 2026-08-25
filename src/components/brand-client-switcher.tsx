@@ -149,7 +149,6 @@ export function ContextSwitcher() {
     if (!brandId && brands.length === 0) publishActiveWorkspace(null, true);
   }, [brandId, brandsQ.data, setBrandId]);
 
-
   const activeBrand = brandsQ.data?.find((b) => b.id === brandId) ?? null;
   const visibleClients = (clientsQ.data ?? []).filter(
     (c) => !allowedClientIds || allowedClientIds.has(c.id),
