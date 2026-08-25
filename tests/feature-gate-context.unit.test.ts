@@ -53,13 +53,12 @@ beforeEach(async () => {
         : { enabled: true, reason: "granted" };
     },
   );
-  if (typeof localStorage !== "undefined") localStorage.clear();
 });
 
 describe("feature gate x contexto de workspace", () => {
   it("Teste 1 — usa o workspace do contexto mesmo com localStorage vazio", async () => {
     const { ws, gate } = await load();
-    localStorage.removeItem("nx.brand");
+    // sem `nx.brand` persistido (equivalente ao pós-`resetIdentityState`)
     ws.publishActiveWorkspace(A, true);
 
     expect(await navigate(gate, "tasks")).toEqual({ blocked: false });
