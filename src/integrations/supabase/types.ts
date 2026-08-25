@@ -6255,6 +6255,16 @@ export type Database = {
         Returns: boolean
       }
       canonical_content_format: { Args: { _raw: string }; Returns: string }
+      card_approval_public_decide: {
+        Args: {
+          _comment?: string
+          _ip?: string
+          _token: string
+          _ua?: string
+          _verb: string
+        }
+        Returns: Json
+      }
       check_ai_usage_budget: {
         Args: { _brand_id: string; _client_id: string; _user_id: string }
         Returns: Json
@@ -6479,6 +6489,15 @@ export type Database = {
         Returns: Json
       }
       process_brain_learning_queue: { Args: { _limit?: number }; Returns: Json }
+      public_surface_rate_hit: {
+        Args: {
+          _block_seconds?: number
+          _key: string
+          _max?: number
+          _window_seconds?: number
+        }
+        Returns: Json
+      }
       reactivate_portal_token: {
         Args: { _token_id: string }
         Returns: {
