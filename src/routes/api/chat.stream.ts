@@ -214,7 +214,6 @@ export const Route = createFileRoute("/api/chat/stream")({
               client_id: convo.client_id,
               source_module: "chat",
               event_type: "chat.turn",
-              actor_id: userId,
               payload: {
                 conversation_id: convo.id,
                 question: question.slice(0, 400),
@@ -322,7 +321,6 @@ export const Route = createFileRoute("/api/chat/stream")({
               client_id: convo.client_id,
               source_module: "chat",
               event_type: "chat.turn",
-              actor_id: userId,
               payload: {
                 conversation_id: convo.id,
                 question: question.slice(0, 400),

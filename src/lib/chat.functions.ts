@@ -306,7 +306,6 @@ export const sendChatMessageFn = createServerFn({ method: "POST" })
           client_id: convo.client_id,
           source_module: "chat",
           event_type: "chat.turn",
-          actor_id: context.userId,
           payload: {
             conversation_id: convo.id,
             question: question.slice(0, 400),
