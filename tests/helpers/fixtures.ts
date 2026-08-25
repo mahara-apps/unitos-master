@@ -1,4 +1,12 @@
+import { randomBytes, randomUUID } from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { assertPrivilegedTestEnv } from "./test-env";
+
+export {
+  assertPrivilegedTestEnv,
+  privilegedTestEnv,
+  privilegedTestEnvAllowed,
+} from "./test-env";
 
 const url = process.env["SUPABASE_URL"];
 const serviceKey = process.env["SUPABASE_SERVICE_ROLE_KEY"];
@@ -24,9 +32,22 @@ export type TestUser = { id: string; email: string; client: SupabaseClient };
 const TAG = `t${Date.now().toString(36)}`;
 export const testTag = TAG;
 
+/** Usuários criados nesta execução — limpeza garantida no teardown global. */
+const createdUserIds = new Set<string>();
+
+/**
+ * Senha de teste NÃO derivável do e-mail: aleatória por conta (ou derivada de
+ * um segredo exclusivo de teste + nonce aleatório). Nunca logada.
+ */
+export function generateTestPassword(): string {
+  const secret = process.env["UNITOS_TEST_USER_PASSWORD_SECRET"] ?? "";
+  const nonce = randomBytes(24).toString("base64url");
+  return `Qa!${secret ? secret.slice(0, 8) : ""}${nonce}Aa1`;
+}
+
 export async function createUser(label: string): Promise<TestUser> {
-  const email = `qa+${TAG}-${label}@unitos-tests.dev`;
-  const password = `Qa!${TAG}${label}Aa1`;
+  const email = `qa+${TAG}-${label}-${randomUUID().slice(0, 8)}@unitos-tests.dev`;
+  const password = generateTestPassword();
   const { data, error } = await admin.auth.admin.createUser({
     email,
     password,
@@ -34,11 +55,43 @@ export async function createUser(label: string): Promise<TestUser> {
     user_metadata: { full_name: `QA ${label}` },
   });
   if (error) throw new Error(`createUser(${label}): ${error.message}`);
+  createdUserIds.add(data.user!.id);
   const client = anonClient();
   const signIn = await client.auth.signInWithPassword({ email, password });
   if (signIn.error) throw new Error(`signIn(${label}): ${signIn.error.message}`);
   return { id: data.user!.id, email, client };
 }
+
+/**
+ * Único caminho autorizado para criar uma identidade SUPER ADMIN de teste.
+ * Falha explicitamente em produção/ambiente desconhecido e registra a conta
+ * para remoção do privilégio + exclusão no teardown.
+ */
+export async function createSuperAdminUser(label: string): Promise<TestUser> {
+  assertPrivilegedTestEnv();
+  const u = await createUser(label);
+  const p = await admin
+    .from("user_profiles")
+    .upsert({ id: u.id, full_name: `QA Super ${label}`, is_super_admin: true }, { onConflict: "id" });
+  if (p.error) throw new Error(`createSuperAdminUser(${label}): ${p.error.message}`);
+  return u;
+}
+
+/** Remove privilégio e apaga todas as identidades criadas nesta execução. */
+export async function cleanupTestIdentities(): Promise<void> {
+  const ids = [...createdUserIds];
+  if (!ids.length) return;
+  await admin
+    .from("user_profiles")
+    .update({ is_super_admin: false })
+    .in("id", ids)
+    .then(() => undefined, () => undefined);
+  for (const id of ids) {
+    await admin.auth.admin.deleteUser(id).catch(() => {});
+    createdUserIds.delete(id);
+  }
+}
+
 
 export type Fixture = {
   brandId: string;
