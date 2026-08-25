@@ -97,7 +97,11 @@ describe("instantiate_project_template herda escopo de cliente", () => {
     });
     expect(r.error).toBeNull();
     expect(typeof r.data).toBe("string");
-    if (r.data) await admin.from("projects").delete().eq("id", r.data as string);
+    if (r.data)
+      await admin
+        .from("projects")
+        .delete()
+        .eq("id", r.data as string);
   });
 });
 

@@ -112,7 +112,10 @@ beforeAll(async () => {
 }, 120_000);
 
 afterAll(async () => {
-  await admin.from("brand_members").delete().eq("user_id", multiAdmin?.id ?? "");
+  await admin
+    .from("brand_members")
+    .delete()
+    .eq("user_id", multiAdmin?.id ?? "");
   await cleanup(fx);
   for (const u of [superAdmin, multiAdmin].filter(Boolean)) {
     if (u) await admin.auth.admin.deleteUser(u.id).catch(() => {});
@@ -258,9 +261,15 @@ describe("Herança workspace → client → project → task → subtask", () =>
       .select("id")
       .single();
     expect(c.error).toBeNull();
-    const deniedComment = await fx.userA.client.from("task_comments").select("id").eq("id", c.data!.id);
+    const deniedComment = await fx.userA.client
+      .from("task_comments")
+      .select("id")
+      .eq("id", c.data!.id);
     expect(deniedComment.data ?? []).toEqual([]);
-    const allowedComment = await fx.userB.client.from("task_comments").select("id").eq("id", c.data!.id);
+    const allowedComment = await fx.userB.client
+      .from("task_comments")
+      .select("id")
+      .eq("id", c.data!.id);
     expect((allowedComment.data ?? []).map((r) => r.id)).toEqual([c.data!.id]);
 
     const te = await admin
@@ -275,7 +284,10 @@ describe("Herança workspace → client → project → task → subtask", () =>
       .select("id")
       .single();
     expect(te.error).toBeNull();
-    const deniedTe = await fx.userA.client.from("task_time_entries").select("id").eq("id", te.data!.id);
+    const deniedTe = await fx.userA.client
+      .from("task_time_entries")
+      .select("id")
+      .eq("id", te.data!.id);
     expect(deniedTe.data ?? []).toEqual([]);
   });
 });

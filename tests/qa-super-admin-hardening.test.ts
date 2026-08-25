@@ -36,7 +36,8 @@ describe("barreira de ambiente (TEST_SUPER_ADMIN_CREATION)", () => {
     process.env["UNITOS_TEST_ENV"] = "test";
     process.env["UNITOS_PRODUCTION_PROJECT_REF"] =
       process.env["SUPABASE_PROJECT_ID"] ??
-      (/https?:\/\/([a-z0-9]+)\.supabase\./i.exec(process.env["SUPABASE_URL"] ?? "")?.[1] ?? "x");
+      /https?:\/\/([a-z0-9]+)\.supabase\./i.exec(process.env["SUPABASE_URL"] ?? "")?.[1] ??
+      "x";
     expect(privilegedTestEnv()).toEqual({ allowed: false, reason: "production_project" });
     expect(() => assertPrivilegedTestEnv()).toThrow(/PRODUÇÃO/);
   });

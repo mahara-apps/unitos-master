@@ -225,7 +225,9 @@ describe("Cross-workspace — recursos client-scoped", () => {
 
   it("projectId de outro workspace é rejeitado", async () => {
     await denied(() => assertProjectScope(sb(fx.userA), fx.userA.id, fx.otherBrandProject));
-    await denied(() => assertProjectScope(sb(fx.userManager), fx.userManager.id, fx.otherBrandProject));
+    await denied(() =>
+      assertProjectScope(sb(fx.userManager), fx.userManager.id, fx.otherBrandProject),
+    );
   });
 
   it("taskId de outro workspace é rejeitado", async () => {
