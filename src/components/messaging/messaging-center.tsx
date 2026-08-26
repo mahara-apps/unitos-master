@@ -27,7 +27,8 @@ import {
 } from "@/components/ui/dialog";
 import { PageKpi, PageKpiGrid, type KpiStatus } from "@/components/ui/page-kpi";
 import { TemplatesWorkspace } from "@/components/messaging/template-editor";
-import { WhatsappCenter } from "@/components/connections/whatsapp-center";
+import { WhatsappChannelCard } from "@/components/connections/whatsapp-channel-card";
+import { WhatsappManualTestCard } from "@/components/connections/whatsapp-manual-test-card";
 import { getMessagingKpis } from "@/lib/messaging-kpis.functions";
 import {
   saveToolCredential,
@@ -88,16 +89,18 @@ export function MessagingCenter({
 
       <section className="space-y-3">
         <SectionTitle
-          title="WhatsApp Evolution"
-          hint="Configure a Evolution, conecte via QR Code e gerencie destinatários e testes de envio."
+          title="Canais de comunicação"
+          hint="Provedores de mensageria do workspace e teste rápido de envio."
         />
-        <WhatsappCenter brandId={brandId} canManage={canManage} />
-        <ComingSoonCard
-          name="WhatsApp Cloud API"
-          hint="Integração oficial da Meta para WhatsApp."
-        />
+        <div className="grid gap-3 md:grid-cols-2">
+          <WhatsappChannelCard brandId={brandId} canManage={canManage} />
+          <ComingSoonCard
+            name="WhatsApp Cloud API"
+            hint="Integração oficial da Meta para WhatsApp."
+          />
+          <WhatsappManualTestCard brandId={brandId} canManage={canManage} />
+        </div>
       </section>
-
 
       <section className="space-y-3">
         <SectionTitle

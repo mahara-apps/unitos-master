@@ -18,7 +18,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 function statusTone(status: string) {
-  if (status === "failed") return "rose" as const;
+  if (status === "failed") return "red" as const;
   if (status === "skipped") return "amber" as const;
   return "emerald" as const;
 }
