@@ -824,8 +824,10 @@ function b64urlDecode(s: string): Uint8Array {
 }
 
 async function stateSecret(): Promise<string> {
-  // Reuse the app secret — server-side only.
-  return process.env.META_APP_SECRET ?? requireEnv("META_APP_SECRET");
+  // Per-installation secret. Several installations may share the same Meta App
+  // (and therefore META_APP_SECRET), so a dedicated secret keeps an OAuth state
+  // issued by installation A from being valid on installation B.
+  return process.env.META_STATE_SECRET ?? requireEnv("META_APP_SECRET");
 }
 
 export async function signOAuthState(
