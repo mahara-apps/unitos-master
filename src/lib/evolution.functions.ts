@@ -102,6 +102,9 @@ export const saveEvolutionConfig = createServerFn({ method: "POST" })
 
     let ciphertext = (existing?.ciphertext as string | null) ?? null;
     let masked = (existing?.masked as string | null) ?? null;
+    if (!data.apiKey && !ciphertext) {
+      throw new Error("Informe a chave de API da Evolution.");
+    }
     if (data.apiKey) {
       const { encryptCredential, maskCredential } = await import("@/lib/credentials-crypto.server");
       ciphertext = await encryptCredential(data.apiKey);
@@ -125,8 +128,8 @@ export const saveEvolutionConfig = createServerFn({ method: "POST" })
       {
         brand_id: data.brandId,
         provider: EVOLUTION_PROVIDER,
-        ...(ciphertext ? { ciphertext } : {}),
-        ...(masked ? { masked } : {}),
+        ciphertext: ciphertext!,
+        masked: masked ?? "",
         metadata: { ...metadata, last_check: check.checkedAt, last_check_ok: check.ok },
         updated_by: context.userId,
       },
