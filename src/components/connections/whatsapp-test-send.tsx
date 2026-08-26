@@ -48,10 +48,7 @@ export function WhatsappTestSend({
       }),
   });
 
-  const summary = send.data as
-    | { results?: Array<{ ok: boolean; error?: string | null }> }
-    | undefined;
-  const failure = summary?.results?.find((r) => !r.ok);
+  const failure = send.data?.results.find((r) => r.status !== "sent");
   const disabled =
     !canManage || !connected || !instanceId || !recipientId || message.trim().length === 0;
 
