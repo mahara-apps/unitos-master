@@ -348,3 +348,131 @@ export const listWhatsappEligibleUsers = createServerFn({ method: "GET" })
       });
     },
   );
+
+/* -------------------------------------------------------------------------- */
+/* Teste de envio com telefone manual (Mensageria)                            */
+/* -------------------------------------------------------------------------- */
+
+const TestSendInput = z.object({
+  brandId: z.string().uuid(),
+  instanceId: z.string().uuid(),
+  /** Aceita formato internacional (+55 31 9…). Normalizado no servidor. */
+  phone: z.string().trim().min(8).max(30),
+  message: z.string().trim().min(1).max(4096),
+});
+
+/**
+ * Envio de teste avulso: não cria destinatário, apenas usa o serviço Evolution
+ * já existente. A validação de telefone, escopo e instância é server-side.
+ */
+export const sendWhatsappTestMessage = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => TestSendInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { assertBrandAdmin } = await import("@/lib/access-guard");
+    const { parseDestination, maskDestination } = await import("@/lib/whatsapp/destination");
+    const { loadInstance, resolveInstanceConfig } = await import("@/lib/evolution/scope.server");
+    const { sendWhatsappText } = await import("@/lib/whatsapp/send.server");
+    const { logMessage } = await import("@/lib/messaging-log.server");
+
+    await assertBrandAdmin(context.supabase, context.userId, data.brandId);
+
+    const destination = parseDestination("phone", data.phone);
+    if (!destination) throw new Error("Telefone inválido. Use o formato +55 31 90000-0000.");
+
+    const instance = await loadInstance(context.supabase as never, data.brandId, data.instanceId);
+    if (instance.status !== "connected") {
+      throw new Error("A instância de WhatsApp não está conectada.");
+    }
+
+    const config = await resolveInstanceConfig(context.supabase as never, data.brandId);
+    const actor = { kind: "user", userId: context.userId } as const;
+    const scope = instance.client_id
+      ? ({ scope: "client", brandId: data.brandId, clientId: instance.client_id } as const)
+      : ({ scope: "workspace", brandId: data.brandId } as const);
+
+    try {
+      const { providerMessageId } = await sendWhatsappText(
+        config,
+        instance.instance_name,
+        destination,
+        data.message,
+      );
+      await logMessage(context.supabase as never, actor, scope, {
+        channel: "whatsapp",
+        status: "sent",
+        recipient: maskDestination(destination),
+        providerMessageId,
+        metadata: { test_send: true, instance_id: instance.id, message: data.message.slice(0, 500) },
+      }).catch(() => undefined);
+      return { status: "sent" as const, error: null as string | null };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Falha ao enviar a mensagem pelo WhatsApp.";
+      await logMessage(context.supabase as never, actor, scope, {
+        channel: "whatsapp",
+        status: "failed",
+        recipient: maskDestination(destination),
+        errorMessage: message,
+        metadata: { test_send: true, instance_id: instance.id, message: data.message.slice(0, 500) },
+      }).catch(() => undefined);
+      return { status: "failed" as const, error: message };
+    }
+  });
+
+/* -------------------------------------------------------------------------- */
+/* Histórico de envios de WhatsApp por cliente                                */
+/* -------------------------------------------------------------------------- */
+
+export type WhatsappSendLogRow = {
+  id: string;
+  status: string;
+  recipient: string | null;
+  message: string | null;
+  errorMessage: string | null;
+  sentAt: string;
+};
+
+/** Histórico (mais recente primeiro) dos envios de WhatsApp deste cliente. */
+export const listWhatsappSendLogs = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        brandId: z.string().uuid(),
+        clientId: z.string().uuid(),
+        limit: z.number().int().min(1).max(100).optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }): Promise<WhatsappSendLogRow[]> => {
+    const { assertClientInBrand } = await import("@/lib/access-guard");
+    await assertClientInBrand(context.supabase, context.userId, data.brandId, data.clientId);
+
+    const { data: rows, error } = await context.supabase
+      .from("message_logs")
+      .select("id, status, recipient, error_message, sent_at, metadata")
+      .eq("brand_id", data.brandId)
+      .eq("client_id", data.clientId)
+      .eq("channel", "whatsapp")
+      .order("sent_at", { ascending: false })
+      .limit(data.limit ?? 30);
+    if (error) throw error;
+
+    return (rows ?? []).map((r) => {
+      const meta = (r.metadata ?? {}) as Record<string, unknown>;
+      return {
+        id: r.id as string,
+        status: (r.status as string) ?? "unknown",
+        recipient: (r.recipient as string | null) ?? null,
+        message:
+          typeof meta["message"] === "string"
+            ? (meta["message"] as string)
+            : typeof meta["template"] === "string"
+              ? (meta["template"] as string)
+              : null,
+        errorMessage: (r.error_message as string | null) ?? null,
+        sentAt: (r.sent_at as string) ?? new Date().toISOString(),
+      };
+    });
+  });

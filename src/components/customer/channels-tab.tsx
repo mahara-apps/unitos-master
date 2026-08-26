@@ -23,6 +23,7 @@ import {
 import { useAccessRole } from "@/hooks/use-access-role";
 import { cn } from "@/lib/utils";
 import { channelDef, normalizeStatus, type StatusKey } from "@/components/connections/channel-meta";
+import { ClientWhatsappSection } from "@/components/customer/client-whatsapp-section";
 import {
   ProfileEmpty,
   ProfilePageHeader,
@@ -260,6 +261,8 @@ export function ChannelsTab({ brandId, clientId }: { brandId: string; clientId: 
           </ul>
         )}
       </ProfileSection>
+
+      <ClientWhatsappSection brandId={brandId} clientId={clientId} canManage={canManage} />
 
       <LinkChannelDialog
         open={pickerOpen}
