@@ -29,10 +29,7 @@ export const META_FORWARD_TIMEOUT_MS = 4000;
  * Parses the trusted peer list from configuration.
  * Accepts comma/whitespace separated absolute https origins.
  */
-export function parseInstallationPeers(
-  raw?: string | null,
-  selfOrigin?: string | null,
-): string[] {
+export function parseInstallationPeers(raw?: string | null, selfOrigin?: string | null): string[] {
   if (!raw) return [];
   const self = safeOrigin(selfOrigin);
   const out: string[] = [];
