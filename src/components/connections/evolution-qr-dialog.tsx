@@ -40,15 +40,29 @@ export function EvolutionQrDialog({
   const qc = useQueryClient();
   const requestQr = useServerFn(requestEvolutionInstanceQr);
   const refreshState = useServerFn(refreshEvolutionInstanceState);
+  const configureWebhook = useServerFn(configureEvolutionWebhook);
 
   const [qr, setQr] = useState<EvolutionQrResult | null>(null);
   const [connected, setConnected] = useState(false);
   const [phone, setPhone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const issuedAtRef = useRef<number>(0);
+  const webhookRef = useRef<string | null>(null);
 
   const qrMutation = useMutation({
-    mutationFn: () => requestQr({ data: { brandId, instanceId: instance!.id } }),
+    mutationFn: async () => {
+      // Garante o webhook registrado antes do pareamento (best-effort):
+      // com ele a conexão concluída chega por evento, sem depender do polling.
+      if (webhookRef.current !== instance!.id) {
+        try {
+          await configureWebhook({ data: { brandId, instanceId: instance!.id } });
+          webhookRef.current = instance!.id;
+        } catch (err) {
+          console.warn("[Evolution] webhook não registrado", err);
+        }
+      }
+      return requestQr({ data: { brandId, instanceId: instance!.id } });
+    },
     onSuccess: (result) => {
       setError(null);
       setQr(result);
