@@ -499,6 +499,7 @@ function ConnectionsPage() {
             channels={data?.channels ?? {}}
             isLoading={isLoading}
             onChanged={invalidate}
+            canManage={role === "admin"}
           />
         </TabsContent>
       </Tabs>
