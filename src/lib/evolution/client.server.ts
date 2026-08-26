@@ -40,7 +40,10 @@ const MAX_ATTEMPTS = 3;
 
 function messageForStatus(status: number): { code: EvolutionErrorCode; message: string } {
   if (status === 401 || status === 403) {
-    return { code: "unauthorized", message: "Chave de API da Evolution inválida ou sem permissão." };
+    return {
+      code: "unauthorized",
+      message: "Chave de API da Evolution inválida ou sem permissão.",
+    };
   }
   if (status === 404) {
     return { code: "not_found", message: "Recurso não encontrado no servidor Evolution." };
@@ -159,9 +162,13 @@ export async function evolutionRequest<T = unknown>(
           }`,
         );
         lastError = aborted
-          ? new EvolutionApiError("timeout", "O servidor Evolution não respondeu no tempo limite.", {
-              retryable: true,
-            })
+          ? new EvolutionApiError(
+              "timeout",
+              "O servidor Evolution não respondeu no tempo limite.",
+              {
+                retryable: true,
+              },
+            )
           : new EvolutionApiError(
               "network_error",
               "Não foi possível alcançar o servidor Evolution.",
@@ -175,7 +182,9 @@ export async function evolutionRequest<T = unknown>(
     }
   }
 
-  throw lastError ?? new EvolutionApiError("network_error", "Falha ao contatar o servidor Evolution.");
+  throw (
+    lastError ?? new EvolutionApiError("network_error", "Falha ao contatar o servidor Evolution.")
+  );
 }
 
 export type EvolutionConnectivity = {
@@ -218,7 +227,13 @@ export async function checkEvolutionConnectivity(
       return { ok: false, code: error.code, message: error.message, instances: null, checkedAt };
     }
     if (error instanceof EvolutionConfigError) {
-      return { ok: false, code: "config_error", message: error.message, instances: null, checkedAt };
+      return {
+        ok: false,
+        code: "config_error",
+        message: error.message,
+        instances: null,
+        checkedAt,
+      };
     }
     console.error("[Evolution] erro inesperado no teste de conectividade", error);
     return {

@@ -91,10 +91,7 @@ export function normalizeEvolutionBaseUrl(raw: string): string {
     );
   }
 
-  if (
-    allowlist.length > 0 &&
-    !allowlist.some((h) => host === h || host.endsWith(`.${h}`))
-  ) {
+  if (allowlist.length > 0 && !allowlist.some((h) => host === h || host.endsWith(`.${h}`))) {
     throw new EvolutionConfigError(
       "base_url_not_allowed",
       "Esta URL não está na lista de servidores Evolution permitidos.",

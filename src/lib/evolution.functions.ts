@@ -25,9 +25,8 @@ export const getEvolutionStatus = createServerFn({ method: "GET" })
     const { assertBrandMember } = await import("@/lib/access-guard");
     await assertBrandMember(context.supabase, context.userId, data.brandId);
 
-    const { EVOLUTION_PROVIDER, resolveEvolutionConfig } = await import(
-      "@/lib/evolution/config.server"
-    );
+    const { EVOLUTION_PROVIDER, resolveEvolutionConfig } =
+      await import("@/lib/evolution/config.server");
     const { EvolutionConfigError } = await import("@/lib/evolution/config.server");
 
     const { data: row, error } = await context.supabase
@@ -88,9 +87,8 @@ export const saveEvolutionConfig = createServerFn({ method: "POST" })
       allowManager: false,
     });
 
-    const { EVOLUTION_PROVIDER, normalizeEvolutionBaseUrl, resolveEvolutionConfig } = await import(
-      "@/lib/evolution/config.server"
-    );
+    const { EVOLUTION_PROVIDER, normalizeEvolutionBaseUrl, resolveEvolutionConfig } =
+      await import("@/lib/evolution/config.server");
     const baseUrl = normalizeEvolutionBaseUrl(data.baseUrl);
 
     const { data: existing } = await context.supabase
@@ -112,7 +110,10 @@ export const saveEvolutionConfig = createServerFn({ method: "POST" })
     }
 
     const metadata = {
-      ...(((existing?.metadata as Record<string, unknown> | null) ?? {}) as Record<string, unknown>),
+      ...(((existing?.metadata as Record<string, unknown> | null) ?? {}) as Record<
+        string,
+        unknown
+      >),
       base_url: baseUrl,
     };
 
@@ -148,9 +149,8 @@ export const testEvolutionConnection = createServerFn({ method: "POST" })
     const { assertBrandAdmin } = await import("@/lib/access-guard");
     await assertBrandAdmin(context.supabase, context.userId, data.brandId);
 
-    const { EVOLUTION_PROVIDER, resolveEvolutionConfig, EvolutionConfigError } = await import(
-      "@/lib/evolution/config.server"
-    );
+    const { EVOLUTION_PROVIDER, resolveEvolutionConfig, EvolutionConfigError } =
+      await import("@/lib/evolution/config.server");
 
     const { data: row, error } = await context.supabase
       .from("brand_api_credentials")
