@@ -205,6 +205,22 @@ async function computeStats(
 ): Promise<DashboardStats> {
   const { supabase, userId } = ctx;
   const range = resolveRange(rangeInput);
+  // Os pipelines não dependem do escopo resolvido (filtram por client_id /
+  // brand_id direto), então a consulta começa aqui e é aguardada mais abaixo —
+  // antes era um roundtrip serial extra no fim da função.
+  const pipelinesPromise = ignore(
+    clientId
+      ? supabase
+          .from("content_pipelines")
+          .select("id,client_id")
+          .eq("client_id", clientId)
+          .eq("is_default", true)
+      : supabase
+          .from("content_pipelines")
+          .select("id,client_id,clients!inner(brand_id)")
+          .eq("clients.brand_id", brandId)
+          .eq("is_default", true),
+  );
   // Defesa em profundidade (10D.2): sem cliente selecionado, MANAGER/USER
   // agregam SOMENTE os clientes atribuídos — nunca a marca inteira. Admin e
   // super admin recebem `null` (workspace completo).
