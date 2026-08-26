@@ -57,9 +57,16 @@ const NEEDS_CLIENT: WhatsappRecipientType[] = [
 export function WhatsappRecipientsPanel({
   brandId,
   canManage,
+  clientId: lockedClientId,
+  title = "Destinatários",
+  hint = "Usados por automações, notificações e templates.",
 }: {
   brandId: string | null;
   canManage: boolean;
+  /** Quando informado, a lista e o cadastro ficam presos a este cliente. */
+  clientId?: string;
+  title?: string;
+  hint?: string;
 }) {
   const qc = useQueryClient();
   const listFn = useServerFn(listWhatsappRecipients);
@@ -70,7 +77,8 @@ export function WhatsappRecipientsPanel({
   const deleteFn = useServerFn(deleteWhatsappRecipient);
 
   const [type, setType] = useState<WhatsappRecipientType>("client_contact");
-  const [clientId, setClientId] = useState<string>("");
+  const [clientIdState, setClientId] = useState<string>(lockedClientId ?? "");
+  const clientId = lockedClientId ?? clientIdState;
   const [name, setName] = useState("");
   const [roleLabel, setRoleLabel] = useState("");
   const [destination, setDestination] = useState("");
@@ -80,18 +88,19 @@ export function WhatsappRecipientsPanel({
   const [editRole, setEditRole] = useState("");
   const [editDestination, setEditDestination] = useState("");
 
-  const key = ["whatsapp-recipients", brandId] as const;
+  const key = ["whatsapp-recipients", brandId, lockedClientId ?? null] as const;
 
   const { data: recipients = [], isLoading } = useQuery({
     queryKey: key,
-    queryFn: () => listFn({ data: { brandId: brandId! } }),
+    queryFn: () =>
+      listFn({ data: { brandId: brandId!, clientId: lockedClientId ?? null } }),
     enabled: !!brandId,
   });
 
   const { data: clients = [] } = useQuery({
     queryKey: ["whatsapp-recipients-clients", brandId],
     queryFn: () => clientsFn({ data: { brandId: brandId! } }),
-    enabled: !!brandId,
+    enabled: !!brandId && !lockedClientId,
   });
 
   const { data: users = [] } = useQuery({
@@ -181,10 +190,8 @@ export function WhatsappRecipientsPanel({
       <CardContent className="space-y-3 p-3">
         <div className="flex items-center gap-2">
           <Users className="h-3.5 w-3.5 text-muted-foreground" />
-          <h3 className="text-xs font-semibold">Destinatários</h3>
-          <span className="text-[11px] text-muted-foreground">
-            Usados por automações, notificações e templates.
-          </span>
+          <h3 className="text-xs font-semibold">{title}</h3>
+          <span className="text-[11px] text-muted-foreground">{hint}</span>
         </div>
 
         {canManage ? (
@@ -202,7 +209,7 @@ export function WhatsappRecipientsPanel({
               </SelectContent>
             </Select>
 
-            {needsClient ? (
+            {needsClient && !lockedClientId ? (
               <Select value={clientId} onValueChange={setClientId}>
                 <SelectTrigger className="h-8 text-xs">
                   <SelectValue placeholder="Cliente" />
