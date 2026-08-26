@@ -179,12 +179,20 @@ export function resolveMetaRedirectUri(origin?: string | null): string {
     const trusted =
       host === configuredHost.toLowerCase() ||
       host.endsWith(`.${configuredHost.toLowerCase()}`) ||
-      extraHosts.includes(host);
+      extraHosts.includes(host) ||
+      // Lovable preview/production hosts are only trusted when this
+      // installation is itself hosted on a Lovable domain.
+      (isLovableHost(configuredHost) && isLovableHost(host));
     if (candidate.protocol !== "https:" || !trusted) return configured;
     return `${candidate.origin}${META_CALLBACK_PATH}`;
   } catch {
     return configured;
   }
+}
+
+function isLovableHost(host: string): boolean {
+  const h = host.toLowerCase();
+  return h.endsWith(".lovable.app") || h.endsWith(".lovableproject.com");
 }
 
 export class MetaProvider {
