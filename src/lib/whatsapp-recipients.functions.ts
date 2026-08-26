@@ -79,15 +79,40 @@ export const listWhatsappRecipients = createServerFn({ method: "GET" })
 
     let query = context.supabase
       .from("whatsapp_recipients")
-      .select("*, clients(name), user_profiles(full_name)")
+      .select("*, clients(name)")
       .eq("brand_id", data.brandId)
       .order("created_at", { ascending: true });
     if (data.clientId) query = query.eq("client_id", data.clientId);
 
     const { data: rows, error } = await query;
     if (error) throw error;
-    return (rows ?? []).map((r) => mapRow(r as Row));
+
+    // Não há FK de whatsapp_recipients.user_id → user_profiles, então o nome do
+    // usuário interno é resolvido em uma consulta separada.
+    const userIds = [
+      ...new Set(
+        (rows ?? []).map((r) => (r as Row)["user_id"] as string | null).filter((v): v is string => !!v),
+      ),
+    ];
+    const names = new Map<string, string | null>();
+    if (userIds.length > 0) {
+      const { data: profiles } = await context.supabase
+        .from("user_profiles")
+        .select("id, full_name")
+        .in("id", userIds);
+      for (const p of profiles ?? []) names.set(p.id as string, (p.full_name as string) ?? null);
+    }
+
+    return (rows ?? []).map((r) => {
+      const row = r as Row;
+      const uid = row["user_id"] as string | null;
+      return mapRow({
+        ...row,
+        user_profiles: uid ? { full_name: names.get(uid) ?? null } : null,
+      });
+    });
   });
+
 
 /** Cria um destinatário. Escopo do cliente e autoridade são validados aqui. */
 export const createWhatsappRecipient = createServerFn({ method: "POST" })
