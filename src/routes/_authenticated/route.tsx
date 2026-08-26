@@ -1,9 +1,11 @@
 import { createFileRoute, Outlet, redirect, useRouterState } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { ActiveContextProvider } from "@/hooks/use-active-context";
+import { ActiveContextProvider, useActiveContext } from "@/hooks/use-active-context";
 import { PageHeaderProvider, usePageHeaderState } from "@/hooks/use-page-header";
 import { CommandMenu } from "@/components/command-menu";
 import { Command } from "lucide-react";
@@ -61,9 +63,28 @@ export const Route = createFileRoute("/_authenticated")({
   component: AppShell,
 });
 
+/**
+ * Troca de workspace não pode manter dados do workspace anterior na tela: o
+ * router usa `keepPreviousData` globalmente, então sem isso os números do
+ * workspace antigo continuam renderizados durante a revalidação.
+ */
+function WorkspaceQueryReset() {
+  const { brandId } = useActiveContext();
+  const queryClient = useQueryClient();
+  const previous = useRef<string | null>(null);
+  useEffect(() => {
+    const before = previous.current;
+    previous.current = brandId;
+    if (!before || !brandId || before === brandId) return;
+    queryClient.removeQueries();
+  }, [brandId, queryClient]);
+  return null;
+}
+
 function AppShell() {
   return (
     <ActiveContextProvider>
+      <WorkspaceQueryReset />
       <PageHeaderProvider>
         <AiJobsProvider>
           <SidebarProvider>
