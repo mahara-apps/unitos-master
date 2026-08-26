@@ -159,14 +159,10 @@ export function ContextSwitcher() {
   // 1) fora do escopo do usuário (manager/user) → limpa;
   // 2) não pertence ao workspace ativo (residual de outro workspace) → limpa,
   //    inclusive para admin/super admin, cujo escopo é `null` (todo o workspace).
+  // Enquanto a lista de clientes do workspace não carregou, nada é limpo.
   useEffect(() => {
-    if (!clientId) return;
-    if (allowedClientIds && !allowedClientIds.has(clientId)) {
-      setClientId(null);
-      return;
-    }
-    const clients = clientsQ.data;
-    if (clients && !clients.some((c) => c.id === clientId)) setClientId(null);
+    const brandClientIds = clientsQ.data ? clientsQ.data.map((c) => c.id) : null;
+    if (shouldClearClient(clientId, allowedClientIds ?? null, brandClientIds)) setClientId(null);
   }, [clientId, allowedClientIds, clientsQ.data, setClientId]);
 
   return (
