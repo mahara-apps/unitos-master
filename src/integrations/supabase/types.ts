@@ -4007,6 +4007,79 @@ export type Database = {
           },
         ]
       }
+      evolution_instances: {
+        Row: {
+          brand_id: string
+          client_id: string | null
+          connection_state: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          instance_name: string
+          label: string | null
+          last_error: string | null
+          last_state_at: string | null
+          metadata: Json
+          phone_number: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          client_id?: string | null
+          connection_state?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          instance_name: string
+          label?: string | null
+          last_error?: string | null
+          last_state_at?: string | null
+          metadata?: Json
+          phone_number?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          client_id?: string | null
+          connection_state?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          instance_name?: string
+          label?: string | null
+          last_error?: string | null
+          last_state_at?: string | null
+          metadata?: Json
+          phone_number?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evolution_instances_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "evolution_instances_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evolution_instances_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feature_catalog: {
         Row: {
           category: string | null
