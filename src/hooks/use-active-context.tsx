@@ -79,7 +79,7 @@ export function ActiveContextProvider({ children }: { children: ReactNode }) {
     // cliente ativo — só a troca real de workspace limpa o cliente, porque ele
     // pertence ao workspace anterior. A validação de pertencimento/escopo
     // continua sendo feita contra a lista real de clientes (switcher/servidor).
-    const changed = brandRef.current !== id;
+    const changed = shouldClearClientOnBrandChange(brandRef.current, id);
     brandRef.current = id;
     setBrandIdState(id);
     // Contexto canônico primeiro; persistência é auxiliar.
