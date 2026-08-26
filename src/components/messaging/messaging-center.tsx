@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/dialog";
 import { PageKpi, PageKpiGrid, type KpiStatus } from "@/components/ui/page-kpi";
 import { TemplatesWorkspace } from "@/components/messaging/template-editor";
+import { WhatsappCenter } from "@/components/connections/whatsapp-center";
 import { getMessagingKpis } from "@/lib/messaging-kpis.functions";
 import {
   saveToolCredential,
@@ -38,7 +39,9 @@ import { sendTestMessage } from "@/lib/message-templates.functions";
 import { EVENTS, getDefault, type Channel } from "@/lib/message-templates.catalog";
 import { cn } from "@/lib/utils";
 
-type ProviderId = "whatsapp_evolution" | "whatsapp_cloud" | "resend";
+// WhatsApp (Evolution) tem fluxo próprio em <WhatsappCenter />.
+// WhatsApp Cloud API fica fora da UI nesta versão (feature futura).
+type ProviderId = "resend";
 
 type ProviderDef = {
   id: ProviderId;
@@ -54,28 +57,6 @@ type ProviderDef = {
 };
 
 const PROVIDERS: ProviderDef[] = [
-  {
-    id: "whatsapp_evolution",
-    name: "WhatsApp Evolution",
-    hint: "Instância self-hosted",
-    icon: MessageCircle,
-    channel: "whatsapp",
-    handleLabel: "Base URL da instância",
-    handlePlaceholder: "https://evo.dominio.com",
-    testLabel: "Número de destino",
-    testPlaceholder: "+55 11 90000-0000",
-  },
-  {
-    id: "whatsapp_cloud",
-    name: "WhatsApp Cloud API",
-    hint: "Meta Business Cloud",
-    icon: Send,
-    channel: "whatsapp",
-    handleLabel: "Phone Number ID",
-    handlePlaceholder: "123456789012345",
-    testLabel: "Número de destino",
-    testPlaceholder: "+55 11 90000-0000",
-  },
   {
     id: "resend",
     name: "Resend",
@@ -94,11 +75,13 @@ export function MessagingCenter({
   channels,
   isLoading,
   onChanged,
+  canManage = false,
 }: {
   brandId: string;
   channels: Record<string, ChannelConfig | undefined>;
   isLoading?: boolean;
   onChanged: () => void;
+  canManage?: boolean;
 }) {
   return (
     <div className="space-y-6">
@@ -106,8 +89,16 @@ export function MessagingCenter({
 
       <section className="space-y-3">
         <SectionTitle
-          title="Canais de comunicação"
-          hint="Configure os provedores usados para enviar mensagens e e-mails."
+          title="WhatsApp Evolution"
+          hint="Configure a Evolution, conecte via QR Code e gerencie destinatários e testes de envio."
+        />
+        <WhatsappCenter brandId={brandId} canManage={canManage} />
+      </section>
+
+      <section className="space-y-3">
+        <SectionTitle
+          title="E-mail transacional"
+          hint="Provedor usado para enviar e-mails do sistema."
         />
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {isLoading
