@@ -67,6 +67,24 @@ export function waitForActiveWorkspace(timeoutMs = 3_000): Promise<ActiveWorkspa
   });
 }
 
+/**
+ * Preferência persistida de workspace (apenas dica de inicialização).
+ *
+ * Em carregamento direto de uma rota protegida, o `beforeLoad` roda ANTES do
+ * `ActiveContextProvider` montar — nesse instante o registro canônico ainda
+ * está "não resolvido". A dica permite consultar o entitlement do workspace
+ * provável sem esperar o timeout inteiro. Não concede autorização: o servidor
+ * (RLS/guards) segue sendo a autoridade de cada leitura/escrita.
+ */
+export function getPersistedWorkspaceHint(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem("nx.brand") || null;
+  } catch {
+    return null;
+  }
+}
+
 /** Apenas para testes. */
 export function __resetActiveWorkspace(): void {
   state = { brandId: null, resolved: false };

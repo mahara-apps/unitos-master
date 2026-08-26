@@ -193,7 +193,11 @@ export function ContextSwitcher() {
             )}
             <div className="grid flex-1 text-left leading-tight min-w-0">
               <span className="truncate text-sm font-medium tracking-tight">
-                {activeClient?.name ?? activeBrand?.name ?? "Nenhum workspace"}
+                {/* "Nenhum workspace" só quando a lista já carregou: durante a
+                    resolução o rótulo neutro evita o flicker de boot. */}
+                {activeClient?.name ??
+                  activeBrand?.name ??
+                  (brandsQ.data ? "Nenhum workspace" : "Carregando…")}
               </span>
               <span className="truncate text-[10px] text-muted-foreground">
                 {activeClient ? (activeBrand?.name ?? "") : "Todas as contas"}
