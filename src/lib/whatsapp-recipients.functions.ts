@@ -278,3 +278,48 @@ export const sendWhatsappMessage = createServerFn({ method: "POST" })
       message: data.message,
     });
   });
+
+/**
+ * Usuários do workspace elegíveis como destinatário.
+ * Não devolve o telefone: apenas se existe cadastro utilizável (sem duplicar
+ * dados nem expor contato de terceiros).
+ */
+export const listWhatsappEligibleUsers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ brandId: z.string().uuid() }).parse(input))
+  .handler(
+    async ({
+      data,
+      context,
+    }): Promise<Array<{ userId: string; name: string; role: string; hasWhatsapp: boolean }>> => {
+      const { assertBrandMember } = await import("@/lib/access-guard");
+      const { normalizePhone } = await import("@/lib/whatsapp/destination");
+      await assertBrandMember(context.supabase, context.userId, data.brandId);
+
+      const { data: members, error } = await context.supabase
+        .from("brand_members")
+        .select("user_id, role")
+        .eq("brand_id", data.brandId)
+        .eq("is_active", true);
+      if (error) throw error;
+      const ids = (members ?? []).map((m) => m.user_id as string);
+      if (!ids.length) return [];
+
+      const { data: profiles } = await context.supabase
+        .from("user_profiles")
+        .select("id, full_name, whatsapp, phone")
+        .in("id", ids);
+
+      return (members ?? []).map((m) => {
+        const p = (profiles ?? []).find((x) => x.id === m.user_id) as
+          | { full_name?: string | null; whatsapp?: string | null; phone?: string | null }
+          | undefined;
+        return {
+          userId: m.user_id as string,
+          name: p?.full_name ?? "Usuário",
+          role: m.role as string,
+          hasWhatsapp: Boolean(normalizePhone(p?.whatsapp) ?? normalizePhone(p?.phone)),
+        };
+      });
+    },
+  );
