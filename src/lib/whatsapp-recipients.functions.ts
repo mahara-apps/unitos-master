@@ -403,7 +403,7 @@ export const sendWhatsappTestMessage = createServerFn({ method: "POST" })
         status: "sent",
         recipient: maskDestination(destination),
         providerMessageId,
-        metadata: { test_send: true, instance_id: instance.id },
+        metadata: { test_send: true, instance_id: instance.id, message: data.message.slice(0, 500) },
       }).catch(() => undefined);
       return { status: "sent" as const, error: null as string | null };
     } catch (error) {
@@ -414,7 +414,7 @@ export const sendWhatsappTestMessage = createServerFn({ method: "POST" })
         status: "failed",
         recipient: maskDestination(destination),
         errorMessage: message,
-        metadata: { test_send: true, instance_id: instance.id },
+        metadata: { test_send: true, instance_id: instance.id, message: data.message.slice(0, 500) },
       }).catch(() => undefined);
       return { status: "failed" as const, error: message };
     }
