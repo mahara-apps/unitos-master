@@ -15,6 +15,7 @@ import {
   publishActiveWorkspace,
   subscribeActiveWorkspace,
 } from "@/lib/active-workspace";
+import { shouldClearClientOnBrandChange } from "@/lib/workspace-context-rules";
 
 type ActiveContextValue = {
   brandId: string | null;
