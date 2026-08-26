@@ -276,9 +276,16 @@ export function EvolutionConnectionCard({
 
       {/* ---------------------------- estados vazios --------------------------- */}
       {!configured ? (
-        <p className="text-xs text-muted-foreground">
-          Configure o servidor da Evolution acima para criar a conexão do WhatsApp.
-        </p>
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Nenhuma conexão WhatsApp foi criada para este workspace.
+          </p>
+          <Button size="sm" className="h-8 text-xs" disabled>
+            <Plus className="mr-1.5 h-3 w-3" />
+            Criar conexão
+          </Button>
+          <p className="text-[11px] text-muted-foreground">Configure a Evolution API primeiro.</p>
+        </div>
       ) : isLoading ? (
         <p className="flex items-center gap-2 text-xs text-muted-foreground">
           <Loader2 className="h-3 w-3 animate-spin" /> Carregando conexão…
@@ -286,7 +293,7 @@ export function EvolutionConnectionCard({
       ) : !instance ? (
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">
-            Nenhuma conexão WhatsApp neste workspace. Crie uma para gerar o QR Code.
+            Crie uma conexão para começar o pareamento do WhatsApp.
           </p>
           {canManage ? (
             <div className="flex flex-wrap items-center gap-2">
@@ -307,12 +314,13 @@ export function EvolutionConnectionCard({
                 ) : (
                   <Plus className="mr-1.5 h-3 w-3" />
                 )}
-                Criar conexão WhatsApp
+                Criar conexão
               </Button>
             </div>
           ) : null}
         </div>
       ) : connected ? (
+
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <CheckCircle2 className="h-3.5 w-3.5 text-health-good" />
           WhatsApp conectado{phone ? ` em ${phone}` : ""} — pronto para automações,
