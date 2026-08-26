@@ -63,8 +63,7 @@ import {
   type WorkspaceChannel,
 } from "@/lib/client-channels.functions";
 import { listClients } from "@/lib/workspace.functions";
-import { EvolutionWhatsappPanel } from "./evolution-whatsapp-panel";
-import { WhatsappRecipientsPanel } from "./whatsapp-recipients-panel";
+import { WhatsappCenter } from "./whatsapp-center";
 import { disconnectMeta, startMetaOAuth } from "@/lib/meta/meta.functions";
 import {
   applyMetaReconnectFn,
@@ -451,8 +450,7 @@ export function ChannelsCenter({
 
         {/* -------------------------------- whatsapp ------------------------------- */}
         <TabsContent value="whatsapp" className="space-y-3">
-          <EvolutionWhatsappPanel brandId={brandId} canManage={canManage} />
-          <WhatsappRecipientsPanel brandId={brandId} canManage={canManage} />
+          <WhatsappCenter brandId={brandId} canManage={canManage} />
         </TabsContent>
 
         {/* --------------------------------- canais -------------------------------- */}
