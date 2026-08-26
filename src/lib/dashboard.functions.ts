@@ -436,19 +436,8 @@ async function computeStats(
   );
   // Load dynamic pipeline stages: use client's default pipeline when scoped,
   // otherwise union across all default pipelines for the brand's clients.
-  const pipelinesRes = await ignore(
-    clientId
-      ? supabase
-          .from("content_pipelines")
-          .select("id,client_id")
-          .eq("client_id", clientId)
-          .eq("is_default", true)
-      : supabase
-          .from("content_pipelines")
-          .select("id,client_id,clients!inner(brand_id)")
-          .eq("clients.brand_id", brandId)
-          .eq("is_default", true),
-  );
+  // (a consulta já foi disparada no início da função — ver `pipelinesPromise`)
+  const pipelinesRes = await pipelinesPromise;
   const pipelineIds = ((pipelinesRes?.data ?? []) as Array<{ id: string }>).map((p) => p.id);
   const pipelineStagesRes = pipelineIds.length
     ? await ignore(
