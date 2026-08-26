@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  configureEvolutionWebhook,
   refreshEvolutionInstanceState,
   requestEvolutionInstanceQr,
   type EvolutionInstanceRow,
