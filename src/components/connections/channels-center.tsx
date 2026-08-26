@@ -63,6 +63,7 @@ import {
   type WorkspaceChannel,
 } from "@/lib/client-channels.functions";
 import { listClients } from "@/lib/workspace.functions";
+import { EvolutionWhatsappPanel } from "./evolution-whatsapp-panel";
 import { disconnectMeta, startMetaOAuth } from "@/lib/meta/meta.functions";
 import {
   applyMetaReconnectFn,
@@ -177,7 +178,7 @@ export function ChannelsCenter({
   const clientsFn = useServerFn(listClients);
   const startMetaFn = useServerFn(startMetaOAuth);
 
-  const [tab, setTab] = useState<"channels" | "accounts" | "history">("channels");
+  const [tab, setTab] = useState<"channels" | "accounts" | "whatsapp" | "history">("channels");
   const [search, setSearch] = useState("");
   const [stateFilter, setStateFilter] = useState<"all" | ChannelState>("all");
   const [connectOpen, setConnectOpen] = useState(false);
@@ -439,10 +440,18 @@ export function ChannelsCenter({
               <span className="ml-1.5 text-[10px] text-muted-foreground">{available.length}</span>
             ) : null}
           </TabsTrigger>
+          <TabsTrigger value="whatsapp" className="h-6 text-xs">
+            WhatsApp
+          </TabsTrigger>
           <TabsTrigger value="history" className="h-6 text-xs">
             Histórico
           </TabsTrigger>
         </TabsList>
+
+        {/* -------------------------------- whatsapp ------------------------------- */}
+        <TabsContent value="whatsapp" className="space-y-3">
+          <EvolutionWhatsappPanel brandId={brandId} canManage={canManage} />
+        </TabsContent>
 
         {/* --------------------------------- canais -------------------------------- */}
         <TabsContent value="channels" className="space-y-3">
