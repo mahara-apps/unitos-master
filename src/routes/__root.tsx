@@ -15,7 +15,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { supabase } from "@/integrations/supabase/client";
 import { QueryPersistence } from "@/lib/query-persistence";
-import { resetIdentityState } from "@/lib/session-reset";
+import { resetIdentityState, isIdentityChange } from "@/lib/session-reset";
 
 function NotFoundComponent() {
   return (
@@ -154,9 +154,22 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
-    const { data } = supabase.auth.onAuthStateChange((event) => {
+    // `SIGNED_IN` também é emitido quando a sessão do MESMO usuário é
+    // restaurada (boot) ou renovada. Tratar isso como troca de identidade
+    // apagava workspace/cliente ativos e todo o cache no meio do boot.
+    let previousUserId: string | null = null;
+    void supabase.auth.getSession().then(({ data }) => {
+      previousUserId = previousUserId ?? (data.session?.user.id ?? null);
+    });
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
-      // Transição de identidade: descarta cache/estado local do usuário
+      const nextUserId = session?.user.id ?? null;
+      if (!isIdentityChange(event, previousUserId, nextUserId)) {
+        previousUserId = nextUserId;
+        return;
+      }
+      previousUserId = nextUserId;
+      // Transição de identidade real: descarta cache/estado local do usuário
       // anterior antes de revalidar as rotas.
       resetIdentityState(queryClient);
       router.invalidate();

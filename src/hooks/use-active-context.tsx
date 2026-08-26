@@ -4,10 +4,17 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
-import { markActiveWorkspaceUnresolved, publishActiveWorkspace } from "@/lib/active-workspace";
+import {
+  getActiveWorkspace,
+  markActiveWorkspaceUnresolved,
+  publishActiveWorkspace,
+  subscribeActiveWorkspace,
+} from "@/lib/active-workspace";
 
 type ActiveContextValue = {
   brandId: string | null;
@@ -33,6 +40,9 @@ const readUuid = (key: string): string | null => {
 export function ActiveContextProvider({ children }: { children: ReactNode }) {
   const [brandId, setBrandIdState] = useState<string | null>(null);
   const [clientId, setClientIdState] = useState<string | null>(null);
+  // Espelho síncrono do workspace ativo: `setBrandId` precisa saber se houve
+  // troca real de workspace sem depender do estado já ter re-renderizado.
+  const brandRef = useRef<string | null>(null);
 
   // Hidratação: `localStorage` é apenas preferência persistida. Só marcamos o
   // workspace como "resolvido" quando existe um valor; caso contrário o
@@ -40,10 +50,12 @@ export function ActiveContextProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const persisted = readUuid(BRAND_KEY);
+    brandRef.current = persisted;
     setBrandIdState(persisted);
     setClientIdState(readUuid(CLIENT_KEY));
     if (persisted) publishActiveWorkspace(persisted, true);
   }, []);
+
 
   /**
    * Transição de identidade (`resetIdentityState`): o estado local é limpo e o
@@ -53,6 +65,7 @@ export function ActiveContextProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onReset = () => {
+      brandRef.current = null;
       setBrandIdState(null);
       setClientIdState(null);
       markActiveWorkspaceUnresolved();
@@ -62,12 +75,19 @@ export function ActiveContextProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setBrandId = useCallback((id: string | null) => {
+    // Reafirmar o MESMO workspace (revalidação no boot) não pode derrubar o
+    // cliente ativo — só a troca real de workspace limpa o cliente, porque ele
+    // pertence ao workspace anterior. A validação de pertencimento/escopo
+    // continua sendo feita contra a lista real de clientes (switcher/servidor).
+    const changed = brandRef.current !== id;
+    brandRef.current = id;
     setBrandIdState(id);
     // Contexto canônico primeiro; persistência é auxiliar.
     publishActiveWorkspace(id, true);
     if (typeof window === "undefined") return;
     if (id) localStorage.setItem(BRAND_KEY, id);
     else localStorage.removeItem(BRAND_KEY);
+    if (!changed) return;
     setClientIdState(null);
     localStorage.removeItem(CLIENT_KEY);
   }, []);
@@ -98,4 +118,18 @@ export function useActiveContextOptional(): ActiveContextValue {
   const v = useContext(Ctx);
   if (!v) return { brandId: null, clientId: null, setBrandId: () => {}, setClientId: () => {} };
   return v;
+}
+
+/**
+ * `true` quando o workspace ativo já terminou de resolver (existe ou não
+ * existe). Telas usam isso para distinguir "ainda carregando o contexto" de
+ * "usuário sem workspace" — sem isso o dashboard mostrava o estado vazio
+ * durante a hidratação.
+ */
+export function useWorkspaceResolved(): boolean {
+  return useSyncExternalStore(
+    subscribeActiveWorkspace,
+    () => getActiveWorkspace().resolved,
+    () => false,
+  );
 }

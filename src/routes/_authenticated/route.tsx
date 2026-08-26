@@ -17,6 +17,7 @@ import { AiJobsIndicator } from "@/components/ai-jobs/ai-jobs-indicator";
 import { BrandFavicon } from "@/components/brand/brand-favicon";
 import { getCachedUser } from "@/lib/auth-cache";
 import { getCachedPortalAccess } from "@/lib/access-cache";
+import { isWorkspaceScopedQueryKey } from "@/lib/session-reset";
 
 const fallbackTitles: Record<string, string> = {
   "/dashboard": "Painel",
@@ -67,6 +68,10 @@ export const Route = createFileRoute("/_authenticated")({
  * Troca de workspace não pode manter dados do workspace anterior na tela: o
  * router usa `keepPreviousData` globalmente, então sem isso os números do
  * workspace antigo continuam renderizados durante a revalidação.
+ *
+ * Só as queries escopadas são descartadas — identidade, lista de workspaces e
+ * flags globais permanecem em cache (removê-las forçava refetch de tudo e
+ * prolongava o boot).
  */
 function WorkspaceQueryReset() {
   const { brandId } = useActiveContext();
@@ -76,7 +81,7 @@ function WorkspaceQueryReset() {
     const before = previous.current;
     previous.current = brandId;
     if (!before || !brandId || before === brandId) return;
-    queryClient.removeQueries();
+    queryClient.removeQueries({ predicate: (q) => isWorkspaceScopedQueryKey(q.queryKey) });
   }, [brandId, queryClient]);
   return null;
 }

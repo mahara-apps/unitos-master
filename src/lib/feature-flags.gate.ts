@@ -13,8 +13,19 @@ export type { FeatureAccessResult };
  * resolve, aguardamos: ausência de workspace NÃO é ausência de plano.
  */
 export async function ensureFeatureEnabled(featureKey: string): Promise<void> {
+  // Quando o workspace já é conhecido, a consulta de entitlement começa em
+  // paralelo com a espera pela resolução do contexto (antes eram seriais). O
+  // resultado só é aproveitado se o workspace resolvido for o mesmo — nenhuma
+  // autorização é assumida por antecipação.
+  const optimisticBrandId = getActiveWorkspace().brandId;
+  const optimistic = optimisticBrandId
+    ? getCachedFeatureAccess(optimisticBrandId, featureKey)
+    : null;
   const { brandId } = await waitForActiveWorkspace();
-  const result = await getCachedFeatureAccess(brandId, featureKey);
+  const result =
+    optimistic && brandId && brandId === optimisticBrandId
+      ? await optimistic
+      : await getCachedFeatureAccess(brandId, featureKey);
   if (result.enabled) return;
   // Falha de consulta não é bloqueio de plano: o servidor (RLS/guards) segue
   // sendo a autoridade de cada leitura/escrita dentro da tela.
