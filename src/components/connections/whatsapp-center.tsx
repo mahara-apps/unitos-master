@@ -47,16 +47,20 @@ export function WhatsappCenter({
   const instance = instances.find((i) => i.status === "connected") ?? instances[0] ?? null;
 
   return (
-    <div className="space-y-3">
-      <EvolutionConfigCard brandId={brandId} status={status} canManage={canManage} />
+    <div className="space-y-4">
+      <div className="grid items-stretch gap-3 lg:grid-cols-2">
+        <EvolutionConfigCard brandId={brandId} status={status} canManage={canManage} />
 
-      <EvolutionConnectionCard
-        brandId={brandId}
-        configured={!!status?.configured}
-        instance={instance}
-        isLoading={isLoading}
-        canManage={canManage}
-      />
+        <EvolutionConnectionCard
+          brandId={brandId}
+          configured={!!status?.configured}
+          instance={instance}
+          isLoading={isLoading}
+          canManage={canManage}
+        />
+      </div>
+
+      <WhatsappRecipientsPanel brandId={brandId} canManage={canManage} />
 
       <WhatsappTestSend
         brandId={brandId}
@@ -65,8 +69,7 @@ export function WhatsappCenter({
         recipients={recipients}
         canManage={canManage}
       />
-
-      <WhatsappRecipientsPanel brandId={brandId} canManage={canManage} />
     </div>
   );
 }
+
