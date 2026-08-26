@@ -5,9 +5,9 @@ import { assertBrandAdmin, assertClientScope } from "@/lib/access-guard";
 import { EVOLUTION_PROVIDER, resolveEvolutionConfig } from "./config.server";
 import type { EvolutionConfig } from "./config.server";
 
-type AnySupabase = {
+// Aceita o client autenticado do middleware sem depender dos genéricos gerados.
+type AnySupabase = Parameters<typeof assertBrandAdmin>[0] & {
   from: (table: string) => any;
-  rpc: (fn: string, args: Record<string, unknown>) => any;
 };
 
 export type EvolutionInstanceRecord = {
@@ -42,8 +42,8 @@ export async function assertInstanceAdmin(
   brandId: string,
   clientId: string | null,
 ): Promise<void> {
-  await assertBrandAdmin(supabase as never, userId, brandId);
-  if (clientId) await assertClientScope(supabase as never, userId, clientId);
+  await assertBrandAdmin(supabase, userId, brandId);
+  if (clientId) await assertClientScope(supabase, userId, clientId);
 }
 
 /** Configuração efetiva da Evolution para o workspace. */
