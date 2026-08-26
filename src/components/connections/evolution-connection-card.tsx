@@ -212,7 +212,8 @@ export function EvolutionConnectionCard({
               variant="ghost"
               className="h-7 px-2 text-xs"
               title="Atualizar estado"
-              onClick={() => restart.reset() || invalidate()}
+              disabled={refresh.isPending}
+              onClick={() => refresh.mutate(instance.id)}
             >
               <RefreshCw className="h-3 w-3" />
             </Button>
@@ -395,22 +396,4 @@ export function EvolutionConnectionCard({
       )}
     </div>
   );
-}
-
-/** Mutação simples sobre a instância (reiniciar/desconectar/excluir). */
-function useMutationFactory(
-  fn: (args: { data: { brandId: string; instanceId: string } }) => Promise<unknown>,
-  success: string,
-  brandId: string,
-  invalidate: () => void,
-) {
-  return useMutation({
-    mutationFn: (instanceId: string) => fn({ data: { brandId, instanceId } }),
-    onSuccess: () => {
-      toast.success(success);
-      invalidate();
-    },
-    onError: (err: unknown) =>
-      toast.error(err instanceof Error ? err.message : "Não foi possível concluir a ação."),
-  });
 }
