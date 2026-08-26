@@ -116,15 +116,34 @@ export function EvolutionConnectionCard({
     },
   });
 
-  const simple = (
-    fn: (args: { data: { brandId: string; instanceId: string } }) => Promise<unknown>,
-    success: string,
-  ) =>
-    useMutationFactory(fn, success, brandId, invalidate);
+  const instanceAction = (success: string) => ({
+    onSuccess: () => {
+      toast.success(success);
+      invalidate();
+    },
+    onError: (err: unknown) =>
+      toast.error(err instanceof Error ? err.message : "Não foi possível concluir a ação."),
+  });
 
-  const restart = simple(restartFn, "Conexão reiniciada.");
-  const disconnect = simple(disconnectFn, "WhatsApp desconectado.");
-  const removeInstance = simple(deleteFn, "Conexão removida.");
+  const restart = useMutation({
+    mutationFn: (instanceId: string) => restartFn({ data: { brandId, instanceId } }),
+    ...instanceAction("Conexão reiniciada."),
+  });
+  const disconnect = useMutation({
+    mutationFn: (instanceId: string) => disconnectFn({ data: { brandId, instanceId } }),
+    ...instanceAction("WhatsApp desconectado."),
+  });
+  const removeInstance = useMutation({
+    mutationFn: (instanceId: string) => deleteFn({ data: { brandId, instanceId } }),
+    ...instanceAction("Conexão removida."),
+  });
+  const refresh = useMutation({
+    mutationFn: (instanceId: string) => refreshState({ data: { brandId, instanceId } }),
+    onSuccess: () => invalidate(),
+    onError: (err: unknown) =>
+      toast.error(err instanceof Error ? err.message : "Falha ao consultar o estado."),
+  });
+
 
   // Solicita o primeiro QR quando o usuário abre o pareamento.
   useEffect(() => {
