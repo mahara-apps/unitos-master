@@ -37,7 +37,6 @@ export async function ensureFeatureEnabled(featureKey: string): Promise<void> {
     optimistic && brandId && brandId === optimisticBrandId
       ? await optimistic
       : await getCachedFeatureAccess(brandId, featureKey);
-  console.log("[gate]",JSON.stringify({featureKey,live,hint,optimisticBrandId,waited,result}));
   if (result.enabled) return;
   // Contexto ainda não resolveu: inicialização não é bloqueio de plano.
   if (!waited.resolved && !brandId) return;
