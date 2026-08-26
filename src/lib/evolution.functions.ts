@@ -125,8 +125,8 @@ export const saveEvolutionConfig = createServerFn({ method: "POST" })
       {
         brand_id: data.brandId,
         provider: EVOLUTION_PROVIDER,
-        ciphertext,
-        masked,
+        ...(ciphertext ? { ciphertext } : {}),
+        ...(masked ? { masked } : {}),
         metadata: { ...metadata, last_check: check.checkedAt, last_check_ok: check.ok },
         updated_by: context.userId,
       },

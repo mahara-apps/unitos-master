@@ -107,15 +107,22 @@ export function normalizeEvolutionBaseUrl(raw: string): string {
 
 type CredentialRow = {
   ciphertext?: string | null;
-  metadata?: Record<string, unknown> | null;
+  metadata?: unknown;
 };
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
 /** Extrai a base URL declarada no metadata da credencial do workspace. */
-export function baseUrlFromMetadata(metadata: Record<string, unknown> | null | undefined) {
+export function baseUrlFromMetadata(metadata: unknown) {
+  const record = asRecord(metadata);
   const candidate =
-    (metadata?.["base_url"] as string | undefined) ??
-    (metadata?.["baseUrl"] as string | undefined) ??
-    (metadata?.["handle"] as string | undefined);
+    (record?.["base_url"] as string | undefined) ??
+    (record?.["baseUrl"] as string | undefined) ??
+    (record?.["handle"] as string | undefined);
   const value = (candidate ?? "").trim();
   return value.length > 0 ? value : null;
 }
