@@ -236,3 +236,72 @@ export const deleteEvolutionInstance = createServerFn({ method: "POST" })
 
     return { ok: true, missing: result.missing };
   });
+
+export type EvolutionQrResult = {
+  status: string;
+  connected: boolean;
+  qrBase64: string | null;
+  qrCode: string | null;
+  pairingCode: string | null;
+  count: number | null;
+  requestedAt: string;
+  message: string | null;
+};
+
+/**
+ * Solicita o QR Code de pareamento da instância e persiste o estado
+ * "aguardando leitura". Quando o provedor informa que já está conectada,
+ * devolve o estado conectado sem QR.
+ */
+export const requestEvolutionInstanceQr = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => InstanceInput.parse(input))
+  .handler(async ({ data, context }): Promise<EvolutionQrResult> => {
+    const { assertInstanceAdmin, loadInstance, resolveInstanceConfig } =
+      await import("./evolution/scope.server");
+    const instance = await loadInstance(context.supabase, data.brandId, data.instanceId);
+    await assertInstanceAdmin(context.supabase, context.userId, data.brandId, instance.client_id);
+
+    const config = await resolveInstanceConfig(context.supabase, data.brandId);
+    const { requestEvolutionQr, describeQrFailure } = await import("./evolution/qr.server");
+
+    let payload;
+    try {
+      payload = await requestEvolutionQr(config, instance.instance_name);
+    } catch (error) {
+      const message = describeQrFailure(error);
+      await context.supabase
+        .from("evolution_instances")
+        .update({ last_error: message, last_state_at: new Date().toISOString() })
+        .eq("id", instance.id);
+      throw new Error(message);
+    }
+
+    const hasQr = Boolean(payload.qrBase64 || payload.qrCode);
+    const status = payload.alreadyConnected ? "connected" : hasQr ? "qr_pending" : "connecting";
+
+    await context.supabase
+      .from("evolution_instances")
+      .update({
+        status,
+        connection_state: payload.alreadyConnected ? "open" : "connecting",
+        last_state_at: new Date().toISOString(),
+        last_error: null,
+      })
+      .eq("id", instance.id);
+
+    return {
+      status,
+      connected: payload.alreadyConnected,
+      qrBase64: payload.qrBase64,
+      qrCode: payload.qrCode,
+      pairingCode: payload.pairingCode,
+      count: payload.count,
+      requestedAt: payload.requestedAt,
+      message: payload.alreadyConnected
+        ? "Esta instância já está conectada."
+        : hasQr
+          ? null
+          : "O servidor Evolution não devolveu um QR Code. Tente novamente em instantes.",
+    };
+  });
