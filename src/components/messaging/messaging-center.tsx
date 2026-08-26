@@ -92,7 +92,12 @@ export function MessagingCenter({
           hint="Configure a Evolution, conecte via QR Code e gerencie destinatários e testes de envio."
         />
         <WhatsappCenter brandId={brandId} canManage={canManage} />
+        <ComingSoonCard
+          name="WhatsApp Cloud API"
+          hint="Integração oficial da Meta para WhatsApp."
+        />
       </section>
+
 
       <section className="space-y-3">
         <SectionTitle
@@ -133,6 +138,27 @@ function SectionTitle({ title, hint }: { title: string; hint: string }) {
     </div>
   );
 }
+
+/** Canal previsto na arquitetura, ainda sem configuração disponível. */
+function ComingSoonCard({ name, hint }: { name: string; hint: string }) {
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-dashed bg-muted/20 p-4">
+      <div className="min-w-0 space-y-0.5">
+        <p className="flex items-center gap-2 text-sm font-semibold">
+          <span className="truncate">{name}</span>
+          <Badge variant="secondary" className="shrink-0 text-[10px] uppercase">
+            Em breve
+          </Badge>
+        </p>
+        <p className="truncate text-[11px] text-muted-foreground">{hint}</p>
+      </div>
+      <Button size="sm" variant="outline" className="h-8 shrink-0 text-xs" disabled>
+        Em breve
+      </Button>
+    </div>
+  );
+}
+
 
 /* -------------------------------------------------------------------------- */
 /* KPIs                                                                       */
