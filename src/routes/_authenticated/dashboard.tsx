@@ -29,7 +29,7 @@ import {
   Zap,
 } from "lucide-react";
 
-import { useActiveContext } from "@/hooks/use-active-context";
+import { useActiveContext, useWorkspaceResolved } from "@/hooks/use-active-context";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { supabase } from "@/integrations/supabase/client";
 import { getCachedUser } from "@/lib/auth-cache";
@@ -112,6 +112,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function DashboardPage() {
   const { brandId, clientId } = useActiveContext();
+  const workspaceResolved = useWorkspaceResolved();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   React.useEffect(() => {
@@ -134,6 +135,15 @@ function DashboardPage() {
     navigate({ search: {}, replace: true });
   }, [search.blocked, search.reason, navigate]);
   if (!brandId) {
+    // Contexto ainda resolvendo ≠ usuário sem workspace: durante a hidratação
+    // mostramos skeleton; o estado vazio só aparece quando já está resolvido.
+    if (!workspaceResolved) {
+      return (
+        <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+          <SkeletonList rows={6} />
+        </div>
+      );
+    }
     return (
       <div className="w-full px-6 py-10">
         <div className="rounded-2xl border border-border/60 bg-card px-6 py-8 text-sm text-muted-foreground">

@@ -33,18 +33,46 @@ export function resetIdentityState(queryClient: QueryClient): void {
 }
 
 /**
+ * Chaves de cache que NÃO dependem do workspace/cliente ativo: identidade do
+ * usuário, lista de workspaces e flags globais. Trocar de workspace não pode
+ * derrubá-las (isso forçava refetch de tudo e prolongava o boot).
+ */
+export const WORKSPACE_STABLE_QUERY_KEYS = new Set<string>([
+  "brands",
+  "dashboard-greeting",
+  "me-is-super-admin",
+  "portal-access",
+]);
+
+/** true quando a query depende do escopo (workspace/cliente) e deve ser descartada. */
+export function isWorkspaceScopedQueryKey(queryKey: readonly unknown[] | undefined): boolean {
+  const first = queryKey?.[0];
+  if (typeof first !== "string") return true;
+  return !WORKSPACE_STABLE_QUERY_KEYS.has(first);
+}
+
+/**
+ * `SIGNED_IN` do Supabase também é emitido quando a sessão do MESMO usuário é
+ * restaurada/renovada. Só é troca de identidade quando o usuário muda de fato
+ * (ou quando houve logout).
+ */
+export function isIdentityChange(
+  event: string,
+  previousUserId: string | null,
+  nextUserId: string | null,
+): boolean {
+  if (event === "SIGNED_OUT") return true;
+  if (!nextUserId) return true;
+  if (!previousUserId) return false;
+  return previousUserId !== nextUserId;
+}
+
+/**
  * Troca de workspace/cliente: descarta o cache do escopo anterior em vez de
  * apenas invalidar (invalidação mantém os dados antigos na tela enquanto
  * revalida, o que exibia números de outro cliente por alguns instantes).
  */
 export async function resetScopeCache(queryClient: QueryClient): Promise<void> {
   await queryClient.cancelQueries();
-  queryClient.removeQueries({
-    predicate: (q) => {
-      const first = q.queryKey?.[0];
-      // Preserva apenas o que não é escopado (lista de workspaces e papel),
-      // que são revalidados naturalmente pelas suas próprias chaves.
-      return first !== "brands";
-    },
-  });
+  queryClient.removeQueries({ predicate: (q) => isWorkspaceScopedQueryKey(q.queryKey) });
 }
