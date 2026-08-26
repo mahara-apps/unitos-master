@@ -71,7 +71,7 @@ export const Route = createFileRoute("/api/public/hooks/evolution/$token")({
           provider_event_id: event.providerEventId,
           connection_state: event.connectionState,
           phone_number: event.phoneNumber,
-          payload: safeEventPayload(payload),
+          payload: safeEventPayload(payload) as never,
           received_at: receivedAt,
         });
         // 23505 = evento repetido (índice de deduplicação): idempotente.
@@ -96,7 +96,7 @@ export const Route = createFileRoute("/api/public/hooks/evolution/$token")({
           }
           await supabaseAdmin
             .from("evolution_instances")
-            .update(update)
+            .update(update as never)
             .eq("id", instance.id as string);
         } else {
           await supabaseAdmin
