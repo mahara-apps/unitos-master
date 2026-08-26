@@ -6270,6 +6270,76 @@ export type Database = {
         }
         Relationships: []
       }
+      whatsapp_recipients: {
+        Row: {
+          brand_id: string
+          client_id: string | null
+          created_at: string
+          created_by: string | null
+          destination: string | null
+          id: string
+          is_active: boolean
+          metadata: Json
+          name: string
+          role_label: string | null
+          type: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          brand_id: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          destination?: string | null
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          name: string
+          role_label?: string | null
+          type: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          brand_id?: string
+          client_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          destination?: string | null
+          id?: string
+          is_active?: boolean
+          metadata?: Json
+          name?: string
+          role_label?: string | null
+          type?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_recipients_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "whatsapp_recipients_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_recipients_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       brain_stats_mv: {
