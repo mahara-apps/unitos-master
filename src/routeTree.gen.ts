@@ -102,6 +102,7 @@ import { Route as AuthenticatedCustomersCustomerIdMediaPlanRouteImport } from '.
 import { Route as AuthenticatedCustomersCustomerIdBriefingRouteImport } from './routes/_authenticated/customers.$customerId.briefing'
 import { Route as AuthenticatedCustomersCustomerIdBrainRouteImport } from './routes/_authenticated/customers.$customerId.brain'
 import { Route as ApiSocialPostsPostIdAnalyticsRouteImport } from './routes/api/social/posts/$postId.analytics'
+import { Route as ApiPublicHooksEvolutionTokenRouteImport } from './routes/api/public/hooks/evolution/$token'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -608,6 +609,12 @@ const ApiSocialPostsPostIdAnalyticsRoute =
     path: '/api/social/posts/$postId/analytics',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksEvolutionTokenRoute =
+  ApiPublicHooksEvolutionTokenRouteImport.update({
+    id: '/api/public/hooks/evolution/$token',
+    path: '/api/public/hooks/evolution/$token',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -700,6 +707,7 @@ export interface FileRoutesByFullPath {
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
   '/api/social/top-posts/$connectionId': typeof ApiSocialTopPostsConnectionIdRoute
+  '/api/public/hooks/evolution/$token': typeof ApiPublicHooksEvolutionTokenRoute
   '/api/social/posts/$postId/analytics': typeof ApiSocialPostsPostIdAnalyticsRoute
 }
 export interface FileRoutesByTo {
@@ -786,6 +794,7 @@ export interface FileRoutesByTo {
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
   '/api/social/top-posts/$connectionId': typeof ApiSocialTopPostsConnectionIdRoute
+  '/api/public/hooks/evolution/$token': typeof ApiPublicHooksEvolutionTokenRoute
   '/api/social/posts/$postId/analytics': typeof ApiSocialPostsPostIdAnalyticsRoute
 }
 export interface FileRoutesById {
@@ -882,6 +891,7 @@ export interface FileRoutesById {
   '/api/public/meta/webhook': typeof ApiPublicMetaWebhookRoute
   '/api/social/dashboard/$connectionId': typeof ApiSocialDashboardConnectionIdRoute
   '/api/social/top-posts/$connectionId': typeof ApiSocialTopPostsConnectionIdRoute
+  '/api/public/hooks/evolution/$token': typeof ApiPublicHooksEvolutionTokenRoute
   '/api/social/posts/$postId/analytics': typeof ApiSocialPostsPostIdAnalyticsRoute
 }
 export interface FileRouteTypes {
@@ -977,6 +987,7 @@ export interface FileRouteTypes {
     | '/api/public/meta/webhook'
     | '/api/social/dashboard/$connectionId'
     | '/api/social/top-posts/$connectionId'
+    | '/api/public/hooks/evolution/$token'
     | '/api/social/posts/$postId/analytics'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -1063,6 +1074,7 @@ export interface FileRouteTypes {
     | '/api/public/meta/webhook'
     | '/api/social/dashboard/$connectionId'
     | '/api/social/top-posts/$connectionId'
+    | '/api/public/hooks/evolution/$token'
     | '/api/social/posts/$postId/analytics'
   id:
     | '__root__'
@@ -1158,6 +1170,7 @@ export interface FileRouteTypes {
     | '/api/public/meta/webhook'
     | '/api/social/dashboard/$connectionId'
     | '/api/social/top-posts/$connectionId'
+    | '/api/public/hooks/evolution/$token'
     | '/api/social/posts/$postId/analytics'
   fileRoutesById: FileRoutesById
 }
@@ -1194,6 +1207,7 @@ export interface RootRouteChildren {
   ApiPublicMetaWebhookRoute: typeof ApiPublicMetaWebhookRoute
   ApiSocialDashboardConnectionIdRoute: typeof ApiSocialDashboardConnectionIdRoute
   ApiSocialTopPostsConnectionIdRoute: typeof ApiSocialTopPostsConnectionIdRoute
+  ApiPublicHooksEvolutionTokenRoute: typeof ApiPublicHooksEvolutionTokenRoute
   ApiSocialPostsPostIdAnalyticsRoute: typeof ApiSocialPostsPostIdAnalyticsRoute
 }
 
@@ -1850,6 +1864,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSocialPostsPostIdAnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/evolution/$token': {
+      id: '/api/public/hooks/evolution/$token'
+      path: '/api/public/hooks/evolution/$token'
+      fullPath: '/api/public/hooks/evolution/$token'
+      preLoaderRoute: typeof ApiPublicHooksEvolutionTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -2136,6 +2157,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicMetaWebhookRoute: ApiPublicMetaWebhookRoute,
   ApiSocialDashboardConnectionIdRoute: ApiSocialDashboardConnectionIdRoute,
   ApiSocialTopPostsConnectionIdRoute: ApiSocialTopPostsConnectionIdRoute,
+  ApiPublicHooksEvolutionTokenRoute: ApiPublicHooksEvolutionTokenRoute,
   ApiSocialPostsPostIdAnalyticsRoute: ApiSocialPostsPostIdAnalyticsRoute,
 }
 export const routeTree = rootRouteImport

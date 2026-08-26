@@ -305,3 +305,87 @@ export const requestEvolutionInstanceQr = createServerFn({ method: "POST" })
           : "O servidor Evolution não devolveu um QR Code. Tente novamente em instantes.",
     };
   });
+
+/**
+ * Registra o webhook desta instância no servidor Evolution, gerando um token
+ * secreto próprio (usado na URL e no header `x-evolution-token`).
+ */
+export const configureEvolutionWebhook = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => InstanceInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { assertInstanceAdmin, loadInstance, resolveInstanceConfig } =
+      await import("./evolution/scope.server");
+    const instance = await loadInstance(context.supabase, data.brandId, data.instanceId);
+    await assertInstanceAdmin(context.supabase, context.userId, data.brandId, instance.client_id);
+
+    const { getRequestHeader } = await import("@tanstack/react-start/server");
+    const configuredBase = process.env["EVOLUTION_WEBHOOK_BASE_URL"] ?? process.env["APP_PUBLIC_URL"];
+    const host = getRequestHeader("x-forwarded-host") ?? getRequestHeader("host");
+    const appBaseUrl = configuredBase ?? (host ? `https://${host}` : null);
+    if (!appBaseUrl) {
+      throw new Error("URL pública da aplicação indisponível para registrar o webhook.");
+    }
+
+    const { buildWebhookUrl, generateWebhookToken, setEvolutionWebhook } =
+      await import("./evolution/webhook.server");
+
+    const { data: current } = await context.supabase
+      .from("evolution_instances")
+      .select("webhook_token")
+      .eq("id", instance.id)
+      .maybeSingle();
+    const token = (current?.webhook_token as string | null) ?? generateWebhookToken();
+    const webhookUrl = buildWebhookUrl(appBaseUrl, token);
+
+    const config = await resolveInstanceConfig(context.supabase, data.brandId);
+    await setEvolutionWebhook(config, instance.instance_name, webhookUrl, token);
+
+    const { error } = await context.supabase
+      .from("evolution_instances")
+      .update({ webhook_token: token, webhook_configured_at: new Date().toISOString() })
+      .eq("id", instance.id);
+    if (error) throw error;
+
+    return { ok: true, webhookUrl };
+  });
+
+export type EvolutionEventRow = {
+  id: string;
+  instanceId: string;
+  instanceName: string;
+  eventType: string;
+  connectionState: string | null;
+  phoneNumber: string | null;
+  receivedAt: string;
+};
+
+const EventsInput = InstanceInput.extend({ limit: z.number().int().min(1).max(100).optional() });
+
+/** Últimos eventos recebidos por webhook para a instância (RLS aplica o escopo). */
+export const listEvolutionInstanceEvents = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => EventsInput.parse(input))
+  .handler(async ({ data, context }): Promise<EvolutionEventRow[]> => {
+    const { assertBrandMember } = await import("@/lib/access-guard");
+    await assertBrandMember(context.supabase, context.userId, data.brandId);
+
+    const { data: rows, error } = await context.supabase
+      .from("evolution_events")
+      .select("id, instance_id, instance_name, event_type, connection_state, phone_number, received_at")
+      .eq("brand_id", data.brandId)
+      .eq("instance_id", data.instanceId)
+      .order("received_at", { ascending: false })
+      .limit(data.limit ?? 20);
+    if (error) throw error;
+
+    return (rows ?? []).map((row) => ({
+      id: row.id as string,
+      instanceId: row.instance_id as string,
+      instanceName: row.instance_name as string,
+      eventType: row.event_type as string,
+      connectionState: (row.connection_state as string | null) ?? null,
+      phoneNumber: (row.phone_number as string | null) ?? null,
+      receivedAt: row.received_at as string,
+    }));
+  });
