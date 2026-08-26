@@ -1,6 +1,10 @@
 import { redirect } from "@tanstack/react-router";
 import { getCachedFeatureAccess, type FeatureAccessResult } from "./access-cache";
-import { getActiveWorkspace, waitForActiveWorkspace } from "./active-workspace";
+import {
+  getActiveWorkspace,
+  getPersistedWorkspaceHint,
+  waitForActiveWorkspace,
+} from "./active-workspace";
 
 export type { FeatureAccessResult };
 
