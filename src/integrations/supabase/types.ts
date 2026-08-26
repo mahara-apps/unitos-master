@@ -4007,6 +4007,80 @@ export type Database = {
           },
         ]
       }
+      evolution_events: {
+        Row: {
+          brand_id: string
+          client_id: string | null
+          connection_state: string | null
+          created_at: string
+          event_type: string
+          id: string
+          instance_id: string
+          instance_name: string
+          payload: Json
+          phone_number: string | null
+          provider_event_id: string | null
+          received_at: string
+        }
+        Insert: {
+          brand_id: string
+          client_id?: string | null
+          connection_state?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          instance_id: string
+          instance_name: string
+          payload?: Json
+          phone_number?: string | null
+          provider_event_id?: string | null
+          received_at?: string
+        }
+        Update: {
+          brand_id?: string
+          client_id?: string | null
+          connection_state?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          instance_id?: string
+          instance_name?: string
+          payload?: Json
+          phone_number?: string | null
+          provider_event_id?: string | null
+          received_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evolution_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brain_stats_mv"
+            referencedColumns: ["brand_id"]
+          },
+          {
+            foreignKeyName: "evolution_events_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evolution_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evolution_events_instance_id_fkey"
+            columns: ["instance_id"]
+            isOneToOne: false
+            referencedRelation: "evolution_instances"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       evolution_instances: {
         Row: {
           brand_id: string
@@ -4018,11 +4092,14 @@ export type Database = {
           instance_name: string
           label: string | null
           last_error: string | null
+          last_event_at: string | null
           last_state_at: string | null
           metadata: Json
           phone_number: string | null
           status: string
           updated_at: string
+          webhook_configured_at: string | null
+          webhook_token: string | null
         }
         Insert: {
           brand_id: string
@@ -4034,11 +4111,14 @@ export type Database = {
           instance_name: string
           label?: string | null
           last_error?: string | null
+          last_event_at?: string | null
           last_state_at?: string | null
           metadata?: Json
           phone_number?: string | null
           status?: string
           updated_at?: string
+          webhook_configured_at?: string | null
+          webhook_token?: string | null
         }
         Update: {
           brand_id?: string
@@ -4050,11 +4130,14 @@ export type Database = {
           instance_name?: string
           label?: string | null
           last_error?: string | null
+          last_event_at?: string | null
           last_state_at?: string | null
           metadata?: Json
           phone_number?: string | null
           status?: string
           updated_at?: string
+          webhook_configured_at?: string | null
+          webhook_token?: string | null
         }
         Relationships: [
           {
