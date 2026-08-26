@@ -451,6 +451,7 @@ export function ChannelsCenter({
         {/* -------------------------------- whatsapp ------------------------------- */}
         <TabsContent value="whatsapp" className="space-y-3">
           <EvolutionWhatsappPanel brandId={brandId} canManage={canManage} />
+          <WhatsappRecipientsPanel brandId={brandId} canManage={canManage} />
         </TabsContent>
 
         {/* --------------------------------- canais -------------------------------- */}
