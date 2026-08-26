@@ -4,11 +4,19 @@
 import { useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, Power, Trash2, Users } from "lucide-react";
+import { Loader2, Pencil, Plus, Power, Trash2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -35,6 +43,7 @@ import {
 import {
   WHATSAPP_RECIPIENT_LABELS,
   WHATSAPP_RECIPIENT_TYPES,
+  type WhatsappRecipientRow,
   type WhatsappRecipientType,
 } from "@/lib/whatsapp/types";
 import { listClients } from "@/lib/workspace.functions";
@@ -66,6 +75,10 @@ export function WhatsappRecipientsPanel({
   const [roleLabel, setRoleLabel] = useState("");
   const [destination, setDestination] = useState("");
   const [userId, setUserId] = useState<string>("");
+  const [editing, setEditing] = useState<WhatsappRecipientRow | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editRole, setEditRole] = useState("");
+  const [editDestination, setEditDestination] = useState("");
 
   const key = ["whatsapp-recipients", brandId] as const;
 
@@ -122,6 +135,26 @@ export function WhatsappRecipientsPanel({
     onSuccess: () => qc.invalidateQueries({ queryKey: key }),
     onError: (err: unknown) =>
       toast.error(err instanceof Error ? err.message : "Falha ao atualizar."),
+  });
+
+  const saveEdit = useMutation({
+    mutationFn: () =>
+      updateFn({
+        data: {
+          brandId: brandId!,
+          recipientId: editing!.id,
+          name: editName.trim(),
+          roleLabel: editRole.trim() || null,
+          ...(editing!.destination !== null ? { destination: editDestination.trim() } : {}),
+        },
+      }),
+    onSuccess: () => {
+      setEditing(null);
+      toast.success("Destinatário atualizado.");
+      qc.invalidateQueries({ queryKey: key });
+    },
+    onError: (err: unknown) =>
+      toast.error(err instanceof Error ? err.message : "Falha ao atualizar o destinatário."),
   });
 
   const remove = useMutation({
@@ -261,7 +294,12 @@ export function WhatsappRecipientsPanel({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recipients.map((r) => (
+              {[...recipients]
+                .sort((a, b) =>
+                  (a.clientName ?? "\uffff").localeCompare(b.clientName ?? "\uffff") ||
+                  a.name.localeCompare(b.name),
+                )
+                .map((r) => (
                 <TableRow key={r.id}>
                   <TableCell className="text-xs">
                     <span className="font-medium">{r.userName ?? r.name}</span>
@@ -281,6 +319,20 @@ export function WhatsappRecipientsPanel({
                   </TableCell>
                   {canManage ? (
                     <TableCell className="text-right">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7"
+                        title="Editar"
+                        onClick={() => {
+                          setEditing(r);
+                          setEditName(r.name);
+                          setEditRole(r.roleLabel ?? "");
+                          setEditDestination(r.destination ?? "");
+                        }}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
                       <Button
                         size="icon"
                         variant="ghost"
@@ -308,6 +360,57 @@ export function WhatsappRecipientsPanel({
             </TableBody>
           </Table>
         )}
+
+        <Dialog open={!!editing} onOpenChange={(open) => (!open ? setEditing(null) : null)}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-sm">Editar destinatário</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              <div className="space-y-1">
+                <Label className="text-[11px]">Nome</Label>
+                <Input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">Função</Label>
+                <Input
+                  value={editRole}
+                  onChange={(e) => setEditRole(e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
+              {editing?.destination !== null && editing?.destination !== undefined ? (
+                <div className="space-y-1">
+                  <Label className="text-[11px]">
+                    {editing.type === "whatsapp_group" ? "ID do grupo" : "Telefone"}
+                  </Label>
+                  <Input
+                    value={editDestination}
+                    onChange={(e) => setEditDestination(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                </div>
+              ) : null}
+            </div>
+            <DialogFooter>
+              <Button
+                size="sm"
+                className="h-8 text-xs"
+                disabled={editName.trim().length < 2 || saveEdit.isPending}
+                onClick={() => saveEdit.mutate()}
+              >
+                {saveEdit.isPending ? (
+                  <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                ) : null}
+                Salvar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
