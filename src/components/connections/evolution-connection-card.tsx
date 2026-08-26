@@ -189,12 +189,12 @@ export function EvolutionConnectionCard({
   }, [showQr, instance?.id, connected, qrMutation.isPending]);
 
   return (
-    <div className="space-y-3 rounded-lg border bg-card p-3">
+    <div className="flex h-full flex-col gap-3 rounded-lg border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-1">
-          <p className="flex items-center gap-1.5 text-xs font-semibold">
-            <Smartphone className="h-3.5 w-3.5 text-muted-foreground" />
-            WhatsApp
+          <p className="flex items-center gap-1.5 text-sm font-semibold">
+            <Smartphone className="h-4 w-4 text-muted-foreground" />
+            Conexão WhatsApp
           </p>
           <div className="flex items-center gap-2">
             <span className={`h-2 w-2 rounded-full ${stageDot(stage)}`} aria-hidden />
