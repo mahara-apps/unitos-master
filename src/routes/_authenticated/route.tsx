@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { ActiveContextProvider } from "@/hooks/use-active-context";
+import { ActiveContextProvider, useActiveContext } from "@/hooks/use-active-context";
 import { PageHeaderProvider, usePageHeaderState } from "@/hooks/use-page-header";
 import { CommandMenu } from "@/components/command-menu";
 import { Command } from "lucide-react";
