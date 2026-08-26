@@ -92,7 +92,12 @@ export function MessagingCenter({
           hint="Configure a Evolution, conecte via QR Code e gerencie destinatários e testes de envio."
         />
         <WhatsappCenter brandId={brandId} canManage={canManage} />
+        <ComingSoonCard
+          name="WhatsApp Cloud API"
+          hint="Integração oficial da Meta para WhatsApp."
+        />
       </section>
+
 
       <section className="space-y-3">
         <SectionTitle
