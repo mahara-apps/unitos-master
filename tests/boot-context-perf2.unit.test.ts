@@ -11,6 +11,11 @@ import {
   markActiveWorkspaceUnresolved,
 } from "@/lib/active-workspace";
 
+import {
+  shouldClearClient,
+  shouldClearClientOnBrandChange,
+} from "@/lib/workspace-context-rules";
+
 const U1 = "11111111-1111-4111-8111-111111111111";
 const U2 = "22222222-2222-4222-8222-222222222222";
 
@@ -62,5 +67,29 @@ describe("PERF2 — resolvendo x sem workspace", () => {
     expect(getActiveWorkspace().brandId).toBe("brand-a");
     markActiveWorkspaceUnresolved();
     expect(getActiveWorkspace().resolved).toBe(false);
+  });
+});
+
+describe("PERF2 — cliente selecionado x workspace", () => {
+  const A1 = "aaaaaaa1-1111-4111-8111-111111111111";
+  const A2 = "aaaaaaa2-2222-4222-8222-222222222222";
+
+  it("Teste 3 — reafirmar o mesmo workspace preserva o cliente", () => {
+    expect(shouldClearClientOnBrandChange("brand-a", "brand-a")).toBe(false);
+  });
+
+  it("Teste 4 — troca real de workspace limpa o cliente", () => {
+    expect(shouldClearClientOnBrandChange("brand-a", "brand-b")).toBe(true);
+    expect(shouldClearClientOnBrandChange("brand-a", null)).toBe(true);
+  });
+
+  it("Teste 5 — cliente do workspace e dentro do escopo permanece selecionado", () => {
+    expect(shouldClearClient(A1, new Set([A1, A2]), [A1, A2])).toBe(false);
+    expect(shouldClearClient(A1, null, null)).toBe(false);
+  });
+
+  it("Teste 6 — cliente inválido é removido", () => {
+    expect(shouldClearClient(A1, new Set([A2]), [A1, A2])).toBe(true);
+    expect(shouldClearClient(A1, null, [A2])).toBe(true);
   });
 });
