@@ -63,6 +63,7 @@ import {
   type WorkspaceChannel,
 } from "@/lib/client-channels.functions";
 import { listClients } from "@/lib/workspace.functions";
+import { EvolutionWhatsappPanel } from "./evolution-whatsapp-panel";
 import { disconnectMeta, startMetaOAuth } from "@/lib/meta/meta.functions";
 import {
   applyMetaReconnectFn,
