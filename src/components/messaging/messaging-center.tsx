@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   Loader2,
   Mail,
-  MessageCircle,
   Send,
   Trash2,
 } from "lucide-react";
