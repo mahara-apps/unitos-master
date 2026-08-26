@@ -1,4 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
+import {
+  forwardMetaWebhook,
+  isForwardedWebhook,
+  parseInstallationPeers,
+} from "@/lib/meta/installation.server";
 
 /**
  * Meta Webhooks — single endpoint that receives events for both `page`
@@ -104,6 +109,33 @@ export const Route = createFileRoute("/api/public/meta/webhook")({
             };
           })
           .filter((r): r is NonNullable<typeof r> => r !== null);
+
+        // 4b) Multi-installation: a single Meta App has ONE webhook Callback
+        //     URL per product, so entries that belong to a sibling installation
+        //     land here. Replay the *verified* raw payload to the trusted peers
+        //     configured in META_WEBHOOK_PEERS (infrastructure config only).
+        const unmatched = externalIds.filter((id) => !byExternalId.has(id));
+        if (unmatched.length > 0 && !isForwardedWebhook(request.headers)) {
+          const peers = parseInstallationPeers(
+            process.env.META_WEBHOOK_PEERS,
+            new URL(request.url).origin,
+          );
+          if (peers.length > 0) {
+            const outcomes = await forwardMetaWebhook({
+              rawBody: raw,
+              signature,
+              peers,
+              contentType: request.headers.get("content-type"),
+            });
+            for (const o of outcomes) {
+              if (!o.ok) {
+                console.warn(
+                  `[meta.webhook] forward failed target=${o.target} status=${o.status ?? "-"} error=${o.error ?? "-"}`,
+                );
+              }
+            }
+          }
+        }
 
         if (events.length > 0) {
           const { brain } = await import("@/lib/brain/api");

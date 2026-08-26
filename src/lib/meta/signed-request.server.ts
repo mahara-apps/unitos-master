@@ -50,7 +50,13 @@ export function buildConfirmationCode(prefix: string, metaUserId: string): strin
 }
 
 export function confirmationUrl(code: string): string {
-  const base = process.env.PUBLIC_APP_URL?.replace(/\/$/, "") || "https://unitos.sejaumpartner.com";
+  // Each installation has its own domain — no hardcoded fallback, otherwise a
+  // new installation would point Meta at another installation's domain.
+  const raw = process.env.PUBLIC_APP_URL;
+  if (!raw) {
+    throw new Error("Meta integration is not configured: missing PUBLIC_APP_URL");
+  }
+  const base = raw.replace(/\/$/, "");
   return `${base}/api/public/meta/deletion-status?code=${encodeURIComponent(code)}`;
 }
 

@@ -159,11 +159,11 @@ export const META_CALLBACK_PATH = "/api/public/meta/callback";
  * Resolves the OAuth redirect URI for the current request origin.
  *
  * The URI must match EXACTLY one of the entries registered in the Meta App
- * Dashboard. We accept the request's own origin when it is a trusted host
- * (the project's Lovable domains or the host configured in
- * `META_REDIRECT_URI`), so connecting from preview returns to preview and
- * connecting from production returns to production. Anything else falls back
- * to `META_REDIRECT_URI`.
+ * Dashboard. Each installation owns its own domain, so we only accept the
+ * request's own origin when its host is explicitly trusted for THIS
+ * installation: the host of `META_REDIRECT_URI` (or a subdomain of it) or a
+ * host listed in `META_EXTRA_REDIRECT_HOSTS` (comma separated — use it for
+ * preview domains). Anything else falls back to `META_REDIRECT_URI`.
  */
 export function resolveMetaRedirectUri(origin?: string | null): string {
   const configured = requireEnv("META_REDIRECT_URI");
@@ -171,15 +171,28 @@ export function resolveMetaRedirectUri(origin?: string | null): string {
   try {
     const candidate = new URL(origin);
     const configuredHost = new URL(configured).host;
+    const extraHosts = (process.env.META_EXTRA_REDIRECT_HOSTS ?? "")
+      .split(/[,\s]+/)
+      .map((h) => h.trim().toLowerCase())
+      .filter(Boolean);
+    const host = candidate.host.toLowerCase();
     const trusted =
-      candidate.host === configuredHost ||
-      candidate.host.endsWith(".lovable.app") ||
-      candidate.host.endsWith(".lovableproject.com");
+      host === configuredHost.toLowerCase() ||
+      host.endsWith(`.${configuredHost.toLowerCase()}`) ||
+      extraHosts.includes(host) ||
+      // Lovable preview/production hosts are only trusted when this
+      // installation is itself hosted on a Lovable domain.
+      (isLovableHost(configuredHost) && isLovableHost(host));
     if (candidate.protocol !== "https:" || !trusted) return configured;
     return `${candidate.origin}${META_CALLBACK_PATH}`;
   } catch {
     return configured;
   }
+}
+
+function isLovableHost(host: string): boolean {
+  const h = host.toLowerCase();
+  return h.endsWith(".lovable.app") || h.endsWith(".lovableproject.com");
 }
 
 export class MetaProvider {
@@ -824,8 +837,10 @@ function b64urlDecode(s: string): Uint8Array {
 }
 
 async function stateSecret(): Promise<string> {
-  // Reuse the app secret — server-side only.
-  return process.env.META_APP_SECRET ?? requireEnv("META_APP_SECRET");
+  // Per-installation secret. Several installations may share the same Meta App
+  // (and therefore META_APP_SECRET), so a dedicated secret keeps an OAuth state
+  // issued by installation A from being valid on installation B.
+  return process.env.META_STATE_SECRET ?? requireEnv("META_APP_SECRET");
 }
 
 export async function signOAuthState(
