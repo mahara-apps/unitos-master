@@ -82,29 +82,33 @@ export function MessagingCenter({
       <section className="space-y-3">
         <SectionTitle
           title="Canais de comunicação"
-          hint="Provedores de mensageria do workspace e teste rápido de envio."
+          hint="Provedores de mensageria configurados neste workspace."
         />
-        <WhatsappCenter brandId={brandId} canManage={canManage} />
+        <div className="grid gap-3 md:grid-cols-2">
+          <WhatsappChannelCard brandId={brandId} canManage={canManage} />
+          {isLoading ? (
+            <Skeleton className="h-[196px] rounded-xl" />
+          ) : (
+            PROVIDERS.map((p) => (
+              <ProviderCard
+                key={p.id}
+                provider={p}
+                config={channels[p.id]}
+                brandId={brandId}
+                onChanged={onChanged}
+              />
+            ))
+          )}
+          <WhatsappComingSoonCard />
+        </div>
       </section>
 
       <section className="space-y-3">
         <SectionTitle
-          title="E-mail transacional"
-          hint="Provedor usado para enviar e-mails do sistema."
+          title="Teste de envio"
+          hint="Valide a conexão ativa do WhatsApp com um envio pontual."
         />
-        <div className="grid gap-3 md:grid-cols-2">
-          {isLoading
-            ? PROVIDERS.map((p) => <Skeleton key={p.id} className="h-[124px] rounded-xl" />)
-            : PROVIDERS.map((p) => (
-                <ProviderCard
-                  key={p.id}
-                  provider={p}
-                  config={channels[p.id]}
-                  brandId={brandId}
-                  onChanged={onChanged}
-                />
-              ))}
-        </div>
+        <WhatsappManualTestCard brandId={brandId} canManage={canManage} />
       </section>
 
       <section className="space-y-3">
@@ -117,6 +121,7 @@ export function MessagingCenter({
     </div>
   );
 }
+
 
 function SectionTitle({ title, hint }: { title: string; hint: string }) {
   return (
