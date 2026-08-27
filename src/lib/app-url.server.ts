@@ -40,22 +40,22 @@ function normalizeOrigin(raw: string | null | undefined): string | null {
 }
 
 /** Origem derivada da requisição atual (fonte autoritativa da instalação). */
-export function requestOrigin(): string | null {
+export async function requestOrigin(): Promise<string | null> {
   try {
-    // Import síncrono não é possível aqui sem tornar o módulo dependente do
-    // runtime em testes puros; usa require dinâmico protegido.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
-    const mod = require("@tanstack/react-start/server") as {
+    const mod = (await import("@tanstack/react-start/server")) as {
       getRequestHeader?: (name: string) => string | undefined;
     };
     const get = mod.getRequestHeader;
     if (!get) return null;
-    const forwardedHost = get("x-forwarded-host");
-    const host = forwardedHost ?? get("host");
+    const host = get("x-forwarded-host") ?? get("host");
     if (!host) return null;
-    const proto = get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-    return normalizeOrigin(`${proto}://${host.split(",")[0]!.trim()}`);
+    const firstHost = host.split(",")[0]!.trim();
+    const proto =
+      get("x-forwarded-proto")?.split(",")[0]?.trim() ??
+      (firstHost.startsWith("localhost") || firstHost.startsWith("127.0.0.1") ? "http" : "https");
+    return normalizeOrigin(`${proto}://${firstHost}`);
   } catch {
+    // Fora de uma requisição (cron/worker/teste): não há host para derivar.
     return null;
   }
 }
@@ -71,8 +71,8 @@ export function configuredOrigin(): string | null {
  * URL canônica da instalação atual. Lança quando não é possível determiná-la —
  * preferimos falhar do que enviar um link de outra instalação.
  */
-export function getPublicAppUrl(): string {
-  const fromRequest = requestOrigin();
+export async function getPublicAppUrl(): Promise<string> {
+  const fromRequest = await requestOrigin();
   const fromEnv = configuredOrigin();
   if (fromRequest) {
     if (fromEnv && fromEnv !== fromRequest) {
@@ -87,24 +87,24 @@ export function getPublicAppUrl(): string {
 }
 
 /** Igual a `getPublicAppUrl`, mas retorna null em vez de lançar. */
-export function tryGetPublicAppUrl(): string | null {
+export async function tryGetPublicAppUrl(): Promise<string | null> {
   try {
-    return getPublicAppUrl();
+    return await getPublicAppUrl();
   } catch {
     return null;
   }
 }
 
 /** Monta uma URL absoluta da instalação atual: `absoluteUrl("/invite/abc")`. */
-export function absoluteUrl(path: string): string {
-  const base = getPublicAppUrl();
+export async function absoluteUrl(path: string): Promise<string> {
+  const base = await getPublicAppUrl();
   const suffix = path.startsWith("/") ? path : `/${path}`;
   return `${base}${suffix}`;
 }
 
 /** Versão tolerante: retorna null quando a instalação não pôde ser resolvida. */
-export function tryAbsoluteUrl(path: string): string | null {
-  const base = tryGetPublicAppUrl();
+export async function tryAbsoluteUrl(path: string): Promise<string | null> {
+  const base = await tryGetPublicAppUrl();
   if (!base) return null;
   const suffix = path.startsWith("/") ? path : `/${path}`;
   return `${base}${suffix}`;
