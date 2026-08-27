@@ -80,9 +80,12 @@ describe("resolveEventContext", () => {
     );
   });
 
-  it("monta invite.url absoluto a partir de PUBLIC_APP_URL", async () => {
-    process.env.PUBLIC_APP_URL = "https://app.exemplo.com/";
-    const supabase = makeSupabase({ brands: { name: "Agência X" } });
+  it("monta invite.url a partir da URL da instalação do workspace, ignorando PUBLIC_APP_URL", async () => {
+    // PUBLIC_APP_URL é de outra instalação: não pode aparecer no link.
+    process.env.PUBLIC_APP_URL = "https://instalacao-global.exemplo.com/";
+    const supabase = makeSupabase({
+      brands: { name: "Agência X", app_url: "https://app.exemplo.com" },
+    });
     const ctx = await resolveEventContext(supabase, {
       brandId: "b1",
       invite: { token: "tok123", role: "manager" },
