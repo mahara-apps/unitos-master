@@ -39,14 +39,29 @@ export class ResendNotConfiguredError extends Error {
   }
 }
 
-const DEFAULT_FROM = "Unitos <onboarding@resend.dev>";
+const DEFAULT_FROM_ADDRESS = "onboarding@resend.dev";
+const DEFAULT_FROM = `Unitos <${DEFAULT_FROM_ADDRESS}>`;
 
-/** Normaliza o remetente: aceita "email" ou "Nome <email>". */
-export function normalizeFrom(raw: string | null | undefined, fallback = DEFAULT_FROM): string {
+/**
+ * Normaliza o remetente: aceita "email" ou "Nome <email>".
+ *
+ * `displayName` é o nome da MARCA do evento. Quando informado, ele é usado como
+ * rótulo do remetente — antes o rótulo era o literal "Unitos" para qualquer
+ * instalação, o que fazia o e-mail exibir o nome errado da agência.
+ */
+export function normalizeFrom(
+  raw: string | null | undefined,
+  fallback = DEFAULT_FROM,
+  displayName?: string | null,
+): string {
+  const label = (displayName ?? "").trim() || "Unitos";
   const v = (raw ?? "").trim();
-  if (!v) return fallback;
+  if (!v) {
+    if (displayName?.trim()) return `${label} <${DEFAULT_FROM_ADDRESS}>`;
+    return fallback;
+  }
   if (v.includes("<") && v.includes(">")) return v;
-  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return `Unitos <${v}>`;
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return `${label} <${v}>`;
   return fallback;
 }
 
@@ -79,6 +94,8 @@ export function sanitizeProviderError(status: number, body: string): string {
 export async function resolveResendConfig(
   supabase: SupabaseLike,
   brandId: string,
+  /** Nome da marca do evento, usado como rótulo do remetente. */
+  displayName?: string | null,
 ): Promise<ResendConfig | null> {
   type CredRow = { ciphertext?: string; masked?: string; metadata?: Record<string, string> };
   let row: CredRow | null = null;
@@ -100,7 +117,11 @@ export async function resolveResendConfig(
       if (apiKey) {
         return {
           apiKey,
-          from: normalizeFrom(row.metadata?.["handle"] ?? row.metadata?.["from"]),
+          from: normalizeFrom(
+            row.metadata?.["handle"] ?? row.metadata?.["from"],
+            DEFAULT_FROM,
+            displayName,
+          ),
           source: "brand",
           masked: row.masked ?? null,
         };
@@ -115,7 +136,7 @@ export async function resolveResendConfig(
   if (envKey) {
     return {
       apiKey: envKey,
-      from: normalizeFrom(process.env.INVITE_FROM_EMAIL),
+      from: normalizeFrom(process.env.INVITE_FROM_EMAIL, DEFAULT_FROM, displayName),
       source: "installation",
       masked: null,
     };
@@ -226,7 +247,22 @@ export async function sendBrandEmail(
   brandId: string,
   msg: { to: string; subject: string; html: string },
 ): Promise<ResendSendResult> {
-  const config = await resolveResendConfig(supabase, brandId);
+  // Rótulo do remetente vem da marca do próprio evento (escopo da instalação).
+  let displayName: string | null = null;
+  try {
+    const res = await supabase
+      .from("brands")
+      .select("name, nome_fantasia")
+      .eq("id", brandId)
+      .maybeSingle();
+    const row = (res as { data: { name?: string | null; nome_fantasia?: string | null } | null })
+      .data;
+    displayName = (row?.nome_fantasia || row?.name || "").trim() || null;
+  } catch {
+    displayName = null;
+  }
+
+  const config = await resolveResendConfig(supabase, brandId, displayName);
   if (!config) return { sent: false, error: "resend_nao_configurado" };
   return sendResendEmail(config, msg);
 }
