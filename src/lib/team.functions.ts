@@ -291,7 +291,9 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
       const { tryInstallationAbsoluteUrl } = await import("@/lib/installation-url.server");
       const link = await tryInstallationAbsoluteUrl(supabase, data.brandId, `/invite/${token}`);
       if (!link) {
-        console.error("[invite email] URL da instalação indisponível; convite sem link enviado");
+        console.error(
+          "[invite email] URL da instalação do workspace desconhecida; convite não enviado",
+        );
       }
       const emailRes = link
         ? await sendInviteEmail({
@@ -305,7 +307,7 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
             inviteRole: data.role,
             actorUserId: userId,
           })
-        : { sent: false, error: "app_url_nao_configurada" };
+        : { sent: false, error: "instalacao_url_desconhecida" };
 
       results.push({
         email,
@@ -636,15 +638,19 @@ export const provisionUser = createServerFn({ method: "POST" })
         "/auth",
       );
 
-      emailStatus = await sendCredentialsEmail({
-        supabase: supabase as unknown as SupabaseLike,
-        brandId: data.assignments[0]!.brandId,
-        to: email,
-        fullName: data.fullName,
-        tempPassword,
-        loginUrl: loginUrl ?? "",
-        workspaces: workspaceInfo,
-      });
+      // Sem URL da instalação não existe link válido: falha explícita em vez
+      // de enviar um e-mail com link vazio ou de outra instalação.
+      emailStatus = loginUrl
+        ? await sendCredentialsEmail({
+            supabase: supabase as unknown as SupabaseLike,
+            brandId: data.assignments[0]!.brandId,
+            to: email,
+            fullName: data.fullName,
+            tempPassword,
+            loginUrl,
+            workspaces: workspaceInfo,
+          })
+        : { sent: false, error: "instalacao_url_desconhecida" };
     }
 
     return {
@@ -955,15 +961,17 @@ export const addPerson = createServerFn({ method: "POST" })
       const { tryInstallationAbsoluteUrl } = await import("@/lib/installation-url.server");
       const loginUrl = await tryInstallationAbsoluteUrl(supabase, data.brandId, "/auth");
 
-      emailStatus = await sendCredentialsEmail({
-        supabase: supabase as unknown as SupabaseLike,
-        brandId: data.brandId,
-        to: data.email,
-        fullName,
-        tempPassword,
-        loginUrl: loginUrl ?? "",
-        workspaces: [{ name: brand?.name ?? "Workspace", clients: clientNames }],
-      });
+      emailStatus = loginUrl
+        ? await sendCredentialsEmail({
+            supabase: supabase as unknown as SupabaseLike,
+            brandId: data.brandId,
+            to: data.email,
+            fullName,
+            tempPassword,
+            loginUrl,
+            workspaces: [{ name: brand?.name ?? "Workspace", clients: clientNames }],
+          })
+        : { sent: false, error: "instalacao_url_desconhecida" };
     }
 
     return {
