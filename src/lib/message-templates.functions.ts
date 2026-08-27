@@ -108,7 +108,7 @@ const testSchema = z.object({
 export const sendTestMessage = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => testSchema.parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const event = getEvent(data.eventKey);
     if (!event) throw new Error("evento_desconhecido");
     const ctx = buildSampleContext(event);
@@ -116,36 +116,18 @@ export const sendTestMessage = createServerFn({ method: "POST" })
     const body = renderTemplateString(data.body, ctx);
 
     if (data.channel === "email") {
-      const apiKey = process.env.RESEND_API_KEY;
-      const lovableKey = process.env.LOVABLE_API_KEY;
-      if (!apiKey) return { sent: false, error: "resend_nao_configurado" };
-      const from = process.env.INVITE_FROM_EMAIL || "Unitos <onboarding@resend.dev>";
-      const useGateway = Boolean(lovableKey);
-      const url = useGateway
-        ? "https://connector-gateway.lovable.dev/resend/emails"
-        : "https://api.resend.com/emails";
-      const headers: Record<string, string> = { "Content-Type": "application/json" };
-      if (useGateway) {
-        headers["Authorization"] = `Bearer ${lovableKey}`;
-        headers["X-Connection-Api-Key"] = apiKey;
-      } else {
-        headers["Authorization"] = `Bearer ${apiKey}`;
-      }
-      const res = await fetch(url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          from,
-          to: [data.to],
-          subject: subject || "(sem assunto)",
-          html: body,
-        }),
+      // Escopo: o client autenticado (RLS) só alcança a credencial da marca do
+      // próprio usuário — e é a MESMA lida pelo status exibido na UI.
+      const { assertBrandMember } = await import("@/lib/access-guard");
+      await assertBrandMember(context.supabase, context.userId, data.brandId);
+      const { sendBrandEmail } = await import("@/lib/email/resend.server");
+      const result = await sendBrandEmail(context.supabase, data.brandId, {
+        to: data.to,
+        subject,
+        html: body,
       });
-      if (!res.ok) {
-        const txt = await res.text();
-        return { sent: false, error: `provider_${res.status}: ${txt.slice(0, 200)}` };
-      }
-      return { sent: true, previewSubject: subject, previewBody: body };
+      if (!result.sent) return { sent: false, error: result.error ?? "falha_no_envio" };
+      return { sent: true, previewSubject: subject, previewBody: body, from: result.from };
     }
 
     // WhatsApp: por enquanto retorna preview renderizado (integração via provider é feita fora).

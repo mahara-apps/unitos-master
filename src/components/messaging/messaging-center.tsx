@@ -2,15 +2,7 @@ import { useState, type ComponentType } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import {
-  AlertTriangle,
-  Briefcase,
-  CheckCircle2,
-  Loader2,
-  Mail,
-  Send,
-  Trash2,
-} from "lucide-react";
+import { AlertTriangle, Briefcase, CheckCircle2, Loader2, Mail, Send, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +27,7 @@ import {
   type ChannelConfig,
 } from "@/lib/connections.functions";
 import { sendTestMessage } from "@/lib/message-templates.functions";
+import { getEmailChannelStatus } from "@/lib/email.functions";
 import { EVENTS, getDefault, type Channel } from "@/lib/message-templates.catalog";
 import { cn } from "@/lib/utils";
 
@@ -235,7 +228,24 @@ function ProviderCard({
   const [manageOpen, setManageOpen] = useState(false);
   const [testOpen, setTestOpen] = useState(false);
   const Icon = provider.icon;
-  const connected = !!config?.connected;
+  const queryClient = useQueryClient();
+
+  // Estado exibido = estado usado pelo envio (mesmo resolvedor no servidor).
+  const statusFn = useServerFn(getEmailChannelStatus);
+  const { data: status, isLoading: statusLoading } = useQuery({
+    queryKey: ["email-channel-status", brandId],
+    queryFn: () => statusFn({ data: { brandId } }),
+    enabled: !!brandId && provider.channel === "email",
+    staleTime: 30_000,
+  });
+  const connected = !!status?.configured;
+  const sender = status?.from ?? config?.handle ?? null;
+
+  // Qualquer mudança de credencial revalida o status compartilhado com o envio.
+  const handleChanged = () => {
+    void queryClient.invalidateQueries({ queryKey: ["email-channel-status", brandId] });
+    onChanged();
+  };
 
   return (
     <div className="flex flex-col justify-between gap-3 rounded-xl border border-border/60 bg-card p-5">
@@ -249,11 +259,19 @@ function ProviderCard({
             <div className="truncate text-xs text-muted-foreground">{provider.hint}</div>
           </div>
         </div>
-        <StatusPill connected={connected} />
+        {statusLoading ? (
+          <Skeleton className="h-5 w-24 rounded-full" />
+        ) : (
+          <StatusPill connected={connected} />
+        )}
       </div>
 
       <div className="truncate text-xs text-muted-foreground">
-        {connected ? config?.handle || "Credencial configurada" : "Nenhuma credencial configurada"}
+        {connected
+          ? sender
+            ? `Remetente: ${sender}`
+            : "Credencial configurada"
+          : "Nenhuma credencial configurada"}
       </div>
 
       <div className="flex items-center gap-2">
@@ -278,7 +296,7 @@ function ProviderCard({
         provider={provider}
         config={config}
         brandId={brandId}
-        onChanged={onChanged}
+        onChanged={handleChanged}
       />
       <TestProviderDialog
         open={testOpen}
