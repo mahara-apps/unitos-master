@@ -274,13 +274,21 @@ function ProviderCard({
         )}
       </div>
 
-      <div className="truncate text-xs text-muted-foreground">
-        {connected
-          ? sender
-            ? `Remetente: ${sender}`
-            : "Credencial configurada"
-          : "Nenhuma credencial configurada"}
-      </div>
+      <dl className="space-y-1 text-xs">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-2">
+          <dt className="text-muted-foreground">Credencial</dt>
+          <dd className="truncate text-right font-medium">
+            {connected ? "Configurada" : "Nenhuma credencial configurada"}
+          </dd>
+        </div>
+        {connected && sender ? (
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-2">
+            <dt className="text-muted-foreground">Remetente</dt>
+            <dd className="truncate text-right font-medium">{sender}</dd>
+          </div>
+        ) : null}
+      </dl>
+
 
       <div className="flex items-center gap-2">
         <Button
