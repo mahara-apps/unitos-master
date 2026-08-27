@@ -19,7 +19,9 @@ import {
 } from "@/components/ui/dialog";
 import { PageKpi, PageKpiGrid, type KpiStatus } from "@/components/ui/page-kpi";
 import { TemplatesWorkspace } from "@/components/messaging/template-editor";
-import { WhatsappCenter } from "@/components/connections/whatsapp-center";
+import { WhatsappComingSoonCard } from "@/components/connections/whatsapp-center";
+import { WhatsappChannelCard } from "@/components/connections/whatsapp-channel-card";
+import { WhatsappManualTestCard } from "@/components/connections/whatsapp-manual-test-card";
 import { getMessagingKpis } from "@/lib/messaging-kpis.functions";
 import {
   saveToolCredential,
