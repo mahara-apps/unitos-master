@@ -217,7 +217,6 @@ export async function sendResendEmail(
   return { sent: false, error, from: config.from };
 }
 
-
 /**
  * Atalho: resolve + envia. Retorna `resend_nao_configurado` com o mesmo código
  * usado pela UI quando não há credencial para o workspace.

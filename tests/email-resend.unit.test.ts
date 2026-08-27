@@ -80,7 +80,11 @@ describe("resolveResendConfig", () => {
     const supabase = makeSupabase({});
     const status = await resolveResendStatus(supabase, BRAND_A);
     expect(status).toMatchObject({ configured: false, reason: "resend_nao_configurado" });
-    const send = await sendBrandEmail(supabase, BRAND_A, { to: "x@y.com", subject: "s", html: "h" });
+    const send = await sendBrandEmail(supabase, BRAND_A, {
+      to: "x@y.com",
+      subject: "s",
+      html: "h",
+    });
     expect(send).toMatchObject({ sent: false, error: "resend_nao_configurado" });
   });
 
@@ -182,5 +186,48 @@ describe("sanitizeProviderError", () => {
     const { sanitizeProviderError } = await mod();
     expect(sanitizeProviderError(401, "unauthorized")).toBe("credencial_invalida");
     expect(sanitizeProviderError(403, "forbidden")).toBe("credencial_invalida");
+  });
+});
+
+describe("sendResendEmail — roteamento de chave", () => {
+  const msg = { to: "a@b.com", subject: "oi", html: "<p>oi</p>" };
+
+  it("chave re_ vai direto ao Resend mesmo com LOVABLE_API_KEY presente", async () => {
+    process.env.LOVABLE_API_KEY = "lov_test";
+    const calls: string[] = [];
+    const fetchMock = vi.fn(async (url: string) => {
+      calls.push(url);
+      return new Response(JSON.stringify({ id: "1" }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { sendResendEmail } = await import("@/lib/email/resend.server");
+    const out = await sendResendEmail(
+      { apiKey: "re_abc123456", from: "Unitos <a@b.com>", source: "brand", masked: null },
+      msg,
+    );
+    expect(out.sent).toBe(true);
+    expect(calls).toEqual(["https://api.resend.com/emails"]);
+    vi.unstubAllGlobals();
+  });
+
+  it("connection key usa gateway e cai para o Resend em 401", async () => {
+    process.env.LOVABLE_API_KEY = "lov_test";
+    const calls: string[] = [];
+    const fetchMock = vi.fn(async (url: string) => {
+      calls.push(url);
+      return url.includes("connector-gateway")
+        ? new Response("unauthorized", { status: 401 })
+        : new Response(JSON.stringify({ id: "1" }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { sendResendEmail } = await import("@/lib/email/resend.server");
+    const out = await sendResendEmail(
+      { apiKey: "conn_abc123", from: "Unitos <a@b.com>", source: "brand", masked: null },
+      msg,
+    );
+    expect(out.sent).toBe(true);
+    expect(calls[0]).toContain("connector-gateway");
+    expect(calls[1]).toBe("https://api.resend.com/emails");
+    vi.unstubAllGlobals();
   });
 });
