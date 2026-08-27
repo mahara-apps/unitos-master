@@ -284,17 +284,26 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
         results.push({ email, status: "error", error: inviteErr.message });
         continue;
       }
-      const origin = process.env.APP_URL || "";
-      const link = `${origin}/invite/${token}`;
-      const emailRes = await sendInviteEmail({
-        supabase: supabase as unknown as SupabaseLike,
-        brandId: data.brandId,
-        to: email,
-        brandName,
-        inviterName,
-        acceptUrl: link,
-        tempPassword,
-      });
+      // URL canônica da instalação (PUBLIC_APP_URL) — nunca link relativo.
+      const { tryAbsoluteUrl } = await import("@/lib/app-url.server");
+      const link = tryAbsoluteUrl(`/invite/${token}`);
+      if (!link) {
+        console.error("[invite email] PUBLIC_APP_URL não configurada; convite sem link enviado");
+      }
+      const emailRes = link
+        ? await sendInviteEmail({
+            supabase: supabase as unknown as SupabaseLike,
+            brandId: data.brandId,
+            to: email,
+            brandName,
+            inviterName,
+            acceptUrl: link,
+            ...(tempPassword ? { tempPassword } : {}),
+            inviteRole: data.role,
+            actorUserId: userId,
+          })
+        : { sent: false, error: "app_url_nao_configurada" };
+
       results.push({
         email,
         status: "invited",
