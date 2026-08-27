@@ -236,6 +236,7 @@ function ProviderCard({
   const [manageOpen, setManageOpen] = useState(false);
   const [testOpen, setTestOpen] = useState(false);
   const Icon = provider.icon;
+  const queryClient = useQueryClient();
 
   // Estado exibido = estado usado pelo envio (mesmo resolvedor no servidor).
   const statusFn = useServerFn(getEmailChannelStatus);
@@ -247,6 +248,12 @@ function ProviderCard({
   });
   const connected = !!status?.configured;
   const sender = status?.from ?? config?.handle ?? null;
+
+  // Qualquer mudança de credencial revalida o status compartilhado com o envio.
+  const handleChanged = () => {
+    void queryClient.invalidateQueries({ queryKey: ["email-channel-status", brandId] });
+    onChanged();
+  };
 
   return (
     <div className="flex flex-col justify-between gap-3 rounded-xl border border-border/60 bg-card p-5">
@@ -298,7 +305,7 @@ function ProviderCard({
         provider={provider}
         config={config}
         brandId={brandId}
-        onChanged={onChanged}
+        onChanged={handleChanged}
       />
       <TestProviderDialog
         open={testOpen}
