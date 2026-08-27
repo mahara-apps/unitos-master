@@ -74,13 +74,32 @@ export function WhatsappChannelCard({
         </Badge>
       </div>
 
-      <div className="truncate text-xs text-muted-foreground">
-        {connected
-          ? (formatPhone(instance?.phoneNumber ?? null) ?? "Conexão ativa")
-          : configured
-            ? "Evolution configurada · conexão pendente"
-            : "Nenhuma credencial configurada"}
-      </div>
+      <dl className="space-y-1 text-xs">
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-2">
+          <dt className="text-muted-foreground">Conexão</dt>
+          <dd className="truncate text-right font-medium">
+            {connected
+              ? "Ativa"
+              : configured
+                ? "Pendente"
+                : "Nenhuma credencial configurada"}
+          </dd>
+        </div>
+        {instance?.phoneNumber ? (
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-2">
+            <dt className="text-muted-foreground">Número</dt>
+            <dd className="truncate text-right font-medium">
+              {formatPhone(instance.phoneNumber)}
+            </dd>
+          </div>
+        ) : null}
+        {instance?.instanceName ? (
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-2">
+            <dt className="text-muted-foreground">Instância</dt>
+            <dd className="truncate text-right font-mono text-[11px]">{instance.instanceName}</dd>
+          </div>
+        ) : null}
+      </dl>
 
       <div className="flex items-center gap-2">
         <Button
@@ -92,6 +111,7 @@ export function WhatsappChannelCard({
           {configured ? "Gerenciar" : "Configurar"}
         </Button>
       </div>
+
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">

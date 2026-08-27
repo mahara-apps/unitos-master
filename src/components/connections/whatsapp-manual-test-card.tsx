@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { listEvolutionInstances } from "@/lib/evolution-instances.functions";
 import { sendWhatsappTestMessage } from "@/lib/whatsapp-recipients.functions";
 
@@ -50,15 +49,15 @@ export function WhatsappManualTestCard({
     !canManage || !instance || phone.replace(/\D/g, "").length < 10 || !message.trim();
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card p-5">
+    <div className="space-y-3 rounded-xl border border-border/60 bg-card p-5">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2 text-sm font-semibold">
             <Send className="h-4 w-4 shrink-0 text-muted-foreground" />
             <span className="truncate">Teste de envio</span>
           </div>
-          <p className="truncate text-xs text-muted-foreground">
-            Envie para um número avulso, sem cadastrar destinatário.
+          <p className="text-xs text-muted-foreground">
+            Envie uma mensagem para um número de teste sem cadastrar um destinatário.
           </p>
         </div>
         <Badge variant="outline" className="shrink-0 text-[10px]">
@@ -68,10 +67,10 @@ export function WhatsappManualTestCard({
 
       {!instance ? (
         <p className="text-xs text-muted-foreground">
-          Conecte o WhatsApp Evolution para habilitar o teste de envio.
+          Conecte o WhatsApp para habilitar o teste.
         </p>
       ) : (
-        <div className="space-y-2">
+        <div className="grid items-end gap-3 md:grid-cols-[220px_minmax(0,1fr)_auto]">
           <div className="space-y-1.5">
             <Label htmlFor="wa-test-phone" className="text-xs">
               Telefone
@@ -80,26 +79,25 @@ export function WhatsappManualTestCard({
               id="wa-test-phone"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="+55 31 90000-0000"
+              placeholder="+55 31 99999-9999"
               inputMode="tel"
-              className="h-8 text-xs"
+              className="h-9 text-xs"
             />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="wa-test-message" className="text-xs">
               Mensagem
             </Label>
-            <Textarea
+            <Input
               id="wa-test-message"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              rows={3}
-              className="text-xs"
+              className="h-9 text-xs"
             />
           </div>
           <Button
             size="sm"
-            className="w-full"
+            className="h-9 md:w-auto"
             disabled={disabled || send.isPending}
             onClick={() => send.mutate()}
           >
@@ -134,3 +132,4 @@ export function WhatsappManualTestCard({
     </div>
   );
 }
+
