@@ -20,11 +20,11 @@ export type EventDef = {
 };
 
 const V = {
-  brand_name: { key: "brand.name", label: "Nome da marca", sample: "Agência Mahara" },
+  brand_name: { key: "brand.name", label: "Nome da marca", sample: "Sua agência" },
   brand_logo: { key: "brand.logo", label: "Logo da marca", sample: "https://…/logo.png" },
   user_name: { key: "user.full_name", label: "Nome do usuário", sample: "Maria Souza" },
   user_email: { key: "user.email", label: "E-mail do usuário", sample: "maria@exemplo.com" },
-  user_role: { key: "user.role", label: "Função no time", sample: "Editor" },
+  user_role: { key: "user.role", label: "Função no time", sample: "Usuário" },
   client_name: { key: "client.name", label: "Nome do cliente", sample: "Café Origem" },
   client_contact: {
     key: "client.contact_name",
@@ -44,7 +44,7 @@ const V = {
   portal_url: {
     key: "portal.url",
     label: "Link do portal",
-    sample: "https://app.nexusflow/portal/abc123",
+    sample: "https://sua-instalacao.exemplo/portal/abc123",
   },
   portal_expires: {
     key: "portal.expires_at",
@@ -54,9 +54,9 @@ const V = {
   invite_url: {
     key: "invite.url",
     label: "Link do convite",
-    sample: "https://app.nexusflow/invites/xyz",
+    sample: "https://sua-instalacao.exemplo/invite/xyz",
   },
-  invite_role: { key: "invite.role", label: "Função convidada", sample: "Editor" },
+  invite_role: { key: "invite.role", label: "Função convidada", sample: "Usuário" },
   invite_password: {
     key: "invite.password",
     label: "Senha temporária",
