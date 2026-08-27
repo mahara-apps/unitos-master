@@ -1,12 +1,7 @@
 import { useTheme } from "@/components/theme-provider";
 import { useActiveContextOptional } from "@/hooks/use-active-context";
 import { useBrandBranding } from "@/hooks/use-brand-branding";
-import {
-  BRAND_FALLBACK,
-  BRAND_LOGO_RATIO,
-  BRAND_MARK_RATIO,
-  BrandLogo,
-} from "@/components/brand/brand-logo";
+import { BrandLogo } from "@/components/brand/brand-logo";
 
 type Props = {
   variant?: "full" | "mark";
@@ -17,7 +12,7 @@ type Props = {
 
 /**
  * Logo da instalação (sidebar e telas internas). Casca fina sobre `BrandLogo`:
- * dimensões reservadas, fallback local imediato e zero layout shift.
+ * dimensões reservadas, fallback SVG local imediato e zero layout shift.
  */
 export function UnitosLogo({ variant = "full", className, eager = true, align = "left" }: Props) {
   const { resolvedTheme } = useTheme();
@@ -29,17 +24,11 @@ export function UnitosLogo({ variant = "full", className, eager = true, align = 
     : resolvedTheme === "dark"
       ? branding.logoDark
       : branding.logoLight;
-  const fallback = isMark
-    ? BRAND_FALLBACK.mark
-    : resolvedTheme === "dark"
-      ? BRAND_FALLBACK.dark
-      : BRAND_FALLBACK.light;
 
   return (
     <BrandLogo
       src={src}
-      fallbackSrc={fallback}
-      ratio={isMark ? BRAND_MARK_RATIO : BRAND_LOGO_RATIO}
+      variant={variant}
       alt="Unitos"
       eager={eager}
       align={align}
