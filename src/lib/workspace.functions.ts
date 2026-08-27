@@ -45,6 +45,21 @@ export const listMyBrands = createServerFn({ method: "GET" })
     if (!isSuperAdmin) query = query.in("id", ids);
     const { data: brands, error } = await query;
     if (error) throw error;
+
+    // Registra a URL desta instalação para cada workspace acessível, para que
+    // disparos assíncronos (cron/jobs/workers) montem links no domínio correto
+    // sem depender de variável de ambiente global.
+    try {
+      const { rememberInstallationUrl } = await import("@/lib/installation-url.server");
+      await Promise.all(
+        (brands ?? []).map((b) =>
+          rememberInstallationUrl(supabase as unknown as { from: (t: string) => unknown }, b.id),
+        ),
+      );
+    } catch (e) {
+      console.error("[installation-url] aprendizado ignorado", e);
+    }
+
     return (brands ?? []).map((b) => ({
       ...b,
       role:
