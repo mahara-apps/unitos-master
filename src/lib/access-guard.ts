@@ -143,6 +143,14 @@ export async function assertBrandMember(
   if (!role || !allowed.includes(role)) {
     throw new Error("Forbidden: você não pertence a este workspace");
   }
+  // Aprende a URL desta instalação para o workspace, para que disparos
+  // assíncronos (cron/jobs/workers) montem links no domínio correto.
+  try {
+    const { rememberInstallationUrl } = await import("@/lib/installation-url.server");
+    await rememberInstallationUrl(supabase as unknown as never, brandId);
+  } catch {
+    /* aprendizado é best-effort; nunca bloqueia a autorização */
+  }
   return role;
 }
 

@@ -50,6 +50,13 @@ function normalize(raw: string | null | undefined): string | null {
   }
 }
 
+/**
+ * Memo por worker: evita reescrever `brands.app_url` a cada requisição do mesmo
+ * workspace no mesmo processo. NÃO é fonte de verdade entre instalações — a
+ * chave inclui o brandId, então A nunca lê o valor de B.
+ */
+const learned = new Map<string, string>();
+
 async function readStoredUrl(
   supabase: InstallationSupabase,
   brandId: string,
@@ -94,8 +101,10 @@ export async function rememberInstallationUrl(
 ): Promise<string | null> {
   const origin = await requestOrigin();
   if (!origin) return null;
+  if (learned.get(brandId) === origin) return origin;
   const stored = await readStoredUrl(supabase, brandId);
   if (stored !== origin) await persistUrl(brandId, origin);
+  learned.set(brandId, origin);
   return origin;
 }
 
@@ -108,8 +117,11 @@ export async function resolveInstallationUrl(
 
   const origin = await requestOrigin();
   if (origin) {
-    const stored = await readStoredUrl(supabase, brandId);
-    if (stored !== origin) await persistUrl(brandId, origin);
+    if (learned.get(brandId) !== origin) {
+      const stored = await readStoredUrl(supabase, brandId);
+      if (stored !== origin) await persistUrl(brandId, origin);
+      learned.set(brandId, origin);
+    }
     return origin;
   }
 
@@ -146,4 +158,9 @@ export async function tryInstallationAbsoluteUrl(
     }
     throw error;
   }
+}
+
+/** Somente para testes: limpa o memo por worker. */
+export function __resetInstallationUrlMemo(): void {
+  learned.clear();
 }
