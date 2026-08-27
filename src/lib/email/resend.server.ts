@@ -71,8 +71,6 @@ export function sanitizeProviderError(status: number, body: string): string {
   return `provider_${status}: ${safe}`;
 }
 
-
-
 /**
  * Resolve a configuração de e-mail do workspace. Usa o client Supabase do
  * chamador (RLS aplicada), então o workspace A nunca alcança a credencial do
