@@ -10,6 +10,7 @@
 // Nunca retornamos a API key para fora deste módulo, nem em logs ou erros.
 
 import { decryptCredential } from "@/lib/credentials-crypto.server";
+import type { SupabaseLike } from "./resend-types";
 
 export type ResendConfigSource = "brand" | "installation";
 
@@ -70,18 +71,7 @@ export function sanitizeProviderError(status: number, body: string): string {
   return `provider_${status}: ${safe}`;
 }
 
-type AnySupabase = {
-  from: (table: string) => {
-    select: (cols: string) => {
-      eq: (
-        col: string,
-        val: string,
-      ) => {
-        eq: (col: string, val: string) => { maybeSingle: () => Promise<{ data: unknown }> };
-      };
-    };
-  };
-};
+
 
 /**
  * Resolve a configuração de e-mail do workspace. Usa o client Supabase do
@@ -89,7 +79,7 @@ type AnySupabase = {
  * workspace B: a linha simplesmente não é visível.
  */
 export async function resolveResendConfig(
-  supabase: AnySupabase,
+  supabase: SupabaseLike,
   brandId: string,
 ): Promise<ResendConfig | null> {
   let row: { ciphertext?: string; masked?: string; metadata?: Record<string, string> } | null = null;
@@ -136,7 +126,7 @@ export async function resolveResendConfig(
 
 /** Estado consumido pela UI — derivado do MESMO resolvedor do envio. */
 export async function resolveResendStatus(
-  supabase: AnySupabase,
+  supabase: SupabaseLike,
   brandId: string,
 ): Promise<ResendStatus> {
   const cfg = await resolveResendConfig(supabase, brandId);
@@ -207,7 +197,7 @@ export async function sendResendEmail(
  * usado pela UI quando não há credencial para o workspace.
  */
 export async function sendBrandEmail(
-  supabase: AnySupabase,
+  supabase: SupabaseLike,
   brandId: string,
   msg: { to: string; subject: string; html: string },
 ): Promise<ResendSendResult> {

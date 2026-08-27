@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import type { SupabaseLike } from "@/lib/email/resend-types";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { ALL_PERMISSION_IDS, normalizePermissions, type PermissionId } from "@/lib/permissions";
