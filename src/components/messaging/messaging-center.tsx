@@ -35,6 +35,7 @@ import {
   type ChannelConfig,
 } from "@/lib/connections.functions";
 import { sendTestMessage } from "@/lib/message-templates.functions";
+import { getEmailChannelStatus } from "@/lib/email.functions";
 import { EVENTS, getDefault, type Channel } from "@/lib/message-templates.catalog";
 import { cn } from "@/lib/utils";
 
