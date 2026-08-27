@@ -307,7 +307,8 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
       results.push({
         email,
         status: "invited",
-        link,
+        link: link ?? undefined,
+
         emailSent: emailRes.sent,
         error: emailRes.error,
         provisioned,
