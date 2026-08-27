@@ -192,7 +192,7 @@ export async function resolveEventContext(
     }
   }
   const portalUrl =
-    input.portal?.url ?? (portalToken ? tryAbsoluteUrl(`/portal/${portalToken}`) : null);
+    input.portal?.url ?? (portalToken ? await tryAbsoluteUrl(`/portal/${portalToken}`) : null);
   put(out, "portal.url", portalUrl);
   put(out, "portal.expires_at", formatDate(portalExpires));
 
