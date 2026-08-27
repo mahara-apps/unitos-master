@@ -625,7 +625,9 @@ export const provisionUser = createServerFn({ method: "POST" })
 
     let emailStatus: { sent: boolean; error?: string } = { sent: false, error: "skipped" };
     if (data.sendEmail) {
-      const origin = process.env.APP_URL || "";
+      const { tryGetPublicAppUrl } = await import("@/lib/app-url.server");
+      const origin = tryGetPublicAppUrl() ?? "";
+
       emailStatus = await sendCredentialsEmail({
         supabase: supabase as unknown as SupabaseLike,
         brandId: data.assignments[0]!.brandId,
