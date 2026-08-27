@@ -262,6 +262,8 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
       const origin = process.env.APP_URL || "";
       const link = `${origin}/invite/${token}`;
       const emailRes = await sendInviteEmail({
+        supabase: supabase as unknown as SupabaseLike,
+        brandId: data.brandId,
         to: email,
         brandName,
         inviterName,
@@ -448,38 +450,14 @@ async function sendCredentialsEmail(opts: {
       <p><a href="${opts.loginUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Acessar Unitos</a></p>
       <p style="color:#71717a;font-size:12px">Este e-mail é apenas informativo — o acesso já está ativo, você pode entrar imediatamente.</p>
     </div>`;
-  try {
-    const useGateway = Boolean(lovableKey);
-    const url = useGateway
-      ? "https://connector-gateway.lovable.dev/resend/emails"
-      : "https://api.resend.com/emails";
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (useGateway) {
-      headers["Authorization"] = `Bearer ${lovableKey}`;
-      headers["X-Connection-Api-Key"] = apiKey;
-    } else {
-      headers["Authorization"] = `Bearer ${apiKey}`;
-    }
-    const res = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        from,
-        to: [opts.to],
-        subject: "Sua conta no Unitos está pronta",
-        html,
-      }),
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      console.error(`[credentials email] ${res.status} ${body}`);
-      return { sent: false, error: `provider_${res.status}` };
-    }
-    return { sent: true };
-  } catch (e) {
-    console.error("[credentials email] fetch failed", e);
-    return { sent: false, error: "network" };
-  }
+  const { sendBrandEmail } = await import("@/lib/email/resend.server");
+  const res = await sendBrandEmail(opts.supabase, opts.brandId, {
+    to: opts.to,
+    subject: "Sua conta no Unitos está pronta",
+    html,
+  });
+  if (!res.sent) console.error(`[credentials email] não enviado: ${res.error}`);
+  return { sent: res.sent, ...(res.error ? { error: res.error } : {}) };
 }
 
 export const provisionUser = createServerFn({ method: "POST" })
@@ -617,6 +595,8 @@ export const provisionUser = createServerFn({ method: "POST" })
     if (data.sendEmail) {
       const origin = process.env.APP_URL || "";
       emailStatus = await sendCredentialsEmail({
+        supabase: supabase as unknown as SupabaseLike,
+        brandId: data.assignments[0]!.brandId,
         to: email,
         fullName: data.fullName,
         tempPassword,
@@ -932,6 +912,8 @@ export const addPerson = createServerFn({ method: "POST" })
       }
       const origin = process.env.APP_URL || "";
       emailStatus = await sendCredentialsEmail({
+        supabase: supabase as unknown as SupabaseLike,
+        brandId: data.brandId,
         to: data.email,
         fullName,
         tempPassword,
