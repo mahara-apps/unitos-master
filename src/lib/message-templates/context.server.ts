@@ -12,7 +12,7 @@
  *   gerar a senha temporária (passada explicitamente). Nunca é persistida.
  */
 
-import { tryAbsoluteUrl } from "@/lib/app-url.server";
+import { tryInstallationAbsoluteUrl } from "@/lib/installation-url.server";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 export type ContextSupabase = { from: (table: string) => any };
@@ -165,11 +165,14 @@ export async function resolveEventContext(
   }
 
   // ---- invite ----
-  // Links SEMPRE derivados da instalação que originou o evento (host da
-  // requisição). Nunca de env compartilhado entre instalações.
+  // Links SEMPRE derivados da instalação do WORKSPACE do evento: host da
+  // requisição quando existe, `brands.app_url` em cron/jobs/workers. Nunca de
+  // env compartilhado entre instalações.
   const inviteUrl =
     input.invite?.url ??
-    (input.invite?.token ? await tryAbsoluteUrl(`/invite/${input.invite.token}`) : null);
+    (input.invite?.token
+      ? await tryInstallationAbsoluteUrl(supabase, input.brandId, `/invite/${input.invite.token}`)
+      : null);
   put(out, "invite.url", inviteUrl);
   put(out, "invite.role", roleLabel(input.invite?.role));
   put(out, "invite.password", input.invite?.password);
@@ -192,7 +195,10 @@ export async function resolveEventContext(
     }
   }
   const portalUrl =
-    input.portal?.url ?? (portalToken ? await tryAbsoluteUrl(`/portal/${portalToken}`) : null);
+    input.portal?.url ??
+    (portalToken
+      ? await tryInstallationAbsoluteUrl(supabase, input.brandId, `/portal/${portalToken}`)
+      : null);
   put(out, "portal.url", portalUrl);
   put(out, "portal.expires_at", formatDate(portalExpires));
 
