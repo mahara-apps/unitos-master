@@ -3,15 +3,17 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { getBrandBranding } from "@/lib/branding.functions";
-import logoLight from "@/assets/brand/logo-unitos-light.png.asset.json";
-import logoDark from "@/assets/brand/logo-unitos-dark.png.asset.json";
-import mark from "@/assets/brand/mark-unitos.png.asset.json";
 
+/**
+ * Branding OPCIONAL da instalação. Todos os campos de imagem são anuláveis:
+ * quando nulos, a UI usa o SVG institucional local (`BrandLogo`), portanto
+ * nenhuma instalação precisa configurar nada para ter logo funcional.
+ */
 export type BrandBranding = {
-  logoLight: string;
-  logoDark: string;
-  icon: string;
-  logoLogin: string;
+  logoLight: string | null;
+  logoDark: string | null;
+  icon: string | null;
+  logoLogin: string | null;
   logoLightCustom: boolean;
   logoDarkCustom: boolean;
   iconCustom: boolean;
@@ -22,12 +24,6 @@ export type BrandBranding = {
     icon: string | null;
     logo_login: string | null;
   };
-};
-
-const DEFAULTS = {
-  logoLight: logoLight.url,
-  logoDark: logoDark.url,
-  icon: mark.url,
 };
 
 async function sign(path: string | null): Promise<string | null> {
@@ -88,10 +84,10 @@ export function useBrandBranding(brandId: string | null | undefined): BrandBrand
   }, [paths.data]);
 
   return {
-    logoLight: signed.light ?? DEFAULTS.logoLight,
-    logoDark: signed.dark ?? DEFAULTS.logoDark,
-    icon: signed.icon ?? DEFAULTS.icon,
-    logoLogin: signed.login ?? DEFAULTS.logoLight,
+    logoLight: signed.light,
+    logoDark: signed.dark,
+    icon: signed.icon,
+    logoLogin: signed.login,
     logoLightCustom: !!signed.light,
     logoDarkCustom: !!signed.dark,
     iconCustom: !!signed.icon,

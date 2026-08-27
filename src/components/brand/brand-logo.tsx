@@ -1,33 +1,33 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-import logoLightAsset from "@/assets/brand/logo-unitos-light.png.asset.json";
-import logoDarkAsset from "@/assets/brand/logo-unitos-dark.png.asset.json";
-import markAsset from "@/assets/brand/mark-unitos.png.asset.json";
+import {
+  UNITOS_MARK_RATIO,
+  UNITOS_WORDMARK_RATIO,
+  UnitosMarkGlyph,
+  UnitosWordmarkGlyph,
+} from "@/components/brand/unitos-wordmark";
 
 /**
- * COMPONENTE ÚNICO DE BRANDING (login, sidebar e demais telas).
+ * COMPONENTE ÚNICO DE BRANDING (login, recuperação de senha, sidebar, portal e
+ * demais telas). Toda tela do sistema deve usar este componente — não criar
+ * outra lógica de fallback.
  *
  * Regras estruturais:
+ * - o fallback padrão é SVG INLINE do Unitos: não depende de CDN, Storage,
+ *   domínio nem de asset que possa não existir em uma nova instalação;
  * - o container reserva as dimensões (aspect-ratio) desde o primeiro render,
- *   portanto nunca há layout shift nem "logo crescendo" após o carregamento;
- * - o fallback local do Unitos é pintado imediatamente (sem skeleton);
+ *   portanto nunca há layout shift;
  * - a logo da instalação só substitui o fallback depois de pré-carregada com
- *   sucesso, então URL vazia/inválida ou erro de rede nunca mostra imagem
- *   quebrada;
- * - o pré-carregamento é memoizado por URL, evitando fetch duplicado quando a
- *   mesma logo aparece em várias telas.
+ *   sucesso; URL vazia/inválida ou erro de rede mantém o SVG padrão;
+ * - se a imagem remota falhar DEPOIS de renderizada, volta imediatamente para
+ *   o SVG padrão — nunca sobra imagem quebrada, texto "Logo" ou espaço vazio;
+ * - o pré-carregamento é memoizado por URL, evitando fetch duplicado.
  */
 
-/** Proporção original das logos do Unitos: 600x180 (10:3). */
-export const BRAND_LOGO_RATIO = 600 / 180;
+/** Proporção original do wordmark (10:3). */
+export const BRAND_LOGO_RATIO = UNITOS_WORDMARK_RATIO;
 /** Proporção do ícone/mark (quadrado). */
-export const BRAND_MARK_RATIO = 1;
-
-export const BRAND_FALLBACK = {
-  light: logoLightAsset.url as string,
-  dark: logoDarkAsset.url as string,
-  mark: markAsset.url as string,
-};
+export const BRAND_MARK_RATIO = UNITOS_MARK_RATIO;
 
 const preloadCache = new Map<string, Promise<boolean>>();
 
@@ -62,8 +62,8 @@ function preload(url: string): Promise<boolean> {
 export type BrandLogoProps = {
   /** URL da identidade da instalação (pode ser nula/inválida). */
   src?: string | null;
-  /** Fallback local do Unitos. */
-  fallbackSrc?: string;
+  /** Variante do fallback institucional padrão. */
+  variant?: "full" | "mark";
   /** Proporção reservada no container (largura / altura). */
   ratio?: number;
   alt?: string;
@@ -78,9 +78,9 @@ export type BrandLogoProps = {
 
 export function BrandLogo({
   src,
-  fallbackSrc = BRAND_FALLBACK.light,
-  ratio = BRAND_LOGO_RATIO,
-  alt = "Logo",
+  variant = "full",
+  ratio,
+  alt = "Unitos",
   eager = true,
   className,
   imgClassName,
@@ -105,27 +105,41 @@ export function BrandLogo({
     };
   }, [remote]);
 
+  const isMark = variant === "mark";
+  const aspect = ratio ?? (isMark ? BRAND_MARK_RATIO : BRAND_LOGO_RATIO);
+
   return (
     <span
       className={cn("relative block w-full select-none overflow-hidden", className)}
-      style={{ aspectRatio: String(ratio) }}
+      style={{ aspectRatio: String(aspect) }}
     >
-      <img
-        src={resolved ?? fallbackSrc}
-        alt={alt}
-        draggable={false}
-        loading={eager ? "eager" : "lazy"}
-        decoding="async"
-        onError={(e) => {
-          const img = e.currentTarget;
-          if (img.src !== fallbackSrc) img.src = fallbackSrc;
-        }}
-        className={cn(
-          "absolute inset-0 h-full w-full object-contain",
-          align === "left" ? "object-left" : "object-center",
-          imgClassName,
-        )}
-      />
+      {resolved ? (
+        <img
+          src={resolved}
+          alt={alt}
+          draggable={false}
+          loading={eager ? "eager" : "lazy"}
+          decoding="async"
+          onError={() => {
+            preloadCache.delete(resolved);
+            setResolved(null);
+          }}
+          className={cn(
+            "absolute inset-0 h-full w-full object-contain",
+            align === "left" ? "object-left" : "object-center",
+            imgClassName,
+          )}
+        />
+      ) : (
+        <span
+          className={cn(
+            "absolute inset-0 flex h-full w-full items-center",
+            align === "left" ? "justify-start" : "justify-center",
+          )}
+        >
+          {isMark ? <UnitosMarkGlyph /> : <UnitosWordmarkGlyph />}
+        </span>
+      )}
     </span>
   );
 }
