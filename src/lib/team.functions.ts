@@ -141,7 +141,30 @@ async function sendInviteEmail(opts: {
   inviterName: string;
   acceptUrl: string;
   tempPassword?: string;
+  inviteRole?: string;
+  actorUserId?: string | null;
 }): Promise<{ sent: boolean; error?: string }> {
+  // 1) Caminho canônico: template `team_invite` (da marca ou default do catálogo)
+  //    renderizado com contexto REAL. A senha temporária vem só do evento atual.
+  const { sendEventEmail } = await import("@/lib/message-templates/dispatch.server");
+  const viaTemplate = await sendEventEmail(opts.supabase as never, {
+    eventKey: "team_invite",
+    to: opts.to,
+    actorUserId: opts.actorUserId ?? null,
+    context: {
+      brandId: opts.brandId,
+      user: { fullName: opts.inviterName, email: opts.to, role: opts.inviteRole ?? null },
+      invite: {
+        url: opts.acceptUrl,
+        role: opts.inviteRole ?? null,
+        ...(opts.tempPassword ? { password: opts.tempPassword } : {}),
+      },
+    },
+  });
+  if (viaTemplate.sent) return { sent: true };
+
+  // 2) Fallback: template exige variável que este convite não possui (ex.: convite
+  //    sem senha temporária). Mantém o envio funcionando com o layout mínimo.
   const credsBlock = opts.tempPassword
     ? `
       <div style="margin:16px 0;padding:12px 14px;border:1px solid #e4e4e7;border-radius:8px;background:#fafafa">
@@ -164,9 +187,10 @@ async function sendInviteEmail(opts: {
     subject: `Convite para ${opts.brandName}`,
     html,
   });
-  if (!res.sent) console.error(`[invite email] não enviado: ${res.error}`);
+  if (!res.sent) console.error(`[invite email] não enviado: ${res.error ?? viaTemplate.error}`);
   return { sent: res.sent, ...(res.error ? { error: res.error } : {}) };
 }
+
 
 export const inviteBrandMembers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
