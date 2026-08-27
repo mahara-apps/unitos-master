@@ -2997,6 +2997,7 @@ export type Database = {
       }
       brands: {
         Row: {
+          app_url: string | null
           bairro: string | null
           cep: string | null
           cidade: string | null
@@ -3021,6 +3022,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          app_url?: string | null
           bairro?: string | null
           cep?: string | null
           cidade?: string | null
@@ -3045,6 +3047,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          app_url?: string | null
           bairro?: string | null
           cep?: string | null
           cidade?: string | null
