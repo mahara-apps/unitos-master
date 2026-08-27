@@ -82,7 +82,8 @@ export async function resolveResendConfig(
   supabase: SupabaseLike,
   brandId: string,
 ): Promise<ResendConfig | null> {
-  let row: { ciphertext?: string; masked?: string; metadata?: Record<string, string> } | null = null;
+  type CredRow = { ciphertext?: string; masked?: string; metadata?: Record<string, string> };
+  let row: CredRow | null = null;
   try {
     const res = await supabase
       .from("brand_api_credentials")
@@ -90,7 +91,7 @@ export async function resolveResendConfig(
       .eq("brand_id", brandId)
       .eq("provider", "resend")
       .maybeSingle();
-    row = (res.data as typeof row) ?? null;
+    row = ((res as { data: unknown }).data as CredRow | null) ?? null;
   } catch {
     row = null;
   }
