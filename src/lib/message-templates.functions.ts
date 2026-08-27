@@ -111,15 +111,17 @@ export const sendTestMessage = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const event = getEvent(data.eventKey);
     if (!event) throw new Error("evento_desconhecido");
+    // Teste do editor: contexto de exemplo é intencional (não há evento real).
     const ctx = buildSampleContext(event);
     const subject = renderTemplateString(data.subject ?? "", ctx);
     const body = renderTemplateString(data.body, ctx);
 
+    // Escopo: o client autenticado (RLS) só alcança credenciais/instâncias da
+    // marca do próprio usuário — as MESMAS lidas pelo status exibido na UI.
+    const { assertBrandMember } = await import("@/lib/access-guard");
+    await assertBrandMember(context.supabase, context.userId, data.brandId);
+
     if (data.channel === "email") {
-      // Escopo: o client autenticado (RLS) só alcança a credencial da marca do
-      // próprio usuário — e é a MESMA lida pelo status exibido na UI.
-      const { assertBrandMember } = await import("@/lib/access-guard");
-      await assertBrandMember(context.supabase, context.userId, data.brandId);
       const { sendBrandEmail } = await import("@/lib/email/resend.server");
       const result = await sendBrandEmail(context.supabase, data.brandId, {
         to: data.to,
@@ -130,13 +132,57 @@ export const sendTestMessage = createServerFn({ method: "POST" })
       return { sent: true, previewSubject: subject, previewBody: body, from: result.from };
     }
 
-    // WhatsApp: por enquanto retorna preview renderizado (integração via provider é feita fora).
-    return {
-      sent: false,
-      error: "whatsapp_provider_nao_configurado",
-      previewBody: body,
-    };
+    // WhatsApp: usa a MESMA instância Evolution conectada da marca (fim do
+    // falso negativo "whatsapp_provider_nao_configurado" com canal conectado).
+    const { parseDestination, maskDestination } = await import("@/lib/whatsapp/destination");
+    const destination = parseDestination("phone", data.to);
+    if (!destination) return { sent: false, error: "telefone_invalido", previewBody: body };
+
+    const { data: instances } = await context.supabase
+      .from("evolution_instances")
+      .select("id, instance_name, status, connection_state, updated_at")
+      .eq("brand_id", data.brandId)
+      .order("updated_at", { ascending: false })
+      .limit(20);
+    const instance = (instances ?? []).find(
+      (i) => i.status === "connected" || i.connection_state === "open",
+    );
+    if (!instance) {
+      return { sent: false, error: "whatsapp_instancia_nao_conectada", previewBody: body };
+    }
+
+    try {
+      const { resolveInstanceConfig } = await import("@/lib/evolution/scope.server");
+      const { sendWhatsappText } = await import("@/lib/whatsapp/send.server");
+      const config = await resolveInstanceConfig(context.supabase, data.brandId);
+      const { providerMessageId } = await sendWhatsappText(
+        config,
+        instance.instance_name,
+        destination,
+        body,
+      );
+      const { logEventMessage } = await import("@/lib/message-templates/dispatch.server");
+      await logEventMessage(
+        context.supabase,
+        context.userId,
+        { brandId: data.brandId },
+        {
+          channel: "whatsapp",
+          status: "sent",
+          recipient: maskDestination(destination),
+          eventKey: data.eventKey,
+          source: "brand",
+          metadata: { test: true, instance_id: instance.id, provider_message_id: providerMessageId },
+        },
+      );
+      return { sent: true, previewBody: body };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "falha_no_envio";
+      console.error(`[template test whatsapp] ${data.eventKey}: ${message}`);
+      return { sent: false, error: message, previewBody: body };
+    }
   });
+
 
 export function listCatalog() {
   return EVENTS;
