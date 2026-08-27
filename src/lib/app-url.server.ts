@@ -1,13 +1,21 @@
 /**
- * URL pública canônica da instalação (server-side).
+ * URL canônica da INSTALAÇÃO ATUAL (server-only).
  *
- * Cada instalação independente do Unitos tem seu próprio domínio, então NÃO
- * existe fallback hardcoded. A convenção já usada no projeto é `PUBLIC_APP_URL`
- * (integração Meta); `APP_URL` é aceita apenas por compatibilidade com a
- * configuração antiga de convites. Nenhuma variável nova é criada.
+ * CAUSA RAIZ CORRIGIDA AQUI: a URL vinha de variável de ambiente
+ * (`PUBLIC_APP_URL` / `APP_URL` / `APP_PUBLIC_URL`). Quando o `.env` é copiado
+ * entre instalações — cenário real de multi-instalação do Unitos — todas as
+ * instalações passam a gerar links do MESMO domínio, e o convite da instalação
+ * A chega apontando para a instalação B.
  *
- * Regra: nunca montar no servidor uma URL a partir de `window.location.origin`
- * nem enviar link relativo por e-mail/WhatsApp.
+ * Nova ordem de resolução (determinística, por requisição):
+ *   1. Host real da requisição que originou o evento (`x-forwarded-host`/`host`)
+ *      — é sempre a própria instalação que está atendendo o usuário.
+ *   2. Variável de ambiente, SOMENTE quando não existe requisição (cron/worker).
+ *   3. Falha explícita (`AppUrlNotConfiguredError`). Nunca há fallback fixo,
+ *      valor de exemplo ou domínio de outra instalação.
+ *
+ * Quando o env divergir do host da requisição, o host da requisição vence e a
+ * divergência é registrada — o env é justamente o vetor do vazamento.
  */
 
 export class AppUrlNotConfiguredError extends Error {
@@ -18,17 +26,64 @@ export class AppUrlNotConfiguredError extends Error {
   }
 }
 
-function readRaw(): string | null {
-  const raw = (process.env.PUBLIC_APP_URL || process.env.APP_URL || "").trim();
-  return raw ? raw : null;
+function normalizeOrigin(raw: string | null | undefined): string | null {
+  const value = (raw ?? "").trim();
+  if (!value) return null;
+  const withScheme = /^https?:\/\//i.test(value) ? value : `https://${value}`;
+  try {
+    const url = new URL(withScheme);
+    if (!url.hostname) return null;
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return null;
+  }
 }
 
-/** Normaliza para origem absoluta sem barra final. Lança se não configurada. */
+/** Origem derivada da requisição atual (fonte autoritativa da instalação). */
+export function requestOrigin(): string | null {
+  try {
+    // Import síncrono não é possível aqui sem tornar o módulo dependente do
+    // runtime em testes puros; usa require dinâmico protegido.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+    const mod = require("@tanstack/react-start/server") as {
+      getRequestHeader?: (name: string) => string | undefined;
+    };
+    const get = mod.getRequestHeader;
+    if (!get) return null;
+    const forwardedHost = get("x-forwarded-host");
+    const host = forwardedHost ?? get("host");
+    if (!host) return null;
+    const proto = get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+    return normalizeOrigin(`${proto}://${host.split(",")[0]!.trim()}`);
+  } catch {
+    return null;
+  }
+}
+
+/** Origem configurada por env — usada apenas fora de uma requisição. */
+export function configuredOrigin(): string | null {
+  return normalizeOrigin(
+    process.env.PUBLIC_APP_URL ?? process.env.APP_PUBLIC_URL ?? process.env.APP_URL ?? null,
+  );
+}
+
+/**
+ * URL canônica da instalação atual. Lança quando não é possível determiná-la —
+ * preferimos falhar do que enviar um link de outra instalação.
+ */
 export function getPublicAppUrl(): string {
-  const raw = readRaw();
-  if (!raw) throw new AppUrlNotConfiguredError();
-  const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
-  return withScheme.replace(/\/+$/, "");
+  const fromRequest = requestOrigin();
+  const fromEnv = configuredOrigin();
+  if (fromRequest) {
+    if (fromEnv && fromEnv !== fromRequest) {
+      console.warn(
+        `[app-url] env aponta para outra instalação (${fromEnv}); usando o host da requisição (${fromRequest})`,
+      );
+    }
+    return fromRequest;
+  }
+  if (fromEnv) return fromEnv;
+  throw new AppUrlNotConfiguredError();
 }
 
 /** Igual a `getPublicAppUrl`, mas retorna null em vez de lançar. */
@@ -40,14 +95,14 @@ export function tryGetPublicAppUrl(): string | null {
   }
 }
 
-/** Monta uma URL absoluta da instalação: `absoluteUrl("/invite/abc")`. */
+/** Monta uma URL absoluta da instalação atual: `absoluteUrl("/invite/abc")`. */
 export function absoluteUrl(path: string): string {
   const base = getPublicAppUrl();
   const suffix = path.startsWith("/") ? path : `/${path}`;
   return `${base}${suffix}`;
 }
 
-/** Versão tolerante: retorna null quando a instalação não tem URL configurada. */
+/** Versão tolerante: retorna null quando a instalação não pôde ser resolvida. */
 export function tryAbsoluteUrl(path: string): string | null {
   const base = tryGetPublicAppUrl();
   if (!base) return null;
