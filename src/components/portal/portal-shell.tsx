@@ -59,6 +59,11 @@ export function PortalShell({
               <img
                 src={logoUrl}
                 alt={clientName}
+                onError={(e) => {
+                  // logo remota inválida/expirada: esconde a imagem em vez de
+                  // exibir asset quebrado (as iniciais do cliente permanecem)
+                  e.currentTarget.style.display = "none";
+                }}
                 className="h-11 w-11 shrink-0 rounded-lg border border-border bg-background object-contain p-1"
               />
             ) : (
