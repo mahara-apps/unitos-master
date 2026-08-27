@@ -236,7 +236,17 @@ function ProviderCard({
   const [manageOpen, setManageOpen] = useState(false);
   const [testOpen, setTestOpen] = useState(false);
   const Icon = provider.icon;
-  const connected = !!config?.connected;
+
+  // Estado exibido = estado usado pelo envio (mesmo resolvedor no servidor).
+  const statusFn = useServerFn(getEmailChannelStatus);
+  const { data: status, isLoading: statusLoading } = useQuery({
+    queryKey: ["email-channel-status", brandId],
+    queryFn: () => statusFn({ data: { brandId } }),
+    enabled: !!brandId && provider.channel === "email",
+    staleTime: 30_000,
+  });
+  const connected = !!status?.configured;
+  const sender = status?.from ?? config?.handle ?? null;
 
   return (
     <div className="flex flex-col justify-between gap-3 rounded-xl border border-border/60 bg-card p-5">
@@ -250,12 +260,21 @@ function ProviderCard({
             <div className="truncate text-xs text-muted-foreground">{provider.hint}</div>
           </div>
         </div>
-        <StatusPill connected={connected} />
+        {statusLoading ? (
+          <Skeleton className="h-5 w-24 rounded-full" />
+        ) : (
+          <StatusPill connected={connected} />
+        )}
       </div>
 
       <div className="truncate text-xs text-muted-foreground">
-        {connected ? config?.handle || "Credencial configurada" : "Nenhuma credencial configurada"}
+        {connected
+          ? sender
+            ? `Remetente: ${sender}`
+            : "Credencial configurada"
+          : "Nenhuma credencial configurada"}
       </div>
+
 
       <div className="flex items-center gap-2">
         <Button
