@@ -133,16 +133,14 @@ function randomPassword(length = 16): string {
 }
 
 async function sendInviteEmail(opts: {
+  supabase: SupabaseLike;
+  brandId: string;
   to: string;
   brandName: string;
   inviterName: string;
   acceptUrl: string;
   tempPassword?: string;
 }): Promise<{ sent: boolean; error?: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
-  const lovableKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) return { sent: false, error: "resend_not_configured" };
-  const from = process.env.INVITE_FROM_EMAIL || "Unitos <onboarding@resend.dev>";
   const credsBlock = opts.tempPassword
     ? `
       <div style="margin:16px 0;padding:12px 14px;border:1px solid #e4e4e7;border-radius:8px;background:#fafafa">
@@ -159,38 +157,14 @@ async function sendInviteEmail(opts: {
       <p><a href="${opts.acceptUrl}" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600">Aceitar convite</a></p>
       <p style="color:#71717a;font-size:12px">Se o botão não funcionar, copie o link: ${opts.acceptUrl}</p>
     </div>`;
-  try {
-    const useGateway = Boolean(lovableKey);
-    const url = useGateway
-      ? "https://connector-gateway.lovable.dev/resend/emails"
-      : "https://api.resend.com/emails";
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (useGateway) {
-      headers["Authorization"] = `Bearer ${lovableKey}`;
-      headers["X-Connection-Api-Key"] = apiKey;
-    } else {
-      headers["Authorization"] = `Bearer ${apiKey}`;
-    }
-    const res = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        from,
-        to: [opts.to],
-        subject: `Convite para ${opts.brandName}`,
-        html,
-      }),
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      console.error(`[invite email] ${res.status} ${body}`);
-      return { sent: false, error: `provider_${res.status}` };
-    }
-    return { sent: true };
-  } catch (e) {
-    console.error("[invite email] fetch failed", e);
-    return { sent: false, error: "network" };
-  }
+  const { sendBrandEmail } = await import("@/lib/email/resend.server");
+  const res = await sendBrandEmail(opts.supabase, opts.brandId, {
+    to: opts.to,
+    subject: `Convite para ${opts.brandName}`,
+    html,
+  });
+  if (!res.sent) console.error(`[invite email] não enviado: ${res.error}`);
+  return { sent: res.sent, ...(res.error ? { error: res.error } : {}) };
 }
 
 export const inviteBrandMembers = createServerFn({ method: "POST" })
@@ -437,16 +411,14 @@ const ProvisionUserInput = z.object({
 });
 
 async function sendCredentialsEmail(opts: {
+  supabase: SupabaseLike;
+  brandId: string;
   to: string;
   fullName: string;
   tempPassword: string;
   loginUrl: string;
   workspaces: Array<{ name: string; clients: string[] }>;
 }): Promise<{ sent: boolean; error?: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
-  const lovableKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) return { sent: false, error: "resend_not_configured" };
-  const from = process.env.INVITE_FROM_EMAIL || "Unitos <onboarding@resend.dev>";
   const workspacesHtml = opts.workspaces
     .map(
       (w) => `
