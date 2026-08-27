@@ -5,6 +5,31 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MessageSquare } from "lucide-react";
+import { WhatsappChannelCard } from "./whatsapp-channel-card";
+import { WhatsappManualTestCard } from "./whatsapp-manual-test-card";
+
+export function WhatsappCenter({
+  brandId,
+  canManage,
+}: {
+  brandId: string | null;
+  canManage: boolean;
+}) {
+  if (!brandId) {
+    return <p className="text-xs text-muted-foreground">Selecione um workspace.</p>;
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 md:grid-cols-2">
+        <WhatsappChannelCard brandId={brandId} canManage={canManage} />
+        <WhatsappComingSoonCard />
+      </div>
+      <WhatsappManualTestCard brandId={brandId} canManage={canManage} />
+    </div>
+  );
+}
+
 
 /** Canal previsto na arquitetura, ainda sem fluxo funcional. */
 export function WhatsappComingSoonCard() {
