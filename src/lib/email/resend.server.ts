@@ -149,24 +149,31 @@ export async function resolveResendStatus(
 
 export type ResendSendResult = { sent: boolean; error?: string; from?: string };
 
-/** Envio real pelo Resend (gateway Lovable quando disponível). */
-export async function sendResendEmail(
+/**
+ * Chaves emitidas pelo Resend começam com `re_` e devem ir direto à API do
+ * Resend. O gateway da Lovable só aceita uma *connection key* de conector — usar
+ * uma chave `re_` como `X-Connection-Api-Key` retorna 401 e a UI mostrava
+ * "credencial_invalida" mesmo com a chave correta cadastrada.
+ */
+function isNativeResendKey(apiKey: string): boolean {
+  return apiKey.startsWith("re_");
+}
+
+async function postResend(
   config: ResendConfig,
   msg: { to: string; subject: string; html: string },
-): Promise<ResendSendResult> {
-  const lovableKey = process.env.LOVABLE_API_KEY;
-  const useGateway = Boolean(lovableKey);
-  const url = useGateway
+  viaGateway: boolean,
+): Promise<{ status: number; body: string } | null> {
+  const url = viaGateway
     ? "https://connector-gateway.lovable.dev/resend/emails"
     : "https://api.resend.com/emails";
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (useGateway) {
-    headers["Authorization"] = `Bearer ${lovableKey}`;
+  if (viaGateway) {
+    headers["Authorization"] = `Bearer ${process.env.LOVABLE_API_KEY}`;
     headers["X-Connection-Api-Key"] = config.apiKey;
   } else {
     headers["Authorization"] = `Bearer ${config.apiKey}`;
   }
-
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -178,18 +185,38 @@ export async function sendResendEmail(
         html: msg.html,
       }),
     });
-    if (!res.ok) {
-      const body = await res.text();
-      const error = sanitizeProviderError(res.status, body);
-      console.error(`[resend] envio falhou status=${res.status}`);
-      return { sent: false, error, from: config.from };
-    }
-    return { sent: true, from: config.from };
+    return { status: res.status, body: res.ok ? "" : await res.text() };
   } catch {
+    return null;
+  }
+}
+
+/** Envio real pelo Resend (gateway Lovable somente para connection keys). */
+export async function sendResendEmail(
+  config: ResendConfig,
+  msg: { to: string; subject: string; html: string },
+): Promise<ResendSendResult> {
+  const canUseGateway = Boolean(process.env.LOVABLE_API_KEY) && !isNativeResendKey(config.apiKey);
+
+  let attempt = await postResend(config, msg, canUseGateway);
+  // Gateway recusou a credencial: tenta a API oficial do Resend com a mesma
+  // chave antes de declarar credencial inválida.
+  if (canUseGateway && attempt && (attempt.status === 401 || attempt.status === 403)) {
+    attempt = await postResend(config, msg, false);
+  }
+
+  if (!attempt) {
     console.error("[resend] falha de rede no envio");
     return { sent: false, error: "network", from: config.from };
   }
+  if (attempt.status >= 200 && attempt.status < 300) {
+    return { sent: true, from: config.from };
+  }
+  const error = sanitizeProviderError(attempt.status, attempt.body);
+  console.error(`[resend] envio falhou status=${attempt.status}`);
+  return { sent: false, error, from: config.from };
 }
+
 
 /**
  * Atalho: resolve + envia. Retorna `resend_nao_configurado` com o mesmo código
