@@ -141,7 +141,30 @@ async function sendInviteEmail(opts: {
   inviterName: string;
   acceptUrl: string;
   tempPassword?: string;
+  inviteRole?: string;
+  actorUserId?: string | null;
 }): Promise<{ sent: boolean; error?: string }> {
+  // 1) Caminho canônico: template `team_invite` (da marca ou default do catálogo)
+  //    renderizado com contexto REAL. A senha temporária vem só do evento atual.
+  const { sendEventEmail } = await import("@/lib/message-templates/dispatch.server");
+  const viaTemplate = await sendEventEmail(opts.supabase as never, {
+    eventKey: "team_invite",
+    to: opts.to,
+    actorUserId: opts.actorUserId ?? null,
+    context: {
+      brandId: opts.brandId,
+      user: { fullName: opts.inviterName, email: opts.to, role: opts.inviteRole ?? null },
+      invite: {
+        url: opts.acceptUrl,
+        role: opts.inviteRole ?? null,
+        ...(opts.tempPassword ? { password: opts.tempPassword } : {}),
+      },
+    },
+  });
+  if (viaTemplate.sent) return { sent: true };
+
+  // 2) Fallback: template exige variável que este convite não possui (ex.: convite
+  //    sem senha temporária). Mantém o envio funcionando com o layout mínimo.
   const credsBlock = opts.tempPassword
     ? `
       <div style="margin:16px 0;padding:12px 14px;border:1px solid #e4e4e7;border-radius:8px;background:#fafafa">
@@ -164,9 +187,10 @@ async function sendInviteEmail(opts: {
     subject: `Convite para ${opts.brandName}`,
     html,
   });
-  if (!res.sent) console.error(`[invite email] não enviado: ${res.error}`);
+  if (!res.sent) console.error(`[invite email] não enviado: ${res.error ?? viaTemplate.error}`);
   return { sent: res.sent, ...(res.error ? { error: res.error } : {}) };
 }
+
 
 export const inviteBrandMembers = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -260,21 +284,31 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
         results.push({ email, status: "error", error: inviteErr.message });
         continue;
       }
-      const origin = process.env.APP_URL || "";
-      const link = `${origin}/invite/${token}`;
-      const emailRes = await sendInviteEmail({
-        supabase: supabase as unknown as SupabaseLike,
-        brandId: data.brandId,
-        to: email,
-        brandName,
-        inviterName,
-        acceptUrl: link,
-        tempPassword,
-      });
+      // URL canônica da instalação (PUBLIC_APP_URL) — nunca link relativo.
+      const { tryAbsoluteUrl } = await import("@/lib/app-url.server");
+      const link = tryAbsoluteUrl(`/invite/${token}`);
+      if (!link) {
+        console.error("[invite email] PUBLIC_APP_URL não configurada; convite sem link enviado");
+      }
+      const emailRes = link
+        ? await sendInviteEmail({
+            supabase: supabase as unknown as SupabaseLike,
+            brandId: data.brandId,
+            to: email,
+            brandName,
+            inviterName,
+            acceptUrl: link,
+            ...(tempPassword ? { tempPassword } : {}),
+            inviteRole: data.role,
+            actorUserId: userId,
+          })
+        : { sent: false, error: "app_url_nao_configurada" };
+
       results.push({
         email,
         status: "invited",
-        link,
+        link: link ?? undefined,
+
         emailSent: emailRes.sent,
         error: emailRes.error,
         provisioned,
@@ -592,7 +626,9 @@ export const provisionUser = createServerFn({ method: "POST" })
 
     let emailStatus: { sent: boolean; error?: string } = { sent: false, error: "skipped" };
     if (data.sendEmail) {
-      const origin = process.env.APP_URL || "";
+      const { tryGetPublicAppUrl } = await import("@/lib/app-url.server");
+      const origin = tryGetPublicAppUrl() ?? "";
+
       emailStatus = await sendCredentialsEmail({
         supabase: supabase as unknown as SupabaseLike,
         brandId: data.assignments[0]!.brandId,
@@ -909,7 +945,9 @@ export const addPerson = createServerFn({ method: "POST" })
           .in("id", data.clientIds);
         clientNames = (cRows ?? []).map((c) => c.name as string);
       }
-      const origin = process.env.APP_URL || "";
+      const { tryGetPublicAppUrl } = await import("@/lib/app-url.server");
+      const origin = tryGetPublicAppUrl() ?? "";
+
       emailStatus = await sendCredentialsEmail({
         supabase: supabase as unknown as SupabaseLike,
         brandId: data.brandId,
