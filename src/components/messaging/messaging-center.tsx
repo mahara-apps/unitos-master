@@ -53,8 +53,9 @@ type ProviderDef = {
 const PROVIDERS: ProviderDef[] = [
   {
     id: "resend",
-    name: "Resend",
-    hint: "E-mails transacionais",
+    name: "E-mail — Resend",
+    hint: "Notificações, convites e templates transacionais",
+
     icon: Mail,
     channel: "email",
     handleLabel: "From address",
