@@ -208,7 +208,7 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
 
     const { data: brand } = await supabase
       .from("brands")
-      .select("name")
+      .select("name, nome_fantasia")
       .eq("id", data.brandId)
       .single();
     const { data: inviterProfile } = await supabase
@@ -217,7 +217,9 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
       .eq("id", userId)
       .maybeSingle();
     const inviterName = inviterProfile?.full_name || "Alguém do time";
-    const brandName = brand?.name || "sua marca";
+    // Nome da agência SEMPRE da marca do convite (nunca placeholder/sample).
+    const brandName = (brand?.nome_fantasia || brand?.name || "").trim();
+    if (!brandName) throw new Error("brand_sem_nome");
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
@@ -284,11 +286,12 @@ export const inviteBrandMembers = createServerFn({ method: "POST" })
         results.push({ email, status: "error", error: inviteErr.message });
         continue;
       }
-      // URL canônica da instalação (PUBLIC_APP_URL) — nunca link relativo.
+      // URL canônica da instalação ATUAL (host da requisição) — nunca link relativo
+      // nem domínio herdado de env de outra instalação.
       const { tryAbsoluteUrl } = await import("@/lib/app-url.server");
-      const link = tryAbsoluteUrl(`/invite/${token}`);
+      const link = await tryAbsoluteUrl(`/invite/${token}`);
       if (!link) {
-        console.error("[invite email] PUBLIC_APP_URL não configurada; convite sem link enviado");
+        console.error("[invite email] URL da instalação indisponível; convite sem link enviado");
       }
       const emailRes = link
         ? await sendInviteEmail({
@@ -627,7 +630,7 @@ export const provisionUser = createServerFn({ method: "POST" })
     let emailStatus: { sent: boolean; error?: string } = { sent: false, error: "skipped" };
     if (data.sendEmail) {
       const { tryGetPublicAppUrl } = await import("@/lib/app-url.server");
-      const origin = tryGetPublicAppUrl() ?? "";
+      const origin = (await tryGetPublicAppUrl()) ?? "";
 
       emailStatus = await sendCredentialsEmail({
         supabase: supabase as unknown as SupabaseLike,
@@ -946,7 +949,7 @@ export const addPerson = createServerFn({ method: "POST" })
         clientNames = (cRows ?? []).map((c) => c.name as string);
       }
       const { tryGetPublicAppUrl } = await import("@/lib/app-url.server");
-      const origin = tryGetPublicAppUrl() ?? "";
+      const origin = (await tryGetPublicAppUrl()) ?? "";
 
       emailStatus = await sendCredentialsEmail({
         supabase: supabase as unknown as SupabaseLike,

@@ -111,15 +111,28 @@ export const sendTestMessage = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const event = getEvent(data.eventKey);
     if (!event) throw new Error("evento_desconhecido");
-    // Teste do editor: contexto de exemplo é intencional (não há evento real).
-    const ctx = buildSampleContext(event);
-    const subject = renderTemplateString(data.subject ?? "", ctx);
-    const body = renderTemplateString(data.body, ctx);
-
     // Escopo: o client autenticado (RLS) só alcança credenciais/instâncias da
     // marca do próprio usuário — as MESMAS lidas pelo status exibido na UI.
     const { assertBrandMember } = await import("@/lib/access-guard");
     await assertBrandMember(context.supabase, context.userId, data.brandId);
+
+    // Contexto do teste: valores REAIS da instalação/marca atual têm prioridade
+    // absoluta; a amostra do catálogo só preenche variáveis sem fonte real
+    // (ex.: métricas de relatório). Antes o teste usava só a amostra, exibindo
+    // nome de agência e URLs de outra instalação.
+    const { resolveEventContext } = await import("@/lib/message-templates/context.server");
+    let realCtx: Record<string, string> = {};
+    try {
+      realCtx = await resolveEventContext(context.supabase as never, {
+        brandId: data.brandId,
+        userId: context.userId,
+      });
+    } catch (e) {
+      console.error("[template test] contexto real indisponível", e);
+    }
+    const ctx = { ...buildSampleContext(event), ...realCtx };
+    const subject = renderTemplateString(data.subject ?? "", ctx);
+    const body = renderTemplateString(data.body, ctx);
 
     if (data.channel === "email") {
       const { sendBrandEmail } = await import("@/lib/email/resend.server");

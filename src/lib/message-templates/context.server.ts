@@ -165,9 +165,11 @@ export async function resolveEventContext(
   }
 
   // ---- invite ----
+  // Links SEMPRE derivados da instalação que originou o evento (host da
+  // requisição). Nunca de env compartilhado entre instalações.
   const inviteUrl =
     input.invite?.url ??
-    (input.invite?.token ? tryAbsoluteUrl(`/invite/${input.invite.token}`) : null);
+    (input.invite?.token ? await tryAbsoluteUrl(`/invite/${input.invite.token}`) : null);
   put(out, "invite.url", inviteUrl);
   put(out, "invite.role", roleLabel(input.invite?.role));
   put(out, "invite.password", input.invite?.password);
@@ -190,7 +192,7 @@ export async function resolveEventContext(
     }
   }
   const portalUrl =
-    input.portal?.url ?? (portalToken ? tryAbsoluteUrl(`/portal/${portalToken}`) : null);
+    input.portal?.url ?? (portalToken ? await tryAbsoluteUrl(`/portal/${portalToken}`) : null);
   put(out, "portal.url", portalUrl);
   put(out, "portal.expires_at", formatDate(portalExpires));
 
