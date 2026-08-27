@@ -944,7 +944,9 @@ export const addPerson = createServerFn({ method: "POST" })
           .in("id", data.clientIds);
         clientNames = (cRows ?? []).map((c) => c.name as string);
       }
-      const origin = process.env.APP_URL || "";
+      const { tryGetPublicAppUrl } = await import("@/lib/app-url.server");
+      const origin = tryGetPublicAppUrl() ?? "";
+
       emailStatus = await sendCredentialsEmail({
         supabase: supabase as unknown as SupabaseLike,
         brandId: data.brandId,
