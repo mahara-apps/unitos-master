@@ -3,15 +3,16 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { NotificationRow, NotificationsFeed } from "@/lib/notifications-feed";
 import {
+  NOTIFICATION_SELECT_COLUMNS as SELECT_COLUMNS,
+  pendingNotificationsCount as pendingCount,
+} from "@/lib/notifications.server";
+import {
   NOTIFICATION_SCOPES,
   notificationWindow,
   type NotificationScope,
 } from "@/lib/notifications-window";
 
 export type { NotificationRow, NotificationsFeed } from "@/lib/notifications-feed";
-
-const SELECT_COLUMNS =
-  "id,brand_id,user_id,kind,title,body,href,payload,read_at,archived_at,created_at,dedupe_key";
 
 const feedInput = z
   .object({
@@ -60,31 +61,6 @@ export const listMyNotificationsFn = createServerFn({ method: "POST" })
       unreadTotal: unread.count ?? 0,
     };
   });
-
-async function pendingCount(
-  supabase: Parameters<typeof scopedCount>[0],
-  userId: string,
-  brandId: string | null,
-): Promise<number> {
-  return scopedCount(supabase, userId, brandId);
-}
-
-async function scopedCount(
-  supabase: { from: (t: "notifications") => any },
-  userId: string,
-  brandId: string | null,
-): Promise<number> {
-  let q = supabase
-    .from("notifications")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .is("read_at", null)
-    .is("archived_at", null);
-  if (brandId) q = q.eq("brand_id", brandId);
-  const { count, error } = await q;
-  if (error) throw error;
-  return count ?? 0;
-}
 
 export const markNotificationReadFn = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
