@@ -67,3 +67,31 @@ export function normalizeDayRange<T extends { from?: Date; to?: Date }>(
   const to = range.to ?? range.from;
   return { from: startOfDay(range.from), to: endOfDay(to) };
 }
+
+/**
+ * Resolução de período no SERVIDOR a partir do payload ISO enviado pela UI.
+ * Usa exatamente a mesma contagem inclusiva do filtro, para que o intervalo
+ * consultado e o número de dias exibido nunca divirjam.
+ */
+export function resolveInclusiveRange(
+  input?: { from?: string; to?: string },
+  opts?: { defaultDays?: number; maxDays?: number },
+): { fromIso: string; toIso: string; fromMs: number; toMs: number; days: number } {
+  const defaultDays = opts?.defaultDays ?? 30;
+  const nowMs = Date.now();
+  const toMs = input?.to ? new Date(input.to).getTime() : nowMs;
+  // Default inclusivo: N dias contando o dia final (não N×24h antes).
+  const fromMs = input?.from
+    ? new Date(input.from).getTime()
+    : toMs - (Math.max(1, defaultDays) - 1) * DAY_MS;
+  const safeFrom = Math.min(fromMs, toMs);
+  const raw = inclusiveDayCountFromMs(safeFrom, toMs);
+  const days = opts?.maxDays ? Math.min(opts.maxDays, raw) : raw;
+  return {
+    fromIso: new Date(safeFrom).toISOString(),
+    toIso: new Date(toMs).toISOString(),
+    fromMs: safeFrom,
+    toMs,
+    days,
+  };
+}
