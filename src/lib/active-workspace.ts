@@ -9,13 +9,23 @@
  * `resolved` distingue "ainda não sabemos qual é o workspace" de "não existe
  * workspace" — sem isso, o gate classifica inicialização como bloqueio.
  */
+/**
+ * Estados terminais explícitos — sem isso a UI não conseguia distinguir
+ * "ainda resolvendo" de "sem workspace" de "falha ao resolver", e qualquer
+ * falha virava skeleton infinito.
+ */
+export type WorkspaceStatus = "resolving" | "ready" | "empty" | "error";
+
 export type ActiveWorkspaceState = {
   brandId: string | null;
   /** true quando o contexto já terminou de resolver o workspace ativo. */
   resolved: boolean;
+  status: WorkspaceStatus;
 };
 
-let state: ActiveWorkspaceState = { brandId: null, resolved: false };
+const INITIAL: ActiveWorkspaceState = { brandId: null, resolved: false, status: "resolving" };
+
+let state: ActiveWorkspaceState = INITIAL;
 const listeners = new Set<(s: ActiveWorkspaceState) => void>();
 
 function emit(): void {
@@ -28,14 +38,26 @@ export function getActiveWorkspace(): ActiveWorkspaceState {
 
 /** Publicado pelo contexto React quando o workspace ativo é resolvido. */
 export function publishActiveWorkspace(brandId: string | null, resolved = true): void {
-  if (state.brandId === brandId && state.resolved === resolved) return;
-  state = { brandId, resolved };
+  const status: WorkspaceStatus = !resolved ? "resolving" : brandId ? "ready" : "empty";
+  if (state.brandId === brandId && state.resolved === resolved && state.status === status) return;
+  state = { brandId, resolved, status };
+  emit();
+}
+
+/**
+ * Falha ao resolver o workspace (lista de workspaces indisponível). É estado
+ * TERMINAL: a tela mostra erro com retry em vez de ficar em skeleton, e o
+ * feature gate não fica preso aguardando resolução.
+ */
+export function publishActiveWorkspaceError(): void {
+  if (state.status === "error") return;
+  state = { brandId: null, resolved: true, status: "error" };
   emit();
 }
 
 /** Transição de identidade: o workspace volta a ser "indefinido". */
 export function markActiveWorkspaceUnresolved(): void {
-  state = { brandId: null, resolved: false };
+  state = INITIAL;
   emit();
 }
 
@@ -43,6 +65,7 @@ export function subscribeActiveWorkspace(fn: (s: ActiveWorkspaceState) => void):
   listeners.add(fn);
   return () => listeners.delete(fn);
 }
+
 
 /**
  * Aguarda a resolução do workspace (evita a race em que o gate roda antes do
@@ -87,6 +110,6 @@ export function getPersistedWorkspaceHint(): string | null {
 
 /** Apenas para testes. */
 export function __resetActiveWorkspace(): void {
-  state = { brandId: null, resolved: false };
+  state = INITIAL;
   listeners.clear();
 }

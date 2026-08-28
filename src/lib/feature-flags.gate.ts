@@ -40,6 +40,9 @@ export async function ensureFeatureEnabled(featureKey: string): Promise<void> {
   if (result.enabled) return;
   // Contexto ainda não resolveu: inicialização não é bloqueio de plano.
   if (!waited.resolved && !brandId) return;
+  // Falha ao resolver o workspace também não é bloqueio de plano.
+  if (waited.status === "error") return;
+
   // Falha de consulta não é bloqueio de plano: o servidor (RLS/guards) segue
   // sendo a autoridade de cada leitura/escrita dentro da tela.
   if (result.reason === "entitlement_error") return;

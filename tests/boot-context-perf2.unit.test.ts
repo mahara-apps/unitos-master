@@ -57,9 +57,9 @@ describe("PERF2 — resolvendo x sem workspace", () => {
   beforeEach(() => __resetActiveWorkspace());
 
   it("Teste 8 — contexto não resolvido não equivale a ausência de workspace", () => {
-    expect(getActiveWorkspace()).toEqual({ brandId: null, resolved: false });
+    expect(getActiveWorkspace()).toEqual({ brandId: null, resolved: false, status: "resolving" });
     publishActiveWorkspace(null, true);
-    expect(getActiveWorkspace()).toEqual({ brandId: null, resolved: true });
+    expect(getActiveWorkspace()).toEqual({ brandId: null, resolved: true, status: "empty" });
   });
 
   it("Teste 9 — workspace resolvido permanece disponível para o feature gate", () => {
