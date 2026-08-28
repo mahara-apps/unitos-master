@@ -97,26 +97,32 @@ function IdentityPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 p-6">
-      <Tabs defaultValue="visual" className="w-full">
+      <Tabs defaultValue={canSeeVisualIdentity ? "visual" : "company"} className="w-full">
         <TabsList>
-          <TabsTrigger value="visual">Identidade visual</TabsTrigger>
+          {canSeeVisualIdentity ? (
+            <TabsTrigger value="visual">Identidade visual</TabsTrigger>
+          ) : null}
           <TabsTrigger value="company">Dados da empresa</TabsTrigger>
           <TabsTrigger value="address">Endereço</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="visual" className="mt-4 space-y-4">
-          <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/30 p-4">
-            <Palette className="mt-0.5 h-5 w-5 text-primary" />
-            <div className="text-sm">
-              <p className="font-medium">Identidade visual desta marca</p>
-              <p className="text-muted-foreground">
-                Visualização apenas. A troca de logos e ícone é feita pelo Super Admin em
-                Administração do Cliente → Identidade.
-              </p>
+        {canSeeVisualIdentity ? (
+          <TabsContent value="visual" className="mt-4 space-y-4">
+            <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/30 p-4">
+              <Palette className="mt-0.5 h-5 w-5 text-primary" />
+              <div className="text-sm">
+                <p className="font-medium">Identidade visual desta marca</p>
+                <p className="text-muted-foreground">
+                  Visualização apenas. A troca de logos e ícone é feita pelo Super Admin em
+                  Administração do Cliente → Identidade.
+                </p>
+              </div>
             </div>
-          </div>
-          <BrandingSlots brandId={brandId} editable={false} />
-        </TabsContent>
+            <BrandingSlots brandId={brandId} editable={false} />
+          </TabsContent>
+        ) : null}
+
+
 
 
         <TabsContent value="company" className="mt-4">
