@@ -135,11 +135,22 @@ function DashboardPage() {
     navigate({ search: {}, replace: true });
   }, [search.blocked, search.reason, navigate]);
   if (!brandId) {
-    // Contexto ainda resolvendo ≠ usuário sem workspace: durante a hidratação
-    // mostramos skeleton; o estado vazio só aparece quando já está resolvido.
-    if (!workspaceResolved) {
+    // Três estados distintos — nunca skeleton indefinido:
+    // resolvendo (skeleton + aviso/retry), falha (erro real) e sem workspace.
+    if (workspaceStatus === "error") {
+      return (
+        <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
+          <DataErrorState
+            message="Não foi possível carregar seus workspaces."
+            onRetry={retryWorkspace}
+          />
+        </div>
+      );
+    }
+    if (workspaceStatus === "resolving") {
       return (
         <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+          <SlowLoadingNotice active onRetry={retryWorkspace} ms={8000} />
           <SkeletonList rows={6} />
         </div>
       );
@@ -152,6 +163,7 @@ function DashboardPage() {
       </div>
     );
   }
+
   return clientId ? (
     <ClientMode brandId={brandId} clientId={clientId} />
   ) : (
