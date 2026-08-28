@@ -1,51 +1,65 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Bell, Inbox } from "lucide-react";
+import { Bell, BellOff, CheckCheck, Eraser, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ExpandedModal } from "@/components/ui/expanded-modal";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { getCachedUser } from "@/lib/auth-cache";
+import { useSessionUserId } from "@/hooks/use-session-user";
+import { useActiveContextOptional } from "@/hooks/use-active-context";
 import {
+  archiveReadNotificationsFn,
   listMyNotificationsFn,
   markAllNotificationsReadFn,
   markNotificationReadFn,
-  type NotificationsFeed,
 } from "@/lib/notifications.functions";
+import {
+  applyArchiveRead,
+  applyMarkAllRead,
+  applyMarkRead,
+  EMPTY_FEED,
+  NOTIFICATIONS_QUERY_ROOT,
+  notificationsQueryKey,
+  type NotificationsFeed,
+} from "@/lib/notifications-feed";
 import type { NotificationScope } from "@/lib/notifications-window";
 import { colorFor, iconFor, relativeTimePtBr } from "@/lib/notifications-format";
 
-/** Prefixo usado para invalidar todos os escopos (popup + inbox) de uma vez. */
-export const NOTIFICATIONS_QUERY_ROOT = ["notifications", "me"] as const;
-export const notificationsQueryKey = (scope: NotificationScope): QueryKey => [
-  ...NOTIFICATIONS_QUERY_ROOT,
-  scope,
-];
-/** @deprecated use notificationsQueryKey(scope) */
-export const NOTIFICATIONS_QUERY_KEY = notificationsQueryKey("popup");
+export { NOTIFICATIONS_QUERY_ROOT, notificationsQueryKey } from "@/lib/notifications-feed";
 
-const EMPTY_FEED: NotificationsFeed = { items: [], unreadTotal: 0 };
+/** Escopo canônico das queries: identidade + workspace atual. */
+function useNotificationsScopeKey(scope: NotificationScope) {
+  const userId = useSessionUserId();
+  const { brandId } = useActiveContextOptional();
+  return { userId, brandId, key: notificationsQueryKey(scope, userId, brandId) };
+}
 
 export function useNotifications(scope: NotificationScope = "popup") {
   const listFn = useServerFn(listMyNotificationsFn);
+  const { userId, brandId, key } = useNotificationsScopeKey(scope);
   return useQuery<NotificationsFeed>({
-    queryKey: notificationsQueryKey(scope),
-    queryFn: () => listFn({ data: { scope } }),
+    queryKey: key,
+    queryFn: () => listFn({ data: { scope, brandId } }),
+    enabled: !!userId,
     staleTime: 30_000,
   });
 }
 
 /**
- * Leitura persistida (servidor) + atualização otimista do cache.
- * Nunca apenas estado local de React.
+ * Leitura/arquivamento persistidos (servidor) + atualização otimista do cache.
+ * `drop: true` (drawer) remove o item da lista na hora — o drawer é caixa de
+ * entrada de pendentes, não histórico.
  */
 export function useNotificationReads(scope: NotificationScope = "popup") {
   const qc = useQueryClient();
-  const key = notificationsQueryKey(scope);
+  const { brandId, key } = useNotificationsScopeKey(scope);
+  const drop = scope === "popup";
   const markOneFn = useServerFn(markNotificationReadFn);
   const markAllFn = useServerFn(markAllNotificationsReadFn);
+  const archiveFn = useServerFn(archiveReadNotificationsFn);
 
   const patch = (updater: (feed: NotificationsFeed) => NotificationsFeed) =>
     qc.setQueryData<NotificationsFeed>(key, (old) => updater(old ?? EMPTY_FEED));
@@ -53,18 +67,10 @@ export function useNotificationReads(scope: NotificationScope = "popup") {
   const invalidate = () => qc.invalidateQueries({ queryKey: NOTIFICATIONS_QUERY_ROOT });
 
   const markOne = useMutation({
-    mutationFn: (id: string) => markOneFn({ data: { id } }),
-    onMutate: async (id) => {
-      await qc.cancelQueries({ queryKey: key });
+    mutationFn: (id: string) => markOneFn({ data: { id, brandId } }),
+    onMutate: (id) => {
       const prev = qc.getQueryData<NotificationsFeed>(key);
-      const now = new Date().toISOString();
-      patch((feed) => {
-        const wasUnread = feed.items.some((n) => n.id === id && !n.read_at);
-        return {
-          items: feed.items.map((n) => (n.id === id ? { ...n, read_at: n.read_at ?? now } : n)),
-          unreadTotal: Math.max(0, feed.unreadTotal - (wasUnread ? 1 : 0)),
-        };
-      });
+      patch((feed) => applyMarkRead(feed, id, { drop }));
       return { prev };
     },
     onError: (_e, _v, ctx) => {
@@ -79,15 +85,10 @@ export function useNotificationReads(scope: NotificationScope = "popup") {
   });
 
   const markAll = useMutation({
-    mutationFn: () => markAllFn(),
-    onMutate: async () => {
-      await qc.cancelQueries({ queryKey: key });
+    mutationFn: () => markAllFn({ data: { brandId } }),
+    onMutate: () => {
       const prev = qc.getQueryData<NotificationsFeed>(key);
-      const now = new Date().toISOString();
-      patch((feed) => ({
-        items: feed.items.map((n) => (n.read_at ? n : { ...n, read_at: now })),
-        unreadTotal: 0,
-      }));
+      patch((feed) => applyMarkAllRead(feed, { drop }));
       return { prev };
     },
     onError: (_e, _v, ctx) => {
@@ -96,7 +97,20 @@ export function useNotificationReads(scope: NotificationScope = "popup") {
     onSettled: invalidate,
   });
 
-  return { markOne, markAll };
+  const archiveRead = useMutation({
+    mutationFn: () => archiveFn({ data: { brandId } }),
+    onMutate: () => {
+      const prev = qc.getQueryData<NotificationsFeed>(key);
+      patch((feed) => applyArchiveRead(feed));
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) qc.setQueryData(key, ctx.prev);
+    },
+    onSettled: invalidate,
+  });
+
+  return { markOne, markAll, archiveRead };
 }
 
 export function NotificationsBell() {
@@ -109,8 +123,6 @@ export function NotificationsBell() {
   const { markOne, markAll } = useNotificationReads("popup");
 
   // Realtime: invalidate on any insert/update to my notifications.
-  // Register `.on()` handlers BEFORE `.subscribe()` — Supabase Realtime rejects
-  // additional postgres_changes callbacks once the channel has subscribed.
   useEffect(() => {
     let cancelled = false;
     let channel: ReturnType<typeof supabase.channel> | null = null;
@@ -154,120 +166,133 @@ export function NotificationsBell() {
           </span>
         ) : null}
       </Button>
-      <ExpandedModal
-        open={open}
-        onOpenChange={setOpen}
-        size="xs"
-        title="Notificações"
-        description={unread > 0 ? `${unread} não lida${unread === 1 ? "" : "s"}` : "Tudo em dia"}
-        bodyClassName="flex flex-col overflow-hidden p-0"
-        headerExtra={
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 text-[11px] text-muted-foreground hover:text-foreground"
-            disabled={unread === 0 || markAll.isPending}
-            onClick={() => markAll.mutate()}
-          >
-            Marcar todas como lidas
-          </Button>
-        }
-        footer={
-          <Button asChild variant="outline" className="w-full" size="sm">
-            <Link to="/notifications" onClick={() => setOpen(false)}>
-              Ver todas as notificações
-            </Link>
-          </Button>
-        }
-        footerClassName="sm:justify-stretch"
-      >
-        <ScrollArea className="flex-1">
-          {notifQ.isLoading ? (
-            <ListSkeleton />
-          ) : items.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <ul className="divide-y divide-border/60">
-              {items.map((n) => {
-                const Icon = iconFor(n.kind);
-                const unreadRow = !n.read_at;
-                const content = (
-                  <div
-                    className={`flex items-start gap-3 px-4 py-3 ${unreadRow ? "" : "opacity-60"}`}
-                  >
-                    <div className={`mt-0.5 shrink-0 ${colorFor(n.kind)}`}>
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start gap-2">
-                        <span
-                          className={`line-clamp-2 flex-1 text-[13px] text-foreground ${unreadRow ? "font-medium" : "font-normal"}`}
-                        >
-                          {n.title}
-                        </span>
-                        {unreadRow ? (
+
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent
+          side="right"
+          data-testid="notifications-drawer"
+          className="flex h-dvh w-full flex-col gap-0 border-l border-border/70 p-0 sm:max-w-[440px]"
+        >
+          <header className="flex shrink-0 items-center gap-2 border-b border-border/60 px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <SheetTitle className="flex items-center gap-2 text-sm font-semibold">
+                Notificações
+                {unread > 0 ? (
+                  <span className="rounded-full bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-rose-500">
+                    {unread}
+                  </span>
+                ) : null}
+              </SheetTitle>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                {unread > 0 ? "Pendentes de leitura" : "Tudo em dia"}
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 text-[11px] text-muted-foreground hover:text-foreground"
+              disabled={unread === 0 || markAll.isPending}
+              onClick={() => markAll.mutate()}
+            >
+              <CheckCheck className="h-3.5 w-3.5" /> Marcar todas
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground"
+              aria-label="Fechar"
+              onClick={() => setOpen(false)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </header>
+
+          <ScrollArea className="min-h-0 flex-1">
+            {notifQ.isLoading ? (
+              <ListSkeleton />
+            ) : items.length === 0 ? (
+              <EmptyState />
+            ) : (
+              <ul className="divide-y divide-border/50">
+                {items.map((n) => {
+                  const Icon = iconFor(n.kind);
+                  const content = (
+                    <div className="flex items-start gap-3 px-4 py-3">
+                      <div className={`mt-0.5 shrink-0 ${colorFor(n.kind)}`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start gap-2">
+                          <span className="line-clamp-2 flex-1 text-[13px] font-medium leading-snug text-foreground">
+                            {n.title}
+                          </span>
                           <span
                             aria-label="Não lida"
                             className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500"
                           />
+                        </div>
+                        {n.body ? (
+                          <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground">
+                            {n.body}
+                          </p>
                         ) : null}
-                      </div>
-                      {n.body ? (
-                        <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">
-                          {n.body}
+                        <p className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground/70">
+                          {relativeTimePtBr(n.created_at)}
                         </p>
-                      ) : null}
-                      <p className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground/70">
-                        {relativeTimePtBr(n.created_at)}
-                      </p>
+                      </div>
                     </div>
-                  </div>
-                );
-                const handleClick = () => {
-                  if (unreadRow) markOne.mutate(n.id);
-                };
-                return (
-                  <li key={n.id} className="hover:bg-muted/40">
-                    {n.href ? (
-                      <Link
-                        to={n.href}
-                        onClick={() => {
-                          handleClick();
-                          setOpen(false);
-                        }}
-                        className="block"
-                      >
-                        {content}
-                      </Link>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleClick}
-                        className="block w-full text-left"
-                      >
-                        {content}
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </ScrollArea>
-      </ExpandedModal>
+                  );
+                  return (
+                    <li key={n.id} className="transition-colors hover:bg-muted/40">
+                      {n.href ? (
+                        <Link
+                          to={n.href}
+                          onClick={() => {
+                            markOne.mutate(n.id);
+                            setOpen(false);
+                          }}
+                          className="block"
+                        >
+                          {content}
+                        </Link>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => markOne.mutate(n.id)}
+                          className="block w-full text-left"
+                        >
+                          {content}
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </ScrollArea>
+
+          <footer className="shrink-0 border-t border-border/60 px-4 py-3">
+            <Button asChild variant="outline" size="sm" className="w-full">
+              <Link to="/notifications" onClick={() => setOpen(false)}>
+                Ver histórico completo
+              </Link>
+            </Button>
+          </footer>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
 
 function ListSkeleton() {
   return (
-    <ul className="divide-y divide-border/60">
+    <ul className="divide-y divide-border/50">
       {Array.from({ length: 5 }).map((_, i) => (
         <li key={i} className="flex items-start gap-3 px-4 py-3">
           <div className="mt-0.5 h-4 w-4 rounded bg-muted" />
           <div className="flex-1 space-y-2">
             <div className="h-3 w-3/4 rounded bg-muted" />
-            <div className="h-2 w-1/3 rounded bg-muted/70" />
+            <div className="h-2 w-1/2 rounded bg-muted/70" />
           </div>
         </li>
       ))}
@@ -277,10 +302,26 @@ function ListSkeleton() {
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center gap-1 px-6 py-14 text-center">
-      <Inbox className="mb-1 h-6 w-6 text-muted-foreground/60" />
-      <p className="text-[13px] font-medium text-foreground">Você está em dia</p>
-      <p className="text-[11px] text-muted-foreground">Nenhuma nova notificação.</p>
+    <div className="flex flex-col items-center justify-center gap-1.5 px-6 py-12 text-center">
+      <BellOff className="h-5 w-5 text-muted-foreground/60" />
+      <p className="text-[13px] font-medium text-foreground">Tudo em dia</p>
+      <p className="text-[11px] text-muted-foreground">Você não tem novas notificações.</p>
     </div>
+  );
+}
+
+/** Ação "Limpar" (arquiva lidas) — exposta na tela de histórico. */
+export function ClearReadNotificationsButton() {
+  const { archiveRead } = useNotificationReads("inbox");
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-8 gap-1.5 text-xs"
+      disabled={archiveRead.isPending}
+      onClick={() => archiveRead.mutate()}
+    >
+      <Eraser className="h-3.5 w-3.5" /> Limpar lidas
+    </Button>
   );
 }
