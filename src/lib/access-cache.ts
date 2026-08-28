@@ -1,6 +1,8 @@
+import { getCachedUser } from "@/lib/auth-cache";
 import { getMyPortalAccessFn, type PortalAccess } from "@/lib/portal-access.functions";
 import { requireFeatureAccess } from "@/lib/feature-flags.functions";
 import { subscribeActiveWorkspace } from "@/lib/active-workspace";
+
 
 /**
  * Caches de gate de navegação (somente performance — nenhuma regra muda).
@@ -71,7 +73,17 @@ async function withTimeout<T>(
   }
 }
 
-export function getCachedPortalAccess(): Promise<PortalAccess | null> {
+/**
+ * Escopo de portal do usuário atual.
+ *
+ * `getMyPortalAccessFn` é protegida: sem sessão o bearer não existe e o
+ * middleware lança "No authorization header". Por isso a identidade é
+ * resolvida ANTES (via cache deduplicado, sem roundtrip extra) e sem usuário
+ * devolvemos `null` — o gate então só redireciona para o login.
+ */
+export async function getCachedPortalAccess(): Promise<PortalAccess | null> {
+  const user = await getCachedUser();
+  if (!user) return null;
   return portalAccessCache.get("me", () =>
     withTimeout(
       getMyPortalAccessFn().catch(() => null),
@@ -79,6 +91,7 @@ export function getCachedPortalAccess(): Promise<PortalAccess | null> {
     ),
   );
 }
+
 
 export type FeatureAccessReason =
   | "granted"
