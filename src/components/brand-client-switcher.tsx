@@ -47,11 +47,11 @@ export function ContextSwitcher() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { role, allowedClientIds } = useAccessRole();
   const isAdmin = role === "admin";
-  const list = useServerFn(listMyBrands);
   const create = useServerFn(createBrand);
   const listCl = useServerFn(listClients);
 
-  const brandsQ = useQuery({ queryKey: ["brands"], queryFn: () => list() });
+  const brandsQ = useMyBrandsQuery();
+
   const clientsQ = useQuery({
     queryKey: ["clients", brandId],
     queryFn: () => listCl({ data: { brandId: brandId! } }),
