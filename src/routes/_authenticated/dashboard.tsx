@@ -48,7 +48,7 @@ import {
   type ClientHealth,
   type DashboardStats,
 } from "@/lib/dashboard.functions";
-import { loadCustomerDashboardFn } from "@/lib/customer-dashboard.functions";
+import { useClientIdentity } from "@/hooks/use-client-identity";
 import { Sparkline } from "@/components/dashboard/sparkline";
 const PublishTrendChart = React.lazy(() => import("@/components/dashboard/publish-trend-chart"));
 import { AgencyOpsSection } from "@/components/dashboard/agency-ops-section";
@@ -1084,29 +1084,13 @@ function ApprovalsByClientCard({
 // ============================================================================
 
 function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }) {
-  const customerFn = useServerFn(loadCustomerDashboardFn);
-  const session = useSessionUser();
   const [range, setRange] = useDefaultRange();
-  const days = dateRangeToDays(range);
 
-  const customer = useQuery({
-    queryKey: ["customer-dashboard-header", session.userId ?? "anon", brandId, clientId, days],
-    queryFn: () =>
-      withQueryTimeout(customerFn({ data: { brandId, clientId } }), "Os dados do cliente"),
-    staleTime: 5 * 60_000,
-    enabled: session.ready,
-    retry: (failureCount, err) => (isNonRetriableQueryError(err) ? false : failureCount < 1),
-  });
-
-  // Identidade do cliente é resolvida INSTANTANEAMENTE a partir da lista já em
-  // cache do seletor: o cabeçalho troca no mesmo frame da seleção, sem esperar
-  // `loadCustomerDashboardFn`. O fetch apenas refina os dados depois.
-  const qc = useQueryClient();
-  const cachedClient = qc
-    .getQueryData<Array<{ id: string; name: string; niche?: string | null }>>(["clients", brandId])
-    ?.find((c) => c.id === clientId);
-
-  const client = customer.data?.client ?? cachedClient ?? null;
+  // Identidade do cliente vem da lista do workspace (mesma query do seletor, já
+  // em cache) e é REATIVA: o cabeçalho troca no mesmo frame da seleção. Nenhuma
+  // server function no caminho crítico da troca — antes o painel do cliente
+  // disparava DUAS agregações pesadas (cabeçalho + painel) por troca.
+  const client = useClientIdentity(brandId, clientId);
 
   usePageHeader(
     {
@@ -1116,7 +1100,6 @@ function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }
     },
     [client?.name, client?.niche, range?.from?.getTime(), range?.to?.getTime()],
   );
-
 
   return <ClientAccountDashboard brandId={brandId} clientId={clientId} range={range} />;
 }

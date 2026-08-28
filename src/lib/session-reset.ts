@@ -94,7 +94,11 @@ export function resetScopeCache(
   scopeIds: readonly (string | null)[] = [],
 ): void {
   queryClient.invalidateQueries({
-    refetchType: "active",
+    // `refetchType: "none"`: marcar como obsoleto NÃO pode disparar uma rajada de
+    // refetch concorrente com as queries do novo cliente (elas competiam pelas
+    // mesmas conexões/worker e a troca parecia travada). Cada query revalida no
+    // próprio ciclo (montagem/uso), sem bloquear a troca.
+    refetchType: "none",
     predicate: (q) =>
       isWorkspaceScopedQueryKey(q.queryKey) && !queryKeyCarriesScopeId(q.queryKey, scopeIds),
   });

@@ -40,6 +40,7 @@ import { DataErrorState, SlowLoadingNotice } from "@/components/ui/query-state";
 import { useSessionUser } from "@/hooks/use-session-user";
 import { withQueryTimeout } from "@/lib/query-timeout";
 import { isNonRetriableQueryError, resolveScreenQueryState } from "@/lib/screen-query-state";
+import { clientDashboardInput, clientDashboardQueryKey } from "@/lib/client-dashboard.query";
 import { clientDashboardFn } from "@/lib/client-dashboard.functions";
 import { channelLabel } from "@/lib/client-dashboard.labels";
 import type {
@@ -61,37 +62,22 @@ export function ClientAccountDashboard({
 }) {
   const fn = useServerFn(clientDashboardFn);
   const session = useSessionUser();
-  const rangeKey = `${range?.from?.toISOString() ?? ""}|${range?.to?.toISOString() ?? ""}`;
   const q = useQuery({
-    // Chave isolada por sessão + workspace + cliente + período: nunca reaproveita
-    // dados de outra identidade ou de outro escopo.
-    queryKey: [
-      "client-account-dashboard",
-      session.userId ?? "anon",
-      brandId,
-      clientId,
-      rangeKey,
-    ],
+    // Chave isolada por sessão + workspace + cliente + período (precisão de dia,
+    // para que o cache seja realmente reaproveitável em X → Y → X).
+    queryKey: clientDashboardQueryKey(session.userId, brandId, clientId, range),
     queryFn: () =>
       // Timeout obrigatório: server function pendurada não pode manter o painel
       // em skeleton — vira erro terminal com retry.
       withQueryTimeout(
-        fn({
-          data: {
-            brandId,
-            clientId,
-            range:
-              range?.from && range?.to
-                ? { from: range.from.toISOString(), to: range.to.toISOString() }
-                : undefined,
-          },
-        }),
+        fn({ data: clientDashboardInput(brandId, clientId, range) }),
         "O painel da conta",
       ),
-    staleTime: 30_000,
+    staleTime: 60_000,
+    gcTime: 30 * 60_000,
     // Watchdog da identidade garante que este gate sempre abre.
     enabled: session.ready,
-    // Timeout e erro de autorização não são transitórios: falham direto.
+    // Sem retry duplicando a espera: 1 tentativa e estado terminal com retry manual.
     retry: (failureCount, err) => (isNonRetriableQueryError(err) ? false : failureCount < 1),
   });
   const d = q.data;
