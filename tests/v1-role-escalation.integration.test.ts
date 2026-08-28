@@ -96,6 +96,11 @@ describe("V1 — link_existing_user_to_brand (RPC)", () => {
     const asOwner = await link(fx!.userOwner, fx!.brandId, fx!.userB, "owner");
     expect(asOwner.error).toBeNull();
     expect(await roleOf(fx!.brandId, fx!.userB.id)).toBe("owner");
+
+    // Restaura o estado compartilhado da fixture para os próximos casos.
+    const revert = await link(fx!.userOwner, fx!.brandId, fx!.userB, "user");
+    expect(revert.error).toBeNull();
+    expect(await roleOf(fx!.brandId, fx!.userB.id)).toBe("user");
   });
 
   it("user e portal_client não concedem papéis administrativos", async () => {
