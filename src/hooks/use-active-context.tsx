@@ -14,6 +14,7 @@ import {
   markActiveWorkspaceUnresolved,
   publishActiveWorkspace,
   subscribeActiveWorkspace,
+  type WorkspaceStatus,
 } from "@/lib/active-workspace";
 import { shouldClearClientOnBrandChange } from "@/lib/workspace-context-rules";
 
