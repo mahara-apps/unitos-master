@@ -1,17 +1,34 @@
-import { createFileRoute } from "@tanstack/react-router";
+/**
+ * Agência — área única de administração do workspace/instalação.
+ *
+ * Organização (sem popover, sem menu improvisado):
+ *   1) Workspaces + workspace selecionado + ações (Editar / Inativar / Excluir);
+ *   2) Dados cadastrais unificados (empresa + endereço no mesmo formulário);
+ *   3) Áreas administrativas (Equipe & Acesso, Permissões, Auditoria) como
+ *      destinos separados — não são misturadas nesta tela;
+ *   4) Identidade visual: EXCLUSIVA de Super Admin.
+ *
+ * RBAC e backend preservados: a autoridade real segue nas server functions.
+ */
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   Building2,
+  ChevronRight,
+  History,
   Loader2,
   MapPin,
   Palette,
   Save,
+  ShieldCheck,
+  Users,
 } from "lucide-react";
 
 import { BrandingSlots } from "@/components/settings/branding-slots";
+import { WorkspaceManagement } from "@/components/workspace/workspace-management";
 import { getBrandCompany, updateBrandCompany } from "@/lib/workspace.functions";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { useIsSuperAdmin } from "@/hooks/use-feature-access";
@@ -21,7 +38,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
@@ -78,71 +95,95 @@ const UFS = [
   "TO",
 ];
 
+const ADMIN_AREAS = [
+  {
+    to: "/settings/team" as const,
+    label: "Equipe & Acesso",
+    description: "Membros, papéis e convites do workspace.",
+    icon: Users,
+  },
+  {
+    to: "/settings/permissions" as const,
+    label: "Permissões",
+    description: "Matriz de autoridade por papel.",
+    icon: ShieldCheck,
+  },
+  {
+    to: "/settings/logs" as const,
+    label: "Auditoria",
+    description: "Histórico de ações administrativas.",
+    icon: History,
+  },
+];
+
 function IdentityPage() {
   const { brandId } = useActiveContext();
-  // Identidade visual é white label do AMBIENTE: só Super Admin vê a aba.
-  // Owner/Admin/Manager/User continuam com Dados da empresa e Endereço.
+  // Identidade visual é white label do AMBIENTE: só Super Admin vê a seção.
   const superAdminQ = useIsSuperAdmin();
   const canSeeVisualIdentity = canAccessVisualIdentity(superAdminQ.data?.isSuperAdmin);
-  usePageHeader(
-    { title: "Agência", subtitle: "Dados cadastrais e identidade visual da marca" },
-    [],
-  );
-
-  if (!brandId) {
-    return (
-      <div className="mx-auto w-full max-w-6xl p-6">
-        <Card>
-          <CardContent className="py-16 text-center text-sm text-muted-foreground">
-            Selecione um workspace no menu lateral para editar a identidade da marca.
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  usePageHeader({ title: "Agência", subtitle: "Administração do workspace e dados cadastrais" }, []);
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-4 p-6">
-      <Tabs defaultValue={canSeeVisualIdentity ? "visual" : "company"} className="w-full">
-        <TabsList>
-          {canSeeVisualIdentity ? (
-            <TabsTrigger value="visual">Identidade visual</TabsTrigger>
-          ) : null}
-          <TabsTrigger value="company">Dados da empresa</TabsTrigger>
-          <TabsTrigger value="address">Endereço</TabsTrigger>
-        </TabsList>
+    <div className="mx-auto w-full max-w-5xl space-y-4 p-6">
+      <WorkspaceManagement />
 
-        {canSeeVisualIdentity ? (
-          <TabsContent value="visual" className="mt-4 space-y-4">
-            <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/30 p-4">
-              <Palette className="mt-0.5 h-5 w-5 text-primary" />
-              <div className="text-sm">
-                <p className="font-medium">Identidade visual desta marca</p>
-                <p className="text-muted-foreground">
-                  Visualização apenas. A troca de logos e ícone é feita pelo Super Admin em
-                  Administração do Cliente → Identidade.
-                </p>
+      {brandId ? (
+        <CompanyPanel brandId={brandId} />
+      ) : (
+        <Card>
+          <CardContent className="py-12 text-center text-sm text-muted-foreground">
+            Selecione um workspace acima para ver e editar os dados cadastrais.
+          </CardContent>
+        </Card>
+      )}
+
+      <Card>
+        <CardHeader className="gap-1">
+          <CardTitle className="text-base">Áreas administrativas</CardTitle>
+          <CardDescription>
+            Gestão de pessoas, autoridade e histórico permanecem em telas próprias.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-2 sm:grid-cols-3">
+          {ADMIN_AREAS.map((area) => (
+            <Link
+              key={area.to}
+              to={area.to}
+              className="flex items-start gap-3 rounded-xl border border-border/60 p-3 transition hover:bg-muted/50"
+            >
+              <area.icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">{area.label}</p>
+                <p className="text-xs text-muted-foreground">{area.description}</p>
               </div>
-            </div>
+              <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            </Link>
+          ))}
+        </CardContent>
+      </Card>
+
+      {canSeeVisualIdentity && brandId ? (
+        <Card>
+          <CardHeader className="gap-1">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Palette className="h-4 w-4 text-primary" />
+              Identidade visual
+            </CardTitle>
+            <CardDescription>
+              Exclusivo de Super Admin. A troca de logos e ícone é feita em Administração →
+              Identidade.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
             <BrandingSlots brandId={brandId} editable={false} />
-          </TabsContent>
-        ) : null}
-
-
-
-
-        <TabsContent value="company" className="mt-4">
-          <CompanyPanel brandId={brandId} section="company" />
-        </TabsContent>
-        <TabsContent value="address" className="mt-4">
-          <CompanyPanel brandId={brandId} section="address" />
-        </TabsContent>
-      </Tabs>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }
 
-function CompanyPanel({ brandId, section }: { brandId: string; section: "company" | "address" }) {
+function CompanyPanel({ brandId }: { brandId: string }) {
   const qc = useQueryClient();
   const fetchCompany = useServerFn(getBrandCompany);
   const saveCompany = useServerFn(updateBrandCompany);
@@ -152,6 +193,11 @@ function CompanyPanel({ brandId, section }: { brandId: string; section: "company
     queryKey: ["brand", "company", brandId],
     queryFn: () => fetchCompany({ data: { brandId } }),
   });
+
+  // Reidrata quando o workspace ativo muda — nunca mistura dados de duas marcas.
+  useEffect(() => {
+    setCompany(null);
+  }, [brandId]);
 
   useEffect(() => {
     if (companyQ.data && !company) {
@@ -191,11 +237,11 @@ function CompanyPanel({ brandId, section }: { brandId: string; section: "company
         },
       }),
     onSuccess: async () => {
-      toast.success("Dados da marca atualizados");
+      toast.success("Dados da agência atualizados");
       await qc.invalidateQueries({ queryKey: ["brand", "company", brandId] });
     },
     onError: (e: unknown) =>
-      toast.error(e instanceof Error ? e.message : "Falha ao salvar dados da marca"),
+      toast.error(e instanceof Error ? e.message : "Falha ao salvar dados da agência"),
   });
 
   if (!company) {
@@ -208,27 +254,19 @@ function CompanyPanel({ brandId, section }: { brandId: string; section: "company
     );
   }
 
-  if (section === "company") {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Building2 className="h-4 w-4 text-primary" />
-            Dados da empresa
-          </CardTitle>
-          <CardDescription>Documentos e razão social da marca ativa.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="cpf">CPF</Label>
-            <Input
-              id="cpf"
-              value={company.cpf}
-              onChange={(e) => setCompany({ ...company, cpf: e.target.value })}
-              maxLength={20}
-              placeholder="000.000.000-00"
-            />
-          </div>
+  return (
+    <Card>
+      <CardHeader className="gap-1">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Building2 className="h-4 w-4 text-primary" />
+          Dados cadastrais
+        </CardTitle>
+        <CardDescription>
+          Documentos, razão social e endereço da agência deste workspace.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="cnpj">CNPJ</Label>
             <Input
@@ -240,12 +278,13 @@ function CompanyPanel({ brandId, section }: { brandId: string; section: "company
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="nome_fantasia">Nome fantasia</Label>
+            <Label htmlFor="cpf">CPF</Label>
             <Input
-              id="nome_fantasia"
-              value={company.nome_fantasia}
-              onChange={(e) => setCompany({ ...company, nome_fantasia: e.target.value })}
-              maxLength={160}
+              id="cpf"
+              value={company.cpf}
+              onChange={(e) => setCompany({ ...company, cpf: e.target.value })}
+              maxLength={20}
+              placeholder="000.000.000-00"
             />
           </div>
           <div className="space-y-1.5">
@@ -257,108 +296,100 @@ function CompanyPanel({ brandId, section }: { brandId: string; section: "company
               maxLength={200}
             />
           </div>
-          <div className="flex justify-end sm:col-span-2">
-            <Button
-              onClick={() => companyMutation.mutate(company)}
-              disabled={companyMutation.isPending}
-            >
-              {companyMutation.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 h-4 w-4" />
-              )}
-              Salvar dados da empresa
-            </Button>
+          <div className="space-y-1.5">
+            <Label htmlFor="nome_fantasia">Nome fantasia</Label>
+            <Input
+              id="nome_fantasia"
+              value={company.nome_fantasia}
+              onChange={(e) => setCompany({ ...company, nome_fantasia: e.target.value })}
+              maxLength={160}
+            />
           </div>
-        </CardContent>
-      </Card>
-    );
-  }
+        </div>
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <MapPin className="h-4 w-4 text-primary" />
-          Endereço
-        </CardTitle>
-        <CardDescription>Endereço fiscal e de correspondência da empresa.</CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4 sm:grid-cols-6">
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="cep">CEP</Label>
-          <Input
-            id="cep"
-            value={company.cep}
-            onChange={(e) => setCompany({ ...company, cep: e.target.value })}
-            maxLength={12}
-            placeholder="00000-000"
-          />
+        <div className="space-y-3">
+          <Separator />
+          <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <MapPin className="h-3.5 w-3.5" /> Endereço
+          </p>
+          <div className="grid gap-4 sm:grid-cols-6">
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="cep">CEP</Label>
+              <Input
+                id="cep"
+                value={company.cep}
+                onChange={(e) => setCompany({ ...company, cep: e.target.value })}
+                maxLength={12}
+                placeholder="00000-000"
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-4">
+              <Label htmlFor="rua">Rua</Label>
+              <Input
+                id="rua"
+                value={company.rua}
+                onChange={(e) => setCompany({ ...company, rua: e.target.value })}
+                maxLength={200}
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="numero">Número</Label>
+              <Input
+                id="numero"
+                value={company.numero}
+                onChange={(e) => setCompany({ ...company, numero: e.target.value })}
+                maxLength={20}
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-4">
+              <Label htmlFor="complemento">Complemento</Label>
+              <Input
+                id="complemento"
+                value={company.complemento}
+                onChange={(e) => setCompany({ ...company, complemento: e.target.value })}
+                maxLength={120}
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="bairro">Bairro</Label>
+              <Input
+                id="bairro"
+                value={company.bairro}
+                onChange={(e) => setCompany({ ...company, bairro: e.target.value })}
+                maxLength={120}
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-3">
+              <Label htmlFor="cidade">Cidade</Label>
+              <Input
+                id="cidade"
+                value={company.cidade}
+                onChange={(e) => setCompany({ ...company, cidade: e.target.value })}
+                maxLength={120}
+              />
+            </div>
+            <div className="space-y-1.5 sm:col-span-1">
+              <Label htmlFor="estado">UF</Label>
+              <Select
+                value={company.estado || undefined}
+                onValueChange={(v) => setCompany({ ...company, estado: v })}
+              >
+                <SelectTrigger id="estado">
+                  <SelectValue placeholder="UF" />
+                </SelectTrigger>
+                <SelectContent>
+                  {UFS.map((uf) => (
+                    <SelectItem key={uf} value={uf}>
+                      {uf}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
-        <div className="space-y-1.5 sm:col-span-4">
-          <Label htmlFor="rua">Rua</Label>
-          <Input
-            id="rua"
-            value={company.rua}
-            onChange={(e) => setCompany({ ...company, rua: e.target.value })}
-            maxLength={200}
-          />
-        </div>
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="numero">Número</Label>
-          <Input
-            id="numero"
-            value={company.numero}
-            onChange={(e) => setCompany({ ...company, numero: e.target.value })}
-            maxLength={20}
-          />
-        </div>
-        <div className="space-y-1.5 sm:col-span-4">
-          <Label htmlFor="complemento">Complemento</Label>
-          <Input
-            id="complemento"
-            value={company.complemento}
-            onChange={(e) => setCompany({ ...company, complemento: e.target.value })}
-            maxLength={120}
-          />
-        </div>
-        <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="bairro">Bairro</Label>
-          <Input
-            id="bairro"
-            value={company.bairro}
-            onChange={(e) => setCompany({ ...company, bairro: e.target.value })}
-            maxLength={120}
-          />
-        </div>
-        <div className="space-y-1.5 sm:col-span-3">
-          <Label htmlFor="cidade">Cidade</Label>
-          <Input
-            id="cidade"
-            value={company.cidade}
-            onChange={(e) => setCompany({ ...company, cidade: e.target.value })}
-            maxLength={120}
-          />
-        </div>
-        <div className="space-y-1.5 sm:col-span-1">
-          <Label htmlFor="estado">UF</Label>
-          <Select
-            value={company.estado || undefined}
-            onValueChange={(v) => setCompany({ ...company, estado: v })}
-          >
-            <SelectTrigger id="estado">
-              <SelectValue placeholder="UF" />
-            </SelectTrigger>
-            <SelectContent>
-              {UFS.map((uf) => (
-                <SelectItem key={uf} value={uf}>
-                  {uf}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex justify-end sm:col-span-6">
+
+        <div className="flex justify-end">
           <Button
             onClick={() => companyMutation.mutate(company)}
             disabled={companyMutation.isPending}
@@ -368,7 +399,7 @@ function CompanyPanel({ brandId, section }: { brandId: string; section: "company
             ) : (
               <Save className="mr-2 h-4 w-4" />
             )}
-            Salvar endereço
+            Salvar dados cadastrais
           </Button>
         </div>
       </CardContent>
