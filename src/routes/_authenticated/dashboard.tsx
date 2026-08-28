@@ -99,10 +99,8 @@ function useGreeting(): string {
 }
 
 function useDefaultRange(): [DateRange | undefined, (r: DateRange | undefined) => void] {
-  const [range, setRange] = React.useState<DateRange | undefined>(() => {
-    const today = new Date();
-    return { from: subDays(today, 29), to: today };
-  });
+  // Mesmo preset "Últimos 30 dias" do filtro (inclusivo, limites do dia).
+  const [range, setRange] = React.useState<DateRange | undefined>(() => lastNDays(30));
   return [range, setRange];
 }
 
