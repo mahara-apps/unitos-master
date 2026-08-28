@@ -120,7 +120,7 @@ export function NotificationsBell() {
   const feed = notifQ.data ?? EMPTY_FEED;
   const items = feed.items;
   const unread = feed.unreadTotal;
-  const { markOne, markAll } = useNotificationReads("popup");
+  const { markOne, markAll, archiveRead } = useNotificationReads("popup");
 
   // Realtime: invalidate on any insert/update to my notifications.
   useEffect(() => {
@@ -271,8 +271,18 @@ export function NotificationsBell() {
             )}
           </ScrollArea>
 
-          <footer className="shrink-0 border-t border-border/60 px-4 py-3">
-            <Button asChild variant="outline" size="sm" className="w-full">
+          <footer className="flex shrink-0 items-center gap-2 border-t border-border/60 px-4 py-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+              disabled={archiveRead.isPending}
+              onClick={() => archiveRead.mutate()}
+              title="Arquiva as notificações já lidas (o histórico continua disponível)"
+            >
+              <Eraser className="h-3.5 w-3.5" /> Limpar
+            </Button>
+            <Button asChild variant="outline" size="sm" className="flex-1">
               <Link to="/notifications" onClick={() => setOpen(false)}>
                 Ver histórico completo
               </Link>
