@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { grantableBrandRoles } from "@/lib/access-guard";
 import type { BrandRole } from "@/lib/team-admin.functions";
 
 /**
@@ -7,7 +8,7 @@ import type { BrandRole } from "@/lib/team-admin.functions";
  * `client` vem do Portal; `super_admin` é um nível global do perfil concedido
  * apenas fora da aplicação (banco/super admin) — nunca é opção de formulário.
  */
-export const ASSIGNABLE_ROLES: BrandRole[] = ["owner", "manager", "user"];
+export const ASSIGNABLE_ROLES: BrandRole[] = ["owner", "admin", "manager", "user"];
 
 /** Normaliza qualquer papel vindo do banco para uma opção válida do seletor. */
 export function toAssignableRole(role: string | null | undefined): BrandRole {
@@ -15,33 +16,31 @@ export function toAssignableRole(role: string | null | undefined): BrandRole {
 }
 
 /**
- * Papéis que o ator pode CONCEDER em um convite. Espelha a regra do banco
+ * Papéis que o ator pode CONCEDER. Espelha a regra do banco
  * (`public.can_invite_brand_role`), que é a autoridade final:
- *   super_admin → owner | manager | user
- *   admin(owner) → owner | manager | user
- *   manager      → user
- * Gating de UI apenas — o INSERT é validado por RLS.
+ *   super_admin → owner | admin | manager | user
+ *   admin (Owner OU Admin da marca) → admin | manager | user  (nunca owner)
+ *   manager → user
+ *   user / client → nenhum
+ * Gating de UI apenas — o INSERT é validado por RLS/servidor.
  */
 export function invitableRoles(authorityRole: string | null | undefined): BrandRole[] {
-  if (authorityRole === "super_admin") return ["owner", "manager", "user"];
-  // ADMIN (proprietário) pode promover outro ADMIN: não há regra de "único admin".
-  if (authorityRole === "admin") return ["owner", "manager", "user"];
-  if (authorityRole === "manager") return ["user"];
-  return [];
+  return grantableBrandRoles(
+    (authorityRole ?? null) as Parameters<typeof grantableBrandRoles>[0],
+  ) as BrandRole[];
 }
 
-
-
-
 export const ROLE_LABEL: Record<BrandRole, string> = {
-  owner: "Admin (proprietário) — administra tudo na marca",
+  owner: "Owner (proprietário) — dono da conta, concedido só por super admin",
+  admin: "Admin — administra tudo na marca",
   manager: "Manager — administra a marca e todos os clientes",
   user: "User — opera apenas os clientes vinculados",
   client: "Cliente — somente portal",
 };
 
 export const ROLE_SHORT: Record<BrandRole, string> = {
-  owner: "Admin",
+  owner: "Owner",
+  admin: "Admin",
   manager: "Manager",
   user: "User",
   client: "Cliente",
@@ -50,9 +49,11 @@ export const ROLE_SHORT: Record<BrandRole, string> = {
 /** Resumo do acesso real concedido pelo papel (fonte: RBAC/RLS do banco). */
 export const ROLE_ACCESS: Record<BrandRole, string> = {
   owner:
-    "Visualiza, cria/edita e administra tudo na marca: equipe, identidade, clientes, SLA, conexões e portais.",
+    "Proprietário da conta: administra tudo na marca e só pode ser alterado por super admin.",
+  admin:
+    "Administra tudo na marca: equipe (exceto o Owner), identidade, clientes, SLA, conexões e portais.",
   manager:
-    "Mesmo alcance operacional e administrativo da marca, em todos os clientes. Não altera owners/administradores.",
+    "Mesmo alcance operacional e administrativo da marca, em todos os clientes. Gerencia apenas membros User.",
   user: "Opera conteúdo, projetos e tarefas apenas nos clientes de que é responsável ou aos quais está vinculado.",
   client: "Acesso restrito ao portal do próprio cliente.",
 };
@@ -60,6 +61,7 @@ export const ROLE_ACCESS: Record<BrandRole, string> = {
 /** Escopo de clientes aplicado pelo banco (`can_access_client_row`). */
 export const ROLE_SCOPE: Record<BrandRole, string> = {
   owner: "Todos os clientes da marca",
+  admin: "Todos os clientes da marca",
   manager: "Todos os clientes da marca",
   user: "Somente clientes vinculados",
   client: "Somente o próprio cliente (portal)",

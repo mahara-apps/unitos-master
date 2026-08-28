@@ -83,7 +83,7 @@ describe("V1 — link_existing_user_to_brand (RPC)", () => {
     expect(await roleOf(fx!.brandId, fx!.userA.id)).toBe("user");
   });
 
-  it("owner concede manager, user e também outro owner (não existe 'único admin')", async () => {
+  it("owner concede manager, user e admin — mas nunca outro owner", async () => {
     const asManager = await link(fx!.userOwner, fx!.brandId, fx!.userNoLink, "manager");
     expect(asManager.error).toBeNull();
     expect(await roleOf(fx!.brandId, fx!.userNoLink.id)).toBe("manager");
@@ -92,10 +92,15 @@ describe("V1 — link_existing_user_to_brand (RPC)", () => {
     expect(back.error).toBeNull();
     expect(await roleOf(fx!.brandId, fx!.userNoLink.id)).toBe("user");
 
-    // Regra atual: o ADMIN (proprietário) pode promover outro ADMIN.
-    const asOwner = await link(fx!.userOwner, fx!.brandId, fx!.userB, "owner");
-    expect(asOwner.error).toBeNull();
-    expect(await roleOf(fx!.brandId, fx!.userB.id)).toBe("owner");
+    // Matriz canônica: Owner concede Admin.
+    const asAdmin = await link(fx!.userOwner, fx!.brandId, fx!.userB, "admin");
+    expect(asAdmin.error).toBeNull();
+    expect(await roleOf(fx!.brandId, fx!.userB.id)).toBe("admin");
+
+    // Owner NUNCA concede owner — só super admin.
+    const asOwner = await link(fx!.userOwner, fx!.brandId, fx!.userNoLink, "owner");
+    expect(asOwner.error?.message).toContain("role_authority_invalid");
+    expect(await roleOf(fx!.brandId, fx!.userNoLink.id)).toBe("user");
 
     // Restaura o estado compartilhado da fixture para os próximos casos.
     const revert = await link(fx!.userOwner, fx!.brandId, fx!.userB, "user");
@@ -133,15 +138,20 @@ describe("V1 — matriz usada por addPerson / provisionUser", () => {
     expect(await canGrant(fx!.userManager, fx!.brandId, fx!.userManager, "owner")).toBe(false);
   });
 
-  it("owner concede manager, user e owner", async () => {
+  it("owner concede admin, manager e user — nunca owner", async () => {
+    expect(await canGrant(fx!.userOwner, fx!.brandId, fx!.userB, "admin")).toBe(true);
     expect(await canGrant(fx!.userOwner, fx!.brandId, fx!.userB, "manager")).toBe(true);
     expect(await canGrant(fx!.userOwner, fx!.brandId, fx!.userB, "user")).toBe(true);
-    expect(await canGrant(fx!.userOwner, fx!.brandId, fx!.userB, "owner")).toBe(true);
+    expect(await canGrant(fx!.userOwner, fx!.brandId, fx!.userB, "owner")).toBe(false);
+  });
+
+  it("manager não concede admin", async () => {
+    expect(await canGrant(fx!.userManager, fx!.brandId, fx!.userB, "admin")).toBe(false);
   });
 
   it("user e portal_client não concedem nada", async () => {
     for (const actor of [fx!.userA, fx!.userPortal]) {
-      for (const role of ["owner", "manager", "user"]) {
+      for (const role of ["owner", "admin", "manager", "user"]) {
         expect(await canGrant(actor, fx!.brandId, fx!.userB, role)).toBe(false);
       }
     }
