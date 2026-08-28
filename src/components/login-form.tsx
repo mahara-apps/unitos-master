@@ -25,7 +25,30 @@ const passwordSchema = z
   .min(8, "Mínimo de 8 caracteres")
   .max(72, "Máximo de 72 caracteres");
 
-const signInSchema = z.object({ email: emailSchema, password: passwordSchema });
+const REMEMBER_PREF_KEY = "unitos:remember-me";
+
+function readRememberPref(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return window.localStorage.getItem(REMEMBER_PREF_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
+
+function writeRememberPref(value: boolean): void {
+  try {
+    window.localStorage.setItem(REMEMBER_PREF_KEY, value ? "true" : "false");
+  } catch {
+    /* localStorage indisponível — ignora */
+  }
+}
+
+const signInSchema = z.object({
+  email: emailSchema,
+  password: passwordSchema,
+  rememberMe: z.boolean().default(true),
+});
 
 type SignInValues = z.infer<typeof signInSchema>;
 
