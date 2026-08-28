@@ -143,7 +143,7 @@ export function WorkspaceAdminMenu({ brandId, onDeleted }: Props) {
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                variant="destructive"
+                className="text-destructive focus:text-destructive"
                 onSelect={() => {
                   setConfirmName("");
                   setDeleteOpen(true);
