@@ -1,6 +1,8 @@
+import { getCachedUser } from "@/lib/auth-cache";
 import { getMyPortalAccessFn, type PortalAccess } from "@/lib/portal-access.functions";
 import { requireFeatureAccess } from "@/lib/feature-flags.functions";
 import { subscribeActiveWorkspace } from "@/lib/active-workspace";
+
 
 /**
  * Caches de gate de navegação (somente performance — nenhuma regra muda).
