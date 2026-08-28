@@ -130,25 +130,10 @@ export function ContextSwitcher() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Fase 4 — resolução de WORKSPACE (contexto superior).
-  // O valor persistido é apenas PREFERÊNCIA: se não estiver na lista de
-  // workspaces do usuário atual (troca de usuário/perda de acesso), é
-  // descartado. Nenhum cliente é escolhido automaticamente em nenhum caso.
-  useEffect(() => {
-    const brands = brandsQ.data;
-    if (!brands) return;
-    if (brandId && !brands.some((b) => b.id === brandId)) {
-      setBrandId(brands.length > 0 ? brands[0].id : null);
-      return;
-    }
-    if (!brandId && brands.length > 0) {
-      setBrandId(brands[0].id);
-      return;
-    }
-    // Usuário sem nenhum workspace: o contexto está resolvido (e vazio) — o
-    // feature gate precisa saber disso para não ficar aguardando.
-    if (!brandId && brands.length === 0) publishActiveWorkspace(null, true);
-  }, [brandId, brandsQ.data, setBrandId]);
+  // A resolução do workspace ativo NÃO vive mais aqui: ela é feita por
+  // `<WorkspaceResolver />` (montado em `_authenticated`), para que o contexto
+  // não dependa desta UI estar montada nem da query desta tela.
+
 
   const activeBrand = brandsQ.data?.find((b) => b.id === brandId) ?? null;
   const visibleClients = (clientsQ.data ?? []).filter(
