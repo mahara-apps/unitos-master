@@ -82,7 +82,7 @@ function IdentityPage() {
   // Identidade visual é white label do AMBIENTE: só Super Admin vê a aba.
   // Owner/Admin/Manager/User continuam com Dados da empresa e Endereço.
   const superAdminQ = useIsSuperAdmin();
-  const canSeeVisualIdentity = superAdminQ.data?.isSuperAdmin === true;
+  const canSeeVisualIdentity = canAccessVisualIdentity(superAdminQ.data?.isSuperAdmin);
   usePageHeader(
     { title: "Agência", subtitle: "Dados cadastrais e identidade visual da marca" },
     [],
