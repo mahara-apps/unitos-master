@@ -14,9 +14,11 @@ export const getRouter = () => {
         gcTime: 5 * 60_000,
         refetchOnWindowFocus: false,
         retry: 1,
-        // Refetch (troca de marca/cliente/filtro) mantém os dados anteriores
-        // visíveis: nenhuma tela volta para skeleton só porque revalidou.
-        placeholderData: keepPreviousData,
+        // NÃO usar `keepPreviousData` como default: a chave de cada query carrega
+        // `userId + brandId + clientId`, e manter os dados anteriores fazia o
+        // Cliente X continuar renderizado sob o Cliente Y durante a troca.
+        // Telas que realmente precisam (paginação/intervalo) optam localmente.
+
       },
     },
   });
