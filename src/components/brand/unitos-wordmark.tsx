@@ -1,72 +1,59 @@
 import { cn } from "@/lib/utils";
+import wordmarkAsset from "@/assets/unitos-wordmark.png.asset.json";
+import markAsset from "@/assets/unitos-mark.png.asset.json";
 
 /**
- * LOGO INSTITUCIONAL PADRÃO DO UNITOS.
+ * LOGO OFICIAL DO UNITOS (única marca institucional do sistema).
  *
- * É SVG inline (nenhuma requisição de rede, nenhum Storage, nenhum domínio ou
- * CDN de instalação). Por isso funciona em QUALQUER instalação, inclusive sem
- * branding configurado, e nunca pode aparecer "quebrada".
+ * É a logo oficial enviada pela agência, aplicada como MÁSCARA CSS colorida
+ * por `currentColor`. Por isso:
+ * - funciona em fundo claro e escuro com um único arquivo (nada de variantes
+ *   light/dark para manter);
+ * - nunca aparece "quebrada" como <img> (a máscara falha para transparente,
+ *   e o container de `BrandLogo` já reserva a proporção);
+ * - não depende de branding configurado por instalação.
  *
- * Cores: usam `currentColor`, então a logo se adapta automaticamente a fundos
- * claros/escuros — não existem variantes light/dark de arquivo a manter.
+ * NÃO desenhar outra marca aqui. Esta é a única logo institucional.
  */
 
-/** Proporção do wordmark (largura / altura). */
-export const UNITOS_WORDMARK_RATIO = 600 / 180;
+/** Proporção do wordmark oficial (largura / altura). */
+export const UNITOS_WORDMARK_RATIO = 1909 / 544;
 /** Proporção do ícone/mark (quadrado). */
 export const UNITOS_MARK_RATIO = 1;
 
-export function UnitosMarkGlyph({ className }: { className?: string }) {
+function MaskedLogo({
+  url,
+  className,
+  label,
+}: {
+  url: string;
+  className?: string;
+  label: string;
+}) {
   return (
-    <svg
-      viewBox="0 0 100 100"
+    <span
       role="img"
-      aria-label="Unitos"
-      className={cn("h-full w-full", className)}
-    >
-      <rect x="4" y="4" width="92" height="92" rx="24" fill="currentColor" opacity="0.12" />
-      <path
-        d="M30 28v26c0 11 9 20 20 20s20-9 20-20V28"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="11"
-        strokeLinecap="round"
-      />
-      <circle cx="50" cy="76" r="6" fill="currentColor" />
-    </svg>
+      aria-label={label}
+      className={cn("block h-full w-full", className)}
+      style={{
+        backgroundColor: "currentColor",
+        maskImage: `url("${url}")`,
+        WebkitMaskImage: `url("${url}")`,
+        maskRepeat: "no-repeat",
+        WebkitMaskRepeat: "no-repeat",
+        maskPosition: "center",
+        WebkitMaskPosition: "center",
+        maskSize: "contain",
+        WebkitMaskSize: "contain",
+      }}
+    />
   );
 }
 
+export function UnitosMarkGlyph({ className }: { className?: string }) {
+  return <MaskedLogo url={markAsset.url} className={className} label="Unitos" />;
+}
+
 export function UnitosWordmarkGlyph({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 600 180"
-      role="img"
-      aria-label="Unitos"
-      className={cn("h-full w-full", className)}
-    >
-      <g transform="translate(8,40)">
-        <rect width="100" height="100" rx="26" fill="currentColor" opacity="0.12" />
-        <path
-          d="M30 26v28c0 11 9 20 20 20s20-9 20-20V26"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="11"
-          strokeLinecap="round"
-        />
-        <circle cx="50" cy="78" r="6" fill="currentColor" />
-      </g>
-      <text
-        x="132"
-        y="118"
-        fill="currentColor"
-        fontFamily="ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif"
-        fontSize="86"
-        fontWeight="700"
-        letterSpacing="2"
-      >
-        unitos
-      </text>
-    </svg>
-  );
+  return <MaskedLogo url={wordmarkAsset.url} className={className} label="Unitos" />;
 }
