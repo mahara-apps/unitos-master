@@ -5,7 +5,6 @@ import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { Check, ChevronsUpDown, Plus, Sparkles, Building2, Users, UserPlus } from "lucide-react";
 import { useActiveContext } from "@/hooks/use-active-context";
 import {
-  listMyBrands,
   listClients,
   createBrand,
   // seedDemoData removido — sistema não cria mais clientes/conteúdos automáticos
@@ -37,7 +36,7 @@ import { CustomerAvatar } from "@/components/customer/customer-avatar";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { QuickCreateCustomerDrawer } from "@/components/customer/quick-create-customer-drawer";
 import { resetScopeCache } from "@/lib/session-reset";
-import { publishActiveWorkspace } from "@/lib/active-workspace";
+import { useMyBrandsQuery } from "@/hooks/use-my-brands";
 import { shouldClearClient } from "@/lib/workspace-context-rules";
 
 export function ContextSwitcher() {
