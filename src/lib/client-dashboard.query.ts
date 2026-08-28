@@ -24,7 +24,7 @@ export function clientDashboardInput(
   return normalized ? { brandId, clientId, range: normalized } : { brandId, clientId };
 }
 
-/** Período padrão do painel (últimos 30 dias) — usado pelo prefetch do seletor. */
+/** Período padrão do painel (últimos 30 dias, inclusivo) — prefetch do seletor. */
 export function defaultDashboardRange(): DateRange {
   const to = new Date();
   const from = new Date(to);

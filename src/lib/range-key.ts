@@ -1,4 +1,5 @@
 import type { DateRange } from "react-day-picker";
+import { normalizeDayRange } from "@/lib/date-range";
 
 /**
  * Chave de cache de período com precisão de DIA.
