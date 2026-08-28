@@ -83,7 +83,7 @@ describe("V1 — link_existing_user_to_brand (RPC)", () => {
     expect(await roleOf(fx!.brandId, fx!.userA.id)).toBe("user");
   });
 
-  it("owner → manager e owner → user são permitidos; owner → owner é bloqueado", async () => {
+  it("owner concede manager, user e também outro owner (não existe 'único admin')", async () => {
     const asManager = await link(fx!.userOwner, fx!.brandId, fx!.userNoLink, "manager");
     expect(asManager.error).toBeNull();
     expect(await roleOf(fx!.brandId, fx!.userNoLink.id)).toBe("manager");
@@ -92,9 +92,10 @@ describe("V1 — link_existing_user_to_brand (RPC)", () => {
     expect(back.error).toBeNull();
     expect(await roleOf(fx!.brandId, fx!.userNoLink.id)).toBe("user");
 
+    // Regra atual: o ADMIN (proprietário) pode promover outro ADMIN.
     const asOwner = await link(fx!.userOwner, fx!.brandId, fx!.userB, "owner");
-    expect(asOwner.error?.message).toContain("role_authority_invalid");
-    expect(await roleOf(fx!.brandId, fx!.userB.id)).toBe("user");
+    expect(asOwner.error).toBeNull();
+    expect(await roleOf(fx!.brandId, fx!.userB.id)).toBe("owner");
   });
 
   it("user e portal_client não concedem papéis administrativos", async () => {
@@ -127,10 +128,10 @@ describe("V1 — matriz usada por addPerson / provisionUser", () => {
     expect(await canGrant(fx!.userManager, fx!.brandId, fx!.userManager, "owner")).toBe(false);
   });
 
-  it("owner concede manager e user, mas não owner", async () => {
+  it("owner concede manager, user e owner", async () => {
     expect(await canGrant(fx!.userOwner, fx!.brandId, fx!.userB, "manager")).toBe(true);
     expect(await canGrant(fx!.userOwner, fx!.brandId, fx!.userB, "user")).toBe(true);
-    expect(await canGrant(fx!.userOwner, fx!.brandId, fx!.userB, "owner")).toBe(false);
+    expect(await canGrant(fx!.userOwner, fx!.brandId, fx!.userB, "owner")).toBe(true);
   });
 
   it("user e portal_client não concedem nada", async () => {
