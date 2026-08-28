@@ -1,9 +1,16 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-// A identidade visual passou a viver na aba "Agência" (escopo Workspace),
-// junto dos dados cadastrais da marca. Rota preservada para links antigos.
+import { amISuperAdmin } from "@/lib/feature-flags.functions";
+
+/**
+ * Rota legada da identidade visual. A tela de identidade visual é exclusiva de
+ * SUPER ADMIN (Administração → Identidade). Owner/Admin/Manager/User que
+ * chegarem por URL direta caem em Agência (sem a aba de identidade visual).
+ * O bloqueio real é no servidor: `updateBrandBranding` exige Super Admin.
+ */
 export const Route = createFileRoute("/_authenticated/settings/branding")({
-  beforeLoad: () => {
-    throw redirect({ to: "/settings/identity" });
+  beforeLoad: async () => {
+    const { isSuperAdmin } = await amISuperAdmin();
+    throw redirect({ to: isSuperAdmin ? "/admin/identidade" : "/settings/identity" });
   },
 });

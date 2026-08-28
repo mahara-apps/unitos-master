@@ -14,7 +14,9 @@ import {
 import { BrandingSlots } from "@/components/settings/branding-slots";
 import { getBrandCompany, updateBrandCompany } from "@/lib/workspace.functions";
 import { useActiveContext } from "@/hooks/use-active-context";
+import { useIsSuperAdmin } from "@/hooks/use-feature-access";
 import { usePageHeader } from "@/hooks/use-page-header";
+import { canAccessVisualIdentity } from "@/lib/workspace-admin";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,6 +80,10 @@ const UFS = [
 
 function IdentityPage() {
   const { brandId } = useActiveContext();
+  // Identidade visual é white label do AMBIENTE: só Super Admin vê a aba.
+  // Owner/Admin/Manager/User continuam com Dados da empresa e Endereço.
+  const superAdminQ = useIsSuperAdmin();
+  const canSeeVisualIdentity = canAccessVisualIdentity(superAdminQ.data?.isSuperAdmin);
   usePageHeader(
     { title: "Agência", subtitle: "Dados cadastrais e identidade visual da marca" },
     [],
@@ -97,26 +103,32 @@ function IdentityPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-4 p-6">
-      <Tabs defaultValue="visual" className="w-full">
+      <Tabs defaultValue={canSeeVisualIdentity ? "visual" : "company"} className="w-full">
         <TabsList>
-          <TabsTrigger value="visual">Identidade visual</TabsTrigger>
+          {canSeeVisualIdentity ? (
+            <TabsTrigger value="visual">Identidade visual</TabsTrigger>
+          ) : null}
           <TabsTrigger value="company">Dados da empresa</TabsTrigger>
           <TabsTrigger value="address">Endereço</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="visual" className="mt-4 space-y-4">
-          <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/30 p-4">
-            <Palette className="mt-0.5 h-5 w-5 text-primary" />
-            <div className="text-sm">
-              <p className="font-medium">Identidade visual desta marca</p>
-              <p className="text-muted-foreground">
-                Visualização apenas. A troca de logos e ícone é feita pelo Super Admin em
-                Administração do Cliente → Identidade.
-              </p>
+        {canSeeVisualIdentity ? (
+          <TabsContent value="visual" className="mt-4 space-y-4">
+            <div className="flex items-start gap-3 rounded-xl border border-border/60 bg-muted/30 p-4">
+              <Palette className="mt-0.5 h-5 w-5 text-primary" />
+              <div className="text-sm">
+                <p className="font-medium">Identidade visual desta marca</p>
+                <p className="text-muted-foreground">
+                  Visualização apenas. A troca de logos e ícone é feita pelo Super Admin em
+                  Administração do Cliente → Identidade.
+                </p>
+              </div>
             </div>
-          </div>
-          <BrandingSlots brandId={brandId} editable={false} />
-        </TabsContent>
+            <BrandingSlots brandId={brandId} editable={false} />
+          </TabsContent>
+        ) : null}
+
+
 
 
         <TabsContent value="company" className="mt-4">

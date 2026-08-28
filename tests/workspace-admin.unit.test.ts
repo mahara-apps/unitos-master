@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canAccessVisualIdentity,
   isDeleteConfirmationValid,
   workspaceAdminActions,
 } from "@/lib/workspace-admin";
@@ -76,5 +77,28 @@ describe("estado após excluir/trocar workspace (sem reload)", () => {
     expect(queryKeyCarriesScopeId(["clients", next], [next])).toBe(true);
     // Chave sem id de escopo → é marcada obsoleta na troca (revalida sozinha).
     expect(queryKeyCarriesScopeId(["dashboard"], [next])).toBe(false);
+  });
+});
+
+describe("identidade visual (Agência → Identidade visual)", () => {
+  it("somente Super Admin visualiza/acessa", () => {
+    expect(canAccessVisualIdentity(true)).toBe(true);
+    for (const v of [false, null, undefined]) {
+      expect(canAccessVisualIdentity(v)).toBe(false);
+    }
+  });
+
+  it("Owner/Admin/Manager/User não ganham acesso pela autoridade do workspace", () => {
+    for (const [authority, brand] of [
+      ["admin", "owner"],
+      ["admin", "admin"],
+      ["manager", "manager"],
+      ["user", "user"],
+    ] as const) {
+      // A matriz de workspace pode liberar editar/configurar, mas identidade
+      // visual continua fora do alcance de qualquer papel não Super Admin.
+      void workspaceAdminActions(authority, brand);
+      expect(canAccessVisualIdentity(false)).toBe(false);
+    }
   });
 });
