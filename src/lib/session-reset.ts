@@ -67,12 +67,36 @@ export function isIdentityChange(
   return previousUserId !== nextUserId;
 }
 
-/**
- * Troca de workspace/cliente: descarta o cache do escopo anterior em vez de
- * apenas invalidar (invalidação mantém os dados antigos na tela enquanto
- * revalida, o que exibia números de outro cliente por alguns instantes).
- */
-export async function resetScopeCache(queryClient: QueryClient): Promise<void> {
-  await queryClient.cancelQueries();
-  queryClient.removeQueries({ predicate: (q) => isWorkspaceScopedQueryKey(q.queryKey) });
+/** true quando a chave de query já carrega algum id de escopo (brand/cliente). */
+export function queryKeyCarriesScopeId(
+  queryKey: readonly unknown[] | undefined,
+  scopeIds: readonly (string | null)[],
+): boolean {
+  const ids = scopeIds.filter((id): id is string => Boolean(id));
+  if (ids.length === 0) return false;
+  return (queryKey ?? []).some((part) => typeof part === "string" && ids.includes(part));
 }
+
+/**
+ * Troca de workspace/cliente — SINCRONA e NÃO destrutiva.
+ *
+ * O cache é isolado por `userId + brandId + clientId` nas próprias chaves, então
+ * a troca não precisa (e não pode) esperar nada: `cancelQueries()` + `removeQueries()`
+ * globais cancelavam justamente as queries do novo cliente que acabaram de iniciar,
+ * forçando refetch em cascata (a espera de 15–20s percebida no seletor) e destruindo
+ * o cache do cliente anterior (X → Y → X deixava de ser instantâneo).
+ *
+ * Aqui apenas marcamos como obsoletas as queries de escopo cuja chave NÃO carrega
+ * o id de brand/cliente — essas revalidam em background. Nada é aguardado.
+ */
+export function resetScopeCache(
+  queryClient: QueryClient,
+  scopeIds: readonly (string | null)[] = [],
+): void {
+  queryClient.invalidateQueries({
+    refetchType: "active",
+    predicate: (q) =>
+      isWorkspaceScopedQueryKey(q.queryKey) && !queryKeyCarriesScopeId(q.queryKey, scopeIds),
+  });
+}
+
