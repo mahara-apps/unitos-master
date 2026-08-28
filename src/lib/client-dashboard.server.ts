@@ -13,6 +13,7 @@ type DB = SupabaseClient<any, "public", any>;
 
 const DAY = 86_400_000;
 
+
 const CHANNEL_LABEL: Record<string, string> = {
   instagram: "Instagram",
   facebook: "Facebook",
