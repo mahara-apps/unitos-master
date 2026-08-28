@@ -45,6 +45,7 @@ import {
   defaultDashboardRange,
 } from "@/lib/client-dashboard.query";
 import { useSessionUserId } from "@/hooks/use-session-user";
+import { WorkspaceAdminMenu } from "@/components/workspace/workspace-admin-menu";
 
 export function ContextSwitcher() {
   const { brandId, clientId, setBrandId, setClientId } = useActiveContext();
@@ -328,6 +329,17 @@ export function ContextSwitcher() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Ações administrativas do WORKSPACE — separadas da lista de clientes. */}
+      <WorkspaceAdminMenu
+        brandId={brandId}
+        onDeleted={(nextBrandId) => {
+          setClientId(null);
+          setBrandId(nextBrandId);
+          resetScopeCache(qc, [nextBrandId, brandId, clientId]);
+          void navigate({ to: "/dashboard", replace: true });
+        }}
+      />
 
       <QuickCreateCustomerDrawer
         brandId={brandId}
