@@ -112,7 +112,8 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 
 function DashboardPage() {
   const { brandId, clientId } = useActiveContext();
-  const workspaceResolved = useWorkspaceResolved();
+  const workspaceStatus = useWorkspaceStatus();
+  const retryWorkspace = useRetryWorkspace();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   React.useEffect(() => {
