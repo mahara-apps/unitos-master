@@ -58,7 +58,7 @@ const passThroughLock = async <R>(
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: brokeredPreviewStorage(),
+    storage: createRememberStorage(),
     persistSession: true,
     autoRefreshToken: true,
     lock: passThroughLock,
