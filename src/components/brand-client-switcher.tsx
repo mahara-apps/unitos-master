@@ -211,6 +211,13 @@ export function ContextSwitcher() {
                   </span>
                 }
               >
+                {brandsQ.data && brandsQ.data.length === 0 && (
+                  <div className="px-2 py-3 text-xs text-muted-foreground">
+                    Sua conta ainda não está vinculada a nenhum workspace. Peça a um Admin desta
+                    instalação para vincular seu e-mail em Configurações → Equipe & Acesso. Criar um
+                    novo workspace inicia uma agência vazia, separada da atual.
+                  </div>
+                )}
                 {brandsQ.data?.map((b) => (
                   <CommandItem
                     key={b.id}

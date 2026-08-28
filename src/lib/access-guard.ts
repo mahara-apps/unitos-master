@@ -7,6 +7,8 @@
  * Regra arquitetural: ROLE define autoridade, ESCOPO define onde.
  */
 
+import { callRpc, type RpcCapableClient } from "@/lib/supabase-rpc";
+
 export type AuthorityRole = "super_admin" | "admin" | "manager" | "user" | "client";
 
 export const AUTHORITY_ROLES: readonly AuthorityRole[] = [
@@ -24,22 +26,7 @@ export const isAuthorityRole = (v: unknown): v is AuthorityRole =>
   typeof v === "string" && (AUTHORITY_ROLES as readonly string[]).includes(v);
 
 /** Aceita qualquer client Supabase (tipado ou não) — só usamos `rpc`. */
-export type RpcClient = {
-  rpc: (fn: never, args?: never) => unknown;
-};
-
-type RpcResult = { data: unknown; error: unknown };
-
-async function callRpc(
-  supabase: RpcClient,
-  fn: string,
-  args: Record<string, unknown>,
-): Promise<RpcResult> {
-  const res = await (
-    supabase.rpc as unknown as (f: string, a: Record<string, unknown>) => Promise<RpcResult>
-  )(fn, args);
-  return res;
-}
+export type RpcClient = RpcCapableClient;
 
 /**
  * Papel canônico do usuário na marca (fonte única: `app_access_role`).

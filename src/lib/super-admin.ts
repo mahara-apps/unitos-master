@@ -1,3 +1,4 @@
+import { callRpc } from "@/lib/supabase-rpc";
 import type { RpcClient } from "@/lib/access-guard";
 
 /**
@@ -10,14 +11,9 @@ import type { RpcClient } from "@/lib/access-guard";
 export async function resolveIsSuperAdmin(supabase: RpcClient, userId: string): Promise<boolean> {
   // IMPORTANTE: manter o `this` do client — chamar `supabase.rpc` desanexado
   // quebra em runtime ("Cannot read properties of undefined (reading 'rest')").
-  const rpc = (fn: string, args: Record<string, unknown>) =>
-    (supabase.rpc as unknown as (
-      f: string,
-      a: Record<string, unknown>,
-    ) => Promise<{ data: unknown; error: unknown }>).call(supabase, fn, args);
   const [byJwt, byProfile] = await Promise.all([
-    rpc("is_super_admin", {}),
-    rpc("is_super_admin", { _user_id: userId }),
+    callRpc(supabase, "is_super_admin", {}),
+    callRpc(supabase, "is_super_admin", { _user_id: userId }),
   ]);
   if (byJwt.error && byProfile.error) throw byJwt.error;
   return !!byJwt.data || !!byProfile.data;

@@ -12,6 +12,7 @@
 //    específico, para não misturar clientes num contexto de marca).
 import type { BrainContext, BrainMemoryRow } from "../core";
 import { brainFail } from "../observability";
+import { callRpc } from "@/lib/supabase-rpc";
 
 const SELECT =
   "id, brand_id, client_id, scope, category, title, description, confidence, reinforcement_count, updated_at";
@@ -147,11 +148,7 @@ export async function evolve(
   ctx: BrainContext,
   input: EvolveInput,
 ): Promise<{ ok: boolean; id?: string; error?: string }> {
-  const rpc = ctx.supabase.rpc as unknown as (
-    name: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: { message: string } | null }>;
-  const { data, error } = await rpc("brain_memory_evolve", {
+  const { data, error } = await callRpc(ctx.supabase, "brain_memory_evolve", {
     _brand_id: ctx.brandId ?? null,
     _entity_type: input.entityType,
     _entity_id: input.entityId,
@@ -179,11 +176,7 @@ export async function evolve(
 export async function touch(ctx: BrainContext, ids: string[]): Promise<number> {
   if (!ids.length) return 0;
 
-  const rpc = ctx.supabase.rpc as unknown as (
-    name: string,
-    args: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: { message: string } | null }>;
-  const { data, error } = await rpc("brain_memory_touch", { _ids: ids });
+  const { data, error } = await callRpc(ctx.supabase, "brain_memory_touch", { _ids: ids });
   if (error) {
     console.error("[brain.memory.touch]", error.message);
     return 0;
@@ -209,11 +202,7 @@ export async function versions(
 }
 
 export async function decay(ctx: BrainContext): Promise<number> {
-  const rpc = ctx.supabase.rpc as unknown as (
-    name: string,
-    args?: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: { message: string } | null }>;
-  const { data, error } = await rpc("brain_memory_decay_and_archive", {});
+  const { data, error } = await callRpc(ctx.supabase, "brain_memory_decay_and_archive", {});
   if (error) {
     console.error("[brain.memory.decay]", error.message);
     return 0;

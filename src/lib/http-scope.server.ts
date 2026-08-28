@@ -7,6 +7,8 @@
  * ANTES de qualquer bypass, usando a mesma fonte canônica da RLS
  * (`public.can_access_client`).
  */
+import { callRpc } from "@/lib/supabase-rpc";
+
 type RpcClient = { rpc: (fn: never, args?: never) => unknown };
 
 export async function isClientInScope(
@@ -14,14 +16,7 @@ export async function isClientInScope(
   userId: string,
   clientId: string,
 ): Promise<boolean> {
-  const rpc = (fn: string, args: Record<string, unknown>) =>
-    (
-      supabase.rpc as unknown as (
-        f: string,
-        a: Record<string, unknown>,
-      ) => Promise<{ data: unknown; error: unknown }>
-    ).call(supabase, fn, args);
-  const { data, error } = await rpc("can_access_client", {
+  const { data, error } = await callRpc(supabase, "can_access_client", {
     _client_id: clientId,
     _user_id: userId,
   });
