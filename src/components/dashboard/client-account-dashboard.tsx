@@ -36,6 +36,9 @@ import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SlowLoadingNotice } from "@/components/ui/query-state";
+import { useSessionUserId } from "@/hooks/use-session-user";
+import { withQueryTimeout } from "@/lib/query-timeout";
 import { clientDashboardFn } from "@/lib/client-dashboard.functions";
 import { channelLabel } from "@/lib/client-dashboard.labels";
 import type {
@@ -56,25 +59,50 @@ export function ClientAccountDashboard({
   range: DateRange | undefined;
 }) {
   const fn = useServerFn(clientDashboardFn);
+  const sessionUserId = useSessionUserId();
   const rangeKey = `${range?.from?.toISOString() ?? ""}|${range?.to?.toISOString() ?? ""}`;
   const q = useQuery({
-    queryKey: ["client-account-dashboard", brandId, clientId, rangeKey],
+    // Chave isolada por sessão + workspace + cliente + período: nunca reaproveita
+    // dados de outra identidade ou de outro escopo.
+    queryKey: ["client-account-dashboard", sessionUserId ?? "anon", brandId, clientId, rangeKey],
     queryFn: () =>
-      fn({
-        data: {
-          brandId,
-          clientId,
-          range:
-            range?.from && range?.to
-              ? { from: range.from.toISOString(), to: range.to.toISOString() }
-              : undefined,
-        },
-      }),
+      // Timeout obrigatório: server function pendurada não pode manter o painel
+      // em skeleton — vira erro terminal com retry.
+      withQueryTimeout(
+        fn({
+          data: {
+            brandId,
+            clientId,
+            range:
+              range?.from && range?.to
+                ? { from: range.from.toISOString(), to: range.to.toISOString() }
+                : undefined,
+          },
+        }),
+        "O painel da conta",
+      ),
     staleTime: 30_000,
+    enabled: Boolean(sessionUserId),
+    // Erro de autorização não é transitório: falha direto em vez de insistir.
+    retry: (failureCount, err) => {
+      const msg = (err as Error)?.message ?? "";
+      if (/row-level security|permission denied|unauthorized|forbidden/i.test(msg)) return false;
+      return failureCount < 1;
+    },
   });
   const d = q.data;
 
-  if (q.isLoading && !d) return <DashboardSkeleton />;
+  // Só mostramos skeleton enquanto existe um fetch realmente em andamento.
+  if (!q.isError && !d && (q.isFetching || !sessionUserId)) {
+    return (
+      <>
+        <div className="px-4 pt-5 sm:px-6 lg:px-8">
+          <SlowLoadingNotice active onRetry={() => void q.refetch()} ms={8000} />
+        </div>
+        <DashboardSkeleton />
+      </>
+    );
+  }
 
   if (q.isError || !d) {
     return (
@@ -82,9 +110,11 @@ export function ClientAccountDashboard({
         <Panel title="Não foi possível carregar o painel">
           <div className="flex flex-col items-start gap-3 px-4 py-6">
             <p className="text-sm text-muted-foreground">
-              Houve uma falha ao buscar os dados desta conta.
+              {q.error instanceof Error && q.error.message
+                ? q.error.message
+                : "Houve uma falha ao buscar os dados desta conta."}
             </p>
-            <Button size="sm" variant="outline" onClick={() => q.refetch()}>
+            <Button size="sm" variant="outline" onClick={() => void q.refetch()}>
               Tentar novamente
             </Button>
           </div>
@@ -92,6 +122,8 @@ export function ClientAccountDashboard({
       </Shell>
     );
   }
+
+
 
   const attentionCount = d.attention.length;
 
