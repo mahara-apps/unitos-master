@@ -6474,6 +6474,10 @@ export type Database = {
         Returns: boolean
       }
       can_create_brand: { Args: { _user_id: string }; Returns: boolean }
+      can_delete_brand: {
+        Args: { _brand_id: string; _user_id: string }
+        Returns: boolean
+      }
       can_invite_brand_role: {
         Args: {
           _actor_id: string
