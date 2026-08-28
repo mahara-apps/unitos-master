@@ -36,9 +36,10 @@ import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SlowLoadingNotice } from "@/components/ui/query-state";
-import { useSessionUserId } from "@/hooks/use-session-user";
+import { DataErrorState, SlowLoadingNotice } from "@/components/ui/query-state";
+import { useSessionUser } from "@/hooks/use-session-user";
 import { withQueryTimeout } from "@/lib/query-timeout";
+import { isNonRetriableQueryError, resolveScreenQueryState } from "@/lib/screen-query-state";
 import { clientDashboardFn } from "@/lib/client-dashboard.functions";
 import { channelLabel } from "@/lib/client-dashboard.labels";
 import type {
@@ -59,12 +60,18 @@ export function ClientAccountDashboard({
   range: DateRange | undefined;
 }) {
   const fn = useServerFn(clientDashboardFn);
-  const sessionUserId = useSessionUserId();
+  const session = useSessionUser();
   const rangeKey = `${range?.from?.toISOString() ?? ""}|${range?.to?.toISOString() ?? ""}`;
   const q = useQuery({
     // Chave isolada por sessão + workspace + cliente + período: nunca reaproveita
     // dados de outra identidade ou de outro escopo.
-    queryKey: ["client-account-dashboard", sessionUserId ?? "anon", brandId, clientId, rangeKey],
+    queryKey: [
+      "client-account-dashboard",
+      session.userId ?? "anon",
+      brandId,
+      clientId,
+      rangeKey,
+    ],
     queryFn: () =>
       // Timeout obrigatório: server function pendurada não pode manter o painel
       // em skeleton — vira erro terminal com retry.
@@ -82,18 +89,23 @@ export function ClientAccountDashboard({
         "O painel da conta",
       ),
     staleTime: 30_000,
-    enabled: Boolean(sessionUserId),
-    // Erro de autorização não é transitório: falha direto em vez de insistir.
-    retry: (failureCount, err) => {
-      const msg = (err as Error)?.message ?? "";
-      if (/row-level security|permission denied|unauthorized|forbidden/i.test(msg)) return false;
-      return failureCount < 1;
-    },
+    // Watchdog da identidade garante que este gate sempre abre.
+    enabled: session.ready,
+    // Timeout e erro de autorização não são transitórios: falham direto.
+    retry: (failureCount, err) => (isNonRetriableQueryError(err) ? false : failureCount < 1),
   });
   const d = q.data;
 
-  // Só mostramos skeleton enquanto existe um fetch realmente em andamento.
-  if (!q.isError && !d && (q.isFetching || !sessionUserId)) {
+  const state = resolveScreenQueryState({
+    sessionReady: session.ready,
+    isFetching: q.isFetching,
+    isError: q.isError,
+    hasData: Boolean(d),
+    isSuccess: q.isSuccess,
+  });
+
+  // Único caminho de skeleton — e sempre com saída (aviso + retry).
+  if (state === "loading") {
     return (
       <>
         <div className="px-4 pt-5 sm:px-6 lg:px-8">
@@ -104,16 +116,22 @@ export function ClientAccountDashboard({
     );
   }
 
-  if (q.isError || !d) {
+  if (state === "error" || state === "empty" || !d) {
+    const message =
+      state === "empty"
+        ? "Nenhum dado disponível para esta conta no período selecionado."
+        : q.error instanceof Error && q.error.message
+          ? q.error.message
+          : "Houve uma falha ao buscar os dados desta conta.";
     return (
       <Shell>
-        <Panel title="Não foi possível carregar o painel">
+        <Panel
+          title={
+            state === "empty" ? "Sem dados para exibir" : "Não foi possível carregar o painel"
+          }
+        >
           <div className="flex flex-col items-start gap-3 px-4 py-6">
-            <p className="text-sm text-muted-foreground">
-              {q.error instanceof Error && q.error.message
-                ? q.error.message
-                : "Houve uma falha ao buscar os dados desta conta."}
-            </p>
+            <p className="text-sm text-muted-foreground">{message}</p>
             <Button size="sm" variant="outline" onClick={() => void q.refetch()}>
               Tentar novamente
             </Button>
@@ -122,6 +140,7 @@ export function ClientAccountDashboard({
       </Shell>
     );
   }
+
 
 
 
