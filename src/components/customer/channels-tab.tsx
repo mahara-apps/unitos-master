@@ -92,9 +92,6 @@ function ChannelStatusBadge({ status }: { status: StatusKey }) {
 
 const PROVIDER_LABEL: Record<string, string> = { meta: "Meta" };
 
-function providerLabel(provider: string) {
-  return PROVIDER_LABEL[provider] ?? provider;
-}
 
 function accountType(row: LinkedChannel) {
   if (row.channel === "instagram") return "Instagram Business";
@@ -324,14 +321,17 @@ function ChannelRow({
         </Avatar>
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span className="flex items-center gap-1.5 text-sm font-semibold">
+            <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold">
               <Icon className={cn("h-3.5 w-3.5 shrink-0", def.tone)} />
-              {def.label}
+              {/* Nome real do canal cadastrado — nunca o provider técnico. */}
+              <span className="truncate">{row.accountLabel}</span>
             </span>
-            <span className="truncate text-sm text-muted-foreground">{handle}</span>
+            {handle && handle !== row.accountLabel ? (
+              <span className="truncate text-sm text-muted-foreground">{handle}</span>
+            ) : null}
           </div>
           <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-            {providerLabel(row.provider)} · {accountType(row)}
+            {def.label} · {accountType(row)}
             {/* ID explícito do destino: elimina ambiguidade na escolha da conta. */}
             {row.instagramBusinessId
               ? ` · Instagram Business ID ${row.instagramBusinessId}`

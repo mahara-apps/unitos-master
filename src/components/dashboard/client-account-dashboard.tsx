@@ -9,8 +9,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { format, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
-  Area,
-  AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
   Line,
   ResponsiveContainer,
@@ -375,18 +375,6 @@ function PublishRhythm({ data }: { data: ClientDashboard }) {
     <Panel
       title="Publicações no período"
       subtitle="Ritmo de publicação por dia"
-      action={
-        hasPrevious ? (
-          <span className="flex items-center gap-3 text-[11px] text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <span className="h-1.5 w-3 rounded-full bg-primary" /> atual
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-1.5 w-3 rounded-full bg-muted-foreground/50" /> anterior
-            </span>
-          </span>
-        ) : null
-      }
     >
       {data.publishedInRange === 0 ? (
         <PanelEmpty
@@ -397,13 +385,7 @@ function PublishRhythm({ data }: { data: ClientDashboard }) {
       ) : (
         <div className="space-y-3 px-2 pb-3 pt-4">
           <ResponsiveContainer width="100%" height={196}>
-            <AreaChart data={data.publishTrend} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="pubFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.28} />
-                  <stop offset="100%" stopColor="var(--primary)" stopOpacity={0.02} />
-                </linearGradient>
-              </defs>
+            <BarChart data={data.publishTrend} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
               <CartesianGrid vertical={false} stroke="var(--border)" strokeOpacity={0.5} />
               <XAxis
                 dataKey="day"
@@ -413,7 +395,8 @@ function PublishRhythm({ data }: { data: ClientDashboard }) {
                 axisLine={false}
                 stroke="var(--muted-foreground)"
                 interval="preserveStartEnd"
-                minTickGap={22}
+                minTickGap={26}
+                height={18}
               />
               <YAxis
                 allowDecimals={false}
@@ -424,6 +407,7 @@ function PublishRhythm({ data }: { data: ClientDashboard }) {
                 stroke="var(--muted-foreground)"
               />
               <Tooltip
+                cursor={{ fill: "var(--muted)", opacity: 0.35 }}
                 contentStyle={{
                   background: "var(--card)",
                   border: "1px solid var(--border)",
@@ -448,17 +432,20 @@ function PublishRhythm({ data }: { data: ClientDashboard }) {
                   dot={false}
                 />
               )}
-              <Area
-                type="monotone"
-                dataKey="count"
-                stroke="var(--primary)"
-                strokeWidth={2}
-                fill="url(#pubFill)"
-                dot={false}
-                activeDot={{ r: 3.5 }}
-              />
-            </AreaChart>
+              <Bar dataKey="count" fill="var(--primary)" radius={[3, 3, 0, 0]} maxBarSize={22} />
+            </BarChart>
           </ResponsiveContainer>
+          {/* Legenda SEMPRE abaixo do gráfico, nunca sobreposta. */}
+          <div className="flex flex-wrap items-center gap-3 px-2 text-[11px] text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-[2px] bg-primary" /> publicações por dia
+            </span>
+            {hasPrevious ? (
+              <span className="flex items-center gap-1.5">
+                <span className="h-0.5 w-3 rounded-full bg-muted-foreground/50" /> período anterior
+              </span>
+            ) : null}
+          </div>
           <div className="grid grid-cols-2 gap-2 px-2 sm:grid-cols-4">
             <MiniStat label="Publicado" value={String(data.publishedInRange)} />
             <MiniStat
@@ -472,7 +459,9 @@ function PublishRhythm({ data }: { data: ClientDashboard }) {
             <MiniStat
               label="Canal líder"
               value={
-                data.channelBreakdown[0] ? channelLabel(data.channelBreakdown[0].channel) : "—"
+                data.channelBreakdown[0]
+                  ? (data.channelBreakdown[0].label ?? channelLabel(data.channelBreakdown[0].channel))
+                  : "—"
               }
             />
           </div>
@@ -505,12 +494,12 @@ function ChannelsPanel({ data }: { data: ClientDashboard }) {
         />
       ) : (
         <ul className="space-y-3 px-4 py-4">
-          {data.channelBreakdown.map((c) => (
-            <li key={c.channel}>
+          {data.channelBreakdown.map((c, i) => (
+            <li key={`${c.label ?? c.channel}-${i}`}>
               <Link to="/connections" className="group block">
                 <div className="flex items-baseline justify-between gap-3">
                   <span className="text-sm font-medium transition-colors group-hover:text-primary">
-                    {channelLabel(c.channel)}
+                    {c.label ?? channelLabel(c.channel)}
                   </span>
                   <span className="text-xs tabular-nums text-muted-foreground">
                     {c.count} · {Math.round(c.share * 100)}%
