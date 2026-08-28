@@ -110,6 +110,6 @@ export function getPersistedWorkspaceHint(): string | null {
 
 /** Apenas para testes. */
 export function __resetActiveWorkspace(): void {
-  state = { brandId: null, resolved: false };
+  state = INITIAL;
   listeners.clear();
 }
