@@ -9,8 +9,10 @@
  * - arquivada = "limpa" do drawer, permanece no histórico
  */
 import type { QueryKey } from "@tanstack/react-query";
-import type { NotificationRow } from "@/lib/notifications.functions";
+import type { Database } from "@/integrations/supabase/types";
 import type { NotificationScope } from "@/lib/notifications-window";
+
+export type NotificationRow = Database["public"]["Tables"]["notifications"]["Row"];
 
 export type NotificationsFeed = {
   items: NotificationRow[];
