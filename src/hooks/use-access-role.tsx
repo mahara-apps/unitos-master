@@ -45,9 +45,9 @@ export function useAccessRole(): Result {
     return {
       role: isAdminLevel ? "admin" : "user",
       authorityRole,
-      brandRole: a?.isSuperAdmin
-        ? "super_admin"
-        : (a?.brandRole ?? (authorityRole === "admin" ? "owner" : null)),
+      // `brandRole` é o papel BRUTO de membership (owner ≠ admin). Nunca
+      // deduzir "owner" a partir da autoridade textual `admin`.
+      brandRole: a?.isSuperAdmin ? "super_admin" : (a?.brandRole ?? null),
       userId: a?.userId ?? null,
       allowedClientIds: !a ? null : hasFullClientScope ? null : new Set(a.clientIds),
       isReady: !q.isLoading && !!a,
