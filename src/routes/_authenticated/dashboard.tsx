@@ -1098,7 +1098,15 @@ function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }
     retry: (failureCount, err) => (isNonRetriableQueryError(err) ? false : failureCount < 1),
   });
 
-  const client = customer.data?.client;
+  // Identidade do cliente é resolvida INSTANTANEAMENTE a partir da lista já em
+  // cache do seletor: o cabeçalho troca no mesmo frame da seleção, sem esperar
+  // `loadCustomerDashboardFn`. O fetch apenas refina os dados depois.
+  const qc = useQueryClient();
+  const cachedClient = qc
+    .getQueryData<Array<{ id: string; name: string; niche?: string | null }>>(["clients", brandId])
+    ?.find((c) => c.id === clientId);
+
+  const client = customer.data?.client ?? cachedClient ?? null;
 
   usePageHeader(
     {
@@ -1108,6 +1116,7 @@ function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }
     },
     [client?.name, client?.niche, range?.from?.getTime(), range?.to?.getTime()],
   );
+
 
   return <ClientAccountDashboard brandId={brandId} clientId={clientId} range={range} />;
 }

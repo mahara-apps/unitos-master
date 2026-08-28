@@ -17,7 +17,7 @@ import { AiJobsIndicator } from "@/components/ai-jobs/ai-jobs-indicator";
 import { BrandFavicon } from "@/components/brand/brand-favicon";
 import { getCachedUser } from "@/lib/auth-cache";
 import { getCachedPortalAccess } from "@/lib/access-cache";
-import { isWorkspaceScopedQueryKey } from "@/lib/session-reset";
+import { isWorkspaceScopedQueryKey, queryKeyCarriesScopeId } from "@/lib/session-reset";
 import { WorkspaceResolver } from "@/components/workspace-resolver";
 
 const fallbackTitles: Record<string, string> = {
@@ -66,26 +66,29 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 /**
- * Troca de workspace não pode manter dados do workspace anterior na tela: o
- * router usa `keepPreviousData` globalmente, então sem isso os números do
- * workspace antigo continuam renderizados durante a revalidação.
- *
- * Só as queries escopadas são descartadas — identidade, lista de workspaces e
- * flags globais permanecem em cache (removê-las forçava refetch de tudo e
- * prolongava o boot).
+ * Troca de workspace: as chaves de query já carregam `brandId`/`clientId`, então
+ * o cache é naturalmente isolado e pode ser reutilizado ao voltar. Aqui apenas
+ * descartamos as queries de escopo cuja chave NÃO carrega o workspace ativo —
+ * remover tudo derrubava também as queries do NOVO workspace que já iniciaram
+ * neste mesmo commit, causando refetch em cascata e travando a troca.
  */
 function WorkspaceQueryReset() {
-  const { brandId } = useActiveContext();
+  const { brandId, clientId } = useActiveContext();
   const queryClient = useQueryClient();
   const previous = useRef<string | null>(null);
   useEffect(() => {
     const before = previous.current;
     previous.current = brandId;
     if (!before || !brandId || before === brandId) return;
-    queryClient.removeQueries({ predicate: (q) => isWorkspaceScopedQueryKey(q.queryKey) });
-  }, [brandId, queryClient]);
+    queryClient.removeQueries({
+      predicate: (q) =>
+        isWorkspaceScopedQueryKey(q.queryKey) &&
+        !queryKeyCarriesScopeId(q.queryKey, [brandId, clientId]),
+    });
+  }, [brandId, clientId, queryClient]);
   return null;
 }
+
 
 function AppShell() {
   return (
