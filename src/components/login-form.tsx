@@ -77,7 +77,11 @@ export function LoginForm() {
 
   const signInForm = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: {
+      email: "",
+      password: "",
+      rememberMe: readRememberPref(),
+    },
   });
 
   useEffect(() => {
