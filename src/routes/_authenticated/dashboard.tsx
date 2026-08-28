@@ -69,7 +69,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { DateRangePicker, dateRangeToDays } from "@/components/ui/date-range-picker";
 import type { DateRange } from "react-day-picker";
-import { subDays } from "date-fns";
+import { lastNDays } from "@/lib/date-range";
 
 /** Saudação do usuário — cacheada globalmente (evita auth+profile por tela). */
 function useGreeting(): string {
