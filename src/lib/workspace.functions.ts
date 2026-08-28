@@ -41,8 +41,12 @@ export const listMyBrands = createServerFn({ method: "GET" })
         slug: string;
         color: string | null;
         role: string;
+        is_active: boolean;
       }>;
-    let query = supabase.from("brands").select("id, name, slug, color").order("name");
+    let query = supabase
+      .from("brands")
+      .select("id, name, slug, color, is_active")
+      .order("name");
     if (!isSuperAdmin) query = query.in("id", ids);
     const { data: brands, error } = await query;
     if (error) throw error;
@@ -63,6 +67,7 @@ export const listMyBrands = createServerFn({ method: "GET" })
 
     return (brands ?? []).map((b) => ({
       ...b,
+      is_active: b.is_active !== false,
       role:
         (memberships ?? []).find((m) => m.brand_id === b.id)?.role ??
         (isSuperAdmin ? "owner" : "user"),
@@ -524,6 +529,38 @@ export const updateBrand = createServerFn({ method: "POST" })
       .maybeSingle();
     if (error) throw error;
     if (!brand) throw new Error("Forbidden: sem permissão para editar este workspace");
+    return brand;
+  });
+
+const SetBrandActiveInput = z.object({
+  brandId: z.string().uuid(),
+  isActive: z.boolean(),
+});
+
+/**
+ * Inativa/reativa o workspace. Mesma autoridade da edição de identidade
+ * (owner/admin/super admin; manager NÃO), por isso reaproveita
+ * `assertBrandAdmin` + RLS de `brands`. Inativar NÃO apaga nada: apenas marca
+ * o workspace como inativo para sair da lista de workspaces ativos.
+ */
+export const setBrandActive = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => SetBrandActiveInput.parse(input))
+  .handler(async ({ data, context }) => {
+    await assertBrandAdmin(context.supabase, context.userId, data.brandId, {
+      allowManager: false,
+    });
+    const { data: brand, error } = await context.supabase
+      .from("brands")
+      .update({
+        is_active: data.isActive,
+        inactivated_at: data.isActive ? null : new Date().toISOString(),
+      })
+      .eq("id", data.brandId)
+      .select("id, name, slug, color, is_active")
+      .maybeSingle();
+    if (error) throw error;
+    if (!brand) throw new Error("Forbidden: sem permissão para alterar este workspace");
     return brand;
   });
 
