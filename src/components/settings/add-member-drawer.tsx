@@ -243,9 +243,14 @@ function LinkPanel({
   onClose: () => void;
 }) {
   const link = useServerFn(addExistingUserToBrand);
+  const { authorityRole } = useAccessRole();
+  // Espelha `public.can_invite_brand_role`: só oferecemos papéis que o ator
+  // realmente pode conceder — o INSERT continua validado no servidor/RLS.
+  const roleOptions = invitableRoles(authorityRole);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("user");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const submit = async () => {
     const clean = email.trim().toLowerCase();
@@ -254,12 +259,13 @@ function LinkPanel({
       return;
     }
     setBusy(true);
+    setError(null);
     try {
       const res = await link({
         data: { brandId, email: clean, role },
       });
       if (res.status === "not_found") {
-        toast.error("Nenhum usuário com esse e-mail. Use a aba Convidar para criar a conta.");
+        setError("Nenhum usuário com esse e-mail. Use a aba Convidar para criar a conta.");
         return;
       }
       toast.success(
@@ -272,10 +278,8 @@ function LinkPanel({
       onDone();
       onClose();
     } catch (e) {
-      const msg = (e as Error).message;
-      toast.error(
-        msg.startsWith("forbidden") ? "Apenas owners e managers podem vincular contas" : msg,
-      );
+      // Mensagem técnica real do servidor (já traduzida em team.functions.ts).
+      setError((e as Error).message || "Falha ao vincular a conta.");
     } finally {
       setBusy(false);
     }
@@ -307,13 +311,22 @@ function LinkPanel({
           onChange={(e) => setRole(e.target.value as Role)}
           className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm"
         >
-          {ROLES.map((r) => (
+          {(roleOptions.length ? roleOptions : ROLES).map((r) => (
             <option key={r} value={r}>
               {ROLE_LABEL[r]}
             </option>
           ))}
         </select>
+        <p className="text-[11px] text-muted-foreground">
+          Admin (proprietário) pode conceder Admin, Manager ou User. Manager concede apenas User.
+        </p>
       </div>
+
+      {error ? (
+        <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          {error}
+        </p>
+      ) : null}
 
       <div className="flex items-center justify-end gap-2 pt-2">
         <Button variant="outline" onClick={onClose} disabled={busy}>

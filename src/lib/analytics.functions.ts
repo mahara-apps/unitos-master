@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { callRpc } from "@/lib/supabase-rpc";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const FiltersSchema = z.object({
@@ -98,12 +99,10 @@ export const getAnalytics = createServerFn({ method: "POST" })
     }
     // Membership check — fonte canônica `is_brand_member` (cobre super admin
     // e membros ativos do workspace; ADMIN não tem autoridade global).
-    const { data: isMember } = await (
-      supabase.rpc as unknown as (
-        f: string,
-        a: Record<string, unknown>,
-      ) => Promise<{ data: boolean | null }>
-    )("is_brand_member", { _brand_id: brand_id, _user_id: userId });
+    const { data: isMember } = await callRpc<boolean | null>(supabase, "is_brand_member", {
+      _brand_id: brand_id,
+      _user_id: userId,
+    });
     if (isMember !== true) throw new Error("forbidden");
 
     // -------- Posts ---------

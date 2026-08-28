@@ -9,6 +9,7 @@ import {
 
 } from "@/lib/access-guard";
 
+import { callRpc } from "@/lib/supabase-rpc";
 import { computeBriefingCompletion } from "@/lib/briefing-progress";
 import type { BrandHubData } from "@/lib/brand-hub.functions";
 
@@ -82,13 +83,11 @@ export const createBrand = createServerFn({ method: "POST" })
     // V5: usuários exclusivamente do Portal (client_members.role='portal_client')
     // não podem criar Brand — a criação é restrita a usuários internos.
     // (types.ts só terá `can_create_brand` após a promoção da migration V5)
-    const rpc = context.supabase.rpc as unknown as (
-      fn: string,
-      args: Record<string, unknown>,
-    ) => Promise<{ data: boolean | null; error: { message: string } | null }>;
-    const { data: allowed, error: guardErr } = await rpc("can_create_brand", {
-      _user_id: context.userId,
-    });
+    const { data: allowed, error: guardErr } = await callRpc<boolean | null>(
+      context.supabase,
+      "can_create_brand",
+      { _user_id: context.userId },
+    );
     if (guardErr && !/function .*can_create_brand.* does not exist/i.test(guardErr.message)) {
       throw new Error(guardErr.message);
     }

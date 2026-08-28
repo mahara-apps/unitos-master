@@ -18,13 +18,14 @@ export function toAssignableRole(role: string | null | undefined): BrandRole {
  * Papéis que o ator pode CONCEDER em um convite. Espelha a regra do banco
  * (`public.can_invite_brand_role`), que é a autoridade final:
  *   super_admin → owner | manager | user
- *   admin(owner) → manager | user
+ *   admin(owner) → owner | manager | user
  *   manager      → user
  * Gating de UI apenas — o INSERT é validado por RLS.
  */
 export function invitableRoles(authorityRole: string | null | undefined): BrandRole[] {
   if (authorityRole === "super_admin") return ["owner", "manager", "user"];
-  if (authorityRole === "admin") return ["manager", "user"];
+  // ADMIN (proprietário) pode promover outro ADMIN: não há regra de "único admin".
+  if (authorityRole === "admin") return ["owner", "manager", "user"];
   if (authorityRole === "manager") return ["user"];
   return [];
 }

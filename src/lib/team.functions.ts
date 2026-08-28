@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import type { SupabaseLike } from "@/lib/email/resend-types";
 import { z } from "zod";
+import { callRpc } from "@/lib/supabase-rpc";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { ALL_PERMISSION_IDS, normalizePermissions, type PermissionId } from "@/lib/permissions";
 import {
@@ -725,6 +726,20 @@ export const listProvisionableBrands = createServerFn({ method: "GET" })
     };
   });
 
+/**
+ * Erros do RPC `link_existing_user_to_brand` chegam como mensagens do Postgres.
+ * Traduzimos para causas reais e compreensíveis — sem fallback silencioso.
+ */
+function mapLinkError(message: string): string {
+  if (/not_authenticated/.test(message)) return "Sessão expirada. Entre novamente.";
+  if (/forbidden/.test(message)) return "Apenas Admin, Manager ou Super Admin podem vincular contas.";
+  if (/role_authority_invalid/.test(message))
+    return "Seu papel não permite conceder esse papel nesta marca.";
+  if (/self_promotion_blocked/.test(message))
+    return "Não é possível alterar o seu próprio papel.";
+  return message;
+}
+
 export const addExistingUserToBrand = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => AddExistingInput.parse(input))
@@ -744,23 +759,15 @@ export const addExistingUserToBrand = createServerFn({ method: "POST" })
       full_name: string | null;
     };
 
-    const rpc = supabase.rpc as unknown as (
-      fn: "link_existing_user_to_brand",
-      args: {
-        _brand_id: string;
-        _email: string;
-        _role: (typeof ROLES)[number];
-        _permissions: PermissionId[];
-      },
-    ) => Promise<{ data: LinkExistingUserRow[] | LinkExistingUserRow | null; error: Error | null }>;
-
-    const { data: linkedRows, error: linkErr } = await rpc("link_existing_user_to_brand", {
+    const { data: linkedRows, error: linkErr } = await callRpc<
+      LinkExistingUserRow[] | LinkExistingUserRow | null
+    >(supabase, "link_existing_user_to_brand", {
       _brand_id: data.brandId,
       _email: data.email,
       _role: data.role,
       _permissions: data.permissions,
     });
-    if (linkErr) throw linkErr;
+    if (linkErr) throw new Error(mapLinkError(linkErr.message));
 
     const linked = Array.isArray(linkedRows) ? linkedRows[0] : linkedRows;
     if (!linked || linked.status === "not_found") {
