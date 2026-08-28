@@ -6,6 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { computeClientHealthScore } from "@/lib/client-health";
 import { assertBrandMember, assertClientInBrand } from "@/lib/access-guard";
+import { resolveInclusiveRange } from "@/lib/date-range";
 
 
 type SupaCtx = { supabase: SupabaseClient<Database>; userId: string };
@@ -30,18 +31,8 @@ type ResolvedRange = {
 };
 
 function resolveRange(input?: { from?: string; to?: string }): ResolvedRange {
-  const now = Date.now();
-  const toMs = input?.to ? new Date(input.to).getTime() : now;
-  const fromMs = input?.from ? new Date(input.from).getTime() : toMs - 30 * 86_400_000;
-  const safeFrom = Math.min(fromMs, toMs);
-  const days = Math.max(1, Math.min(90, Math.ceil((toMs - safeFrom) / 86_400_000) || 1));
-  return {
-    fromIso: new Date(safeFrom).toISOString(),
-    toIso: new Date(toMs).toISOString(),
-    fromMs: safeFrom,
-    toMs,
-    days,
-  };
+  // Fonte de verdade única do período (contagem inclusiva, igual ao filtro).
+  return resolveInclusiveRange(input, { defaultDays: 30, maxDays: 90 });
 }
 
 async function ignore<T>(p: PromiseLike<T>): Promise<T | null> {

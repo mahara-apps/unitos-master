@@ -1,4 +1,5 @@
 import type { DateRange } from "react-day-picker";
+import { normalizeDayRange } from "@/lib/date-range";
 
 /**
  * Chave de cache de período com precisão de DIA.
@@ -23,14 +24,15 @@ export function dayRangeKey(range: DateRange | undefined): string {
   return `${from}|${to}`;
 }
 
-/** Intervalo normalizado (início/fim do dia) para o payload da server function. */
+/**
+ * Intervalo normalizado (início/fim do dia) para o payload da server function —
+ * delega para a fonte de verdade única, de modo que a UI e a query enviem
+ * exatamente o mesmo intervalo que gerou a chave.
+ */
 export function normalizedRangeIso(
   range: DateRange | undefined,
 ): { from: string; to: string } | undefined {
   if (!range?.from || !range?.to) return undefined;
-  const from = new Date(range.from);
-  from.setHours(0, 0, 0, 0);
-  const to = new Date(range.to);
-  to.setHours(23, 59, 59, 999);
-  return { from: from.toISOString(), to: to.toISOString() };
+  const n = normalizeDayRange(range)!;
+  return { from: n.from.toISOString(), to: n.to.toISOString() };
 }

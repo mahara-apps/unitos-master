@@ -69,7 +69,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { DateRangePicker, dateRangeToDays } from "@/components/ui/date-range-picker";
 import type { DateRange } from "react-day-picker";
-import { subDays } from "date-fns";
+import { lastNDays } from "@/lib/date-range";
 
 /** Saudação do usuário — cacheada globalmente (evita auth+profile por tela). */
 function useGreeting(): string {
@@ -99,10 +99,8 @@ function useGreeting(): string {
 }
 
 function useDefaultRange(): [DateRange | undefined, (r: DateRange | undefined) => void] {
-  const [range, setRange] = React.useState<DateRange | undefined>(() => {
-    const today = new Date();
-    return { from: subDays(today, 29), to: today };
-  });
+  // Mesmo preset "Últimos 30 dias" do filtro (inclusivo, limites do dia).
+  const [range, setRange] = React.useState<DateRange | undefined>(() => lastNDays(30));
   return [range, setRange];
 }
 

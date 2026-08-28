@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { stageSlaHours } from "@/lib/content.functions";
+import { resolveInclusiveRange } from "@/lib/date-range";
 
 /**
  * Dashboard operacional consolidado da agência.
@@ -81,17 +82,8 @@ export type AgencyOpsDashboard = {
 };
 
 function resolveRange(input?: { from?: string; to?: string }) {
-  const now = Date.now();
-  const toMs = input?.to ? new Date(input.to).getTime() : now;
-  const fromMs = input?.from ? new Date(input.from).getTime() : toMs - 30 * 86_400_000;
-  const safeFrom = Math.min(fromMs, toMs);
-  return {
-    fromIso: new Date(safeFrom).toISOString(),
-    toIso: new Date(toMs).toISOString(),
-    fromMs: safeFrom,
-    toMs,
-    days: Math.max(1, Math.ceil((toMs - safeFrom) / 86_400_000) || 1),
-  };
+  // Fonte de verdade única do período (contagem inclusiva, igual ao filtro).
+  return resolveInclusiveRange(input, { defaultDays: 30 });
 }
 
 export const getAgencyOpsDashboardFn = createServerFn({ method: "POST" })

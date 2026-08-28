@@ -1,5 +1,6 @@
 import type { DateRange } from "react-day-picker";
 import { dayRangeKey, normalizedRangeIso } from "@/lib/range-key";
+import { lastNDays } from "@/lib/date-range";
 
 /**
  * Chave canônica do painel da conta — compartilhada pela tela e pelo prefetch do
@@ -24,10 +25,7 @@ export function clientDashboardInput(
   return normalized ? { brandId, clientId, range: normalized } : { brandId, clientId };
 }
 
-/** Período padrão do painel (últimos 30 dias) — usado pelo prefetch do seletor. */
+/** Período padrão do painel (últimos 30 dias, inclusivo) — prefetch do seletor. */
 export function defaultDashboardRange(): DateRange {
-  const to = new Date();
-  const from = new Date(to);
-  from.setDate(from.getDate() - 29);
-  return { from, to };
+  return lastNDays(30);
 }

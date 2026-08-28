@@ -16,12 +16,16 @@ import {
 } from "date-fns";
 
 import { cn } from "@/lib/utils";
+import { endOfDay, inclusiveDayCount, lastNDays, startOfDay } from "@/lib/date-range";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // ---------------------------------------------------------------------------
-// Presets — 100% PT-BR. Cada preset produz um DateRange fechado (inclusivo).
+// Presets — 100% PT-BR. Cada preset produz um DateRange FECHADO e INCLUSIVO,
+// sempre normalizado por `src/lib/date-range.ts` (fonte de verdade única):
+// `from` às 00:00:00.000 e `to` às 23:59:59.999. É o mesmo intervalo usado
+// pelas queries e pela contagem de dias exibida na tela.
 // ---------------------------------------------------------------------------
 
 export type DateRangePreset = {
@@ -30,53 +34,41 @@ export type DateRangePreset = {
   build: (today: Date) => DateRange;
 };
 
+/** Todo preset passa por aqui: nenhum intervalo escapa da normalização. */
+const closed = (from: Date, to: Date): DateRange => ({
+  from: startOfDay(from),
+  to: endOfDay(to),
+});
+
 export const DEFAULT_PRESETS: DateRangePreset[] = [
-  { key: "today", label: "Hoje", build: (t) => ({ from: t, to: t }) },
+  { key: "today", label: "Hoje", build: (t) => closed(t, t) },
   {
     key: "yesterday",
     label: "Ontem",
-    build: (t) => ({ from: subDays(t, 1), to: subDays(t, 1) }),
+    build: (t) => closed(subDays(t, 1), subDays(t, 1)),
   },
-  {
-    key: "7d",
-    label: "Últimos 7 dias",
-    build: (t) => ({ from: subDays(t, 6), to: t }),
-  },
-  {
-    key: "30d",
-    label: "Últimos 30 dias",
-    build: (t) => ({ from: subDays(t, 29), to: t }),
-  },
-  {
-    key: "90d",
-    label: "Últimos 90 dias",
-    build: (t) => ({ from: subDays(t, 89), to: t }),
-  },
+  { key: "7d", label: "Últimos 7 dias", build: (t) => lastNDays(7, t) },
+  { key: "30d", label: "Últimos 30 dias", build: (t) => lastNDays(30, t) },
+  { key: "90d", label: "Últimos 90 dias", build: (t) => lastNDays(90, t) },
   {
     key: "mtd",
     label: "Este mês",
-    build: (t) => ({ from: startOfMonth(t), to: t }),
+    build: (t) => closed(startOfMonth(t), t),
   },
   {
     key: "last-month",
     label: "Mês passado",
-    build: (t) => ({
-      from: startOfMonth(subMonths(t, 1)),
-      to: endOfMonth(subMonths(t, 1)),
-    }),
+    build: (t) => closed(startOfMonth(subMonths(t, 1)), endOfMonth(subMonths(t, 1))),
   },
   {
     key: "ytd",
     label: "Este ano",
-    build: (t) => ({ from: startOfYear(t), to: t }),
+    build: (t) => closed(startOfYear(t), t),
   },
   {
     key: "last-year",
     label: "Ano passado",
-    build: (t) => ({
-      from: startOfYear(subYears(t, 1)),
-      to: endOfYear(subYears(t, 1)),
-    }),
+    build: (t) => closed(startOfYear(subYears(t, 1)), endOfYear(subYears(t, 1))),
   },
 ];
 
@@ -84,12 +76,10 @@ export const DEFAULT_PRESETS: DateRangePreset[] = [
 // Helpers de conversão para APIs que aceitam period="Nd" ou days=N
 // ---------------------------------------------------------------------------
 
-const MS_DAY = 24 * 60 * 60 * 1000;
-
 export function dateRangeToDays(range: DateRange | undefined): number {
   if (!range?.from || !range?.to) return 30;
-  const diff = Math.round((range.to.getTime() - range.from.getTime()) / MS_DAY) + 1;
-  return Math.max(1, Math.min(365, diff));
+  // Contagem inclusiva em dias de calendário — mesma função usada no servidor.
+  return Math.min(365, inclusiveDayCount(range.from, range.to));
 }
 
 export function dateRangeToPeriod(range: DateRange | undefined): string {
@@ -97,8 +87,7 @@ export function dateRangeToPeriod(range: DateRange | undefined): string {
 }
 
 export function daysToDateRange(days: number, today: Date = new Date()): DateRange {
-  const clamped = Math.max(1, Math.min(365, Math.round(days)));
-  return { from: subDays(today, clamped - 1), to: today };
+  return lastNDays(Math.min(365, Math.max(1, Math.round(days))), today);
 }
 
 function matchPreset(
