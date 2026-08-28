@@ -105,6 +105,10 @@ export function LoginForm() {
 
   async function onSignIn(values: SignInValues) {
     setSubmitting(true);
+    // Persiste a preferência antes do signIn: o adaptador de storage lê essa
+    // flag em runtime para decidir entre localStorage (lembrar) e
+    // sessionStorage (sessão só desta aba).
+    writeRememberPref(values.rememberMe);
     const { error } = await supabase.auth.signInWithPassword({
       email: values.email,
       password: values.password,
