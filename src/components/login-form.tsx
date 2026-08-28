@@ -47,7 +47,7 @@ function writeRememberPref(value: boolean): void {
 const signInSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
-  rememberMe: z.boolean().default(true),
+  rememberMe: z.boolean(),
 });
 
 type SignInValues = z.infer<typeof signInSchema>;
