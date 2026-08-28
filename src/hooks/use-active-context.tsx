@@ -134,3 +134,17 @@ export function useWorkspaceResolved(): boolean {
     () => false,
   );
 }
+
+/**
+ * Estado explícito do contexto: `resolving` | `ready` | `empty` | `error`.
+ * Telas usam isso para nunca ficar presas em skeleton — cada estado tem um
+ * desenho final (skeleton com retry, vazio ou erro com retry).
+ */
+export function useWorkspaceStatus(): WorkspaceStatus {
+  return useSyncExternalStore(
+    subscribeActiveWorkspace,
+    () => getActiveWorkspace().status,
+    () => "resolving" as WorkspaceStatus,
+  );
+}
+
