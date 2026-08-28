@@ -34,6 +34,8 @@ import { useRetryWorkspace } from "@/components/workspace-resolver";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { supabase } from "@/integrations/supabase/client";
 import { getCachedUser } from "@/lib/auth-cache";
+import { useSessionUserId } from "@/hooks/use-session-user";
+import { withQueryTimeout } from "@/lib/query-timeout";
 import { DataErrorState, SlowLoadingNotice } from "@/components/ui/query-state";
 import { cn } from "@/lib/utils";
 import {
@@ -179,23 +181,28 @@ function DashboardPage() {
 
 function AgencyMode({ brandId }: { brandId: string }) {
   const fn = useServerFn(getAgencyDashboardFn);
+  const sessionUserId = useSessionUserId();
   const [range, setRange] = useDefaultRange();
   const days = dateRangeToDays(range);
   const greeting = useGreeting();
 
   const q = useQuery({
-    queryKey: ["dashboard-agency", brandId, days],
+    queryKey: ["dashboard-agency", sessionUserId ?? "anon", brandId, days],
     queryFn: () =>
-      fn({
-        data: {
-          brandId,
-          range:
-            range?.from && range?.to
-              ? { from: range.from.toISOString(), to: range.to.toISOString() }
-              : undefined,
-        },
-      }),
+      withQueryTimeout(
+        fn({
+          data: {
+            brandId,
+            range:
+              range?.from && range?.to
+                ? { from: range.from.toISOString(), to: range.to.toISOString() }
+                : undefined,
+          },
+        }),
+        "O painel da agência",
+      ),
     staleTime: 30_000,
+    enabled: Boolean(sessionUserId),
   });
 
   const d = q.data;
@@ -1051,13 +1058,16 @@ function ApprovalsByClientCard({
 
 function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }) {
   const customerFn = useServerFn(loadCustomerDashboardFn);
+  const sessionUserId = useSessionUserId();
   const [range, setRange] = useDefaultRange();
   const days = dateRangeToDays(range);
 
   const customer = useQuery({
-    queryKey: ["customer-dashboard-header", brandId, clientId, days],
-    queryFn: () => customerFn({ data: { brandId, clientId } }),
+    queryKey: ["customer-dashboard-header", sessionUserId ?? "anon", brandId, clientId, days],
+    queryFn: () =>
+      withQueryTimeout(customerFn({ data: { brandId, clientId } }), "Os dados do cliente"),
     staleTime: 5 * 60_000,
+    enabled: Boolean(sessionUserId),
   });
   const client = customer.data?.client;
 
