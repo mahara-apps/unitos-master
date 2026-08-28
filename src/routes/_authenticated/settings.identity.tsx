@@ -14,6 +14,7 @@ import {
 import { BrandingSlots } from "@/components/settings/branding-slots";
 import { getBrandCompany, updateBrandCompany } from "@/lib/workspace.functions";
 import { useActiveContext } from "@/hooks/use-active-context";
+import { useIsSuperAdmin } from "@/hooks/use-feature-access";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
