@@ -1,6 +1,7 @@
 // Agregação read-only da central de acompanhamento de um cliente.
 // Todos os números vêm de tabelas reais e são escopados por brand_id + client_id.
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { resolveInclusiveRange } from "@/lib/date-range";
 import type {
   ClientActivityItem,
   ClientAttentionItem,
