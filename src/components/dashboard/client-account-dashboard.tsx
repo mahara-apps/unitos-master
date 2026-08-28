@@ -36,6 +36,9 @@ import type { DateRange } from "react-day-picker";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SlowLoadingNotice } from "@/components/ui/query-state";
+import { useSessionUserId } from "@/hooks/use-session-user";
+import { withQueryTimeout } from "@/lib/query-timeout";
 import { clientDashboardFn } from "@/lib/client-dashboard.functions";
 import { channelLabel } from "@/lib/client-dashboard.labels";
 import type {
@@ -92,10 +95,12 @@ export function ClientAccountDashboard({
   // Só mostramos skeleton enquanto existe um fetch realmente em andamento.
   if (!q.isError && !d && (q.isFetching || !sessionUserId)) {
     return (
-      <Shell>
-        <SlowLoadingNotice active onRetry={() => void q.refetch()} ms={8000} />
+      <>
+        <div className="px-4 pt-5 sm:px-6 lg:px-8">
+          <SlowLoadingNotice active onRetry={() => void q.refetch()} ms={8000} />
+        </div>
         <DashboardSkeleton />
-      </Shell>
+      </>
     );
   }
 
