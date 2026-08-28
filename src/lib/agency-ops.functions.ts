@@ -81,7 +81,6 @@ export type AgencyOpsDashboard = {
 };
 
 function resolveRange(input?: { from?: string; to?: string }) {
-  const now = Date.now();
   // Fonte de verdade única do período (contagem inclusiva, igual ao filtro).
   return resolveInclusiveRange(input, { defaultDays: 30 });
 }
