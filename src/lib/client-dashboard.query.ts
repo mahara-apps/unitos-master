@@ -26,8 +26,5 @@ export function clientDashboardInput(
 
 /** Período padrão do painel (últimos 30 dias, inclusivo) — prefetch do seletor. */
 export function defaultDashboardRange(): DateRange {
-  const to = new Date();
-  const from = new Date(to);
-  from.setDate(from.getDate() - 29);
-  return { from, to };
+  return lastNDays(30);
 }
