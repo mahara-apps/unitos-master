@@ -6802,7 +6802,14 @@ export type Database = {
     }
     Enums: {
       alert_severity: "info" | "warning" | "critical"
-      app_role: "owner" | "manager" | "editor" | "designer" | "client" | "user"
+      app_role:
+        | "owner"
+        | "manager"
+        | "editor"
+        | "designer"
+        | "client"
+        | "user"
+        | "admin"
       approval_status:
         | "pending"
         | "approved"
@@ -6970,7 +6977,15 @@ export const Constants = {
   public: {
     Enums: {
       alert_severity: ["info", "warning", "critical"],
-      app_role: ["owner", "manager", "editor", "designer", "client", "user"],
+      app_role: [
+        "owner",
+        "manager",
+        "editor",
+        "designer",
+        "client",
+        "user",
+        "admin",
+      ],
       approval_status: [
         "pending",
         "approved",
