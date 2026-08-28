@@ -66,52 +66,38 @@ export function ContextSwitcher() {
   const customerMatch = pathname.match(/^\/customers\/([^/]+)(\/[^?#]*)?/);
   const currentCustomerSub = customerMatch?.[2] ?? "";
 
-  const handleSelectClient = async (id: string) => {
+  // Troca de cliente/workspace é NAVEGAÇÃO, não carregamento: o estado ativo muda
+  // de forma síncrona e nenhuma query é aguardada. `resetScopeCache` é síncrono e
+  // apenas marca como obsoletas as queries sem id de escopo na chave.
+  const handleSelectClient = (id: string) => {
     setClientId(id);
     setPopoverOpen(false);
-    if (customerMatch) {
-      const sub = currentCustomerSub;
-      if (sub === "/brain") {
-        await navigate({
-          to: "/customers/$customerId/brain",
-          params: { customerId: id },
-          replace: true,
-        });
-      } else if (sub === "/briefing") {
-        await navigate({
-          to: "/customers/$customerId/briefing",
-          params: { customerId: id },
-          replace: true,
-        });
-      } else if (sub === "/media-plan") {
-        await navigate({
-          to: "/customers/$customerId/media-plan",
-          params: { customerId: id },
-          replace: true,
-        });
-      } else {
-        await navigate({ to: "/customers/$customerId", params: { customerId: id }, replace: true });
-      }
-    }
-    await resetScopeCache(qc);
+    resetScopeCache(qc, [id, clientId, brandId]);
+    if (!customerMatch) return;
+    const sub = currentCustomerSub;
+    const to =
+      sub === "/brain"
+        ? "/customers/$customerId/brain"
+        : sub === "/briefing"
+          ? "/customers/$customerId/briefing"
+          : sub === "/media-plan"
+            ? "/customers/$customerId/media-plan"
+            : "/customers/$customerId";
+    void navigate({ to, params: { customerId: id }, replace: true });
   };
 
-  const handleSelectAllClients = async () => {
+  const handleSelectAllClients = () => {
     setClientId(null);
     setPopoverOpen(false);
-    if (customerMatch) {
-      await navigate({ to: "/customers", replace: true });
-    }
-    await resetScopeCache(qc);
+    resetScopeCache(qc, [clientId, brandId]);
+    if (customerMatch) void navigate({ to: "/customers", replace: true });
   };
 
-  const handleSelectBrand = async (id: string) => {
+  const handleSelectBrand = (id: string) => {
     setBrandId(id);
     setPopoverOpen(false);
-    if (customerMatch) {
-      await navigate({ to: "/dashboard", replace: true });
-    }
-    await resetScopeCache(qc);
+    resetScopeCache(qc, [id, brandId, clientId]);
+    if (customerMatch) void navigate({ to: "/dashboard", replace: true });
   };
 
   const createMut = useMutation({
@@ -119,7 +105,7 @@ export function ContextSwitcher() {
     onSuccess: async (b) => {
       await qc.invalidateQueries({ queryKey: ["brands"] });
       setBrandId(b.id);
-      await resetScopeCache(qc);
+      resetScopeCache(qc, [b.id]);
       toast.success("Workspace criado", {
         description: "Cadastre seu primeiro cliente para começar.",
       });
@@ -128,6 +114,7 @@ export function ContextSwitcher() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   // A resolução do workspace ativo NÃO vive mais aqui: ela é feita por
   // `<WorkspaceResolver />` (montado em `_authenticated`), para que o contexto
