@@ -483,3 +483,88 @@ export const seedDemoData = createServerFn({ method: "POST" })
 
     return { seeded: true };
   });
+
+/* ------------------------------------------------------------------ */
+/* Gerenciamento do WORKSPACE (brands = identidade da instalação)      */
+/* ------------------------------------------------------------------ */
+
+const UpdateBrandInput = z.object({
+  brandId: z.string().uuid(),
+  patch: z.object({
+    name: z.string().trim().min(2).max(80).optional(),
+    color: z
+      .string()
+      .regex(/^#[0-9a-fA-F]{6}$/, "Cor inválida")
+      .optional(),
+  }),
+});
+
+/**
+ * Edita a identidade do workspace ativo. Autoridade: owner/admin/super admin
+ * (manager NÃO edita identidade da instalação). RLS de `brands` (UPDATE via
+ * `is_brand_admin_level`) é a segunda barreira.
+ */
+export const updateBrand = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => UpdateBrandInput.parse(input))
+  .handler(async ({ data, context }) => {
+    await assertBrandAdmin(context.supabase, context.userId, data.brandId, {
+      allowManager: false,
+    });
+    const patch: Record<string, string> = {};
+    if (data.patch.name !== undefined) patch.name = data.patch.name;
+    if (data.patch.color !== undefined) patch.color = data.patch.color;
+    if (Object.keys(patch).length === 0) throw new Error("Nada para atualizar");
+
+    const { data: brand, error } = await context.supabase
+      .from("brands")
+      .update(patch)
+      .eq("id", data.brandId)
+      .select("id, name, slug, color")
+      .maybeSingle();
+    if (error) throw error;
+    if (!brand) throw new Error("Forbidden: sem permissão para editar este workspace");
+    return brand;
+  });
+
+const DeleteBrandInput = z.object({
+  brandId: z.string().uuid(),
+  /** Nome digitado pelo usuário — precisa bater com o nome real do workspace. */
+  confirmName: z.string().min(1).max(120),
+});
+
+/**
+ * Exclui o workspace. Autoridade: OWNER da marca ou SUPER ADMIN
+ * (`public.can_delete_brand`) — Admin NÃO exclui. A confirmação do nome é
+ * revalidada no servidor: o frontend nunca é a única barreira. Dados
+ * dependentes saem por FK ON DELETE CASCADE já existente.
+ */
+export const deleteBrand = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => DeleteBrandInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const { data: allowed, error: guardErr } = await callRpc<boolean | null>(
+      context.supabase,
+      "can_delete_brand",
+      { _brand_id: data.brandId, _user_id: context.userId },
+    );
+    if (guardErr) throw new Error(guardErr.message);
+    if (allowed !== true) {
+      throw new Error("forbidden: somente o Owner do workspace ou um Super Admin pode excluir");
+    }
+
+    const { data: brand, error: readErr } = await context.supabase
+      .from("brands")
+      .select("id, name")
+      .eq("id", data.brandId)
+      .maybeSingle();
+    if (readErr) throw readErr;
+    if (!brand) throw new Error("Workspace não encontrado");
+    if (brand.name.trim().toLowerCase() !== data.confirmName.trim().toLowerCase()) {
+      throw new Error("Confirmação inválida: digite o nome exato do workspace");
+    }
+
+    const { error } = await context.supabase.from("brands").delete().eq("id", data.brandId);
+    if (error) throw error;
+    return { id: data.brandId, name: brand.name };
+  });
