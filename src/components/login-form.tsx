@@ -182,6 +182,31 @@ export function LoginForm() {
               </FormItem>
             )}
           />
+          <FormField
+            control={signInForm.control}
+            name="rememberMe"
+            render={({ field }) => (
+              <FormItem>
+                <div className="flex items-center gap-2">
+                  <FormControl>
+                    <Checkbox
+                      id="remember-me"
+                      checked={field.value}
+                      onCheckedChange={(checked) =>
+                        field.onChange(checked === true)
+                      }
+                    />
+                  </FormControl>
+                  <label
+                    htmlFor="remember-me"
+                    className="cursor-pointer select-none text-sm text-muted-foreground"
+                  >
+                    Lembrar-me
+                  </label>
+                </div>
+              </FormItem>
+            )}
+          />
           <Button
             type="submit"
             disabled={submitting || !ready}
