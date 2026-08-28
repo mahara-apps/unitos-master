@@ -10,6 +10,7 @@ import { SettingsStatCard } from "@/components/settings/settings-stat-card";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { type NotificationRow } from "@/lib/notifications.functions";
 import {
+  ClearReadNotificationsButton,
   useNotificationReads,
   useNotifications,
 } from "@/components/notifications/notifications-drawer";
@@ -97,6 +98,7 @@ function NotificationsPage() {
               <Settings2 className="h-3.5 w-3.5" /> Preferências
             </Link>
           </Button>
+          <ClearReadNotificationsButton />
           <Button
             variant="outline"
             size="sm"
