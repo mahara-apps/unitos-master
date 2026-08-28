@@ -35,6 +35,7 @@ export async function buildClientDashboard(
   clientId: string,
   range?: { from?: string; to?: string },
 ): Promise<ClientDashboard> {
+  const nowMs = Date.now();
   // Período resolvido pela fonte de verdade única: contagem INCLUSIVA idêntica
   // à do filtro (30 dias selecionados = 30 dias exibidos).
   const {
