@@ -38,10 +38,18 @@ import { QuickCreateCustomerDrawer } from "@/components/customer/quick-create-cu
 import { resetScopeCache } from "@/lib/session-reset";
 import { useMyBrandsQuery } from "@/hooks/use-my-brands";
 import { shouldClearClient } from "@/lib/workspace-context-rules";
+import { clientDashboardFn } from "@/lib/client-dashboard.functions";
+import {
+  clientDashboardInput,
+  clientDashboardQueryKey,
+  defaultDashboardRange,
+} from "@/lib/client-dashboard.query";
+import { useSessionUserId } from "@/hooks/use-session-user";
 
 export function ContextSwitcher() {
   const { brandId, clientId, setBrandId, setClientId } = useActiveContext();
   const qc = useQueryClient();
+  const sessionUserId = useSessionUserId();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const { role, allowedClientIds } = useAccessRole();
@@ -65,6 +73,20 @@ export function ContextSwitcher() {
   // Extrai o segmento após /customers/ para reconstruir sub-rota ao trocar de cliente
   const customerMatch = pathname.match(/^\/customers\/([^/]+)(\/[^?#]*)?/);
   const currentCustomerSub = customerMatch?.[2] ?? "";
+
+  // Prefetch do painel ao apenas passar o mouse/foco no item: quando o clique
+  // acontece, o dado do cliente Y normalmente já está no cache — a troca vira
+  // instantânea de ponta a ponta (sem alterar chaves nem escopo).
+  const dashboardFn = useServerFn(clientDashboardFn);
+  const prefetchClient = (id: string) => {
+    if (!brandId || id === clientId) return;
+    const range = defaultDashboardRange();
+    void qc.prefetchQuery({
+      queryKey: clientDashboardQueryKey(sessionUserId, brandId, id, range),
+      queryFn: () => dashboardFn({ data: clientDashboardInput(brandId, id, range) }),
+      staleTime: 60_000,
+    });
+  };
 
   // Troca de cliente/workspace é NAVEGAÇÃO, não carregamento: o estado ativo muda
   // de forma síncrona e nenhuma query é aguardada. `resetScopeCache` é síncrono e
@@ -237,6 +259,8 @@ export function ContextSwitcher() {
                   <CommandItem
                     key={c.id}
                     value={`account ${c.name}`}
+                    onMouseEnter={() => prefetchClient(c.id)}
+                    onFocus={() => prefetchClient(c.id)}
                     onSelect={() => void handleSelectClient(c.id)}
                   >
                     <CustomerAvatar

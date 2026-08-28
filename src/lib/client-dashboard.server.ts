@@ -45,9 +45,13 @@ export async function buildClientDashboard(
   const [clientRes, pipelinesRes, postsRes, socialRes, connectionsRes, activityRes] =
     await Promise.all([
       supabase.from("clients").select("id,name,niche").eq("id", clientId).maybeSingle(),
+      // Etapas vêm no MESMO round trip (select aninhado): antes havia um
+      // segundo fetch serial só para ler as etapas do pipeline padrão.
       supabase
         .from("content_pipelines")
-        .select("id,is_default,position,created_at")
+        .select(
+          "id,is_default,position,created_at,content_pipeline_stages(id,key,label,position)",
+        )
         .eq("brand_id", brandId)
         .eq("client_id", clientId)
         .order("is_default", { ascending: false })
@@ -84,20 +88,15 @@ export async function buildClientDashboard(
   const socialPosts = (socialRes.data ?? []) as Array<Record<string, any>>;
   const defaultPipeline = (pipelinesRes.data ?? [])[0] ?? null;
 
-  // ── Etapas reais do pipeline ──────────────────────────────
-  const stagesRes = defaultPipeline
-    ? await supabase
-        .from("content_pipeline_stages")
-        .select("id,key,label,position")
-        .eq("pipeline_id", defaultPipeline.id)
-        .order("position", { ascending: true })
-    : { data: [] as Array<Record<string, any>> };
-  const stageRows = (stagesRes.data ?? []) as Array<{
+  // ── Etapas reais do pipeline (já vieram no select aninhado) ─
+  const stageRows = ((defaultPipeline?.content_pipeline_stages ?? []) as Array<{
     id: string;
     key: string;
     label: string;
     position: number;
-  }>;
+  }>)
+    .slice()
+    .sort((a, b) => a.position - b.position);
   const stageById = new Map(stageRows.map((s) => [s.id, s]));
   const stageByKey = new Map(stageRows.map((s) => [s.key.toLowerCase(), s]));
 
