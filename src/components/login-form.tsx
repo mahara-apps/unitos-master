@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Form,
   FormControl,
@@ -24,7 +25,30 @@ const passwordSchema = z
   .min(8, "Mínimo de 8 caracteres")
   .max(72, "Máximo de 72 caracteres");
 
-const signInSchema = z.object({ email: emailSchema, password: passwordSchema });
+const REMEMBER_PREF_KEY = "unitos:remember-me";
+
+function readRememberPref(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return window.localStorage.getItem(REMEMBER_PREF_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
+
+function writeRememberPref(value: boolean): void {
+  try {
+    window.localStorage.setItem(REMEMBER_PREF_KEY, value ? "true" : "false");
+  } catch {
+    /* localStorage indisponível — ignora */
+  }
+}
+
+const signInSchema = z.object({
+  email: emailSchema,
+  password: passwordSchema,
+  rememberMe: z.boolean(),
+});
 
 type SignInValues = z.infer<typeof signInSchema>;
 
@@ -53,7 +77,11 @@ export function LoginForm() {
 
   const signInForm = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: {
+      email: "",
+      password: "",
+      rememberMe: readRememberPref(),
+    },
   });
 
   useEffect(() => {
@@ -77,6 +105,10 @@ export function LoginForm() {
 
   async function onSignIn(values: SignInValues) {
     setSubmitting(true);
+    // Persiste a preferência antes do signIn: o adaptador de storage lê essa
+    // flag em runtime para decidir entre localStorage (lembrar) e
+    // sessionStorage (sessão só desta aba).
+    writeRememberPref(values.rememberMe);
     const { error } = await supabase.auth.signInWithPassword({
       email: values.email,
       password: values.password,
@@ -147,6 +179,31 @@ export function LoginForm() {
                   />
                 </FormControl>
                 <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={signInForm.control}
+            name="rememberMe"
+            render={({ field }) => (
+              <FormItem>
+                <div className="flex items-center gap-2">
+                  <FormControl>
+                    <Checkbox
+                      id="remember-me"
+                      checked={field.value}
+                      onCheckedChange={(checked) =>
+                        field.onChange(checked === true)
+                      }
+                    />
+                  </FormControl>
+                  <label
+                    htmlFor="remember-me"
+                    className="cursor-pointer select-none text-sm text-muted-foreground"
+                  >
+                    Lembrar-me
+                  </label>
+                </div>
               </FormItem>
             )}
           />

@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
-import { brokeredPreviewStorage } from "./previewAuthStorage";
+import { createRememberStorage } from "./remember-storage";
 
 /**
  * Cliente Supabase do navegador.
@@ -58,7 +58,7 @@ const passThroughLock = async <R>(
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: brokeredPreviewStorage(),
+    storage: createRememberStorage(),
     persistSession: true,
     autoRefreshToken: true,
     lock: passThroughLock,
