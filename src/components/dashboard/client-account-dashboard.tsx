@@ -141,15 +141,26 @@ export function ClientAccountDashboard({
     );
   }
 
-
-
-
   const attentionCount = d.attention.length;
 
   return (
     <Shell>
+      {/* Atualização falhou, mas os dados em cache continuam na tela. */}
+      {state === "stale-error" ? (
+        <DataErrorState
+          compact
+          message={
+            q.error instanceof Error && q.error.message
+              ? `Dados podem estar desatualizados: ${q.error.message}`
+              : "Não foi possível atualizar estes dados."
+          }
+          onRetry={() => void q.refetch()}
+        />
+      ) : null}
+
       {/* ── Linha de contexto ─────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+
         <span className="font-medium text-muted-foreground">Visão operacional da conta</span>
         <span className="text-border">•</span>
         <span className="text-muted-foreground/80">Últimos {d.rangeDays} dias</span>
