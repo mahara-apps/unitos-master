@@ -40,6 +40,7 @@ import { isNonRetriableQueryError, resolveScreenQueryState } from "@/lib/screen-
 
 import { DataErrorState, SlowLoadingNotice } from "@/components/ui/query-state";
 import { cn } from "@/lib/utils";
+import { CHANNEL_ICON_SIZE, channelDef } from "@/components/connections/channel-meta";
 import {
   getAgencyDashboardFn,
   getDashboardStats,
@@ -721,7 +722,7 @@ function PublishTrendCard({
 }: {
   trend: number[];
   trendDays?: string[];
-  channels: Array<{ channel: string; count: number; label?: string }>;
+  channels: Array<{ channel: string; count: number; label?: string; handle?: string | null }>;
   rangeDays?: number;
 }) {
   const days = rangeDays ?? trend.length;
@@ -758,17 +759,26 @@ function PublishTrendCard({
             <div className="text-xs text-muted-foreground">Sem publicações.</div>
           ) : (
             <ul className="space-y-1.5">
-              {channels.slice(0, 5).map((c, i) => (
-                <li
-                  key={`${c.label ?? c.channel}-${i}`}
-                  className="flex items-center justify-between gap-2 text-xs"
-                >
-                  <span className="truncate">
-                    {c.label ?? CHANNEL_LABELS[c.channel] ?? c.channel}
-                  </span>
-                  <span className="font-mono tabular-nums text-muted-foreground">{c.count}</span>
-                </li>
-              ))}
+              {channels.slice(0, 5).map((c, i) => {
+                const def = channelDef(c.channel);
+                return (
+                  <li
+                    key={`${c.channel}-${c.handle ?? i}`}
+                    className="flex items-center justify-between gap-2 text-xs"
+                  >
+                    <span className="flex min-w-0 items-center gap-1.5">
+                      <def.icon className={cn(CHANNEL_ICON_SIZE, "shrink-0", def.tone)} />
+                      <span className="truncate">
+                        {c.label ?? CHANNEL_LABELS[c.channel] ?? c.channel}
+                      </span>
+                      {c.handle ? (
+                        <span className="truncate text-muted-foreground">{c.handle}</span>
+                      ) : null}
+                    </span>
+                    <span className="font-mono tabular-nums text-muted-foreground">{c.count}</span>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

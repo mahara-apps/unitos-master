@@ -1,10 +1,10 @@
 /**
  * Fonte única do NOME EXIBIDO de um canal/conexão.
  *
- * Regra: sempre mostrar o nome real cadastrado da conexão
- * (`social_connections.channel_name` → `external_name` → `@account_username`)
- * e nunca o provider técnico ("meta"). Só quando não existe conexão (ex.:
- * `posts.channels`) usamos o rótulo humano da plataforma.
+ * Regra do produto: o nome do canal é SEMPRE a plataforma
+ * (Instagram, Facebook, TikTok, YouTube…), nunca o nome do perfil.
+ * O identificador do perfil aparece apenas como complemento (`@usuario`),
+ * junto do ícone da plataforma.
  */
 
 const CHANNEL_LABEL: Record<string, string> = {
@@ -21,7 +21,7 @@ const CHANNEL_LABEL: Record<string, string> = {
   meta: "Meta",
 };
 
-/** Rótulo humano da plataforma (usado só sem conexão cadastrada). */
+/** Nome do canal = plataforma. Nunca o nome do perfil. */
 export function channelDisplayLabel(raw: string | null | undefined): string {
   const key = String(raw ?? "").trim().toLowerCase();
   if (!key) return "Canal";
@@ -36,13 +36,14 @@ export type ConnectionNameSource = {
   provider?: string | null;
 };
 
-/** Nome real da conexão cadastrada; nunca retorna o provider técnico sozinho. */
+/** Nome do canal de uma conexão: plataforma (`channel`, com fallback ao provider). */
 export function connectionDisplayName(row: ConnectionNameSource): string {
-  const named = [row.channel_name, row.external_name]
-    .map((v) => (typeof v === "string" ? v.trim() : ""))
-    .find((v) => v.length > 0);
-  if (named) return named;
+  return channelDisplayLabel(row.channel ?? row.provider);
+}
+
+/** Complemento do canal: `@usuario` quando existir. Nunca substitui o nome. */
+export function connectionHandle(row: ConnectionNameSource): string | null {
   const user = typeof row.account_username === "string" ? row.account_username.trim() : "";
   if (user) return `@${user.replace(/^@/, "")}`;
-  return channelDisplayLabel(row.channel ?? row.provider);
+  return null;
 }

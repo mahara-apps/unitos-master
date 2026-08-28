@@ -43,6 +43,7 @@ import { isNonRetriableQueryError, resolveScreenQueryState } from "@/lib/screen-
 import { clientDashboardInput, clientDashboardQueryKey } from "@/lib/client-dashboard.query";
 import { clientDashboardFn } from "@/lib/client-dashboard.functions";
 import { channelLabel } from "@/lib/client-dashboard.labels";
+import { CHANNEL_ICON_SIZE, channelDef } from "@/components/connections/channel-meta";
 import type {
   ClientActivityItem,
   ClientAttentionItem,
@@ -498,8 +499,17 @@ function ChannelsPanel({ data }: { data: ClientDashboard }) {
             <li key={`${c.label ?? c.channel}-${i}`}>
               <Link to="/connections" className="group block">
                 <div className="flex items-baseline justify-between gap-3">
-                  <span className="text-sm font-medium transition-colors group-hover:text-primary">
-                    {c.label ?? channelLabel(c.channel)}
+                  <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium transition-colors group-hover:text-primary">
+                    {(() => {
+                      const def = channelDef(c.channel);
+                      return <def.icon className={cn(CHANNEL_ICON_SIZE, "shrink-0", def.tone)} />;
+                    })()}
+                    <span className="truncate">{c.label ?? channelLabel(c.channel)}</span>
+                    {c.handle ? (
+                      <span className="truncate text-xs font-normal text-muted-foreground">
+                        {c.handle}
+                      </span>
+                    ) : null}
                   </span>
                   <span className="text-xs tabular-nums text-muted-foreground">
                     {c.count} · {Math.round(c.share * 100)}%

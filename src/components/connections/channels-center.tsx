@@ -52,6 +52,7 @@ import { MetaPortfolioDialog } from "@/components/connections/meta-portfolio-dia
 import { AvailableAccountsTable } from "@/components/connections/available-accounts-table";
 
 import {
+  CHANNEL_ICON_SIZE,
   CONNECTABLE_CHANNELS,
   UPCOMING_CHANNELS,
   channelDef,
@@ -164,6 +165,13 @@ function CopyableId({ label, value }: { label: string; value: string | null }) {
 }
 
 /* --------------------------------- center -------------------------------- */
+
+/** Tipo da conta (complemento discreto, nunca o nome do canal). */
+function accountTypeLabel(channel: string): string {
+  if (channel === "instagram") return "Instagram Business";
+  if (channel === "facebook") return "Página do Facebook";
+  return channelDef(channel).label;
+}
 
 export function ChannelsCenter({
   brandId,
@@ -675,7 +683,7 @@ export function ChannelsCenter({
                   onClick={() => connectMeta(def.key as "facebook" | "instagram")}
                   className="flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent disabled:opacity-60"
                 >
-                  <Icon className={cn("h-4 w-4", def.tone)} />
+                  <Icon className={cn(CHANNEL_ICON_SIZE, def.tone)} />
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium">{def.label}</div>
                     <div className="text-xs text-muted-foreground">Meta · autorização oficial</div>
@@ -826,13 +834,16 @@ function ChannelCard({
         </Avatar>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <Icon className={cn("h-3.5 w-3.5 shrink-0", def.tone)} />
-            <span className="truncate text-sm font-medium">{row.accountLabel}</span>
+            <Icon className={cn(CHANNEL_ICON_SIZE, "shrink-0", def.tone)} />
+            {/* Nome do canal = plataforma; o perfil é complemento (@). */}
+            <span className="truncate text-sm font-medium">{def.label}</span>
+            {row.handle ? (
+              <span className="truncate text-xs text-muted-foreground">
+                @{row.handle.replace(/^@/, "")}
+              </span>
+            ) : null}
           </div>
-          <p className="truncate text-xs text-muted-foreground">
-            {def.label}
-            {row.handle ? ` · @${row.handle.replace(/^@/, "")}` : ""}
-          </p>
+          <p className="truncate text-xs text-muted-foreground">{accountTypeLabel(row.channel)}</p>
         </div>
         <StatusBadge state={state} />
       </div>
@@ -961,7 +972,9 @@ function LinkClientDialog({
         <DialogHeader>
           <DialogTitle className="text-base">Vincular a um cliente</DialogTitle>
           <DialogDescription className="text-xs">
-            {def.label} · {row.accountLabel}. Uma conta atende apenas um cliente por vez — isso
+            {def.label}
+            {row.handle ? ` · @${row.handle.replace(/^@/, "")}` : ""}. Uma conta atende apenas um
+            cliente por vez — isso
             garante o isolamento de dados e de publicações.
           </DialogDescription>
         </DialogHeader>
@@ -1183,7 +1196,9 @@ function ReconnectDialog({
         <DialogHeader>
           <DialogTitle className="text-base">Reconectar canal</DialogTitle>
           <DialogDescription className="text-xs">
-            {def.label} · {row.accountLabel}. Verificamos a conta antes de gravar qualquer alteração
+            {def.label}
+            {row.handle ? ` · @${row.handle.replace(/^@/, "")}` : ""}. Verificamos a conta antes de
+            gravar qualquer alteração
             — nenhuma conta é substituída sem a sua confirmação.
           </DialogDescription>
         </DialogHeader>
@@ -1397,12 +1412,16 @@ function ManageChannelDialog({
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Icon className={cn("h-4 w-4", def.tone)} />
-            {row.accountLabel}
+            <Icon className={cn(CHANNEL_ICON_SIZE, def.tone)} />
+            {def.label}
+            {row.handle ? (
+              <span className="text-xs font-normal text-muted-foreground">
+                @{row.handle.replace(/^@/, "")}
+              </span>
+            ) : null}
           </DialogTitle>
           <DialogDescription className="text-xs">
-            {def.label}
-            {row.handle ? ` · @${row.handle.replace(/^@/, "")}` : ""}
+            {accountTypeLabel(row.channel)}
           </DialogDescription>
         </DialogHeader>
 

@@ -2,7 +2,11 @@
 // Todos os números vêm de tabelas reais e são escopados por brand_id + client_id.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveInclusiveRange } from "@/lib/date-range";
-import { channelDisplayLabel, connectionDisplayName } from "@/lib/channel-display-name";
+import {
+  channelDisplayLabel,
+  connectionDisplayName,
+  connectionHandle,
+} from "@/lib/channel-display-name";
 import type {
   ClientActivityItem,
   ClientAttentionItem,
@@ -210,11 +214,14 @@ export async function buildClientDashboard(
     .filter(Boolean) as Array<Record<string, any>>;
   const connById = new Map(connectionRows.map((c) => [String(c.id), c]));
 
-  const channelMap = new Map<string, { channel: string; label: string; count: number }>();
-  const bumpChannel = (key: string, channel: string, label: string) => {
+  const channelMap = new Map<
+    string,
+    { channel: string; label: string; handle: string | null; count: number }
+  >();
+  const bumpChannel = (key: string, channel: string, label: string, handle: string | null = null) => {
     const prev = channelMap.get(key);
     if (prev) prev.count += 1;
-    else channelMap.set(key, { channel, label, count: 1 });
+    else channelMap.set(key, { channel, label, handle, count: 1 });
   };
   for (const sp of socialPosts) {
     if (sp.status !== "published" || !sp.published_at) continue;
@@ -225,6 +232,7 @@ export async function buildClientDashboard(
         `conn:${conn.id}`,
         String(conn.channel ?? conn.provider ?? "").toLowerCase(),
         connectionDisplayName(conn),
+        connectionHandle(conn),
       );
       continue;
     }
@@ -245,6 +253,7 @@ export async function buildClientDashboard(
     .map((c) => ({
       channel: c.channel,
       label: c.label,
+      handle: c.handle,
       count: c.count,
       share: channelTotal ? c.count / channelTotal : 0,
     }))
