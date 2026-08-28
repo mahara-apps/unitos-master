@@ -17,7 +17,7 @@ import { AiJobsIndicator } from "@/components/ai-jobs/ai-jobs-indicator";
 import { BrandFavicon } from "@/components/brand/brand-favicon";
 import { getCachedUser } from "@/lib/auth-cache";
 import { getCachedPortalAccess } from "@/lib/access-cache";
-import { isWorkspaceScopedQueryKey } from "@/lib/session-reset";
+import { isWorkspaceScopedQueryKey, queryKeyCarriesScopeId } from "@/lib/session-reset";
 import { WorkspaceResolver } from "@/components/workspace-resolver";
 
 const fallbackTitles: Record<string, string> = {
