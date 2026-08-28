@@ -1,5 +1,6 @@
 import type { DateRange } from "react-day-picker";
 import { dayRangeKey, normalizedRangeIso } from "@/lib/range-key";
+import { lastNDays } from "@/lib/date-range";
 
 /**
  * Chave canônica do painel da conta — compartilhada pela tela e pelo prefetch do
