@@ -3010,6 +3010,8 @@ export type Database = {
           estado: string | null
           icon_url: string | null
           id: string
+          inactivated_at: string | null
+          is_active: boolean
           login_logo_url: string | null
           logo_dark_url: string | null
           logo_url: string | null
@@ -3035,6 +3037,8 @@ export type Database = {
           estado?: string | null
           icon_url?: string | null
           id?: string
+          inactivated_at?: string | null
+          is_active?: boolean
           login_logo_url?: string | null
           logo_dark_url?: string | null
           logo_url?: string | null
@@ -3060,6 +3064,8 @@ export type Database = {
           estado?: string | null
           icon_url?: string | null
           id?: string
+          inactivated_at?: string | null
+          is_active?: boolean
           login_logo_url?: string | null
           logo_dark_url?: string | null
           logo_url?: string | null
