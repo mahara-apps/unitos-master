@@ -42,7 +42,7 @@ import { deleteBrand, setBrandActive, updateBrand } from "@/lib/workspace.functi
 import { useAccessRole } from "@/hooks/use-access-role";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { useMyBrandsQuery, type MyBrand } from "@/hooks/use-my-brands";
-import { resetScopeCache } from "@/lib/scope-cache";
+import { resetScopeCache } from "@/lib/session-reset";
 import { isDeleteConfirmationValid, workspaceAdminActions } from "@/lib/workspace-admin";
 
 const SWATCHES = [
