@@ -6,6 +6,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import { computeClientHealthScore } from "@/lib/client-health";
 import { assertBrandMember, assertClientInBrand } from "@/lib/access-guard";
+import { resolveInclusiveRange } from "@/lib/date-range";
 
 
 type SupaCtx = { supabase: SupabaseClient<Database>; userId: string };

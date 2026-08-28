@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { computeClientHealthScore } from "@/lib/client-health";
 import { normalizePortalTheme, portalThemeSchema } from "@/lib/portal-theme";
 import { assertClientInBrand } from "@/lib/access-guard";
+import { resolveInclusiveRange } from "@/lib/date-range";
 
 const scope = z.object({
   brandId: z.string().uuid(),

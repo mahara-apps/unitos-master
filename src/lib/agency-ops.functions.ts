@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { stageSlaHours } from "@/lib/content.functions";
+import { resolveInclusiveRange } from "@/lib/date-range";
 
 /**
  * Dashboard operacional consolidado da agência.
