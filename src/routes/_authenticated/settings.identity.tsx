@@ -16,6 +16,7 @@ import { getBrandCompany, updateBrandCompany } from "@/lib/workspace.functions";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { useIsSuperAdmin } from "@/hooks/use-feature-access";
 import { usePageHeader } from "@/hooks/use-page-header";
+import { canAccessVisualIdentity } from "@/lib/workspace-admin";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
