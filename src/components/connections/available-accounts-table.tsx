@@ -22,7 +22,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { channelDef } from "@/components/connections/channel-meta";
+import {
+  CHANNEL_ICON_SIZE, channelDef } from "@/components/connections/channel-meta";
 import type { DiscoveredAccountsResult } from "@/lib/meta/discovery.functions";
 import { cn } from "@/lib/utils";
 
@@ -408,7 +409,7 @@ export function AvailableAccountsTable({
                       </TableCell>
                       <TableCell className="py-2.5 text-sm">
                         <span className="inline-flex items-center gap-1.5">
-                          <Icon className={cn("h-4 w-4", def.tone)} />
+                          <Icon className={cn(CHANNEL_ICON_SIZE, def.tone)} />
                           {def.label}
                         </span>
                       </TableCell>

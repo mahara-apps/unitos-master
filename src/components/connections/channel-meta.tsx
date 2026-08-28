@@ -86,6 +86,12 @@ export const CHANNEL_DEFS: ChannelDef[] = [
   },
 ];
 
+/**
+ * Tamanho ÚNICO do ícone de canal em listas/cards (harmonia visual).
+ * Não usar tamanhos ad-hoc por tela.
+ */
+export const CHANNEL_ICON_SIZE = "h-4 w-4";
+
 export const CHANNEL_BY_KEY = new Map(CHANNEL_DEFS.map((c) => [c.key, c]));
 export const CONNECTABLE_CHANNELS = CHANNEL_DEFS.filter((c) => c.available);
 export const UPCOMING_CHANNELS = CHANNEL_DEFS.filter((c) => !c.available);

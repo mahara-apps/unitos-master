@@ -22,7 +22,12 @@ import {
 } from "@/components/ui/dialog";
 import { useAccessRole } from "@/hooks/use-access-role";
 import { cn } from "@/lib/utils";
-import { channelDef, normalizeStatus, type StatusKey } from "@/components/connections/channel-meta";
+import {
+  CHANNEL_ICON_SIZE,
+  channelDef,
+  normalizeStatus,
+  type StatusKey,
+} from "@/components/connections/channel-meta";
 import { ClientWhatsappSection } from "@/components/customer/client-whatsapp-section";
 import {
   ProfileEmpty,
@@ -322,12 +327,14 @@ function ChannelRow({
         <div className="min-w-0 flex-1">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
             <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold">
-              <Icon className={cn("h-3.5 w-3.5 shrink-0", def.tone)} />
-              {/* Nome real do canal cadastrado — nunca o provider técnico. */}
-              <span className="truncate">{row.accountLabel}</span>
+              <Icon className={cn(CHANNEL_ICON_SIZE, "shrink-0", def.tone)} />
+              {/* Nome do canal = plataforma; o perfil vem como @complemento. */}
+              <span className="truncate">{def.label}</span>
             </span>
-            {handle && handle !== row.accountLabel ? (
-              <span className="truncate text-sm text-muted-foreground">{handle}</span>
+            {handle ? (
+              <span className="truncate text-sm text-muted-foreground">
+                {handle.startsWith("@") ? handle : `@${handle}`}
+              </span>
             ) : null}
           </div>
           <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
@@ -596,7 +603,7 @@ function CandidateRow({
       </Avatar>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <Icon className={cn("h-3.5 w-3.5 shrink-0", def.tone)} />
+          <Icon className={cn(CHANNEL_ICON_SIZE, "shrink-0", def.tone)} />
           <span className="truncate text-sm font-medium">{def.label}</span>
         </div>
         <p className="truncate text-xs text-muted-foreground">

@@ -7,7 +7,11 @@ import type { Database } from "@/integrations/supabase/types";
 import { computeClientHealthScore } from "@/lib/client-health";
 import { assertBrandMember, assertClientInBrand } from "@/lib/access-guard";
 import { resolveInclusiveRange } from "@/lib/date-range";
-import { channelDisplayLabel, connectionDisplayName } from "@/lib/channel-display-name";
+import {
+  channelDisplayLabel,
+  connectionDisplayName,
+  connectionHandle,
+} from "@/lib/channel-display-name";
 
 
 type SupaCtx = { supabase: SupabaseClient<Database>; userId: string };
@@ -624,8 +628,8 @@ export type AgencyDashboard = {
   publishTrendDays: string[];
   aiUsage: AiUsageSummary;
   avgLeadTimeDays: number | null;
-  /** `label` = nome real do canal cadastrado; `channel` continua técnico. */
-  topChannels: Array<{ channel: string; count: number; label: string }>;
+  /** `label` = plataforma (Instagram, Facebook…); `handle` = @perfil opcional. */
+  topChannels: Array<{ channel: string; count: number; label: string; handle: string | null }>;
   tasksByBucket: {
     open: number;
     in_progress: number;
@@ -1077,27 +1081,35 @@ async function computeAgency(
           .in("id", connectionIds),
       )
     : null;
-  const connectionLabel = new Map<string, { label: string; channel: string }>();
+  const connectionLabel = new Map<
+    string,
+    { label: string; channel: string; handle: string | null }
+  >();
   for (const c of (connectionsRes?.data ?? []) as Array<Record<string, any>>) {
     connectionLabel.set(String(c.id), {
       channel: String(c.channel ?? c.provider ?? ""),
       label: connectionDisplayName(c),
+      handle: connectionHandle(c),
     });
   }
 
-  const channelAgg = new Map<string, { channel: string; label: string; count: number }>();
-  const bump = (key: string, channel: string, label: string) => {
+  const channelAgg = new Map<
+    string,
+    { channel: string; label: string; handle: string | null; count: number }
+  >();
+  const bump = (key: string, channel: string, label: string, handle: string | null) => {
     const prev = channelAgg.get(key);
     if (prev) prev.count += 1;
-    else channelAgg.set(key, { channel, label, count: 1 });
+    else channelAgg.set(key, { channel, label, handle, count: 1 });
   };
   for (const p of posts) {
-    for (const ch of p.channels ?? []) bump(`ch:${ch}`, ch, channelDisplayLabel(ch));
+    for (const ch of p.channels ?? []) bump(`ch:${ch}`, ch, channelDisplayLabel(ch), null);
   }
   for (const sp of socialPublished) {
     const conn = sp.connection_id ? connectionLabel.get(sp.connection_id) : undefined;
-    if (conn) bump(`conn:${sp.connection_id}`, conn.channel, conn.label);
-    else if (sp.provider) bump(`ch:${sp.provider}`, sp.provider, channelDisplayLabel(sp.provider));
+    if (conn) bump(`conn:${sp.connection_id}`, conn.channel, conn.label, conn.handle);
+    else if (sp.provider)
+      bump(`ch:${sp.provider}`, sp.provider, channelDisplayLabel(sp.provider), null);
   }
   const topChannels = Array.from(channelAgg.values())
     .sort((a, b) => b.count - a.count)

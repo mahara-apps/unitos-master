@@ -71,7 +71,8 @@ import { KpiCard } from "@/components/ui/kpi-card";
 import { DashboardPageShell } from "@/components/ui/dashboard-primitives";
 import { CustomerAvatar } from "@/components/customer/customer-avatar";
 import { NewCustomerWizard, CUSTOMER_SEGMENTS } from "@/components/customer/new-customer-wizard";
-import { channelDef } from "@/components/connections/channel-meta";
+import {
+  CHANNEL_ICON_SIZE, channelDef } from "@/components/connections/channel-meta";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { useActiveContext } from "@/hooks/use-active-context";
 import { listClients, updateClient, deleteClient } from "@/lib/workspace.functions";
@@ -489,7 +490,7 @@ function CustomersIndexPage() {
                             const Icon = def.icon;
                             return (
                               <span key={ch.connectionId} title={`${def.label} · ${ch.label}`}>
-                                <Icon className={cn("h-3.5 w-3.5", def.tone)} />
+                                <Icon className={cn(CHANNEL_ICON_SIZE, def.tone)} />
                               </span>
                             );
                           })}

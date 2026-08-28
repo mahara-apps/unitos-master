@@ -56,8 +56,14 @@ export type ClientDashboard = {
   avgPerWeek: number | null;
   bestDay: { day: string; count: number } | null;
 
-  /** `label` = nome real do canal cadastrado; `channel` continua técnico. */
-  channelBreakdown: Array<{ channel: string; label?: string; count: number; share: number }>;
+  /** `label` = plataforma (Instagram, Facebook…); `handle` = @perfil opcional. */
+  channelBreakdown: Array<{
+    channel: string;
+    label?: string;
+    handle?: string | null;
+    count: number;
+    share: number;
+  }>;
 
   scheduledCount: number;
   /** Total de conteúdos com agendamento futuro (independente do horizonte de 7 dias). */
