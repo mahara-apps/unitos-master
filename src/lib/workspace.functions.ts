@@ -511,7 +511,7 @@ export const updateBrand = createServerFn({ method: "POST" })
     await assertBrandAdmin(context.supabase, context.userId, data.brandId, {
       allowManager: false,
     });
-    const patch: Record<string, string> = {};
+    const patch: { name?: string; color?: string } = {};
     if (data.patch.name !== undefined) patch.name = data.patch.name;
     if (data.patch.color !== undefined) patch.color = data.patch.color;
     if (Object.keys(patch).length === 0) throw new Error("Nada para atualizar");
