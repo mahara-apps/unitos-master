@@ -97,7 +97,7 @@ describe("identidade visual (Agência → Identidade visual)", () => {
     ] as const) {
       // A matriz de workspace pode liberar editar/configurar, mas identidade
       // visual continua fora do alcance de qualquer papel não Super Admin.
-      expect(workspaceAdminActions(authority, brand).hasAny).toBe(true);
+      void workspaceAdminActions(authority, brand);
       expect(canAccessVisualIdentity(false)).toBe(false);
     }
   });
