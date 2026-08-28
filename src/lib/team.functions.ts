@@ -7,12 +7,17 @@ import { ALL_PERMISSION_IDS, normalizePermissions, type PermissionId } from "@/l
 import {
   assertBrandAdmin,
   assertCanGrantBrandRole,
+  assertCanManageBrandMember,
   resolveAuthorityRole,
 } from "@/lib/access-guard";
 
-const ROLES = ["owner", "manager", "user", "client"] as const;
-/** Papéis atribuíveis a membros internos (Portal usa `client`). */
-const ASSIGNABLE = ["owner", "manager", "user"] as const;
+const ROLES = ["owner", "admin", "manager", "user", "client"] as const;
+/**
+ * Papéis atribuíveis a membros internos (Portal usa `client`).
+ * A autoridade real é da matriz canônica do banco (`can_invite_brand_role`):
+ * OWNER só pode ser concedido por SUPER ADMIN.
+ */
+const ASSIGNABLE = ["owner", "admin", "manager", "user"] as const;
 
 const BrandIdInput = z.object({ brandId: z.string().uuid() });
 
@@ -336,12 +341,16 @@ export const updateBrandMember = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => UpdateMemberInput.parse(input))
   .handler(async ({ data, context }) => {
     // Autorização explícita no servidor (não confiar na UI nem só na RLS).
-    const myRole = await assertBrandAdmin(context.supabase, context.userId, data.brandId);
-    const targetRole = await resolveAuthorityRole(context.supabase, data.userId, data.brandId);
-    // MANAGER não gerencia ADMIN nem promove a owner (anti-escalonamento).
-    if (myRole === "manager" && (targetRole === "admin" || data.role === "owner")) {
-      throw new Error("Forbidden: gerente não pode alterar donos da agência");
-    }
+    await assertBrandAdmin(context.supabase, context.userId, data.brandId);
+    // Matriz canônica única (owner ≠ admin): valida papel do ator, papel atual
+    // do alvo e papel pretendido. Somente SUPER ADMIN concede/altera OWNER.
+    await assertCanManageBrandMember(
+      context.supabase,
+      context.userId,
+      data.brandId,
+      data.userId,
+      data.role ?? null,
+    );
     const patch: { role?: (typeof ROLES)[number]; permissions?: PermissionId[] } = {};
     if (data.role) patch.role = data.role;
     if (data.permissions) patch.permissions = data.permissions;
@@ -359,11 +368,13 @@ export const removeBrandMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => RemoveMemberInput.parse(input))
   .handler(async ({ data, context }) => {
-    const myRole = await assertBrandAdmin(context.supabase, context.userId, data.brandId);
-    const targetRole = await resolveAuthorityRole(context.supabase, data.userId, data.brandId);
-    if (myRole === "manager" && targetRole === "admin") {
-      throw new Error("Forbidden: gerente não pode remover donos da agência");
-    }
+    await assertBrandAdmin(context.supabase, context.userId, data.brandId);
+    await assertCanManageBrandMember(
+      context.supabase,
+      context.userId,
+      data.brandId,
+      data.userId,
+    );
     const { error } = await context.supabase
       .from("brand_members")
       .delete()
@@ -685,7 +696,7 @@ export const listProvisionableBrands = createServerFn({ method: "GET" })
         .select("brand_id, role")
         .eq("user_id", userId)
         .eq("is_active", true)
-        .in("role", ["owner", "manager"]);
+        .in("role", ["owner", "admin", "manager"]);
       if (mErr) throw mErr;
 
       const ids = (memberships ?? []).map((m) => m.brand_id);

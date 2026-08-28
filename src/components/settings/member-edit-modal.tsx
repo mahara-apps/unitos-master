@@ -20,7 +20,7 @@ import { saveTeamMemberFn, type BrandRole, type TeamMember } from "@/lib/team-ad
 import {
   ROLE_LABEL,
   ROLE_ACCESS,
-  ASSIGNABLE_ROLES,
+  invitableRoles,
   toAssignableRole,
   memberInitials,
 } from "@/components/settings/team-shared";
@@ -35,13 +35,14 @@ export function MemberEditModal({
   onOpenChange,
   brandId,
   member,
-  canManageOwners,
+  authorityRole,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   brandId: string;
   member: TeamMember;
-  canManageOwners: boolean;
+  /** Papel de autoridade do ator (`app_access_role`) — define papéis concedíveis. */
+  authorityRole: string | null;
 }) {
   const qc = useQueryClient();
   const save = useServerFn(saveTeamMemberFn);
@@ -82,7 +83,10 @@ export function MemberEditModal({
     onError: (e: Error) => toast.error("Não foi possível salvar", { description: e.message }),
   });
 
-  const roles = ASSIGNABLE_ROLES.filter((r) => (r === "owner" ? canManageOwners : true));
+  // Matriz canônica: só oferecemos papéis que o ator pode conceder.
+  const grantable = invitableRoles(authorityRole);
+  const roles = grantable.length > 0 ? grantable : [toAssignableRole(member.role)];
+  const canChangeRole = grantable.includes(toAssignableRole(member.role));
 
   return (
     <ExpandedModal
@@ -148,7 +152,11 @@ export function MemberEditModal({
 
         <div className="space-y-2">
           <Label className="text-xs">Papel na marca</Label>
-          <Select value={role} onValueChange={(v) => setRole(v as BrandRole)}>
+          <Select
+            value={role}
+            onValueChange={(v) => setRole(v as BrandRole)}
+            disabled={!canChangeRole}
+          >
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>

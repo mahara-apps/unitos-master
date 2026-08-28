@@ -84,14 +84,15 @@ async function clientOwner(supabase: AnySupabase, clientId: string): Promise<str
   return (data?.owner_user_id as string | null) ?? null;
 }
 
-/** ADMIN (owner) ativo do workspace. */
+/** Owner/Admin ativo do workspace (prioriza o Owner). */
 async function workspaceAdmin(supabase: AnySupabase, brandId: string): Promise<string | null> {
   const { data, error } = await supabase
     .from("brand_members")
     .select("user_id, role")
     .eq("brand_id", brandId)
-    .eq("role", "owner")
+    .in("role", ["owner", "admin"])
     .eq("is_active", true)
+    .order("role", { ascending: true })
     .order("user_id", { ascending: true })
     .limit(1);
   if (error) throw error;

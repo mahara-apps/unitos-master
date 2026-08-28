@@ -113,6 +113,77 @@ export async function assertCanGrantBrandRole(
   }
 }
 
+/** Papéis de membership em `brand_members` (Portal usa `client`). */
+export type BrandMemberRole = "owner" | "admin" | "manager" | "user" | "client";
+
+/**
+ * Matriz canônica de concessão (espelha `public.can_invite_brand_role`):
+ *   super_admin → owner | admin | manager | user
+ *   admin (owner OU admin da marca) → admin | manager | user  (nunca owner)
+ *   manager → user
+ *   user/client → nenhum
+ */
+export function grantableBrandRoles(
+  authorityRole: AuthorityRole | null | undefined,
+): BrandMemberRole[] {
+  if (authorityRole === "super_admin") return ["owner", "admin", "manager", "user"];
+  if (authorityRole === "admin") return ["admin", "manager", "user"];
+  if (authorityRole === "manager") return ["user"];
+  return [];
+}
+
+/** Papel de membership bruto do usuário na marca (owner ≠ admin). */
+export async function resolveBrandMemberRole(
+  supabase: RpcClient,
+  userId: string,
+  brandId: string,
+): Promise<BrandMemberRole | null> {
+  const { data, error } = await callRpc(supabase, "brand_member_role", {
+    _user_id: userId,
+    _brand_id: brandId,
+  });
+  if (error) throw error;
+  const roles: readonly string[] = ["owner", "admin", "manager", "user", "client"];
+  return typeof data === "string" && roles.includes(data) ? (data as BrandMemberRole) : null;
+}
+
+/**
+ * Exige autoridade para ATRIBUIR/ALTERAR o papel de um membro existente.
+ * Complementa `assertCanGrantBrandRole` (que exige e-mail) para operações de
+ * edição/remoção: valida também o papel ATUAL do alvo, para que Admin não
+ * altere Owner e Manager só mexa em User.
+ */
+export async function assertCanManageBrandMember(
+  supabase: RpcClient,
+  actorId: string,
+  brandId: string,
+  targetUserId: string,
+  nextRole?: BrandMemberRole | null,
+): Promise<AuthorityRole> {
+  const authority = await resolveAuthorityRole(supabase, actorId, brandId);
+  if (authority === "super_admin") return authority;
+  const grantable = grantableBrandRoles(authority);
+  if (grantable.length === 0) {
+    throw new Error("forbidden: papel insuficiente para gerenciar membros");
+  }
+  if (nextRole && !grantable.includes(nextRole)) {
+    throw new Error(
+      nextRole === "owner"
+        ? "forbidden: somente super admin pode conceder Owner"
+        : "forbidden: papel insuficiente para conceder este nível de acesso",
+    );
+  }
+  const targetRole = await resolveBrandMemberRole(supabase, targetUserId, brandId);
+  if (targetRole === "owner") {
+    throw new Error("forbidden: somente super admin pode alterar o Owner da marca");
+  }
+  if (authority === "manager" && targetRole && targetRole !== "user") {
+    throw new Error("forbidden: gerente gerencia apenas membros User");
+  }
+  return authority as AuthorityRole;
+}
+
+
 /**
  * Exige que o usuário PERTENÇA ao workspace (qualquer papel interno) — fonte
  * canônica `app_access_role`. Usar antes de qualquer operação privilegiada

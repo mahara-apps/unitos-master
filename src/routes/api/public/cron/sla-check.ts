@@ -152,7 +152,7 @@ export const Route = createFileRoute("/api/public/cron/sla-check")({
           .from("brand_members")
           .select("user_id, brand_id, role")
           .in("brand_id", brandIds)
-          .in("role", ["owner", "manager"]);
+          .in("role", ["owner", "admin", "manager"]);
 
         // Dedupe: enquanto houver resumo pendente do workspace, não cria outro;
         // depois de lido, no máximo um por 24h.

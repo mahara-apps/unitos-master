@@ -39,7 +39,7 @@ const ROLE_CARDS: RoleCard[] = [
     label: "Admin (proprietário)",
     badge: "Administra a marca",
     icon: Crown,
-    brandRoles: ["owner"],
+    brandRoles: ["owner", "admin"],
     scope: "Toda a marca e todos os clientes da marca.",
     can: [
       "Gerenciar equipe: convidar, alterar papel, desativar e remover membros",
@@ -129,7 +129,7 @@ function PermissionsPage() {
       members.filter((m) => roles.includes((m.role ?? "").toLowerCase())).length;
     return {
       total: members.length,
-      admins: byRole(["owner"]),
+      admins: byRole(["owner", "admin"]),
       managers: byRole(["manager"]),
       collaborators: byRole(["user"]),
       clients: byRole(["client"]),

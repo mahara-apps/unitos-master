@@ -1,7 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { assertBrandAdmin, resolveAuthorityRole } from "@/lib/access-guard";
+import {
+  assertBrandAdmin,
+  assertCanManageBrandMember,
+  resolveAuthorityRole,
+} from "@/lib/access-guard";
 
 /**
  * Gestão de Equipe & Acessos (Configurações) — CRUD real sobre o modelo
@@ -15,10 +19,10 @@ import { assertBrandAdmin, resolveAuthorityRole } from "@/lib/access-guard";
  * checagem, para não depender das nuances das policies de brand_members.
  */
 
-/** Papéis oficiais: owner (=ADMIN), manager, user. `client` existe só para o Portal. */
-const BRAND_ROLES = ["owner", "manager", "user", "client"] as const;
-/** Papéis atribuíveis a um membro interno da equipe. */
-const INTERNAL_ROLES = ["owner", "manager", "user"] as const;
+/** Papéis oficiais: owner (proprietário), admin, manager, user. `client` é só Portal. */
+const BRAND_ROLES = ["owner", "admin", "manager", "user", "client"] as const;
+/** Papéis atribuíveis a um membro interno da equipe (owner só por super admin). */
+const INTERNAL_ROLES = ["owner", "admin", "manager", "user"] as const;
 export type BrandRole = (typeof BRAND_ROLES)[number];
 
 const BrandInput = z.object({ brandId: z.string().uuid() });
@@ -163,14 +167,23 @@ async function guardTarget(
   targetUserId: string,
   nextRole?: BrandRole,
 ): Promise<void> {
-  const myRole = await assertBrandAdmin(supabase as never, actorId, brandId);
-  const targetRole = await resolveAuthorityRole(supabase as never, targetUserId, brandId);
-  if (
-    myRole === "manager" &&
-    (targetRole === "admin" || targetRole === "super_admin" || nextRole === "owner")
-  ) {
-    throw new Error("forbidden: gerente não pode alterar owners/administradores.");
+  await assertBrandAdmin(supabase as never, actorId, brandId);
+  const targetAuthority = await resolveAuthorityRole(supabase as never, targetUserId, brandId);
+  if (targetAuthority === "super_admin") {
+    const actorAuthority = await resolveAuthorityRole(supabase as never, actorId, brandId);
+    if (actorAuthority !== "super_admin") {
+      throw new Error("forbidden: somente super admin altera super admins.");
+    }
+    return;
   }
+  // Matriz canônica (owner ≠ admin): Admin não altera Owner; Manager só User.
+  await assertCanManageBrandMember(
+    supabase as never,
+    actorId,
+    brandId,
+    targetUserId,
+    (nextRole ?? null) as never,
+  );
 }
 
 const SaveMemberInput = z.object({

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { callRpc } from "@/lib/supabase-rpc";
 import { invitableRoles, toAssignableRole } from "@/components/settings/team-shared";
+import { assertCanManageBrandMember } from "@/lib/access-guard";
 
 /**
  * Regressão do erro real "Cannot read properties of undefined (reading 'rest')":
@@ -38,16 +39,20 @@ describe("callRpc — preserva o contexto do client Supabase", () => {
 });
 
 /**
- * RBAC: o Admin (proprietário) pode conceder Admin — não existe regra de
- * "apenas um Admin" por workspace. Espelha `public.can_invite_brand_role`.
+ * RBAC canônico (espelha `public.can_invite_brand_role`):
+ *   super_admin → owner | admin | manager | user
+ *   owner/admin → admin | manager | user (nunca owner)
+ *   manager     → user
+ *   user/client → nenhum
  */
 describe("papéis concedíveis por autoridade", () => {
-  it("super admin concede todos os papéis internos", () => {
-    expect(invitableRoles("super_admin")).toEqual(["owner", "manager", "user"]);
+  it("super admin concede todos os papéis internos, inclusive owner", () => {
+    expect(invitableRoles("super_admin")).toEqual(["owner", "admin", "manager", "user"]);
   });
 
-  it("admin (proprietário) pode adicionar outro admin", () => {
-    expect(invitableRoles("admin")).toContain("owner");
+  it("owner/admin adicionam Admin, Manager e User — nunca Owner", () => {
+    expect(invitableRoles("admin")).toEqual(["admin", "manager", "user"]);
+    expect(invitableRoles("admin")).not.toContain("owner");
   });
 
   it("manager concede apenas user", () => {
@@ -64,5 +69,65 @@ describe("papéis concedíveis por autoridade", () => {
     expect(toAssignableRole("editor")).toBe("user");
     expect(toAssignableRole("designer")).toBe("user");
     expect(toAssignableRole("owner")).toBe("owner");
+    expect(toAssignableRole("admin")).toBe("admin");
+  });
+});
+
+/** Gestão de membro existente: papel do alvo importa (Admin não mexe em Owner). */
+describe("assertCanManageBrandMember — matriz completa de autoridade", () => {
+  const client = (actorAuthority: string | null, targetMemberRole: string | null) =>
+    ({
+      rest: {
+        rpc: (fn: string) =>
+          Promise.resolve({
+            data: fn === "app_access_role" ? actorAuthority : targetMemberRole,
+            error: null,
+          }),
+      },
+      rpc(fn: string, args: Record<string, unknown>) {
+        return (this as unknown as { rest: { rpc: (f: string, a: unknown) => unknown } }).rest.rpc(
+          fn,
+          args,
+        );
+      },
+    }) as never;
+
+  const run = (actor: string | null, target: string | null, next?: string) =>
+    assertCanManageBrandMember(client(actor, target), "actor", "brand", "target", next as never);
+
+  it("super admin gerencia qualquer alvo e concede owner", async () => {
+    await expect(run("super_admin", "owner", "owner")).resolves.toBeDefined();
+  });
+
+  it("owner/admin concedem admin, manager e user", async () => {
+    for (const next of ["admin", "manager", "user"]) {
+      await expect(run("admin", "user", next)).resolves.toBe("admin");
+    }
+  });
+
+  it("owner/admin não concedem owner", async () => {
+    await expect(run("admin", "user", "owner")).rejects.toThrow(/super admin/);
+  });
+
+  it("admin não altera o Owner da marca", async () => {
+    await expect(run("admin", "owner", "manager")).rejects.toThrow(/Owner/);
+  });
+
+  it("manager concede apenas user", async () => {
+    await expect(run("manager", "user", "user")).resolves.toBe("manager");
+    await expect(run("manager", "user", "admin")).rejects.toThrow(/forbidden/);
+    await expect(run("manager", "user", "manager")).rejects.toThrow(/forbidden/);
+    await expect(run("manager", "user", "owner")).rejects.toThrow(/super admin/);
+  });
+
+  it("manager não gerencia admin nem manager", async () => {
+    await expect(run("manager", "admin", "user")).rejects.toThrow(/apenas membros User/);
+    await expect(run("manager", "manager", "user")).rejects.toThrow(/apenas membros User/);
+  });
+
+  it("user e client não gerenciam membros", async () => {
+    await expect(run("user", "user", "user")).rejects.toThrow(/forbidden/);
+    await expect(run("client", "user", "user")).rejects.toThrow(/forbidden/);
+    await expect(run(null, "user", "user")).rejects.toThrow(/forbidden/);
   });
 });

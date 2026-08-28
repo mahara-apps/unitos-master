@@ -6448,6 +6448,10 @@ export type Database = {
       }
       brain_retention_run: { Args: never; Returns: Json }
       brain_run_mining_safe: { Args: never; Returns: Json }
+      brand_member_role: {
+        Args: { _brand_id: string; _user_id: string }
+        Returns: string
+      }
       can_access_client: {
         Args: { _client_id: string; _user_id: string }
         Returns: boolean

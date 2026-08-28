@@ -102,7 +102,6 @@ function TeamSettingsPage() {
 
   const members = membersQ.data?.members ?? [];
   const myRole = membersQ.data?.myRole ?? null;
-  const canManageOwners = myRole === "owner" || myRole === "super_admin" || myRole === "admin";
 
   const invitesAll = useMemo(() => teamQ.data?.invites ?? [], [teamQ.data]);
   const pendingInvites = useMemo(
@@ -208,7 +207,7 @@ function TeamSettingsPage() {
                   key={m.userId}
                   brandId={brandId}
                   member={m}
-                  canManageOwners={canManageOwners}
+                  authorityRole={myRole}
                 />
               ))}
             </ul>
@@ -262,11 +261,11 @@ function TeamSettingsPage() {
 function MemberRow({
   brandId,
   member,
-  canManageOwners,
+  authorityRole,
 }: {
   brandId: string;
   member: TeamMember;
-  canManageOwners: boolean;
+  authorityRole: string | null;
 }) {
   const qc = useQueryClient();
   const save = useServerFn(saveTeamMemberFn);
@@ -374,7 +373,7 @@ function MemberRow({
           onOpenChange={setEditOpen}
           brandId={brandId}
           member={member}
-          canManageOwners={canManageOwners}
+          authorityRole={authorityRole}
         />
 
         <AlertDialog open={confirmRemove} onOpenChange={setConfirmRemove}>
