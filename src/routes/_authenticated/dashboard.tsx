@@ -29,7 +29,8 @@ import {
   Zap,
 } from "lucide-react";
 
-import { useActiveContext, useWorkspaceResolved } from "@/hooks/use-active-context";
+import { useActiveContext, useWorkspaceStatus } from "@/hooks/use-active-context";
+import { useRetryWorkspace } from "@/components/workspace-resolver";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { supabase } from "@/integrations/supabase/client";
 import { getCachedUser } from "@/lib/auth-cache";
