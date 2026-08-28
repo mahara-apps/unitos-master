@@ -2,6 +2,7 @@
 // Todos os números vêm de tabelas reais e são escopados por brand_id + client_id.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resolveInclusiveRange } from "@/lib/date-range";
+import { channelDisplayLabel, connectionDisplayName } from "@/lib/channel-display-name";
 import type {
   ClientActivityItem,
   ClientAttentionItem,
@@ -72,12 +73,14 @@ export async function buildClientDashboard(
         .is("deleted_at", null),
       supabase
         .from("social_posts")
-        .select("id,post_id,provider,placement,status,last_error,scheduled_at,published_at")
+        .select("id,post_id,provider,connection_id,placement,status,last_error,scheduled_at,published_at")
         .eq("brand_id", brandId)
         .eq("client_id", clientId),
       supabase
         .from("client_social_accounts")
-        .select("connection_id, social_connections(id,channel,account_username,status,last_error)")
+        .select(
+          "connection_id, social_connections(id,channel,provider,channel_name,external_name,account_username,status,last_error)",
+        )
         .eq("brand_id", brandId)
         .eq("client_id", clientId),
       supabase
@@ -200,36 +203,57 @@ export async function buildClientDashboard(
     null,
   );
 
-  // ── Canais (providers realmente publicados no período) ────
-  const channelMap = new Map<string, number>();
+  // ── Canais (conexões realmente publicadas no período) ─────
+  // Exibimos o NOME REAL cadastrado da conexão, nunca o provider técnico.
+  const connectionRows = ((connectionsRes.data ?? []) as Array<Record<string, any>>)
+    .map((row) => row.social_connections)
+    .filter(Boolean) as Array<Record<string, any>>;
+  const connById = new Map(connectionRows.map((c) => [String(c.id), c]));
+
+  const channelMap = new Map<string, { channel: string; label: string; count: number }>();
+  const bumpChannel = (key: string, channel: string, label: string) => {
+    const prev = channelMap.get(key);
+    if (prev) prev.count += 1;
+    else channelMap.set(key, { channel, label, count: 1 });
+  };
   for (const sp of socialPosts) {
     if (sp.status !== "published" || !sp.published_at) continue;
     if (sp.published_at < fromIso || sp.published_at > toIso) continue;
+    const conn = sp.connection_id ? connById.get(String(sp.connection_id)) : undefined;
+    if (conn) {
+      bumpChannel(
+        `conn:${conn.id}`,
+        String(conn.channel ?? conn.provider ?? "").toLowerCase(),
+        connectionDisplayName(conn),
+      );
+      continue;
+    }
     const key = String(sp.provider ?? "").toLowerCase();
     if (!key) continue;
-    channelMap.set(key, (channelMap.get(key) ?? 0) + 1);
+    bumpChannel(`ch:${key}`, key, channelDisplayLabel(key));
   }
   if (channelMap.size === 0) {
     for (const p of publishedPosts) {
       for (const ch of (p.channels ?? []) as string[]) {
         const key = String(ch).toLowerCase();
-        channelMap.set(key, (channelMap.get(key) ?? 0) + 1);
+        bumpChannel(`ch:${key}`, key, channelDisplayLabel(key));
       }
     }
   }
-  const channelTotal = Array.from(channelMap.values()).reduce((s, v) => s + v, 0);
-  const channelBreakdown = Array.from(channelMap, ([channel, count]) => ({
-    channel,
-    count,
-    share: channelTotal ? count / channelTotal : 0,
-  })).sort((a, b) => b.count - a.count);
+  const channelTotal = Array.from(channelMap.values()).reduce((s, v) => s + v.count, 0);
+  const channelBreakdown = Array.from(channelMap.values())
+    .map((c) => ({
+      channel: c.channel,
+      label: c.label,
+      count: c.count,
+      share: channelTotal ? c.count / channelTotal : 0,
+    }))
+    .sort((a, b) => b.count - a.count);
 
   // ── Falhas e conexões ─────────────────────────────────────
   const failedSocial = socialPosts.filter((sp) => ["failed", "blocked"].includes(sp.status));
   const scheduledSocial = socialPosts.filter((sp) => sp.status === "scheduled");
-  const linkedConnections = ((connectionsRes.data ?? []) as Array<Record<string, any>>)
-    .map((row) => row.social_connections)
-    .filter(Boolean) as Array<Record<string, any>>;
+  const linkedConnections = connectionRows;
   const brokenConnections = linkedConnections.filter(
     (c) => c.status !== "active" || !!c.last_error,
   );

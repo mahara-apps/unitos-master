@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { connectionDisplayName } from "@/lib/channel-display-name";
 
 /**
  * Vínculo N:N entre clientes e contas sociais (social_connections) do
@@ -62,7 +63,7 @@ export const listClientChannelAssignmentsFn = createServerFn({ method: "GET" })
         connectionId: r.id as string,
         channel: r.channel as string,
         provider: r.provider as string,
-        accountLabel: (r.external_name ?? handle ?? r.channel) as string,
+        accountLabel: connectionDisplayName(r as any),
         handle,
         avatarUrl: avatar,
         status: r.status as string,
@@ -185,7 +186,7 @@ export const listClientLinkedChannelsFn = createServerFn({ method: "GET" })
         connectionId: r.id,
         channel: r.channel,
         provider: r.provider,
-        accountLabel: r.external_name ?? handle ?? r.channel,
+        accountLabel: connectionDisplayName(r as any),
         handle,
         avatarUrl: avatar,
         status: r.status,
@@ -254,7 +255,7 @@ export const listWorkspaceChannelsFn = createServerFn({ method: "GET" })
         connectionId: r.id,
         channel: r.channel,
         provider: r.provider,
-        accountLabel: r.external_name ?? handle ?? r.channel,
+        accountLabel: connectionDisplayName(r as any),
         handle,
         avatarUrl: avatar,
         status: r.status,

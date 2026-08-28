@@ -50,7 +50,7 @@ import {
 } from "@/lib/dashboard.functions";
 import { useClientIdentity } from "@/hooks/use-client-identity";
 import { Sparkline } from "@/components/dashboard/sparkline";
-const PublishTrendChart = React.lazy(() => import("@/components/dashboard/publish-trend-chart"));
+const PublishBarsChart = React.lazy(() => import("@/components/dashboard/publish-bars-chart"));
 import { AgencyOpsSection } from "@/components/dashboard/agency-ops-section";
 import { ClientAccountDashboard } from "@/components/dashboard/client-account-dashboard";
 
@@ -334,6 +334,7 @@ function AgencyMode({ brandId }: { brandId: string }) {
         <div className="h-[420px]">
           <PublishTrendCard
             trend={d?.publishTrend14d ?? []}
+            trendDays={d?.publishTrendDays ?? []}
             channels={d?.topChannels ?? []}
             rangeDays={d?.rangeDays ?? 30}
           />
@@ -714,34 +715,42 @@ const CHANNEL_LABELS: Record<string, string> = {
 
 function PublishTrendCard({
   trend,
+  trendDays,
   channels,
   rangeDays,
 }: {
   trend: number[];
-  channels: Array<{ channel: string; count: number }>;
+  trendDays?: string[];
+  channels: Array<{ channel: string; count: number; label?: string }>;
   rangeDays?: number;
 }) {
   const days = rangeDays ?? trend.length;
   const chartData = trend.map((v, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (trend.length - 1 - i));
-    return { day: format(d, "dd/MM"), posts: v };
+    const iso = trendDays?.[i];
+    const d = iso ? new Date(`${iso}T12:00:00`) : new Date(Date.now() - (trend.length - 1 - i) * 86400000);
+    return { day: format(d, "dd/MM/yyyy"), label: format(d, "dd/MM"), posts: v };
   });
+  const total = trend.reduce((a, b) => a + b, 0);
   return (
     <Card
       title={`Publicações · ${days} dias`}
       subtitle="Ritmo de publicações e canais mais usados"
       icon={<TrendingUp className="h-4 w-4" />}
     >
-      <div className="grid gap-3 px-4 py-3 lg:grid-cols-[1.6fr_1fr]">
-        <div className="h-40 min-w-0">
+      <div className="flex h-full min-h-0 flex-col gap-3 px-4 py-3">
+        <div className="h-44 min-h-0 w-full">
           <React.Suspense
             fallback={<div className="h-full w-full animate-pulse rounded-md bg-muted/40" />}
           >
-            <PublishTrendChart data={chartData} />
+            <PublishBarsChart data={chartData} />
           </React.Suspense>
         </div>
-        <div className="min-w-0">
+        <div className="flex items-center gap-2 border-t border-border/60 pt-2 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
+          <span className="inline-block h-2 w-2 rounded-[2px] bg-primary" aria-hidden />
+          Publicações por dia
+          <span className="ml-auto tabular-nums normal-case tracking-normal">{total} no período</span>
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto">
           <div className="mb-2 text-[10px] font-mono uppercase tracking-widest text-muted-foreground">
             Top canais
           </div>
@@ -749,9 +758,14 @@ function PublishTrendCard({
             <div className="text-xs text-muted-foreground">Sem publicações.</div>
           ) : (
             <ul className="space-y-1.5">
-              {channels.slice(0, 5).map((c) => (
-                <li key={c.channel} className="flex items-center justify-between text-xs">
-                  <span className="truncate">{CHANNEL_LABELS[c.channel] ?? c.channel}</span>
+              {channels.slice(0, 5).map((c, i) => (
+                <li
+                  key={`${c.label ?? c.channel}-${i}`}
+                  className="flex items-center justify-between gap-2 text-xs"
+                >
+                  <span className="truncate">
+                    {c.label ?? CHANNEL_LABELS[c.channel] ?? c.channel}
+                  </span>
                   <span className="font-mono tabular-nums text-muted-foreground">{c.count}</span>
                 </li>
               ))}

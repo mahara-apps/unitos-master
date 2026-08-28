@@ -7,6 +7,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { computeClientHealthScore } from "@/lib/client-health";
 import { assertBrandMember, assertClientInBrand } from "@/lib/access-guard";
 import { resolveInclusiveRange } from "@/lib/date-range";
+import { channelDisplayLabel, connectionDisplayName } from "@/lib/channel-display-name";
 
 
 type SupaCtx = { supabase: SupabaseClient<Database>; userId: string };
@@ -619,9 +620,12 @@ export type AgencyDashboard = {
     count: number;
   }>;
   publishTrend14d: number[];
+  /** Data (YYYY-MM-DD) de cada bucket de `publishTrend14d` — eixo X real. */
+  publishTrendDays: string[];
   aiUsage: AiUsageSummary;
   avgLeadTimeDays: number | null;
-  topChannels: Array<{ channel: string; count: number }>;
+  /** `label` = nome real do canal cadastrado; `channel` continua técnico. */
+  topChannels: Array<{ channel: string; count: number; label: string }>;
   tasksByBucket: {
     open: number;
     in_progress: number;
@@ -723,7 +727,7 @@ async function computeAgency(
     ignore(
       supabase
         .from("social_posts")
-        .select("id,post_id,provider,published_at,client_id")
+        .select("id,post_id,provider,connection_id,published_at,client_id")
         .eq("brand_id", brandId)
         .eq("status", "published")
         .gte("published_at", range.fromIso)
@@ -761,6 +765,7 @@ async function computeAgency(
     id: string;
     post_id: string | null;
     provider: string | null;
+    connection_id: string | null;
     published_at: string | null;
     client_id: string | null;
   }>;
@@ -1054,17 +1059,47 @@ async function computeAgency(
     }
     return seen.size;
   });
+  const publishTrendDays = Array.from({ length: sparkBuckets }, (_, i) =>
+    new Date(range.fromMs + i * sparkStep).toISOString().slice(0, 10),
+  );
 
-  const channelAgg = new Map<string, number>();
+  // Nome real do canal: `social_connections.channel_name` (nome configurado)
+  // com fallback para o nome externo / @usuário. Nunca exibir o provider.
+  const connectionIds = Array.from(
+    new Set(socialPublished.map((sp) => sp.connection_id).filter(Boolean) as string[]),
+  );
+  const connectionsRes = connectionIds.length
+    ? await ignore(
+        supabase
+          .from("social_connections")
+          .select("id,channel,provider,channel_name,external_name,account_username")
+          .eq("brand_id", brandId)
+          .in("id", connectionIds),
+      )
+    : null;
+  const connectionLabel = new Map<string, { label: string; channel: string }>();
+  for (const c of (connectionsRes?.data ?? []) as Array<Record<string, any>>) {
+    connectionLabel.set(String(c.id), {
+      channel: String(c.channel ?? c.provider ?? ""),
+      label: connectionDisplayName(c),
+    });
+  }
+
+  const channelAgg = new Map<string, { channel: string; label: string; count: number }>();
+  const bump = (key: string, channel: string, label: string) => {
+    const prev = channelAgg.get(key);
+    if (prev) prev.count += 1;
+    else channelAgg.set(key, { channel, label, count: 1 });
+  };
   for (const p of posts) {
-    for (const ch of p.channels ?? []) channelAgg.set(ch, (channelAgg.get(ch) ?? 0) + 1);
+    for (const ch of p.channels ?? []) bump(`ch:${ch}`, ch, channelDisplayLabel(ch));
   }
   for (const sp of socialPublished) {
-    if (!sp.provider) continue;
-    channelAgg.set(sp.provider, (channelAgg.get(sp.provider) ?? 0) + 1);
+    const conn = sp.connection_id ? connectionLabel.get(sp.connection_id) : undefined;
+    if (conn) bump(`conn:${sp.connection_id}`, conn.channel, conn.label);
+    else if (sp.provider) bump(`ch:${sp.provider}`, sp.provider, channelDisplayLabel(sp.provider));
   }
-  const topChannels = Array.from(channelAgg.entries())
-    .map(([channel, count]) => ({ channel, count }))
+  const topChannels = Array.from(channelAgg.values())
     .sort((a, b) => b.count - a.count)
     .slice(0, 6);
 
@@ -1146,6 +1181,7 @@ async function computeAgency(
     postsByStage,
     pipelineStages,
     publishTrend14d,
+    publishTrendDays,
     aiUsage: aiUsageEnriched,
     avgLeadTimeDays,
     topChannels,
