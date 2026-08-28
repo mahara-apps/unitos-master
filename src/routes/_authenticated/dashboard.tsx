@@ -34,8 +34,10 @@ import { useRetryWorkspace } from "@/components/workspace-resolver";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { supabase } from "@/integrations/supabase/client";
 import { getCachedUser } from "@/lib/auth-cache";
-import { useSessionUserId } from "@/hooks/use-session-user";
+import { useSessionUser } from "@/hooks/use-session-user";
 import { withQueryTimeout } from "@/lib/query-timeout";
+import { isNonRetriableQueryError, resolveScreenQueryState } from "@/lib/screen-query-state";
+
 import { DataErrorState, SlowLoadingNotice } from "@/components/ui/query-state";
 import { cn } from "@/lib/utils";
 import {
@@ -1083,17 +1085,19 @@ function ApprovalsByClientCard({
 
 function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }) {
   const customerFn = useServerFn(loadCustomerDashboardFn);
-  const sessionUserId = useSessionUserId();
+  const session = useSessionUser();
   const [range, setRange] = useDefaultRange();
   const days = dateRangeToDays(range);
 
   const customer = useQuery({
-    queryKey: ["customer-dashboard-header", sessionUserId ?? "anon", brandId, clientId, days],
+    queryKey: ["customer-dashboard-header", session.userId ?? "anon", brandId, clientId, days],
     queryFn: () =>
       withQueryTimeout(customerFn({ data: { brandId, clientId } }), "Os dados do cliente"),
     staleTime: 5 * 60_000,
-    enabled: Boolean(sessionUserId),
+    enabled: session.ready,
+    retry: (failureCount, err) => (isNonRetriableQueryError(err) ? false : failureCount < 1),
   });
+
   const client = customer.data?.client;
 
   usePageHeader(
