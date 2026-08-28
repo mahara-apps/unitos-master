@@ -89,7 +89,9 @@ function WorkspaceQueryReset() {
 function AppShell() {
   return (
     <ActiveContextProvider>
+      <WorkspaceResolver />
       <WorkspaceQueryReset />
+
       <PageHeaderProvider>
         <AiJobsProvider>
           <SidebarProvider>
