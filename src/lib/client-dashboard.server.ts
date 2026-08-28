@@ -33,13 +33,15 @@ export async function buildClientDashboard(
   clientId: string,
   range?: { from?: string; to?: string },
 ): Promise<ClientDashboard> {
-  const nowMs = Date.now();
-  const toMs = range?.to ? new Date(range.to).getTime() : nowMs;
-  const fromMs = range?.from ? new Date(range.from).getTime() : toMs - 30 * DAY;
-  const safeFrom = Math.min(fromMs, toMs);
-  const rangeDays = Math.max(1, Math.ceil((toMs - safeFrom) / DAY) || 1);
-  const fromIso = new Date(safeFrom).toISOString();
-  const toIso = new Date(toMs).toISOString();
+  // Período resolvido pela fonte de verdade única: contagem INCLUSIVA idêntica
+  // à do filtro (30 dias selecionados = 30 dias exibidos).
+  const {
+    fromIso,
+    toIso,
+    fromMs: safeFrom,
+    toMs,
+    days: rangeDays,
+  } = resolveInclusiveRange(range, { defaultDays: 30 });
   const prevFromIso = new Date(safeFrom - rangeDays * DAY).toISOString();
 
   const [clientRes, pipelinesRes, postsRes, socialRes, connectionsRes, activityRes] =
