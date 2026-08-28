@@ -34,8 +34,10 @@ import { useRetryWorkspace } from "@/components/workspace-resolver";
 import { usePageHeader } from "@/hooks/use-page-header";
 import { supabase } from "@/integrations/supabase/client";
 import { getCachedUser } from "@/lib/auth-cache";
-import { useSessionUserId } from "@/hooks/use-session-user";
+import { useSessionUser } from "@/hooks/use-session-user";
 import { withQueryTimeout } from "@/lib/query-timeout";
+import { isNonRetriableQueryError, resolveScreenQueryState } from "@/lib/screen-query-state";
+
 import { DataErrorState, SlowLoadingNotice } from "@/components/ui/query-state";
 import { cn } from "@/lib/utils";
 import {
@@ -181,13 +183,13 @@ function DashboardPage() {
 
 function AgencyMode({ brandId }: { brandId: string }) {
   const fn = useServerFn(getAgencyDashboardFn);
-  const sessionUserId = useSessionUserId();
+  const session = useSessionUser();
   const [range, setRange] = useDefaultRange();
   const days = dateRangeToDays(range);
   const greeting = useGreeting();
 
   const q = useQuery({
-    queryKey: ["dashboard-agency", sessionUserId ?? "anon", brandId, days],
+    queryKey: ["dashboard-agency", session.userId ?? "anon", brandId, days],
     queryFn: () =>
       withQueryTimeout(
         fn({
@@ -202,10 +204,18 @@ function AgencyMode({ brandId }: { brandId: string }) {
         "O painel da agência",
       ),
     staleTime: 30_000,
-    enabled: Boolean(sessionUserId),
+    enabled: session.ready,
+    retry: (failureCount, err) => (isNonRetriableQueryError(err) ? false : failureCount < 1),
   });
 
   const d = q.data;
+  const state = resolveScreenQueryState({
+    sessionReady: session.ready,
+    isFetching: q.isFetching,
+    isError: q.isError,
+    hasData: Boolean(d),
+    isSuccess: q.isSuccess,
+  });
   const criticalAlerts = (d?.alerts ?? []).filter((a) => a.severity !== "info").length;
   const avgHealth = d?.healths.length
     ? Math.round(d.healths.reduce((s, h) => s + h.score, 0) / d.healths.length)
@@ -220,17 +230,34 @@ function AgencyMode({ brandId }: { brandId: string }) {
     [greeting, d?.counts.clients, avgHealth, range?.from?.getTime(), range?.to?.getTime()],
   );
 
-  return (
-    <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      {q.isError ? (
+  // Sem dados e com falha (timeout, 500, permissão): estado terminal acionável.
+  if (state === "error") {
+    return (
+      <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
         <DataErrorState
-          compact
           message={q.error instanceof Error ? q.error.message : null}
           onRetry={() => void q.refetch()}
         />
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+      {state === "stale-error" ? (
+        <DataErrorState
+          compact
+          message={
+            q.error instanceof Error && q.error.message
+              ? `Dados podem estar desatualizados: ${q.error.message}`
+              : "Não foi possível atualizar estes dados."
+          }
+          onRetry={() => void q.refetch()}
+        />
       ) : (
-        <SlowLoadingNotice active={q.isLoading} onRetry={() => void q.refetch()} />
+        <SlowLoadingNotice active={state === "loading"} onRetry={() => void q.refetch()} />
       )}
+
 
       <StatusBanner
         avgHealth={avgHealth}
@@ -1058,17 +1085,19 @@ function ApprovalsByClientCard({
 
 function ClientMode({ brandId, clientId }: { brandId: string; clientId: string }) {
   const customerFn = useServerFn(loadCustomerDashboardFn);
-  const sessionUserId = useSessionUserId();
+  const session = useSessionUser();
   const [range, setRange] = useDefaultRange();
   const days = dateRangeToDays(range);
 
   const customer = useQuery({
-    queryKey: ["customer-dashboard-header", sessionUserId ?? "anon", brandId, clientId, days],
+    queryKey: ["customer-dashboard-header", session.userId ?? "anon", brandId, clientId, days],
     queryFn: () =>
       withQueryTimeout(customerFn({ data: { brandId, clientId } }), "Os dados do cliente"),
     staleTime: 5 * 60_000,
-    enabled: Boolean(sessionUserId),
+    enabled: session.ready,
+    retry: (failureCount, err) => (isNonRetriableQueryError(err) ? false : failureCount < 1),
   });
+
   const client = customer.data?.client;
 
   usePageHeader(
