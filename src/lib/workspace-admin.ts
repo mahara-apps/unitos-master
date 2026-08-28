@@ -78,3 +78,14 @@ export function isDeleteConfirmationValid(
   if (!workspaceName) return false;
   return typed.trim().toLowerCase() === workspaceName.trim().toLowerCase();
 }
+
+/**
+ * Identidade visual (logos/ícone/white label) é EXCLUSIVA de Super Admin:
+ * visualização, aba e edição. Owner/Admin/Manager/User não veem a aba nem
+ * acessam por URL direta. Fonte única do gate de UI — a autorização real fica
+ * em `updateBrandBranding` (assertSuperAdmin) e nas server functions de
+ * Administração do ambiente.
+ */
+export function canAccessVisualIdentity(isSuperAdmin: boolean | null | undefined): boolean {
+  return isSuperAdmin === true;
+}
