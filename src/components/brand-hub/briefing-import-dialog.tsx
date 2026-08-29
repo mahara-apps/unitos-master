@@ -517,23 +517,10 @@ export function BriefingImportDialog({
     );
   })();
 
-  return (
-    <ExpandedModal
-      open={open}
-      onOpenChange={(v) => (v ? onOpenChange(true) : close())}
-      size="lg"
-      title="Importar Briefing via IA"
-      description="Cole texto e/ou anexe arquivos. A IA lê o material, cruza com o briefing atual e propõe alterações campo a campo para sua revisão."
-      headerExtra={
-        queue.length > 1 ? (
-          <Badge variant="outline" className="text-[11px]">
-            {index + 1} de {queue.length}
-          </Badge>
-        ) : null
-      }
-      footer={footer}
-    >
+  const body = (
+    <>
       <div className="space-y-5">
+
         <StepIndicator step={step} />
 
         {step === "upload" ? (
