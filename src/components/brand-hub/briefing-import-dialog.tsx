@@ -419,13 +419,15 @@ export function BriefingImportDialog({
       return (
         <div className="flex items-center justify-between gap-3">
           <span className="text-[11px] text-muted-foreground">
-            Nada é aplicado sem sua revisão.
+            Esta análise <strong className="text-foreground">não altera</strong> o briefing — você
+            revisa e decide o que aplicar.
           </span>
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" onClick={close} disabled={starting}>
               Cancelar
             </Button>
-            <Button size="sm" onClick={start} disabled={valid.length === 0 || starting}>
+            <Button size="sm" onClick={start} disabled={!canStart || starting}>
+
               {starting ? (
                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
               ) : (
