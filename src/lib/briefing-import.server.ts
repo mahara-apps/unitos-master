@@ -513,7 +513,7 @@ export async function listImportChanges(
   if (error) throw error as Error;
   return ((data as ImportChangeRow[] | null) ?? []).map((r) => ({
     ...r,
-    evidence: (r.evidence ?? {}) as Record<string, unknown>,
+    evidence: (r.evidence ?? {}) as Record<string, JsonValue>,
   }));
 }
 
