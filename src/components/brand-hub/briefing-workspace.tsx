@@ -447,15 +447,9 @@ export function BriefingWorkspace({
     onError: (e: Error) => toast.error(e.message || "Falha ao salvar"),
   });
 
-  const importFromText = () => {
-    const raw = window.prompt(
-      "Cole aqui o texto do briefing (ou conteúdo extraído de um .docx). O conteúdo será inserido no campo Posicionamento.",
-    );
-    if (raw && form) {
-      setForm({ ...form, positioning: (form.positioning + "\n\n" + raw).trim() });
-      toast.success("Texto importado — revise antes de salvar");
-    }
-  };
+  // A importação por IA agora acontece no modal `BriefingImportDialog`
+  // (upload → análise → revisão). O antigo `window.prompt` foi removido.
+
 
   if (hubQ.isLoading || !form || !hubQ.data) {
     return (
