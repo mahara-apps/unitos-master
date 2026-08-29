@@ -14,9 +14,12 @@ const BodySchema = z.object({
   brandId: z.string().uuid(),
   clientId: z.string().uuid(),
   documentId: z.string().uuid(),
+  /** Origem informada pela UI — preservada em `briefing_import_runs.source_kind`. */
+  sourceKind: z.enum(["document", "transcript"]).optional(),
   /** Reanálise explícita: ignora o reuso por fingerprint. */
   force: z.boolean().optional(),
 });
+
 
 
 function buildUserClient(token: string) {
@@ -326,11 +329,13 @@ export const Route = createFileRoute("/api/jobs/analyze-document")({
           brandId: parsed.data.brandId,
           clientId: parsed.data.clientId,
           userId,
-          sourceKind: "document",
+          // A UI pode marcar transcrição; o fingerprint segue o arquivo.
+          sourceKind: parsed.data.sourceKind ?? "document",
           documentId: parsed.data.documentId,
           inputFingerprint: fingerprint,
           force: parsed.data.force === true,
         });
+
 
         // Reuso: já existe execução viva para o mesmo arquivo — não gasta IA.
         if (reused && run.status !== "queued") {

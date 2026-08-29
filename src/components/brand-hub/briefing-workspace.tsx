@@ -5,7 +5,6 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
-  FileUp,
   ImageIcon,
   Loader2,
   Lightbulb,
@@ -21,6 +20,8 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { BriefingImportDialog } from "@/components/brand-hub/briefing-import-dialog";
+import { BriefingImportHistory } from "@/components/brand-hub/briefing-import-history";
 import { DocumentsTab } from "@/components/brand-hub/documents-tab";
 import {
   AlertDialog,
@@ -275,6 +276,8 @@ export function BriefingWorkspace({
 
   // ------------- Gerar estratégia (fase 1 · pipeline de agentes) --------------
   const [regenOpen, setRegenOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+
   const [generating, setGenerating] = useState(false);
 
   // ------------- Gerar ideias (fase 2 · gate humano) --------------
@@ -447,15 +450,9 @@ export function BriefingWorkspace({
     onError: (e: Error) => toast.error(e.message || "Falha ao salvar"),
   });
 
-  const importFromText = () => {
-    const raw = window.prompt(
-      "Cole aqui o texto do briefing (ou conteúdo extraído de um .docx). O conteúdo será inserido no campo Posicionamento.",
-    );
-    if (raw && form) {
-      setForm({ ...form, positioning: (form.positioning + "\n\n" + raw).trim() });
-      toast.success("Texto importado — revise antes de salvar");
-    }
-  };
+  // A importação por IA agora acontece no modal `BriefingImportDialog`
+  // (upload → análise → revisão). O antigo `window.prompt` foi removido.
+
 
   if (hubQ.isLoading || !form || !hubQ.data) {
     return (
@@ -468,34 +465,43 @@ export function BriefingWorkspace({
   }
 
   return (
-    <StackedBrainLayout
-      brandId={brandId}
-      clientId={clientId}
-      client={hubQ.data}
-      form={form}
-      setForm={setForm}
-      completion={completion}
-      onSave={() => save.mutate()}
-      saving={save.isPending}
-      savedAt={savedAt}
-      onGenerateStrategy={() => setRegenOpen(true)}
-      onGenerateIdeas={() => setIdeasOpen(true)}
-      onImportText={importFromText}
-      strategyReady={strategyReady}
-      generating={generating}
-      genIdeas={genIdeas}
-      appendSlot={appendSlot}
-      regenOpen={regenOpen}
-      setRegenOpen={setRegenOpen}
-      runStrategy={runStrategy}
-      ideasOpen={ideasOpen}
-      setIdeasOpen={setIdeasOpen}
-      ideasTheme={ideasTheme}
-      setIdeasTheme={setIdeasTheme}
-      runIdeas={runIdeas}
-    />
+    <>
+      <StackedBrainLayout
+        brandId={brandId}
+        clientId={clientId}
+        client={hubQ.data}
+        form={form}
+        setForm={setForm}
+        completion={completion}
+        onSave={() => save.mutate()}
+        saving={save.isPending}
+        savedAt={savedAt}
+        onGenerateStrategy={() => setRegenOpen(true)}
+        onGenerateIdeas={() => setIdeasOpen(true)}
+        onImportAi={() => setImportOpen(true)}
+        strategyReady={strategyReady}
+        generating={generating}
+        genIdeas={genIdeas}
+        appendSlot={appendSlot}
+        regenOpen={regenOpen}
+        setRegenOpen={setRegenOpen}
+        runStrategy={runStrategy}
+        ideasOpen={ideasOpen}
+        setIdeasOpen={setIdeasOpen}
+        ideasTheme={ideasTheme}
+        setIdeasTheme={setIdeasTheme}
+        runIdeas={runIdeas}
+      />
+      <BriefingImportDialog
+        brandId={brandId}
+        clientId={clientId}
+        open={importOpen}
+        onOpenChange={setImportOpen}
+      />
+    </>
   );
 }
+
 
 /* ------------------------------ Shared blocks ------------------------------ */
 
@@ -1450,7 +1456,7 @@ type StackedProps = {
   savedAt: string | null;
   onGenerateStrategy: () => void;
   onGenerateIdeas: () => void;
-  onImportText: () => void;
+  onImportAi: () => void;
   strategyReady: boolean;
   generating: boolean;
   genIdeas: boolean;
@@ -1478,7 +1484,7 @@ function StackedBrainLayout(props: StackedProps) {
     savedAt,
     onGenerateStrategy,
     onGenerateIdeas,
-    onImportText,
+    onImportAi,
     strategyReady,
     generating,
     appendSlot,
@@ -1543,8 +1549,8 @@ function StackedBrainLayout(props: StackedProps) {
               </span>
             ) : null}
           </div>
-          <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-xs" onClick={onImportText}>
-            <FileUp className="h-3.5 w-3.5" /> Importar .docx / texto
+          <Button size="sm" variant="ghost" className="h-8 gap-1.5 text-xs" onClick={onImportAi}>
+            <Sparkles className="h-3.5 w-3.5" /> Importar Briefing via IA
           </Button>
           <Button
             size="sm"
@@ -1642,8 +1648,16 @@ function StackedBrainLayout(props: StackedProps) {
           </BrainSection>
 
           <BrainSection id="documentos" title="Documentos & Contexto IA">
-            <DocumentsTab brandId={brandId} clientId={clientId} />
+            <div className="space-y-4">
+              <DocumentsTab brandId={brandId} clientId={clientId} />
+              <BriefingImportHistory
+                brandId={brandId}
+                clientId={clientId}
+                onImport={onImportAi}
+              />
+            </div>
           </BrainSection>
+
 
           <BrainSection id="briefing-cliente" title="Briefing com o cliente">
             <BriefingRequestPanel brandId={brandId} clientId={clientId} />
