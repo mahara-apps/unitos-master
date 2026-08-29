@@ -151,9 +151,9 @@ export function BriefingImportHistory({
         </Button>
       </CardHeader>
       {expanded ? (
+        <CardContent className="space-y-3 border-t border-border/60 px-4 py-4">
+          <div className="flex flex-wrap gap-2">
 
-      <CardContent className="space-y-3 px-4 py-4">
-        <div className="flex flex-wrap gap-2">
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
